@@ -48,6 +48,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     facetexcoords.hpp facetexcoords.cpp
     gil2cvmat.hpp
     gcp.hpp gcp.cpp
+    metatile.hpp metatile.cpp
     ${OPTIONAL_SOURCES}
 
     ${PUBLIC_KEY_SOURCES}
