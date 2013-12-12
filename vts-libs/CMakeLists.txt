@@ -49,6 +49,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     gil2cvmat.hpp
     gcp.hpp gcp.cpp
     metatile.hpp metatile.cpp
+    binmesh.hpp binmesh.cpp
     ${OPTIONAL_SOURCES}
 
     ${PUBLIC_KEY_SOURCES}
