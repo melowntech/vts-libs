@@ -15,9 +15,7 @@
 #include "./ids.hpp"
 #include "./metatile.hpp"
 
-namespace vadstena {
-
-namespace storage {
+namespace vadstena { namespace storage {
 
 typedef geometry::Obj Mesh;
 typedef cv::Mat Atlas
@@ -114,6 +112,6 @@ inline void TileStorage::setTile(Lod lod, long easting, long northing
     return setTile(lod, easting, northing, tile.mesh, tile.atlas);
 }
 
-} // namespace vadstena
+} } // namespace vadstena::storage
 
 #endif // vadstena_libs_tilestorage_hpp_included_
