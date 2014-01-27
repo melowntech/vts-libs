@@ -64,7 +64,6 @@ public:
      * \param mesh new tile's mesh
      * \param atlas new tile's atlas
      */
-     */
     virtual void setTile(const TileId &tileId, const Mesh &mesh
                          , const Atlas &atlas) = 0;
 
