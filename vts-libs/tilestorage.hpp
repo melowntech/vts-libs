@@ -1,6 +1,7 @@
 #ifndef vadstena_libs_tilestorage_hpp_included_
 #define vadstena_libs_tilestorage_hpp_included_
 
+#include <memory>
 #include <cmath>
 #include <stdexcept>
 #include <string>
@@ -15,10 +16,10 @@
 #include "./ids.hpp"
 #include "./metatile.hpp"
 
-namespace vadstena { namespace storage {
+namespace vadstena { namespace tilestorage {
 
 typedef geometry::Obj Mesh;
-typedef cv::Mat Atlas
+typedef cv::Mat Atlas;
 
 /** A tile: mesh + atlas.
  */
@@ -50,6 +51,12 @@ struct Error : std::runtime_error {
 
 class Storage {
 public:
+    /** Pointer type.
+     */
+    typedef std::shared_ptr<Storage> pointer;
+
+    virtual ~Storage() = 0;
+
     /** Get tile content.
      * \param tileId idetifier of tile to return.
      * \return read tile
@@ -65,18 +72,18 @@ public:
     virtual void setTile(const TileId &tileId, const Mesh &mesh
                          , const Atlas &atlas) = 0;
 
-    /** Get metatile content.
+    /** Get tile's metadata.
      * \param tileId idetifier of metatile to return.
-     * \return read metatile
-     * \throws Error if metatile with given tileId is not found
+     * \return read metadata
+     * \throws Error if metadate with given tileId is not found
      */
-    virtual MetaTile getMetaTile(const TileId &tileId) = 0;
+    virtual MetaNode getMetaData(const TileId &tileId) = 0;
 
-    /** Set metatile content.
-     * \param tileId idetifier of metatile write.
-     * \param meta new metatile's atlas
+    /** Set tile's metadata.
+     * \param tileId idetifier of tile to write metadata to.
+     * \param meta new tile's metadata
      */
-    virtual void setMetaTile(const TileId &tileId, const MetaTile &meta) = 0;
+    virtual void setMetaData(const TileId &tileId, const MetaNode &meta) = 0;
 
     /** Query for tile's existence.
      * \param tileId identifier of queried tile
@@ -102,16 +109,23 @@ public:
      * \param tileId idetifier of tile write.
      * \param tile new tile's content (mesh + atlas)
      */
-     */
     void setTile(const TileId &tileId, const Tile &tile);
 };
 
-inline void TileStorage::setTile(Lod lod, long easting, long northing
-                                 , const Tile &tile)
+enum class OpenMode {
+    read
+    , readWrite
+};
+
+Storage::pointer create(const std::string &uri);
+
+Storage::pointer open(const std::string &uri, OpenMode mode = OpenMode::read);
+
+inline void Storage::setTile(const TileId &tileId, const Tile &tile)
 {
-    return setTile(lod, easting, northing, tile.mesh, tile.atlas);
+    return setTile(tileId, tile.mesh, tile.atlas);
 }
 
-} } // namespace vadstena::storage
+} } // namespace vadstena::tilestorage
 
 #endif // vadstena_libs_tilestorage_hpp_included_

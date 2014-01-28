@@ -50,6 +50,10 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     gcp.hpp gcp.cpp
     metatile.hpp metatile.cpp
     binmesh.hpp binmesh.cpp
+
+    tilestorage.hpp tilestorage/tilestorage.cpp
+    tilestorage/fs.hpp tilestorage/fs.cpp
+
     ${OPTIONAL_SOURCES}
 
     ${PUBLIC_KEY_SOURCES}
