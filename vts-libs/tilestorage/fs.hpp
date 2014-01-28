@@ -1,19 +1,23 @@
 #ifndef vadstena_libs_tilestorage_fs_hpp_included_
 #define vadstena_libs_tilestorage_fs_hpp_included_
 
+#include <map>
+
+#include <boost/filesystem.hpp>
+
 #include "utility/gccversion.hpp"
 
 #include "../tilestorage.hpp"
 
 namespace vadstena { namespace tilestorage {
 
+namespace detail {
+    typedef std::map<TileId, MetaNode> MetaNodeMap;
+}
+
 class FileSystemStorage : public Storage {
 public:
     ~FileSystemStorage();
-
-    static Storage::pointer create(const std::string &root);
-
-    static Storage::pointer open(const std::string &root, OpenMode mode);
 
     /** Get tile content.
      * \param tileId idetifier of tile to return.
@@ -62,12 +66,19 @@ public:
      */
     virtual void setProperties(const Properties &properties) override;
 
+    virtual void flush() override;
+
 private:
+    /** Grant access to factory.
+     */
+    friend class Storage::Factory;
+
     FileSystemStorage(const std::string &root, OpenMode mode);
 
-    struct Create {};
+    FileSystemStorage(const std::string &root, const Properties &properties
+                      , CreateMode mode);
 
-    FileSystemStorage(const std::string &root, Create);
+    boost::filesystem::path root_;
 };
 
 } } // namespace vadstena::tilestorage

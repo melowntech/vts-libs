@@ -5,24 +5,63 @@
 
 namespace vadstena { namespace tilestorage {
 
-Storage::pointer create(const std::string &uri)
+namespace {
+void storageDeleter(Storage *storage)
 {
-    auto u(utility::parseUri(uri));
-    if (u.schema == "file") {
-        return FileSystemStorage::create(u.path);
+    storage->flush();
+    delete storage;
+}
+
+} // namespace
+
+struct Storage::Factory
+{
+    static Storage::pointer create(const std::string &uri
+                                   , const Properties &properties
+                                   , CreateMode mode)
+    {
+        Storage *storage(nullptr);
+
+        auto u(utility::parseUri(uri));
+        if (u.schema == "file") {
+            storage = new FileSystemStorage(u.path, properties, mode);
+        } else {
+            // TODO: throw error?
+            return {};
+        }
+
+        return { storage, &storageDeleter };
     }
 
-    return {};
+    static Storage::pointer open(const std::string &uri, OpenMode mode)
+    {
+        Storage *storage(nullptr);
+
+        auto u(utility::parseUri(uri));
+        if (u.schema == "file") {
+            storage = new FileSystemStorage(u.path, mode);
+        } else {
+            // TODO: throw error?
+            return {};
+        }
+
+        return { storage, &storageDeleter };
+    }
+};
+
+Storage::pointer create(const std::string &uri, const Properties &properties
+                        , CreateMode mode)
+{
+    return Storage::Factory::create(uri, properties, mode);
 }
 
 Storage::pointer open(const std::string &uri, OpenMode mode)
 {
-    auto u(utility::parseUri(uri));
-    if (u.schema == "file") {
-        return FileSystemStorage::open(u.path, mode);
-    }
+    return Storage::Factory::open(uri, mode);
+}
 
-    return {};
+Storage::~Storage()
+{
 }
 
 } } // namespace vadstena::tilestorage

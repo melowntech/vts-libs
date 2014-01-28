@@ -34,6 +34,8 @@ struct TileId {
     Lod lod;
     long easting;
     long northing;
+
+    bool operator<(const TileId &tid) const;
 };
 
 /** Storage properties
@@ -55,7 +57,7 @@ public:
      */
     typedef std::shared_ptr<Storage> pointer;
 
-    virtual ~Storage() = 0;
+    virtual ~Storage();
 
     /** Get tile content.
      * \param tileId idetifier of tile to return.
@@ -103,6 +105,13 @@ public:
      */
     virtual void setProperties(const Properties &properties) = 0;
 
+    /** Flush all pending changes to permanent storage.
+     *
+     * If storage is not allowed to be changed (i.e. open in read-only mode)
+     * flush call is ignored.
+     */
+    virtual void flush() = 0;
+
     // convenience stuff
 
     /** Set new tile content.
@@ -110,20 +119,69 @@ public:
      * \param tile new tile's content (mesh + atlas)
      */
     void setTile(const TileId &tileId, const Tile &tile);
+
+    /** Needed to instantiate subclasses.
+     */
+    class Factory;
 };
 
+/** Open mode
+ */
 enum class OpenMode {
-    read
-    , readWrite
+    readOnly     //!< only getters are allowed
+    , readWrite  //!< both getters and setters are allowed
 };
 
-Storage::pointer create(const std::string &uri);
+enum class CreateMode {
+    failIfExists //!< creation fails if storage already exists
+    , overwrite  //!< existing storage is replace with new one
+};
 
-Storage::pointer open(const std::string &uri, OpenMode mode = OpenMode::read);
+/** Creates new storage.
+ *
+ * \param uri URI that specifies storage type and location.
+ * \param properties properties to initialize new storage with
+ * \param mode what to do when storage already exists:
+ *                 * failIfExists: storage must not exists prior this call
+ *                 * overwrite: new storage is created
+ * \return interface to new storage
+ * \throws Error if storage cannot be created
+ */
+Storage::pointer create(const std::string &uri
+                        , const Properties &properties
+                        , CreateMode mode = CreateMode::failIfExists);
+
+/** Opens existing storage.
+ *
+ * \param uri URI that specifies storage type and location.
+ * \param properties properties to initialize new storage with
+ * \param mode what operations are allowed on storage:
+ *                 * readOnly: only getters are allowed
+ *                 * readWrite: both getters and setters are allowed
+ * \return interface to new storage
+ * \throws Error if storage cannot be opened
+ */
+Storage::pointer open(const std::string &uri
+                      , OpenMode mode = OpenMode::readOnly);
+
+
+
+// inline stuff
 
 inline void Storage::setTile(const TileId &tileId, const Tile &tile)
 {
     return setTile(tileId, tile.mesh, tile.atlas);
+}
+
+inline bool TileId::operator<(const TileId &tid) const
+{
+    if (lod < tid.lod) { return true; }
+    else if (tid.lod < lod) { return false; }
+
+    if (easting < tid.easting) { return true; }
+    else if (tid.easting < easting) { return false; }
+
+    return northing < tid.northing;
 }
 
 } } // namespace vadstena::tilestorage
