@@ -1,6 +1,8 @@
 #ifndef vadstena_libs_tilestorage_fs_hpp_included_
 #define vadstena_libs_tilestorage_fs_hpp_included_
 
+#include "utility/gccversion.hpp"
+
 #include "../tilestorage.hpp"
 
 namespace vadstena { namespace tilestorage {
