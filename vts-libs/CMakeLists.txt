@@ -52,6 +52,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     binmesh.hpp binmesh.cpp
 
     tilestorage.hpp tilestorage/tilestorage.cpp
+    tilestorage/io.hpp
     tilestorage/fs.hpp tilestorage/fs.cpp
 
     ${OPTIONAL_SOURCES}

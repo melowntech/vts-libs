@@ -1,4 +1,4 @@
-#include "utility/uri.hpp"
+#include "dbglog/dbglog.hpp"
 
 #include "../tilestorage.hpp"
 #include "./fs.hpp"
@@ -12,22 +12,36 @@ void storageDeleter(Storage *storage)
     delete storage;
 }
 
+struct Locator {
+    std::string type;
+    std::string location;
+};
+
+/** TODO: implement
+ */
+Locator parseUri(const std::string &uri)
+{
+    return { "file", uri };
+}
+
 } // namespace
 
 struct Storage::Factory
 {
     static Storage::pointer create(const std::string &uri
-                                   , const Properties &properties
+                                   , const CreateProperties &properties
                                    , CreateMode mode)
     {
+        auto locator(parseUri(uri));
+
         Storage *storage(nullptr);
 
-        auto u(utility::parseUri(uri));
-        if (u.schema == "file") {
-            storage = new FileSystemStorage(u.path, properties, mode);
+        if (locator.type == "file") {
+            storage = new FileSystemStorage
+                (locator.location, properties, mode);
         } else {
-            // TODO: throw error?
-            return {};
+            LOGTHROW(err2, NoSuchStorage)
+                << "Invalid storage type <" << locator.type << ">.";
         }
 
         return { storage, &storageDeleter };
@@ -35,21 +49,23 @@ struct Storage::Factory
 
     static Storage::pointer open(const std::string &uri, OpenMode mode)
     {
+        auto locator(parseUri(uri));
+
         Storage *storage(nullptr);
 
-        auto u(utility::parseUri(uri));
-        if (u.schema == "file") {
-            storage = new FileSystemStorage(u.path, mode);
+        if (locator.type == "file") {
+            storage = new FileSystemStorage(locator.location, mode);
         } else {
-            // TODO: throw error?
-            return {};
+            LOGTHROW(err2, NoSuchStorage)
+                << "Invalid storage type <" << locator.type << ">.";
         }
 
         return { storage, &storageDeleter };
     }
 };
 
-Storage::pointer create(const std::string &uri, const Properties &properties
+Storage::pointer create(const std::string &uri
+                        , const CreateProperties &properties
                         , CreateMode mode)
 {
     return Storage::Factory::create(uri, properties, mode);

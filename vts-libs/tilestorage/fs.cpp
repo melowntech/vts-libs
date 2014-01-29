@@ -1,4 +1,5 @@
 #include <boost/format.hpp>
+#include <boost/filesystem.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -29,13 +30,21 @@ cv::Mat loadTexture(const fs::path &path)
 } // namespace
 
 FileSystemStorage::FileSystemStorage(const std::string &root
-                                     , const Properties &properties
+                                     , const CreateProperties &properties
                                      , CreateMode mode)
     : root_(root)
 {
     (void) root;
     (void) properties;
     (void) mode;
+
+    if (!create_directories(root_)) {
+        // directory already exists -> fail if mode says so
+        if (mode == CreateMode::failIfExists) {
+            LOGTHROW(err2, StorageAlreadyExists)
+                << "Storage at " << root_ << " already exits.";
+        }
+    }
 }
 
 FileSystemStorage::FileSystemStorage(const std::string &root, OpenMode mode)
@@ -49,13 +58,13 @@ FileSystemStorage::~FileSystemStorage()
 {
 }
 
-void FileSystemStorage::flush()
+void FileSystemStorage::flush_impl()
 {
     // TODO: flush here
-    LOG(info3) << "Flushing storage at file:" << root_;
+    LOG(info2) << "Flushing storage at path: " << root_;
 }
 
-Tile FileSystemStorage::getTile(const TileId &tileId)
+Tile FileSystemStorage::getTile_impl(const TileId &tileId)
 {
     return {
         loadBinaryMesh(root_ / filePath(tileId, "bin"))
@@ -63,7 +72,7 @@ Tile FileSystemStorage::getTile(const TileId &tileId)
     };
 }
 
-void FileSystemStorage::setTile(const TileId &tileId, const Mesh &mesh
+void FileSystemStorage::setTile_impl(const TileId &tileId, const Mesh &mesh
                                 , const Atlas &atlas)
 {
     (void) tileId;
@@ -71,32 +80,38 @@ void FileSystemStorage::setTile(const TileId &tileId, const Mesh &mesh
     (void) atlas;
 }
 
-MetaNode FileSystemStorage::getMetaData(const TileId &tileId)
+MetaNode FileSystemStorage::getMetaData_impl(const TileId &tileId)
 {
     (void) tileId;
     return {};
 }
 
-void FileSystemStorage::setMetaData(const TileId &tileId, const MetaNode &meta)
+void FileSystemStorage::setMetaData_impl(const TileId &tileId
+                                         , const MetaNode &meta)
 {
     (void) tileId;
     (void) meta;
 }
 
-bool FileSystemStorage::tileExists(const TileId &tileId)
+bool FileSystemStorage::tileExists_impl(const TileId &tileId)
 {
     (void) tileId;
     return false;
 }
 
-Properties FileSystemStorage::getProperties()
+Properties FileSystemStorage::getProperties_impl()
 {
-    return {{{}, {}, {}}, {}, {}, {}};
+    return {};
 }
 
-void FileSystemStorage::setProperties(const Properties &properties)
+Properties
+FileSystemStorage::setProperties_impl(const SettableProperties &properties
+                                      , int mask)
 {
     (void) properties;
+    (void) mask;
+
+    return {};
 }
 
 } } // namespace vadstena::tilestorage

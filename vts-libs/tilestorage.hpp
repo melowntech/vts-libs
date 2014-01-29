@@ -36,56 +36,117 @@ struct TileId {
     long northing;
 
     bool operator<(const TileId &tid) const;
+
+    TileId(Lod lod = 0, long easting = 0, long northing = 0)
+        : lod(lod), easting(easting), northing(northing)
+    {}
 };
 
-/** Storage properties
+/** Lod levels.
  */
-struct Properties {
+struct LodLevels {
+    Lod lod;      //!< reference lod
+    Lod delta;    //!< lod step
+
+    LodLevels() : lod(), delta() {}
+};
+
+/** Storage properties that must be specified during creation. They cannot be
+ *  changed later.
+ */
+struct CreateProperties {
+    /** Metatile lod levels (metaLevels.lod + n * metaLevels.delta).
+     */
+    LodLevels metaLevels;
+
+    CreateProperties() {}
+};
+
+/** Storage properties that can be set anytime.
+ */
+struct SettableProperties {
+    math::Point3 defaultPosition;    // easting, northing, altitude
+    math::Point3 defaultOrientation; // yaw, pitch, roll
+
+    struct Mask { enum {             // mask bitfields
+        defaultPosition = 0x01
+        , defaultOrientation = 0x02
+    }; };
+
+    SettableProperties() {}
+};
+
+/** All storage properties.
+ */
+struct Properties
+    : CreateProperties
+    , SettableProperties
+{
     TileId foat;    //!< Identifier of Father-of-All-Tiles metatile
     long foatSize;  //!< Size of FOAT in meters.
-    Lod metaLod;    //!< Initial LOD in storage.
-    Lod lodDelta;   //!< Number of LODs inside one metatile.
+
+    Properties() : foatSize() {}
 };
 
 struct Error : std::runtime_error {
     Error(const std::string &message) : std::runtime_error(message) {}
 };
 
+struct NoSuchStorage : Error {
+    NoSuchStorage(const std::string &message) : Error(message) {}
+};
+
+struct StorageAlreadyExists : Error {
+    StorageAlreadyExists(const std::string &message) : Error(message) {}
+};
+
+/** Storage interface.
+ *
+ * This class is pure virtual class. To create instance of storage use create()
+ * or open() free standing function.
+ *
+ * NB: this class follows Non-Virtual Interface Idiom defined by Herb Sutter in
+ * his "Virtuality" article at <http://www.gotw.ca/publications/mill18.htm>.
+ *
+ * All you need to write your own storage is to inherit this class and implement
+ * all* _impl member functions. Also, you need to register your class inside
+ * create() and open() functions.
+ */
 class Storage {
 public:
     /** Pointer type.
      */
     typedef std::shared_ptr<Storage> pointer;
 
-    virtual ~Storage();
+    virtual ~Storage() = 0;
 
     /** Get tile content.
      * \param tileId idetifier of tile to return.
      * \return read tile
      * \throws Error if tile with given tileId is not found
      */
-    virtual Tile getTile(const TileId &tileId) = 0;
+    Tile getTile(const TileId &tileId);
 
     /** Set new tile content.
      * \param tileId idetifier of tile write.
      * \param mesh new tile's mesh
      * \param atlas new tile's atlas
      */
-    virtual void setTile(const TileId &tileId, const Mesh &mesh
-                         , const Atlas &atlas) = 0;
+    void setTile(const TileId &tileId, const Mesh &mesh
+                         , const Atlas &atlas);
 
     /** Get tile's metadata.
      * \param tileId idetifier of metatile to return.
      * \return read metadata
      * \throws Error if metadate with given tileId is not found
      */
-    virtual MetaNode getMetaData(const TileId &tileId) = 0;
+    MetaNode getMetaData(const TileId &tileId);
 
     /** Set tile's metadata.
      * \param tileId idetifier of tile to write metadata to.
      * \param meta new tile's metadata
      */
-    virtual void setMetaData(const TileId &tileId, const MetaNode &meta) = 0;
+    void setMetaData(const TileId &tileId, const MetaNode &meta);
 
     /** Query for tile's existence.
      * \param tileId identifier of queried tile
@@ -93,24 +154,28 @@ public:
      *
      ** NB: Should be optimized.
      */
-    virtual bool tileExists(const TileId &tileId) = 0;
+    bool tileExists(const TileId &tileId);
 
     /** Get storage propeties.
      * \return storage properties
      */
-    virtual Properties getProperties() = 0;
+    Properties getProperties();
 
     /** Set new storage propeties.
-     * \param new storage properties
+     * \param properties new storage properties
+     * \param mask bitmask marking fields to be udpated
+     *             (defaults to all fields); use SettableProperties::Mask
+     * \return all new storage properties after change
      */
-    virtual void setProperties(const Properties &properties) = 0;
+    Properties setProperties(const SettableProperties &properties
+                             , int mask = ~0);
 
     /** Flush all pending changes to permanent storage.
      *
      * If storage is not allowed to be changed (i.e. open in read-only mode)
      * flush call is ignored.
      */
-    virtual void flush() = 0;
+    void flush();
 
     // convenience stuff
 
@@ -120,6 +185,43 @@ public:
      */
     void setTile(const TileId &tileId, const Tile &tile);
 
+private:
+    /** Override in derived class. Called from getTile.
+     */
+    virtual Tile getTile_impl(const TileId &tileId) = 0;
+
+    /** Override in derived class. Called from setTile.
+     */
+    virtual void setTile_impl(const TileId &tileId, const Mesh &mesh
+                              , const Atlas &atlas) = 0;
+
+    /** Override in derived class. Called from getMetaData.
+     */
+    virtual MetaNode getMetaData_impl(const TileId &tileId) = 0;
+
+    /** Override in derived class. Called from setMetaData.
+     */
+    virtual void setMetaData_impl(const TileId &tileId
+                                  , const MetaNode &meta) = 0;
+
+    /** Override in derived class. Called from tileExists.
+     */
+    virtual bool tileExists_impl(const TileId &tileId) = 0;
+
+    /** Override in derived class. Called from getProperties.
+     */
+    virtual Properties getProperties_impl() = 0;
+
+    /** Override in derived class. Called from setProperties.
+     */
+    virtual Properties setProperties_impl(const SettableProperties &properties
+                                          , int mask) = 0;
+
+    /** Override in derived class. Called from flush.
+     */
+    virtual void flush_impl() = 0;
+
+public:
     /** Needed to instantiate subclasses.
      */
     class Factory;
@@ -148,13 +250,12 @@ enum class CreateMode {
  * \throws Error if storage cannot be created
  */
 Storage::pointer create(const std::string &uri
-                        , const Properties &properties
+                        , const CreateProperties &properties
                         , CreateMode mode = CreateMode::failIfExists);
 
 /** Opens existing storage.
  *
  * \param uri URI that specifies storage type and location.
- * \param properties properties to initialize new storage with
  * \param mode what operations are allowed on storage:
  *                 * readOnly: only getters are allowed
  *                 * readWrite: both getters and setters are allowed
@@ -168,9 +269,52 @@ Storage::pointer open(const std::string &uri
 
 // inline stuff
 
+inline Tile Storage::getTile(const TileId &tileId)
+{
+    return getTile_impl(tileId);
+}
+
+inline void Storage::setTile(const TileId &tileId, const Mesh &mesh
+                             , const Atlas &atlas)
+{
+    return setTile_impl(tileId, mesh, atlas);
+}
+
 inline void Storage::setTile(const TileId &tileId, const Tile &tile)
 {
-    return setTile(tileId, tile.mesh, tile.atlas);
+    return setTile_impl(tileId, tile.mesh, tile.atlas);
+}
+
+inline MetaNode Storage::getMetaData(const TileId &tileId)
+{
+    return getMetaData_impl(tileId);
+}
+
+inline void Storage::setMetaData(const TileId &tileId
+                                 , const MetaNode &meta)
+{
+    return setMetaData_impl(tileId, meta);
+}
+
+inline bool Storage::tileExists(const TileId &tileId)
+{
+    return tileExists_impl(tileId);
+}
+
+inline Properties Storage::getProperties()
+{
+    return getProperties_impl();
+}
+
+inline Properties Storage::setProperties(const SettableProperties &properties
+                                         , int mask)
+{
+    return setProperties_impl(properties, mask);
+}
+
+inline void Storage::flush()
+{
+    return flush_impl();
 }
 
 inline bool TileId::operator<(const TileId &tid) const
