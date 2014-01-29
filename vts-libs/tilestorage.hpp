@@ -85,6 +85,10 @@ struct Properties
     TileId foat;    //!< Identifier of Father-of-All-Tiles metatile
     long foatSize;  //!< Size of FOAT in meters.
 
+    std::string meshTemplate;     //!< mesh file template
+    std::string textureTemplate;  //!< texture file template
+    std::string metaTemplate;     //!< meta tile file template
+
     Properties() : foatSize() {}
 };
 
