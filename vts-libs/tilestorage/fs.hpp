@@ -3,8 +3,6 @@
 
 #include <map>
 
-#include <boost/filesystem.hpp>
-
 #include "utility/gccversion.hpp"
 
 #include "../tilestorage.hpp"
@@ -82,7 +80,16 @@ private:
 
     virtual void flush_impl() override;
 
-    boost::filesystem::path root_;
+    void loadConfig();
+
+    void saveConfig();
+
+    /** Internals.
+     */
+    struct Detail;
+    std::unique_ptr<Detail> detail_;
+    Detail& detail() { return *detail_; }
+    const Detail& detail() const { return *detail_; }
 };
 
 } } // namespace vadstena::tilestorage

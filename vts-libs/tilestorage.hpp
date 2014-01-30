@@ -104,6 +104,10 @@ struct StorageAlreadyExists : Error {
     StorageAlreadyExists(const std::string &message) : Error(message) {}
 };
 
+struct FormatError : Error {
+    FormatError(const std::string &message) : Error(message) {}
+};
+
 /** Storage interface.
  *
  * This class is pure virtual class. To create instance of storage use create()
