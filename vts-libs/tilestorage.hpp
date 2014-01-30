@@ -26,6 +26,7 @@ typedef cv::Mat Atlas;
 struct Tile {
     Mesh mesh;
     Atlas atlas;
+    MetaNode metanode;
 };
 
 /** Tile identifier (index in 3D space): LOD + coordinates of lower left corner.
@@ -67,13 +68,19 @@ struct CreateProperties {
 struct SettableProperties {
     math::Point3 defaultPosition;    // easting, northing, altitude
     math::Point3 defaultOrientation; // yaw, pitch, roll
+    short textureQuality;            // JPEG quality
 
     struct Mask { enum {             // mask bitfields
         defaultPosition = 0x01
         , defaultOrientation = 0x02
+        , textureQuality = 0x04
     }; };
 
-    SettableProperties() {}
+    SettableProperties()
+        : defaultOrientation(0, -90, 0)
+        , textureQuality(85) {}
+
+    bool merge(const SettableProperties &other, int mask = ~0);
 };
 
 /** All storage properties.
@@ -106,6 +113,10 @@ struct StorageAlreadyExists : Error {
 
 struct FormatError : Error {
     FormatError(const std::string &message) : Error(message) {}
+};
+
+struct NoSuchTile : Error {
+    NoSuchTile(const std::string &message) : Error(message) {}
 };
 
 /** Storage interface.
@@ -141,20 +152,8 @@ public:
      * \param atlas new tile's atlas
      */
     void setTile(const TileId &tileId, const Mesh &mesh
-                         , const Atlas &atlas);
-
-    /** Get tile's metadata.
-     * \param tileId idetifier of metatile to return.
-     * \return read metadata
-     * \throws Error if metadate with given tileId is not found
-     */
-    MetaNode getMetaData(const TileId &tileId);
-
-    /** Set tile's metadata.
-     * \param tileId idetifier of tile to write metadata to.
-     * \param meta new tile's metadata
-     */
-    void setMetaData(const TileId &tileId, const MetaNode &meta);
+                 , const Atlas &atlas
+                 , const TileMetadata &metadata);
 
     /** Query for tile's existence.
      * \param tileId identifier of queried tile
@@ -185,14 +184,6 @@ public:
      */
     void flush();
 
-    // convenience stuff
-
-    /** Set new tile content.
-     * \param tileId idetifier of tile write.
-     * \param tile new tile's content (mesh + atlas)
-     */
-    void setTile(const TileId &tileId, const Tile &tile);
-
 private:
     /** Override in derived class. Called from getTile.
      */
@@ -201,16 +192,8 @@ private:
     /** Override in derived class. Called from setTile.
      */
     virtual void setTile_impl(const TileId &tileId, const Mesh &mesh
-                              , const Atlas &atlas) = 0;
-
-    /** Override in derived class. Called from getMetaData.
-     */
-    virtual MetaNode getMetaData_impl(const TileId &tileId) = 0;
-
-    /** Override in derived class. Called from setMetaData.
-     */
-    virtual void setMetaData_impl(const TileId &tileId
-                                  , const MetaNode &meta) = 0;
+                              , const Atlas &atlas
+                              , const TileMetadata &metadata) = 0;
 
     /** Override in derived class. Called from tileExists.
      */
@@ -283,25 +266,10 @@ inline Tile Storage::getTile(const TileId &tileId)
 }
 
 inline void Storage::setTile(const TileId &tileId, const Mesh &mesh
-                             , const Atlas &atlas)
+                             , const Atlas &atlas
+                             , const TileMetadata &metadata)
 {
-    return setTile_impl(tileId, mesh, atlas);
-}
-
-inline void Storage::setTile(const TileId &tileId, const Tile &tile)
-{
-    return setTile_impl(tileId, tile.mesh, tile.atlas);
-}
-
-inline MetaNode Storage::getMetaData(const TileId &tileId)
-{
-    return getMetaData_impl(tileId);
-}
-
-inline void Storage::setMetaData(const TileId &tileId
-                                 , const MetaNode &meta)
-{
-    return setMetaData_impl(tileId, meta);
+    return setTile_impl(tileId, mesh, atlas, metadata);
 }
 
 inline bool Storage::tileExists(const TileId &tileId)
@@ -334,6 +302,21 @@ inline bool TileId::operator<(const TileId &tid) const
     else if (tid.easting < easting) { return false; }
 
     return northing < tid.northing;
+}
+
+inline bool SettableProperties::merge(const SettableProperties &other
+                                      , int mask)
+{
+    bool changed(false);
+#define SETTABLEPROPERTIES_MERGE(WHAT) \
+    if (mask & Mask::WHAT) { WHAT = other.WHAT; changed = true; }
+
+    SETTABLEPROPERTIES_MERGE(defaultPosition);
+    SETTABLEPROPERTIES_MERGE(defaultOrientation);
+    SETTABLEPROPERTIES_MERGE(textureQuality);
+
+#undef SETTABLEPROPERTIES_MERGE
+    return changed;
 }
 
 } } // namespace vadstena::tilestorage

@@ -41,21 +41,8 @@ private:
      * \param atlas new tile's atlas
      */
     virtual void setTile_impl(const TileId &tileId, const Mesh &mesh
-                              , const Atlas &atlas) override;
-
-    /** Get tile's metadata.
-     * \param tileId idetifier of metatile to return.
-     * \return read metadata
-     * \throws Error if metadate with given tileId is not found
-     */
-    virtual MetaNode getMetaData_impl(const TileId &tileId) override;
-
-    /** Set tile's metadata.
-     * \param tileId idetifier of tile to write metadata to.
-     * \param meta new tile's metadata
-     */
-    virtual void setMetaData_impl(const TileId &tileId, const MetaNode &meta)
-        override;
+                              , const Atlas &atlas
+                              , const TileMetadata &metadata) override;
 
     /** Query for tile's existence.
      * \param tileId identifier of queried tile
@@ -79,10 +66,6 @@ private:
                                           , int mask) override;
 
     virtual void flush_impl() override;
-
-    void loadConfig();
-
-    void saveConfig();
 
     /** Internals.
      */

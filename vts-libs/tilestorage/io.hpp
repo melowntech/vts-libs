@@ -34,7 +34,13 @@ operator>>(std::basic_istream<CharT, Traits> &is, LodLevels &ll)
     return is;
 }
 
-// Properties
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const TileId &tid)
+{
+    return os << '(' << tid.lod << ", " << tid.easting
+              << ", " << tid.northing << ')';
+}
 
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
@@ -87,6 +93,8 @@ dump(std::basic_ostream<CharT, Traits> &os
     return os;
 }
 
+// Properties
+
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
 dump(std::basic_ostream<CharT, Traits> &os
@@ -95,6 +103,8 @@ dump(std::basic_ostream<CharT, Traits> &os
 {
     dump(os, p.defaultPosition, prefix + "defaultPosition.");
     dump(os, p.defaultOrientation, prefix + "defaultOrientation.");
+    os << prefix << "textureQuality = " << p.textureQuality
+       << '\n';
 
     return os;
 }

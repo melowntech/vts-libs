@@ -1,4 +1,5 @@
 #include <fstream>
+#include <cstring>
 
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
@@ -12,19 +13,40 @@
 #include "../binmesh.hpp"
 
 #include "./fs.hpp"
+#include "./io.hpp"
 
 namespace vadstena { namespace tilestorage {
 
 namespace fs = boost::filesystem;
 
+typedef std::map<TileId, MetaNode> Metadata;
+
 struct FileSystemStorage::Detail {
     boost::filesystem::path root;
     bool readOnly;
-    Json::Value config;
-    Properties properties;
+
+    // properties
+    Json::Value config;     // parsed config as JSON tree
+    Properties properties;  // properties
+    bool propertiesChanged; // marks whether properties have been changed
+
+    Metadata metadata;    // all metadata as in-memory structure
+    bool metadataChanged; // marks whether metadata have been changed
 
     Detail(const boost::filesystem::path &root, bool readOnly)
-        : root(root), readOnly(readOnly) {}
+        : root(root), readOnly(readOnly), propertiesChanged(false)
+        , metadataChanged(false)
+    {}
+
+    void loadConfig();
+
+    void saveConfig();
+
+    void saveMetadata();
+
+    const MetaNode* findMetaNode(const TileId tileId) const;
+
+    void setMetaNode(const TileId tileId, const MetaNode& metanode);
 };
 
 namespace {
@@ -37,10 +59,23 @@ fs::path filePath(const TileId &tileId, const std::string &ext)
                % tileId.lod % tileId.easting % tileId.northing % ext);
 }
 
-cv::Mat loadTexture(const fs::path &path)
+cv::Mat loadAtlas(const fs::path &path)
+{
+    auto atlas(cv::imread(path.string().c_str()));
+    if (atlas.empty()) {
+        LOGTHROW(err2, Error)
+            << "Atlas at " << path << " doesn't exist.";
+    }
+    return atlas;
+}
+
+void saveAtlas(const fs::path &path, const cv::Mat &atlas
+               , short jpegQuality)
 {
     // TODO: check errors
-    return cv::imread(path.string().c_str());
+    // TODO: quality?
+    cv::imwrite(path.string().c_str(), atlas
+                , { cv::IMWRITE_JPEG_QUALITY, jpegQuality });
 }
 
 } // namespace
@@ -67,21 +102,19 @@ FileSystemStorage::FileSystemStorage(const std::string &root
     // leave foat and foat size to be zero
     // leave default position
 
-    // look forward by default
-    p.defaultOrientation = { 0, -90, 0 };
-
     // set templates
     p.meshTemplate = "{lod}-{easting}-{northing}.bin";
     p.textureTemplate = "{lod}-{easting}-{northing}.jpg";
     p.metaTemplate = "{lod}-{easting}-{northing}.meta";
 
-    saveConfig();
+    detail().propertiesChanged = true;
+    flush();
 }
 
 FileSystemStorage::FileSystemStorage(const std::string &root, OpenMode mode)
     : detail_(new Detail(root, mode == OpenMode::readOnly))
 {
-    loadConfig();
+    detail().loadConfig();
 }
 
 FileSystemStorage::~FileSystemStorage()
@@ -92,40 +125,49 @@ FileSystemStorage::~FileSystemStorage()
 void FileSystemStorage::flush_impl()
 {
     if (detail().readOnly) { return; }
-    // TODO: flush here
     LOG(info2) << "Flushing storage at path: " << detail().root;
 
     // force config save
-    saveConfig();
+    if (detail().propertiesChanged) {
+        detail().saveConfig();
+    }
+
+    // force metadata save
+    if (detail().metadataChanged) {
+        detail().saveMetadata();
+    }
 }
 
 Tile FileSystemStorage::getTile_impl(const TileId &tileId)
 {
+    auto md(detail().findMetaNode(tileId));
+
     return {
         loadBinaryMesh(detail().root / filePath(tileId, "bin"))
-        , loadTexture(detail().root / filePath(tileId, "jpg"))
+        , loadAtlas(detail().root / filePath(tileId, "jpg"))
+        , *md
     };
 }
 
 void FileSystemStorage::setTile_impl(const TileId &tileId, const Mesh &mesh
-                                , const Atlas &atlas)
+                                     , const Atlas &atlas
+                                     , const TileMetadata &metadata)
 {
-    (void) tileId;
-    (void) mesh;
-    (void) atlas;
-}
+    writeBinaryMesh(detail().root / filePath(tileId, "bin"), mesh);
+    saveAtlas(detail().root / filePath(tileId, "jpg"), atlas
+              , detail().properties.textureQuality);
 
-MetaNode FileSystemStorage::getMetaData_impl(const TileId &tileId)
-{
-    (void) tileId;
-    return {};
-}
+    // create new metadata
+    MetaNode metanode;
 
-void FileSystemStorage::setMetaData_impl(const TileId &tileId
-                                         , const MetaNode &meta)
-{
-    (void) tileId;
-    (void) meta;
+    // copy extra metadata
+    static_cast<TileMetadata&>(metanode) = metadata;
+
+    // calculate dependent metadata
+    metanode.calcParams(mesh, { atlas.cols, atlas.rows });
+
+    // remember new metanode
+    detail().setMetaNode(tileId, metanode);
 }
 
 bool FileSystemStorage::tileExists_impl(const TileId &tileId)
@@ -143,18 +185,17 @@ Properties
 FileSystemStorage::setProperties_impl(const SettableProperties &properties
                                       , int mask)
 {
-    (void) properties;
-    (void) mask;
-
-    return {};
+    // merge in new properties
+    if (detail().properties.merge(properties, mask)) {
+        detail().propertiesChanged = true;
+    }
+    return detail().properties;
 }
 
-void FileSystemStorage::loadConfig()
+void FileSystemStorage::Detail::loadConfig()
 {
     // load json
-    auto &config(detail().config);
-
-    auto path(detail().root / ConfigName);
+    auto path(root / ConfigName);
     try {
         std::ifstream f;
         f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -174,7 +215,7 @@ void FileSystemStorage::loadConfig()
 
     // TODO: check errors
 
-    auto &p(detail().properties);
+    auto &p(properties);
 
     const auto &foat(config["foat"]);
     p.foat.lod = Json::as<Lod>(foat[0]);
@@ -198,46 +239,46 @@ void FileSystemStorage::loadConfig()
     p.defaultOrientation(0) = Json::as<double>(defaultOrientation[0]);
     p.defaultOrientation(1) = Json::as<double>(defaultOrientation[1]);
     p.defaultOrientation(2) = Json::as<double>(defaultOrientation[2]);
+
+    p.textureQuality = Json::as<short>(config["textureQuality"]);
 }
 
-void FileSystemStorage::saveConfig()
+void FileSystemStorage::Detail::saveConfig()
 {
-    if (detail().readOnly) {
+    if (readOnly) {
         LOGTHROW(err2, Error) << "Storage is read-only.";
     }
 
-    // build json
-    auto &p(detail().properties);
-    auto &config(detail().config);
-
     auto &foat(config["foat"] = Json::Value(Json::arrayValue));
-    foat.append(Json::UInt64(p.foat.lod));
-    foat.append(Json::UInt64(p.foat.easting));
-    foat.append(Json::UInt64(p.foat.northing));
-    foat.append(Json::UInt64(p.foatSize));
+    foat.append(Json::UInt64(properties.foat.lod));
+    foat.append(Json::UInt64(properties.foat.easting));
+    foat.append(Json::UInt64(properties.foat.northing));
+    foat.append(Json::UInt64(properties.foatSize));
 
     auto &meta(config["meta"] = Json::Value(Json::arrayValue));
-    meta.append(Json::UInt64(p.metaLevels.lod));
-    meta.append(Json::UInt64(p.metaLevels.delta));
+    meta.append(Json::UInt64(properties.metaLevels.lod));
+    meta.append(Json::UInt64(properties.metaLevels.delta));
 
-    config["meshTemplate"] = p.meshTemplate;
-    config["textureTemplate"] = p.textureTemplate;
-    config["metaTemplate"] = p.metaTemplate;
+    config["meshTemplate"] = properties.meshTemplate;
+    config["textureTemplate"] = properties.textureTemplate;
+    config["metaTemplate"] = properties.metaTemplate;
 
     auto &defaultPosition
         (config["defaultPosition"] = Json::Value(Json::arrayValue));
-    defaultPosition.append(p.defaultPosition(0));
-    defaultPosition.append(p.defaultPosition(1));
-    defaultPosition.append(p.defaultPosition(2));
+    defaultPosition.append(properties.defaultPosition(0));
+    defaultPosition.append(properties.defaultPosition(1));
+    defaultPosition.append(properties.defaultPosition(2));
 
     auto &defaultOrientation
         (config["defaultOrientation"] = Json::Value(Json::arrayValue));
-    defaultOrientation.append(p.defaultOrientation(0));
-    defaultOrientation.append(p.defaultOrientation(1));
-    defaultOrientation.append(p.defaultOrientation(2));
+    defaultOrientation.append(properties.defaultOrientation(0));
+    defaultOrientation.append(properties.defaultOrientation(1));
+    defaultOrientation.append(properties.defaultOrientation(2));
+
+    config["textureQuality"] = Json::Int(properties.textureQuality);
 
     // save json
-    auto path(detail().root / ConfigName);
+    auto path(root / ConfigName);
     try {
         std::ofstream f;
         f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -249,6 +290,45 @@ void FileSystemStorage::saveConfig()
             << "Unable to write " << path << " config: "
             << e.what() << ".";
     }
+
+    // done
+    propertiesChanged = false;
+}
+
+void FileSystemStorage::Detail::saveMetadata()
+{
+    if (readOnly) {
+        LOGTHROW(err2, Error) << "Storage is read-only.";
+    }
+
+    metadataChanged = false;
+}
+
+const MetaNode* FileSystemStorage::Detail::findMetaNode(const TileId tileId)
+    const
+{
+    auto fmetadata(metadata.find(tileId));
+    if (fmetadata == metadata.end()) {
+        // TODO: load metadata
+        // NB: only if they should exist!
+
+        return nullptr;
+    }
+
+    return &fmetadata->second;
+}
+
+void FileSystemStorage::Detail::setMetaNode(const TileId tileId
+                                            , const MetaNode& metanode)
+{
+    // this ensures that we have old metanode in memory
+    findMetaNode(tileId);
+
+    auto res(metadata.insert(Metadata::value_type(tileId, metanode)));
+    if (!res.second) {
+        res.first->second = metanode;
+    }
+    metadataChanged = true;
 }
 
 } } // namespace vadstena::tilestorage
