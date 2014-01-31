@@ -52,6 +52,8 @@ struct LodLevels {
     LodLevels() : lod(), delta() {}
 };
 
+typedef math::Point2_<long> Alignment;
+
 /** Storage properties that must be specified during creation. They cannot be
  *  changed later.
  */
@@ -64,7 +66,11 @@ struct CreateProperties {
      */
     unsigned long baseTileSize;
 
-    CreateProperties() {}
+    /** Tile alignment. No tile exists that contains this point inside.
+     */
+    Alignment alignment;
+
+    CreateProperties() : baseTileSize() {}
 };
 
 /** Storage properties that can be set anytime.
@@ -273,6 +279,9 @@ Storage::pointer open(const std::string &uri
                       , OpenMode mode = OpenMode::readOnly);
 
 
+unsigned long tileSize(const Properties &properties, Lod lod);
+
+TileId parent(const Properties &properties, const TileId &tileId);
 
 // inline stuff
 
@@ -339,6 +348,23 @@ inline bool SettableProperties::merge(const SettableProperties &other
 
 #undef SETTABLEPROPERTIES_MERGE
     return changed;
+}
+
+inline unsigned long tileSize(const Properties &properties, Lod lod)
+{
+    return (properties.baseTileSize >> lod);
+}
+
+inline TileId parent(const Properties &properties, const TileId &tileId)
+{
+    auto size(tileSize(properties, tileId.lod));
+
+    const TileId &foat(properties.foat);
+    auto ix((tileId.easting - foat.easting) / size);
+    auto iy((tileId.northing - foat.northing) / size);
+
+    return TileId(tileId.lod - 1, foat.easting + (ix & ~1) * size
+                  , foat.northing + (iy & ~1) * size);
 }
 
 } } // namespace vadstena::tilestorage

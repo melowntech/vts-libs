@@ -91,6 +91,8 @@ dump(std::basic_ostream<CharT, Traits> &os
 {
     dump(os, p.metaLevels, prefix + "metaLevels.");
     os << prefix << "baseTileSize = " << p.baseTileSize << '\n';
+    os << prefix << "alignment = " << p.alignment(0) << ','
+       << p.alignment(1) << '\n';
     return os;
 }
 

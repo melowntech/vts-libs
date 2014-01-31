@@ -53,6 +53,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
 
     tilestorage.hpp tilestorage/tilestorage.cpp
     tilestorage/io.hpp
+    tilestorage/json.hpp tilestorage/json.cpp
     tilestorage/fs.hpp tilestorage/fs.cpp
 
     ${OPTIONAL_SOURCES}
