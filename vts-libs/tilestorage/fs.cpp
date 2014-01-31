@@ -30,8 +30,8 @@ struct FileSystemStorage::Detail {
     Properties properties;  // properties
     bool propertiesChanged; // marks whether properties have been changed
 
-    Metadata metadata;    // all metadata as in-memory structure
-    bool metadataChanged; // marks whether metadata have been changed
+    mutable Metadata metadata;    // all metadata as in-memory structure
+    mutable bool metadataChanged; // marks whether metadata have been changed
 
     Detail(const boost::filesystem::path &root, bool readOnly)
         : root(root), readOnly(readOnly), propertiesChanged(false)
@@ -44,9 +44,13 @@ struct FileSystemStorage::Detail {
 
     void saveMetadata();
 
-    const MetaNode* findMetaNode(const TileId tileId) const;
+    MetaNode* loadMetatile(const TileId tileId) const;
+
+    MetaNode* findMetaNode(const TileId tileId) const;
 
     void setMetaNode(const TileId tileId, const MetaNode& metanode);
+
+    void setMetadata(const TileId tileId, const TileMetadata& metadata);
 };
 
 namespace {
@@ -80,118 +84,6 @@ void saveAtlas(const fs::path &path, const cv::Mat &atlas
 
 } // namespace
 
-FileSystemStorage::FileSystemStorage(const std::string &root
-                                     , const CreateProperties &properties
-                                     , CreateMode mode)
-    : detail_(new Detail(root, false))
-{
-    if (!create_directories(detail().root)) {
-        // directory already exists -> fail if mode says so
-        if (mode == CreateMode::failIfExists) {
-            LOGTHROW(err2, StorageAlreadyExists)
-                << "Storage at " << detail().root << " already exits.";
-        }
-    }
-
-    // build initial properties
-
-    // initialize create properties
-    auto &p(detail().properties);
-    static_cast<CreateProperties&>(p) = properties;
-
-    // leave foat and foat size to be zero
-    // leave default position
-
-    // set templates
-    p.meshTemplate = "{lod}-{easting}-{northing}.bin";
-    p.textureTemplate = "{lod}-{easting}-{northing}.jpg";
-    p.metaTemplate = "{lod}-{easting}-{northing}.meta";
-
-    detail().propertiesChanged = true;
-    flush();
-}
-
-FileSystemStorage::FileSystemStorage(const std::string &root, OpenMode mode)
-    : detail_(new Detail(root, mode == OpenMode::readOnly))
-{
-    detail().loadConfig();
-}
-
-FileSystemStorage::~FileSystemStorage()
-{
-    // ?
-}
-
-void FileSystemStorage::flush_impl()
-{
-    if (detail().readOnly) { return; }
-    LOG(info2) << "Flushing storage at path: " << detail().root;
-
-    // force config save
-    if (detail().propertiesChanged) {
-        detail().saveConfig();
-    }
-
-    // force metadata save
-    if (detail().metadataChanged) {
-        detail().saveMetadata();
-    }
-}
-
-Tile FileSystemStorage::getTile_impl(const TileId &tileId)
-{
-    auto md(detail().findMetaNode(tileId));
-
-    return {
-        loadBinaryMesh(detail().root / filePath(tileId, "bin"))
-        , loadAtlas(detail().root / filePath(tileId, "jpg"))
-        , *md
-    };
-}
-
-void FileSystemStorage::setTile_impl(const TileId &tileId, const Mesh &mesh
-                                     , const Atlas &atlas
-                                     , const TileMetadata &metadata)
-{
-    writeBinaryMesh(detail().root / filePath(tileId, "bin"), mesh);
-    saveAtlas(detail().root / filePath(tileId, "jpg"), atlas
-              , detail().properties.textureQuality);
-
-    // create new metadata
-    MetaNode metanode;
-
-    // copy extra metadata
-    static_cast<TileMetadata&>(metanode) = metadata;
-
-    // calculate dependent metadata
-    metanode.calcParams(mesh, { atlas.cols, atlas.rows });
-
-    // remember new metanode
-    detail().setMetaNode(tileId, metanode);
-}
-
-bool FileSystemStorage::tileExists_impl(const TileId &tileId)
-{
-    (void) tileId;
-    return false;
-}
-
-Properties FileSystemStorage::getProperties_impl()
-{
-    return detail().properties;
-}
-
-Properties
-FileSystemStorage::setProperties_impl(const SettableProperties &properties
-                                      , int mask)
-{
-    // merge in new properties
-    if (detail().properties.merge(properties, mask)) {
-        detail().propertiesChanged = true;
-    }
-    return detail().properties;
-}
-
 void FileSystemStorage::Detail::loadConfig()
 {
     // load json
@@ -215,32 +107,40 @@ void FileSystemStorage::Detail::loadConfig()
 
     // TODO: check errors
 
-    auto &p(properties);
+    try {
+        auto &p(properties);
 
-    const auto &foat(config["foat"]);
-    p.foat.lod = Json::as<Lod>(foat[0]);
-    p.foat.easting = Json::as<long>(foat[1]);
-    p.foat.northing = Json::as<long>(foat[2]);
+        const auto &foat(config["foat"]);
+        Json::get(p.foat.lod, foat[0]);
+        Json::get(p.foat.easting, foat[1]);
+        Json::get(p.foat.northing, foat[2]);
 
-    const auto &meta(config["meta"]);
-    p.metaLevels.lod = Json::as<Lod>(meta[0]);
-    p.metaLevels.delta = Json::as<Lod>(meta[1]);
+        const auto &meta(config["meta"]);
+        Json::get(p.metaLevels.lod, meta[0]);
+        Json::get(p.metaLevels.delta, meta[1]);
 
-    p.meshTemplate = Json::as<std::string>(config["meshTemplate"]);
-    p.textureTemplate = Json::as<std::string>(config["textureTemplate"]);
-    p.metaTemplate = Json::as<std::string>(config["metaTemplate"]);
+        Json::get(p.baseTileSize, config["baseTileSize"]);
 
-    const auto &defaultPosition(config["defaultPosition"]);
-    p.defaultPosition(0) = Json::as<double>(defaultPosition[0]);
-    p.defaultPosition(1) = Json::as<double>(defaultPosition[1]);
-    p.defaultPosition(2) = Json::as<double>(defaultPosition[2]);
+        Json::get(p.meshTemplate, config["meshTemplate"]);
+        Json::get(p.textureTemplate, config["textureTemplate"]);
+        Json::get(p.metaTemplate, config["metaTemplate"]);
 
-    const auto &defaultOrientation(config["defaultOrientation"]);
-    p.defaultOrientation(0) = Json::as<double>(defaultOrientation[0]);
-    p.defaultOrientation(1) = Json::as<double>(defaultOrientation[1]);
-    p.defaultOrientation(2) = Json::as<double>(defaultOrientation[2]);
+        const auto &defaultPosition(config["defaultPosition"]);
+        Json::get(p.defaultPosition(0), defaultPosition[0]);
+        Json::get(p.defaultPosition(1), defaultPosition[1]);
+        Json::get(p.defaultPosition(2), defaultPosition[2]);
 
-    p.textureQuality = Json::as<short>(config["textureQuality"]);
+        const auto &defaultOrientation(config["defaultOrientation"]);
+        Json::get(p.defaultOrientation(0), defaultOrientation[0]);
+        Json::get(p.defaultOrientation(1), defaultOrientation[1]);
+        Json::get(p.defaultOrientation(2), defaultOrientation[2]);
+
+        Json::get(p.textureQuality, config["textureQuality"]);
+    } catch (const Json::Error &e) {
+        LOGTHROW(err2, FormatError)
+            << "Invalid config format (" << e.what()
+            << "); Unable to work with this storage.";
+    }
 }
 
 void FileSystemStorage::Detail::saveConfig()
@@ -258,6 +158,8 @@ void FileSystemStorage::Detail::saveConfig()
     auto &meta(config["meta"] = Json::Value(Json::arrayValue));
     meta.append(Json::UInt64(properties.metaLevels.lod));
     meta.append(Json::UInt64(properties.metaLevels.delta));
+
+    config["baseTileSize"] = Json::UInt64(properties.baseTileSize);
 
     config["meshTemplate"] = properties.meshTemplate;
     config["textureTemplate"] = properties.textureTemplate;
@@ -304,15 +206,13 @@ void FileSystemStorage::Detail::saveMetadata()
     metadataChanged = false;
 }
 
-const MetaNode* FileSystemStorage::Detail::findMetaNode(const TileId tileId)
+MetaNode* FileSystemStorage::Detail::findMetaNode(const TileId tileId)
     const
 {
     auto fmetadata(metadata.find(tileId));
     if (fmetadata == metadata.end()) {
-        // TODO: load metadata
-        // NB: only if they should exist!
-
-        return nullptr;
+        // not found in memory -> load from disk
+        return loadMetatile(tileId);
     }
 
     return &fmetadata->second;
@@ -329,6 +229,174 @@ void FileSystemStorage::Detail::setMetaNode(const TileId tileId
         res.first->second = metanode;
     }
     metadataChanged = true;
+}
+
+MetaNode* FileSystemStorage::Detail::loadMetatile(const TileId tileId)
+    const
+{
+    // TODO: implement me
+    (void) tileId;
+    return nullptr;
+
+    // NB: this call loads whole metatile file where tileId lives; only nodes
+    // that are not present in this->metadata are inserted there
+
+#if 0
+    // find out lod to look for
+
+    // calculate number of lods from reference lod
+    auto diff(properties.metaLevels.lod - tileId.lod);
+    // calculate steps from reference lod
+    auto steps(diff / properties.metaLevels.delta);
+    if ((steps < 0) && (-diff % properties.metaLevels.delta)) {
+        // negative and not multiple of delta -> one more step up
+        --steps;
+    }
+
+    Lod mtLod(properties.metaLevels.lod
+              + (steps * properties.metaLevels.delta));
+#endif
+}
+
+void FileSystemStorage::Detail::setMetadata(const TileId tileId
+                                            , const TileMetadata& metadata)
+{
+    // this ensures that we have old metanode in memory
+    auto metanode(findMetaNode(tileId));
+    if (!metanode) {
+        LOGTHROW(err2, NoSuchTile)
+            << "There is no tile at " << tileId << ".";
+    }
+
+    // assign new metadata
+    static_cast<TileMetadata&>(*metanode) = metadata;
+}
+
+FileSystemStorage::FileSystemStorage(const std::string &root
+                                     , const CreateProperties &properties
+                                     , CreateMode mode)
+    : detail_(new Detail(root, false))
+{
+    if (!create_directories(detail().root)) {
+        // directory already exists -> fail if mode says so
+        if (mode == CreateMode::failIfExists) {
+            LOGTHROW(err2, StorageAlreadyExists)
+                << "Storage at " << detail().root << " already exits.";
+        }
+    }
+
+    // build initial properties
+
+    // initialize create properties
+    auto &p(detail().properties);
+    static_cast<CreateProperties&>(p) = properties;
+
+    // leave foat and foat size to be zero
+    // leave default position
+
+    // set templates
+    p.meshTemplate = "{lod}-{easting}-{northing}.bin";
+    p.textureTemplate = "{lod}-{easting}-{northing}.jpg";
+    p.metaTemplate = "{lod}-{easting}-{northing}.meta";
+
+    detail().propertiesChanged = true;
+    flush();
+}
+
+
+// storage itself
+
+FileSystemStorage::FileSystemStorage(const std::string &root, OpenMode mode)
+    : detail_(new Detail(root, mode == OpenMode::readOnly))
+{
+    detail().loadConfig();
+}
+
+FileSystemStorage::~FileSystemStorage()
+{
+    // ?
+}
+
+void FileSystemStorage::flush_impl()
+{
+    if (detail().readOnly) { return; }
+    LOG(info2) << "Flushing storage at path: " << detail().root;
+
+    // force config save
+    if (detail().propertiesChanged) {
+        detail().saveConfig();
+    }
+
+    // force metadata save
+    if (detail().metadataChanged) {
+        detail().saveMetadata();
+    }
+}
+
+Tile FileSystemStorage::getTile_impl(const TileId &tileId) const
+{
+    auto md(detail().findMetaNode(tileId));
+    if (!md) {
+        LOGTHROW(err2, NoSuchTile)
+            << "There is no tile at " << tileId << ".";
+    }
+
+    return {
+        loadBinaryMesh(detail().root / filePath(tileId, "bin"))
+        , loadAtlas(detail().root / filePath(tileId, "jpg"))
+        , *md
+    };
+}
+
+void FileSystemStorage::setTile_impl(const TileId &tileId, const Mesh &mesh
+                                     , const Atlas &atlas
+                                     , const TileMetadata *metadata)
+{
+    writeBinaryMesh(detail().root / filePath(tileId, "bin"), mesh);
+    saveAtlas(detail().root / filePath(tileId, "jpg"), atlas
+              , detail().properties.textureQuality);
+
+    // create new metadata
+    MetaNode metanode;
+
+    // copy extra metadata
+    if (metadata) {
+        static_cast<TileMetadata&>(metanode) = *metadata;
+    }
+
+    // calculate dependent metadata
+    metanode.calcParams(mesh, { atlas.cols, atlas.rows });
+
+    // remember new metanode
+    detail().setMetaNode(tileId, metanode);
+}
+
+void FileSystemStorage::setMetadata_impl(const TileId &tileId
+                                         , const TileMetadata &metadata)
+{
+    detail().setMetadata(tileId, metadata);
+}
+
+bool FileSystemStorage::tileExists_impl(const TileId &tileId) const
+{
+    (void) tileId;
+    return false;
+}
+
+Properties FileSystemStorage::getProperties_impl() const
+{
+    return detail().properties;
+}
+
+Properties
+FileSystemStorage::setProperties_impl(const SettableProperties &properties
+                                      , int mask)
+{
+    // merge in new properties
+    if (detail().properties.merge(properties, mask)) {
+        detail().propertiesChanged = true;
+    }
+    return detail().properties;
 }
 
 } } // namespace vadstena::tilestorage

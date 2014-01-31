@@ -60,6 +60,10 @@ struct CreateProperties {
      */
     LodLevels metaLevels;
 
+    /** Tile size at LOD=0.
+     */
+    unsigned long baseTileSize;
+
     CreateProperties() {}
 };
 
@@ -144,16 +148,23 @@ public:
      * \return read tile
      * \throws Error if tile with given tileId is not found
      */
-    Tile getTile(const TileId &tileId);
+    Tile getTile(const TileId &tileId) const;
 
     /** Set new tile content.
      * \param tileId idetifier of tile write.
      * \param mesh new tile's mesh
      * \param atlas new tile's atlas
+     * \param metadata initial metadata of tile (optional)
      */
-    void setTile(const TileId &tileId, const Mesh &mesh
-                 , const Atlas &atlas
-                 , const TileMetadata &metadata);
+    void setTile(const TileId &tileId, const Mesh &mesh, const Atlas &atlas
+                 , const TileMetadata *metadata = nullptr);
+
+    /** Set new tile's metadata.
+     * \param tileId idetifier of tile write
+     * \param metadata new tile metadata
+     * \throw Error if tile doesn't exist
+     */
+    void setMetadata(const TileId &tileId, const TileMetadata &metadata);
 
     /** Query for tile's existence.
      * \param tileId identifier of queried tile
@@ -161,12 +172,12 @@ public:
      *
      ** NB: Should be optimized.
      */
-    bool tileExists(const TileId &tileId);
+    bool tileExists(const TileId &tileId) const;
 
     /** Get storage propeties.
      * \return storage properties
      */
-    Properties getProperties();
+    Properties getProperties() const;
 
     /** Set new storage propeties.
      * \param properties new storage properties
@@ -187,21 +198,26 @@ public:
 private:
     /** Override in derived class. Called from getTile.
      */
-    virtual Tile getTile_impl(const TileId &tileId) = 0;
+    virtual Tile getTile_impl(const TileId &tileId) const = 0;
 
     /** Override in derived class. Called from setTile.
      */
     virtual void setTile_impl(const TileId &tileId, const Mesh &mesh
                               , const Atlas &atlas
-                              , const TileMetadata &metadata) = 0;
+                              , const TileMetadata *metadata) = 0;
+
+    /** Override in derived class. Called from setMetadata.
+     */
+    virtual void setMetadata_impl(const TileId &tileId
+                                  , const TileMetadata &metadata) = 0;
 
     /** Override in derived class. Called from tileExists.
      */
-    virtual bool tileExists_impl(const TileId &tileId) = 0;
+    virtual bool tileExists_impl(const TileId &tileId) const = 0;
 
     /** Override in derived class. Called from getProperties.
      */
-    virtual Properties getProperties_impl() = 0;
+    virtual Properties getProperties_impl() const = 0;
 
     /** Override in derived class. Called from setProperties.
      */
@@ -260,24 +276,30 @@ Storage::pointer open(const std::string &uri
 
 // inline stuff
 
-inline Tile Storage::getTile(const TileId &tileId)
+inline Tile Storage::getTile(const TileId &tileId) const
 {
     return getTile_impl(tileId);
 }
 
 inline void Storage::setTile(const TileId &tileId, const Mesh &mesh
                              , const Atlas &atlas
-                             , const TileMetadata &metadata)
+                             , const TileMetadata *metadata)
 {
     return setTile_impl(tileId, mesh, atlas, metadata);
 }
 
-inline bool Storage::tileExists(const TileId &tileId)
+inline void Storage::setMetadata(const TileId &tileId
+                                 , const TileMetadata &metadata)
+{
+    return setMetadata_impl(tileId, metadata);
+}
+
+inline bool Storage::tileExists(const TileId &tileId) const
 {
     return tileExists_impl(tileId);
 }
 
-inline Properties Storage::getProperties()
+inline Properties Storage::getProperties() const
 {
     return getProperties_impl();
 }

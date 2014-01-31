@@ -33,7 +33,7 @@ private:
      * \return read tile
      * \throws Error if tile with given tileId is not found
      */
-    virtual Tile getTile_impl(const TileId &tileId) override;
+    virtual Tile getTile_impl(const TileId &tileId) const override;
 
     /** Set new tile content.
      * \param tileId idetifier of tile write.
@@ -42,7 +42,15 @@ private:
      */
     virtual void setTile_impl(const TileId &tileId, const Mesh &mesh
                               , const Atlas &atlas
-                              , const TileMetadata &metadata) override;
+                              , const TileMetadata *metadata) override;
+
+    /** Set new tile's metadata.
+     * \param tileId idetifier of tile write
+     * \param metadata new tile metadata
+     * \throw Error if tile doesn't exist
+     */
+    virtual void setMetadata_impl(const TileId &tileId
+                                  , const TileMetadata &metadata) override;
 
     /** Query for tile's existence.
      * \param tileId identifier of queried tile
@@ -50,12 +58,12 @@ private:
      *
      ** NB: Should be optimized.
      */
-    virtual bool tileExists_impl(const TileId &tileId) override;
+    virtual bool tileExists_impl(const TileId &tileId) const override;
 
     /** Get storage propeties.
      * \return storage properties
      */
-    virtual Properties getProperties_impl() override;
+    virtual Properties getProperties_impl() const override;
 
     /** Set new storage propeties.
      * \param properties new storage properties
