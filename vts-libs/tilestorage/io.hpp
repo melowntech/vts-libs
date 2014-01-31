@@ -69,15 +69,37 @@ dump(std::basic_ostream<CharT, Traits> &os
     return os;
 }
 
+struct AsPosition {
+    math::Point3 p;
+};
+
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
 dump(std::basic_ostream<CharT, Traits> &os
-     , const math::Point3 &p
+     , const AsPosition &p
      , const std::string &prefix = std::string())
 {
-    os << prefix << "easting = " << p(0) << '\n'
-       << prefix << "northing = " << p(1) << '\n'
-       << prefix << "altitude = " << p(2) << '\n'
+    os << prefix << "easting = " << p.p(0) << '\n'
+       << prefix << "northing = " << p.p(1) << '\n'
+       << prefix << "altitude = " << p.p(2) << '\n'
+        ;
+
+    return os;
+}
+
+struct AsOrientation {
+    math::Point3 p;
+};
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+dump(std::basic_ostream<CharT, Traits> &os
+     , const AsOrientation &p
+     , const std::string &prefix = std::string())
+{
+    os << prefix << "yaw = " << p.p(0) << '\n'
+       << prefix << "pitch = " << p.p(1) << '\n'
+       << prefix << "roll = " << p.p(2) << '\n'
         ;
 
     return os;
@@ -104,8 +126,9 @@ dump(std::basic_ostream<CharT, Traits> &os
      , const SettableProperties &p
      , const std::string &prefix = std::string())
 {
-    dump(os, p.defaultPosition, prefix + "defaultPosition.");
-    dump(os, p.defaultOrientation, prefix + "defaultOrientation.");
+    dump(os, AsPosition{p.defaultPosition}, prefix + "defaultPosition.");
+    dump(os, AsOrientation{p.defaultOrientation}
+         , prefix + "defaultOrientation.");
     os << prefix << "textureQuality = " << p.textureQuality
        << '\n';
 
