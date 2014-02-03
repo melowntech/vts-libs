@@ -4,39 +4,58 @@
 
 namespace vadstena { namespace tilestorage {
 
+namespace detail {
+
+const int CURRENT_JSON_FORMAT_VERSION(1);
+
+void parse1(Properties &properties, const Json::Value &config)
+{
+    const auto &foat(config["foat"]);
+    Json::get(properties.foat.lod, foat[0]);
+    Json::get(properties.foat.easting, foat[1]);
+    Json::get(properties.foat.northing, foat[2]);
+
+    const auto &meta(config["meta"]);
+    Json::get(properties.metaLevels.lod, meta[0]);
+    Json::get(properties.metaLevels.delta, meta[1]);
+
+    Json::get(properties.baseTileSize, config["baseTileSize"]);
+
+    const auto &alignment(config["alignment"]);
+    Json::get(properties.alignment(0), alignment[0]);
+    Json::get(properties.alignment(1), alignment[1]);
+
+    Json::get(properties.meshTemplate, config["meshTemplate"]);
+    Json::get(properties.textureTemplate, config["textureTemplate"]);
+    Json::get(properties.metaTemplate, config["metaTemplate"]);
+
+    const auto &defaultPosition(config["defaultPosition"]);
+    Json::get(properties.defaultPosition(0), defaultPosition[0]);
+    Json::get(properties.defaultPosition(1), defaultPosition[1]);
+    Json::get(properties.defaultPosition(2), defaultPosition[2]);
+
+    const auto &defaultOrientation(config["defaultOrientation"]);
+    Json::get(properties.defaultOrientation(0), defaultOrientation[0]);
+    Json::get(properties.defaultOrientation(1), defaultOrientation[1]);
+    Json::get(properties.defaultOrientation(2), defaultOrientation[2]);
+
+    Json::get(properties.textureQuality, config["textureQuality"]);
+}
+
+} // namespace detail
+
 void parse(Properties &properties, const Json::Value &config)
 {
     try {
-        const auto &foat(config["foat"]);
-        Json::get(properties.foat.lod, foat[0]);
-        Json::get(properties.foat.easting, foat[1]);
-        Json::get(properties.foat.northing, foat[2]);
+        auto version(Json::as<int>(config["version"]));
 
-        const auto &meta(config["meta"]);
-        Json::get(properties.metaLevels.lod, meta[0]);
-        Json::get(properties.metaLevels.delta, meta[1]);
+        switch (version) {
+        case 1: return detail::parse1(properties, config);
+        }
 
-        Json::get(properties.baseTileSize, config["baseTileSize"]);
+        LOGTHROW(err2, FormatError)
+            << "Invalid config format: unsupported version" << version << ".";
 
-        const auto &alignment(config["alignment"]);
-        Json::get(properties.alignment(0), alignment[0]);
-        Json::get(properties.alignment(1), alignment[1]);
-
-        Json::get(properties.meshTemplate, config["meshTemplate"]);
-        Json::get(properties.textureTemplate, config["textureTemplate"]);
-        Json::get(properties.metaTemplate, config["metaTemplate"]);
-
-        const auto &defaultPosition(config["defaultPosition"]);
-        Json::get(properties.defaultPosition(0), defaultPosition[0]);
-        Json::get(properties.defaultPosition(1), defaultPosition[1]);
-        Json::get(properties.defaultPosition(2), defaultPosition[2]);
-
-        const auto &defaultOrientation(config["defaultOrientation"]);
-        Json::get(properties.defaultOrientation(0), defaultOrientation[0]);
-        Json::get(properties.defaultOrientation(1), defaultOrientation[1]);
-        Json::get(properties.defaultOrientation(2), defaultOrientation[2]);
-
-        Json::get(properties.textureQuality, config["textureQuality"]);
     } catch (const Json::Error &e) {
         LOGTHROW(err2, FormatError)
             << "Invalid config format (" << e.what()
@@ -46,6 +65,8 @@ void parse(Properties &properties, const Json::Value &config)
 
 void build(Json::Value &config, const Properties &properties)
 {
+    config["version"] = Json::Int64(detail::CURRENT_JSON_FORMAT_VERSION);
+
     auto &foat(config["foat"] = Json::Value(Json::arrayValue));
     foat.append(Json::UInt64(properties.foat.lod));
     foat.append(Json::UInt64(properties.foat.easting));

@@ -52,7 +52,11 @@ struct LodLevels {
     LodLevels() : lod(), delta() {}
 };
 
-typedef math::Point2_<long> Alignment;
+typedef math::Point2_<long> Point2l;
+
+typedef Point2l Alignment;
+
+typedef math::Extents2_<long> Extents;
 
 /** Storage properties that must be specified during creation. They cannot be
  *  changed later.
@@ -64,7 +68,7 @@ struct CreateProperties {
 
     /** Tile size at LOD=0.
      */
-    unsigned long baseTileSize;
+    long baseTileSize;
 
     /** Tile alignment. No tile exists that contains this point inside.
      */
@@ -279,7 +283,13 @@ Storage::pointer open(const std::string &uri
                       , OpenMode mode = OpenMode::readOnly);
 
 
-unsigned long tileSize(const Properties &properties, Lod lod);
+long tileSize(long baseTileSize, Lod lod);
+
+long tileSize(const Properties &properties, Lod lod);
+
+Extents tileExtents(const Properties &properties, const TileId &tile);
+
+TileId fromAlignment(const Properties &properties, const TileId &tileId);
 
 TileId parent(const Properties &properties, const TileId &tileId);
 
@@ -350,9 +360,27 @@ inline bool SettableProperties::merge(const SettableProperties &other
     return changed;
 }
 
-inline unsigned long tileSize(const Properties &properties, Lod lod)
+inline long tileSize(long baseTileSize, Lod lod)
+{
+    return (baseTileSize >> lod);
+}
+
+inline long tileSize(const Properties &properties, Lod lod)
 {
     return (properties.baseTileSize >> lod);
+}
+
+inline Extents tileExtents(const Properties &properties, const TileId &tile)
+{
+    auto ts(tileSize(properties, tile.lod));
+    return { tile.easting, tile.northing
+            , tile.easting + ts, tile.northing + ts };
+}
+
+inline TileId fromAlignment(const Properties &properties, const TileId &tileId)
+{
+    return { tileId.lod, tileId.easting - properties.alignment(0)
+            , tileId.northing - properties.alignment(1) };
 }
 
 inline TileId parent(const Properties &properties, const TileId &tileId)
