@@ -326,6 +326,8 @@ struct FileSystemStorage::Detail {
     void setMetaNode(const TileId &tileId, const MetaNode& metanode);
 
     void setMetadata(const TileId &tileId, const TileMetadata& metadata);
+
+    void updateZbox(const TileId &tileId, MetaNode &metanode);
 };
 
 namespace {
@@ -388,9 +390,6 @@ void FileSystemStorage::Detail::loadConfig()
                 , properties.foat.northing
                 , properties.foat.easting + properties.foatSize
                 , properties.foat.northing + properties.foatSize };
-
-    // TODO: get lodRange (probably from tile index)
-    // lodRange;
 }
 
 void FileSystemStorage::Detail::saveConfig()
@@ -498,8 +497,6 @@ void FileSystemStorage::Detail::setMetaNode(const TileId &tileId
             lodRange.max = tileId.lod;
         }
     }
-    LOG(info4) << "Extents: " << extents;
-    LOG(info4) << "LodRange: " << lodRange;
 }
 
 MetaNode* FileSystemStorage::Detail::loadMetatile(const TileId &tileId)
@@ -551,6 +548,22 @@ void FileSystemStorage::Detail::check(const TileId &tileId) const
     if ((aligned.easting % ts) || (aligned.northing % ts)) {
         LOGTHROW(err2, NoSuchTile)
             << "Misaligned tile at " << tileId << " cannot exist.";
+    }
+}
+
+void FileSystemStorage::Detail::updateZbox(const TileId &tileId
+                                           , MetaNode &metanode)
+{
+    for (const auto &childId : children(properties.baseTileSize, tileId)) {
+        auto *node = findMetaNode(childId);
+        if (!node) { continue; }
+        metanode.zmin = std::min(metanode.zmin, node->zmin);
+        metanode.zmax = std::max(metanode.zmax, node->zmax);
+    }
+
+    auto parentId(parent(properties, tileId));
+    if (auto *parentNode = findMetaNode(parentId)) {
+        updateZbox(parentId, *parentNode);
     }
 }
 
@@ -656,6 +669,9 @@ void FileSystemStorage::setTile_impl(const TileId &tileId, const Mesh &mesh
 
     // calculate dependent metadata
     metanode.calcParams(mesh, { atlas.cols, atlas.rows });
+
+    // update zbox in the tree
+    detail().updateZbox(tileId, metanode);
 
     // remember new metanode
     detail().setMetaNode(tileId, metanode);

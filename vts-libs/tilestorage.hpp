@@ -5,6 +5,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <string>
+#include <array>
 
 #include <boost/filesystem/path.hpp>
 
@@ -42,6 +43,8 @@ struct TileId {
         : lod(lod), easting(easting), northing(northing)
     {}
 };
+
+typedef std::array<TileId, 4> TileIdChildren;
 
 /** Lod levels.
  */
@@ -293,6 +296,8 @@ TileId fromAlignment(const Properties &properties, const TileId &tileId);
 
 TileId parent(const Properties &properties, const TileId &tileId);
 
+TileIdChildren children(long baseTileSize, const TileId &tileId);
+
 // inline stuff
 
 inline Tile Storage::getTile(const TileId &tileId) const
@@ -385,14 +390,32 @@ inline TileId fromAlignment(const Properties &properties, const TileId &tileId)
 
 inline TileId parent(const Properties &properties, const TileId &tileId)
 {
-    auto size(tileSize(properties, tileId.lod));
+    auto aligned(fromAlignment(properties, tileId));
+    auto ts(tileSize(properties, tileId.lod));
+    aligned.easting /= ts;
+    aligned.northing /= ts;
 
-    const TileId &foat(properties.foat);
-    auto ix((tileId.easting - foat.easting) / size);
-    auto iy((tileId.northing - foat.northing) / size);
+    constexpr auto mask(~(static_cast<decltype(tileId.easting)>(1)));
 
-    return TileId(tileId.lod - 1, foat.easting + (ix & ~1) * size
-                  , foat.northing + (iy & ~1) * size);
+    return {
+        Lod(tileId.lod - 1)
+        , properties.alignment(0) + (aligned.easting & mask) * ts
+        , properties.alignment(1) + (aligned.northing & mask) * ts
+    };
+}
+
+inline TileIdChildren children(long baseTileSize, const TileId &tileId)
+{
+    auto ts(tileSize(baseTileSize, tileId.lod));
+
+    Lod lod(tileId.lod -1);
+
+    return {{
+        { lod, tileId.easting, tileId.northing }               // lower-left
+        , { lod, tileId.easting, tileId.northing + ts }        // lower-right
+        , { lod, tileId.easting + ts, tileId.northing + ts }   // upper-left
+        , { lod, tileId.easting + ts, tileId.northing }        // upper-right
+    }};
 }
 
 } } // namespace vadstena::tilestorage
