@@ -1,5 +1,6 @@
- #include <fstream>
+#include <fstream>
 #include <cstring>
+#include <queue>
 
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
@@ -14,9 +15,13 @@
 #include "../binmesh.hpp"
 #include "../entities.hpp"
 
+#include "./tileop.hpp"
 #include "./fs.hpp"
 #include "./io.hpp"
 #include "./json.hpp"
+
+#include "tilestorage/browser/index.html.hpp"
+#include "tilestorage/browser/skydome.jpg.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -31,6 +36,10 @@ typedef std::map<TileId, MetaNode> Metadata;
 using imgproc::quadtree::RasterMask;
 
 const char TILE_INDEX_IO_MAGIC[7] = { 'T', 'I', 'L', 'E', 'I', 'D', 'X' };
+
+const char METATILE_IO_MAGIC[8] = {  'M', 'E', 'T', 'A', 'T', 'I', 'L', 'E' };
+
+const unsigned METATILE_IO_VERSION = 1;
 
 class TileIndex {
 public:
@@ -54,10 +63,6 @@ public:
     bool empty() const;
 
     Lod maxLod() const;
-
-    /** Calculate foat tile.
-     */
-    TileId foat(const Alignment &alignment) const;
 
 private:
     typedef std::vector<RasterMask> Masks;
@@ -147,27 +152,6 @@ inline Extents TileIndex::extents() const
             , origin_(1) + ts * size.height };
 }
 
-TileId TileIndex::foat(const Alignment &alignment) const
-{
-    if (masks_.empty()) { return {}; }
-
-    auto ts(tileSize(baseTileSize_, minLod_));
-    const auto size(masks_.front().size());
-    const Point2l ur(origin_(0) + ts * size.width
-               , origin_(1) + ts * size.height);
-
-    TileId foat(minLod_, origin_(0), origin_(1));
-
-    // enlarge foat until ur is covered
-    while ((ur(0) > (foat.easting + ts))
-           && (ur(1) > (foat.northing + ts)))
-    {
-        foat = parent(alignment, baseTileSize_, foat);
-        ts *= 2;
-    }
-    return foat;
-}
-
 inline const RasterMask* TileIndex::mask(Lod lod) const
 {
     auto idx(lod - minLod_);
@@ -210,14 +194,17 @@ void TileIndex::fill(const Metadata &metadata)
 
         auto *m(mask(tileId.lod));
         if (!m) {
-            // TODO: huh? that should never happen!
+            // lod out of interest
             continue;
         }
 
         // tile size
         auto ts(tileSize(baseTileSize_, tileId.lod));
+
+        // set/unset tile presence
         m->set((tileId.easting - origin_(0)) / ts
-               , (tileId.northing - origin_(1)) / ts);
+               , (tileId.northing - origin_(1)) / ts
+               , node.second.exists());
     }
 }
 
@@ -309,6 +296,19 @@ void TileIndex::save(const fs::path &path) const
     f.close();
 }
 
+struct MetatileDef {
+    TileId id;
+    Lod end;
+
+    MetatileDef(const TileId id, Lod end)
+        : id(id), end(end)
+    {}
+
+    bool bottom() const { return (id.lod + 1) >= end; }
+
+    typedef std::queue<MetatileDef> queue;
+};
+
 } // namespace
 
 struct FileSystemStorage::Detail {
@@ -317,7 +317,8 @@ struct FileSystemStorage::Detail {
 
     // properties
     Json::Value config;     // parsed config as JSON tree
-    Properties properties;  // properties
+    Properties savedProperties;  // properties as are on disk
+    Properties properties;       // current properties
     bool propertiesChanged; // marks whether properties have been changed
 
     TileIndex tileIndex;    // tile index that reflects state on the disk
@@ -352,9 +353,21 @@ struct FileSystemStorage::Detail {
 
     void setMetadata(const TileId &tileId, const TileMetadata& metadata);
 
+    MetaNode& createVirtualMetaNode(const TileId &tileId);
+
+    bool isFoat(const TileId &tileId) const;
+
     void updateZbox(const TileId &tileId, MetaNode &metanode);
 
     void flush();
+
+    void saveMetatiles() const;
+
+    void saveMetatile(MetatileDef::queue &subtrees
+                      , const MetatileDef &tile) const;
+
+    void saveMetatileTree(MetatileDef::queue &subtrees, std::ostream &f
+                          , const MetatileDef &tile) const;
 };
 
 namespace {
@@ -365,7 +378,7 @@ const std::string TileIndexName("index.bin");
 
 fs::path filePath(const TileId &tileId, const std::string &ext)
 {
-    return str(boost::format("%s-%s-%s.%s")
+    return str(boost::format("%s-%07d-%07d.%s")
                % tileId.lod % tileId.easting % tileId.northing % ext);
 }
 
@@ -411,6 +424,7 @@ void FileSystemStorage::Detail::loadConfig()
     }
 
     parse(properties, config);
+    savedProperties = properties;
 }
 
 void FileSystemStorage::Detail::saveConfig()
@@ -425,6 +439,7 @@ void FileSystemStorage::Detail::saveConfig()
         std::ofstream f;
         f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
         f.open(path.string());
+        f.precision(15);
         Json::StyledStreamWriter().write(f, config);
         f.close();
     } catch (const std::exception &e) {
@@ -433,7 +448,8 @@ void FileSystemStorage::Detail::saveConfig()
             << e.what() << ".";
     }
 
-    // done
+    // done; remember saved properties and go on
+    savedProperties = properties;
     propertiesChanged = false;
 }
 
@@ -460,18 +476,15 @@ void FileSystemStorage::Detail::saveMetadata()
     // cool, we have new tile index
     tileIndex = ti;
 
-    // determine new foat
-    auto foat(ti.foat(properties.alignment));
-    LOG(info2) << "New foat is " << foat << ".";
-
-    // TODO: generate all metatiles from new foat
-
-
-    // update foat in properties if changed
-    if (foat != properties.foat) {
-        properties.foat = foat;
-        propertiesChanged = true;
+    // TODO: we have to load all metatiles present on the disk to proceed
+    if (metadata.empty()) {
+        // no tile, we should invalidate foat
+        properties.foat = {};
+        LOG(info2) << "New foat is " << properties.foat << ".";
     }
+
+    // well, dump metatiles now
+    saveMetatiles();
 
     // saved => no change
     metadataChanged = false;
@@ -513,7 +526,6 @@ void FileSystemStorage::Detail::setMetaNode(const TileId &tileId
     if (!res.second) {
         res.first->second = metanode;
     }
-    metadataChanged = true;
 
     // grow extents
     if (!area(extents)) {
@@ -534,6 +546,28 @@ void FileSystemStorage::Detail::setMetaNode(const TileId &tileId
             lodRange.max = tileId.lod;
         }
     }
+
+    // layout updated -> update zboxes up the tree
+    updateZbox(tileId, res.first->second);
+
+    metadataChanged = true;
+}
+
+MetaNode&
+FileSystemStorage::Detail::createVirtualMetaNode(const TileId &tileId)
+{
+    // this ensures that we have old metanode in memory
+    auto *md(findMetaNode(tileId));
+    if (!md) {
+        // no node (real or virtual), create virtual node
+        md = &(metadata.insert(Metadata::value_type(tileId, MetaNode()))
+               .first->second);
+    }
+
+    metadataChanged = true;
+
+    // ok
+    return *md;
 }
 
 MetaNode* FileSystemStorage::Detail::loadMetatile(const TileId &tileId)
@@ -575,6 +609,7 @@ void FileSystemStorage::Detail::check(const TileId &tileId) const
 void FileSystemStorage::Detail::updateZbox(const TileId &tileId
                                            , MetaNode &metanode)
 {
+    // process all 4 children
     for (const auto &childId : children(properties.baseTileSize, tileId)) {
         if (auto *node = findMetaNode(childId)) {
             metanode.zmin = std::min(metanode.zmin, node->zmin);
@@ -582,12 +617,42 @@ void FileSystemStorage::Detail::updateZbox(const TileId &tileId
         }
     }
 
+    // this tile is (current) foat -> no parent can ever exist (until real tile
+    // is added)
+    if (isFoat(tileId)) {
+        // we reached foat tile => way up
+        if (tileId != properties.foat) {
+            properties.foat = tileId;
+            properties.foatSize = tileSize(properties, tileId.lod);
+            propertiesChanged = true;
+            LOG(info2) << "New foat is " << properties.foat << ".";
+        }
+        return;
+    }
+
     auto parentId(parent(properties.alignment
                          , properties.baseTileSize
                          , tileId));
     if (auto *parentNode = findMetaNode(parentId)) {
         updateZbox(parentId, *parentNode);
+    } else {
+        // there is no parent present in the tree; process freshly generated
+        // parent
+        updateZbox(parentId, createVirtualMetaNode(parentId));
     }
+}
+
+bool FileSystemStorage::Detail::isFoat(const TileId &tileId) const
+{
+    if (extents.ll(0) < tileId.easting) { return false; }
+    if (extents.ll(1) < tileId.northing) { return false; }
+
+    auto ts(tileSize(properties.baseTileSize, tileId.lod));
+
+    if (extents.ur(0) > (tileId.easting + ts)) { return false; }
+    if (extents.ur(1) > (tileId.northing + ts)) { return false; }
+
+    return true;
 }
 
 void FileSystemStorage::Detail::flush()
@@ -595,8 +660,7 @@ void FileSystemStorage::Detail::flush()
     if (readOnly) { return; }
     LOG(info2) << "Flushing storage at path: " << root;
 
-    // force metadata save (can lead to property change => must be before config
-    // save)
+    // force metadata save
     if (metadataChanged) {
         saveMetadata();
     }
@@ -604,6 +668,102 @@ void FileSystemStorage::Detail::flush()
     // force config save
     if (propertiesChanged) {
         saveConfig();
+    }
+}
+
+void FileSystemStorage::Detail::saveMetatileTree(MetatileDef::queue &subtrees
+                                                 , std::ostream &f
+                                                 , const MetatileDef &tile)
+    const
+{
+    using utility::binaryio::write;
+
+    auto bottom(tile.bottom());
+
+    LOG(info2) << "dumping " << tile.id << ", " << tile.end
+               << ", bottom: " << bottom
+               << ".";
+
+    const auto *node(findMetaNode(tile.id));
+    if (!node) {
+        LOGTHROW(err2, Error)
+            << "Can't find metanode for tile " << tile.id;
+    }
+
+    node->dump(f);
+
+    std::uint8_t childFlags(0);
+    std::uint8_t mask(1);
+    auto childrenIds(children(properties.baseTileSize, tile.id));
+
+    for (auto &childId : childrenIds) {
+        if (findMetaNode(childId)) {
+            childFlags |= mask;
+        }
+        mask <<= 1;
+    }
+
+    if (!bottom) {
+        // children are local
+        childFlags |= (childFlags << 4);
+    }
+    write(f, childFlags);
+
+    // either dump 4 subnodes now or remember them in the subtrees
+    mask = 1;
+    for (const auto &childId : childrenIds) {
+        if ((childFlags & mask)) {
+            if (bottom) {
+                // we are at the bottom of the metatile; remember subtree
+                subtrees.emplace
+                    (childId, deltaDown(properties.metaLevels, childId.lod));
+            } else {
+                // save subtree in this tile
+                saveMetatileTree(subtrees, f
+                                 , { childId, deltaDown(properties.metaLevels
+                                                        , childId.lod) });
+            }
+        }
+        mask <<= 1;
+    }
+}
+
+/** Save metatile at given tile: subtree from tile'slod until end lod is
+ * reached
+ */
+void FileSystemStorage::Detail::saveMetatile(MetatileDef::queue &subtrees
+                                             , const MetatileDef &tile)
+    const
+{
+    using utility::binaryio::write;
+
+    auto path(root / filePath(tile.id, "meta"));
+
+    LOG(info2) << "saving metatile to " << path << ".";
+
+    utility::ofstreambuf f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    f.open(path.string(), std::ios_base::out | std::ios_base::trunc);
+
+    write(static_cast<std::ostream&>(f), METATILE_IO_MAGIC);
+    write(f, uint32_t(METATILE_IO_VERSION));
+
+    saveMetatileTree(subtrees, f, tile);
+
+    f.close();
+}
+
+void FileSystemStorage::Detail::saveMetatiles() const
+{
+    // initialize subtrees with foat
+    MetatileDef::queue subtrees;
+    subtrees.emplace
+        (properties.foat
+         , deltaDown(properties.metaLevels, properties.foat.lod));
+
+    while (!subtrees.empty()) {
+        saveMetatile(subtrees, subtrees.front());
+        subtrees.pop();
     }
 }
 
@@ -647,6 +807,11 @@ FileSystemStorage::FileSystemStorage(const std::string &root
 
     detail().propertiesChanged = true;
     flush();
+
+    // write convenience browser
+
+    utility::write(detail().root / "index.html", browser::index_html);
+    utility::write(detail().root / "skydome.jpg", browser::skydome_jpg);
 }
 
 FileSystemStorage::FileSystemStorage(const std::string &root, OpenMode mode)
@@ -705,9 +870,6 @@ void FileSystemStorage::setTile_impl(const TileId &tileId, const Mesh &mesh
 
     // calculate dependent metadata
     metanode.calcParams(mesh, { atlas.cols, atlas.rows });
-
-    // update zbox in the tree
-    detail().updateZbox(tileId, metanode);
 
     // remember new metanode
     detail().setMetaNode(tileId, metanode);

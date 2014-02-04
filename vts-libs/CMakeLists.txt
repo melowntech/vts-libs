@@ -30,6 +30,14 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     set(CUSTOMER_SOURCES customer/none.cpp)
   endif()
 
+  # add browser files
+  file_to_cpp(vadstena-libs_BROWSER_SOURCES
+    vadstena::tilestorage::browser::index_html
+    tilestorage/browser/index.html)
+  file_to_cpp(vadstena-libs_BROWSER_SOURCES
+    vadstena::tilestorage::browser::skydome_jpg
+    tilestorage/browser/skydome.jpg)
+
   set(vadstena-libs_SOURCES
     db.hpp db.cpp
     file.hpp
@@ -52,6 +60,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     binmesh.hpp binmesh.cpp
 
     tilestorage.hpp tilestorage/tilestorage.cpp
+    tilestorage/tileop.hpp
     tilestorage/io.hpp
     tilestorage/json.hpp tilestorage/json.cpp
     tilestorage/fs.hpp tilestorage/fs.cpp
@@ -61,6 +70,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     ${PUBLIC_KEY_SOURCES}
 
     customer.hpp ${CUSTOMER_SOURCES}
+
+    ${vadstena-libs_BROWSER_SOURCES}
     )
 
   # fallback to non-C++11 standard for this helper file
