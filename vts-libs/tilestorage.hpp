@@ -294,7 +294,8 @@ Extents tileExtents(const Properties &properties, const TileId &tile);
 
 TileId fromAlignment(const Properties &properties, const TileId &tileId);
 
-TileId parent(const Properties &properties, const TileId &tileId);
+TileId parent(const Alignment &alignment, long baseTileSize
+              , const TileId &tileId);
 
 TileIdChildren children(long baseTileSize, const TileId &tileId);
 
@@ -388,27 +389,26 @@ inline TileId fromAlignment(const Properties &properties, const TileId &tileId)
             , tileId.northing - properties.alignment(1) };
 }
 
-inline TileId parent(const Properties &properties, const TileId &tileId)
+inline TileId parent(const Alignment &alignment, long baseTileSize
+                     , const TileId &tileId)
 {
-    auto aligned(fromAlignment(properties, tileId));
-    auto ts(tileSize(properties, tileId.lod));
-    aligned.easting /= ts;
-    aligned.northing /= ts;
+    auto ts(tileSize(baseTileSize, tileId.lod));
+    Point2l tiled((tileId.easting - alignment(0)) / ts
+                  , (tileId.northing - alignment(1)) / ts);
 
     constexpr auto mask(~(static_cast<decltype(tileId.easting)>(1)));
 
     return {
         Lod(tileId.lod - 1)
-        , properties.alignment(0) + (aligned.easting & mask) * ts
-        , properties.alignment(1) + (aligned.northing & mask) * ts
+        , alignment(0) + (tiled(0) & mask) * ts
+        , alignment(1) + (tiled(1) & mask) * ts
     };
 }
 
 inline TileIdChildren children(long baseTileSize, const TileId &tileId)
 {
-    auto ts(tileSize(baseTileSize, tileId.lod));
-
-    Lod lod(tileId.lod -1);
+    Lod lod(tileId.lod + 1);
+    auto ts(tileSize(baseTileSize, lod));
 
     return {{
         { lod, tileId.easting, tileId.northing }               // lower-left

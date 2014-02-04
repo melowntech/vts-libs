@@ -55,6 +55,10 @@ public:
 
     Lod maxLod() const;
 
+    /** Calculate foat tile.
+     */
+    TileId foat(const Alignment &alignment) const;
+
 private:
     typedef std::vector<RasterMask> Masks;
 
@@ -133,16 +137,35 @@ inline Lod TileIndex::maxLod() const
 
 inline Extents TileIndex::extents() const
 {
-    if (masks_.empty()) {
-        return {};
-    }
+    if (masks_.empty()) { return {}; }
 
     auto size(masks_.front().size());
     auto ts(tileSize(baseTileSize_, minLod_));
 
     return { origin_(0), origin_(1)
             , origin_(0) + ts * size.width
-            , origin_(0) + ts * size.height };
+            , origin_(1) + ts * size.height };
+}
+
+TileId TileIndex::foat(const Alignment &alignment) const
+{
+    if (masks_.empty()) { return {}; }
+
+    auto ts(tileSize(baseTileSize_, minLod_));
+    auto size(masks_.front().size());
+
+    Point2l ur(origin_(0) + ts * size.width
+               , origin_(1) + ts * size.height);
+    TileId foat(minLod_, origin_(0), origin_(1));
+
+    // enlarge foat until ur is covered
+    while ((ur(0) > (foat.easting + ts))
+           && (ur(1) > (foat.northing + ts)))
+    {
+        foat = parent(alignment, baseTileSize_, foat);
+        ts *= 2;
+    }
+    return foat;
 }
 
 inline const RasterMask* TileIndex::mask(Lod lod) const
@@ -384,12 +407,6 @@ void FileSystemStorage::Detail::loadConfig()
     }
 
     parse(properties, config);
-
-    // new extents
-    extents = { properties.foat.easting
-                , properties.foat.northing
-                , properties.foat.easting + properties.foatSize
-                , properties.foat.northing + properties.foatSize };
 }
 
 void FileSystemStorage::Detail::saveConfig()
@@ -440,6 +457,9 @@ void FileSystemStorage::Detail::saveMetadata()
             << ": " << e.what() << ".";
     }
 
+    auto foat(ti.foat(properties.alignment));
+    LOG(info4) << "foat is " << foat;
+
     metadataChanged = false;
 }
 
@@ -452,6 +472,9 @@ void FileSystemStorage::Detail::loadTileIndex()
             << "Unable to read tile index at " << (root / TileIndexName)
             << ": " << e.what() << ".";
     }
+
+    // new extents
+    extents = tileIndex.extents();
 }
 
 MetaNode* FileSystemStorage::Detail::findMetaNode(const TileId &tileId)
@@ -508,22 +531,6 @@ MetaNode* FileSystemStorage::Detail::loadMetatile(const TileId &tileId)
 
     // NB: this call loads whole metatile file where tileId lives; only nodes
     // that are not present in this->metadata are inserted there
-
-#if 0
-    // find out lod to look for
-
-    // calculate number of lods from origin lod
-    auto diff(properties.metaLevels.lod - tileId.lod);
-    // calculate steps from reference lod
-    auto steps(diff / properties.metaLevels.delta);
-    if ((steps < 0) && (-diff % properties.metaLevels.delta)) {
-        // negative and not multiple of delta -> one more step up
-        --steps;
-    }
-
-    Lod mtLod(properties.metaLevels.lod
-              + (steps * properties.metaLevels.delta));
-#endif
 }
 
 void FileSystemStorage::Detail::setMetadata(const TileId &tileId
@@ -555,13 +562,15 @@ void FileSystemStorage::Detail::updateZbox(const TileId &tileId
                                            , MetaNode &metanode)
 {
     for (const auto &childId : children(properties.baseTileSize, tileId)) {
-        auto *node = findMetaNode(childId);
-        if (!node) { continue; }
-        metanode.zmin = std::min(metanode.zmin, node->zmin);
-        metanode.zmax = std::max(metanode.zmax, node->zmax);
+        if (auto *node = findMetaNode(childId)) {
+            metanode.zmin = std::min(metanode.zmin, node->zmin);
+            metanode.zmax = std::max(metanode.zmax, node->zmax);
+        }
     }
 
-    auto parentId(parent(properties, tileId));
+    auto parentId(parent(properties.alignment
+                         , properties.baseTileSize
+                         , tileId));
     if (auto *parentNode = findMetaNode(parentId)) {
         updateZbox(parentId, *parentNode);
     }
