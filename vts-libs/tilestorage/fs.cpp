@@ -152,10 +152,10 @@ TileId TileIndex::foat(const Alignment &alignment) const
     if (masks_.empty()) { return {}; }
 
     auto ts(tileSize(baseTileSize_, minLod_));
-    auto size(masks_.front().size());
-
-    Point2l ur(origin_(0) + ts * size.width
+    const auto size(masks_.front().size());
+    const Point2l ur(origin_(0) + ts * size.width
                , origin_(1) + ts * size.height);
+
     TileId foat(minLod_, origin_(0), origin_(1));
 
     // enlarge foat until ur is covered
@@ -332,6 +332,8 @@ struct FileSystemStorage::Detail {
         , metadataChanged(false)
     {}
 
+    void wannaWrite(const std::string &what) const;
+
     void check(const TileId &tileId) const;
 
     void loadConfig();
@@ -351,6 +353,8 @@ struct FileSystemStorage::Detail {
     void setMetadata(const TileId &tileId, const TileMetadata& metadata);
 
     void updateZbox(const TileId &tileId, MetaNode &metanode);
+
+    void flush();
 };
 
 namespace {
@@ -411,9 +415,7 @@ void FileSystemStorage::Detail::loadConfig()
 
 void FileSystemStorage::Detail::saveConfig()
 {
-    if (readOnly) {
-        LOGTHROW(err2, Error) << "Storage is read-only.";
-    }
+    wannaWrite("save config");
 
     build(config, properties);
 
@@ -437,18 +439,16 @@ void FileSystemStorage::Detail::saveConfig()
 
 void FileSystemStorage::Detail::saveMetadata()
 {
-    if (readOnly) {
-        LOGTHROW(err2, Error) << "Storage is read-only.";
-    }
+    wannaWrite("save metadata");
 
-    // TODO: merge tile index with original tile index
-
-    // create tile index
+    // create tile index (initialize with existing one)
     TileIndex ti(properties.baseTileSize, extents, lodRange
                  , tileIndex);
 
+    // fill in new metadata
     ti.fill(metadata);
 
+    // save
     try {
         ti.save(root / TileIndexName);
     } catch (const std::exception &e) {
@@ -457,9 +457,23 @@ void FileSystemStorage::Detail::saveMetadata()
             << ": " << e.what() << ".";
     }
 
-    auto foat(ti.foat(properties.alignment));
-    LOG(info4) << "foat is " << foat;
+    // cool, we have new tile index
+    tileIndex = ti;
 
+    // determine new foat
+    auto foat(ti.foat(properties.alignment));
+    LOG(info2) << "New foat is " << foat << ".";
+
+    // TODO: generate all metatiles from new foat
+
+
+    // update foat in properties if changed
+    if (foat != properties.foat) {
+        properties.foat = foat;
+        propertiesChanged = true;
+    }
+
+    // saved => no change
     metadataChanged = false;
 }
 
@@ -576,6 +590,32 @@ void FileSystemStorage::Detail::updateZbox(const TileId &tileId
     }
 }
 
+void FileSystemStorage::Detail::flush()
+{
+    if (readOnly) { return; }
+    LOG(info2) << "Flushing storage at path: " << root;
+
+    // force metadata save (can lead to property change => must be before config
+    // save)
+    if (metadataChanged) {
+        saveMetadata();
+    }
+
+    // force config save
+    if (propertiesChanged) {
+        saveConfig();
+    }
+}
+
+inline void FileSystemStorage::Detail::wannaWrite(const std::string &what)
+    const
+{
+    if (readOnly) {
+        LOGTHROW(err2, Error)
+            << "Cannot " << what << ": storage is read-only.";
+    }
+}
+
 // storage itself
 
 FileSystemStorage::FileSystemStorage(const std::string &root
@@ -623,18 +663,7 @@ FileSystemStorage::~FileSystemStorage()
 
 void FileSystemStorage::flush_impl()
 {
-    if (detail().readOnly) { return; }
-    LOG(info2) << "Flushing storage at path: " << detail().root;
-
-    // force config save
-    if (detail().propertiesChanged) {
-        detail().saveConfig();
-    }
-
-    // force metadata save
-    if (detail().metadataChanged) {
-        detail().saveMetadata();
-    }
+    detail().flush();
 }
 
 Tile FileSystemStorage::getTile_impl(const TileId &tileId) const
@@ -658,9 +687,7 @@ void FileSystemStorage::setTile_impl(const TileId &tileId, const Mesh &mesh
                                      , const Atlas &atlas
                                      , const TileMetadata *metadata)
 {
-    if (detail().readOnly) {
-        LOGTHROW(err2, Error) << "Storage is read-only.";
-    }
+    detail().wannaWrite("set tile");
 
     detail().check(tileId);
 
@@ -689,9 +716,7 @@ void FileSystemStorage::setTile_impl(const TileId &tileId, const Mesh &mesh
 void FileSystemStorage::setMetadata_impl(const TileId &tileId
                                          , const TileMetadata &metadata)
 {
-    if (detail().readOnly) {
-        LOGTHROW(err2, Error) << "Storage is read-only.";
-    }
+    detail().wannaWrite("set tile metadata");
 
     detail().check(tileId);
 
@@ -720,9 +745,7 @@ Properties
 FileSystemStorage::setProperties_impl(const SettableProperties &properties
                                       , int mask)
 {
-    if (detail().readOnly) {
-        LOGTHROW(err2, Error) << "Storage is read-only.";
-    }
+    detail().wannaWrite("set properties");
 
     // merge in new properties
     if (detail().properties.merge(properties, mask)) {

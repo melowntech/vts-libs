@@ -418,6 +418,18 @@ inline TileIdChildren children(long baseTileSize, const TileId &tileId)
     }};
 }
 
+inline bool operator==(const TileId &lhs, const TileId &rhs)
+{
+    return ((lhs.lod == rhs.lod)
+            && (lhs.easting == rhs.easting)
+            && (lhs.northing == rhs.northing));
+}
+
+inline bool operator!=(const TileId &lhs, const TileId &rhs)
+{
+    return !(lhs == rhs);
+}
+
 } } // namespace vadstena::tilestorage
 
 #endif // vadstena_libs_tilestorage_hpp_included_
