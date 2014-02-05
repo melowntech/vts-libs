@@ -10,6 +10,8 @@ const int CURRENT_JSON_FORMAT_VERSION(1);
 
 void parse1(Properties &properties, const Json::Value &config)
 {
+    Json::get(properties.id, config["id"]);
+
     const auto &foat(config["foat"]);
     Json::get(properties.foat.lod, foat[0]);
     Json::get(properties.foat.easting, foat[1]);
@@ -66,6 +68,8 @@ void parse(Properties &properties, const Json::Value &config)
 void build(Json::Value &config, const Properties &properties)
 {
     config["version"] = Json::Int64(detail::CURRENT_JSON_FORMAT_VERSION);
+
+    config["id"] = properties.id;
 
     auto &foat(config["foat"] = Json::Value(Json::arrayValue));
     foat.append(Json::UInt64(properties.foat.lod));

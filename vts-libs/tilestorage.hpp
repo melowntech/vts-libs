@@ -65,6 +65,10 @@ typedef math::Extents2_<long> Extents;
  *  changed later.
  */
 struct CreateProperties {
+    /** Unique set identifier.
+     */
+    std::string id;
+
     /** Metatile lod levels (metaLevels.lod + n * metaLevels.delta).
      */
     LodLevels metaLevels;
@@ -120,12 +124,12 @@ struct Error : std::runtime_error {
     Error(const std::string &message) : std::runtime_error(message) {}
 };
 
-struct NoSuchStorage : Error {
-    NoSuchStorage(const std::string &message) : Error(message) {}
+struct NoSuchTileSet : Error {
+    NoSuchTileSet(const std::string &message) : Error(message) {}
 };
 
-struct StorageAlreadyExists : Error {
-    StorageAlreadyExists(const std::string &message) : Error(message) {}
+struct TileSetAlreadyExists : Error {
+    TileSetAlreadyExists(const std::string &message) : Error(message) {}
 };
 
 struct FormatError : Error {
@@ -136,25 +140,19 @@ struct NoSuchTile : Error {
     NoSuchTile(const std::string &message) : Error(message) {}
 };
 
-/** Storage interface.
- *
- * This class is pure virtual class. To create instance of storage use create()
- * or open() free standing function.
- *
- * NB: this class follows Non-Virtual Interface Idiom defined by Herb Sutter in
- * his "Virtuality" article at <http://www.gotw.ca/publications/mill18.htm>.
- *
- * All you need to write your own storage is to inherit this class and implement
- * all* _impl member functions. Also, you need to register your class inside
- * create() and open() functions.
+/** Driver that implements physical aspects of tile storage.
  */
-class Storage {
+class Driver;
+
+/** TileSet interface.
+ */
+class TileSet {
 public:
     /** Pointer type.
      */
-    typedef std::shared_ptr<Storage> pointer;
+    typedef std::shared_ptr<TileSet> pointer;
 
-    virtual ~Storage() = 0;
+    ~TileSet();
 
     /** Get tile content.
      * \param tileId idetifier of tile to return.
@@ -208,43 +206,18 @@ public:
      */
     void flush();
 
-private:
-    /** Override in derived class. Called from getTile.
-     */
-    virtual Tile getTile_impl(const TileId &tileId) const = 0;
-
-    /** Override in derived class. Called from setTile.
-     */
-    virtual void setTile_impl(const TileId &tileId, const Mesh &mesh
-                              , const Atlas &atlas
-                              , const TileMetadata *metadata) = 0;
-
-    /** Override in derived class. Called from setMetadata.
-     */
-    virtual void setMetadata_impl(const TileId &tileId
-                                  , const TileMetadata &metadata) = 0;
-
-    /** Override in derived class. Called from tileExists.
-     */
-    virtual bool tileExists_impl(const TileId &tileId) const = 0;
-
-    /** Override in derived class. Called from getProperties.
-     */
-    virtual Properties getProperties_impl() const = 0;
-
-    /** Override in derived class. Called from setProperties.
-     */
-    virtual Properties setProperties_impl(const SettableProperties &properties
-                                          , int mask) = 0;
-
-    /** Override in derived class. Called from flush.
-     */
-    virtual void flush_impl() = 0;
-
-public:
     /** Needed to instantiate subclasses.
      */
     class Factory;
+    friend class Factory;
+
+private:
+    TileSet(const std::shared_ptr<Driver> &driver);
+
+    struct Detail;
+    std::unique_ptr<Detail> detail_;
+    Detail& detail() { return *detail_; }
+    const Detail& detail() const { return *detail_; }
 };
 
 /** Open mode
@@ -259,73 +232,34 @@ enum class CreateMode {
     , overwrite  //!< existing storage is replace with new one
 };
 
-/** Creates new storage.
+/** Creates new tile set.
  *
- * \param uri URI that specifies storage type and location.
- * \param properties properties to initialize new storage with
- * \param mode what to do when storage already exists:
- *                 * failIfExists: storage must not exists prior this call
- *                 * overwrite: new storage is created
- * \return interface to new storage
- * \throws Error if storage cannot be created
+ * \param uri URI that specifies tile set type and location.
+ * \param properties properties to initialize new tile set with
+ * \param mode what to do when tile set already exists:
+ *                 * failIfExists: tile set must not exists prior this call
+ *                 * overwrite: new tile set is created
+ * \return interface to new tile set
+ * \throws Error if tile set cannot be created
  */
-Storage::pointer create(const std::string &uri
-                        , const CreateProperties &properties
-                        , CreateMode mode = CreateMode::failIfExists);
+TileSet::pointer createTileSet(const std::string &uri
+                               , const CreateProperties &properties
+                               , CreateMode mode = CreateMode::failIfExists);
 
-/** Opens existing storage.
+/** Opens existing tile set.
  *
- * \param uri URI that specifies storage type and location.
- * \param mode what operations are allowed on storage:
+ * \param uri URI that specifies tile set type and location.
+ * \param mode what operations are allowed on tile set:
  *                 * readOnly: only getters are allowed
  *                 * readWrite: both getters and setters are allowed
- * \return interface to new storage
- * \throws Error if storage cannot be opened
+ * \return interface to new tile set
+ * \throws Error if tile set cannot be opened
  */
-Storage::pointer open(const std::string &uri
-                      , OpenMode mode = OpenMode::readOnly);
+TileSet::pointer openTileSet(const std::string &uri
+                             , OpenMode mode = OpenMode::readOnly);
 
 
 // inline stuff
-
-inline Tile Storage::getTile(const TileId &tileId) const
-{
-    return getTile_impl(tileId);
-}
-
-inline void Storage::setTile(const TileId &tileId, const Mesh &mesh
-                             , const Atlas &atlas
-                             , const TileMetadata *metadata)
-{
-    return setTile_impl(tileId, mesh, atlas, metadata);
-}
-
-inline void Storage::setMetadata(const TileId &tileId
-                                 , const TileMetadata &metadata)
-{
-    return setMetadata_impl(tileId, metadata);
-}
-
-inline bool Storage::tileExists(const TileId &tileId) const
-{
-    return tileExists_impl(tileId);
-}
-
-inline Properties Storage::getProperties() const
-{
-    return getProperties_impl();
-}
-
-inline Properties Storage::setProperties(const SettableProperties &properties
-                                         , int mask)
-{
-    return setProperties_impl(properties, mask);
-}
-
-inline void Storage::flush()
-{
-    return flush_impl();
-}
 
 inline bool TileId::operator<(const TileId &tid) const
 {

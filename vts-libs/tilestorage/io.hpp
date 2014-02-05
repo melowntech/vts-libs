@@ -111,9 +111,10 @@ dump(std::basic_ostream<CharT, Traits> &os
      , const CreateProperties &p
      , const std::string &prefix = std::string())
 {
+    os << prefix << "id = " << p.id << '\n';
     dump(os, p.metaLevels, prefix + "metaLevels.");
-    os << prefix << "baseTileSize = " << p.baseTileSize << '\n';
-    os << prefix << "alignment = " << p.alignment(0) << ','
+    os << prefix << "baseTileSize = " << p.baseTileSize << '\n'
+       << prefix << "alignment = " << p.alignment(0) << ','
        << p.alignment(1) << '\n';
     return os;
 }
