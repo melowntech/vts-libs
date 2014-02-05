@@ -28,11 +28,14 @@ struct Locator {
     std::string location;
 };
 
-/** TODO: implement
- */
 Locator parseUri(const std::string &uri)
 {
-    return { "file", uri };
+    auto idx(uri.find(':'));
+    if (idx == std::string::npos) {
+        return { "flat", uri };
+    }
+
+    return { uri.substr(0, idx), uri.substr(idx + 1) };
 }
 
 struct MetatileDef {
@@ -57,33 +60,15 @@ struct TileSet::Factory
                                    , CreateMode mode)
     {
         auto locator(parseUri(uri));
-
-        Driver::pointer driver;
-
-        if (locator.type == "file") {
-            driver.reset(new FlatDriver(locator.location
-                                        , properties, mode));
-        } else {
-            LOGTHROW(err2, NoSuchTileSet)
-                << "Invalid tile set type <" << locator.type << ">.";
-        }
-
+        auto driver(Driver::create(locator.type, locator.location
+                                   , properties, mode));
         return { new TileSet(driver), &tileSetDeleter };
     }
 
     static TileSet::pointer open(const std::string &uri, OpenMode mode)
     {
         auto locator(parseUri(uri));
-
-        Driver::pointer driver;
-
-        if (locator.type == "file") {
-            driver.reset(new FlatDriver(locator.location, mode));
-        } else {
-            LOGTHROW(err2, NoSuchTileSet)
-                << "Invalid tile set type <" << locator.type << ">.";
-        }
-
+        auto driver(Driver::open(locator.type, locator.location, mode));
         return { new TileSet(driver), &tileSetDeleter };
     }
 };

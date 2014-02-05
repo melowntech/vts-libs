@@ -59,7 +59,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     metatile.hpp metatile.cpp
     binmesh.hpp binmesh.cpp
 
-    tilestorage.hpp tilestorage/tilestorage.cpp
+    tilestorage.hpp
+    tilestorage/tileset.cpp
     tilestorage/tileop.hpp
     tilestorage/io.hpp
     tilestorage/json.hpp tilestorage/json.cpp

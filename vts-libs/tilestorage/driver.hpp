@@ -3,6 +3,9 @@
 
 #include <iostream>
 
+#include "dbglog/dbglog.hpp"
+#include "utility/gccversion.hpp"
+
 #include "../tilestorage.hpp"
 
 namespace vadstena { namespace tilestorage {
@@ -38,6 +41,19 @@ public:
 
     void wannaWrite(const std::string &what) const;
 
+    class Factory;
+
+    template <typename DriverClass> static void registerDriver();
+
+    static Driver::pointer create(const std::string type
+                                  , const std::string location
+                                  , const CreateProperties &properties
+                                  , CreateMode mode);
+
+    static Driver::pointer open(const std::string type
+                                , const std::string location
+                                , OpenMode mode);
+
 protected:
     Driver(bool readOnly) : readOnly_(readOnly) {}
 
@@ -65,10 +81,54 @@ private:
 
     virtual Atlas loadAtlas_impl(const TileId tileId) = 0;
 
+    static void registerDriver(const std::shared_ptr<Factory> &factory);
+
     bool readOnly_;
 };
 
+class Driver::Factory {
+public:
+    typedef std::shared_ptr<Factory> pointer;
+    Factory(const std::string &type) : type(type) {}
+
+    virtual ~Factory() {}
+
+    virtual Driver::pointer create(const std::string location
+                                   , const CreateProperties &properties
+                                   , CreateMode mode) const = 0;
+
+    virtual Driver::pointer open(const std::string location
+                                 , OpenMode mode) const = 0;
+
+    const std::string type;
+};
+
+#define VADSTENA_TILESTORAGE_DRIVER_FACTORY(DRIVER_TYPE, DRIVER_CLASS)  \
+    class Factory : public Driver::Factory {                            \
+    public:                                                             \
+        Factory() : Driver::Factory(DRIVER_TYPE) {}                     \
+                                                                        \
+        virtual Driver::pointer create(const std::string location       \
+                                       , const CreateProperties &properties \
+                                       , CreateMode mode) const override \
+        {                                                               \
+            return std::make_shared<DRIVER_CLASS>(location, properties, mode); \
+        }                                                               \
+                                                                        \
+        virtual Driver::pointer open(const std::string location         \
+                                       , OpenMode mode) const override  \
+        {                                                               \
+            return std::make_shared<DRIVER_CLASS>(location, mode);      \
+        }                                                               \
+    }
+
 // inline stuff
+
+template <typename DriverClass>
+void Driver::registerDriver()
+{
+    registerDriver(std::make_shared<typename DriverClass::Factory>());
+}
 
 inline Properties Driver::loadProperties() {
     return loadProperties_impl();

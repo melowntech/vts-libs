@@ -3,8 +3,6 @@
 
 #include <boost/filesystem/path.hpp>
 
-#include "utility/gccversion.hpp"
-
 #include "jsoncpp/json.hpp"
 
 #include "../driver.hpp"
@@ -26,6 +24,8 @@ public:
                , OpenMode mode);
 
     virtual ~FlatDriver();
+
+    VADSTENA_TILESTORAGE_DRIVER_FACTORY("flat", FlatDriver);
 
 private:
     virtual Properties loadProperties_impl() override;
