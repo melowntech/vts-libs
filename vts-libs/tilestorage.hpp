@@ -1,3 +1,16 @@
+/**
+ * \file geometry_core.hpp
+ * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
+ *
+ * Tile storage manipulation.
+ *
+ * NB: tile set is specified by simple URI: TYPE:LOCATION where:
+ *     TYPE     is type of backing storage (i.e. access driver to use);
+ *              defaults to "flat"
+ *     LOCATION is type-specific location of storage (e.g. root directory for
+ *              filesystem based backing)
+ */
+
 #ifndef vadstena_libs_tilestorage_hpp_included_
 #define vadstena_libs_tilestorage_hpp_included_
 
