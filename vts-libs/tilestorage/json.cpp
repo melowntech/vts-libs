@@ -4,12 +4,13 @@
 
 namespace vadstena { namespace tilestorage {
 
-namespace detail {
+namespace detail { namespace tileset {
 
 const int CURRENT_JSON_FORMAT_VERSION(1);
 
-void parse1(Properties &properties, const Json::Value &config)
+Properties parse1(const Json::Value &config)
 {
+    Properties properties;
     Json::get(properties.id, config["id"]);
 
     const auto &foat(config["foat"]);
@@ -42,9 +43,10 @@ void parse1(Properties &properties, const Json::Value &config)
     Json::get(properties.defaultOrientation(2), defaultOrientation[2]);
 
     Json::get(properties.textureQuality, config["textureQuality"]);
+    return properties;
 }
 
-} // namespace detail
+} } // namespace detail::tileset
 
 void parse(Properties &properties, const Json::Value &config)
 {
@@ -52,22 +54,26 @@ void parse(Properties &properties, const Json::Value &config)
         auto version(Json::as<int>(config["version"]));
 
         switch (version) {
-        case 1: return detail::parse1(properties, config);
+        case 1:
+            properties = detail::tileset::parse1(config);
+            return;
         }
 
         LOGTHROW(err2, FormatError)
-            << "Invalid config format: unsupported version" << version << ".";
+            << "Invalid tile set config format: unsupported version"
+            << version << ".";
 
     } catch (const Json::Error &e) {
         LOGTHROW(err2, FormatError)
-            << "Invalid config format (" << e.what()
+            << "Invalid tile set config format (" << e.what()
             << "); Unable to work with this storage.";
     }
 }
 
 void build(Json::Value &config, const Properties &properties)
 {
-    config["version"] = Json::Int64(detail::CURRENT_JSON_FORMAT_VERSION);
+    config["version"]
+        = Json::Int64(detail::tileset::CURRENT_JSON_FORMAT_VERSION);
 
     config["id"] = properties.id;
 
@@ -105,6 +111,59 @@ void build(Json::Value &config, const Properties &properties)
     defaultOrientation.append(properties.defaultOrientation(2));
 
     config["textureQuality"] = Json::Int(properties.textureQuality);
+}
+
+namespace detail { namespace storage {
+
+const int CURRENT_JSON_FORMAT_VERSION(1);
+
+StorageProperties parse1(const Json::Value &config)
+{
+    StorageProperties p;
+    p.outputSet = Json::as<std::string>(config["output"]);
+
+    for (const auto &input : Json::check(config["input"], Json::arrayValue)) {
+        p.inputSets.push_back(Json::as<std::string>(input));
+    }
+
+    return p;
+}
+
+} }  // namespace detail::storage
+
+void parse(StorageProperties &properties, const Json::Value &config)
+{
+    try {
+        auto version(Json::as<int>(config["version"]));
+
+        switch (version) {
+        case 1:
+            properties = detail::storage::parse1(config);
+            return;
+        }
+
+        LOGTHROW(err2, FormatError)
+            << "Invalid storage config format: unsupported version"
+            << version << ".";
+
+    } catch (const Json::Error &e) {
+        LOGTHROW(err2, FormatError)
+            << "Invalid storage config format (" << e.what()
+            << "); Unable to work with this storage.";
+    }
+}
+
+void build(Json::Value &config, const StorageProperties &properties)
+{
+    config["version"]
+        = Json::Int64(detail::storage::CURRENT_JSON_FORMAT_VERSION);
+
+    config["output"] = properties.outputSet.asString();
+
+    auto &input(config["input"] = Json::Value(Json::arrayValue));
+    for (const auto &inputSet : properties.inputSets) {
+        input.append(inputSet.asString());
+    }
 }
 
 } } // namespace vadstena::tilestorage

@@ -21,11 +21,13 @@ namespace vadstena { namespace tilestorage {
 struct StorageProperties {
     /** List of input tile sets.
      */
-    std::vector<std::string> inputSets;
+    std::vector<Locator> inputSets;
 
     /** Output tile sets.
      */
-    std::string outputSet;
+    Locator outputSet;
+
+    StorageProperties() {}
 };
 
 class Storage : boost::noncopyable

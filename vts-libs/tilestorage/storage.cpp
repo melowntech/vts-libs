@@ -2,6 +2,7 @@
 #include "./tileset.hpp"
 #include "../tilestorage.hpp"
 #include "./error.hpp"
+#include "./json.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -11,6 +12,31 @@ namespace {
     const std::string InputDir("input");
 
     const std::string OutputDir("output");
+
+    const std::string DefaultOutputType("flat");
+
+    const std::string ConfigName("index.json");
+
+    void saveConfigImpl(const fs::path path
+                        , const StorageProperties &properties
+                        , Json::Value &config)
+    {
+        build(config, properties);
+
+        // save json
+        try {
+            std::ofstream f;
+            f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+            f.open(path.string());
+            f.precision(15);
+            Json::StyledStreamWriter().write(f, config);
+            f.close();
+        } catch (const std::exception &e) {
+            LOGTHROW(err2, Error)
+                << "Unable to write " << path << " config: "
+                << e.what() << ".";
+        }
+    }
 }
 
 struct Storage::Factory
@@ -30,15 +56,22 @@ struct Storage::Factory
         // create input directory
         create_directories(root / InputDir);
 
+        // create default config
+        StorageProperties sp;
+        sp.outputSet = Locator(DefaultOutputType, (root / OutputDir).string());
 
+        // update create properties
         CreateProperties p(properties);
         p.id = OutputDir;
 
         // create output tile set
-        createTileSet((root / OutputDir).string(), p, mode);
+        createTileSet(sp.outputSet, p, mode);
 
-        // TODO: create default config
+        // save config
+        Json::Value config;
+        saveConfigImpl(root / ConfigName, sp, config);
 
+        // done
         return Storage::pointer(new Storage(root, false));
     }
 
@@ -65,13 +98,43 @@ struct Storage::Detail {
         : root(root), readOnly(readOnly)
     {}
 
+    void loadConfig();
+
     const fs::path &root;
+    Json::Value config;
+    StorageProperties properties;
+
     bool readOnly;
 };
+
+void Storage::Detail::loadConfig()
+{
+    auto path(root / ConfigName);
+    // load json
+    try {
+        std::ifstream f;
+        f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+        f.open(path.string());
+        Json::Reader reader;
+        if (!reader.parse(f, config)) {
+            LOGTHROW(err2, FormatError)
+                << "Unable to parse " << path << " config: "
+                << reader.getFormattedErrorMessages() << ".";
+        }
+        f.close();
+    } catch (const std::exception &e) {
+        LOGTHROW(err2, Error)
+            << "Unable to read " << path << " config: "
+            << e.what() << ".";
+    }
+
+    parse(properties, config);
+}
 
 Storage::Storage(const fs::path &root, bool readOnly)
     : detail_(new Detail(root, readOnly))
 {
+    detail().loadConfig();
 }
 
 } } // namespace vadstena::tilestorage

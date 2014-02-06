@@ -48,6 +48,10 @@ struct Locator {
     Locator(const std::string &type, const std::string &location)
         : type(type), location(location)
     {}
+
+    Locator() {}
+
+    std::string asString() const;
 };
 
 /** A tile: mesh + atlas.
@@ -124,6 +128,14 @@ inline Locator::Locator(const std::string &locator)
         type = locator.substr(0, idx);
         location = locator.substr(idx + 1);
     }
+}
+
+inline std::string Locator::asString() const
+{
+    std::string s(type);
+    s.push_back(':');
+    s.append(location);
+    return s;
 }
 
 } } // namespace vadstena::tilestorage
