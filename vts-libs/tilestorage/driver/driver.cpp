@@ -1,6 +1,7 @@
 #include <mutex>
 
 #include "../driver.hpp"
+#include "../error.hpp"
 #include "./flat.hpp"
 
 namespace vadstena { namespace tilestorage {

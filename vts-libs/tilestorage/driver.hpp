@@ -6,7 +6,7 @@
 #include "dbglog/dbglog.hpp"
 #include "utility/gccversion.hpp"
 
-#include "../tilestorage.hpp"
+#include "./tileset.hpp"
 
 namespace vadstena { namespace tilestorage {
 
