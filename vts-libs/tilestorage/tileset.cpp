@@ -23,21 +23,6 @@ void tileSetDeleter(TileSet *tileSet)
     delete tileSet;
 }
 
-struct Locator {
-    std::string type;
-    std::string location;
-};
-
-Locator parseUri(const std::string &uri)
-{
-    auto idx(uri.find(':'));
-    if (idx == std::string::npos) {
-        return { "flat", uri };
-    }
-
-    return { uri.substr(0, idx), uri.substr(idx + 1) };
-}
-
 struct MetatileDef {
     TileId id;
     Lod end;
@@ -55,41 +40,37 @@ struct MetatileDef {
 
 struct TileSet::Factory
 {
-    static TileSet::pointer create(const std::string &uri
+    static TileSet::pointer create(const Locator &locator
                                    , const CreateProperties &properties
                                    , CreateMode mode)
     {
-        auto locator(parseUri(uri));
-        auto driver(Driver::create(locator.type, locator.location
-                                   , properties, mode));
+        auto driver(Driver::create(locator, properties, mode));
         return { new TileSet(driver), &tileSetDeleter };
     }
 
-    static TileSet::pointer open(const std::string &uri, OpenMode mode)
+    static TileSet::pointer open(const Locator &locator, OpenMode mode)
     {
-        auto locator(parseUri(uri));
-        auto driver(Driver::open(locator.type, locator.location, mode));
+        auto driver(Driver::open(locator, mode));
         return { new TileSet(driver), &tileSetDeleter };
     }
 };
 
-TileSet::pointer createTileSet(const std::string &uri
+TileSet::pointer createTileSet(const Locator &locator
                                , const CreateProperties &properties
                                , CreateMode mode)
 {
-    return TileSet::Factory::create(uri, properties, mode);
+    return TileSet::Factory::create(locator, properties, mode);
 }
 
-TileSet::pointer openTileSet(const std::string &uri, OpenMode mode)
+TileSet::pointer openTileSet(const Locator &locator, OpenMode mode)
 {
-    return TileSet::Factory::open(uri, mode);
+    return TileSet::Factory::open(locator, mode);
 }
 
 struct TileSet::Detail {
     Driver::pointer driver;
 
     // properties
-    Json::Value config;     // parsed config as JSON tree
     Properties savedProperties;  // properties as are on disk
     Properties properties;       // current properties
     bool propertiesChanged; // marks whether properties have been changed
@@ -541,7 +522,7 @@ bool TileSet::tileExists(const TileId &tileId) const
     const auto &metadata(detail().metadata);
     auto fmetadata(metadata.find(tileId));
     if (fmetadata != metadata.end()) {
-        return true;
+        return fmetadata->second.exists();
     }
 
     // try tileIndex

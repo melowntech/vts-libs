@@ -95,7 +95,7 @@ FlatDriver::FlatDriver(const boost::filesystem::path &root
 {
     if (properties.id.empty()) {
         LOGTHROW(err2, FormatError)
-            << "Cannot create nameless storage.";
+            << "Cannot create tile set without valid id.";
     }
 
     if (properties.metaLevels.delta <= 0) {
@@ -107,7 +107,7 @@ FlatDriver::FlatDriver(const boost::filesystem::path &root
         // directory already exists -> fail if mode says so
         if (mode == CreateMode::failIfExists) {
             LOGTHROW(err2, TileSetAlreadyExists)
-                << "Tile set at " << root_ << " already exits.";
+                << "Tile set at " << root_ << " already exists.";
         }
     }
 

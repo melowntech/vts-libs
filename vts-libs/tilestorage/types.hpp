@@ -35,6 +35,21 @@ namespace vadstena { namespace tilestorage {
 typedef geometry::Obj Mesh;
 typedef cv::Mat Atlas;
 
+/** Tile set locator
+ */
+struct Locator {
+    std::string type;     // tile set type (i.e. driver to use)
+    std::string location; // location of tile set
+
+    /** Parse locator from TYPE:LOCATION
+     */
+    Locator(const std::string &locator);
+
+    Locator(const std::string &type, const std::string &location)
+        : type(type), location(location)
+    {}
+};
+
 /** A tile: mesh + atlas.
  */
 struct Tile {
@@ -74,7 +89,17 @@ typedef Point2l Alignment;
 
 typedef math::Extents2_<long> Extents;
 
+/** Open mode
+ */
+enum class OpenMode {
+    readOnly     //!< only getters are allowed
+    , readWrite  //!< both getters and setters are allowed
+};
 
+enum class CreateMode {
+    failIfExists //!< creation fails if tile set/storage already exists
+    , overwrite  //!< existing tile set/storage is replace with new one
+};
 
 // inline stuff
 
@@ -87,6 +112,18 @@ inline bool TileId::operator<(const TileId &tid) const
     else if (tid.easting < easting) { return false; }
 
     return northing < tid.northing;
+}
+
+inline Locator::Locator(const std::string &locator)
+{
+    auto idx(locator.find(':'));
+    if (idx == std::string::npos) {
+        type = {};
+        location = locator;
+    } else {
+        type = locator.substr(0, idx);
+        location = locator.substr(idx + 1);
+    }
 }
 
 } } // namespace vadstena::tilestorage

@@ -48,14 +48,11 @@ public:
 
     template <typename DriverClass> static void registerDriver();
 
-    static Driver::pointer create(const std::string type
-                                  , const std::string location
+    static Driver::pointer create(Locator locator
                                   , const CreateProperties &properties
                                   , CreateMode mode);
 
-    static Driver::pointer open(const std::string type
-                                , const std::string location
-                                , OpenMode mode);
+    static Driver::pointer open(Locator locator, OpenMode mode);
 
 protected:
     Driver(bool readOnly) : readOnly_(readOnly) {}

@@ -33,12 +33,39 @@
 #include "./tilestorage/error.hpp"
 #include "./tilestorage/types.hpp"
 #include "./tilestorage/tileset.hpp"
+#include "./tilestorage/storage.hpp"
 
 namespace vadstena { namespace tilestorage {
 
+/** Creates new storage.
+ *
+ * \param root storage root
+ * \param properties properties to initialize output tile set with
+ * \param mode what to do when storage already exists:
+ *                 * failIfExists: storage must not exists prior this call
+ *                 * overwrite: new storage is created
+ * \return interface to new storage
+ * \throws Error if storage cannot be created
+ */
+Storage::pointer createStorage(const boost::filesystem::path &root
+                               , const CreateProperties &properties
+                               , CreateMode mode = CreateMode::failIfExists);
+
+/** Opens existing storage.
+ *
+ * \param root storage root
+ * \param mode what operations are allowed on storage:
+ *                 * readOnly: only getters are allowed
+ *                 * readWrite: both getters and setters are allowed
+ * \return interface to new storage
+ * \throws Error if storage cannot be opened
+ */
+Storage::pointer openStorage(const boost::filesystem::path &root
+                             , OpenMode mode = OpenMode::readOnly);
+
 /** Creates new tile set.
  *
- * \param uri URI that specifies tile set type and location.
+ * \param locator locator that specifies tile set type and location.
  * \param properties properties to initialize new tile set with
  * \param mode what to do when tile set already exists:
  *                 * failIfExists: tile set must not exists prior this call
@@ -46,20 +73,20 @@ namespace vadstena { namespace tilestorage {
  * \return interface to new tile set
  * \throws Error if tile set cannot be created
  */
-TileSet::pointer createTileSet(const std::string &uri
+TileSet::pointer createTileSet(const Locator &locator
                                , const CreateProperties &properties
                                , CreateMode mode = CreateMode::failIfExists);
 
 /** Opens existing tile set.
  *
- * \param uri URI that specifies tile set type and location.
+ * \param locator locator that specifies tile set type and location.
  * \param mode what operations are allowed on tile set:
  *                 * readOnly: only getters are allowed
  *                 * readWrite: both getters and setters are allowed
  * \return interface to new tile set
  * \throws Error if tile set cannot be opened
  */
-TileSet::pointer openTileSet(const std::string &uri
+TileSet::pointer openTileSet(const Locator &locator
                              , OpenMode mode = OpenMode::readOnly);
 
 } } // namespace vadstena::tilestorage

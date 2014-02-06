@@ -8,6 +8,8 @@ namespace vadstena { namespace tilestorage {
 
 namespace {
 
+const char* DefaultDriver("flat");
+
 std::map<std::string, Driver::Factory::pointer> driverRegistry;
 
 std::once_flag driverRegistryOnceFlag;
@@ -38,33 +40,39 @@ void Driver::registerDriver(const Driver::Factory::pointer &factory)
     driverRegistry[factory->type] = factory;
 }
 
-Driver::pointer Driver::create(const std::string type
-                               , const std::string location
+Driver::pointer Driver::create(Locator locator
                                , const CreateProperties &properties
                                , CreateMode mode)
 {
     registerDefaultDrivers();
 
-    auto fregistry(driverRegistry.find(type));
+    if (locator.type.empty()) {
+        locator.type = DefaultDriver;
+    }
+
+    auto fregistry(driverRegistry.find(locator.type));
     if (fregistry == driverRegistry.end()) {
         LOGTHROW(err2, NoSuchTileSet)
-            << "Invalid tile set type <" << type << ">.";
+            << "Invalid tile set type <" << locator.type << ">.";
     }
-    return fregistry->second->create(location, properties, mode);
+    return fregistry->second->create(locator.location, properties, mode);
 }
 
-Driver::pointer Driver::open(const std::string type
-                             , const std::string location
+Driver::pointer Driver::open(Locator locator
                              , OpenMode mode)
 {
     registerDefaultDrivers();
 
-    auto fregistry(driverRegistry.find(type));
+    if (locator.type.empty()) {
+        locator.type = DefaultDriver;
+    }
+
+    auto fregistry(driverRegistry.find(locator.type));
     if (fregistry == driverRegistry.end()) {
         LOGTHROW(err2, NoSuchTileSet)
-            << "Invalid tile set type <" << type << ">.";
+            << "Invalid tile set type <" << locator.type << ">.";
     }
-    return fregistry->second->open(location, mode);
+    return fregistry->second->open(locator.location, mode);
 }
 
 } } // namespace vadstena::tilestorage

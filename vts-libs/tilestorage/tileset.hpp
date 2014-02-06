@@ -19,6 +19,7 @@
 #include <string>
 #include <array>
 
+#include <boost/noncopyable.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include "./types.hpp"
@@ -90,7 +91,7 @@ struct Properties
 
 /** TileSet interface.
  */
-class TileSet {
+class TileSet : boost::noncopyable {
 public:
     /** Pointer type.
      */
@@ -150,7 +151,7 @@ public:
      */
     void flush();
 
-    /** Needed to instantiate subclasses.
+    /** Needed to instantiate.
      */
     class Factory;
     friend class Factory;
@@ -163,19 +164,6 @@ private:
     Detail& detail() { return *detail_; }
     const Detail& detail() const { return *detail_; }
 };
-
-/** Open mode
- */
-enum class OpenMode {
-    readOnly     //!< only getters are allowed
-    , readWrite  //!< both getters and setters are allowed
-};
-
-enum class CreateMode {
-    failIfExists //!< creation fails if tile set already exists
-    , overwrite  //!< existing tile set is replace with new one
-};
-
 
 
 // inline stuff

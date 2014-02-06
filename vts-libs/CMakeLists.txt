@@ -60,8 +60,10 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     binmesh.hpp binmesh.cpp
 
     tilestorage.hpp
-    tilestorage/tileset.cpp
     tilestorage/tileop.hpp
+    tilestorage/error.hpp
+    tilestorage/storage.hpp tilestorage/storage.cpp
+    tilestorage/tileset.hpp tilestorage/tileset.cpp
     tilestorage/io.hpp
     tilestorage/json.hpp tilestorage/json.cpp
     tilestorage/tileindex.hpp tilestorage/tileindex.cpp
