@@ -100,6 +100,8 @@ struct Storage::Detail {
 
     void loadConfig();
 
+    void saveConfig();
+
     const fs::path &root;
     Json::Value config;
     StorageProperties properties;
@@ -129,6 +131,11 @@ void Storage::Detail::loadConfig()
     }
 
     parse(properties, config);
+}
+
+void Storage::Detail::saveConfig()
+{
+    saveConfigImpl(root / ConfigName, properties, config);
 }
 
 Storage::Storage(const fs::path &root, bool readOnly)
