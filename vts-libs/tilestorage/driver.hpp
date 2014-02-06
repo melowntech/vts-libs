@@ -12,6 +12,9 @@ namespace vadstena { namespace tilestorage {
 
 class Driver : boost::noncopyable {
 public:
+    struct OStream;
+    struct IStream;
+
     typedef std::shared_ptr<Driver> pointer;
 
     virtual ~Driver() {};
@@ -20,13 +23,13 @@ public:
 
     void saveProperties(const Properties &properties);
 
-    std::shared_ptr<std::ostream> metatileOutput(const TileId tileId);
+    std::shared_ptr<OStream> metatileOutput(const TileId tileId);
 
-    std::shared_ptr<std::istream> metatileInput(const TileId tileId);
+    std::shared_ptr<IStream> metatileInput(const TileId tileId);
 
-    std::shared_ptr<std::ostream> tileIndexOutput();
+    std::shared_ptr<OStream> tileIndexOutput();
 
-    std::shared_ptr<std::istream> tileIndexInput();
+    std::shared_ptr<IStream> tileIndexInput();
 
     void saveMesh(const TileId tileId, const Mesh &mesh);
 
@@ -62,15 +65,15 @@ private:
 
     virtual void saveProperties_impl(const Properties &properties) = 0;
 
-    virtual std::shared_ptr<std::ostream>
-    metatileOutput_impl(const TileId tileId) = 0;
+    virtual std::shared_ptr<OStream> metatileOutput_impl(const TileId tileId)
+        = 0;
 
-    virtual std::shared_ptr<std::istream>
-    metatileInput_impl(const TileId tileId) = 0;
+    virtual std::shared_ptr<IStream> metatileInput_impl(const TileId tileId)
+        = 0;
 
-    virtual std::shared_ptr<std::ostream> tileIndexOutput_impl() = 0;
+    virtual std::shared_ptr<OStream> tileIndexOutput_impl() = 0;
 
-    virtual std::shared_ptr<std::istream> tileIndexInput_impl() = 0;
+    virtual std::shared_ptr<IStream> tileIndexInput_impl() = 0;
 
     virtual void saveMesh_impl(const TileId tileId, const Mesh &mesh) = 0;
 
@@ -84,6 +87,22 @@ private:
     static void registerDriver(const std::shared_ptr<Factory> &factory);
 
     bool readOnly_;
+};
+
+class Driver::OStream {
+public:
+    OStream() {}
+    virtual ~OStream() {}
+    virtual operator std::ostream&() = 0;
+    virtual void close() = 0;
+};
+
+class Driver::IStream {
+public:
+    IStream() {}
+    virtual ~IStream() {}
+    virtual operator std::istream&() = 0;
+    virtual void close() = 0;
 };
 
 class Driver::Factory {
@@ -139,22 +158,24 @@ inline void Driver::saveProperties(const Properties &properties)
     return saveProperties_impl(properties);
 }
 
-inline std::shared_ptr<std::ostream> Driver::metatileOutput(const TileId tileId)
+inline std::shared_ptr<Driver::OStream>
+Driver::metatileOutput(const TileId tileId)
 {
     return metatileOutput_impl(tileId);
 }
 
-inline std::shared_ptr<std::istream> Driver::metatileInput(const TileId tileId)
+inline std::shared_ptr<Driver::IStream>
+Driver::metatileInput(const TileId tileId)
 {
     return metatileInput_impl(tileId);
 }
 
-inline std::shared_ptr<std::ostream> Driver::tileIndexOutput()
+inline std::shared_ptr<Driver::OStream> Driver::tileIndexOutput()
 {
     return tileIndexOutput_impl();
 }
 
-inline std::shared_ptr<std::istream> Driver::tileIndexInput()
+inline std::shared_ptr<Driver::IStream> Driver::tileIndexInput()
 {
     return tileIndexInput_impl();
 }

@@ -31,6 +31,60 @@ namespace {
                    % tileId.lod % tileId.easting % tileId.northing % ext);
     }
 
+    class FileOStream : public Driver::OStream {
+    public:
+        FileOStream(const fs::path &path)
+            : f_()
+        {
+            f_.exceptions(std::ios::badbit | std::ios::failbit);
+            f_.open(path.string(), std::ios_base::out | std::ios_base::trunc);
+        }
+
+        virtual ~FileOStream() {
+            if (!std::uncaught_exception() && f_.is_open()) {
+                LOG(warn3) << "File was not closed!";
+            }
+        }
+
+        virtual operator std::ostream&() override {
+            return f_;
+        }
+
+        virtual void close() override {
+            f_.close();
+        }
+
+    private:
+        utility::ofstreambuf f_;
+    };
+
+    class FileIStream : public Driver::IStream {
+    public:
+        FileIStream(const fs::path &path)
+            : f_()
+        {
+            f_.exceptions(std::ios::badbit | std::ios::failbit);
+            f_.open(path.string());
+        }
+
+        virtual ~FileIStream() {
+            if (!std::uncaught_exception() && f_.is_open()) {
+                LOG(warn3) << "File was not closed!";
+            }
+        }
+
+        virtual operator std::istream&() override {
+            return f_;
+        }
+
+        virtual void close() override {
+            f_.close();
+        }
+
+    private:
+        std::ifstream f_;
+    };
+
 } // namespace
 
 FlatDriver::FlatDriver(const boost::filesystem::path &root
@@ -137,48 +191,30 @@ void FlatDriver::saveProperties_impl(const Properties &properties)
     }
 }
 
-std::shared_ptr<std::ostream>
+std::shared_ptr<Driver::OStream>
 FlatDriver::metatileOutput_impl(const TileId tileId)
 {
     auto path(root_ / filePath(tileId, "meta"));
-
-    std::shared_ptr<utility::ofstreambuf> f(new utility::ofstreambuf());
-    f->exceptions(std::ios::badbit | std::ios::failbit);
-    f->open(path.string(), std::ios_base::out | std::ios_base::trunc);
-    return f;
+    return std::make_shared<FileOStream>(path);
 }
 
-std::shared_ptr<std::istream>
+std::shared_ptr<Driver::IStream>
 FlatDriver::metatileInput_impl(const TileId tileId)
 {
     auto path(root_ / filePath(tileId, "meta"));
-
-    std::shared_ptr<utility::ifstreambuf> f(new utility::ifstreambuf());
-    f->exceptions(std::ios::badbit | std::ios::failbit);
-    f->open(path.string(), std::ios_base::out | std::ios_base::trunc);
-    return f;
+    return std::make_shared<FileIStream>(path);
 }
 
-std::shared_ptr<std::ostream>
-FlatDriver::tileIndexOutput_impl()
+std::shared_ptr<Driver::OStream> FlatDriver::tileIndexOutput_impl()
 {
     auto path(root_ / TileIndexName);
-
-    std::shared_ptr<utility::ofstreambuf> f(new utility::ofstreambuf());
-    f->exceptions(std::ios::badbit | std::ios::failbit);
-    f->open(path.string(), std::ios_base::out | std::ios_base::trunc);
-    return f;
+    return std::make_shared<FileOStream>(path);
 }
 
-std::shared_ptr<std::istream>
-FlatDriver::tileIndexInput_impl()
+std::shared_ptr<Driver::IStream> FlatDriver::tileIndexInput_impl()
 {
     auto path(root_ / TileIndexName);
-
-    std::shared_ptr<utility::ifstreambuf> f(new utility::ifstreambuf());
-    f->exceptions(std::ios::badbit | std::ios::failbit);
-    f->open(path.string(), std::ios_base::out | std::ios_base::trunc);
-    return f;
+    return std::make_shared<FileIStream>(path);
 }
 
 void FlatDriver::saveMesh_impl(const TileId tileId, const Mesh &mesh)

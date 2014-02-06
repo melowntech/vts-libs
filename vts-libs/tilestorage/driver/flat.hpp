@@ -32,15 +32,15 @@ private:
 
     virtual void saveProperties_impl(const Properties &properties) override;
 
-    virtual std::shared_ptr<std::ostream>
+    virtual std::shared_ptr<Driver::OStream>
     metatileOutput_impl(const TileId tileId) override;
 
-    virtual std::shared_ptr<std::istream>
+    virtual std::shared_ptr<Driver::IStream>
     metatileInput_impl(const TileId tileId) override;
 
-    virtual std::shared_ptr<std::ostream> tileIndexOutput_impl() override;
+    virtual std::shared_ptr<Driver::OStream> tileIndexOutput_impl() override;
 
-    virtual std::shared_ptr<std::istream> tileIndexInput_impl() override;
+    virtual std::shared_ptr<Driver::IStream> tileIndexInput_impl() override;
 
     virtual void saveMesh_impl(const TileId tileId, const Mesh &mesh) override;
 

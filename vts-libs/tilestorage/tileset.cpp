@@ -171,7 +171,7 @@ void TileSet::Detail::saveMetadata()
     try {
         auto f(driver->tileIndexOutput());
         ti.save(*f);
-        // f->close();
+        f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, Error)
             << "Unable to write tile index: " << e.what() << ".";
@@ -199,7 +199,7 @@ void TileSet::Detail::loadTileIndex()
     try {
         auto f(driver->tileIndexInput());
         tileIndex.load(*f);
-        // f->close();
+        f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, Error)
             << "Unable to read tile index: " << e.what() << ".";
@@ -448,7 +448,7 @@ void TileSet::Detail::saveMetatile(MetatileDef::queue &subtrees
     write(*f, uint32_t(METATILE_IO_VERSION));
 
     saveMetatileTree(subtrees, *f, tile);
-    // f->close();
+    f->close();
 }
 
 void TileSet::Detail::saveMetatiles() const
