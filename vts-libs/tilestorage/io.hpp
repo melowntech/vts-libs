@@ -7,7 +7,7 @@
 #include <boost/spirit/include/qi_match.hpp>
 #include <boost/spirit/include/qi_match_auto.hpp>
 
-#include "../tilestorage.hpp"
+#include "./types.hpp"
 
 namespace vadstena { namespace tilestorage {
 

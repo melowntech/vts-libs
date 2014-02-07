@@ -117,13 +117,36 @@ namespace detail { namespace storage {
 
 const int CURRENT_JSON_FORMAT_VERSION(1);
 
+Json::Value buildTileSetDescriptor(const TileSetDescriptor &desc)
+{
+    Json::Value set(Json::objectValue);
+
+    set["type"] = desc.locator.type;
+    set["location"] = desc.locator.location;
+
+    return set;
+}
+
+TileSetDescriptor parseTileSetDescriptor(const Json::Value &tileSet)
+{
+    TileSetDescriptor desc;
+    Json::get(desc.locator.type, tileSet["type"]);
+    Json::get(desc.locator.location, tileSet["location"]);
+
+    return desc;
+}
+
 StorageProperties parse1(const Json::Value &config)
 {
     StorageProperties p;
-    p.outputSet = Json::as<std::string>(config["output"]);
+    p.outputSet = parseTileSetDescriptor
+        (Json::check(config["output"], Json::objectValue));
 
-    for (const auto &input : Json::check(config["input"], Json::arrayValue)) {
-        p.inputSets.push_back(Json::as<std::string>(input));
+    const auto &input(Json::check(config["input"], Json::objectValue));
+    for (auto iinput(input.begin()), einput(input.end()); iinput != einput;
+         ++iinput)
+    {
+        p.inputSets[iinput.memberName()] = parseTileSetDescriptor(*iinput);
     }
 
     return p;
@@ -158,11 +181,13 @@ void build(Json::Value &config, const StorageProperties &properties)
     config["version"]
         = Json::Int64(detail::storage::CURRENT_JSON_FORMAT_VERSION);
 
-    config["output"] = properties.outputSet.asString();
+    config["output"]
+        = detail::storage::buildTileSetDescriptor(properties.outputSet);
 
-    auto &input(config["input"] = Json::Value(Json::arrayValue));
+    auto &input(config["input"] = Json::Value(Json::objectValue));
     for (const auto &inputSet : properties.inputSets) {
-        input.append(inputSet.asString());
+        input[inputSet.first]
+            = detail::storage::buildTileSetDescriptor(inputSet.second);
     }
 }
 

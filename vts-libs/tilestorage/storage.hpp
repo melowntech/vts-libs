@@ -9,7 +9,7 @@
 #define vadstena_libs_tilestorage_storage_hpp_included_
 
 #include <memory>
-#include <vector>
+#include <map>
 
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem/path.hpp>
@@ -18,14 +18,26 @@
 
 namespace vadstena { namespace tilestorage {
 
+/** Tile set descriptor.
+ */
+struct TileSetDescriptor {
+    Locator locator;
+
+    typedef std::map<std::string, TileSetDescriptor> map;
+
+    TileSetDescriptor() {}
+};
+
+/** Storage properties.
+ */
 struct StorageProperties {
-    /** List of input tile sets.
+    /** Set of input tile set descriptors.
      */
-    std::vector<Locator> inputSets;
+    TileSetDescriptor::map inputSets;
 
     /** Output tile sets.
      */
-    Locator outputSet;
+    TileSetDescriptor outputSet;
 
     StorageProperties() {}
 };
@@ -34,6 +46,10 @@ class Storage : boost::noncopyable
 {
 public:
     typedef std::shared_ptr<Storage> pointer;
+
+    void addTileSet(const Locator &locator);
+
+    void removeTileSet(const std::string &id);
 
     /** Needed to instantiate.
      */

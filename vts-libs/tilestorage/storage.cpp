@@ -1,8 +1,11 @@
+#include "utility/streams.hpp"
+
 #include "./storage.hpp"
 #include "./tileset.hpp"
 #include "../tilestorage.hpp"
 #include "./error.hpp"
 #include "./json.hpp"
+#include "./io.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -12,6 +15,8 @@ namespace {
     const std::string InputDir("input");
 
     const std::string OutputDir("output");
+
+    const std::string DefaultInputType("flat");
 
     const std::string DefaultOutputType("flat");
 
@@ -37,6 +42,13 @@ namespace {
                 << e.what() << ".";
         }
     }
+
+    Locator rooted(const fs::path &root, Locator locator) {
+        // TODO: there should be probably some detection for non-fs-based
+        // drivers
+        locator.location = (root / locator.location).string();
+        return locator;
+    }
 }
 
 struct Storage::Factory
@@ -58,14 +70,15 @@ struct Storage::Factory
 
         // create default config
         StorageProperties sp;
-        sp.outputSet = Locator(DefaultOutputType, (root / OutputDir).string());
+        sp.outputSet.locator.type = DefaultOutputType;
+        sp.outputSet.locator.location = OutputDir;
 
         // update create properties
         CreateProperties p(properties);
         p.id = OutputDir;
 
         // create output tile set
-        createTileSet(sp.outputSet, p, mode);
+        createTileSet(rooted(root, sp.outputSet.locator), p, mode);
 
         // save config
         Json::Value config;
@@ -101,6 +114,12 @@ struct Storage::Detail {
     void loadConfig();
 
     void saveConfig();
+
+    void addTileSet(const Locator &locator);
+
+    void removeTileSet(const std::string &id);
+
+    TileSetDescriptor& findInput(const std::string &id);
 
     const fs::path &root;
     Json::Value config;
@@ -138,10 +157,52 @@ void Storage::Detail::saveConfig()
     saveConfigImpl(root / ConfigName, properties, config);
 }
 
+
+TileSetDescriptor& Storage::Detail::findInput(const std::string &id)
+{
+    auto finputSets(properties.inputSets.find(id));
+    if (finputSets == properties.inputSets.end()) {
+        LOGTHROW(err2, NoSuchTileSet)
+            << "This storage doesn't contain input tile set <" << id << ">.";
+    }
+    return finputSets->second;
+}
+
+void Storage::Detail::addTileSet(const Locator &locator)
+{
+    auto ts(openTileSet(locator));
+
+    LOG(info2) << "Adding tile set <" << ts->getProperties().id
+               << ">:\n"
+               << utility::dump(ts->getProperties(), "    ");
+}
+
+void Storage::Detail::removeTileSet(const std::string &id)
+{
+    auto &desc(findInput(id));
+
+    auto ts(openTileSet(desc.locator));
+
+    LOG(info2) << "Removing tile set:\n"
+               << utility::dump(ts->getProperties(), "    ");
+}
+
+// storage
+
 Storage::Storage(const fs::path &root, bool readOnly)
     : detail_(new Detail(root, readOnly))
 {
     detail().loadConfig();
+}
+
+void Storage::addTileSet(const Locator &locator)
+{
+    return detail().addTileSet(locator);
+}
+
+void Storage::removeTileSet(const std::string &id)
+{
+    return detail().removeTileSet(id);
 }
 
 } } // namespace vadstena::tilestorage
