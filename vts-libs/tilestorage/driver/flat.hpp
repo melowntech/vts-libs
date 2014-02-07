@@ -1,6 +1,9 @@
 #ifndef vadstena_libs_tilestorage_driver_flat_hpp_included_
 #define vadstena_libs_tilestorage_driver_flat_hpp_included_
 
+#include <set>
+
+#include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include "jsoncpp/json.hpp"
@@ -51,11 +54,31 @@ private:
 
     virtual Atlas loadAtlas_impl(const TileId tileId) override;
 
+    virtual void begin_impl() override;
+
+    virtual void commit_impl() override;
+
+    virtual void rollback_impl() override;
+
+    boost::filesystem::path readPath(const boost::filesystem::path &path);
+
+    boost::filesystem::path writePath(const boost::filesystem::path &path);
+
+    /** Backing root.
+     */
     const boost::filesystem::path root_;
+
+    /** temporary files backing root.
+     */
+    const boost::filesystem::path tmp_;
 
     /** Parsed config as JSON tree.
      */
     Json::Value config_;
+
+    /** File in pending transaction.
+     */
+    boost::optional<std::set<boost::filesystem::path> > txFiles_;
 };
 
 } } // namespace vadstena::tilestorage

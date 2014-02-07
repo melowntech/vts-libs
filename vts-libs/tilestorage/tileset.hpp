@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <cmath>
+#include <list>
 #include <string>
 #include <array>
 
@@ -97,6 +98,8 @@ public:
      */
     typedef std::shared_ptr<TileSet> pointer;
 
+    typedef std::vector<pointer> list;
+
     ~TileSet();
 
     /** Get tile content.
@@ -144,17 +147,49 @@ public:
     Properties setProperties(const SettableProperties &properties
                              , int mask = ~0);
 
-    /** Flush all pending changes to permanent tile set.
+    /** Flush all pending changes to backing store (e.g. filesystem).
      *
      * If tile set is not allowed to be changed (i.e. open in read-only mode)
      * flush call is ignored.
      */
     void flush();
 
-    /** Needed to instantiate.
+    /** Starts new transaction. (R/W)
      */
-    class Factory;
-    friend class Factory;
+    void begin();
+
+    /** Commits pending transaction. Calls flush to ensure any changes are
+     *  propagated to the backing store.
+     *  Commit fails if there is no transaction in progress.
+     */
+    void commit();
+
+    /** Rolls back pending transaction.
+     *  Rollback fails if there is no transaction in progress.
+     */
+    void rollback();
+
+    /** Merge in tile sets.
+     *
+     * Only parts covered by in sets are affected.
+     *
+     * It is recommended to call this function inside a transaction.
+     *
+     * \param kept tile set that were already merged in this tile set
+     * \param out tile sets to merge in
+     */
+    void mergeIn(const list &kept, const list &update);
+
+    /** Merge out tile sets.
+     *
+     * Only parts covered by out sets are affected.
+     *
+     * It is recommended to call this function inside a transaction.
+     *
+     * \param kept tile set that were already merged in this tile set
+     * \param out tile sets to merge out
+     */
+    void mergeOut(const list &kept, const list &update);
 
 private:
     TileSet(const std::shared_ptr<Driver> &driver);
@@ -163,6 +198,11 @@ private:
     std::unique_ptr<Detail> detail_;
     Detail& detail() { return *detail_; }
     const Detail& detail() const { return *detail_; }
+
+public:
+    /** Needed to instantiate.
+     */
+    class Factory; friend class Factory;
 };
 
 

@@ -30,7 +30,7 @@ void registerDefaultDrivers()
 void Driver::wannaWrite(const std::string &what) const
 {
     if (readOnly_) {
-        LOGTHROW(err2, Error)
+        LOGTHROW(err2, ReadOnlyError)
             << "Cannot " << what << ": storage is read-only.";
     }
 }

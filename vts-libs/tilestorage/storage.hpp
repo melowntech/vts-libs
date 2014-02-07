@@ -49,7 +49,11 @@ public:
 
     void addTileSet(const Locator &locator);
 
+    void addTileSets(const std::vector<Locator> &locators);
+
     void removeTileSet(const std::string &id);
+
+    void removeTileSets(const std::vector<std::string> &ids);
 
     /** Needed to instantiate.
      */
@@ -64,6 +68,19 @@ private:
     Detail& detail() { return *detail_; }
     const Detail& detail() const { return *detail_; }
 };
+
+
+// inline stuff
+
+inline void Storage::addTileSet(const Locator &locator)
+{
+    return addTileSets({locator});
+}
+
+inline void Storage::removeTileSet(const std::string &id)
+{
+    return removeTileSets({id});
+}
 
 } } // namespace vadstena::tilestorage
 

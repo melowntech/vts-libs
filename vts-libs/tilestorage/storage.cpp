@@ -49,10 +49,19 @@ namespace {
         locator.location = (root / locator.location).string();
         return locator;
     }
+
+    typedef std::map<std::string, TileSet::pointer> TileSetMap;
+
+    TileSet::list asList(const TileSetMap &map) {
+        TileSet::list out;
+        for (const auto &ts : map) {
+            out.push_back(ts.second);
+        }
+        return out;
+    }
 }
 
-struct Storage::Factory
-{
+struct Storage::Factory {
     static Storage::pointer create(const fs::path &root
                                    , const CreateProperties &properties
                                    , CreateMode mode)
@@ -115,11 +124,11 @@ struct Storage::Detail {
 
     void saveConfig();
 
-    void addTileSet(const Locator &locator);
+    void addTileSets(const std::vector<Locator> &locators);
 
-    void removeTileSet(const std::string &id);
+    void removeTileSets(const std::vector<std::string> &ids);
 
-    TileSetDescriptor& findInput(const std::string &id);
+    TileSetDescriptor* findInput(const std::string &id);
 
     const fs::path &root;
     Json::Value config;
@@ -158,33 +167,106 @@ void Storage::Detail::saveConfig()
 }
 
 
-TileSetDescriptor& Storage::Detail::findInput(const std::string &id)
+TileSetDescriptor* Storage::Detail::findInput(const std::string &id)
 {
     auto finputSets(properties.inputSets.find(id));
     if (finputSets == properties.inputSets.end()) {
-        LOGTHROW(err2, NoSuchTileSet)
-            << "This storage doesn't contain input tile set <" << id << ">.";
+        return nullptr;
     }
-    return finputSets->second;
+    return &finputSets->second;
 }
 
-void Storage::Detail::addTileSet(const Locator &locator)
+void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
 {
-    auto ts(openTileSet(locator));
+    TileSetMap kept;
+    TileSetMap update;
 
-    LOG(info2) << "Adding tile set <" << ts->getProperties().id
-               << ">:\n"
-               << utility::dump(ts->getProperties(), "    ");
+    // open and add all new tile sets to the merge input
+    for (const auto &locator : locators) {
+        auto tileSet(openTileSet(locator));
+        const auto tsp(tileSet->getProperties());
+
+        if (findInput(tsp.id)) {
+            LOGTHROW(err2, TileSetAlreadyExists)
+                << "This storage already contains input tile set <"
+                << tsp.id << ">.";
+        }
+
+        update.insert(TileSetMap::value_type(tsp.id, tileSet));
+    }
+
+    // log
+    for (const auto &ts : update) {
+        LOG(info2) << "Adding tile set <" << ts.first << ">:\n"
+                   << utility::dump(ts.second->getProperties(), "    ");
+    }
+
+    // open and add all existing tile sets to the kept sets
+    for (const auto &input : properties.inputSets) {
+        auto tileSet(openTileSet(rooted(root, input.second.locator)));
+        kept.insert(TileSetMap::value_type(input.first, tileSet));
+    }
+
+    // open output tile set
+    auto output(openTileSet(rooted(root, properties.outputSet.locator)
+                            , OpenMode::readWrite));
+
+    // begin transaction
+    output->begin();
+
+    // merge in tile sets to the output tile set
+    output->mergeIn(asList(kept), asList(update));
+
+    // TODO: copy in tile sets to the storage
+
+    // commit changes to output
+    output->commit();
 }
 
-void Storage::Detail::removeTileSet(const std::string &id)
+void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
 {
-    auto &desc(findInput(id));
+    TileSetMap kept;
+    TileSetMap update;
 
-    auto ts(openTileSet(desc.locator));
+    for (const auto &id : ids) {
+        auto *desc(findInput(id));
+        if (!desc) {
+            LOGTHROW(err2, NoSuchTileSet)
+                << "This storage doesn't contain input tile set <"
+                << id << ">.";
+        }
 
-    LOG(info2) << "Removing tile set:\n"
-               << utility::dump(ts->getProperties(), "    ");
+        update.insert(TileSetMap::value_type(id, openTileSet(desc->locator)));
+    }
+
+    // open and add all existing tile sets to the merge input
+    for (const auto &input : properties.inputSets) {
+        if (update.find(input.first) == update.end()) {
+            auto tileSet(openTileSet(rooted(root, input.second.locator)));
+            kept.insert(TileSetMap::value_type(input.first, tileSet));
+        }
+    }
+
+    // log
+    for (const auto &ts : update) {
+        LOG(info2) << "Removing tile set <" << ts.first << ">:\n"
+                   << utility::dump(ts.second->getProperties(), "    ");
+    }
+
+    // open output tile set
+    auto output(openTileSet(rooted(root, properties.outputSet.locator)
+                            , OpenMode::readWrite));
+
+    // begin transaction
+    output->begin();
+
+    // merge out tile sets from the output tile set
+    output->mergeOut(asList(kept), asList(update));
+
+    // TODO: remove out tile sets from the storage
+
+    // commit changes to output
+    output->commit();
 }
 
 // storage
@@ -195,14 +277,14 @@ Storage::Storage(const fs::path &root, bool readOnly)
     detail().loadConfig();
 }
 
-void Storage::addTileSet(const Locator &locator)
+void Storage::addTileSets(const std::vector<Locator> &locators)
 {
-    return detail().addTileSet(locator);
+    return detail().addTileSets(locators);
 }
 
-void Storage::removeTileSet(const std::string &id)
+void Storage::removeTileSets(const std::vector<std::string> &ids)
 {
-    return detail().removeTileSet(id);
+    return detail().removeTileSets(ids);
 }
 
 } } // namespace vadstena::tilestorage

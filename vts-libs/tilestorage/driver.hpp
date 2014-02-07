@@ -44,6 +44,12 @@ public:
 
     void wannaWrite(const std::string &what) const;
 
+    void begin();
+
+    void commit();
+
+    void rollback();
+
     class Factory;
 
     template <typename DriverClass> static void registerDriver();
@@ -80,6 +86,12 @@ private:
                                 , short textureQuality) = 0;
 
     virtual Atlas loadAtlas_impl(const TileId tileId) = 0;
+
+    virtual void begin_impl() = 0;
+
+    virtual void commit_impl() = 0;
+
+    virtual void rollback_impl() = 0;
 
     static void registerDriver(const std::shared_ptr<Factory> &factory);
 
@@ -196,6 +208,21 @@ inline void Driver::saveAtlas(const TileId tileId, const Atlas &atlas
 inline Atlas Driver::loadAtlas(const TileId tileId)
 {
     return loadAtlas_impl(tileId);
+}
+
+inline void Driver::begin()
+{
+    return begin_impl();
+}
+
+inline void Driver::commit()
+{
+    return commit_impl();
+}
+
+inline void Driver::rollback()
+{
+    return rollback_impl();
 }
 
 } } // namespace vadstena::tilestorage

@@ -2,6 +2,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
+#include <boost/utility/in_place_factory.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -10,6 +11,7 @@
 #include "./flat.hpp"
 #include "../json.hpp"
 #include "../io.hpp"
+#include "../error.hpp"
 #include "../../binmesh.hpp"
 
 #include "tilestorage/browser/index.html.hpp"
@@ -24,6 +26,8 @@ namespace {
     const std::string ConfigName("mapConfig.json");
 
     const std::string TileIndexName("index.bin");
+
+    const std::string TransactionRoot("tx");
 
     fs::path filePath(const TileId &tileId, const std::string &ext)
     {
@@ -91,7 +95,7 @@ FlatDriver::FlatDriver(const boost::filesystem::path &root
                        , const CreateProperties &properties
                        , CreateMode mode)
     : Driver(false)
-    , root_(root)
+    , root_(root), tmp_(root / TransactionRoot)
 {
     if (properties.id.empty()) {
         LOGTHROW(err2, FormatError)
@@ -141,6 +145,16 @@ FlatDriver::FlatDriver(const boost::filesystem::path &root
 
 FlatDriver::~FlatDriver()
 {
+    if (txFiles_) {
+        LOG(warn3) << "Active transaction on driver close; rolling back.";
+        try {
+            rollback_impl();
+        } catch (const std::exception &e) {
+            LOG(warn3)
+                << "Error while trying to destroy active transaction on "
+                "driver close: <" << e.what() << ">.";
+        }
+    }
 }
 
 Properties FlatDriver::loadProperties_impl()
@@ -194,14 +208,14 @@ void FlatDriver::saveProperties_impl(const Properties &properties)
 std::shared_ptr<Driver::OStream>
 FlatDriver::metatileOutput_impl(const TileId tileId)
 {
-    auto path(root_ / filePath(tileId, "meta"));
+    auto path(writePath(filePath(tileId, "meta")));
     return std::make_shared<FileOStream>(path);
 }
 
 std::shared_ptr<Driver::IStream>
 FlatDriver::metatileInput_impl(const TileId tileId)
 {
-    auto path(root_ / filePath(tileId, "meta"));
+    auto path(readPath(filePath(tileId, "meta")));
     return std::make_shared<FileIStream>(path);
 }
 
@@ -219,18 +233,18 @@ std::shared_ptr<Driver::IStream> FlatDriver::tileIndexInput_impl()
 
 void FlatDriver::saveMesh_impl(const TileId tileId, const Mesh &mesh)
 {
-    writeBinaryMesh(root_ / filePath(tileId, "bin"), mesh);
+    writeBinaryMesh(writePath(filePath(tileId, "bin")), mesh);
 }
 
 Mesh FlatDriver::loadMesh_impl(const TileId tileId)
 {
-    return loadBinaryMesh(root_ / filePath(tileId, "bin"));
+    return loadBinaryMesh(readPath(filePath(tileId, "bin")));
 }
 
 void FlatDriver::saveAtlas_impl(const TileId tileId, const Atlas &atlas
                                 , short textureQuality)
 {
-    auto path(root_ / filePath(tileId, "jpg"));
+    auto path(writePath(filePath(tileId, "jpg")));
 
     // TODO: check errors
     cv::imwrite(path.string().c_str(), atlas
@@ -239,7 +253,7 @@ void FlatDriver::saveAtlas_impl(const TileId tileId, const Atlas &atlas
 
 Atlas FlatDriver::loadAtlas_impl(const TileId tileId)
 {
-    auto path(root_ / filePath(tileId, "jpg"));
+    auto path(readPath(filePath(tileId, "jpg")));
 
     auto atlas(cv::imread(path.string().c_str()));
     if (atlas.empty()) {
@@ -247,6 +261,89 @@ Atlas FlatDriver::loadAtlas_impl(const TileId tileId)
             << "Atlas " << tileId << " (at " << path << ") doesn't exist.";
     }
     return atlas;
+}
+
+void FlatDriver::begin_impl()
+{
+    if (txFiles_) {
+        LOGTHROW(err2, PendingTransaction)
+            << "Transaction already in progress";
+    }
+
+    // remove whole tmp directory
+    remove_all(tmp_);
+    // create fresh tmp directory
+    create_directories(tmp_);
+
+    // begin tx
+    txFiles_ = boost::in_place();
+}
+
+void FlatDriver::commit_impl()
+{
+    if (!txFiles_) {
+        LOGTHROW(err2, PendingTransaction)
+            << "No transaction in progress";
+    }
+
+    // move all files updated in transaction to from tmp to regular directory
+    for (const auto &file : *txFiles_) {
+        rename(tmp_ / file, root_ / file);
+    }
+
+    // remove whole tmp directory
+    remove_all(tmp_);
+
+    // no tx at all
+    txFiles_ = boost::none;
+}
+
+void FlatDriver::rollback_impl()
+{
+    if (!txFiles_) {
+        LOGTHROW(err2, PendingTransaction)
+            << "No transaction in progress";
+    }
+
+    // remove whole tmp directory
+    remove_all(tmp_);
+
+    // no tx at all
+    txFiles_ = boost::none;
+}
+
+fs::path FlatDriver::readPath(const fs::path &path)
+{
+    LOG(info4) << "readPath for " << path;
+    if (txFiles_) {
+        // we have active transaction: is file part of the tx?
+        auto ftxFiles(txFiles_->find(path));
+        if (ftxFiles != txFiles_->end()) {
+            // yes -> tmp file
+            LOG(info4) << "writePath for " << path << " tmp";
+            return tmp_ / path;
+        }
+    }
+
+    // regular path
+    LOG(info4) << "writePath for " << path << " regular";
+    return root_ / path;
+}
+
+fs::path FlatDriver::writePath(const fs::path &path)
+{
+
+    if (!txFiles_) {
+        LOG(info4) << "writePath for " << path << " regular";
+        return root_ / path;
+    }
+
+    // remember file in transaction
+    txFiles_->insert(path);
+
+    // temporary file
+        LOG(info4) << "writePath for " << path << " tmp";
+    return tmp_ / path;
 }
 
 } } // namespace vadstena::tilestorage

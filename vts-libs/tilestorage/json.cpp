@@ -1,6 +1,7 @@
 #include "jsoncpp/as.hpp"
 
 #include "./json.hpp"
+#include "./error.hpp"
 
 namespace vadstena { namespace tilestorage {
 

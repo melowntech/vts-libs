@@ -8,6 +8,7 @@
 #include "./io.hpp"
 #include "./tileop.hpp"
 #include "./driver/flat.hpp"
+#include "./tileset-detail.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -22,19 +23,6 @@ void tileSetDeleter(TileSet *tileSet)
     tileSet->flush();
     delete tileSet;
 }
-
-struct MetatileDef {
-    TileId id;
-    Lod end;
-
-    MetatileDef(const TileId id, Lod end)
-        : id(id), end(end)
-    {}
-
-    bool bottom() const { return (id.lod + 1) >= end; }
-
-    typedef std::queue<MetatileDef> queue;
-};
 
 } // namespace
 
@@ -66,61 +54,6 @@ TileSet::pointer openTileSet(const Locator &locator, OpenMode mode)
 {
     return TileSet::Factory::open(locator, mode);
 }
-
-struct TileSet::Detail {
-    Driver::pointer driver;
-
-    // properties
-    Properties savedProperties;  // properties as are on disk
-    Properties properties;       // current properties
-    bool propertiesChanged; // marks whether properties have been changed
-
-    TileIndex tileIndex;    // tile index that reflects state on the disk
-
-    mutable Extents extents;      // extents covered by tiles
-    mutable LodRange lodRange;    // covered lod range
-    mutable Metadata metadata;    // all metadata as in-memory structure
-    mutable bool metadataChanged; // marks whether metadata have been changed
-
-    Detail(const Driver::pointer &driver)
-        : driver(driver), propertiesChanged(false)
-        , metadataChanged(false)
-    {}
-
-    void check(const TileId &tileId) const;
-
-    void loadConfig();
-
-    void saveConfig();
-
-    void saveMetadata();
-
-    void loadTileIndex();
-
-    MetaNode* loadMetatile(const TileId &tileId) const;
-
-    MetaNode* findMetaNode(const TileId &tileId) const;
-
-    void setMetaNode(const TileId &tileId, const MetaNode& metanode);
-
-    void setMetadata(const TileId &tileId, const TileMetadata& metadata);
-
-    MetaNode& createVirtualMetaNode(const TileId &tileId);
-
-    bool isFoat(const TileId &tileId) const;
-
-    void updateZbox(const TileId &tileId, MetaNode &metanode);
-
-    void flush();
-
-    void saveMetatiles() const;
-
-    void saveMetatile(MetatileDef::queue &subtrees
-                      , const MetatileDef &tile) const;
-
-    void saveMetatileTree(MetatileDef::queue &subtrees, std::ostream &f
-                          , const MetatileDef &tile) const;
-};
 
 void TileSet::Detail::loadConfig()
 {
@@ -446,6 +379,66 @@ void TileSet::Detail::saveMetatiles() const
     }
 }
 
+void TileSet::Detail::begin()
+{
+    driver->wannaWrite("begin transaction");
+    if (tx) {
+        LOGTHROW(err2, PendingTransaction)
+            << "Transaction already in progress.";
+
+    }
+
+    driver->begin();
+
+    tx = true;
+}
+
+void TileSet::Detail::commit()
+{
+    driver->wannaWrite("commit transaction");
+
+    if (!tx) {
+        LOGTHROW(err2, PendingTransaction)
+            << "There is no active transaction to commit.";
+
+    }
+    // forced flush
+    flush();
+
+    driver->commit();
+
+    tx = false;
+}
+
+void TileSet::Detail::rollback()
+{
+    if (!tx) {
+        LOGTHROW(err2, PendingTransaction)
+            << "There is no active transaction to roll back.";
+
+    }
+
+    // TODO: what to do if anything throws?
+
+    driver->rollback();
+
+    // re-read backing store state
+    loadConfig();
+
+    // destroy tile index
+    tileIndex = {};
+    metadata = {};
+    metadataChanged = false;
+
+    if (properties.foatSize) {
+        // load tile index only if foat is valid
+        loadTileIndex();
+    }
+
+    // no pending tx
+    tx = false;
+}
+
 // tileSet itself
 
 TileSet::TileSet(const Driver::pointer &driver)
@@ -544,6 +537,33 @@ Properties TileSet::setProperties(const SettableProperties &properties
         detail().propertiesChanged = true;
     }
     return detail().properties;
+}
+
+void TileSet::begin()
+{
+    detail().begin();
+}
+
+void TileSet::commit()
+{
+    detail().commit();
+}
+
+void TileSet::rollback()
+{
+    detail().rollback();
+}
+
+void TileSet::mergeIn(const list &kept, const list &update)
+{
+    (void) kept;
+    (void) update;
+}
+
+void TileSet::mergeOut(const list &kept, const list &update)
+{
+    (void) kept;
+    (void) update;
 }
 
 } } // namespace vadstena::tilestorage
