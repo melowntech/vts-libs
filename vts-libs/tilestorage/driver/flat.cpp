@@ -314,19 +314,16 @@ void FlatDriver::rollback_impl()
 
 fs::path FlatDriver::readPath(const fs::path &path)
 {
-    LOG(info4) << "readPath for " << path;
     if (txFiles_) {
         // we have active transaction: is file part of the tx?
         auto ftxFiles(txFiles_->find(path));
         if (ftxFiles != txFiles_->end()) {
             // yes -> tmp file
-            LOG(info4) << "writePath for " << path << " tmp";
             return tmp_ / path;
         }
     }
 
     // regular path
-    LOG(info4) << "writePath for " << path << " regular";
     return root_ / path;
 }
 
@@ -334,7 +331,6 @@ fs::path FlatDriver::writePath(const fs::path &path)
 {
 
     if (!txFiles_) {
-        LOG(info4) << "writePath for " << path << " regular";
         return root_ / path;
     }
 
@@ -342,7 +338,6 @@ fs::path FlatDriver::writePath(const fs::path &path)
     txFiles_->insert(path);
 
     // temporary file
-        LOG(info4) << "writePath for " << path << " tmp";
     return tmp_ / path;
 }
 
