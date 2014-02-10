@@ -139,7 +139,7 @@ FlatDriver::FlatDriver(const boost::filesystem::path &root
 FlatDriver::FlatDriver(const boost::filesystem::path &root
                        , OpenMode mode)
     : Driver(mode == OpenMode::readOnly)
-    , root_(root)
+    , root_(root), tmp_(root / TransactionRoot)
 {
 }
 

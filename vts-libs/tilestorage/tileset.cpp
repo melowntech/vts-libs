@@ -75,8 +75,8 @@ void TileSet::Detail::saveMetadata()
     driver->wannaWrite("save metadata");
 
     // create tile index (initialize with existing one)
-    TileIndex ti(properties.baseTileSize, extents, lodRange
-                 , tileIndex);
+    TileIndex ti(properties.alignment, properties.baseTileSize
+                 , extents, lodRange, &tileIndex);
 
     // fill in new metadata
     ti.fill(metadata);
@@ -98,7 +98,8 @@ void TileSet::Detail::saveMetadata()
     if (metadata.empty()) {
         // no tile, we should invalidate foat
         properties.foat = {};
-        LOG(info2) << "New foat is " << properties.foat << ".";
+        LOG(info2) << "Tile set <" << properties.id << ">: New foat is "
+                   << properties.foat << ".";
     }
 
     // well, dump metatiles now
@@ -244,7 +245,8 @@ void TileSet::Detail::updateZbox(const TileId &tileId
             properties.foat = tileId;
             properties.foatSize = tileSize(properties, tileId.lod);
             propertiesChanged = true;
-            LOG(info2) << "New foat is " << properties.foat << ".";
+            LOG(info2) << "Tile set <" << properties.id
+                       << ">: New foat is " << properties.foat << ".";
         }
         return;
     }
@@ -277,7 +279,7 @@ bool TileSet::Detail::isFoat(const TileId &tileId) const
 void TileSet::Detail::flush()
 {
     if (driver->readOnly()) { return; }
-    LOG(info2) << "Flushing tileSet.";
+    LOG(info2) << "Tile set <" << properties.id << ">: flushing";
 
     // force metadata save
     if (metadataChanged) {
@@ -299,7 +301,8 @@ void TileSet::Detail::saveMetatileTree(MetatileDef::queue &subtrees
 
     auto bottom(tile.bottom());
 
-    LOG(info2) << "dumping " << tile.id << ", " << tile.end
+    LOG(info2) << "Tile set <" << properties.id << ">: dumping "
+               << tile.id << ", " << tile.end
                << ", bottom: " << bottom
                << ".";
 
@@ -556,14 +559,34 @@ void TileSet::rollback()
 
 void TileSet::mergeIn(const list &kept, const list &update)
 {
+    // fetch tile indices for update
+
+    std::vector<const TileIndex*> updateIndices;
+    for (const auto &u : update) {
+        // we need fresh index
+        u->flush();
+        updateIndices.push_back(&u->detail().tileIndex);
+    }
+
+    auto updateIndex(unite(detail().properties.alignment, updateIndices));
+
+    (void) updateIndex;
     (void) kept;
-    (void) update;
 }
 
 void TileSet::mergeOut(const list &kept, const list &update)
 {
+    std::vector<const TileIndex*> updateIndices;
+    for (const auto &u : update) {
+        // we need fresh index
+        u->flush();
+        updateIndices.push_back(&u->detail().tileIndex);
+    }
+
+    auto updateIndex(unite(detail().properties.alignment, updateIndices));
+
+    (void) updateIndex;
     (void) kept;
-    (void) update;
 }
 
 } } // namespace vadstena::tilestorage

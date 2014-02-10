@@ -12,39 +12,70 @@ namespace {
     const char TILE_INDEX_IO_MAGIC[7] = { 'T', 'I', 'L', 'E', 'I', 'D', 'X' };
 }
 
-TileIndex::TileIndex(long baseTileSize
-                     , Extents extents
-                     , LodRange lodRange
-                     , const TileIndex &other)
+namespace {
+
+/** Converts coordinate to grid defined by reference point and cell size.
+ *  Coordinates not on grid are rounded up.
+ */
+long gridUp(long value, long origin, unsigned long size)
+{
+    auto oft(value - origin);
+    if (oft < 0) {
+        return origin + (oft / size);
+    }
+
+    return origin + ((size - 1 + oft) / size);
+}
+
+/** Converts coordinate to grid defined by reference point and cell size.
+ *  Coordinates not on grid are rounded down.
+ */
+long gridDown(long value, long origin, unsigned long size)
+{
+    auto oft(value - origin);
+    if (oft < 0) {
+        return origin + ((size - 1 - oft) / size);
+    }
+
+    return origin + (oft / size);
+}
+
+Extents grid(const Extents &extents, const Alignment &alignment
+             , unsigned long size)
+{
+    return {
+        gridDown(extents.ll(0), alignment(0), size)
+        , gridDown(extents.ll(1), alignment(1), size)
+        , gridUp(extents.ur(0), alignment(0), size)
+        , gridUp(extents.ur(1), alignment(1), size)
+    };
+}
+
+} // namespace
+
+TileIndex::TileIndex(const Alignment &alignment, long baseTileSize
+                     , Extents extents, LodRange lodRange
+                     , const TileIndex *other)
     : baseTileSize_(baseTileSize)
-    , origin_(extents.ll)
     , minLod_(lodRange.min)
 {
     // include old definition if non-empty
-    if (!other.empty()) {
+    if (other && !other->empty()) {
         // something present in on-disk data
-        extents = unite(extents, other.extents());
-        origin_ = extents.ll;
-
-        if (lodRange.min > other.minLod_) {
-            // update min lod
-            minLod_ = lodRange.min  = other.minLod_;
-        }
-
-        if (lodRange.max < other.maxLod()) {
-            // update max lod
-            lodRange.max = other.maxLod();
-        }
+        extents = unite(extents, other->extents());
+        lodRange = unite(lodRange, other->lodRange());
     }
 
     // maximal tile size (at lowest lod)
     auto ts(tileSize(baseTileSize, lodRange.min));
-    // extents size
-    auto es(size(extents));
 
-    // size in tiles
-    math::Size2i tiling((es.width + ts - 1) / ts
-                        , (es.height + ts - 1) / ts);
+    // calculate proper extents at lowest lod
+    auto ex(grid(extents, alignment, ts));
+    // update origin
+    origin_ = ex.ll * ts;
+
+    // get tiling
+    math::Size2i tiling(size(ex));
 
     // create raster mask for all lods
     for (auto lod : lodRange) {
@@ -58,53 +89,8 @@ TileIndex::TileIndex(long baseTileSize
         tiling.height *= 2;
 
         // fill in old data
-        fill(lod, other);
+        fill(lod, *other);
     }
-}
-
-bool TileIndex::empty() const
-{
-    return masks_.empty();
-}
-
-Lod TileIndex::maxLod() const
-{
-    if (masks_.empty()) { return minLod_; }
-    return minLod_ + masks_.size();
-}
-
-Extents TileIndex::extents() const
-{
-    if (masks_.empty()) { return {}; }
-
-    auto size(masks_.front().size());
-    auto ts(tileSize(baseTileSize_, minLod_));
-
-    return { origin_(0), origin_(1)
-            , origin_(0) + ts * size.width
-            , origin_(1) + ts * size.height };
-}
-
-inline const RasterMask* TileIndex::mask(Lod lod) const
-{
-    auto idx(lod - minLod_);
-    if ((idx < 0) || (idx > int(masks_.size()))) {
-        return nullptr;
-    }
-
-    // get mask
-    return &masks_[idx];
-}
-
-inline RasterMask* TileIndex::mask(Lod lod)
-{
-    auto idx(lod - minLod_);
-    if ((idx < 0) || (idx > int(masks_.size()))) {
-        return nullptr;
-    }
-
-    // get mask
-    return &masks_[idx];
 }
 
 bool TileIndex::exists(const TileId &tileId) const
@@ -173,8 +159,7 @@ void TileIndex::load(std::istream &f)
     char magic[7];
     read(f, magic);
 
-    if (std::memcmp(magic, TILE_INDEX_IO_MAGIC,
-                    sizeof(TILE_INDEX_IO_MAGIC))) {
+    if (std::memcmp(magic, TILE_INDEX_IO_MAGIC, sizeof(TILE_INDEX_IO_MAGIC))) {
         LOGTHROW(err2, Error)
             << "TileIndex has wrong magic.";
     }
@@ -239,6 +224,49 @@ void TileIndex::save(const fs::path &path) const
     save(f);
 
     f.close();
+}
+
+void TileIndex::growUp()
+{
+    // TODO: implement me
+}
+
+void TileIndex::growDown()
+{
+    // TODO: implement me
+}
+
+TileIndex unite(const Alignment &alignment
+                , const std::vector<const TileIndex*> &tis)
+{
+    // handle special cases
+    switch (tis.size()) {
+    case 0: return {};
+    case 1: return *tis.front();
+    }
+
+    // calculate basic parameters
+    const auto &front(*tis.front());
+    auto baseTileSize(front.baseTileSize());
+    auto lodRange(front.lodRange());
+    auto extents(front.extents());
+    for (const auto *ti : tis) {
+        extents = unite(extents, ti->extents());
+        lodRange = unite(lodRange, ti->lodRange());
+    }
+
+    // result tile index
+    TileIndex out(alignment, baseTileSize, extents, lodRange);
+
+    // fill in targets
+    for (const auto *ti : tis) {
+        for (auto lod : lodRange) {
+            out.fill(lod, *ti);
+        }
+    }
+
+    // done
+    return out;
 }
 
 } } // namespace vadstena::tilestorage
