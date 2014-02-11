@@ -449,8 +449,11 @@ TileIndex bitop(const Alignment &alignment
     auto baseTileSize(l.baseTileSize());
     auto lodRange(unite(unite(bootstrap.lodRange()
                               , l.lodRange()), r.lodRange()));
+    if (lodRange.empty()) { return {}; }
+
     auto extents(uniteExtents(uniteExtents(bootstrap.extents()
                                            , l.extents()), r.extents()));
+    if (empty(extents)) { return {}; }
 
     LOG(info2) << "(unite) lodRange: " << lodRange;
     LOG(info2) << "(unite) extents: " << extents;
