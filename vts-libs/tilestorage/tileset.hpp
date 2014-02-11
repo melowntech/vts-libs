@@ -24,6 +24,8 @@
 #include <boost/filesystem/path.hpp>
 
 #include "./types.hpp"
+#include "../ids.hpp"
+#include "../range.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -198,11 +200,12 @@ private:
     std::unique_ptr<Detail> detail_;
     Detail& detail() { return *detail_; }
     const Detail& detail() const { return *detail_; }
-
 public:
     /** Needed to instantiate.
      */
     class Factory; friend class Factory;
+
+    struct Accessor; friend class Accessor;
 };
 
 

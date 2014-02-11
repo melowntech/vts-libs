@@ -43,6 +43,15 @@ struct TileSet::Factory
     }
 };
 
+/** This simple class allows access to the "detail" implementation of a tile
+ * set.
+ */
+struct TileSet::Accessor
+{
+    static Detail& detail(TileSet &ts) { return ts.detail(); }
+    static const Detail& detail(const TileSet &ts) { return ts.detail(); }
+};
+
 TileSet::pointer createTileSet(const Locator &locator
                                , const CreateProperties &properties
                                , CreateMode mode)
@@ -112,6 +121,7 @@ void TileSet::Detail::saveMetadata()
 void TileSet::Detail::loadTileIndex()
 {
     try {
+        tileIndex = { properties.baseTileSize };
         auto f(driver->tileIndexInput());
         tileIndex.load(*f);
         f->close();
@@ -121,7 +131,9 @@ void TileSet::Detail::loadTileIndex()
     }
 
     // new extents
+    lodRange = tileIndex.lodRange();
     extents = tileIndex.extents();
+    LOG(info2) << "Loaded tile index: " << tileIndex;
 }
 
 MetaNode* TileSet::Detail::findMetaNode(const TileId &tileId)
@@ -137,7 +149,7 @@ MetaNode* TileSet::Detail::findMetaNode(const TileId &tileId)
 }
 
 void TileSet::Detail::setMetaNode(const TileId &tileId
-                                            , const MetaNode& metanode)
+                                  , const MetaNode& metanode)
 {
     // this ensures that we have old metanode in memory
     findMetaNode(tileId);
@@ -557,35 +569,88 @@ void TileSet::rollback()
     detail().rollback();
 }
 
-void TileSet::mergeIn(const list &kept, const list &update)
-{
-    // fetch tile indices for update
+namespace {
 
-    std::vector<const TileIndex*> updateIndices;
-    for (const auto &u : update) {
-        // we need fresh index
-        u->flush();
-        updateIndices.push_back(&u->detail().tileIndex);
+LodRange range(const TileSet::list &sets)
+{
+    if (sets.empty()) {
+        // empty set
+        return { 0, -1 };
     }
 
-    auto updateIndex(unite(detail().properties.alignment, updateIndices));
+    LodRange r;
+    for (const auto &set : sets) {
+        r = unite(r, TileSet::Accessor::detail(*set).lodRange);
+    }
+    return r;
+}
 
-    (void) updateIndex;
-    (void) kept;
+typedef std::vector<const TileIndex*> TileIndices;
+
+inline void tileIndicesImpl(TileIndices &indices, const TileSet::list &set)
+{
+    // get all tile indices
+    for (const auto &ts : set) {
+        auto &detail(TileSet::Accessor::detail(*ts));
+        // we need fresh index
+        detail.flush();
+        indices.push_back(&detail.tileIndex);
+    }
+}
+
+template <typename ...Args>
+inline void tileIndicesImpl(TileIndices &indices, const TileSet::list &set
+                            , Args &&...rest)
+{
+    tileIndicesImpl(indices, set);
+    tileIndicesImpl(indices, std::forward<Args>(rest)...);
+}
+
+template <typename ...Args>
+inline TileIndices tileIndices(Args &&...args)
+{
+    TileIndices indices;
+    tileIndicesImpl(indices, std::forward<Args>(args)...);
+    return indices;
+}
+
+} // namespace
+
+void TileSet::mergeIn(const list &kept, const list &update)
+{
+    const auto &alignment(detail().properties.alignment);
+
+    // calculate storage update (we need to know lod range of kept sets to
+    // ensure all indices cover same lod range)
+    auto tsUpdate(unite(detail().properties.alignment
+                        , tileIndices(update), range(kept)));
+    tsUpdate.growDown();
+
+    // calculate storage post state
+    auto tsPost(unite(alignment, tileIndices(update, kept)
+                      , tsUpdate.lodRange()));
+    tsPost.growUp();
+
+    // calculate storage pre state
+    auto tsPre(unite(alignment, tileIndices(update, kept)
+                     , tsUpdate.lodRange()));
+    tsPre.growUp().invert();
+
+    LOG(info2) << "(merge-in) down(tsUpdate): " << tsUpdate;
+    LOG(info2) << "(merge-in) up(tsPost): " << tsPost;
+    LOG(info2) << "(merge-in) inv(up(tsPre)): " << tsPre;
+
+    auto generate(intersect(alignment, tsPost
+                            , unite(alignment, tsUpdate, tsPre)));
+
+
+    LOG(info2) << "(merge-in) generate: " << generate;
 }
 
 void TileSet::mergeOut(const list &kept, const list &update)
 {
-    std::vector<const TileIndex*> updateIndices;
-    for (const auto &u : update) {
-        // we need fresh index
-        u->flush();
-        updateIndices.push_back(&u->detail().tileIndex);
-    }
-
-    auto updateIndex(unite(detail().properties.alignment, updateIndices));
-
-    (void) updateIndex;
+    // TODO: implement when mergeIn works
+    (void) update;
     (void) kept;
 }
 

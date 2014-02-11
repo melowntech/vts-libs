@@ -18,6 +18,7 @@ Properties parse1(const Json::Value &config)
     Json::get(properties.foat.lod, foat[0]);
     Json::get(properties.foat.easting, foat[1]);
     Json::get(properties.foat.northing, foat[2]);
+    Json::get(properties.foatSize, foat[3]);
 
     const auto &meta(config["meta"]);
     Json::get(properties.metaLevels.lod, meta[0]);

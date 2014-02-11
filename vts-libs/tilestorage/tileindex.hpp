@@ -20,7 +20,8 @@ using imgproc::quadtree::RasterMask;
 
 class TileIndex {
 public:
-    TileIndex() : baseTileSize_(), minLod_() {}
+    TileIndex(long baseTileSize = 0)
+        : baseTileSize_(baseTileSize), minLod_() {}
 
     TileIndex(const Alignment &alignment, long baseTileSize
               , Extents extents
@@ -39,6 +40,16 @@ public:
 
     void fill(Lod lod, const TileIndex &other);
 
+    void fill(const TileIndex &other);
+
+    void intersect(Lod lod, const TileIndex &other);
+
+    void intersect(const TileIndex &other);
+
+    void subtract(Lod lod, const TileIndex &other);
+
+    void subtract(const TileIndex &other);
+
     Extents extents() const;
 
     bool empty() const;
@@ -47,9 +58,11 @@ public:
 
     LodRange lodRange() const;
 
-    void growUp();
+    TileIndex& growUp();
 
-    void growDown();
+    TileIndex& growDown();
+
+    TileIndex& invert();
 
     long baseTileSize() const { return baseTileSize_; }
 
@@ -68,7 +81,20 @@ private:
 
 
 TileIndex unite(const Alignment &alignment
-                , const std::vector<const TileIndex*> &tis);
+                , const std::vector<const TileIndex*> &tis
+                , const LodRange &baseLodRange = LodRange(0, -1));
+
+TileIndex unite(const Alignment &alignment
+                , const TileIndex &l, const TileIndex &r
+                , const LodRange &baseLodRange = LodRange(0, -1));
+
+TileIndex intersect(const Alignment &alignment
+                    , const TileIndex &l, const TileIndex &r
+                    , const LodRange &baseLodRange = LodRange(0, -1));
+
+TileIndex subtract(const Alignment &alignment
+                   , const TileIndex &l, const TileIndex &r
+                   , const LodRange &baseLodRange = LodRange(0, -1));
 
 // inline stuff
 
@@ -79,8 +105,7 @@ inline bool TileIndex::empty() const
 
 inline Lod TileIndex::maxLod() const
 {
-    if (masks_.empty()) { return minLod_; }
-    return minLod_ + masks_.size();
+    return minLod_ + masks_.size() - 1;
 }
 
 inline LodRange TileIndex::lodRange() const
@@ -112,7 +137,7 @@ inline RasterMask* TileIndex::mask(Lod lod)
 
 inline Extents TileIndex::extents() const
 {
-    if (masks_.empty()) { return {}; }
+    if (masks_.empty()) { return { origin_, origin_ }; }
 
     auto size(masks_.front().size());
     auto ts(tileSize(baseTileSize_, minLod_));

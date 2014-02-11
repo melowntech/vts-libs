@@ -21,10 +21,10 @@ long gridUp(long value, long origin, unsigned long size)
 {
     auto oft(value - origin);
     if (oft < 0) {
-        return origin + (oft / size);
+        return (oft / size);
     }
 
-    return origin + ((size - 1 + oft) / size);
+    return ((size - 1 + oft) / size);
 }
 
 /** Converts coordinate to grid defined by reference point and cell size.
@@ -34,10 +34,10 @@ long gridDown(long value, long origin, unsigned long size)
 {
     auto oft(value - origin);
     if (oft < 0) {
-        return origin + ((size - 1 - oft) / size);
+        return ((size - 1 - oft) / size);
     }
 
-    return origin + (oft / size);
+    return (oft / size);
 }
 
 Extents grid(const Extents &extents, const Alignment &alignment
@@ -72,7 +72,7 @@ TileIndex::TileIndex(const Alignment &alignment, long baseTileSize
     // calculate proper extents at lowest lod
     auto ex(grid(extents, alignment, ts));
     // update origin
-    origin_ = ex.ll * ts;
+    origin_ = ts * ex.ll + alignment;
 
     // get tiling
     math::Size2i tiling(size(ex));
@@ -152,6 +152,81 @@ void TileIndex::fill(Lod lod, const TileIndex &other)
     }
 }
 
+void TileIndex::fill(const TileIndex &other)
+{
+    for (auto lod : lodRange()) {
+        fill(lod, other);
+    }
+}
+
+void TileIndex::intersect(Lod lod, const TileIndex &other)
+{
+    // find old and new masks
+    const auto *oldMask(other.mask(lod));
+    if (!oldMask) { return; }
+
+    auto *newMask(mask(lod));
+    if (!newMask) { return; }
+
+    // calculate origin difference in tiles at given lod
+    auto ts(tileSize(baseTileSize_, lod));
+
+    math::Size2 diff((origin_(0) - other.origin_(0)) / ts
+                     , (origin_(1) - other.origin_(1)) / ts);
+
+    auto size(oldMask->dims());
+    for (int j(0); j < size.height; ++j) {
+        for (int i(0); i < size.width; ++i) {
+            if (!oldMask->get(i, j) && newMask->get(i, j)) {
+                // new set but old unset -> unset
+                newMask->set(diff.width + i, diff.height + j
+                             , false);
+            }
+        }
+    }
+}
+
+void TileIndex::intersect(const TileIndex &other)
+{
+    for (auto lod : lodRange()) {
+        intersect(lod, other);
+    }
+}
+
+void TileIndex::subtract(Lod lod, const TileIndex &other)
+{
+    // find old and new masks
+    const auto *oldMask(other.mask(lod));
+    if (!oldMask) { return; }
+
+    auto *newMask(mask(lod));
+    if (!newMask) { return; }
+
+    // calculate origin difference in tiles at given lod
+    auto ts(tileSize(baseTileSize_, lod));
+
+    math::Size2 diff((origin_(0) - other.origin_(0)) / ts
+                     , (origin_(1) - other.origin_(1)) / ts);
+
+    auto size(oldMask->dims());
+    for (int j(0); j < size.height; ++j) {
+        for (int i(0); i < size.width; ++i) {
+            if (oldMask->get(i, j) && newMask->get(i, j)) {
+                // new set but old unset -> unset
+                newMask->set(diff.width + i, diff.height + j
+                             , false);
+            }
+        }
+    }
+}
+
+void TileIndex::subtract(const TileIndex &other)
+{
+    for (auto lod : lodRange()) {
+        subtract(lod, other);
+    }
+}
+
 void TileIndex::load(std::istream &f)
 {
     using utility::binaryio::read;
@@ -226,18 +301,95 @@ void TileIndex::save(const fs::path &path) const
     f.close();
 }
 
-void TileIndex::growUp()
+TileIndex& TileIndex::growUp()
 {
-    // TODO: implement me
+    if (masks_.size() < 2) {
+        // nothing to grow
+        return *this;
+    }
+
+    // traverse masks bottom to top
+    auto cmasks(masks_.rbegin());
+    for (auto imasks(cmasks + 1), emasks(masks_.rend());
+         imasks != emasks; ++imasks, ++cmasks)
+    {
+        auto &child(*cmasks);
+        auto &mask(*imasks);
+
+        // rasterize current mask
+        auto size(mask.dims());
+        for (int j(0), jj(0); j < size.height; ++j, jj += 2) {
+            for (int i(0), ii(0); i < size.width; ++i, ii += 2) {
+                // if there is any child ensure parent exists and as well as all
+                // four children
+
+                if (child.get(ii, jj) || child.get(ii + 1, jj)
+                    || child.get(ii, jj + 1) || child.get(ii + 1, jj + 1))
+                {
+                    // at least one child exists, mark all children
+                    child.set(ii, jj);
+                    child.set(ii + 1, jj);
+                    child.set(ii, jj + 1);
+                    child.set(ii + 1, jj + 1);
+
+                    // mark me
+                    mask.set(i, j);
+                }
+            }
+        }
+    }
+
+    return *this;
 }
 
-void TileIndex::growDown()
+TileIndex& TileIndex::growDown()
 {
-    // TODO: implement me
+    if (masks_.size() < 2) {
+        // nothing to grow
+        return *this;
+    }
+
+    // traverse masks top to bottom
+    auto pmasks(masks_.begin());
+    for (auto imasks(pmasks + 1), emasks(masks_.end());
+         imasks != emasks; ++imasks, ++pmasks)
+    {
+        const auto &parent(*pmasks);
+        auto &mask(*imasks);
+
+        // rasterize parent mask
+        auto size(parent.dims());
+        for (int j(0), jj(0); j < size.height; ++j, jj += 2) {
+            for (int i(0), ii(0); i < size.width; ++i, ii += 2) {
+                // if previous tile exists ensure all four children exist
+                if (parent.get(i, j)) {
+                    mask.set(ii, jj);
+                    mask.set(ii + 1, jj);
+                    mask.set(ii, jj + 1);
+                    mask.set(ii + 1, jj + 1);
+                }
+            }
+        }
+    }
+
+    return *this;
+}
+
+TileIndex& TileIndex::invert()
+{
+    // invert all masks
+    for (auto imasks(masks_.begin()), emasks(masks_.end());
+         imasks != emasks; ++imasks)
+    {
+        imasks->invert();
+    }
+
+    return *this;
 }
 
 TileIndex unite(const Alignment &alignment
-                , const std::vector<const TileIndex*> &tis)
+                , const std::vector<const TileIndex*> &tis
+                , const LodRange &baseLodRange)
 {
     // handle special cases
     switch (tis.size()) {
@@ -248,22 +400,87 @@ TileIndex unite(const Alignment &alignment
     // calculate basic parameters
     const auto &front(*tis.front());
     auto baseTileSize(front.baseTileSize());
-    auto lodRange(front.lodRange());
+    auto lodRange(baseLodRange);
     auto extents(front.extents());
     for (const auto *ti : tis) {
         extents = unite(extents, ti->extents());
         lodRange = unite(lodRange, ti->lodRange());
     }
 
+    LOG(info2) << "lodRange: " << lodRange;
+    LOG(info2) << "extents: " << extents;
+
     // result tile index
     TileIndex out(alignment, baseTileSize, extents, lodRange);
 
     // fill in targets
     for (const auto *ti : tis) {
-        for (auto lod : lodRange) {
-            out.fill(lod, *ti);
-        }
+        out.fill(*ti);
     }
+
+    // done
+    return out;
+}
+
+TileIndex unite(const Alignment &alignment
+                , const TileIndex &l, const TileIndex &r
+                , const LodRange &baseLodRange)
+{
+    auto baseTileSize(l.baseTileSize());
+    auto lodRange(unite(unite(baseLodRange, l.lodRange()), r.lodRange()));
+    auto extents(unite(l.extents(), r.extents()));
+
+    LOG(info2) << "(unite) baseLodRange: " << baseLodRange;
+    LOG(info2) << "(unite) lodRange: " << lodRange;
+    LOG(info2) << "(unite) extents: " << extents;
+
+    // result tile index (initialize with first tile index)
+    TileIndex out(alignment, baseTileSize, extents, lodRange, &l);
+
+    // inplace intersect with second tile index
+    out.fill(r);
+
+    // done
+    return out;
+}
+
+TileIndex intersect(const Alignment &alignment
+                    , const TileIndex &l, const TileIndex &r
+                    , const LodRange &baseLodRange)
+{
+    auto baseTileSize(l.baseTileSize());
+    auto lodRange(unite(unite(baseLodRange, l.lodRange()), r.lodRange()));
+    auto extents(unite(l.extents(), r.extents()));
+
+    LOG(info2) << "(intersect) lodRange: " << lodRange;
+    LOG(info2) << "(intersect) extents: " << extents;
+
+    // result tile index (initialize with first tile index)
+    TileIndex out(alignment, baseTileSize, extents, lodRange, &l);
+
+    // inplace intersect with second tile index
+    out.intersect(r);
+
+    // done
+    return out;
+}
+
+TileIndex subtract(const Alignment &alignment
+                   , const TileIndex &l, const TileIndex &r
+                   , const LodRange &baseLodRange)
+{
+    auto baseTileSize(l.baseTileSize());
+    auto lodRange(unite(unite(baseLodRange, l.lodRange()), r.lodRange()));
+    auto extents(unite(l.extents(), r.extents()));
+
+    LOG(info2) << "(subtract) lodRange: " << lodRange;
+    LOG(info2) << "(subtract) extents: " << extents;
+
+    // result tile index (initialize with first tile index)
+    TileIndex out(alignment, baseTileSize, extents, lodRange, &l);
+
+    // inplace subtract second tile index
+    out.subtract(r);
 
     // done
     return out;

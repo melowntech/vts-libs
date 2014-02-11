@@ -8,6 +8,7 @@
 #include <boost/spirit/include/qi_match_auto.hpp>
 
 #include "./types.hpp"
+#include "./tileindex.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -152,6 +153,19 @@ dump(std::basic_ostream<CharT, Traits> &os
         ;
 
     dump(os, static_cast<const SettableProperties&>(p), prefix);
+
+    return os;
+}
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os
+           , const TileIndex &i)
+{
+    os << "TileIndex:"
+       << "\n    lods: " << i.lodRange()
+       << "\n    extents: " << i.extents()
+       << "\n";
 
     return os;
 }
