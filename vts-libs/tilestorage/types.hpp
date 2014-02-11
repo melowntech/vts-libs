@@ -60,6 +60,8 @@ struct Tile {
     Mesh mesh;
     Atlas atlas;
     MetaNode metanode;
+
+    typedef std::vector<Tile> list;
 };
 
 /** Tile identifier (index in 3D space): LOD + coordinates of lower left corner.

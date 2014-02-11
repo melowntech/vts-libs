@@ -70,6 +70,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/driver.hpp tilestorage/driver/driver.cpp
     tilestorage/driver/flat.hpp tilestorage/driver/flat.cpp
 
+    tilestorage/merge.hpp tilestorage/merge.cpp
+
     ${OPTIONAL_SOURCES}
 
     ${PUBLIC_KEY_SOURCES}
