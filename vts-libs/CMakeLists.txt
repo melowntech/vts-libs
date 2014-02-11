@@ -22,7 +22,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
   file_to_cpp(PUBLIC_KEY_SOURCES vadstena::matrixSource detail/matrix-source)
 
   define_module(LIBRARY vadstena-libs DEPENDS ${OPTIONAL_DEPENDS}
-    CRYPTO++ MYSQL++ service math utility dbglog jsoncpp Boost_FILESYSTEM)
+    CRYPTO++ MYSQL++ service math utility dbglog jsoncpp Boost_FILESYSTEM
+    OpenCV)
 
   if (BUILDSYS_CUSTOMER_MODE)
     set(CUSTOMER_SOURCES customer/${BUILDSYS_CUSTOMER}.cpp)

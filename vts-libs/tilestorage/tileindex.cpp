@@ -1,5 +1,12 @@
+#include <boost/filesystem.hpp>
+#include <boost/format.hpp>
+
+#include <opencv2/highgui/highgui.hpp>
+
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
+
+#include "imgproc/rastermask/cvmat.hpp"
 
 #include "./tileindex.hpp"
 #include "./tileop.hpp"
@@ -120,7 +127,6 @@ void TileIndex::fill(const Metadata &metadata)
         // tile size
         auto ts(tileSize(baseTileSize_, tileId.lod));
 
-        // set/unset tile presence
         m->set((tileId.easting - origin_(0)) / ts
                , (tileId.northing - origin_(1)) / ts
                , node.second.exists());
@@ -387,9 +393,20 @@ TileIndex& TileIndex::invert()
     return *this;
 }
 
+namespace {
+
+Extents uniteExtents(const Extents &l, const Extents &r)
+{
+    if (empty(l)) { return r; }
+    if (empty(r)) { return l; }
+    return unite(l, r);
+}
+
+} // namespace
+
 TileIndex unite(const Alignment &alignment
                 , const std::vector<const TileIndex*> &tis
-                , const LodRange &baseLodRange)
+                , const Bootstrap &bootstrap)
 {
     // handle special cases
     switch (tis.size()) {
@@ -398,12 +415,11 @@ TileIndex unite(const Alignment &alignment
     }
 
     // calculate basic parameters
-    const auto &front(*tis.front());
-    auto baseTileSize(front.baseTileSize());
-    auto lodRange(baseLodRange);
-    auto extents(front.extents());
+    auto baseTileSize(tis.front()->baseTileSize());
+    auto lodRange(bootstrap.lodRange());
+    auto extents(bootstrap.extents());
     for (const auto *ti : tis) {
-        extents = unite(extents, ti->extents());
+        extents = uniteExtents(extents, ti->extents());
         lodRange = unite(lodRange, ti->lodRange());
     }
 
@@ -422,68 +438,84 @@ TileIndex unite(const Alignment &alignment
     return out;
 }
 
-TileIndex unite(const Alignment &alignment
+namespace {
+
+template <typename Op>
+TileIndex bitop(const Alignment &alignment
                 , const TileIndex &l, const TileIndex &r
-                , const LodRange &baseLodRange)
+                , const Bootstrap &bootstrap
+                , const Op &op)
 {
     auto baseTileSize(l.baseTileSize());
-    auto lodRange(unite(unite(baseLodRange, l.lodRange()), r.lodRange()));
-    auto extents(unite(l.extents(), r.extents()));
+    auto lodRange(unite(unite(bootstrap.lodRange()
+                              , l.lodRange()), r.lodRange()));
+    auto extents(uniteExtents(uniteExtents(bootstrap.extents()
+                                           , l.extents()), r.extents()));
 
-    LOG(info2) << "(unite) baseLodRange: " << baseLodRange;
     LOG(info2) << "(unite) lodRange: " << lodRange;
     LOG(info2) << "(unite) extents: " << extents;
 
     // result tile index (initialize with first tile index)
     TileIndex out(alignment, baseTileSize, extents, lodRange, &l);
 
-    // inplace intersect with second tile index
-    out.fill(r);
+    // inplace operation
+    op(out, r);
 
     // done
     return out;
+}
+
+} // namespace
+
+TileIndex unite(const Alignment &alignment
+                , const TileIndex &l, const TileIndex &r
+                , const Bootstrap &bootstrap)
+{
+    return bitop(alignment, l, r, bootstrap
+                 , [](TileIndex &out, const TileIndex &in) {
+                     out.fill(in);
+                 });
 }
 
 TileIndex intersect(const Alignment &alignment
                     , const TileIndex &l, const TileIndex &r
-                    , const LodRange &baseLodRange)
+                    , const Bootstrap &bootstrap)
 {
-    auto baseTileSize(l.baseTileSize());
-    auto lodRange(unite(unite(baseLodRange, l.lodRange()), r.lodRange()));
-    auto extents(unite(l.extents(), r.extents()));
-
-    LOG(info2) << "(intersect) lodRange: " << lodRange;
-    LOG(info2) << "(intersect) extents: " << extents;
-
-    // result tile index (initialize with first tile index)
-    TileIndex out(alignment, baseTileSize, extents, lodRange, &l);
-
-    // inplace intersect with second tile index
-    out.intersect(r);
-
-    // done
-    return out;
+    return bitop(alignment, l, r, bootstrap
+                 , [](TileIndex &out, const TileIndex &in) {
+                     out.intersect(in);
+                 });
 }
 
 TileIndex subtract(const Alignment &alignment
                    , const TileIndex &l, const TileIndex &r
-                   , const LodRange &baseLodRange)
+                   , const Bootstrap &bootstrap)
 {
-    auto baseTileSize(l.baseTileSize());
-    auto lodRange(unite(unite(baseLodRange, l.lodRange()), r.lodRange()));
-    auto extents(unite(l.extents(), r.extents()));
+    return bitop(alignment, l, r, bootstrap
+                 , [](TileIndex &out, const TileIndex &in) {
+                     out.subtract(in);
+                 });
+}
 
-    LOG(info2) << "(subtract) lodRange: " << lodRange;
-    LOG(info2) << "(subtract) extents: " << extents;
+void dumpAsImages(const fs::path &path, const TileIndex &ti)
+{
+    create_directories(path);
 
-    // result tile index (initialize with first tile index)
-    TileIndex out(alignment, baseTileSize, extents, lodRange, &l);
+    auto lod(ti.lodRange().max);
+    const auto &masks(ti.masks());
+    int pixelSize(1);
+    for (auto imasks(masks.rbegin()), emasks(masks.rend());
+         imasks != emasks; ++imasks)
+    {
+        // rasterize and dump
+        auto file(path / str(boost::format("%02d.png") % lod));
+        auto mat(asCvMat(*imasks, pixelSize));
+        imwrite(file.string().c_str(), mat);
 
-    // inplace subtract second tile index
-    out.subtract(r);
-
-    // done
-    return out;
+        // next level
+        pixelSize *= 2;
+        --lod;
+    }
 }
 
 } } // namespace vadstena::tilestorage

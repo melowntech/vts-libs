@@ -1,5 +1,7 @@
 #include <queue>
 
+#include <boost/format.hpp>
+
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
 
@@ -614,27 +616,51 @@ inline TileIndices tileIndices(Args &&...args)
     return indices;
 }
 
+inline void dump(const boost::filesystem::path &dir, const TileSet::list &set)
+{
+    int i(0);
+    for (const auto &s : set) {
+        auto &detail(TileSet::Accessor::detail(*s));
+        // we need fresh index
+        detail.flush();
+
+        auto path(dir / str(boost::format("%03d") % i));
+        dumpAsImages(path, detail.tileIndex);
+        ++i;
+    }
+}
+
 } // namespace
 
 void TileSet::mergeIn(const list &kept, const list &update)
 {
+    dump("debug/update", update);
+
     const auto &alignment(detail().properties.alignment);
 
     // calculate storage update (we need to know lod range of kept sets to
     // ensure all indices cover same lod range)
-    auto tsUpdate(unite(detail().properties.alignment
-                        , tileIndices(update), range(kept)));
+    auto tsUpdate(unite(alignment, tileIndices(update), range(kept)));
+    if (empty(tsUpdate.extents())) {
+        LOG(info2) << "Empty update.";
+        return;
+    }
+
+    dumpAsImages("debug/tsUpdate", tsUpdate);
     tsUpdate.growDown();
+    dumpAsImages("debug/tsUpdate-gd", tsUpdate);
 
     // calculate storage post state
-    auto tsPost(unite(alignment, tileIndices(update, kept)
-                      , tsUpdate.lodRange()));
+    auto tsPost(unite(alignment, tileIndices(update, kept), tsUpdate));
+    dumpAsImages("debug/tsPost", tsPost);
     tsPost.growUp();
+    dumpAsImages("debug/tsPost-gu", tsPost);
 
     // calculate storage pre state
-    auto tsPre(unite(alignment, tileIndices(update, kept)
-                     , tsUpdate.lodRange()));
+    auto tsPre(unite(alignment, tileIndices(kept), tsUpdate));
+    dumpAsImages("debug/tsPre", tsPre);
     tsPre.growUp().invert();
+    dumpAsImages("debug/tsPre-gu-inv", tsPre);
 
     LOG(info2) << "(merge-in) down(tsUpdate): " << tsUpdate;
     LOG(info2) << "(merge-in) up(tsPost): " << tsPost;
@@ -642,7 +668,7 @@ void TileSet::mergeIn(const list &kept, const list &update)
 
     auto generate(intersect(alignment, tsPost
                             , unite(alignment, tsUpdate, tsPre)));
-
+    dumpAsImages("debug/generate", generate);
 
     LOG(info2) << "(merge-in) generate: " << generate;
 }

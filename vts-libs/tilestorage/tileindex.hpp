@@ -28,6 +28,8 @@ public:
               , LodRange lodRange
               , const TileIndex *other = nullptr);
 
+    typedef std::vector<RasterMask> Masks;
+
     void load(std::istream &is);
     void load(const boost::filesystem::path &path);
 
@@ -66,9 +68,9 @@ public:
 
     long baseTileSize() const { return baseTileSize_; }
 
-private:
-    typedef std::vector<RasterMask> Masks;
+    const Masks masks() const { return masks_; };
 
+private:
     const RasterMask* mask(Lod lod) const;
 
     RasterMask* mask(Lod lod);
@@ -79,22 +81,50 @@ private:
     Masks masks_;
 };
 
+/** Dump tile indes as set of images.
+ */
+void dumpAsImages(const boost::filesystem::path &path, const TileIndex &ti);
+
+class Bootstrap {
+public:
+    Bootstrap() : lodRange_(0, -1), extents_() {}
+    Bootstrap(const LodRange &lodRange) : lodRange_(lodRange), extents_() {}
+    Bootstrap(const TileIndex &ti)
+        : lodRange_(ti.lodRange()), extents_(ti.extents())
+    {}
+
+    const LodRange& lodRange() const { return lodRange_; }
+    Bootstrap& lodRange(const LodRange &lodRange) {
+        lodRange_ = lodRange;
+        return *this;
+    }
+
+    const Extents& extents() const { return extents_; }
+    Bootstrap& extents(const Extents &extents) {
+        extents_ = extents;
+        return *this;
+    }
+
+private:
+    LodRange lodRange_;
+    Extents extents_;
+};
 
 TileIndex unite(const Alignment &alignment
                 , const std::vector<const TileIndex*> &tis
-                , const LodRange &baseLodRange = LodRange(0, -1));
+                , const Bootstrap &bootstrap = Bootstrap());
 
 TileIndex unite(const Alignment &alignment
                 , const TileIndex &l, const TileIndex &r
-                , const LodRange &baseLodRange = LodRange(0, -1));
+                , const Bootstrap &bootstrap = Bootstrap());
 
 TileIndex intersect(const Alignment &alignment
                     , const TileIndex &l, const TileIndex &r
-                    , const LodRange &baseLodRange = LodRange(0, -1));
+                    , const Bootstrap &bootstrap = Bootstrap());
 
 TileIndex subtract(const Alignment &alignment
                    , const TileIndex &l, const TileIndex &r
-                   , const LodRange &baseLodRange = LodRange(0, -1));
+                   , const Bootstrap &bootstrap = Bootstrap());
 
 // inline stuff
 
