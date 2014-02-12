@@ -1,4 +1,5 @@
 #include <queue>
+#include <bitset>
 
 #include <boost/format.hpp>
 
@@ -318,17 +319,18 @@ void TileSet::Detail::saveMetatileTree(MetatileDef::queue &subtrees
 
     auto bottom(tile.bottom());
 
-    LOG(info2) << "Tile set <" << properties.id << ">: dumping "
-               << tile.id << ", " << tile.end
-               << ", bottom: " << bottom
-               << ".";
-
     const auto *node(findMetaNode(tile.id));
     if (!node) {
         LOGTHROW(err2, Error)
             << "Can't find metanode for tile " << tile.id;
     }
 
+    LOG(info2) << "Tile set <" << properties.id << ">: dumping "
+               << tile.id << ", " << tile.end
+               << ", bottom: " << bottom
+               << ", meta mode:\n" << utility::dump(*node, "    ");
+
+    // save
     node->dump(f);
 
     std::uint8_t childFlags(0);
@@ -347,6 +349,8 @@ void TileSet::Detail::saveMetatileTree(MetatileDef::queue &subtrees
         childFlags |= (childFlags << 4);
     }
     write(f, childFlags);
+
+    LOG(info2) << "    child flags: " << std::bitset<8>(childFlags);
 
     // either dump 4 subnodes now or remember them in the subtrees
     mask = 1;
