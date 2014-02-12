@@ -130,8 +130,6 @@ public:
     /** Query for tile's existence.
      * \param tileId identifier of queried tile
      * \return true if given tile exists, false otherwise
-     *
-     ** NB: Should be optimized.
      */
     bool tileExists(const TileId &tileId) const;
 

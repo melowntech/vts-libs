@@ -80,13 +80,13 @@ void build(Json::Value &config, const Properties &properties)
     config["id"] = properties.id;
 
     auto &foat(config["foat"] = Json::Value(Json::arrayValue));
-    foat.append(Json::UInt64(properties.foat.lod));
-    foat.append(Json::UInt64(properties.foat.easting));
-    foat.append(Json::UInt64(properties.foat.northing));
+    foat.append(Json::Int64(properties.foat.lod));
+    foat.append(Json::Int64(properties.foat.easting));
+    foat.append(Json::Int64(properties.foat.northing));
     foat.append(Json::UInt64(properties.foatSize));
 
     auto &meta(config["meta"] = Json::Value(Json::arrayValue));
-    meta.append(Json::UInt64(properties.metaLevels.lod));
+    meta.append(Json::Int64(properties.metaLevels.lod));
     meta.append(Json::UInt64(properties.metaLevels.delta));
 
     config["baseTileSize"] = Json::UInt64(properties.baseTileSize);

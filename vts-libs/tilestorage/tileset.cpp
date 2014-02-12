@@ -74,6 +74,9 @@ void TileSet::Detail::loadConfig()
 
 void TileSet::Detail::saveConfig()
 {
+    LOG(info1)
+        << "Saving properties:\n"
+        << utility::dump(properties, "    ");
     driver->saveProperties(properties);
 
     // done; remember saved properties and go on
@@ -642,7 +645,7 @@ void TileSet::mergeIn(const list &kept, const list &update)
     // ensure all indices cover same lod range)
     auto tsUpdate(unite(alignment, tileIndices(update), range(kept)));
     if (empty(tsUpdate.extents())) {
-        LOG(info2) << "Empty update.";
+        LOG(warn3) << "(merge-in) Nothing to merge in. Bailing out.";
         return;
     }
 
@@ -671,6 +674,17 @@ void TileSet::mergeIn(const list &kept, const list &update)
     dumpAsImages("debug/generate", generate);
 
     LOG(info2) << "(merge-in) generate: " << generate;
+
+    if (generate.empty()) {
+        LOG(warn3) << "(merge-in) Nothing to generate. Bailing out.";
+        return;
+    }
+
+#if 0
+    auto topLevel(generate.masks().first());
+    auto size(topLevel.dims());
+    for ();
+#endif
 }
 
 void TileSet::mergeOut(const list &kept, const list &update)

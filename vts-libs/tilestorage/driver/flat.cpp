@@ -160,7 +160,8 @@ FlatDriver::~FlatDriver()
 Properties FlatDriver::loadProperties_impl()
 {
     // load json
-    auto path(root_ / ConfigName);
+    auto path(readPath(ConfigName));
+    LOG(info1) << "Loading properties from " << path << ".";
     try {
         std::ifstream f;
         f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -190,7 +191,8 @@ void FlatDriver::saveProperties_impl(const Properties &properties)
     build(config_, properties);
 
     // save json
-    auto path(root_ / ConfigName);
+    auto path(writePath(ConfigName));
+    LOG(info1) << "Saving properties to " << path << ".";
     try {
         std::ofstream f;
         f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -209,6 +211,7 @@ std::shared_ptr<Driver::OStream>
 FlatDriver::metatileOutput_impl(const TileId tileId)
 {
     auto path(writePath(filePath(tileId, "meta")));
+    LOG(info1) << "Saving metatile to " << path << ".";
     return std::make_shared<FileOStream>(path);
 }
 
@@ -216,29 +219,36 @@ std::shared_ptr<Driver::IStream>
 FlatDriver::metatileInput_impl(const TileId tileId)
 {
     auto path(readPath(filePath(tileId, "meta")));
+    LOG(info1) << "Loading metatile from " << path << ".";
     return std::make_shared<FileIStream>(path);
 }
 
 std::shared_ptr<Driver::OStream> FlatDriver::tileIndexOutput_impl()
 {
     auto path(root_ / TileIndexName);
+    LOG(info1) << "Saving tile index to " << path << ".";
     return std::make_shared<FileOStream>(path);
 }
 
 std::shared_ptr<Driver::IStream> FlatDriver::tileIndexInput_impl()
 {
     auto path(root_ / TileIndexName);
+    LOG(info1) << "Loading tile index from " << path << ".";
     return std::make_shared<FileIStream>(path);
 }
 
 void FlatDriver::saveMesh_impl(const TileId tileId, const Mesh &mesh)
 {
-    writeBinaryMesh(writePath(filePath(tileId, "bin")), mesh);
+    auto path(writePath(filePath(tileId, "bin")));
+    LOG(info1) << "Saving mesh to " << path << ".";
+    writeBinaryMesh(path, mesh);
 }
 
 Mesh FlatDriver::loadMesh_impl(const TileId tileId)
 {
-    return loadBinaryMesh(readPath(filePath(tileId, "bin")));
+    auto path(readPath(filePath(tileId, "bin")));
+    LOG(info1) << "Loading mesh from " << path << ".";
+    return loadBinaryMesh(path);
 }
 
 void FlatDriver::saveAtlas_impl(const TileId tileId, const Atlas &atlas
@@ -246,6 +256,7 @@ void FlatDriver::saveAtlas_impl(const TileId tileId, const Atlas &atlas
 {
     auto path(writePath(filePath(tileId, "jpg")));
 
+    LOG(info1) << "Saving atlas to " << path << ".";
     // TODO: check errors
     cv::imwrite(path.string().c_str(), atlas
                 , { cv::IMWRITE_JPEG_QUALITY, textureQuality });
@@ -255,6 +266,7 @@ Atlas FlatDriver::loadAtlas_impl(const TileId tileId)
 {
     auto path(readPath(filePath(tileId, "jpg")));
 
+    LOG(info1) << "Saving atlas from " << path << ".";
     auto atlas(cv::imread(path.string().c_str()));
     if (atlas.empty()) {
         LOGTHROW(err2, Error)
