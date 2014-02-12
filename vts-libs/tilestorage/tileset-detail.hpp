@@ -1,4 +1,5 @@
 #include <queue>
+#include <set>
 
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
@@ -68,6 +69,8 @@ struct TileSet::Detail {
     MetaNode& createVirtualMetaNode(const TileId &tileId);
 
     bool isFoat(const TileId &tileId) const;
+
+    void updateZbox(const TileId &tileId);
 
     void updateZbox(const TileId &tileId, MetaNode &metanode);
 

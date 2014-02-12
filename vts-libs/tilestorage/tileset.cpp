@@ -166,7 +166,7 @@ void TileSet::Detail::setMetaNode(const TileId &tileId
     }
 
     // grow extents
-    if (!area(extents)) {
+    if (empty(extents)) {
         // invalid extents, add first tile!
         extents = tileExtents(properties, tileId);
         // initial lod range
@@ -185,8 +185,17 @@ void TileSet::Detail::setMetaNode(const TileId &tileId
         }
     }
 
+    // remember old foat
+    auto oldFoat(properties.foat);
+
     // layout updated -> update zboxes up the tree
     updateZbox(tileId, res.first->second);
+
+    // if added tile was outside of old foat we have to generate tree from old
+    // foat to new foat (which was generated above)
+    if (!above(properties.baseTileSize, tileId, oldFoat)) {
+        updateZbox(oldFoat);
+    }
 
     metadataChanged = true;
 }
@@ -200,6 +209,7 @@ TileSet::Detail::createVirtualMetaNode(const TileId &tileId)
         // no node (real or virtual), create virtual node
         md = &(metadata.insert(Metadata::value_type(tileId, MetaNode()))
                .first->second);
+        LOG(info2) << "Created virtual tile " << tileId << ".";
     }
 
     metadataChanged = true;
@@ -244,8 +254,15 @@ void TileSet::Detail::check(const TileId &tileId) const
     }
 }
 
+void TileSet::Detail::updateZbox(const TileId &tileId)
+{
+    if (auto *node = findMetaNode(tileId)) {
+        updateZbox(tileId, *node);
+    }
+}
+
 void TileSet::Detail::updateZbox(const TileId &tileId
-                                           , MetaNode &metanode)
+                                 , MetaNode &metanode)
 {
     // process all 4 children
     for (const auto &childId : children(properties.baseTileSize, tileId)) {
@@ -338,6 +355,7 @@ void TileSet::Detail::saveMetatileTree(MetatileDef::queue &subtrees
     auto childrenIds(children(properties.baseTileSize, tile.id));
 
     for (auto &childId : childrenIds) {
+        LOG(info1) << "processing child: " << childId;
         if (findMetaNode(childId)) {
             childFlags |= mask;
         }

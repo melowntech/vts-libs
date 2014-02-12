@@ -13,6 +13,8 @@ long tileSize(long baseTileSize, Lod lod);
 
 long tileSize(const Properties &properties, Lod lod);
 
+Extents tileExtents(long baseTileSize, const TileId &tile);
+
 Extents tileExtents(const Properties &properties, const TileId &tile);
 
 TileId fromAlignment(const Properties &properties, const TileId &tileId);
@@ -23,6 +25,8 @@ TileId parent(const Alignment &alignment, long baseTileSize
 TileIdChildren children(long baseTileSize, const TileId &tileId);
 
 Lod deltaDown(const LodLevels &levels, Lod lod);
+
+bool above(long baseTileSize, const TileId &tile, const TileId &super);
 
 // inline stuff
 
@@ -39,6 +43,13 @@ inline long tileSize(const Properties &properties, Lod lod)
 inline Extents tileExtents(const Properties &properties, const TileId &tile)
 {
     auto ts(tileSize(properties, tile.lod));
+    return { tile.easting, tile.northing
+            , tile.easting + ts, tile.northing + ts };
+}
+
+inline Extents tileExtents(long baseTileSize, const TileId &tile)
+{
+    auto ts(tileSize(baseTileSize, tile.lod));
     return { tile.easting, tile.northing
             , tile.easting + ts, tile.northing + ts };
 }
@@ -97,6 +108,20 @@ inline Lod deltaDown(const LodLevels &levels, Lod lod)
         ++res;
     }
     return res;
+}
+
+inline bool above(long baseTileSize, const TileId &tile, const TileId &super)
+{
+    auto te(tileExtents(baseTileSize, tile));
+    auto se(tileExtents(baseTileSize, super));
+
+    if (te.ll(0) >= se.ur(0)) { return false; }
+    if (te.ll(1) >= se.ur(1)) { return false; }
+
+    if (te.ur(0) <= se.ll(0)) { return false; }
+    if (te.ur(1) <= se.ll(1)) { return false; }
+
+    return true;
 }
 
 } } // namespace vadstena::tilestorage
