@@ -97,12 +97,13 @@ FlatDriver::FlatDriver(const boost::filesystem::path &root
     : Driver(false)
     , root_(root), tmp_(root / TransactionRoot)
 {
-    if (properties.id.empty()) {
+    const auto &sp(properties.staticProperties);
+    if (sp.id.empty()) {
         LOGTHROW(err2, FormatError)
             << "Cannot create tile set without valid id.";
     }
 
-    if (properties.metaLevels.delta <= 0) {
+    if (sp.metaLevels.delta <= 0) {
         LOGTHROW(err2, FormatError)
             << "Tile set must have positive metaLevels.delta.";
     }
@@ -119,7 +120,9 @@ FlatDriver::FlatDriver(const boost::filesystem::path &root
     Properties p;
 
     // initialize create properties
-    static_cast<CreateProperties&>(p) = properties;
+    static_cast<StaticProperties&>(p) = properties.staticProperties;
+    static_cast<SettableProperties&>(p)
+        .merge(properties.settableProperties, properties.mask);
 
     // leave foat and foat size to be zero
     // leave default position

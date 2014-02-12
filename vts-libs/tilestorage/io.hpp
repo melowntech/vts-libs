@@ -109,7 +109,7 @@ dump(std::basic_ostream<CharT, Traits> &os
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
 dump(std::basic_ostream<CharT, Traits> &os
-     , const CreateProperties &p
+     , const StaticProperties &p
      , const std::string &prefix = std::string())
 {
     os << prefix << "id = " << p.id << '\n';
@@ -143,7 +143,7 @@ dump(std::basic_ostream<CharT, Traits> &os
      , const Properties &p
      , const std::string &prefix = std::string())
 {
-    dump(os, static_cast<const CreateProperties&>(p), prefix);
+    dump(os, static_cast<const StaticProperties&>(p), prefix);
 
     dump(os, p.foat, prefix + "foat.");
     os << prefix << "foat.size = " << p.foatSize << '\n'

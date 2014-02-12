@@ -70,9 +70,9 @@ struct TileSet::Detail {
 
     bool isFoat(const TileId &tileId) const;
 
-    void updateZbox(const TileId &tileId);
+    void updateTree(const TileId &tileId);
 
-    void updateZbox(const TileId &tileId, MetaNode &metanode);
+    void updateTree(const TileId &tileId, MetaNode &metanode);
 
     void flush();
 

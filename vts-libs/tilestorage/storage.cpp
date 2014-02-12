@@ -84,7 +84,7 @@ struct Storage::Factory {
 
         // update create properties
         CreateProperties p(properties);
-        p.id = OutputDir;
+        p.staticProperties.id = OutputDir;
 
         // create output tile set
         createTileSet(rooted(root, sp.outputSet.locator), p, mode);

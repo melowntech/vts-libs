@@ -36,7 +36,7 @@ class Driver;
 /** Tile set properties that must be specified during creation. They cannot be
  *  changed later.
  */
-struct CreateProperties {
+struct StaticProperties {
     /** Unique set identifier.
      */
     std::string id;
@@ -53,7 +53,7 @@ struct CreateProperties {
      */
     Alignment alignment;
 
-    CreateProperties() : baseTileSize() {}
+    StaticProperties() : baseTileSize() {}
 };
 
 /** Tile set properties that can be set anytime.
@@ -69,17 +69,38 @@ struct SettableProperties {
         , textureQuality = 0x04
     }; };
 
+    typedef int MaskType;
+
     SettableProperties()
         : defaultOrientation(0, -90, 0)
         , textureQuality(85) {}
 
-    bool merge(const SettableProperties &other, int mask = ~0);
+    bool merge(const SettableProperties &other, MaskType mask = ~0ul);
+};
+
+struct CreateProperties {
+public:
+    CreateProperties() : mask(0) {}
+
+    CreateProperties(const StaticProperties &cp)
+        : staticProperties(cp), mask(0)
+    {}
+
+    CreateProperties(const StaticProperties &cp
+                     , const SettableProperties &sp
+                     , SettableProperties::MaskType mask = ~0ul)
+        : staticProperties(cp), settableProperties(sp), mask(mask)
+    {}
+
+    StaticProperties staticProperties;
+    SettableProperties settableProperties;
+    SettableProperties::MaskType mask;
 };
 
 /** All tile set properties.
  */
 struct Properties
-    : CreateProperties
+    : StaticProperties
     , SettableProperties
 {
     TileId foat;    //!< Identifier of Father-of-All-Tiles metatile
@@ -145,7 +166,7 @@ public:
      * \return all new tile set properties after change
      */
     Properties setProperties(const SettableProperties &properties
-                             , int mask = ~0);
+                             , SettableProperties::MaskType mask = ~0ul);
 
     /** Flush all pending changes to backing store (e.g. filesystem).
      *
@@ -210,7 +231,7 @@ public:
 // inline stuff
 
 inline bool SettableProperties::merge(const SettableProperties &other
-                                      , int mask)
+                                      , MaskType mask)
 {
     bool changed(false);
 #define SETTABLEPROPERTIES_MERGE(WHAT) \

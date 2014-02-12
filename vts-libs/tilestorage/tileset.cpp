@@ -189,12 +189,12 @@ void TileSet::Detail::setMetaNode(const TileId &tileId
     auto oldFoat(properties.foat);
 
     // layout updated -> update zboxes up the tree
-    updateZbox(tileId, res.first->second);
+    updateTree(tileId, res.first->second);
 
     // if added tile was outside of old foat we have to generate tree from old
     // foat to new foat (which was generated above)
     if (!above(properties.baseTileSize, tileId, oldFoat)) {
-        updateZbox(oldFoat);
+        updateTree(oldFoat);
     }
 
     metadataChanged = true;
@@ -254,14 +254,14 @@ void TileSet::Detail::check(const TileId &tileId) const
     }
 }
 
-void TileSet::Detail::updateZbox(const TileId &tileId)
+void TileSet::Detail::updateTree(const TileId &tileId)
 {
     if (auto *node = findMetaNode(tileId)) {
-        updateZbox(tileId, *node);
+        updateTree(tileId, *node);
     }
 }
 
-void TileSet::Detail::updateZbox(const TileId &tileId
+void TileSet::Detail::updateTree(const TileId &tileId
                                  , MetaNode &metanode)
 {
     // process all 4 children
@@ -290,11 +290,11 @@ void TileSet::Detail::updateZbox(const TileId &tileId
                          , properties.baseTileSize
                          , tileId));
     if (auto *parentNode = findMetaNode(parentId)) {
-        updateZbox(parentId, *parentNode);
+        updateTree(parentId, *parentNode);
     } else {
         // there is no parent present in the tree; process freshly generated
         // parent
-        updateZbox(parentId, createVirtualMetaNode(parentId));
+        updateTree(parentId, createVirtualMetaNode(parentId));
     }
 }
 
@@ -570,7 +570,7 @@ Properties TileSet::getProperties() const
 }
 
 Properties TileSet::setProperties(const SettableProperties &properties
-                                  , int mask)
+                                  , SettableProperties::MaskType mask)
 {
     detail().driver->wannaWrite("set properties");
 
