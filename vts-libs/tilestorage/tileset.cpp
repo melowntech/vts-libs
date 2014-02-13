@@ -355,7 +355,7 @@ void TileSet::Detail::saveMetatileTree(MetatileDef::queue &subtrees
     auto childrenIds(children(properties.baseTileSize, tile.id));
 
     for (auto &childId : childrenIds) {
-        LOG(info1) << "processing child: " << childId;
+        LOG(debug) << "processing child: " << childId;
         if (findMetaNode(childId)) {
             childFlags |= mask;
         }

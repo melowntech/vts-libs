@@ -75,11 +75,14 @@ struct SettableProperties {
         : defaultOrientation(0, -90, 0)
         , textureQuality(85) {}
 
-    bool merge(const SettableProperties &other, MaskType mask = ~0ul);
+    bool merge(const SettableProperties &other
+               , MaskType mask = ~(MaskType(0)));
 };
 
 struct CreateProperties {
 public:
+    typedef SettableProperties::MaskType MaskType;
+
     CreateProperties() : mask(0) {}
 
     CreateProperties(const StaticProperties &cp)
@@ -88,13 +91,13 @@ public:
 
     CreateProperties(const StaticProperties &cp
                      , const SettableProperties &sp
-                     , SettableProperties::MaskType mask = ~0ul)
+                     , MaskType mask = ~(MaskType(0)))
         : staticProperties(cp), settableProperties(sp), mask(mask)
     {}
 
     StaticProperties staticProperties;
     SettableProperties settableProperties;
-    SettableProperties::MaskType mask;
+    MaskType mask;
 };
 
 /** All tile set properties.

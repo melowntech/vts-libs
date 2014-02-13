@@ -1,29 +1,14 @@
 if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
-  set(OPTIONAL_DEPENDS)
-  set(OPTIONAL_SOURCES)
-
-  if (LIBSHP_FOUND)
-    list(APPEND OPTIONAL_DEPENDS LIBSHP Boost_REGEX)
-    list(APPEND OPTIONAL_SOURCES
-      shapefile.hpp shapefile.cpp)
-  endif()
-
-  if (MODULE_cvision_FOUND)
-    list(APPEND OPTIONAL_DEPENDS cvision optics)
-    list(APPEND OPTIONAL_SOURCES
-      viewconfig.hpp viewconfig.cpp
-      flowconfig.hpp flowconfig.cpp
-      fitting.hpp fitting.cpp
-      fittingset.hpp fittingset.cpp
-      features.hpp features.cpp
-      )
-  endif()
+  set(DEPENDS )
 
   file_to_cpp(PUBLIC_KEY_SOURCES vadstena::matrixSource detail/matrix-source)
+  file_to_cpp(PUBLIC_KEY_SOURCES vadstena::fingerPrintManipulator
+    detail/fingeprint-manipulator)
 
-  define_module(LIBRARY vadstena-libs DEPENDS ${OPTIONAL_DEPENDS}
-    CRYPTO++ MYSQL++ service math utility dbglog jsoncpp Boost_FILESYSTEM
-    OpenCV)
+  define_module(LIBRARY vadstena-libs DEPENDS
+    service cvision optics math utility dbglog jsoncpp
+    Boost_FILESYSTEM Boost_REGEX
+    OpenCV LIBSHP CRYPTO++ MYSQL++)
 
   if (BUILDSYS_CUSTOMER_MODE)
     set(CUSTOMER_SOURCES customer/${BUILDSYS_CUSTOMER}.cpp)
@@ -51,14 +36,26 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     pc.hpp pc.cpp
     uvpack.hpp uvpack.cpp
     mesh.hpp mesh.cpp
+
+    # crypto stuff
     clog.hpp clog.cpp
     deferredlogger.hpp deferredlogger.cpp
+    encryptor.hpp encryptor.cpp
+
     cameralist.hpp cameralist.cpp
     facetexcoords.hpp facetexcoords.cpp
     gil2cvmat.hpp
     gcp.hpp gcp.cpp
     metatile.hpp metatile.cpp
     binmesh.hpp binmesh.cpp
+
+    shapefile.hpp shapefile.cpp
+
+    viewconfig.hpp viewconfig.cpp
+    flowconfig.hpp flowconfig.cpp
+    fitting.hpp fitting.cpp
+    fittingset.hpp fittingset.cpp
+    features.hpp features.cpp
 
     tilestorage.hpp
     tilestorage/tileop.hpp
@@ -70,10 +67,9 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/tileindex.hpp tilestorage/tileindex.cpp
     tilestorage/driver.hpp tilestorage/driver/driver.cpp
     tilestorage/driver/flat.hpp tilestorage/driver/flat.cpp
-
     tilestorage/merge.hpp tilestorage/merge.cpp
 
-    ${OPTIONAL_SOURCES}
+    licence/fingerprint.hpp licence/fingerprint.cpp
 
     ${PUBLIC_KEY_SOURCES}
 
