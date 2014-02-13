@@ -10,9 +10,12 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     Boost_FILESYSTEM Boost_REGEX
     OpenCV LIBSHP CRYPTO++ MYSQL++)
 
-  if (BUILDSYS_CUSTOMER_MODE)
+  if (BUILDSYS_CUSTOMER_BUILD)
+    message(STATUS "Building vadstena-libs customized for customer "
+      "'${BUILDSYS_CUSTOMER}'.")
     set(CUSTOMER_SOURCES customer/${BUILDSYS_CUSTOMER}.cpp)
   else()
+    message(STATUS "Building vadstena-libs without any customization.")
     set(CUSTOMER_SOURCES customer/none.cpp)
   endif()
 
