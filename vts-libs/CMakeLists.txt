@@ -51,6 +51,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     gcp.hpp gcp.cpp
     metatile.hpp metatile.cpp
     binmesh.hpp binmesh.cpp
+    rectalloc.hpp rectalloc.cpp
 
     shapefile.hpp shapefile.cpp
 
