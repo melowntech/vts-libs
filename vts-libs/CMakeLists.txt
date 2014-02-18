@@ -49,9 +49,12 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     facetexcoords.hpp facetexcoords.cpp
     gil2cvmat.hpp
     gcp.hpp gcp.cpp
+
     metatile.hpp metatile.cpp
     binmesh.hpp binmesh.cpp
+
     rectalloc.hpp rectalloc.cpp
+    viewrasterize.hpp viewrasterize.cpp
 
     shapefile.hpp shapefile.cpp
 
