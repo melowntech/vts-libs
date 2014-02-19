@@ -1,6 +1,7 @@
 #ifndef vadstena_libs_tilestorage_tileop_hpp_included_
 #define vadstena_libs_tilestorage_tileop_hpp_included_
 
+#include "../entities.hpp"
 #include "../tilestorage.hpp"
 
 namespace vadstena { namespace tilestorage {
@@ -24,9 +25,19 @@ TileId parent(const Alignment &alignment, long baseTileSize
 
 TileIdChildren children(long baseTileSize, const TileId &tileId);
 
+IndexChildren children(const Index &index);
+
+bool isMetatile(const LodLevels &levels, const TileId &tile);
+
 Lod deltaDown(const LodLevels &levels, Lod lod);
 
 bool above(long baseTileSize, const TileId &tile, const TileId &super);
+
+bool valid(const Tile &tile);
+
+int child(const Index &index);
+
+bool in(const LodRange &range, const TileId &tileId);
 
 // inline stuff
 
@@ -89,6 +100,18 @@ inline TileIdChildren children(long baseTileSize, const TileId &tileId)
     }};
 }
 
+inline IndexChildren children(const Index &index)
+{
+    Index base(index.lod + 1, index.easting << 1, index.northing << 1);
+
+    return {{
+        base                                                   // lower-left
+        , { base.lod, base.easting + 1, base.northing }        // lower-right
+        , { base.lod, base.easting, base.northing + 1 }        // upper-left
+        , { base.lod, base.easting + 1, base.northing + 1 }    // upper-right
+    }};
+}
+
 inline bool operator==(const TileId &lhs, const TileId &rhs)
 {
     return ((lhs.lod == rhs.lod)
@@ -99,6 +122,11 @@ inline bool operator==(const TileId &lhs, const TileId &rhs)
 inline bool operator!=(const TileId &lhs, const TileId &rhs)
 {
     return !(lhs == rhs);
+}
+
+inline bool isMetatile(const LodLevels &levels, const TileId &tile)
+{
+    return !(std::abs(tile.lod - levels.lod) % levels.delta);
 }
 
 inline Lod deltaDown(const LodLevels &levels, Lod lod)
@@ -122,6 +150,21 @@ inline bool above(long baseTileSize, const TileId &tile, const TileId &super)
     if (te.ur(1) <= se.ll(1)) { return false; }
 
     return true;
+}
+
+inline bool valid(const Tile &tile)
+{
+    return tile.metanode.exists();
+}
+
+inline int child(const Index &index)
+{
+    return (index.easting & 1l) + ((index.northing & 1l) << 1);
+}
+
+inline bool in(const LodRange &range, const TileId &tileId)
+{
+    return (tileId.lod >= range.min) && (tileId.lod <= range.max);
 }
 
 } } // namespace vadstena::tilestorage

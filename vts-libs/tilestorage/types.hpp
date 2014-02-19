@@ -62,6 +62,11 @@ struct Tile {
     MetaNode metanode;
 
     typedef std::vector<Tile> list;
+
+    Tile() {}
+    Tile(const Mesh &mesh, const Atlas &atlas, const MetaNode &metanode)
+        : mesh(mesh), atlas(atlas), metanode(metanode)
+    {}
 };
 
 /** Tile identifier (index in 3D space): LOD + coordinates of lower left corner.
@@ -78,7 +83,28 @@ struct TileId {
     {}
 };
 
+/** Tile index in TileIndex.
+ */
+struct Index {
+    Lod lod;
+    long easting;
+    long northing;
+
+    Index(Lod lod = 0, long easting = 0, long northing = 0)
+        : lod(lod), easting(easting), northing(northing)
+    {}
+};
+
+typedef math::Size2_<long> Size2l;
+
+typedef math::Point2_<long> Point2l;
+
+typedef Point2l Alignment;
+
+typedef math::Extents2_<long> Extents;
+
 typedef std::array<TileId, 4> TileIdChildren;
+typedef std::array<Index, 4> IndexChildren;
 
 /** Lod levels.
  */
@@ -88,12 +114,6 @@ struct LodLevels {
 
     LodLevels() : lod(), delta() {}
 };
-
-typedef math::Point2_<long> Point2l;
-
-typedef Point2l Alignment;
-
-typedef math::Extents2_<long> Extents;
 
 /** Open mode
  */

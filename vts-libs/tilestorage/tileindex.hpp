@@ -38,6 +38,8 @@ public:
 
     bool exists(const TileId &tileId) const;
 
+    bool exists(const Index &index) const;
+
     void fill(const Metadata &metadata);
 
     void fill(Lod lod, const TileIndex &other);
@@ -54,7 +56,17 @@ public:
 
     Extents extents() const;
 
+    TileId tileId(const Index &index) const;
+
+    Index index(const TileId &tileId) const;
+
+    Size2l rasterSize(Lod lod) const;
+
     bool empty() const;
+
+    long baseTileSize() const { return baseTileSize_; }
+
+    Lod minLod() const { return minLod_; }
 
     Lod maxLod() const;
 
@@ -65,8 +77,6 @@ public:
     TileIndex& growDown();
 
     TileIndex& invert();
-
-    long baseTileSize() const { return baseTileSize_; }
 
     const Masks masks() const { return masks_; };
 
@@ -169,12 +179,46 @@ inline Extents TileIndex::extents() const
 {
     if (masks_.empty()) { return { origin_, origin_ }; }
 
-    auto size(masks_.front().size());
-    auto ts(tileSize(baseTileSize_, minLod_));
+    const auto size(masks_.front().size());
+    const auto ts(tileSize(baseTileSize_, minLod_));
 
     return { origin_(0), origin_(1)
             , origin_(0) + ts * size.width
             , origin_(1) + ts * size.height };
+}
+
+inline Size2l TileIndex::rasterSize(Lod lod) const
+{
+    const auto *m(mask(lod));
+    if (!m) { return {}; }
+    auto d(m->dims());
+    return Size2l(d.width, d.height);
+}
+
+inline bool TileIndex::exists(const Index &index) const
+{
+    const auto *m(mask(index.lod));
+    if (!m) { return false; }
+    return m->get(index.easting, index.northing);
+}
+
+inline bool TileIndex::exists(const TileId &tileId) const
+{
+    return exists(index(tileId));
+}
+
+inline TileId TileIndex::tileId(const Index &index) const
+{
+    const auto ts(tileSize(baseTileSize_, index.lod));
+    return { index.lod, origin_(0) + index.easting * ts
+            , origin_(1) + index.northing * ts };
+}
+
+inline Index TileIndex::index(const TileId &tileId) const
+{
+    const auto ts(tileSize(baseTileSize_, tileId.lod));
+    return { tileId.lod, (tileId.easting - origin_(0)) / ts
+            , (tileId.northing - origin_(1)) / ts };
 }
 
 } } // namespace vadstena::tilestorage

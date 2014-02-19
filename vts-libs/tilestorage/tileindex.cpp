@@ -100,19 +100,6 @@ TileIndex::TileIndex(const Alignment &alignment, long baseTileSize
     }
 }
 
-bool TileIndex::exists(const TileId &tileId) const
-{
-    const auto *m(mask(tileId.lod));
-    if (!m) { return false; }
-
-    // tile size
-    auto ts(tileSize(baseTileSize_, tileId.lod));
-
-    // query mask
-    return m->get((tileId.easting - origin_(0)) / ts
-                  , (tileId.northing - origin_(1)) / ts);
-}
-
 void TileIndex::fill(const Metadata &metadata)
 {
     for (const auto &node : metadata) {

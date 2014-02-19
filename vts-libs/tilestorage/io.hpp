@@ -170,6 +170,14 @@ operator<<(std::basic_ostream<CharT, Traits> &os
     return os;
 }
 
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const Index &tid)
+{
+    return os << '(' << tid.lod << ", " << tid.easting
+              << ", " << tid.northing << ')';
+}
+
 } } // namespace vadstena::tilestorage
 
 #endif // vadstena_libs_tilestorage_io_hpp_included_

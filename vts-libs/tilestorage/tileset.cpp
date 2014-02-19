@@ -2,6 +2,7 @@
 #include <bitset>
 
 #include <boost/format.hpp>
+#include <boost/utility/in_place_factory.hpp>
 
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
@@ -12,6 +13,7 @@
 #include "./tileop.hpp"
 #include "./driver/flat.hpp"
 #include "./tileset-detail.hpp"
+#include "./merge.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -20,12 +22,6 @@ namespace {
 const char METATILE_IO_MAGIC[8] = {  'M', 'E', 'T', 'A', 'T', 'I', 'L', 'E' };
 
 const unsigned METATILE_IO_VERSION = 1;
-
-void tileSetDeleter(TileSet *tileSet)
-{
-    tileSet->flush();
-    delete tileSet;
-}
 
 } // namespace
 
@@ -36,13 +32,13 @@ struct TileSet::Factory
                                    , CreateMode mode)
     {
         auto driver(Driver::create(locator, properties, mode));
-        return { new TileSet(driver), &tileSetDeleter };
+        return TileSet::pointer(new TileSet(driver));
     }
 
     static TileSet::pointer open(const Locator &locator, OpenMode mode)
     {
         auto driver(Driver::open(locator, mode));
-        return { new TileSet(driver), &tileSetDeleter };
+        return TileSet::pointer(new TileSet(driver));
     }
 };
 
@@ -65,6 +61,31 @@ TileSet::pointer createTileSet(const Locator &locator
 TileSet::pointer openTileSet(const Locator &locator, OpenMode mode)
 {
     return TileSet::Factory::open(locator, mode);
+}
+
+TileSet::Detail::Detail(const Driver::pointer &driver)
+    : driver(driver), propertiesChanged(false)
+    , metadataChanged(false)
+    , tx(false)
+{
+    loadConfig();
+    // load tile index only if foat is valid
+    if (properties.foatSize) {
+        loadTileIndex();
+    } else {
+        tileIndex = { properties.baseTileSize };
+    }
+}
+
+TileSet::Detail::~Detail()
+{
+    // no exception thrown and not flushe? warn user!
+    if (!std::uncaught_exception()
+        && (metadataChanged || propertiesChanged))
+    {
+        LOG(warn3) << "Tile set is not flushed on destruction: "
+            "data could be unusable.";
+    }
 }
 
 void TileSet::Detail::loadConfig()
@@ -154,15 +175,17 @@ MetaNode* TileSet::Detail::findMetaNode(const TileId &tileId)
     return &fmetadata->second;
 }
 
-void TileSet::Detail::setMetaNode(const TileId &tileId
-                                  , const MetaNode& metanode)
+MetaNode TileSet::Detail::setMetaNode(const TileId &tileId
+                                      , const MetaNode& metanode)
 {
     // this ensures that we have old metanode in memory
     findMetaNode(tileId);
 
+    // insert new node or update existing
     auto res(metadata.insert(Metadata::value_type(tileId, metanode)));
+    auto &newNode(res.first->second);
     if (!res.second) {
-        res.first->second = metanode;
+        newNode = metanode;
     }
 
     // grow extents
@@ -189,7 +212,7 @@ void TileSet::Detail::setMetaNode(const TileId &tileId
     auto oldFoat(properties.foat);
 
     // layout updated -> update zboxes up the tree
-    updateTree(tileId, res.first->second);
+    updateTree(tileId, newNode);
 
     // if added tile was outside of old foat we have to generate tree from old
     // foat to new foat (which was generated above)
@@ -198,6 +221,9 @@ void TileSet::Detail::setMetaNode(const TileId &tileId
     }
 
     metadataChanged = true;
+
+    // OK, return new node
+    return newNode;
 }
 
 MetaNode&
@@ -209,7 +235,8 @@ TileSet::Detail::createVirtualMetaNode(const TileId &tileId)
         // no node (real or virtual), create virtual node
         md = &(metadata.insert(Metadata::value_type(tileId, MetaNode()))
                .first->second);
-        LOG(info2) << "Created virtual tile " << tileId << ".";
+        LOG(info2) << "(" << properties.id
+                   << "): Created virtual tile " << tileId << ".";
     }
 
     metadataChanged = true;
@@ -218,19 +245,123 @@ TileSet::Detail::createVirtualMetaNode(const TileId &tileId)
     return *md;
 }
 
+
+
+void TileSet::Detail::loadMetatileTree(const TileId &tileId, std::istream &f)
+    const
+{
+    using utility::binaryio::read;
+
+    MetaNode node;
+
+    std::int16_t zmin, zmax;
+    read(f, zmin);
+    read(f, zmax);
+    node.zmin = zmin;
+    node.zmax = zmax;
+
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 2; ++j) {
+            read(f, node.pixelSize[i][j]);
+        }
+    }
+
+    for (int i = 0; i < MetaNode::HMSize; ++i) {
+        for (int j = 0; j < MetaNode::HMSize; ++j) {
+            std::int16_t value;
+            read(f, value);
+            node.heightmap[i][j] = value;
+        }
+    }
+
+    // we have node, remember it
+    // NB: we do NOT want the node from the storage to replace anything that is
+    // in the memory
+    metadata.insert(Metadata::value_type(tileId, node));
+
+    std::uint8_t childFlags;
+    read(f, childFlags);
+
+    std::uint8_t mask(1 << 4);
+    for (const auto &childId : children(properties.baseTileSize, tileId)) {
+        if (childFlags & mask) {
+            loadMetatileTree(childId, f);
+        }
+        mask <<= 1;
+    }
+}
+
+void TileSet::Detail::loadMetatileFromFile(const TileId &tileId) const
+{
+    using utility::binaryio::read;
+
+    auto f(driver->metatileInput(tileId));
+
+    uint32_t version;
+    {
+        char magic[8];
+
+        read(*f, magic);
+        if (std::memcmp(magic, METATILE_IO_MAGIC, sizeof(METATILE_IO_MAGIC))) {
+            LOGTHROW(err1, FormatError) << "Bad metatile data magic.";
+        }
+        read(*f, version);
+        if (version > METATILE_IO_VERSION) {
+            LOGTHROW(err1, FormatError)
+                << "Unsupported metatile format (" << version << ").";
+        }
+    }
+
+    // TODO: use version to load different versions of metatile
+    loadMetatileTree(tileId, *f);
+
+    f->close();
+}
+
 MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId)
     const
 {
-    // TODO: implement me
-    (void) tileId;
-    return nullptr;
+    // if tile is not marked in the index it cannot be found on the disk
+    if (in(lodRange, tileId) && !tileIndex.exists(tileId)) {
+        return nullptr;
+    }
 
-    // NB: this call loads whole metatile file where tileId lives; only nodes
-    // that are not present in this->metadata are inserted there
+    // sanity check
+    if (!savedProperties.foatSize) {
+        // no data on disk
+        return nullptr;
+    }
+
+    if (!above(savedProperties.baseTileSize, tileId, savedProperties.foat)) {
+        // foat is not above tile -> cannot be present on disk
+        return nullptr;
+    }
+
+    auto metaId(tileId);
+    while ((metaId != savedProperties.foat)
+           && !isMetatile(savedProperties.metaLevels, metaId))
+    {
+        metaId = tilestorage::parent(savedProperties.alignment
+                                     , savedProperties.baseTileSize
+                                     , metaId);
+    }
+
+    LOG(info2) << "(" << properties.id << "): Found metatile "
+               << metaId << " for tile " << tileId << ".";
+
+    loadMetatileFromFile(metaId);
+
+    // now, we can execute lookup again
+    auto fmetadata(metadata.find(tileId));
+    if (fmetadata != metadata.end()) {
+        return &fmetadata->second;
+    }
+
+    return nullptr;
 }
 
 void TileSet::Detail::setMetadata(const TileId &tileId
-                                            , const TileMetadata& metadata)
+                                  , const TileMetadata& metadata)
 {
     // this ensures that we have old metanode in memory
     auto metanode(findMetaNode(tileId));
@@ -286,9 +417,7 @@ void TileSet::Detail::updateTree(const TileId &tileId
         return;
     }
 
-    auto parentId(parent(properties.alignment
-                         , properties.baseTileSize
-                         , tileId));
+    auto parentId(parent(tileId));
     if (auto *parentNode = findMetaNode(parentId)) {
         updateTree(parentId, *parentNode);
     } else {
@@ -328,8 +457,8 @@ void TileSet::Detail::flush()
 }
 
 void TileSet::Detail::saveMetatileTree(MetatileDef::queue &subtrees
-                                                 , std::ostream &f
-                                                 , const MetatileDef &tile)
+                                       , std::ostream &f
+                                       , const MetatileDef &tile)
     const
 {
     using utility::binaryio::write;
@@ -421,6 +550,65 @@ void TileSet::Detail::saveMetatiles() const
     }
 }
 
+Tile TileSet::Detail::getTile(const TileId &tileId) const
+{
+    check(tileId);
+
+    auto md(findMetaNode(tileId));
+    if (!md) {
+        LOGTHROW(err2, NoSuchTile)
+            << "There is no tile at " << tileId << ".";
+    }
+
+    return { driver->loadMesh(tileId)
+            , driver->loadAtlas(tileId), *md };
+}
+
+boost::optional<Tile> TileSet::Detail::getTile(const TileId &tileId
+                                               , std::nothrow_t)
+    const
+{
+    check(tileId);
+
+    auto md(findMetaNode(tileId));
+    if (!md) {
+        return boost::none;
+    }
+
+    return boost::optional<Tile>
+        (boost::in_place(driver->loadMesh(tileId)
+                         , driver->loadAtlas(tileId), *md));
+}
+
+MetaNode TileSet::Detail::setTile(const TileId &tileId, const Mesh &mesh
+                                  , const Atlas &atlas
+                                  , const TileMetadata *metadata)
+{
+    driver->wannaWrite("set tile");
+
+    check(tileId);
+
+    // create new metadata
+    MetaNode metanode;
+
+    // copy extra metadata
+    if (metadata) {
+        static_cast<TileMetadata&>(metanode) = *metadata;
+    }
+
+    // calculate dependent metadata
+    metanode.calcParams(mesh, { atlas.cols, atlas.rows });
+
+    if (metanode.exists()) {
+        // save data only if valid
+        driver->saveMesh(tileId, mesh);
+        driver->saveAtlas(tileId, atlas, properties.textureQuality);
+    }
+
+    // remember new metanode (can lead to removal of node)
+    return setMetaNode(tileId, metanode);
+}
+
 void TileSet::Detail::begin()
 {
     driver->wannaWrite("begin transaction");
@@ -468,11 +656,11 @@ void TileSet::Detail::rollback()
     loadConfig();
 
     // destroy tile index
-    tileIndex = {};
+    tileIndex = { savedProperties.baseTileSize };
     metadata = {};
     metadataChanged = false;
 
-    if (properties.foatSize) {
+    if (savedProperties.foatSize) {
         // load tile index only if foat is valid
         loadTileIndex();
     }
@@ -485,13 +673,7 @@ void TileSet::Detail::rollback()
 
 TileSet::TileSet(const Driver::pointer &driver)
     : detail_(new Detail(driver))
-{
-    detail().loadConfig();
-    // load tile index only if foat is valid
-    if (detail().properties.foatSize) {
-        detail().loadTileIndex();
-    }
-}
+{}
 
 TileSet::~TileSet()
 {
@@ -504,42 +686,13 @@ void TileSet::flush()
 
 Tile TileSet::getTile(const TileId &tileId) const
 {
-    detail().check(tileId);
-
-    auto md(detail().findMetaNode(tileId));
-    if (!md) {
-        LOGTHROW(err2, NoSuchTile)
-            << "There is no tile at " << tileId << ".";
-    }
-
-    return { detail().driver->loadMesh(tileId)
-            , detail().driver->loadAtlas(tileId), *md };
+    return detail().getTile(tileId);
 }
 
 void TileSet::setTile(const TileId &tileId, const Mesh &mesh
                       , const Atlas &atlas, const TileMetadata *metadata)
 {
-    detail().driver->wannaWrite("set tile");
-
-    detail().check(tileId);
-
-    detail().driver->saveMesh(tileId, mesh);
-    detail().driver->saveAtlas(tileId, atlas
-                               , detail().properties.textureQuality);
-
-    // create new metadata
-    MetaNode metanode;
-
-    // copy extra metadata
-    if (metadata) {
-        static_cast<TileMetadata&>(metanode) = *metadata;
-    }
-
-    // calculate dependent metadata
-    metanode.calcParams(mesh, { atlas.cols, atlas.rows });
-
-    // remember new metanode
-    detail().setMetaNode(tileId, metanode);
+    detail().setTile(tileId, mesh, atlas, metadata);
 }
 
 void TileSet::setMetadata(const TileId &tileId, const TileMetadata &metadata)
@@ -648,6 +801,7 @@ inline void dump(const boost::filesystem::path &dir, const TileSet::list &set)
         auto &detail(TileSet::Accessor::detail(*s));
         // we need fresh index
         detail.flush();
+        LOG(info2) << "Dumping <" << s->getProperties().id << ">.";
 
         auto path(dir / str(boost::format("%03d") % i));
         dumpAsImages(path, detail.tileIndex);
@@ -702,11 +856,18 @@ void TileSet::mergeIn(const list &kept, const list &update)
         return;
     }
 
-#if 0
-    auto topLevel(generate.masks().first());
-    auto size(topLevel.dims());
-    for ();
-#endif
+    list all(kept.begin(), kept.end());
+    all.insert(all.end(), update.begin(), update.end());
+
+    auto lod(generate.minLod());
+    auto s(generate.rasterSize(lod));
+    for (long j(0); j < s.height; ++j) {
+        for (long i(0); i < s.width; ++i) {
+            LOG(info2) << "(merge-in) Processing subtree "
+                       << lod << "/(" << i << ", " << j << ").";
+            detail().mergeInSubtree(generate, {lod, i, j}, all);
+        }
+    }
 }
 
 void TileSet::mergeOut(const list &kept, const list &update)
@@ -714,6 +875,98 @@ void TileSet::mergeOut(const list &kept, const list &update)
     // TODO: implement when mergeIn works
     (void) update;
     (void) kept;
+}
+
+Tile TileSet::Detail::generateTile(const TileId &tileId
+                                   , const TileSet::list &src
+                                   , const Tile &parentTile
+                                   , int quadrant)
+{
+    // Fetch tiles from other tiles.
+    Tile::list tiles;
+    for (const auto &ts : src) {
+        if (auto t = ts->detail().getTile(tileId, std::nothrow)) {
+            tiles.push_back(*t);
+        }
+    }
+
+    // optimization
+    if (quadrant < 0) {
+        // no parent data
+        if (tiles.empty()) {
+            // no data
+            return parentTile;
+        } else if ((tiles.size() == 1)) {
+            // just one single tile without any fallback
+            auto tile(tiles.front());
+            tile.metanode
+                = setTile(tileId, tile.mesh, tile.atlas, &tile.metanode);
+            return tile;
+        }
+
+        // more tiles => must merge
+    }
+
+    // we have to merge tiles
+    auto tile(merge(tiles, parentTile, quadrant));
+    tile.metanode
+        = setTile(tileId, tile.mesh, tile.atlas, &tile.metanode);
+    return tile;
+}
+
+void TileSet::Detail::mergeInSubtree(const TileIndex &generate
+                                     , const Index &index
+                                     , const TileSet::list &src
+                                     , const Tile &parentTile
+                                     , int quadrant
+                                     , bool parentGenerated)
+{
+    // should this tile be generated?
+    Tile tile;
+    auto g(generate.exists(index));
+    if (g) {
+        auto tileId(generate.tileId(index));
+        LOG(info2) << "Generating tile " << index << ", " << tileId << ".";
+
+        bool thisGenerated(false);
+        if (!parentGenerated) {
+            if (auto t = getTile(parent(tileId), std::nothrow)) {
+                // no parent was generated and we have sucessfully loaded parent
+                // tile from existing content as a fallback tile!
+
+                quadrant = child(index);
+                tile = generateTile(tileId, src, *t, quadrant);
+                thisGenerated = true;
+            }
+        }
+
+        if (!thisGenerated) {
+            // regular generation
+            tile = generateTile(tileId, src, parentTile, quadrant);
+        }
+    } else if (parentGenerated) {
+        // parent was generated but this tile will not be generated => reached
+        // bottom
+        return;
+    }
+
+    // can we go down?
+    if (index.lod >= generate.maxLod()) {
+        // no way down
+        return;
+    }
+
+    // OK, process children
+
+    // if tile doesn't exist generated quadrants are not valid -> not included
+    // in merge operation
+    quadrant = valid(tile) ? 0 : MERGE_NO_FALLBACK_TILE;
+    for (const auto &child : children(index)) {
+        mergeInSubtree(generate, child, src, tile, quadrant, g);
+        if (quadrant != MERGE_NO_FALLBACK_TILE) {
+            ++quadrant;
+        }
+    }
 }
 
 } } // namespace vadstena::tilestorage

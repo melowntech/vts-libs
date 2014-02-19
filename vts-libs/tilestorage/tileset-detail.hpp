@@ -1,3 +1,4 @@
+#include <new>
 #include <queue>
 #include <set>
 
@@ -42,11 +43,9 @@ struct TileSet::Detail {
 
     bool tx; // pending transaction?
 
-    Detail(const Driver::pointer &driver)
-        : driver(driver), propertiesChanged(false)
-        , metadataChanged(false)
-        , tx(false)
-    {}
+    Detail(const Driver::pointer &driver);
+
+    ~Detail();
 
     void check(const TileId &tileId) const;
 
@@ -58,11 +57,22 @@ struct TileSet::Detail {
 
     void loadTileIndex();
 
+    Tile getTile(const TileId &tileId) const;
+
+    boost::optional<Tile> getTile(const TileId &tileId, std::nothrow_t) const;
+
+    MetaNode setTile(const TileId &tileId, const Mesh &mesh
+                     , const Atlas &atlas, const TileMetadata *metadata);
+
     MetaNode* loadMetatile(const TileId &tileId) const;
+
+    void loadMetatileFromFile(const TileId &tileId) const;
+
+    void loadMetatileTree(const TileId &tileId, std::istream &f) const;
 
     MetaNode* findMetaNode(const TileId &tileId) const;
 
-    void setMetaNode(const TileId &tileId, const MetaNode& metanode);
+    MetaNode setMetaNode(const TileId &tileId, const MetaNode& metanode);
 
     void setMetadata(const TileId &tileId, const TileMetadata& metadata);
 
@@ -89,6 +99,28 @@ struct TileSet::Detail {
     void commit();
 
     void rollback();
+
+    void mergeInSubtree(const TileIndex &generate, const Index &index
+                        , const TileSet::list &src
+                        , const Tile &parentTile = Tile(), int quadrant = -1
+                        , bool parentGenerated = false);
+
+    /** Generates new tile as a merge of tiles from other tilesets.
+     */
+    Tile generateTile(const TileId &tileId, const TileSet::list &src
+                      , const Tile &parentTile, int quadrant);
+
+    TileId parent(const TileId &tileId) const;
 };
+
+
+// inline stuff
+
+inline TileId TileSet::Detail::parent(const TileId &tileId) const
+{
+    return tilestorage::parent(properties.alignment
+                               , properties.baseTileSize
+                               , tileId);
+}
 
 } } // namespace vadstena::tilestorage

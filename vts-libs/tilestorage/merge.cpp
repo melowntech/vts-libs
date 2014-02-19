@@ -7,9 +7,10 @@ Tile merge(const Tile::list &tiles, const Tile &fallback
 {
     // TODO: implement me
 
-    return tiles.front();
+    return {};
     (void) fallback;
     (void) fallbackQuad;
+    (void) tiles;
 }
 
 } } // namespace vadstena::tilestorage
