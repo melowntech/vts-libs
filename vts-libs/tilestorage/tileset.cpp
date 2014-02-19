@@ -890,12 +890,15 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
         }
     }
 
+    LOG(info4) << "quadrant: " << quadrant;
+    LOG(info4) << "tiles: " << tiles.size();
+
     // optimization
     if (quadrant < 0) {
         // no parent data
         if (tiles.empty()) {
             // no data
-            return parentTile;
+            return {};
         } else if ((tiles.size() == 1)) {
             // just one single tile without any fallback
             auto tile(tiles.front());

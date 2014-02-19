@@ -269,7 +269,7 @@ Atlas FlatDriver::loadAtlas_impl(const TileId tileId)
 {
     auto path(readPath(filePath(tileId, "jpg")));
 
-    LOG(info1) << "Saving atlas from " << path << ".";
+    LOG(info1) << "Loading atlas from " << path << ".";
     auto atlas(cv::imread(path.string().c_str()));
     if (atlas.empty()) {
         LOGTHROW(err2, Error)

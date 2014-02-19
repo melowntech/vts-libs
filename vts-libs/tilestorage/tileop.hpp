@@ -31,6 +31,8 @@ bool isMetatile(const LodLevels &levels, const TileId &tile);
 
 Lod deltaDown(const LodLevels &levels, Lod lod);
 
+/** Check whether super tile is above (or exactly the same tile) as tile.
+ */
 bool above(long baseTileSize, const TileId &tile, const TileId &super);
 
 bool valid(const Tile &tile);
@@ -140,16 +142,16 @@ inline Lod deltaDown(const LodLevels &levels, Lod lod)
 
 inline bool above(long baseTileSize, const TileId &tile, const TileId &super)
 {
+    // tile cannot be above super tile
+    if (tile.lod > super.lod) { return false; }
+
     auto te(tileExtents(baseTileSize, tile));
     auto se(tileExtents(baseTileSize, super));
 
-    if (te.ll(0) >= se.ur(0)) { return false; }
-    if (te.ll(1) >= se.ur(1)) { return false; }
-
-    if (te.ur(0) <= se.ll(0)) { return false; }
-    if (te.ur(1) <= se.ll(1)) { return false; }
-
-    return true;
+    return ((te.ll(0) >= se.ll(0))
+            && (te.ll(1) >= se.ll(1))
+            && (te.ur(0) <= se.ur(0))
+            && (te.ur(1) <= se.ur(1)));
 }
 
 inline bool valid(const Tile &tile)
