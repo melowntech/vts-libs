@@ -79,6 +79,22 @@ struct SettableProperties {
                , MaskType mask = ~(MaskType(0)));
 };
 
+/** All tile set properties.
+ */
+struct Properties
+    : StaticProperties
+    , SettableProperties
+{
+    TileId foat;    //!< Identifier of Father-of-All-Tiles metatile
+    long foatSize;  //!< Size of FOAT in meters.
+
+    std::string meshTemplate;     //!< mesh file template
+    std::string textureTemplate;  //!< texture file template
+    std::string metaTemplate;     //!< meta tile file template
+
+    Properties() : foatSize() {}
+};
+
 struct CreateProperties {
 public:
     typedef SettableProperties::MaskType MaskType;
@@ -95,25 +111,13 @@ public:
         : staticProperties(cp), settableProperties(sp), mask(mask)
     {}
 
+    CreateProperties(const Properties &p, MaskType mask = ~(MaskType(0)))
+        : staticProperties(p), settableProperties(p), mask(mask)
+    {}
+
     StaticProperties staticProperties;
     SettableProperties settableProperties;
     MaskType mask;
-};
-
-/** All tile set properties.
- */
-struct Properties
-    : StaticProperties
-    , SettableProperties
-{
-    TileId foat;    //!< Identifier of Father-of-All-Tiles metatile
-    long foatSize;  //!< Size of FOAT in meters.
-
-    std::string meshTemplate;     //!< mesh file template
-    std::string textureTemplate;  //!< texture file template
-    std::string metaTemplate;     //!< meta tile file template
-
-    Properties() : foatSize() {}
 };
 
 /** TileSet interface.

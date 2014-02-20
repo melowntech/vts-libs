@@ -63,6 +63,26 @@ TileSet::pointer openTileSet(const Locator &locator, OpenMode mode)
     return TileSet::Factory::open(locator, mode);
 }
 
+TileSet::pointer cloneTileSet(const Locator &locator, const Locator &srcLocator
+                              , CreateMode mode)
+{
+    return cloneTileSet(locator, openTileSet(srcLocator, OpenMode::readOnly)
+                        , mode);
+}
+
+TileSet::pointer cloneTileSet(const Locator &locator
+                              , const TileSet::pointer &src
+                              , CreateMode mode)
+{
+    auto dst(createTileSet(locator, src->getProperties(), mode));
+    // TODO: clone
+
+        // utility::copyTree(const boost::filesystem::path &from
+        //                   , const boost::filesystem::path &to);
+
+    return dst;
+}
+
 TileSet::Detail::Detail(const Driver::pointer &driver)
     : driver(driver), propertiesChanged(false)
     , metadataChanged(false)
@@ -188,23 +208,25 @@ MetaNode TileSet::Detail::setMetaNode(const TileId &tileId
         newNode = metanode;
     }
 
-    // grow extents
-    if (empty(extents)) {
-        // invalid extents, add first tile!
-        extents = tileExtents(properties, tileId);
-        // initial lod range
-        lodRange.min = lodRange.max = tileId.lod;
-    } else {
-        // add tile
+    // update extents/lod-range; only when tile is valid
+    if (valid(metanode)) {
+        if (empty(extents)) {
+            // invalid extents, add first tile!
+            extents = tileExtents(properties, tileId);
+            // initial lod range
+            lodRange.min = lodRange.max = tileId.lod;
+        } else {
+            // add tile
 
-        // update extents
-        extents = unite(extents, tileExtents(properties, tileId));
+            // update extents
+            extents = unite(extents, tileExtents(properties, tileId));
 
-        // update lod range
-        if (tileId.lod < lodRange.min) {
-            lodRange.min = tileId.lod;
-        } else if (tileId.lod > lodRange.max) {
-            lodRange.max = tileId.lod;
+            // update lod range
+            if (tileId.lod < lodRange.min) {
+                lodRange.min = tileId.lod;
+            } else if (tileId.lod > lodRange.max) {
+                lodRange.max = tileId.lod;
+            }
         }
     }
 
@@ -890,9 +912,6 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
         }
     }
 
-    LOG(info4) << "quadrant: " << quadrant;
-    LOG(info4) << "tiles: " << tiles.size();
-
     // optimization
     if (quadrant < 0) {
         // no parent data
@@ -929,7 +948,8 @@ void TileSet::Detail::mergeInSubtree(const TileIndex &generate
     auto g(generate.exists(index));
     if (g) {
         auto tileId(generate.tileId(index));
-        LOG(info2) << "Generating tile " << index << ", " << tileId << ".";
+        LOG(info2)
+            << "(merge-in) Processing tile " << index << ", " << tileId << ".";
 
         bool thisGenerated(false);
         if (!parentGenerated) {

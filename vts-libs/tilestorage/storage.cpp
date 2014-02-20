@@ -217,10 +217,26 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
     // merge in tile sets to the output tile set
     output->mergeIn(asList(kept), asList(update));
 
-    // TODO: copy in tile sets to the storage
+    // should be fine now
+
+    // copy in tile sets to the storage
+    for (const auto &ts : update) {
+        LOG(info4) << "Copying tile set <" << ts.first << "> into storage.";
+
+        // add to properties
+        Locator dst(DefaultInputType
+                    , (fs::path(InputDir) / ts.first).string());
+        properties.inputSets[ts.first].locator = dst;
+
+        // clone
+        cloneTileSet(rooted(root, dst), ts.second, CreateMode::overwrite);
+    }
 
     // commit changes to output
     output->commit();
+
+    // done
+    saveConfig();
 }
 
 void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)

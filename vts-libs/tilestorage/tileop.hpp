@@ -37,6 +37,8 @@ bool above(long baseTileSize, const TileId &tile, const TileId &super);
 
 bool valid(const Tile &tile);
 
+bool valid(const MetaNode &metanode);
+
 int child(const Index &index);
 
 bool in(const LodRange &range, const TileId &tileId);
@@ -157,6 +159,11 @@ inline bool above(long baseTileSize, const TileId &tile, const TileId &super)
 inline bool valid(const Tile &tile)
 {
     return tile.metanode.exists();
+}
+
+inline bool valid(const MetaNode &metanode)
+{
+    return metanode.exists();
 }
 
 inline int child(const Index &index)

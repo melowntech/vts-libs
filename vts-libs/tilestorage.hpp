@@ -89,6 +89,34 @@ TileSet::pointer createTileSet(const Locator &locator
 TileSet::pointer openTileSet(const Locator &locator
                              , OpenMode mode = OpenMode::readOnly);
 
+/** Clones existing tile set to a new tile set.
+ *
+ * \param locator locator that specifies tile set type and location.
+ * \param srcLocator locator of source tile set
+ * \param mode what to do when tile set already exists:
+ *                 * failIfExists: tile set must not exists prior this call
+ *                 * overwrite: new tile set is created
+ * \return interface to new tile set
+ * \throws Error if tile set cannot be opened
+ */
+TileSet::pointer cloneTileSet(const Locator &locator
+                              , const Locator &srcLocator
+                              , CreateMode mode = CreateMode::failIfExists);
+
+/** Clones existing tile set to a new tile set.
+ *
+ * \param locator locator that specifies tile set type and location.
+ * \param src source tile set
+ * \param mode what to do when tile set already exists:
+ *                 * failIfExists: tile set must not exists prior this call
+ *                 * overwrite: new tile set is created
+ * \return interface to new tile set
+ * \throws Error if tile set cannot be opened
+ */
+TileSet::pointer cloneTileSet(const Locator &locator
+                              , const TileSet::pointer &src
+                              , CreateMode mode = CreateMode::failIfExists);
+
 } } // namespace vadstena::tilestorage
 
 #endif // vadstena_libs_tilestorage_hpp_included_
