@@ -3,7 +3,7 @@
 #include <set>
 
 #include "dbglog/dbglog.hpp"
-#include "utility/binaryio.hpp"
+#include "jsoncpp/json.hpp"
 
 #include "../tilestorage.hpp"
 #include "./tileindex.hpp"
@@ -41,9 +41,12 @@ struct TileSet::Detail {
     mutable Metadata metadata;    // all metadata as in-memory structure
     bool metadataChanged;         // marks whether metadata have been changed
 
+    mutable Json::Value config;
+
     bool tx; // pending transaction?
 
     Detail(const Driver::pointer &driver);
+    Detail(const Driver::pointer &driver, const CreateProperties &properties);
 
     ~Detail();
 

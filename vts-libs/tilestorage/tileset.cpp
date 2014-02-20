@@ -14,7 +14,7 @@
 #include "./tileindex.hpp"
 #include "./io.hpp"
 #include "./tileop.hpp"
-#include "./driver/flat.hpp"
+#include "./json.hpp"
 #include "./tileset-detail.hpp"
 #include "./merge.hpp"
 
@@ -74,8 +74,8 @@ struct TileSet::Factory
                                    , const CreateProperties &properties
                                    , CreateMode mode)
     {
-        auto driver(Driver::create(locator, properties, mode));
-        return TileSet::pointer(new TileSet(driver));
+        auto driver(Driver::create(locator, mode));
+        return TileSet::pointer(new TileSet(driver, properties));
     }
 
     static TileSet::pointer open(const Locator &locator, OpenMode mode)
@@ -142,6 +142,45 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
     }
 }
 
+TileSet::Detail::Detail(const Driver::pointer &driver
+                        , const CreateProperties &properties)
+    : driver(driver), propertiesChanged(false)
+    , metadataChanged(false)
+    , tx(false)
+{
+    const auto &sp(properties.staticProperties);
+    if (sp.id.empty()) {
+        LOGTHROW(err2, FormatError)
+            << "Cannot create tile set without valid id.";
+    }
+
+    if (sp.metaLevels.delta <= 0) {
+        LOGTHROW(err2, FormatError)
+            << "Tile set must have positive metaLevels.delta.";
+    }
+
+    // build initial properties
+    auto &p(this->properties);
+
+    // initialize create properties
+    static_cast<StaticProperties&>(p) = properties.staticProperties;
+    static_cast<SettableProperties&>(p)
+        .merge(properties.settableProperties, properties.mask);
+
+    // leave foat and foat size to be zero
+    // leave default position
+
+    // set templates
+    p.meshTemplate = "{lod}-{easting}-{northing}.bin";
+    p.textureTemplate = "{lod}-{easting}-{northing}.jpg";
+    p.metaTemplate = "{lod}-{easting}-{northing}.meta";
+
+    // tile index must be properly initialized
+    tileIndex = { p.baseTileSize };
+
+    saveConfig();
+}
+
 TileSet::Detail::~Detail()
 {
     // no exception thrown and not flushe? warn user!
@@ -155,8 +194,25 @@ TileSet::Detail::~Detail()
 
 void TileSet::Detail::loadConfig()
 {
-    properties = driver->loadProperties();
-    savedProperties = properties;
+    // load json
+    try {
+        auto f(driver->input(Driver::File::config));
+        Json::Reader reader;
+        if (!reader.parse(*f, config)) {
+            LOGTHROW(err2, FormatError)
+                << "Unable to parse config: "
+                << reader.getFormattedErrorMessages() << ".";
+        }
+        f->close();
+    } catch (const std::exception &e) {
+        LOGTHROW(err2, Error)
+            << "Unable to read config: <" << e.what() << ">.";
+    }
+
+    Properties p;
+    parse(p, config);
+    properties = p;
+    savedProperties = properties = p;
 }
 
 void TileSet::Detail::saveConfig()
@@ -164,8 +220,19 @@ void TileSet::Detail::saveConfig()
     LOG(info1)
         << "Saving properties:\n"
         << utility::dump(properties, "    ");
-    driver->saveProperties(properties);
 
+    // save json
+    try {
+        driver->wannaWrite("save config");
+        build(config, properties);
+        auto f(driver->output(Driver::File::config));
+        f->get().precision(15);
+        Json::StyledStreamWriter().write(*f, config);
+        f->close();
+    } catch (const std::exception &e) {
+        LOGTHROW(err2, Error)
+            << "Unable to write config: <" << e.what() << ">.";
+    }
     // done; remember saved properties and go on
     savedProperties = properties;
     propertiesChanged = false;
@@ -747,7 +814,14 @@ void TileSet::Detail::rollback()
 
 TileSet::TileSet(const Driver::pointer &driver)
     : detail_(new Detail(driver))
-{}
+{
+}
+
+TileSet::TileSet(const Driver::pointer &driver
+                 , const CreateProperties &properties)
+    : detail_(new Detail(driver, properties))
+{
+}
 
 TileSet::~TileSet()
 {
@@ -1052,11 +1126,9 @@ void TileSet::Detail::clone(const Detail &src)
     auto &dd(*driver);
 
     // copy properties
-    dd.saveProperties(sd.loadProperties());
-
-    // load properties
-    dd.output(Driver::File::tileIndex)->get()
-        << sd.input(Driver::File::tileIndex)->get().rdbuf();
+    for (auto type : { Driver::File::config, Driver::File::tileIndex }) {
+        dd.output(type)->get() << sd.input(type)->get().rdbuf();
+    }
 }
 
 } } // namespace vadstena::tilestorage

@@ -222,6 +222,9 @@ public:
 private:
     TileSet(const std::shared_ptr<Driver> &driver);
 
+    TileSet(const std::shared_ptr<Driver> &driver
+            , const CreateProperties &properties);
+
     struct Detail;
     std::unique_ptr<Detail> detail_;
     Detail& detail() { return *detail_; }

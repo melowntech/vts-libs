@@ -7,7 +7,6 @@
 #include "utility/streams.hpp"
 
 #include "./flat.hpp"
-#include "../json.hpp"
 #include "../io.hpp"
 #include "../error.hpp"
 
@@ -109,22 +108,10 @@ namespace {
 } // namespace
 
 FlatDriver::FlatDriver(const boost::filesystem::path &root
-                       , const CreateProperties &properties
                        , CreateMode mode)
     : Driver(false)
     , root_(root), tmp_(root / TransactionRoot)
 {
-    const auto &sp(properties.staticProperties);
-    if (sp.id.empty()) {
-        LOGTHROW(err2, FormatError)
-            << "Cannot create tile set without valid id.";
-    }
-
-    if (sp.metaLevels.delta <= 0) {
-        LOGTHROW(err2, FormatError)
-            << "Tile set must have positive metaLevels.delta.";
-    }
-
     if (!create_directories(root_)) {
         // directory already exists -> fail if mode says so
         if (mode == CreateMode::failIfExists) {
@@ -132,24 +119,6 @@ FlatDriver::FlatDriver(const boost::filesystem::path &root
                 << "Tile set at " << root_ << " already exists.";
         }
     }
-
-    // build initial properties
-    Properties p;
-
-    // initialize create properties
-    static_cast<StaticProperties&>(p) = properties.staticProperties;
-    static_cast<SettableProperties&>(p)
-        .merge(properties.settableProperties, properties.mask);
-
-    // leave foat and foat size to be zero
-    // leave default position
-
-    // set templates
-    p.meshTemplate = "{lod}-{easting}-{northing}.bin";
-    p.textureTemplate = "{lod}-{easting}-{northing}.jpg";
-    p.metaTemplate = "{lod}-{easting}-{northing}.meta";
-
-    saveProperties_impl(p);
 
     // write convenience browser
     utility::write(root_ / "index.html", browser::index_html);
@@ -174,56 +143,6 @@ FlatDriver::~FlatDriver()
                 << "Error while trying to destroy active transaction on "
                 "driver close: <" << e.what() << ">.";
         }
-    }
-}
-
-Properties FlatDriver::loadProperties_impl() const
-{
-    // load json
-    auto path(readPath(ConfigName));
-    LOG(info1) << "Loading properties from " << path << ".";
-    try {
-        std::ifstream f;
-        f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-        f.open(path.string());
-        Json::Reader reader;
-        if (!reader.parse(f, config_)) {
-            LOGTHROW(err2, FormatError)
-                << "Unable to parse " << path << " config: "
-                << reader.getFormattedErrorMessages() << ".";
-        }
-        f.close();
-    } catch (const std::exception &e) {
-        LOGTHROW(err2, Error)
-            << "Unable to read " << path << " config: "
-            << e.what() << ".";
-    }
-
-    Properties properties;
-    parse(properties, config_);
-    return properties;
-}
-
-void FlatDriver::saveProperties_impl(const Properties &properties)
-{
-    wannaWrite("save config");
-
-    build(config_, properties);
-
-    // save json
-    auto path(writePath(ConfigName));
-    LOG(info1) << "Saving properties to " << path << ".";
-    try {
-        std::ofstream f;
-        f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-        f.open(path.string());
-        f.precision(15);
-        Json::StyledStreamWriter().write(f, config_);
-        f.close();
-    } catch (const std::exception &e) {
-        LOGTHROW(err2, Error)
-            << "Unable to write " << path << " config: "
-            << e.what() << ".";
     }
 }
 

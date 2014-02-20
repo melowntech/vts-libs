@@ -40,9 +40,7 @@ void Driver::registerDriver(const Driver::Factory::pointer &factory)
     driverRegistry[factory->type] = factory;
 }
 
-Driver::pointer Driver::create(Locator locator
-                               , const CreateProperties &properties
-                               , CreateMode mode)
+Driver::pointer Driver::create(Locator locator, CreateMode mode)
 {
     registerDefaultDrivers();
 
@@ -55,7 +53,7 @@ Driver::pointer Driver::create(Locator locator
         LOGTHROW(err2, NoSuchTileSet)
             << "Invalid tile set type <" << locator.type << ">.";
     }
-    return fregistry->second->create(locator.location, properties, mode);
+    return fregistry->second->create(locator.location, mode);
 }
 
 Driver::pointer Driver::open(Locator locator

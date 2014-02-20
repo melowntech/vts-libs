@@ -3,10 +3,9 @@
 
 #include <iostream>
 
-#include "dbglog/dbglog.hpp"
 #include "utility/gccversion.hpp"
 
-#include "./tileset.hpp"
+#include "./types.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -20,11 +19,8 @@ public:
     virtual ~Driver() {};
 
     enum class TileFile { meta, mesh, atlas };
+
     enum class File { config, tileIndex, metaIndex };
-
-    Properties loadProperties() const;
-
-    void saveProperties(const Properties &properties);
 
     std::shared_ptr<OStream> output(File type);
 
@@ -49,7 +45,6 @@ public:
     template <typename DriverClass> static void registerDriver();
 
     static Driver::pointer create(Locator locator
-                                  , const CreateProperties &properties
                                   , CreateMode mode);
 
     static Driver::pointer open(Locator locator, OpenMode mode);
@@ -58,10 +53,6 @@ protected:
     Driver(bool readOnly) : readOnly_(readOnly) {}
 
 private:
-    virtual Properties loadProperties_impl() const = 0;
-
-    virtual void saveProperties_impl(const Properties &properties) = 0;
-
     virtual std::shared_ptr<OStream> output_impl(const File type) = 0;
 
     virtual std::shared_ptr<IStream> input_impl(File type) const = 0;
@@ -113,7 +104,6 @@ public:
     virtual ~Factory() {}
 
     virtual Driver::pointer create(const std::string location
-                                   , const CreateProperties &properties
                                    , CreateMode mode) const = 0;
 
     virtual Driver::pointer open(const std::string location
@@ -128,10 +118,9 @@ public:
         Factory() : Driver::Factory(DRIVER_TYPE) {}                     \
                                                                         \
         virtual Driver::pointer create(const std::string location       \
-                                       , const CreateProperties &properties \
                                        , CreateMode mode) const override \
         {                                                               \
-            return std::make_shared<DRIVER_CLASS>(location, properties, mode); \
+            return std::make_shared<DRIVER_CLASS>(location, mode);      \
         }                                                               \
                                                                         \
         virtual Driver::pointer open(const std::string location         \
@@ -147,15 +136,6 @@ template <typename DriverClass>
 void Driver::registerDriver()
 {
     registerDriver(std::make_shared<typename DriverClass::Factory>());
-}
-
-inline Properties Driver::loadProperties() const {
-    return loadProperties_impl();
-}
-
-inline void Driver::saveProperties(const Properties &properties)
-{
-    return saveProperties_impl(properties);
 }
 
 inline Driver::OStream::pointer Driver::output(File type)

@@ -6,35 +6,26 @@
 #include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
-#include "jsoncpp/json.hpp"
-
 #include "../driver.hpp"
 
 namespace vadstena { namespace tilestorage {
 
 class FlatDriver : public Driver {
 public:
-    /** Creates new storage and sets properties. Existing storage is overwritten
-     *  only if mode == CreateMode::overwrite.
+    /** Creates new storage. Existing storage is overwritten only if mode ==
+     *  CreateMode::overwrite.
      */
-    FlatDriver(const boost::filesystem::path &root
-               , const CreateProperties &properties
-               , CreateMode mode);
+    FlatDriver(const boost::filesystem::path &root, CreateMode mode);
 
     /** Opens storage.
      */
-    FlatDriver(const boost::filesystem::path &root
-               , OpenMode mode);
+    FlatDriver(const boost::filesystem::path &root, OpenMode mode);
 
     virtual ~FlatDriver();
 
     VADSTENA_TILESTORAGE_DRIVER_FACTORY("flat", FlatDriver);
 
 private:
-    virtual Properties loadProperties_impl() const override;
-
-    virtual void saveProperties_impl(const Properties &properties) override;
-
     virtual OStream::pointer output_impl(File type) override;
 
     virtual IStream::pointer input_impl(File type) const override;
@@ -63,10 +54,6 @@ private:
     /** temporary files backing root.
      */
     const boost::filesystem::path tmp_;
-
-    /** Parsed config as JSON tree.
-     */
-    mutable Json::Value config_;
 
     /** File in pending transaction.
      */
