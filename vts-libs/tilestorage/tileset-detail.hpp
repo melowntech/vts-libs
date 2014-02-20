@@ -111,6 +111,8 @@ struct TileSet::Detail {
                       , const Tile &parentTile, int quadrant);
 
     TileId parent(const TileId &tileId) const;
+
+    void clone(const Detail &src);
 };
 
 

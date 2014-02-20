@@ -4,15 +4,12 @@
 #include <boost/format.hpp>
 #include <boost/utility/in_place_factory.hpp>
 
-#include <opencv2/highgui/highgui.hpp>
-
 #include "utility/streams.hpp"
 
 #include "./flat.hpp"
 #include "../json.hpp"
 #include "../io.hpp"
 #include "../error.hpp"
-#include "../../binmesh.hpp"
 
 #include "tilestorage/browser/index.html.hpp"
 #include "tilestorage/browser/skydome.jpg.hpp"
@@ -24,15 +21,35 @@ namespace fs = boost::filesystem;
 namespace {
 
     const std::string ConfigName("mapConfig.json");
-
     const std::string TileIndexName("index.bin");
-
+    const std::string MetaIndexName("metaindex.bin");
     const std::string TransactionRoot("tx");
 
-    fs::path filePath(const TileId &tileId, const std::string &ext)
+    const std::string filePath(Driver::File type)
+    {
+        switch (type) {
+        case Driver::File::config: return ConfigName;
+        case Driver::File::tileIndex: return TileIndexName;
+        case Driver::File::metaIndex: return MetaIndexName;
+        }
+        throw "unknown file type";
+    }
+
+    const char *extension(Driver::TileFile type)
+    {
+        switch (type) {
+        case Driver::TileFile::meta: return "meta";
+        case Driver::TileFile::mesh: return "bin";
+        case Driver::TileFile::atlas: return "jpg";
+        }
+        throw "unknown tile file type";
+    }
+
+    fs::path filePath(const TileId &tileId, Driver::TileFile type)
     {
         return str(boost::format("%s-%07d-%07d.%s")
-                   % tileId.lod % tileId.easting % tileId.northing % ext);
+                   % tileId.lod % tileId.easting % tileId.northing
+                   % extension(type));
     }
 
     class FileOStream : public Driver::OStream {
@@ -50,7 +67,7 @@ namespace {
             }
         }
 
-        virtual operator std::ostream&() override {
+        virtual std::ostream& get() override {
             return f_;
         }
 
@@ -77,7 +94,7 @@ namespace {
             }
         }
 
-        virtual operator std::istream&() override {
+        virtual std::istream& get() override {
             return f_;
         }
 
@@ -86,7 +103,7 @@ namespace {
         }
 
     private:
-        std::ifstream f_;
+        utility::ifstreambuf f_;
     };
 
 } // namespace
@@ -160,7 +177,7 @@ FlatDriver::~FlatDriver()
     }
 }
 
-Properties FlatDriver::loadProperties_impl()
+Properties FlatDriver::loadProperties_impl() const
 {
     // load json
     auto path(readPath(ConfigName));
@@ -210,72 +227,34 @@ void FlatDriver::saveProperties_impl(const Properties &properties)
     }
 }
 
-std::shared_ptr<Driver::OStream>
-FlatDriver::metatileOutput_impl(const TileId tileId)
+Driver::OStream::pointer FlatDriver::output_impl(File type)
 {
-    auto path(writePath(filePath(tileId, "meta")));
-    LOG(info1) << "Saving metatile to " << path << ".";
-    return std::make_shared<FileOStream>(path);
-}
-
-std::shared_ptr<Driver::IStream>
-FlatDriver::metatileInput_impl(const TileId tileId)
-{
-    auto path(readPath(filePath(tileId, "meta")));
-    LOG(info1) << "Loading metatile from " << path << ".";
-    return std::make_shared<FileIStream>(path);
-}
-
-std::shared_ptr<Driver::OStream> FlatDriver::tileIndexOutput_impl()
-{
-    auto path(root_ / TileIndexName);
+    auto path(writePath(filePath(type)));
     LOG(info1) << "Saving tile index to " << path << ".";
     return std::make_shared<FileOStream>(path);
 }
 
-std::shared_ptr<Driver::IStream> FlatDriver::tileIndexInput_impl()
+Driver::IStream::pointer FlatDriver::input_impl(File type) const
 {
-    auto path(root_ / TileIndexName);
+    auto path(readPath(filePath(type)));
     LOG(info1) << "Loading tile index from " << path << ".";
     return std::make_shared<FileIStream>(path);
 }
 
-void FlatDriver::saveMesh_impl(const TileId tileId, const Mesh &mesh)
+Driver::OStream::pointer
+FlatDriver::output_impl(const TileId tileId, TileFile type)
 {
-    auto path(writePath(filePath(tileId, "bin")));
-    LOG(info1) << "Saving mesh to " << path << ".";
-    writeBinaryMesh(path, mesh);
+    auto path(writePath(filePath(tileId, type)));
+    LOG(info1) << "Saving metatile to " << path << ".";
+    return std::make_shared<FileOStream>(path);
 }
 
-Mesh FlatDriver::loadMesh_impl(const TileId tileId)
+Driver::IStream::pointer
+FlatDriver::input_impl(const TileId tileId, TileFile type) const
 {
-    auto path(readPath(filePath(tileId, "bin")));
-    LOG(info1) << "Loading mesh from " << path << ".";
-    return loadBinaryMesh(path);
-}
-
-void FlatDriver::saveAtlas_impl(const TileId tileId, const Atlas &atlas
-                                , short textureQuality)
-{
-    auto path(writePath(filePath(tileId, "jpg")));
-
-    LOG(info1) << "Saving atlas to " << path << ".";
-    // TODO: check errors
-    cv::imwrite(path.string().c_str(), atlas
-                , { cv::IMWRITE_JPEG_QUALITY, textureQuality });
-}
-
-Atlas FlatDriver::loadAtlas_impl(const TileId tileId)
-{
-    auto path(readPath(filePath(tileId, "jpg")));
-
-    LOG(info1) << "Loading atlas from " << path << ".";
-    auto atlas(cv::imread(path.string().c_str()));
-    if (atlas.empty()) {
-        LOGTHROW(err2, Error)
-            << "Atlas " << tileId << " (at " << path << ") doesn't exist.";
-    }
-    return atlas;
+    auto path(readPath(filePath(tileId, type)));
+    LOG(info1) << "Loading metatile from " << path << ".";
+    return std::make_shared<FileIStream>(path);
 }
 
 void FlatDriver::begin_impl()
@@ -327,7 +306,7 @@ void FlatDriver::rollback_impl()
     txFiles_ = boost::none;
 }
 
-fs::path FlatDriver::readPath(const fs::path &path)
+fs::path FlatDriver::readPath(const fs::path &path) const
 {
     if (txFiles_) {
         // we have active transaction: is file part of the tx?

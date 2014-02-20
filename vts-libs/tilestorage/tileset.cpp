@@ -4,9 +4,12 @@
 #include <boost/format.hpp>
 #include <boost/utility/in_place_factory.hpp>
 
+#include <opencv2/highgui/highgui.hpp>
+
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
 
+#include "../binmesh.hpp"
 #include "../tilestorage.hpp"
 #include "./tileindex.hpp"
 #include "./io.hpp"
@@ -22,6 +25,46 @@ namespace {
 const char METATILE_IO_MAGIC[8] = {  'M', 'E', 'T', 'A', 'T', 'I', 'L', 'E' };
 
 const unsigned METATILE_IO_VERSION = 1;
+
+Atlas loadAtlas(const Driver::IStream::pointer &is)
+{
+    using utility::binaryio::read;
+    auto& s(is->get());
+    auto size(s.seekg(0, std::ios_base::end).tellg());
+    s.seekg(0);
+    std::vector<unsigned char> buf;
+    buf.resize(size);
+    read(s, buf.data(), buf.size());
+
+    auto atlas(cv::imdecode(buf, CV_LOAD_IMAGE_COLOR));
+    is->close();
+    return atlas;
+}
+
+void saveAtlas(const Driver::OStream::pointer &os, const Atlas &atlas
+               , short textureQuality)
+{
+    using utility::binaryio::write;
+    std::vector<unsigned char> buf;
+    cv::imencode(".jpg", atlas, buf
+                 , { cv::IMWRITE_JPEG_QUALITY, textureQuality });
+
+    write(os->get(), buf.data(), buf.size());
+    os->close();
+}
+
+Mesh loadMesh(const Driver::IStream::pointer &is)
+{
+    auto mesh(loadBinaryMesh(is->get()));
+    is->close();
+    return mesh;
+}
+
+void saveMesh(const Driver::OStream::pointer &os, const Mesh &mesh)
+{
+    writeBinaryMesh(os->get(), mesh);
+    os->close();
+}
 
 } // namespace
 
@@ -39,6 +82,12 @@ struct TileSet::Factory
     {
         auto driver(Driver::open(locator, mode));
         return TileSet::pointer(new TileSet(driver));
+    }
+
+    static void clone(const TileSet::pointer &src
+                      , const TileSet::pointer &dst)
+    {
+        dst->detail().clone(src->detail());
     }
 };
 
@@ -75,11 +124,7 @@ TileSet::pointer cloneTileSet(const Locator &locator
                               , CreateMode mode)
 {
     auto dst(createTileSet(locator, src->getProperties(), mode));
-    // TODO: clone
-
-        // utility::copyTree(const boost::filesystem::path &from
-        //                   , const boost::filesystem::path &to);
-
+    TileSet::Factory::clone(src, dst);
     return dst;
 }
 
@@ -139,7 +184,7 @@ void TileSet::Detail::saveMetadata()
 
     // save
     try {
-        auto f(driver->tileIndexOutput());
+        auto f(driver->output(Driver::File::tileIndex));
         ti.save(*f);
         f->close();
     } catch (const std::exception &e) {
@@ -169,7 +214,7 @@ void TileSet::Detail::loadTileIndex()
 {
     try {
         tileIndex = { properties.baseTileSize };
-        auto f(driver->tileIndexInput());
+        auto f(driver->input(Driver::File::tileIndex));
         tileIndex.load(*f);
         f->close();
     } catch (const std::exception &e) {
@@ -317,7 +362,7 @@ void TileSet::Detail::loadMetatileFromFile(const TileId &tileId) const
 {
     using utility::binaryio::read;
 
-    auto f(driver->metatileInput(tileId));
+    auto f(driver->input(tileId, Driver::TileFile::meta));
 
     uint32_t version;
     {
@@ -549,7 +594,7 @@ void TileSet::Detail::saveMetatile(MetatileDef::queue &subtrees
 {
     using utility::binaryio::write;
 
-    auto f(driver->metatileOutput(tile.id));
+    auto f(driver->output(tile.id, Driver::TileFile::meta));
 
     write(*f, METATILE_IO_MAGIC);
     write(*f, uint32_t(METATILE_IO_VERSION));
@@ -582,8 +627,12 @@ Tile TileSet::Detail::getTile(const TileId &tileId) const
             << "There is no tile at " << tileId << ".";
     }
 
-    return { driver->loadMesh(tileId)
-            , driver->loadAtlas(tileId), *md };
+    // TODO: pass fake path to loaders
+    return {
+        loadMesh(driver->input(tileId, Driver::TileFile::mesh))
+        , loadAtlas(driver->input(tileId, Driver::TileFile::atlas))
+        , *md
+    };
 }
 
 boost::optional<Tile> TileSet::Detail::getTile(const TileId &tileId
@@ -598,8 +647,10 @@ boost::optional<Tile> TileSet::Detail::getTile(const TileId &tileId
     }
 
     return boost::optional<Tile>
-        (boost::in_place(driver->loadMesh(tileId)
-                         , driver->loadAtlas(tileId), *md));
+        (boost::in_place
+         (loadMesh(driver->input(tileId, Driver::TileFile::mesh))
+          , loadAtlas(driver->input(tileId, Driver::TileFile::atlas))
+          , *md));
 }
 
 MetaNode TileSet::Detail::setTile(const TileId &tileId, const Mesh &mesh
@@ -623,8 +674,9 @@ MetaNode TileSet::Detail::setTile(const TileId &tileId, const Mesh &mesh
 
     if (metanode.exists()) {
         // save data only if valid
-        driver->saveMesh(tileId, mesh);
-        driver->saveAtlas(tileId, atlas, properties.textureQuality);
+        saveMesh(driver->output(tileId, Driver::TileFile::mesh), mesh);
+        saveAtlas(driver->output(tileId, Driver::TileFile::atlas)
+                  , atlas, properties.textureQuality);
     }
 
     // remember new metanode (can lead to removal of node)
@@ -904,6 +956,8 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
                                    , const Tile &parentTile
                                    , int quadrant)
 {
+    auto ts(tileSize(properties.baseTileSize, tileId.lod));
+
     // Fetch tiles from other tiles.
     Tile::list tiles;
     for (const auto &ts : src) {
@@ -930,7 +984,7 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
     }
 
     // we have to merge tiles
-    auto tile(merge(tiles, parentTile, quadrant));
+    auto tile(merge(ts, tiles, parentTile, quadrant));
     tile.metanode
         = setTile(tileId, tile.mesh, tile.atlas, &tile.metanode);
     return tile;
@@ -990,6 +1044,19 @@ void TileSet::Detail::mergeInSubtree(const TileIndex &generate
             ++quadrant;
         }
     }
+}
+
+void TileSet::Detail::clone(const Detail &src)
+{
+    const auto &sd(*src.driver);
+    auto &dd(*driver);
+
+    // copy properties
+    dd.saveProperties(sd.loadProperties());
+
+    // load properties
+    dd.output(Driver::File::tileIndex)->get()
+        << sd.input(Driver::File::tileIndex)->get().rdbuf();
 }
 
 } } // namespace vadstena::tilestorage

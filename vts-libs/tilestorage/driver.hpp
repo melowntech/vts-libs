@@ -19,26 +19,20 @@ public:
 
     virtual ~Driver() {};
 
-    Properties loadProperties();
+    enum class TileFile { meta, mesh, atlas };
+    enum class File { config, tileIndex, metaIndex };
+
+    Properties loadProperties() const;
 
     void saveProperties(const Properties &properties);
 
-    std::shared_ptr<OStream> metatileOutput(const TileId tileId);
+    std::shared_ptr<OStream> output(File type);
 
-    std::shared_ptr<IStream> metatileInput(const TileId tileId);
+    std::shared_ptr<IStream> input(File type) const;
 
-    std::shared_ptr<OStream> tileIndexOutput();
+    std::shared_ptr<OStream> output(const TileId tileId, TileFile type);
 
-    std::shared_ptr<IStream> tileIndexInput();
-
-    void saveMesh(const TileId tileId, const Mesh &mesh);
-
-    Mesh loadMesh(const TileId tileId);
-
-    void saveAtlas(const TileId tileId, const Atlas &atlas
-                   , short textureQuality);
-
-    Atlas loadAtlas(const TileId tileId);
+    std::shared_ptr<IStream> input(const TileId tileId, TileFile type) const;
 
     bool readOnly() const { return readOnly_; }
 
@@ -64,28 +58,19 @@ protected:
     Driver(bool readOnly) : readOnly_(readOnly) {}
 
 private:
-    virtual Properties loadProperties_impl() = 0;
+    virtual Properties loadProperties_impl() const = 0;
 
     virtual void saveProperties_impl(const Properties &properties) = 0;
 
-    virtual std::shared_ptr<OStream> metatileOutput_impl(const TileId tileId)
-        = 0;
+    virtual std::shared_ptr<OStream> output_impl(const File type) = 0;
 
-    virtual std::shared_ptr<IStream> metatileInput_impl(const TileId tileId)
-        = 0;
+    virtual std::shared_ptr<IStream> input_impl(File type) const = 0;
 
-    virtual std::shared_ptr<OStream> tileIndexOutput_impl() = 0;
+    virtual std::shared_ptr<OStream>
+    output_impl(const TileId tileId, TileFile type) = 0;
 
-    virtual std::shared_ptr<IStream> tileIndexInput_impl() = 0;
-
-    virtual void saveMesh_impl(const TileId tileId, const Mesh &mesh) = 0;
-
-    virtual Mesh loadMesh_impl(const TileId tileId) = 0;
-
-    virtual void saveAtlas_impl(const TileId tileId, const Atlas &atlas
-                                , short textureQuality) = 0;
-
-    virtual Atlas loadAtlas_impl(const TileId tileId) = 0;
+    virtual std::shared_ptr<IStream>
+    input_impl(const TileId tileId, TileFile type) const = 0;
 
     virtual void begin_impl() = 0;
 
@@ -102,16 +87,22 @@ class Driver::OStream {
 public:
     OStream() {}
     virtual ~OStream() {}
-    virtual operator std::ostream&() = 0;
+    virtual std::ostream& get() = 0;
     virtual void close() = 0;
+
+    operator std::ostream&() { return get(); }
+    typedef std::shared_ptr<OStream> pointer;
 };
 
 class Driver::IStream {
 public:
     IStream() {}
     virtual ~IStream() {}
-    virtual operator std::istream&() = 0;
+    virtual std::istream& get() = 0;
     virtual void close() = 0;
+
+    operator std::istream&() { return get(); }
+    typedef std::shared_ptr<IStream> pointer;
 };
 
 class Driver::Factory {
@@ -158,7 +149,7 @@ void Driver::registerDriver()
     registerDriver(std::make_shared<typename DriverClass::Factory>());
 }
 
-inline Properties Driver::loadProperties() {
+inline Properties Driver::loadProperties() const {
     return loadProperties_impl();
 }
 
@@ -167,47 +158,26 @@ inline void Driver::saveProperties(const Properties &properties)
     return saveProperties_impl(properties);
 }
 
-inline std::shared_ptr<Driver::OStream>
-Driver::metatileOutput(const TileId tileId)
+inline Driver::OStream::pointer Driver::output(File type)
 {
-    return metatileOutput_impl(tileId);
+    return output_impl( type);
 }
 
-inline std::shared_ptr<Driver::IStream>
-Driver::metatileInput(const TileId tileId)
+inline Driver::IStream::pointer Driver::input(File type) const
 {
-    return metatileInput_impl(tileId);
+    return input_impl(type);
 }
 
-inline std::shared_ptr<Driver::OStream> Driver::tileIndexOutput()
+inline Driver::OStream::pointer
+Driver::output(const TileId tileId, TileFile type)
 {
-    return tileIndexOutput_impl();
+    return output_impl(tileId, type);
 }
 
-inline std::shared_ptr<Driver::IStream> Driver::tileIndexInput()
+inline Driver::IStream::pointer
+Driver::input(const TileId tileId, TileFile type) const
 {
-    return tileIndexInput_impl();
-}
-
-inline void Driver::saveMesh(const TileId tileId, const Mesh &mesh)
-{
-    return saveMesh_impl(tileId, mesh);
-}
-
-inline Mesh Driver::loadMesh(const TileId tileId)
-{
-    return loadMesh_impl(tileId);
-}
-
-inline void Driver::saveAtlas(const TileId tileId, const Atlas &atlas
-                              , short textureQuality)
-{
-    return saveAtlas_impl(tileId, atlas, textureQuality);
-}
-
-inline Atlas Driver::loadAtlas(const TileId tileId)
-{
-    return loadAtlas_impl(tileId);
+    return input_impl(tileId, type);
 }
 
 inline void Driver::begin()

@@ -31,28 +31,19 @@ public:
     VADSTENA_TILESTORAGE_DRIVER_FACTORY("flat", FlatDriver);
 
 private:
-    virtual Properties loadProperties_impl() override;
+    virtual Properties loadProperties_impl() const override;
 
     virtual void saveProperties_impl(const Properties &properties) override;
 
-    virtual std::shared_ptr<Driver::OStream>
-    metatileOutput_impl(const TileId tileId) override;
+    virtual OStream::pointer output_impl(File type) override;
 
-    virtual std::shared_ptr<Driver::IStream>
-    metatileInput_impl(const TileId tileId) override;
+    virtual IStream::pointer input_impl(File type) const override;
 
-    virtual std::shared_ptr<Driver::OStream> tileIndexOutput_impl() override;
+    virtual OStream::pointer
+    output_impl(const TileId tileId, TileFile type) override;
 
-    virtual std::shared_ptr<Driver::IStream> tileIndexInput_impl() override;
-
-    virtual void saveMesh_impl(const TileId tileId, const Mesh &mesh) override;
-
-    virtual Mesh loadMesh_impl(const TileId tileId) override;
-
-    virtual void saveAtlas_impl(const TileId tileId, const Atlas &atlas
-                                , short textureQuality) override;
-
-    virtual Atlas loadAtlas_impl(const TileId tileId) override;
+    virtual IStream::pointer
+    input_impl(const TileId tileId, TileFile type) const override;
 
     virtual void begin_impl() override;
 
@@ -60,7 +51,8 @@ private:
 
     virtual void rollback_impl() override;
 
-    boost::filesystem::path readPath(const boost::filesystem::path &path);
+    boost::filesystem::path readPath(const boost::filesystem::path &path)
+        const;
 
     boost::filesystem::path writePath(const boost::filesystem::path &path);
 
@@ -74,7 +66,7 @@ private:
 
     /** Parsed config as JSON tree.
      */
-    Json::Value config_;
+    mutable Json::Value config_;
 
     /** File in pending transaction.
      */
