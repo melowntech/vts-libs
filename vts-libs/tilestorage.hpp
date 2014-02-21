@@ -28,7 +28,6 @@
 #include "geometry/parse-obj.hpp"
 
 #include "./ids.hpp"
-#include "./metatile.hpp"
 
 #include "./tilestorage/error.hpp"
 #include "./tilestorage/types.hpp"

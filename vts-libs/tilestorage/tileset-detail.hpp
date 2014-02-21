@@ -13,19 +13,6 @@
 
 namespace vadstena { namespace tilestorage {
 
-struct MetatileDef {
-    TileId id;
-    Lod end;
-
-    MetatileDef(const TileId id, Lod end)
-        : id(id), end(end)
-    {}
-
-    bool bottom() const { return (id.lod + 1) >= end; }
-
-    typedef std::queue<MetatileDef> queue;
-};
-
 struct TileSet::Detail {
     Driver::pointer driver;
 
@@ -88,12 +75,6 @@ struct TileSet::Detail {
     void flush();
 
     void saveMetatiles() const;
-
-    void saveMetatile(MetatileDef::queue &subtrees
-                      , const MetatileDef &tile) const;
-
-    void saveMetatileTree(MetatileDef::queue &subtrees, std::ostream &f
-                          , const MetatileDef &tile) const;
 
     void begin();
 

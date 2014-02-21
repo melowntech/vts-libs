@@ -529,98 +529,28 @@ void TileSet::Detail::flush()
     }
 }
 
-void TileSet::Detail::saveMetatileTree(MetatileDef::queue &subtrees
-                                       , std::ostream &f
-                                       , const MetatileDef &tile)
-    const
-{
-    using utility::binaryio::write;
-
-    auto bottom(tile.bottom());
-
-    const auto *node(findMetaNode(tile.id));
-    if (!node) {
-        LOGTHROW(err2, Error)
-            << "Can't find metanode for tile " << tile.id;
-    }
-
-    LOG(info2) << "Tile set <" << properties.id << ">: dumping "
-               << tile.id << ", " << tile.end
-               << ", bottom: " << bottom
-               << ", meta mode:\n" << utility::dump(*node, "    ");
-
-    // save
-    node->dump(f);
-
-    std::uint8_t childFlags(0);
-    std::uint8_t mask(1);
-    auto childrenIds(children(properties.baseTileSize, tile.id));
-
-    for (auto &childId : childrenIds) {
-        LOG(debug) << "processing child: " << childId;
-        if (findMetaNode(childId)) {
-            childFlags |= mask;
-        }
-        mask <<= 1;
-    }
-
-    if (!bottom) {
-        // children are local
-        childFlags |= (childFlags << 4);
-    }
-    write(f, childFlags);
-
-    LOG(info2) << "    child flags: " << std::bitset<8>(childFlags);
-
-    // either dump 4 subnodes now or remember them in the subtrees
-    mask = 1;
-    for (const auto &childId : childrenIds) {
-        if ((childFlags & mask)) {
-            if (bottom) {
-                // we are at the bottom of the metatile; remember subtree
-                subtrees.emplace
-                    (childId, deltaDown(properties.metaLevels, childId.lod));
-            } else {
-                // save subtree in this tile
-                saveMetatileTree(subtrees, f
-                                 , { childId, deltaDown(properties.metaLevels
-                                                        , childId.lod) });
-            }
-        }
-        mask <<= 1;
-    }
-}
-
-/** Save metatile at given tile: subtree from tile'slod until end lod is
- * reached
- */
-void TileSet::Detail::saveMetatile(MetatileDef::queue &subtrees
-                                   , const MetatileDef &tile)
-    const
-{
-    using utility::binaryio::write;
-
-    auto f(driver->output(tile.id, Driver::TileFile::meta));
-
-    write(*f, METATILE_IO_MAGIC);
-    write(*f, uint32_t(METATILE_IO_VERSION));
-
-    saveMetatileTree(subtrees, *f, tile);
-    f->close();
-}
-
 void TileSet::Detail::saveMetatiles() const
 {
-    // initialize subtrees with foat
-    MetatileDef::queue subtrees;
-    subtrees.emplace
-        (properties.foat
-         , deltaDown(properties.metaLevels, properties.foat.lod));
+    struct Saver : MetaNodeSaver {
+        const TileSet::Detail &detail;
+        Saver(const TileSet::Detail &detail) : detail(detail) {}
 
-    while (!subtrees.empty()) {
-        saveMetatile(subtrees, subtrees.front());
-        subtrees.pop();
-    }
+        virtual void saveTile(const TileId &metaId
+                              , const MetaTileSaver &saver) const override
+        {
+            auto f(detail.driver->output(metaId, Driver::TileFile::meta));
+            saver(*f);
+            f->close();
+        }
+
+        virtual MetaNode* getNode(const TileId &tileId) const override
+        {
+            return detail.findMetaNode(tileId);
+        }
+    };
+
+    tilestorage::saveMetatile(properties.baseTileSize, properties.foat
+                              , properties.metaLevels, Saver(*this));
 }
 
 Tile TileSet::Detail::getTile(const TileId &tileId) const

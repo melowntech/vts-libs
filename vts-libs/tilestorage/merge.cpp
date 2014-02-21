@@ -1,3 +1,5 @@
+#include "math/geometry.hpp"
+
 #include "./merge.hpp"
 
 namespace vadstena { namespace tilestorage {

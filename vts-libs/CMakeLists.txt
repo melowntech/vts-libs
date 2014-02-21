@@ -50,7 +50,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     gil2cvmat.hpp
     gcp.hpp gcp.cpp
 
-    metatile.hpp metatile.cpp
+    # metatile.hpp metatile.cpp
     binmesh.hpp binmesh.cpp
 
     rectalloc.hpp rectalloc.cpp
