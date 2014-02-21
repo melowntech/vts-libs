@@ -1,6 +1,3 @@
-#include <queue>
-#include <bitset>
-
 #include <boost/format.hpp>
 #include <boost/utility/in_place_factory.hpp>
 
@@ -385,9 +382,11 @@ void TileSet::Detail::loadMetatileFromFile(const TileId &tileId) const
     auto f(driver->input(tileId, Driver::TileFile::meta));
     tilestorage::loadMetatile
         (*f, properties.baseTileSize, tileId
-         , [this] (const TileId &tileId, const MetaNode &node) {
-            metadata.insert(Metadata::value_type(tileId, node));
-        });
+         , [this] (const TileId &tileId, const MetaNode &node
+                   , std::uint8_t)
+         {
+             metadata.insert(Metadata::value_type(tileId, node));
+         });
     f->close();
 }
 

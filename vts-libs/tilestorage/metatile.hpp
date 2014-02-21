@@ -1,6 +1,7 @@
 #ifndef vadstena_libs_tilestorage_metatile_hpp_included_
 #define vadstena_libs_tilestorage_metatile_hpp_included_
 
+#include <cstdint>
 #include <iosfwd>
 #include <functional>
 
@@ -59,8 +60,8 @@ struct MetaNode : TileMetadata
 
 // metatile IO
 
-typedef std::function<void(const TileId &tileId
-                           , const MetaNode &node)> MetaNodeLoader;
+typedef std::function<void(const TileId &tileId, const MetaNode &node
+                           , std::uint8_t childFlags)> MetaNodeLoader;
 
 void loadMetatile(std::istream &f, long baseTileSize, const TileId &tileId
                   , const MetaNodeLoader &loader);

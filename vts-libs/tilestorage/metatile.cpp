@@ -1,4 +1,5 @@
 #include <queue>
+#include <bitset>
 #include <iostream>
 
 #include "dbglog/dbglog.hpp"
@@ -111,11 +112,11 @@ void loadMetatileTree(long baseTileSize, const TileId &tileId
         }
     }
 
-    // remember node
-    loader(tileId, node);
-
     std::uint8_t childFlags;
     read(f, childFlags);
+
+    // remember node
+    loader(tileId, node, childFlags);
 
     std::uint8_t mask(1 << 4);
     for (const auto &childId : children(baseTileSize, tileId)) {
