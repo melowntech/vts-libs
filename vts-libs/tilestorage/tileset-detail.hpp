@@ -71,8 +71,6 @@ struct TileSet::Detail {
 
     void loadMetatileFromFile(const TileId &tileId) const;
 
-    void loadMetatileTree(const TileId &tileId, std::istream &f) const;
-
     MetaNode* findMetaNode(const TileId &tileId) const;
 
     MetaNode setMetaNode(const TileId &tileId, const MetaNode& metanode);

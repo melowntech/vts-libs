@@ -16,6 +16,7 @@
 #include "./tileop.hpp"
 #include "./json.hpp"
 #include "./tileset-detail.hpp"
+#include "./metatile.hpp"
 #include "./merge.hpp"
 
 namespace vadstena { namespace tilestorage {
@@ -379,76 +380,14 @@ TileSet::Detail::createVirtualMetaNode(const TileId &tileId)
     return *md;
 }
 
-
-
-void TileSet::Detail::loadMetatileTree(const TileId &tileId, std::istream &f)
-    const
-{
-    using utility::binaryio::read;
-
-    MetaNode node;
-
-    std::int16_t zmin, zmax;
-    read(f, zmin);
-    read(f, zmax);
-    node.zmin = zmin;
-    node.zmax = zmax;
-
-    for (int i = 0; i < 2; ++i) {
-        for (int j = 0; j < 2; ++j) {
-            read(f, node.pixelSize[i][j]);
-        }
-    }
-
-    for (int i = 0; i < MetaNode::HMSize; ++i) {
-        for (int j = 0; j < MetaNode::HMSize; ++j) {
-            std::int16_t value;
-            read(f, value);
-            node.heightmap[i][j] = value;
-        }
-    }
-
-    // we have node, remember it
-    // NB: we do NOT want the node from the storage to replace anything that is
-    // in the memory
-    metadata.insert(Metadata::value_type(tileId, node));
-
-    std::uint8_t childFlags;
-    read(f, childFlags);
-
-    std::uint8_t mask(1 << 4);
-    for (const auto &childId : children(properties.baseTileSize, tileId)) {
-        if (childFlags & mask) {
-            loadMetatileTree(childId, f);
-        }
-        mask <<= 1;
-    }
-}
-
 void TileSet::Detail::loadMetatileFromFile(const TileId &tileId) const
 {
-    using utility::binaryio::read;
-
     auto f(driver->input(tileId, Driver::TileFile::meta));
-
-    uint32_t version;
-    {
-        char magic[8];
-
-        read(*f, magic);
-        if (std::memcmp(magic, METATILE_IO_MAGIC, sizeof(METATILE_IO_MAGIC))) {
-            LOGTHROW(err1, FormatError) << "Bad metatile data magic.";
-        }
-        read(*f, version);
-        if (version > METATILE_IO_VERSION) {
-            LOGTHROW(err1, FormatError)
-                << "Unsupported metatile format (" << version << ").";
-        }
-    }
-
-    // TODO: use version to load different versions of metatile
-    loadMetatileTree(tileId, *f);
-
+    tilestorage::loadMetatile
+        (*f, properties.baseTileSize, tileId
+         , [this] (const TileId &tileId, const MetaNode &node) {
+            metadata.insert(Metadata::value_type(tileId, node));
+        });
     f->close();
 }
 
@@ -709,9 +648,7 @@ boost::optional<Tile> TileSet::Detail::getTile(const TileId &tileId
     check(tileId);
 
     auto md(findMetaNode(tileId));
-    if (!md) {
-        return boost::none;
-    }
+    if (!md) { return boost::none; }
 
     return boost::optional<Tile>
         (boost::in_place
@@ -1085,6 +1022,7 @@ void TileSet::Detail::mergeInSubtree(const TileIndex &generate
                 // no parent was generated and we have sucessfully loaded parent
                 // tile from existing content as a fallback tile!
 
+                LOG(info4) << "Parent tile loaded.";
                 quadrant = child(index);
                 tile = generateTile(tileId, src, *t, quadrant);
                 thisGenerated = true;
