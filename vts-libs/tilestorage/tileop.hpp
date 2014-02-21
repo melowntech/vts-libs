@@ -145,7 +145,7 @@ inline Lod deltaDown(const LodLevels &levels, Lod lod)
 inline bool above(long baseTileSize, const TileId &tile, const TileId &super)
 {
     // tile cannot be above super tile
-    if (tile.lod > super.lod) { return false; }
+    if (tile.lod < super.lod) { return false; }
 
     auto te(tileExtents(baseTileSize, tile));
     auto se(tileExtents(baseTileSize, super));
