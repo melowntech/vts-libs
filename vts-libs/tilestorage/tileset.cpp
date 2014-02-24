@@ -614,6 +614,8 @@ MetaNode TileSet::Detail::setTile(const TileId &tileId, const Mesh &mesh
 
     check(tileId);
 
+    LOG(info1) << "Setting content of tile " << tileId << ".";
+
     // create new metadata
     MetaNode metanode;
 
