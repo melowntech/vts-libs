@@ -66,11 +66,11 @@ namespace {
             }
         }
 
-        virtual std::ostream& get() override {
+        virtual std::ostream& get() UTILITY_OVERRIDE {
             return f_;
         }
 
-        virtual void close() override {
+        virtual void close() UTILITY_OVERRIDE {
             f_.close();
         }
 
@@ -93,11 +93,11 @@ namespace {
             }
         }
 
-        virtual std::istream& get() override {
+        virtual std::istream& get() UTILITY_OVERRIDE {
             return f_;
         }
 
-        virtual void close() override {
+        virtual void close() UTILITY_OVERRIDE {
             f_.close();
         }
 

@@ -26,21 +26,21 @@ public:
     VADSTENA_TILESTORAGE_DRIVER_FACTORY("flat", FlatDriver);
 
 private:
-    virtual OStream::pointer output_impl(File type) override;
+    virtual OStream::pointer output_impl(File type) UTILITY_OVERRIDE;
 
-    virtual IStream::pointer input_impl(File type) const override;
+    virtual IStream::pointer input_impl(File type) const UTILITY_OVERRIDE;
 
     virtual OStream::pointer
-    output_impl(const TileId tileId, TileFile type) override;
+    output_impl(const TileId tileId, TileFile type) UTILITY_OVERRIDE;
 
     virtual IStream::pointer
-    input_impl(const TileId tileId, TileFile type) const override;
+    input_impl(const TileId tileId, TileFile type) const UTILITY_OVERRIDE;
 
-    virtual void begin_impl() override;
+    virtual void begin_impl() UTILITY_OVERRIDE;
 
-    virtual void commit_impl() override;
+    virtual void commit_impl() UTILITY_OVERRIDE;
 
-    virtual void rollback_impl() override;
+    virtual void rollback_impl() UTILITY_OVERRIDE;
 
     boost::filesystem::path readPath(const boost::filesystem::path &path)
         const;

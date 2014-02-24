@@ -551,7 +551,7 @@ void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)
 
         virtual void saveTile(const TileId &metaId
                               , const MetaTileSaver &saver)
-            const override
+            const UTILITY_OVERRIDE
         {
             metaIndex.set(metaId);
             auto f(detail.driver->output(metaId, Driver::TileFile::meta));
@@ -559,7 +559,8 @@ void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)
             f->close();
         }
 
-        virtual MetaNode* getNode(const TileId &tileId) const override {
+        virtual MetaNode* getNode(const TileId &tileId) const UTILITY_OVERRIDE
+        {
             auto *node(detail.findMetaNode(tileId));
             tileIndex.set(tileId, node && node->exists());
             return node;
@@ -970,7 +971,7 @@ void TileSet::Detail::mergeInSubtree(const TileIndex &generate
                 // no parent was generated and we have sucessfully loaded parent
                 // tile from existing content as a fallback tile!
 
-                LOG(info4) << "Parent tile loaded.";
+                LOG(info2) << "Parent tile loaded.";
                 quadrant = child(index);
                 tile = generateTile(tileId, src, *t, quadrant);
                 thisGenerated = true;

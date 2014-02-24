@@ -118,13 +118,15 @@ public:
         Factory() : Driver::Factory(DRIVER_TYPE) {}                     \
                                                                         \
         virtual Driver::pointer create(const std::string location       \
-                                       , CreateMode mode) const override \
+                                       , CreateMode mode)               \
+            const UTILITY_OVERRIDE                                      \
         {                                                               \
             return std::make_shared<DRIVER_CLASS>(location, mode);      \
         }                                                               \
                                                                         \
         virtual Driver::pointer open(const std::string location         \
-                                       , OpenMode mode) const override  \
+                                     , OpenMode mode)                   \
+            const UTILITY_OVERRIDE                                      \
         {                                                               \
             return std::make_shared<DRIVER_CLASS>(location, mode);      \
         }                                                               \
