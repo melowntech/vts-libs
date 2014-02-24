@@ -100,26 +100,6 @@ TileIndex::TileIndex(const Alignment &alignment, long baseTileSize
     }
 }
 
-void TileIndex::fill(const Metadata &metadata)
-{
-    for (const auto &node : metadata) {
-        const auto &tileId(node.first);
-
-        auto *m(mask(tileId.lod));
-        if (!m) {
-            // lod out of interest
-            continue;
-        }
-
-        // tile size
-        auto ts(tileSize(baseTileSize_, tileId.lod));
-
-        m->set((tileId.easting - origin_(0)) / ts
-               , (tileId.northing - origin_(1)) / ts
-               , node.second.exists());
-    }
-}
-
 void TileIndex::fill(Lod lod, const TileIndex &other)
 {
     // find old and new masks
@@ -499,7 +479,8 @@ void dumpAsImages(const fs::path &path, const TileIndex &ti)
     {
         // rasterize and dump
         auto file(path / str(boost::format("%02d.png") % lod));
-        auto mat(asCvMat(*imasks, pixelSize));
+        cv::Mat mat;
+        flip(asCvMat(*imasks, pixelSize), mat, 0);
         imwrite(file.string().c_str(), mat);
 
         // next level

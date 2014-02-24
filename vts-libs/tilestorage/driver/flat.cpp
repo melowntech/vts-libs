@@ -149,14 +149,14 @@ FlatDriver::~FlatDriver()
 Driver::OStream::pointer FlatDriver::output_impl(File type)
 {
     auto path(writePath(filePath(type)));
-    LOG(info1) << "Saving tile index to " << path << ".";
+    LOG(info1) << "Saving to " << path << ".";
     return std::make_shared<FileOStream>(path);
 }
 
 Driver::IStream::pointer FlatDriver::input_impl(File type) const
 {
     auto path(readPath(filePath(type)));
-    LOG(info1) << "Loading tile index from " << path << ".";
+    LOG(info1) << "Loading from " << path << ".";
     return std::make_shared<FileIStream>(path);
 }
 
@@ -164,7 +164,7 @@ Driver::OStream::pointer
 FlatDriver::output_impl(const TileId tileId, TileFile type)
 {
     auto path(writePath(filePath(tileId, type)));
-    LOG(info1) << "Saving metatile to " << path << ".";
+    LOG(info1) << "Saving to " << path << ".";
     return std::make_shared<FileOStream>(path);
 }
 
@@ -172,7 +172,7 @@ Driver::IStream::pointer
 FlatDriver::input_impl(const TileId tileId, TileFile type) const
 {
     auto path(readPath(filePath(tileId, type)));
-    LOG(info1) << "Loading metatile from " << path << ".";
+    LOG(info1) << "Loading from " << path << ".";
     return std::make_shared<FileIStream>(path);
 }
 

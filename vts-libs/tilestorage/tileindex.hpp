@@ -7,14 +7,12 @@
 
 #include "imgproc/rastermask.hpp"
 
+#include "./basetypes.hpp"
 #include "./tileop.hpp"
 
-#include "../tilestorage.hpp"
 #include "../entities.hpp"
 
 namespace vadstena { namespace tilestorage {
-
-typedef std::map<TileId, MetaNode> Metadata;
 
 using imgproc::quadtree::RasterMask;
 
@@ -40,8 +38,6 @@ public:
 
     bool exists(const Index &index) const;
 
-    void fill(const Metadata &metadata);
-
     void fill(Lod lod, const TileIndex &other);
 
     void fill(const TileIndex &other);
@@ -53,6 +49,10 @@ public:
     void subtract(Lod lod, const TileIndex &other);
 
     void subtract(const TileIndex &other);
+
+    void set(const TileId &tileId, bool value = true);
+
+    void set(const Index &index, bool value = true);
 
     Extents extents() const;
 
@@ -80,6 +80,10 @@ public:
 
     const Masks masks() const { return masks_; };
 
+    class Traverser; friend class Traverser;
+
+    Traverser traverser() const;
+
 private:
     const RasterMask* mask(Lod lod) const;
 
@@ -89,6 +93,41 @@ private:
     Point2l origin_;
     Lod minLod_;
     Masks masks_;
+};
+
+class TileIndex::Traverser {
+public:
+    Traverser(const TileIndex *owner)
+        : owner_(owner), mask_(), index_(owner_->minLod())
+    {
+        load();
+    }
+
+    struct Tile {
+        Tile(const Index &index, const TileId &tileId, bool value)
+            : index(index), id(tileId), value(value), valid_(true)
+        {}
+        Tile() : value(false), valid_(false) {}
+
+        Index index;
+        TileId id;
+        bool value;
+
+        operator bool() const { return valid_; }
+
+    private:
+        bool valid_;
+    };
+
+    Tile next();
+
+private:
+    void load();
+
+    const TileIndex *owner_;
+    const RasterMask *mask_;
+    Size2l size_;
+    Index index_;
 };
 
 /** Dump tile indes as set of images.
@@ -156,7 +195,7 @@ inline LodRange TileIndex::lodRange() const
 inline const RasterMask* TileIndex::mask(Lod lod) const
 {
     auto idx(lod - minLod_);
-    if ((idx < 0) || (idx > int(masks_.size()))) {
+    if ((idx < 0) || (idx >= int(masks_.size()))) {
         return nullptr;
     }
 
@@ -219,6 +258,53 @@ inline Index TileIndex::index(const TileId &tileId) const
     const auto ts(tileSize(baseTileSize_, tileId.lod));
     return { tileId.lod, (tileId.easting - origin_(0)) / ts
             , (tileId.northing - origin_(1)) / ts };
+}
+
+inline void TileIndex::set(const TileId &tileId, bool value)
+{
+    return set(index(tileId), value);
+}
+
+inline void TileIndex::set(const Index &index, bool value)
+{
+    if (auto *m = mask(index.lod)) {
+        m->set(index.easting, index.northing, value);
+    }
+}
+
+inline TileIndex::Traverser TileIndex::traverser() const
+{
+    return Traverser(this);
+}
+
+inline void TileIndex::Traverser::load()
+{
+    mask_ = owner_->mask(index_.lod);
+    if (!mask_) { return; }
+    auto size(mask_->dims());
+    size_ = Size2l(size.width, size.height);
+    index_.easting = index_.northing = 0;
+}
+
+inline TileIndex::Traverser::Tile TileIndex::Traverser::next()
+{
+    if (!mask_ ) { return {}; }
+    Tile t(index_, owner_->tileId(index_)
+           , mask_->get(index_.easting, index_.northing));
+
+    // increment
+    ++index_.easting;
+    if (index_.easting >= size_.width) {
+        index_.easting = 0;
+        ++index_.northing;
+    }
+
+    if (index_.northing >= size_.height) {
+        ++index_.lod;
+        load();
+    }
+
+    return t;
 }
 
 } } // namespace vadstena::tilestorage

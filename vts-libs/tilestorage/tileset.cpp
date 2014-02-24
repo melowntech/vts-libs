@@ -240,17 +240,23 @@ void TileSet::Detail::saveMetadata()
 {
     driver->wannaWrite("save metadata");
 
-    // create tile index (initialize with existing one)
+    // create tile index (initialize parameters with existing one)
     TileIndex ti(properties.alignment, properties.baseTileSize
                  , extents, lodRange, &tileIndex);
 
-    // fill in new metadata
-    ti.fill(metadata);
+    // create metatile index (initialize parameters with existing one)
+    TileIndex mi(properties.alignment, properties.baseTileSize
+                 , extents, {properties.foat.lod, lodRange.max}
+                 , &mi);
 
-    // save
+    // well, dump metatiles now
+    saveMetatiles(ti, mi);
+
+    // save index
     try {
         auto f(driver->output(Driver::File::tileIndex));
         ti.save(*f);
+        mi.save(*f);
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, Error)
@@ -260,16 +266,13 @@ void TileSet::Detail::saveMetadata()
     // cool, we have new tile index
     tileIndex = ti;
 
-    // TODO: we have to load all metatiles present on the disk to proceed
     if (metadata.empty()) {
         // no tile, we should invalidate foat
         properties.foat = {};
+        propertiesChanged = true;
         LOG(info2) << "Tile set <" << properties.id << ">: New foat is "
                    << properties.foat << ".";
     }
-
-    // well, dump metatiles now
-    saveMetatiles();
 
     // saved => no change
     metadataChanged = false;
@@ -279,8 +282,10 @@ void TileSet::Detail::loadTileIndex()
 {
     try {
         tileIndex = { properties.baseTileSize };
+        metaIndex = { properties.baseTileSize };
         auto f(driver->input(Driver::File::tileIndex));
         tileIndex.load(*f);
+        metaIndex.load(*f);
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, Error)
@@ -418,6 +423,10 @@ MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId)
                                      , metaId);
     }
 
+    if (!metaIndex.exists(metaId)) {
+        return nullptr;
+    }
+
     LOG(info2) << "(" << properties.id << "): Found metatile "
                << metaId << " for tile " << tileId << ".";
 
@@ -528,28 +537,38 @@ void TileSet::Detail::flush()
     }
 }
 
-void TileSet::Detail::saveMetatiles() const
+void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)
+    const
 {
     struct Saver : MetaNodeSaver {
         const TileSet::Detail &detail;
-        Saver(const TileSet::Detail &detail) : detail(detail) {}
+        TileIndex &tileIndex;
+        TileIndex &metaIndex;
+        Saver(const TileSet::Detail &detail
+              , TileIndex &tileIndex, TileIndex &metaIndex)
+            : detail(detail), tileIndex(tileIndex), metaIndex(metaIndex)
+        {}
 
         virtual void saveTile(const TileId &metaId
-                              , const MetaTileSaver &saver) const override
+                              , const MetaTileSaver &saver)
+            const override
         {
+            metaIndex.set(metaId);
             auto f(detail.driver->output(metaId, Driver::TileFile::meta));
             saver(*f);
             f->close();
         }
 
-        virtual MetaNode* getNode(const TileId &tileId) const override
-        {
-            return detail.findMetaNode(tileId);
+        virtual MetaNode* getNode(const TileId &tileId) const override {
+            auto *node(detail.findMetaNode(tileId));
+            tileIndex.set(tileId, node && node->exists());
+            return node;
         }
     };
 
     tilestorage::saveMetatile(properties.baseTileSize, properties.foat
-                              , properties.metaLevels, Saver(*this));
+                              , properties.metaLevels
+                              , Saver(*this, tileIndex, metaIndex));
 }
 
 Tile TileSet::Detail::getTile(const TileId &tileId) const
@@ -987,14 +1006,43 @@ void TileSet::Detail::mergeInSubtree(const TileIndex &generate
     }
 }
 
+namespace {
+    void copyFile(const Driver::IStream::pointer &in
+                  , const Driver::OStream::pointer &out)
+    {
+        out->get() << in->get().rdbuf();
+        in->close();
+        out->close();
+    }
+}
+
 void TileSet::Detail::clone(const Detail &src)
 {
     const auto &sd(*src.driver);
     auto &dd(*driver);
 
-    // copy properties
+    // copy single files
     for (auto type : { Driver::File::config, Driver::File::tileIndex }) {
-        dd.output(type)->get() << sd.input(type)->get().rdbuf();
+        copyFile(sd.input(type), dd.output(type));
+    }
+
+    // copy tiles
+    auto traverser(src.tileIndex.traverser());
+    while (auto tile = traverser.next()) {
+        if (!tile.value) { continue; }
+        for (auto type : { Driver::TileFile::mesh
+                    , Driver::TileFile::atlas })
+        {
+            copyFile(sd.input(tile.id, type), dd.output(tile.id, type));
+        }
+    }
+
+    // copy metatiles
+    traverser = src.metaIndex.traverser();
+    while (auto tile = traverser.next()) {
+        if (!tile.value) { continue; }
+        copyFile(sd.input(tile.id, Driver::TileFile::meta)
+                 , dd.output(tile.id, Driver::TileFile::meta));
     }
 }
 

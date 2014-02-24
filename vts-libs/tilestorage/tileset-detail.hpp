@@ -13,6 +13,8 @@
 
 namespace vadstena { namespace tilestorage {
 
+typedef std::map<TileId, MetaNode> Metadata;
+
 struct TileSet::Detail {
     Driver::pointer driver;
 
@@ -22,6 +24,7 @@ struct TileSet::Detail {
     bool propertiesChanged; // marks whether properties have been changed
 
     TileIndex tileIndex;    // tile index that reflects state on the disk
+    TileIndex metaIndex;    // metatile index that reflects state on the disk
 
     Extents extents;              // extents covered by tiles
     LodRange lodRange;            // covered lod range
@@ -74,7 +77,7 @@ struct TileSet::Detail {
 
     void flush();
 
-    void saveMetatiles() const;
+    void saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex) const;
 
     void begin();
 
