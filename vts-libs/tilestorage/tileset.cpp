@@ -247,7 +247,7 @@ void TileSet::Detail::saveMetadata()
     // create metatile index (initialize parameters with existing one)
     TileIndex mi(properties.alignment, properties.baseTileSize
                  , extents, {properties.foat.lod, lodRange.max}
-                 , &mi);
+                 , &ti);
 
     // well, dump metatiles now
     saveMetatiles(ti, mi);
@@ -577,7 +577,7 @@ Tile TileSet::Detail::getTile(const TileId &tileId) const
     check(tileId);
 
     auto md(findMetaNode(tileId));
-    if (!md) {
+    if (!md || !md->exists()) {
         LOGTHROW(err2, NoSuchTile)
             << "There is no tile at " << tileId << ".";
     }
@@ -597,7 +597,7 @@ boost::optional<Tile> TileSet::Detail::getTile(const TileId &tileId
     check(tileId);
 
     auto md(findMetaNode(tileId));
-    if (!md) { return boost::none; }
+    if (!md || !md->exists()) { return boost::none; }
 
     return boost::optional<Tile>
         (boost::in_place

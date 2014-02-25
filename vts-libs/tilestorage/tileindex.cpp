@@ -95,8 +95,10 @@ TileIndex::TileIndex(const Alignment &alignment, long baseTileSize
         tiling.width *= 2;
         tiling.height *= 2;
 
-        // fill in old data
-        fill(lod, *other);
+        // fill in old data (if exists)
+        if (other) {
+            fill(lod, *other);
+        };
     }
 }
 
@@ -112,10 +114,11 @@ void TileIndex::fill(Lod lod, const TileIndex &other)
     // calculate origin difference in tiles at given lod
     auto ts(tileSize(baseTileSize_, lod));
 
-    math::Size2 diff((origin_(0) - other.origin_(0)) / ts
-                     , (origin_(1) - other.origin_(1)) / ts);
+    math::Size2 diff((other.origin_(0) - origin_(0)) / ts
+                     , (other.origin_(1) - origin_(1)) / ts);
 
     auto size(oldMask->dims());
+
     for (int j(0); j < size.height; ++j) {
         for (int i(0); i < size.width; ++i) {
             if (oldMask->get(i, j)) {
@@ -375,6 +378,8 @@ TileIndex unite(const Alignment &alignment
                 , const std::vector<const TileIndex*> &tis
                 , const Bootstrap &bootstrap)
 {
+    LOG(info4) << "unite: " << tis.size();
+
     // handle special cases
     switch (tis.size()) {
     case 0: return {};
@@ -411,7 +416,7 @@ template <typename Op>
 TileIndex bitop(const Alignment &alignment
                 , const TileIndex &l, const TileIndex &r
                 , const Bootstrap &bootstrap
-                , const Op &op)
+                , const Op &op, const char *opName)
 {
     auto baseTileSize(l.baseTileSize());
     auto lodRange(unite(unite(bootstrap.lodRange()
@@ -422,8 +427,8 @@ TileIndex bitop(const Alignment &alignment
                                            , l.extents()), r.extents()));
     if (empty(extents)) { return {}; }
 
-    LOG(info2) << "(unite) lodRange: " << lodRange;
-    LOG(info2) << "(unite) extents: " << extents;
+    LOG(info2) << "(" << opName << ") lodRange: " << lodRange;
+    LOG(info2) << "(" << opName << ") extents: " << extents;
 
     // result tile index (initialize with first tile index)
     TileIndex out(alignment, baseTileSize, extents, lodRange, &l);
@@ -444,7 +449,7 @@ TileIndex unite(const Alignment &alignment
     return bitop(alignment, l, r, bootstrap
                  , [](TileIndex &out, const TileIndex &in) {
                      out.fill(in);
-                 });
+                 }, "unite");
 }
 
 TileIndex intersect(const Alignment &alignment
@@ -454,7 +459,7 @@ TileIndex intersect(const Alignment &alignment
     return bitop(alignment, l, r, bootstrap
                  , [](TileIndex &out, const TileIndex &in) {
                      out.intersect(in);
-                 });
+                 }, "intersect");
 }
 
 TileIndex subtract(const Alignment &alignment
@@ -464,11 +469,12 @@ TileIndex subtract(const Alignment &alignment
     return bitop(alignment, l, r, bootstrap
                  , [](TileIndex &out, const TileIndex &in) {
                      out.subtract(in);
-                 });
+                 }, "subtract");
 }
 
 void dumpAsImages(const fs::path &path, const TileIndex &ti)
 {
+    LOG(info2) << "Dumping tileIndex as image stack at " << path << ".";
     create_directories(path);
 
     auto lod(ti.lodRange().max);

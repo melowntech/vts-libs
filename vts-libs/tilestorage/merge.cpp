@@ -32,6 +32,8 @@ Tile merge(long tileSize, const Tile::list &tiles
 
     // simple no-merge algo :P
 
+    LOG(info2) << "merging " << tiles.size() << " tiles";
+
     // find tile with largest triangle area
     const Tile *t(nullptr);
     double area(0);
