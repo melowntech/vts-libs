@@ -95,6 +95,8 @@ struct TileSet::Detail {
     Tile generateTile(const TileId &tileId, const TileSet::list &src
                       , const Tile &parentTile, int quadrant);
 
+    void fixDefaultPosition(const list &tileSets);
+
     TileId parent(const TileId &tileId) const;
 
     void clone(const Detail &src);

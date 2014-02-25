@@ -22,6 +22,11 @@ constexpr float invalidPixelSize = std::numeric_limits<float>::max();
 struct TileMetadata {
     enum { HMSize = 5 };
     float heightmap[HMSize][HMSize];
+
+    // NB: update initializer when HMSize changes!
+    TileMetadata()
+        : heightmap{{0.f}, {0.f}, {0.f}, {0.f}, {0.f}}
+    {}
 };
 
 //! Meta-data for one tile
@@ -88,6 +93,24 @@ void saveMetatile(long baseTileSize, const TileId &foat
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
 dump(std::basic_ostream<CharT, Traits> &os
+     , const TileMetadata &m
+     , const std::string &prefix = std::string())
+{
+    for (int j(0); j < TileMetadata::HMSize; ++j) {
+        os << prefix << "heightmap[" << j << "]: ";
+        for (int i(0); i < TileMetadata::HMSize; ++i) {
+            if (i) { os << ", "; }
+            os << m.heightmap[j][i];
+        }
+        os << "\n";
+    }
+
+    return os;
+}
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+dump(std::basic_ostream<CharT, Traits> &os
      , const MetaNode &n
      , const std::string &prefix = std::string())
 {
@@ -96,6 +119,8 @@ dump(std::basic_ostream<CharT, Traits> &os
        << n.pixelSize[0][0] << ", " << n.pixelSize[0][1]
        << ", " << n.pixelSize[1][0] << ", " << n.pixelSize[1][1] << '\n'
         ;
+
+    dump(os, static_cast<const TileMetadata&>(n), prefix);
 
     return os;
 }

@@ -632,6 +632,8 @@ MetaNode TileSet::Detail::setTile(const TileId &tileId, const Mesh &mesh
         saveMesh(driver->output(tileId, Driver::TileFile::mesh), mesh);
         saveAtlas(driver->output(tileId, Driver::TileFile::atlas)
                   , atlas, properties.textureQuality);
+    } else {
+        LOG(info1) << "Tile " << tileId << " has no content.";
     }
 
     // remember new metanode (can lead to removal of node)
@@ -904,6 +906,9 @@ void TileSet::mergeIn(const list &kept, const list &update)
             detail().mergeInSubtree(generate, {lod, i, j}, all);
         }
     }
+
+    // center default position if not inside tileset
+    detail().fixDefaultPosition(all);
 }
 
 void TileSet::mergeOut(const list &kept, const list &update)
@@ -1005,6 +1010,28 @@ void TileSet::Detail::mergeInSubtree(const TileIndex &generate
         mergeInSubtree(generate, child, src, tile, quadrant, g);
         if (quadrant != MERGE_NO_FALLBACK_TILE) {
             ++quadrant;
+        }
+    }
+}
+
+void TileSet::Detail::fixDefaultPosition(const list &tileSets)
+{
+    double maxHeight(400);
+    for (const auto &ts : tileSets) {
+        maxHeight = ts->getProperties().defaultPosition(2);
+    }
+
+    if (!inside(extents, properties.defaultPosition)) {
+        if (tileSets.empty()) {
+            auto c(center(extents));
+            properties.defaultPosition(0) = c(0);
+            properties.defaultPosition(1) = c(1);
+            properties.defaultPosition(2) = maxHeight;
+            propertiesChanged = true;
+        } else {
+            properties.defaultPosition
+                = tileSets.front()->getProperties().defaultPosition;
+            properties.defaultPosition(2) = maxHeight;
         }
     }
 }
