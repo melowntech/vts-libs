@@ -7,6 +7,7 @@
 #include <boost/filesystem/path.hpp>
 
 #include "../driver.hpp"
+#include "./factory.hpp"
 
 namespace vadstena { namespace tilestorage {
 
