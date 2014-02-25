@@ -1018,7 +1018,8 @@ void TileSet::Detail::fixDefaultPosition(const list &tileSets)
 {
     double maxHeight(400);
     for (const auto &ts : tileSets) {
-        maxHeight = ts->getProperties().defaultPosition(2);
+        maxHeight = std::max(ts->getProperties().defaultPosition(2)
+                             , maxHeight);
     }
 
     if (!inside(extents, properties.defaultPosition)) {
