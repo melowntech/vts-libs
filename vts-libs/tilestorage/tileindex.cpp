@@ -378,7 +378,7 @@ TileIndex unite(const Alignment &alignment
                 , const std::vector<const TileIndex*> &tis
                 , const Bootstrap &bootstrap)
 {
-    LOG(info4) << "unite: " << tis.size();
+    LOG(info2) << "unite: " << tis.size();
 
     // handle special cases
     switch (tis.size()) {

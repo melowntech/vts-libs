@@ -849,9 +849,17 @@ inline void dump(const boost::filesystem::path &dir, const TileSet::list &set)
 
 } // namespace
 
+#ifdef VADSTENA_LIBS_DUMP_TILEINDEX
+#    define DUMP_TILEINDEX(name, index) dumpAsImages(name, index)
+#else
+#    define DUMP_TILEINDEX(name, index) do {} while (false)
+#endif // VADSTENA_LIBS_DUMP_TILEINDEX
+
 void TileSet::mergeIn(const list &kept, const list &update)
 {
+#ifdef VADSTENA_LIBS_DUMP_TILEINDEX
     dump("debug/update", update);
+#endif // VADSTENA_LIBS_DUMP_TILEINDEX
 
     const auto &alignment(detail().properties.alignment);
 
@@ -863,21 +871,21 @@ void TileSet::mergeIn(const list &kept, const list &update)
         return;
     }
 
-    dumpAsImages("debug/tsUpdate", tsUpdate);
+    DUMP_TILEINDEX("debug/tsUpdate", tsUpdate);
     tsUpdate.growDown();
-    dumpAsImages("debug/tsUpdate-gd", tsUpdate);
+    DUMP_TILEINDEX("debug/tsUpdate-gd", tsUpdate);
 
     // calculate storage post state
     auto tsPost(unite(alignment, tileIndices(update, kept), tsUpdate));
-    dumpAsImages("debug/tsPost", tsPost);
+    DUMP_TILEINDEX("debug/tsPost", tsPost);
     tsPost.growUp();
-    dumpAsImages("debug/tsPost-gu", tsPost);
+    DUMP_TILEINDEX("debug/tsPost-gu", tsPost);
 
     // calculate storage pre state
     auto tsPre(unite(alignment, tileIndices(kept), tsUpdate));
-    dumpAsImages("debug/tsPre", tsPre);
+    DUMP_TILEINDEX("debug/tsPre", tsPre);
     tsPre.growUp().invert();
-    dumpAsImages("debug/tsPre-gu-inv", tsPre);
+    DUMP_TILEINDEX("debug/tsPre-gu-inv", tsPre);
 
     LOG(info2) << "(merge-in) down(tsUpdate): " << tsUpdate;
     LOG(info2) << "(merge-in) up(tsPost): " << tsPost;
@@ -885,7 +893,7 @@ void TileSet::mergeIn(const list &kept, const list &update)
 
     auto generate(intersect(alignment, tsPost
                             , unite(alignment, tsUpdate, tsPre)));
-    dumpAsImages("debug/generate", generate);
+    DUMP_TILEINDEX("debug/generate", generate);
 
     LOG(info2) << "(merge-in) generate: " << generate;
 
