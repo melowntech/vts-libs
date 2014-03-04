@@ -4,7 +4,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     detail/fingeprint-manipulator)
 
   define_module(LIBRARY vadstena-libs DEPENDS
-    service cvision optics math utility dbglog jsoncpp
+    service cvision optics math geo utility dbglog jsoncpp
     Boost_FILESYSTEM Boost_REGEX
     OpenCV LIBSHP CRYPTO++ MYSQL++ GEOGRAPHICLIB)
 
