@@ -1,6 +1,4 @@
 if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
-  set(DEPENDS )
-
   file_to_cpp(PUBLIC_KEY_SOURCES vadstena::matrixSource detail/matrix-source)
   file_to_cpp(PUBLIC_KEY_SOURCES vadstena::fingerPrintManipulator
     detail/fingeprint-manipulator)
@@ -8,7 +6,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
   define_module(LIBRARY vadstena-libs DEPENDS
     service cvision optics math utility dbglog jsoncpp
     Boost_FILESYSTEM Boost_REGEX
-    OpenCV LIBSHP CRYPTO++ MYSQL++)
+    OpenCV LIBSHP CRYPTO++ MYSQL++ GEOGRAPHICLIB)
 
   if (BUILDSYS_CUSTOMER_BUILD)
     message(STATUS "Building vadstena-libs customized for customer "
