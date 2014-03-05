@@ -18,7 +18,7 @@ public:
 
     enum class TileFile { meta, mesh, atlas };
 
-    enum class File { config, tileIndex, metaIndex };
+    enum class File { config, tileIndex };
 
     std::shared_ptr<OStream> output(File type);
 

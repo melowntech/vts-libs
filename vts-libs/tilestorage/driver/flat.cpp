@@ -21,7 +21,6 @@ namespace {
 
     const std::string ConfigName("mapConfig.json");
     const std::string TileIndexName("index.bin");
-    const std::string MetaIndexName("metaindex.bin");
     const std::string TransactionRoot("tx");
 
     const std::string filePath(Driver::File type)
@@ -29,7 +28,6 @@ namespace {
         switch (type) {
         case Driver::File::config: return ConfigName;
         case Driver::File::tileIndex: return TileIndexName;
-        case Driver::File::metaIndex: return MetaIndexName;
         }
         throw "unknown file type";
     }
