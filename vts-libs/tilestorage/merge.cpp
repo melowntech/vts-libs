@@ -30,6 +30,7 @@ Tile merge(long tileSize, const Tile::list &tiles
 {
     // sort tiles by quality
 
+
     // draw qbuffer
 
     // mark faces that will survive
