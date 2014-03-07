@@ -28,6 +28,15 @@ double tileArea(const Mesh &mesh)
 Tile merge(long tileSize, const Tile::list &tiles
            , const Tile &fallback, int fallbackQuad)
 {
+    // sort tiles by quality
+
+    // draw qbuffer
+
+    // mark faces that will survive
+
+    //
+
+
     // TODO: implement me
 
     // simple no-merge algo :P
