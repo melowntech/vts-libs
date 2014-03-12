@@ -52,10 +52,16 @@ namespace {
     class FileOStream : public Driver::OStream {
     public:
         FileOStream(const fs::path &path)
-            : f_()
+            : path_(path), f_()
         {
-            f_.exceptions(std::ios::badbit | std::ios::failbit);
-            f_.open(path.string(), std::ios_base::out | std::ios_base::trunc);
+            try {
+                f_.exceptions(std::ios::badbit | std::ios::failbit);
+                f_.open(path.string()
+                        , std::ios_base::out | std::ios_base::trunc);
+            } catch (const std::exception &e) {
+                LOGTHROW(err1, std::runtime_error)
+                    << "Unable to open file " << path << " for writing.";
+            }
         }
 
         virtual ~FileOStream() {
@@ -72,17 +78,27 @@ namespace {
             f_.close();
         }
 
+        virtual std::string name() UTILITY_OVERRIDE {
+            return path_.string();
+        };
+
     private:
+        fs::path path_;
         utility::ofstreambuf f_;
     };
 
     class FileIStream : public Driver::IStream {
     public:
         FileIStream(const fs::path &path)
-            : f_()
+            : path_(path), f_()
         {
-            f_.exceptions(std::ios::badbit | std::ios::failbit);
-            f_.open(path.string());
+            try {
+                f_.exceptions(std::ios::badbit | std::ios::failbit);
+                f_.open(path.string());
+            } catch (const std::exception &e) {
+                LOGTHROW(err1, std::runtime_error)
+                    << "Unable to open file " << path << " for reading.";
+            }
         }
 
         virtual ~FileIStream() {
@@ -99,7 +115,12 @@ namespace {
             f_.close();
         }
 
+        virtual std::string name() UTILITY_OVERRIDE {
+            return path_.string();
+        };
+
     private:
+        fs::path path_;
         utility::ifstreambuf f_;
     };
 
@@ -109,6 +130,7 @@ FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
                        , CreateMode mode)
     : Driver(false)
     , root_(root), tmp_(root / TransactionRoot)
+    , dirCache_(root_)
 {
     if (!create_directories(root_)) {
         // directory already exists -> fail if mode says so
@@ -127,12 +149,13 @@ FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
                        , OpenMode mode)
     : Driver(mode == OpenMode::readOnly)
     , root_(root), tmp_(root / TransactionRoot)
+    , dirCache_(root_)
 {
 }
 
 FsBasedDriver::~FsBasedDriver()
 {
-    if (txFiles_) {
+    if (tx_) {
         LOG(warn3) << "Active transaction on driver close; rolling back.";
         try {
             rollback_impl();
@@ -146,14 +169,18 @@ FsBasedDriver::~FsBasedDriver()
 
 Driver::OStream::pointer FsBasedDriver::output_impl(File type)
 {
-    auto path(writePath(fileDir(type), filePath(type)));
+    const auto name(filePath(type));
+    const auto dir(fileDir(type, name));
+    const auto path(writePath(dir, name));
     LOG(info1) << "Saving to " << path << ".";
     return std::make_shared<FileOStream>(path);
 }
 
 Driver::IStream::pointer FsBasedDriver::input_impl(File type) const
 {
-    auto path(readPath(fileDir(type), filePath(type)));
+    const auto name(filePath(type));
+    const auto dir(fileDir(type, name));
+    const auto path(readPath(dir, name));
     LOG(info1) << "Loading from " << path << ".";
     return std::make_shared<FileIStream>(path);
 }
@@ -161,7 +188,9 @@ Driver::IStream::pointer FsBasedDriver::input_impl(File type) const
 Driver::OStream::pointer
 FsBasedDriver::output_impl(const TileId tileId, TileFile type)
 {
-    auto path(writePath(fileDir(tileId, type), filePath(tileId, type)));
+    const auto name(filePath(tileId, type));
+    const auto dir(fileDir(tileId, type, name));
+    const auto path(writePath(dir, name));
     LOG(info1) << "Saving to " << path << ".";
     return std::make_shared<FileOStream>(path);
 }
@@ -169,14 +198,16 @@ FsBasedDriver::output_impl(const TileId tileId, TileFile type)
 Driver::IStream::pointer
 FsBasedDriver::input_impl(const TileId tileId, TileFile type) const
 {
-    auto path(readPath(fileDir(tileId, type), filePath(tileId, type)));
+    const auto name(filePath(tileId, type));
+    const auto dir(fileDir(tileId, type, name));
+    const auto path(readPath(dir, name));
     LOG(info1) << "Loading from " << path << ".";
     return std::make_shared<FileIStream>(path);
 }
 
 void FsBasedDriver::begin_impl()
 {
-    if (txFiles_) {
+    if (tx_) {
         LOGTHROW(err2, PendingTransaction)
             << "Transaction already in progress";
     }
@@ -187,26 +218,25 @@ void FsBasedDriver::begin_impl()
     create_directories(tmp_);
 
     // begin tx
-    txFiles_ = boost::in_place();
+    tx_ = boost::in_place(tmp_);
 }
 
 void FsBasedDriver::commit_impl()
 {
-    if (!txFiles_) {
+    if (!tx_) {
         LOGTHROW(err2, PendingTransaction)
             << "No transaction in progress";
     }
 
     // move all files updated in transaction to from tmp to regular directory
-    for (const auto &file : *txFiles_) {
+    for (const auto &file : tx_->files) {
         const auto &name = file.first;
         const auto &dir = file.second;
-        // TODO: cache
 
         // create directory for file
-        if (!dir.empty()) { create_directories(root_ / dir); }
+        dirCache_.create(dir);
 
-        auto path(dir / name);
+        const auto path(dir / name);
         rename(tmp_ / path, root_ / path);
     }
 
@@ -214,12 +244,12 @@ void FsBasedDriver::commit_impl()
     remove_all(tmp_);
 
     // no tx at all
-    txFiles_ = boost::none;
+    tx_ = boost::none;
 }
 
 void FsBasedDriver::rollback_impl()
 {
-    if (!txFiles_) {
+    if (!tx_) {
         LOGTHROW(err2, PendingTransaction)
             << "No transaction in progress";
     }
@@ -228,16 +258,16 @@ void FsBasedDriver::rollback_impl()
     remove_all(tmp_);
 
     // no tx at all
-    txFiles_ = boost::none;
+    tx_ = boost::none;
 }
 
 fs::path FsBasedDriver::readPath(const fs::path &dir, const fs::path &name)
     const
 {
-    if (txFiles_) {
+    if (tx_) {
         // we have active transaction: is file part of the tx?
-        auto ftxFiles(txFiles_->find(name));
-        if (ftxFiles != txFiles_->end()) {
+        auto ffiles(tx_->files.find(name));
+        if (ffiles != tx_->files.end()) {
             // yes -> tmp file
             return tmp_ / dir / name;
         }
@@ -249,19 +279,30 @@ fs::path FsBasedDriver::readPath(const fs::path &dir, const fs::path &name)
 
 fs::path FsBasedDriver::writePath(const fs::path &dir, const fs::path &name)
 {
-    auto root(root_);
-    if (txFiles_) {
+    DirCache *dirCache(&dirCache_);
+    if (tx_) {
         // remember file in transaction
-        txFiles_->insert(TxFiles::value_type(name, dir));
+        tx_->files.insert(Tx::Files::value_type(name, dir));
 
         // temporary file
-        root = tmp_;
+        dirCache = &tx_->dirCache;
     }
 
-    // make directory if not empty and return full file path
-    auto rdir(root / dir);
-    if (!dir.empty()) { create_directories(rdir); }
-    return rdir / name;
+    // get dir and return full path
+    return dirCache->create(dir) / name;
+}
+
+fs::path FsBasedDriver::DirCache::create(const fs::path &dir)
+{
+    if (dir.empty()) { return root_; }
+
+    auto rdir(root_ / dir);
+    if (dirs_.find(dir) == dirs_.end()) {
+        // possibly non-existent dir, create
+        create_directories(rdir);
+        dirs_.insert(dir);
+    }
+    return rdir;
 }
 
 } } // namespace vadstena::tilestorage

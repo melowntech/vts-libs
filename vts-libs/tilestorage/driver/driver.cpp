@@ -3,6 +3,7 @@
 #include "../driver.hpp"
 #include "../error.hpp"
 #include "./flat.hpp"
+#include "./hash-crc.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -18,6 +19,7 @@ void registerDriversOnce()
 {
     // add drivers here
     Driver::registerDriver<FlatDriver>();
+    Driver::registerDriver<HashCrcDriver>();
 }
 
 void registerDefaultDrivers()

@@ -23,12 +23,16 @@ public:
     VADSTENA_TILESTORAGE_DRIVER_FACTORY("flat", FlatDriver);
 
 private:
-    virtual boost::filesystem::path fileDir_impl(File) const UTILITY_OVERRIDE {
+    virtual boost::filesystem::path fileDir_impl(File, const fs::path&)
+        const UTILITY_OVERRIDE
+    {
         return {};
     }
 
     virtual boost::filesystem::path
-    fileDir_impl(const TileId&, TileFile) const UTILITY_OVERRIDE {
+    fileDir_impl(const TileId&, TileFile, const fs::path&)
+        const UTILITY_OVERRIDE
+    {
         return {};
     }
 };

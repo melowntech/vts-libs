@@ -18,7 +18,8 @@ namespace {
 
     const std::string DefaultInputType("flat");
 
-    const std::string DefaultOutputType("flat");
+    // const std::string DefaultOutputType("flat");
+    const std::string DefaultOutputType("hash/crc");
 
     const std::string ConfigName("index.json");
 

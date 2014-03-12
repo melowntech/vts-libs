@@ -1,6 +1,7 @@
 #ifndef vadstena_libs_tilestorage_driver_fsbased_hpp_included_
 #define vadstena_libs_tilestorage_driver_fsbased_hpp_included_
 
+#include <set>
 #include <map>
 
 #include <boost/optional.hpp>
@@ -11,28 +12,30 @@
 
 namespace vadstena { namespace tilestorage {
 
+namespace fs = boost::filesystem;
+
 class FsBasedDriver : public Driver {
 public:
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.
      */
-    FsBasedDriver(const boost::filesystem::path &root, CreateMode mode);
+    FsBasedDriver(const fs::path &root, CreateMode mode);
 
     /** Opens storage.
      */
-    FsBasedDriver(const boost::filesystem::path &root, OpenMode mode);
+    FsBasedDriver(const fs::path &root, OpenMode mode);
 
     virtual ~FsBasedDriver();
 
 private:
     /** Implement in derived class.
      */
-    virtual boost::filesystem::path fileDir_impl(File type) const = 0;
+    virtual fs::path fileDir_impl(File type, const fs::path &name) const = 0;
 
     /** Implement in derived class.
      */
-    virtual boost::filesystem::path fileDir_impl(const TileId &tileId
-                                                 , TileFile type) const = 0;
+    virtual fs::path fileDir_impl(const TileId &tileId, TileFile type
+                                  , const fs::path &name) const = 0;
 
     virtual OStream::pointer output_impl(File type) UTILITY_OVERRIDE;
 
@@ -50,46 +53,65 @@ private:
 
     virtual void rollback_impl() UTILITY_OVERRIDE;
 
-    boost::filesystem::path fileDir(File type) const;
+    fs::path fileDir(File type, const fs::path &name) const;
 
-    boost::filesystem::path fileDir(const TileId &tileId, TileFile type) const;
+    fs::path fileDir(const TileId &tileId, TileFile type
+                     , const fs::path &name) const;
 
-    boost::filesystem::path readPath(const boost::filesystem::path &dir
-                                     , const boost::filesystem::path &name)
-        const;
+    fs::path readPath(const fs::path &dir, const fs::path &name) const;
 
-    boost::filesystem::path writePath(const boost::filesystem::path &dir
-                                      , const boost::filesystem::path &name);
+    fs::path writePath(const fs::path &dir, const fs::path &name);
 
     /** Backing root.
      */
-    const boost::filesystem::path root_;
+    const fs::path root_;
 
     /** temporary files backing root.
      */
-    const boost::filesystem::path tmp_;
+    const fs::path tmp_;
 
-    /** Maps filename to its directory.
-     */
-    typedef std::map<boost::filesystem::path, boost::filesystem::path> TxFiles;
+    class DirCache {
+    public:
+        DirCache(const fs::path &root) : root_(root) {}
+
+        fs::path create(const fs::path &dir);
+
+    private:
+        typedef std::set<fs::path> DirSet;
+
+        const fs::path root_;
+        DirSet dirs_;
+    };
+
+    DirCache dirCache_;
+
+    struct Tx {
+        Tx(const fs::path &root) : dirCache(root) {}
+
+        typedef std::map<fs::path, fs::path> Files;
+
+        Files files;
+        DirCache dirCache;
+    };
 
     /** Files in pending transaction.
      */
-    boost::optional<TxFiles> txFiles_;
+    boost::optional<Tx> tx_;
 };
 
 
 // inline implementation
 
-inline boost::filesystem::path FsBasedDriver::fileDir(File type) const
+inline fs::path FsBasedDriver::fileDir(File type, const fs::path &name) const
 {
-    return fileDir_impl(type);
+    return fileDir_impl(type, name);
 }
 
-inline boost::filesystem::path
-FsBasedDriver::fileDir(const TileId &tileId, TileFile type) const
+inline fs::path FsBasedDriver::fileDir(const TileId &tileId, TileFile type
+                                       , const fs::path &name)
+    const
 {
-    return fileDir_impl(tileId, type);
+    return fileDir_impl(tileId, type, name);
 }
 
 } } // namespace vadstena::tilestorage
