@@ -47,7 +47,7 @@ namespace vadstena { namespace tilestorage {
  * \throws Error if storage cannot be created
  */
 Storage::pointer createStorage(const boost::filesystem::path &root
-                               , const CreateProperties &properties
+                               , const StorageCreateProperties &properties
                                , CreateMode mode = CreateMode::failIfExists);
 
 /** Opens existing storage.

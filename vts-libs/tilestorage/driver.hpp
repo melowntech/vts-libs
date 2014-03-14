@@ -1,6 +1,8 @@
 #ifndef vadstena_libs_tilestorage_driver_hpp_included_
 #define vadstena_libs_tilestorage_driver_hpp_included_
 
+#include <map>
+
 #include "./types.hpp"
 #include "./streams.hpp"
 
@@ -38,6 +40,8 @@ public:
                                   , CreateMode mode);
 
     static Driver::pointer open(Locator locator, OpenMode mode);
+
+    static std::map<std::string, std::string> listSupportedDrivers();
 
 protected:
     Driver(bool readOnly) : readOnly_(readOnly) {}
@@ -77,6 +81,8 @@ public:
     virtual Driver::pointer open(const std::string location
                                  , OpenMode mode) const = 0;
 
+    virtual std::string help() const = 0;
+
     const std::string type;
 };
 
@@ -90,7 +96,7 @@ void Driver::registerDriver()
 
 inline OStream::pointer Driver::output(File type)
 {
-    return output_impl( type);
+    return output_impl(type);
 }
 
 inline IStream::pointer Driver::input(File type) const

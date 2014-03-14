@@ -20,6 +20,8 @@ public:
 
     virtual ~FlatDriver() {}
 
+    static const std::string help;
+
     VADSTENA_TILESTORAGE_DRIVER_FACTORY("flat", FlatDriver);
 
 private:

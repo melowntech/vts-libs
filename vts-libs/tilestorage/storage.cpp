@@ -6,6 +6,7 @@
 #include "./error.hpp"
 #include "./json.hpp"
 #include "./io.hpp"
+#include "./driver.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -18,7 +19,6 @@ namespace {
 
     const std::string DefaultInputType("flat");
 
-    // const std::string DefaultOutputType("flat");
     const std::string DefaultOutputType("hash/crc");
 
     const std::string ConfigName("index.json");
@@ -64,7 +64,7 @@ namespace {
 
 struct Storage::Factory {
     static Storage::pointer create(const fs::path &root
-                                   , const CreateProperties &properties
+                                   , const StorageCreateProperties &properties
                                    , CreateMode mode)
     {
         if (!create_directories(root)) {
@@ -80,11 +80,14 @@ struct Storage::Factory {
 
         // create default config
         StorageProperties sp;
-        sp.outputSet.locator.type = DefaultOutputType;
+        sp.outputSet.locator.type
+            = (properties.outputTileSetType.empty()
+               ? DefaultOutputType
+               : properties.outputTileSetType);
         sp.outputSet.locator.location = OutputDir;
 
         // update create properties
-        CreateProperties p(properties);
+        CreateProperties p(properties.createProperties);
         p.staticProperties.id = OutputDir;
 
         // create output tile set
@@ -105,7 +108,7 @@ struct Storage::Factory {
 };
 
 Storage::pointer createStorage(const fs::path &root
-                               , const CreateProperties &properties
+                               , const StorageCreateProperties &properties
                                , CreateMode mode)
 {
     return Storage::Factory::create(root, properties, mode);
@@ -287,6 +290,16 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
 }
 
 // storage
+
+const std::string Storage::getDefaultOutputType()
+{
+    return DefaultOutputType;
+}
+
+std::map<std::string, std::string> Storage::listSupportedDrivers()
+{
+    return Driver::listSupportedDrivers();
+}
 
 Storage::Storage(const fs::path &root, bool readOnly)
     : detail_(new Detail(root, readOnly))

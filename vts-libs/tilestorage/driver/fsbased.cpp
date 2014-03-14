@@ -6,6 +6,7 @@
 
 #include "utility/streams.hpp"
 
+#include "./fsbased.hpp"
 #include "./flat.hpp"
 #include "../io.hpp"
 #include "../error.hpp"
@@ -303,5 +304,9 @@ fs::path FsBasedDriver::DirCache::create(const fs::path &dir)
     }
     return rdir;
 }
+
+const std::string FlatDriver::help
+("Filesystem-based storage driver with flat structure: all "
+ "files are stored in one directory.");
 
 } } // namespace vadstena::tilestorage

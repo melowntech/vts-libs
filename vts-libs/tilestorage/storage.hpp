@@ -15,6 +15,7 @@
 #include <boost/filesystem/path.hpp>
 
 #include "./types.hpp"
+#include "./properties.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -42,6 +43,28 @@ struct StorageProperties {
     StorageProperties() {}
 };
 
+/** Storage create properties.
+ */
+struct StorageCreateProperties {
+    /** Output tile set create properties.
+     */
+    CreateProperties createProperties;
+
+    std::string outputTileSetType;
+
+    StorageCreateProperties() {}
+
+    StorageCreateProperties(const CreateProperties &createProperties)
+        : createProperties(createProperties)
+    {}
+
+    StorageCreateProperties(const CreateProperties &createProperties
+                            , const std::string &outputTileSetType)
+        : createProperties(createProperties)
+        , outputTileSetType(outputTileSetType)
+    {}
+};
+
 class Storage : boost::noncopyable
 {
 public:
@@ -54,6 +77,10 @@ public:
     void removeTileSet(const std::string &id);
 
     void removeTileSets(const std::vector<std::string> &ids);
+
+    static std::map<std::string, std::string> listSupportedDrivers();
+
+    static const std::string getDefaultOutputType();
 
     /** Needed to instantiate.
      */

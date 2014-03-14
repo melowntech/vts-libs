@@ -25,6 +25,11 @@ namespace vadstena { namespace tilestorage {
         {                                                               \
             return std::make_shared<DRIVER_CLASS>(location, mode);      \
         }                                                               \
+                                                                        \
+        virtual std::string help() const UTILITY_OVERRIDE               \
+        {                                                               \
+            return DRIVER_CLASS::help;                                  \
+        }                                                               \
     }
 
 } } // namespace vadstena::tilestorage

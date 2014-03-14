@@ -58,8 +58,7 @@ Driver::pointer Driver::create(Locator locator, CreateMode mode)
     return fregistry->second->create(locator.location, mode);
 }
 
-Driver::pointer Driver::open(Locator locator
-                             , OpenMode mode)
+Driver::pointer Driver::open(Locator locator, OpenMode mode)
 {
     registerDefaultDrivers();
 
@@ -73,6 +72,17 @@ Driver::pointer Driver::open(Locator locator
             << "Invalid tile set type <" << locator.type << ">.";
     }
     return fregistry->second->open(locator.location, mode);
+}
+
+std::map<std::string, std::string> Driver::listSupportedDrivers()
+{
+    registerDefaultDrivers();
+
+    std::map<std::string, std::string> list;
+    for (const auto &pair : driverRegistry) {
+        list.insert(std::make_pair(pair.first, pair.second->help()));
+    }
+    return list;
 }
 
 } } // namespace vadstena::tilestorage
