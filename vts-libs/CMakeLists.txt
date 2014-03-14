@@ -37,6 +37,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     pc.hpp pc.cpp
     uvpack.hpp uvpack.cpp
     mesh.hpp mesh.cpp
+    faceclip.hpp faceclip.cpp
+    binmesh.hpp binmesh.cpp
 
     # crypto stuff
     clog.hpp clog.cpp
@@ -47,9 +49,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     facetexcoords.hpp facetexcoords.cpp
     gil2cvmat.hpp
     gcp.hpp gcp.cpp
-
-    # metatile.hpp metatile.cpp
-    binmesh.hpp binmesh.cpp
 
     rectalloc.hpp rectalloc.cpp
     viewrasterize.hpp viewrasterize.cpp
