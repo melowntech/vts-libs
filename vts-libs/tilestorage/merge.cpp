@@ -3,12 +3,33 @@
 #include "imgproc/scanconversion.hpp"
 
 #include "vadstena-libs/faceclip.hpp"
+#include "vadstena-libs/pointindex.hpp"
 
 #include "./merge.hpp"
 
 namespace ublas = boost::numeric::ublas;
 
 #define DEBUG 1
+
+namespace cv {
+
+// comparison operators on cv::Point2 and cv::Point3 for va::PointIndex
+template<typename T>
+inline bool operator< (const Point_<T> &lhs, const Point_<T> &rhs)
+{
+    if (lhs.x != rhs.x) return lhs.x < rhs.x;
+    return lhs.y < rhs.y;
+}
+
+template<typename T>
+inline bool operator< (const Point3_<T> &lhs, const Point3_<T> &rhs)
+{
+    if (lhs.x != rhs.x) return lhs.x < rhs.x;
+    if (lhs.y != rhs.y) return lhs.y < rhs.y;
+    return lhs.z < rhs.z;
+}
+
+} // namespace cv
 
 namespace vadstena { namespace tilestorage {
 
@@ -73,12 +94,12 @@ void rasterizeTile(const Tile &tile, const math::Matrix4 &trafo,
 //! Returns true if at least one element in the area of the qbuffer
 //! corresponding to the given face belongs to tile number 'index'.
 //!
-bool faceCovered(const Mesh &mesh, int face, const math::Matrix4 &trafo,
-                 int index, const cv::Mat &qbuffer)
+bool faceCovered(const Mesh &mesh, const Mesh::Facet &face,
+                 const math::Matrix4 &trafo, int index, const cv::Mat &qbuffer)
 {
     cv::Point3f tri[3];
     for (int i = 0; i < 3; i++) {
-        auto pt(transform(trafo, mesh.vertices[mesh.facets[face].v[i]]));
+        auto pt(transform(trafo, mesh.vertices[face.v[i]]));
         tri[i] = {float(pt(0)), float(pt(1)), float(pt(2))};
     }
 
@@ -90,6 +111,14 @@ bool faceCovered(const Mesh &mesh, int face, const math::Matrix4 &trafo,
         imgproc::processScanline(sl, 0, qbuffer.cols,
             [&](int x, int y, float)
                { if (qbuffer.at<int>(y, x) == index) covered = true; } );
+    }
+
+    if (!covered) {
+        // do one more check in case the triangle is smaller than one pixel
+        int x(round(tri[0].x)), y(round(tri[0].y));
+        if (x >= 0 && x < qbuffer.cols && y >= 0 && y < qbuffer.rows) {
+            covered = (qbuffer.at<int>(y, x) == index);
+        }
     }
 
     return covered;
@@ -112,7 +141,21 @@ bool sameIndices(const cv::Mat &qbuffer, int& index)
     return true;
 }
 
+// helpers to convert between math points and cv points
+cv::Point3d vertex(const math::Point3d &v)
+    { return {v(0), v(1), v(2)}; }
+
+math::Point3d vertex(const cv::Point3d &v)
+    { return {v.x, v.y, v.z}; }
+
+cv::Point2f tcoord(const math::Point3d &t)
+    { return {float(t(0)), float(t(1))}; }
+
+math::Point3d tcoord(const cv::Point2f &t)
+    { return {t.x, t.y, 0.0}; }
+
 } // namespace
+
 
 //! TODO: describe
 //!
@@ -120,7 +163,7 @@ bool sameIndices(const cv::Mat &qbuffer, int& index)
 Tile merge(long tileSize, const Tile::list &tiles
            , const Tile &fallback, int fallbackQuad)
 {
-#if 0
+#if 1
     // sort tiles by quality
     typedef std::pair<unsigned, double> TileQuality;
     std::vector<TileQuality> qualities;
@@ -133,7 +176,7 @@ Tile merge(long tileSize, const Tile::list &tiles
                 { return a.second < b.second; } );
 
     // create qbuffer, rasterize meshes in increasing order of quality
-    const int QBSize(256);
+    const int QBSize(512);
     cv::Mat qbuffer(QBSize, QBSize, CV_32S, cv::Scalar(-1));
 
     math::Matrix4 trafo(tileToBuffer(tileSize, QBSize));
@@ -150,14 +193,56 @@ Tile merge(long tileSize, const Tile::list &tiles
         return tiles[index];
     }
 
-    // collect faces that will make it to the output
+    // collect faces that are allowed by the qbuffer
     ClipTriangle::list faces;
-    for (const Tile &tile : tiles) {
+    for (unsigned i = 0; i < tiles.size(); i++) {
+        const Tile &tile(tiles[i]);
 
+        for (unsigned j = 0; j < tile.mesh.facets.size(); j++) {
+            const Mesh::Facet &face(tile.mesh.facets[j]);
+
+            if (faceCovered(tile.mesh, face, trafo, i, qbuffer)) {
+                faces.emplace_back(i, j,
+                        vertex(tile.mesh.vertices[face.v[0]]),
+                        vertex(tile.mesh.vertices[face.v[1]]),
+                        vertex(tile.mesh.vertices[face.v[2]]),
+                        tcoord(tile.mesh.texcoords[face.t[0]]),
+                        tcoord(tile.mesh.texcoords[face.t[1]]),
+                        tcoord(tile.mesh.texcoords[face.t[2]]) );
+            }
+        }
     }
 
 
-    return tiles[0];
+    Tile result;
+
+    // TODO
+    result.atlas = tiles[0].atlas;
+
+    // create final geometry, with duplicate vertices removed
+    Mesh &mesh(result.mesh);
+    PointIndex<ClipTriangle::Point> vindex;
+    PointIndex<ClipTriangle::TCoord> tindex;
+
+    for (const ClipTriangle &face1 : faces)
+    {
+        mesh.facets.emplace_back();
+        Mesh::Facet &face2(mesh.facets.back());
+
+        for (int i = 0; i < 3; i++) {
+            face2.v[i] = vindex.assign(face1.pos[i]);
+            if (unsigned(face2.v[i]) >= mesh.vertices.size()) {
+                mesh.vertices.push_back(vertex(face1.pos[i]));
+            }
+
+            face2.t[i] = tindex.assign(face1.uv[i]);
+            if (unsigned(face2.t[i]) >= mesh.texcoords.size()) {
+                mesh.texcoords.push_back(tcoord(face1.uv[i]));
+            }
+        }
+    }
+
+    return result;
 
 #else
     // simple no-merge algo :P
