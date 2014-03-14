@@ -2,6 +2,8 @@
 #include "math/transform.hpp"
 #include "imgproc/scanconversion.hpp"
 
+#include "vadstena-libs/faceclip.hpp"
+
 #include "./merge.hpp"
 
 namespace ublas = boost::numeric::ublas;
@@ -40,7 +42,9 @@ double tileQuality(const Tile &tile)
     return uvArea / xyzArea;
 }
 
-
+//! "Draws" all faces of a tile into the qbuffer, i.e., stores the tile's index
+//! everywhere its mesh lies.
+//!
 void rasterizeTile(const Tile &tile, const math::Matrix4 &trafo,
                    int index, cv::Mat &qbuffer)
 {
@@ -51,15 +55,14 @@ void rasterizeTile(const Tile &tile, const math::Matrix4 &trafo,
     {
         cv::Point3f tri[3];
         for (int i = 0; i < 3; i++) {
-            math::Point3d pt(transform(trafo, tile.mesh.vertices[face.v[i]]));
+            auto pt(transform(trafo, tile.mesh.vertices[face.v[i]]));
             tri[i] = {float(pt(0)), float(pt(1)), float(pt(2))};
         }
 
         scanlines.clear();
         imgproc::scanConvertTriangle(tri, 0, qbuffer.rows, scanlines);
 
-        for (const auto& sl : scanlines)
-        {
+        for (const auto& sl : scanlines) {
             imgproc::processScanline(sl, 0, qbuffer.cols,
                 [&](int x, int y, float)
                    { qbuffer.at<int>(y, x) = index; } );
@@ -67,6 +70,30 @@ void rasterizeTile(const Tile &tile, const math::Matrix4 &trafo,
     }
 }
 
+//! Returns true if at least one element in the area of the qbuffer
+//! corresponding to the given face belongs to tile number 'index'.
+//!
+bool faceCovered(const Mesh &mesh, int face, const math::Matrix4 &trafo,
+                 int index, const cv::Mat &qbuffer)
+{
+    cv::Point3f tri[3];
+    for (int i = 0; i < 3; i++) {
+        auto pt(transform(trafo, mesh.vertices[mesh.facets[face].v[i]]));
+        tri[i] = {float(pt(0)), float(pt(1)), float(pt(2))};
+    }
+
+    std::vector<imgproc::Scanline> scanlines;
+    imgproc::scanConvertTriangle(tri, 0, qbuffer.rows, scanlines);
+
+    bool covered(false);
+    for (const auto& sl : scanlines) {
+        imgproc::processScanline(sl, 0, qbuffer.cols,
+            [&](int x, int y, float)
+               { if (qbuffer.at<int>(y, x) == index) covered = true; } );
+    }
+
+    return covered;
+}
 
 math::Matrix4 tileToBuffer(long tileSize, int bufferSize)
 {
@@ -76,13 +103,24 @@ math::Matrix4 tileToBuffer(long tileSize, int bufferSize)
     return trafo;
 }
 
+bool sameIndices(const cv::Mat &qbuffer, int& index)
+{
+    index = qbuffer.at<int>(0, 0);
+    for (auto it = qbuffer.begin<int>(); it != qbuffer.end<int>(); ++it) {
+        if (*it != index) return false;
+    }
+    return true;
+}
+
 } // namespace
 
-
+//! TODO: describe
+//!
+//!
 Tile merge(long tileSize, const Tile::list &tiles
            , const Tile &fallback, int fallbackQuad)
 {
-#if 1
+#if 0
     // sort tiles by quality
     typedef std::pair<unsigned, double> TileQuality;
     std::vector<TileQuality> qualities;
@@ -102,10 +140,22 @@ Tile merge(long tileSize, const Tile::list &tiles
     for (const TileQuality &tq : qualities) {
         rasterizeTile(tiles[tq.first], trafo, tq.first, qbuffer);
     }
-
 #if DEBUG
     std::ofstream("qbuffer.m") << "QB = " << qbuffer << ";\n";
 #endif
+
+    // optimization: if a tile covers the entire area, return it and do nothing
+    int index;
+    if (sameIndices(qbuffer, index) && index >= 0) {
+        return tiles[index];
+    }
+
+    // collect faces that will make it to the output
+    ClipTriangle::list faces;
+    for (const Tile &tile : tiles) {
+
+    }
+
 
     return tiles[0];
 
