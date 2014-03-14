@@ -4,6 +4,10 @@
 
 #include "./merge.hpp"
 
+namespace ublas = boost::numeric::ublas;
+
+#define DEBUG 1
+
 namespace vadstena { namespace tilestorage {
 
 namespace {
@@ -32,7 +36,8 @@ double tileQuality(const Tile &tile)
     }
     uvArea *= tile.atlas.cols * tile.atlas.rows;
 
-    return sqrt(uvArea / xyzArea);
+    // return the number of texels per unit area
+    return uvArea / xyzArea;
 }
 
 
@@ -62,13 +67,22 @@ void rasterizeTile(const Tile &tile, const math::Matrix4 &trafo,
     }
 }
 
+
+math::Matrix4 tileToBuffer(long tileSize, int bufferSize)
+{
+    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
+    trafo(0,0) = trafo(1,1) = double(bufferSize) / tileSize;
+    trafo(0,3) = trafo(1,3) = double(bufferSize) / 2;
+    return trafo;
+}
+
 } // namespace
 
 
 Tile merge(long tileSize, const Tile::list &tiles
            , const Tile &fallback, int fallbackQuad)
 {
-#if 0
+#if 1
     // sort tiles by quality
     typedef std::pair<unsigned, double> TileQuality;
     std::vector<TileQuality> qualities;
@@ -78,22 +92,22 @@ Tile merge(long tileSize, const Tile::list &tiles
     }
     std::sort(qualities.begin(), qualities.end(),
               [](const TileQuality &a, const TileQuality &b)
-                { return a->second < b->second; } );
+                { return a.second < b.second; } );
 
     // create qbuffer, rasterize meshes in increasing order of quality
-    const int QBSize(512);
-    cv::Mat qbuffer(QBSize, QBSize, CV_32U, cv::Scalar(-1));
+    const int QBSize(256);
+    cv::Mat qbuffer(QBSize, QBSize, CV_32S, cv::Scalar(-1));
 
+    math::Matrix4 trafo(tileToBuffer(tileSize, QBSize));
     for (const TileQuality &tq : qualities) {
-        rasterizeTile(tiles[tq.first].mesh, qbuffer, trafo, tq.first);
+        rasterizeTile(tiles[tq.first], trafo, tq.first, qbuffer);
     }
 
-    // mark faces that will survive
+#if DEBUG
+    std::ofstream("qbuffer.m") << "QB = " << qbuffer << ";\n";
+#endif
 
-    //
-
-
-    // TODO: implement me
+    return tiles[0];
 
 #else
     // simple no-merge algo :P
