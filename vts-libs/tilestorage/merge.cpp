@@ -41,6 +41,8 @@ double triangleArea(const math::Point3 &a, const math::Point3 &b,
     return norm_2(math::crossProduct(b - a, c - a)) * 0.5;
 }
 
+//! Calculates tile quality, defined as the ratio of texel area and mesh area.
+//!
 double tileQuality(const Tile &tile)
 {
     // calculate the total area of the faces in both the XYZ and UV spaces
@@ -124,6 +126,26 @@ bool faceCovered(const Mesh &mesh, const Mesh::Facet &face,
     return covered;
 }
 
+//!
+//!
+void markFace(const ClipTriangle &face, cv::Mat &mat)
+{
+    cv::Point3f tri[3];
+    for (int i = 0; i < 3; i++) {
+        tri[i] = {face.uv[i].x * mat.cols, face.uv[i].y * mat.rows, 0};
+    }
+
+    std::vector<imgproc::Scanline> scanlines;
+    imgproc::scanConvertTriangle(tri, 0, mat.rows, scanlines);
+
+    for (const auto& sl : scanlines) {
+        imgproc::processScanline(sl, 0, mat.cols,
+            [&](int x, int y, float){ mat.at<int>(y, x) = 1; } );
+    }
+}
+
+//! Returns a trasformation from tile local coordinates to qbuffer coordinates.
+//!
 math::Matrix4 tileToBuffer(long tileSize, int bufferSize)
 {
     math::Matrix4 trafo(ublas::identity_matrix<double>(4));
@@ -132,6 +154,8 @@ math::Matrix4 tileToBuffer(long tileSize, int bufferSize)
     return trafo;
 }
 
+//! Returns true if 'qbuffer' is filled with the same value (returned in 'index')
+//!
 bool sameIndices(const cv::Mat &qbuffer, int& index)
 {
     index = qbuffer.at<int>(0, 0);
@@ -211,6 +235,15 @@ Tile merge(long tileSize, const Tile::list &tiles
                         tcoord(tile.mesh.texcoords[face.t[2]]) );
             }
         }
+    }
+
+    // mark areas in the atlases that we will need to repack
+    std::vector<cv::Mat> marks;
+    for (const auto& tile : tiles) {
+        marks.emplace_back(tile.atlas.size(), CV_8U, cv::Scalar(0));
+    }
+    for (const ClipTriangle &face : faces) {
+        markFace(face, marks[face.id1]);
     }
 
 
