@@ -2,7 +2,8 @@
 #define vadstena_libs_tilestorage_tileop_hpp_included_
 
 #include "../entities.hpp"
-#include "../tilestorage.hpp"
+#include "./types.hpp"
+#include "./properties.hpp"
 
 namespace vadstena { namespace tilestorage {
 

@@ -1,32 +1,24 @@
 #ifndef vadstena_libs_tilestorage_driver_hpp_included_
 #define vadstena_libs_tilestorage_driver_hpp_included_
 
-#include <iostream>
-
 #include "./types.hpp"
+#include "./streams.hpp"
 
 namespace vadstena { namespace tilestorage {
 
 class Driver : boost::noncopyable {
 public:
-    struct OStream;
-    struct IStream;
-
     typedef std::shared_ptr<Driver> pointer;
 
     virtual ~Driver() {};
 
-    enum class TileFile { meta, mesh, atlas };
+    OStream::pointer output(File type);
 
-    enum class File { config, tileIndex };
+    IStream::pointer input(File type) const;
 
-    std::shared_ptr<OStream> output(File type);
+    OStream::pointer output(const TileId tileId, TileFile type);
 
-    std::shared_ptr<IStream> input(File type) const;
-
-    std::shared_ptr<OStream> output(const TileId tileId, TileFile type);
-
-    std::shared_ptr<IStream> input(const TileId tileId, TileFile type) const;
+    IStream::pointer input(const TileId tileId, TileFile type) const;
 
     bool readOnly() const { return readOnly_; }
 
@@ -51,14 +43,14 @@ protected:
     Driver(bool readOnly) : readOnly_(readOnly) {}
 
 private:
-    virtual std::shared_ptr<OStream> output_impl(const File type) = 0;
+    virtual OStream::pointer output_impl(const File type) = 0;
 
-    virtual std::shared_ptr<IStream> input_impl(File type) const = 0;
+    virtual IStream::pointer input_impl(File type) const = 0;
 
-    virtual std::shared_ptr<OStream>
+    virtual OStream::pointer
     output_impl(const TileId tileId, TileFile type) = 0;
 
-    virtual std::shared_ptr<IStream>
+    virtual IStream::pointer
     input_impl(const TileId tileId, TileFile type) const = 0;
 
     virtual void begin_impl() = 0;
@@ -70,30 +62,6 @@ private:
     static void registerDriver(const std::shared_ptr<Factory> &factory);
 
     bool readOnly_;
-};
-
-class Driver::OStream {
-public:
-    OStream() {}
-    virtual ~OStream() {}
-    virtual std::ostream& get() = 0;
-    virtual void close() = 0;
-    virtual std::string name() = 0;
-
-    operator std::ostream&() { return get(); }
-    typedef std::shared_ptr<OStream> pointer;
-};
-
-class Driver::IStream {
-public:
-    IStream() {}
-    virtual ~IStream() {}
-    virtual std::istream& get() = 0;
-    virtual void close() = 0;
-    virtual std::string name() = 0;
-
-    operator std::istream&() { return get(); }
-    typedef std::shared_ptr<IStream> pointer;
 };
 
 class Driver::Factory {
@@ -120,24 +88,22 @@ void Driver::registerDriver()
     registerDriver(std::make_shared<typename DriverClass::Factory>());
 }
 
-inline Driver::OStream::pointer Driver::output(File type)
+inline OStream::pointer Driver::output(File type)
 {
     return output_impl( type);
 }
 
-inline Driver::IStream::pointer Driver::input(File type) const
+inline IStream::pointer Driver::input(File type) const
 {
     return input_impl(type);
 }
 
-inline Driver::OStream::pointer
-Driver::output(const TileId tileId, TileFile type)
+inline OStream::pointer Driver::output(const TileId tileId, TileFile type)
 {
     return output_impl(tileId, type);
 }
 
-inline Driver::IStream::pointer
-Driver::input(const TileId tileId, TileFile type) const
+inline IStream::pointer Driver::input(const TileId tileId, TileFile type) const
 {
     return input_impl(tileId, type);
 }

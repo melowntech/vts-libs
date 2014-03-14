@@ -4,6 +4,7 @@
 
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
+#include "math/geometry.hpp"
 
 #include "./error.hpp"
 #include "./tileop.hpp"

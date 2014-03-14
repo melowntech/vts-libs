@@ -62,6 +62,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     features.hpp features.cpp
 
     tilestorage.hpp
+    tilestorage/basetypes.hpp tilestorage/types.hpp
+    tilestorage/properties.hpp
     tilestorage/tileop.hpp
     tilestorage/error.hpp
     tilestorage/storage.hpp tilestorage/storage.cpp
@@ -69,6 +71,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/io.hpp tilestorage/po.hpp
     tilestorage/json.hpp tilestorage/json.cpp
     tilestorage/tileindex.hpp tilestorage/tileindex.cpp
+    tilestorage/traverser.hpp tilestorage/traverser.cpp
     tilestorage/metatile.hpp tilestorage/metatile.cpp
     tilestorage/driver.hpp tilestorage/driver/driver.cpp
     tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp

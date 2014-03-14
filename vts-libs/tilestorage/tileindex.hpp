@@ -7,14 +7,14 @@
 
 #include "imgproc/rastermask.hpp"
 
+#include "./maskfwd.hpp"
 #include "./basetypes.hpp"
 #include "./tileop.hpp"
+#include "./traverser.hpp"
 
 #include "../entities.hpp"
 
 namespace vadstena { namespace tilestorage {
-
-using imgproc::quadtree::RasterMask;
 
 class TileIndex {
 public:
@@ -80,7 +80,7 @@ public:
 
     const Masks masks() const { return masks_; };
 
-    class Traverser; friend class Traverser;
+    friend class Traverser;
 
     Traverser traverser() const;
 
@@ -93,41 +93,6 @@ private:
     Point2l origin_;
     Lod minLod_;
     Masks masks_;
-};
-
-class TileIndex::Traverser {
-public:
-    Traverser(const TileIndex *owner)
-        : owner_(owner), mask_(), index_(owner_->minLod())
-    {
-        load();
-    }
-
-    struct Tile {
-        Tile(const Index &index, const TileId &tileId, bool value)
-            : index(index), id(tileId), value(value), valid_(true)
-        {}
-        Tile() : value(false), valid_(false) {}
-
-        Index index;
-        TileId id;
-        bool value;
-
-        operator bool() const { return valid_; }
-
-    private:
-        bool valid_;
-    };
-
-    Tile next();
-
-private:
-    void load();
-
-    const TileIndex *owner_;
-    const RasterMask *mask_;
-    Size2l size_;
-    Index index_;
 };
 
 /** Dump tile indes as set of images.
@@ -272,39 +237,9 @@ inline void TileIndex::set(const Index &index, bool value)
     }
 }
 
-inline TileIndex::Traverser TileIndex::traverser() const
+inline Traverser TileIndex::traverser() const
 {
     return Traverser(this);
-}
-
-inline void TileIndex::Traverser::load()
-{
-    mask_ = owner_->mask(index_.lod);
-    if (!mask_) { return; }
-    auto size(mask_->dims());
-    size_ = Size2l(size.width, size.height);
-    index_.easting = index_.northing = 0;
-}
-
-inline TileIndex::Traverser::Tile TileIndex::Traverser::next()
-{
-    if (!mask_ ) { return {}; }
-    Tile t(index_, owner_->tileId(index_)
-           , mask_->get(index_.easting, index_.northing));
-
-    // increment
-    ++index_.easting;
-    if (index_.easting >= size_.width) {
-        index_.easting = 0;
-        ++index_.northing;
-    }
-
-    if (index_.northing >= size_.height) {
-        ++index_.lod;
-        load();
-    }
-
-    return t;
 }
 
 } } // namespace vadstena::tilestorage

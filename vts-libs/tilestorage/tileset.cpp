@@ -13,6 +13,7 @@
 #include "./tileop.hpp"
 #include "./json.hpp"
 #include "./tileset-detail.hpp"
+#include "./tileset-advanced.hpp"
 #include "./metatile.hpp"
 #include "./merge.hpp"
 
@@ -24,7 +25,7 @@ const char METATILE_IO_MAGIC[8] = {  'M', 'E', 'T', 'A', 'T', 'I', 'L', 'E' };
 
 const unsigned METATILE_IO_VERSION = 1;
 
-Atlas loadAtlas(const Driver::IStream::pointer &is)
+Atlas loadAtlas(const IStream::pointer &is)
 {
     using utility::binaryio::read;
     auto& s(is->get());
@@ -39,7 +40,7 @@ Atlas loadAtlas(const Driver::IStream::pointer &is)
     return atlas;
 }
 
-void saveAtlas(const Driver::OStream::pointer &os, const Atlas &atlas
+void saveAtlas(const OStream::pointer &os, const Atlas &atlas
                , short textureQuality)
 {
     using utility::binaryio::write;
@@ -51,14 +52,14 @@ void saveAtlas(const Driver::OStream::pointer &os, const Atlas &atlas
     os->close();
 }
 
-Mesh loadMesh(const Driver::IStream::pointer &is)
+Mesh loadMesh(const IStream::pointer &is)
 {
     auto mesh(loadBinaryMesh(is->get()));
     is->close();
     return mesh;
 }
 
-void saveMesh(const Driver::OStream::pointer &os, const Mesh &mesh)
+void saveMesh(const OStream::pointer &os, const Mesh &mesh)
 {
     writeBinaryMesh(os->get(), mesh);
     os->close();
@@ -194,7 +195,7 @@ void TileSet::Detail::loadConfig()
 {
     // load json
     try {
-        auto f(driver->input(Driver::File::config));
+        auto f(driver->input(File::config));
         Json::Reader reader;
         if (!reader.parse(*f, config)) {
             LOGTHROW(err2, FormatError)
@@ -223,7 +224,7 @@ void TileSet::Detail::saveConfig()
     try {
         driver->wannaWrite("save config");
         build(config, properties);
-        auto f(driver->output(Driver::File::config));
+        auto f(driver->output(File::config));
         f->get().precision(15);
         Json::StyledStreamWriter().write(*f, config);
         f->close();
@@ -254,7 +255,7 @@ void TileSet::Detail::saveMetadata()
 
     // save index
     try {
-        auto f(driver->output(Driver::File::tileIndex));
+        auto f(driver->output(File::tileIndex));
         ti.save(*f);
         mi.save(*f);
         f->close();
@@ -283,7 +284,7 @@ void TileSet::Detail::loadTileIndex()
     try {
         tileIndex = { properties.baseTileSize };
         metaIndex = { properties.baseTileSize };
-        auto f(driver->input(Driver::File::tileIndex));
+        auto f(driver->input(File::tileIndex));
         tileIndex.load(*f);
         metaIndex.load(*f);
         f->close();
@@ -384,7 +385,7 @@ TileSet::Detail::createVirtualMetaNode(const TileId &tileId)
 
 void TileSet::Detail::loadMetatileFromFile(const TileId &tileId) const
 {
-    auto f(driver->input(tileId, Driver::TileFile::meta));
+    auto f(driver->input(tileId, TileFile::meta));
     tilestorage::loadMetatile
         (*f, properties.baseTileSize, tileId
          , [this] (const TileId &tileId, const MetaNode &node
@@ -554,12 +555,13 @@ void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)
             const UTILITY_OVERRIDE
         {
             metaIndex.set(metaId);
-            auto f(detail.driver->output(metaId, Driver::TileFile::meta));
+            auto f(detail.driver->output(metaId, TileFile::meta));
             saver(*f);
             f->close();
         }
 
-        virtual MetaNode* getNode(const TileId &tileId) const UTILITY_OVERRIDE
+        virtual const MetaNode* getNode(const TileId &tileId)
+            const UTILITY_OVERRIDE
         {
             auto *node(detail.findMetaNode(tileId));
             tileIndex.set(tileId, node && node->exists());
@@ -584,8 +586,8 @@ Tile TileSet::Detail::getTile(const TileId &tileId) const
 
     // TODO: pass fake path to loaders
     return {
-        loadMesh(driver->input(tileId, Driver::TileFile::mesh))
-        , loadAtlas(driver->input(tileId, Driver::TileFile::atlas))
+        loadMesh(driver->input(tileId, TileFile::mesh))
+        , loadAtlas(driver->input(tileId, TileFile::atlas))
         , *md
     };
 }
@@ -601,8 +603,8 @@ boost::optional<Tile> TileSet::Detail::getTile(const TileId &tileId
 
     return boost::optional<Tile>
         (boost::in_place
-         (loadMesh(driver->input(tileId, Driver::TileFile::mesh))
-          , loadAtlas(driver->input(tileId, Driver::TileFile::atlas))
+         (loadMesh(driver->input(tileId, TileFile::mesh))
+          , loadAtlas(driver->input(tileId, TileFile::atlas))
           , *md));
 }
 
@@ -629,8 +631,8 @@ MetaNode TileSet::Detail::setTile(const TileId &tileId, const Mesh &mesh
 
     if (metanode.exists()) {
         // save data only if valid
-        saveMesh(driver->output(tileId, Driver::TileFile::mesh), mesh);
-        saveAtlas(driver->output(tileId, Driver::TileFile::atlas)
+        saveMesh(driver->output(tileId, TileFile::mesh), mesh);
+        saveAtlas(driver->output(tileId, TileFile::atlas)
                   , atlas, properties.textureQuality);
     } else {
         LOG(info1) << "Tile " << tileId << " has no content.";
@@ -1046,8 +1048,8 @@ void TileSet::Detail::fixDefaultPosition(const list &tileSets)
 }
 
 namespace {
-    void copyFile(const Driver::IStream::pointer &in
-                  , const Driver::OStream::pointer &out)
+    void copyFile(const IStream::pointer &in
+                  , const OStream::pointer &out)
     {
         out->get() << in->get().rdbuf();
         in->close();
@@ -1061,7 +1063,7 @@ void TileSet::Detail::clone(const Detail &src)
     auto &dd(*driver);
 
     // copy single files
-    for (auto type : { Driver::File::config, Driver::File::tileIndex }) {
+    for (auto type : { File::config, File::tileIndex }) {
         copyFile(sd.input(type), dd.output(type));
     }
 
@@ -1069,9 +1071,7 @@ void TileSet::Detail::clone(const Detail &src)
     auto traverser(src.tileIndex.traverser());
     while (auto tile = traverser.next()) {
         if (!tile.value) { continue; }
-        for (auto type : { Driver::TileFile::mesh
-                    , Driver::TileFile::atlas })
-        {
+        for (auto type : { TileFile::mesh, TileFile::atlas }) {
             copyFile(sd.input(tile.id, type), dd.output(tile.id, type));
         }
     }
@@ -1080,9 +1080,46 @@ void TileSet::Detail::clone(const Detail &src)
     traverser = src.metaIndex.traverser();
     while (auto tile = traverser.next()) {
         if (!tile.value) { continue; }
-        copyFile(sd.input(tile.id, Driver::TileFile::meta)
-                 , dd.output(tile.id, Driver::TileFile::meta));
+        copyFile(sd.input(tile.id, TileFile::meta)
+                 , dd.output(tile.id, TileFile::meta));
     }
+}
+
+TileSet::AdvancedApi TileSet::advancedApi()
+{
+    return TileSet::AdvancedApi(shared_from_this());
+}
+
+Traverser TileSet::AdvancedApi::tileTraverser() const
+{
+    return Traverser(&tileSet_->detail().tileIndex);
+}
+
+Traverser TileSet::AdvancedApi::metaTraverser() const
+{
+    return Traverser(&tileSet_->detail().metaIndex);
+}
+
+OStream::pointer TileSet::AdvancedApi::output(File type)
+{
+    return tileSet_->detail().driver->output(type);
+}
+
+IStream::pointer TileSet::AdvancedApi::input(File type) const
+{
+    return tileSet_->detail().driver->input(type);
+}
+
+OStream::pointer TileSet::AdvancedApi::output(const TileId tileId
+                                              , TileFile type)
+{
+    return tileSet_->detail().driver->output(tileId, type);
+}
+
+IStream::pointer TileSet::AdvancedApi::input(const TileId tileId
+                                             , TileFile type) const
+{
+    return tileSet_->detail().driver->input(tileId, type);
 }
 
 } } // namespace vadstena::tilestorage

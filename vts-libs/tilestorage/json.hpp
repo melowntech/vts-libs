@@ -3,7 +3,7 @@
 
 #include "jsoncpp/json.hpp"
 
-#include "./tileset.hpp"
+#include "./properties.hpp"
 #include "./storage.hpp"
 
 namespace vadstena { namespace tilestorage {

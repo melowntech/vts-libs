@@ -23,33 +23,33 @@ namespace {
     const std::string TileIndexName("index.bin");
     const std::string TransactionRoot("tx");
 
-    const std::string filePath(Driver::File type)
+    const std::string filePath(File type)
     {
         switch (type) {
-        case Driver::File::config: return ConfigName;
-        case Driver::File::tileIndex: return TileIndexName;
+        case File::config: return ConfigName;
+        case File::tileIndex: return TileIndexName;
         }
         throw "unknown file type";
     }
 
-    const char *extension(Driver::TileFile type)
+    const char *extension(TileFile type)
     {
         switch (type) {
-        case Driver::TileFile::meta: return "meta";
-        case Driver::TileFile::mesh: return "bin";
-        case Driver::TileFile::atlas: return "jpg";
+        case TileFile::meta: return "meta";
+        case TileFile::mesh: return "bin";
+        case TileFile::atlas: return "jpg";
         }
         throw "unknown tile file type";
     }
 
-    fs::path filePath(const TileId &tileId, Driver::TileFile type)
+    fs::path filePath(const TileId &tileId, TileFile type)
     {
         return str(boost::format("%s-%07d-%07d.%s")
                    % tileId.lod % tileId.easting % tileId.northing
                    % extension(type));
     }
 
-    class FileOStream : public Driver::OStream {
+    class FileOStream : public OStream {
     public:
         FileOStream(const fs::path &path)
             : path_(path), f_()
@@ -87,7 +87,7 @@ namespace {
         utility::ofstreambuf f_;
     };
 
-    class FileIStream : public Driver::IStream {
+    class FileIStream : public IStream {
     public:
         FileIStream(const fs::path &path)
             : path_(path), f_()
@@ -167,7 +167,7 @@ FsBasedDriver::~FsBasedDriver()
     }
 }
 
-Driver::OStream::pointer FsBasedDriver::output_impl(File type)
+OStream::pointer FsBasedDriver::output_impl(File type)
 {
     const auto name(filePath(type));
     const auto dir(fileDir(type, name));
@@ -176,7 +176,7 @@ Driver::OStream::pointer FsBasedDriver::output_impl(File type)
     return std::make_shared<FileOStream>(path);
 }
 
-Driver::IStream::pointer FsBasedDriver::input_impl(File type) const
+IStream::pointer FsBasedDriver::input_impl(File type) const
 {
     const auto name(filePath(type));
     const auto dir(fileDir(type, name));
@@ -185,8 +185,7 @@ Driver::IStream::pointer FsBasedDriver::input_impl(File type) const
     return std::make_shared<FileIStream>(path);
 }
 
-Driver::OStream::pointer
-FsBasedDriver::output_impl(const TileId tileId, TileFile type)
+OStream::pointer FsBasedDriver::output_impl(const TileId tileId, TileFile type)
 {
     const auto name(filePath(tileId, type));
     const auto dir(fileDir(tileId, type, name));
@@ -195,8 +194,8 @@ FsBasedDriver::output_impl(const TileId tileId, TileFile type)
     return std::make_shared<FileOStream>(path);
 }
 
-Driver::IStream::pointer
-FsBasedDriver::input_impl(const TileId tileId, TileFile type) const
+IStream::pointer FsBasedDriver::input_impl(const TileId tileId, TileFile type)
+    const
 {
     const auto name(filePath(tileId, type));
     const auto dir(fileDir(tileId, type, name));

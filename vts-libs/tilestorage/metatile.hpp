@@ -77,7 +77,7 @@ struct MetaNodeSaver
 
     virtual void saveTile(const TileId &metaId, const MetaTileSaver &saver)
         const = 0;
-    virtual MetaNode* getNode(const TileId &tileId) const = 0;
+    virtual const MetaNode* getNode(const TileId &tileId) const = 0;
     virtual ~MetaNodeSaver() {}
 };
 
