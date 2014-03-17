@@ -1,15 +1,23 @@
+#include <boost/format.hpp>
+
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
 #include "math/geometry.hpp"
 #include "math/transform.hpp"
 #include "imgproc/scanconversion.hpp"
 
 #include "vadstena-libs/faceclip.hpp"
 #include "vadstena-libs/pointindex.hpp"
+#include "vadstena-libs/uvpack.hpp"
 
 #include "./merge.hpp"
 
 namespace ublas = boost::numeric::ublas;
 
-#define DEBUG 1
+#ifndef BUILDSYS_CUSTOMER_BUILD
+#   define DEBUG 1 // save debug images
+#endif
 
 namespace cv {
 
@@ -126,13 +134,19 @@ bool faceCovered(const Mesh &mesh, const Mesh::Facet &face,
     return covered;
 }
 
+//! Draws a face into a matrix. Used to mark useful areas of an atlas.
 //!
-//!
-void markFace(const ClipTriangle &face, cv::Mat &mat)
+void markFace(const ClipTriangle &face, cv::Mat/*<char>*/ &mat)
 {
     cv::Point3f tri[3];
     for (int i = 0; i < 3; i++) {
         tri[i] = {face.uv[i].x * mat.cols, face.uv[i].y * mat.rows, 0};
+
+        // make sure the vertices are always marked
+        int x(round(tri[i].x)), y(round(tri[i].y));
+        if (x >= 0 && x < mat.cols && y >= 0 && y < mat.rows) {
+            mat.at<char>(y, x) = 1;
+        }
     }
 
     std::vector<imgproc::Scanline> scanlines;
@@ -140,7 +154,7 @@ void markFace(const ClipTriangle &face, cv::Mat &mat)
 
     for (const auto& sl : scanlines) {
         imgproc::processScanline(sl, 0, mat.cols,
-            [&](int x, int y, float){ mat.at<int>(y, x) = 1; } );
+            [&](int x, int y, float){ mat.at<char>(y, x) = 1; } );
     }
 }
 
@@ -165,18 +179,47 @@ bool sameIndices(const cv::Mat &qbuffer, int& index)
     return true;
 }
 
+//! Calculate a bounding rectangle of a list of points in the UV space.
+//!
+UVRect makeRect(const std::vector<cv::Point> points)
+{
+    UVRect rect;
+    for (const auto &pt : points) {
+        rect.update(UVCoord(pt.x, pt.y));
+    }
+    return rect;
+}
+
+//!
+//!
+/*const UVRect& findRect(const ClipTriangle &face,
+                       const std::vector<UVRect> &rects)
+{
+}*/
+
+//! Convert from normalized to pixel-based texture coordinates.
+//!
+UVCoord denormalizeUV(const math::Point3d &uv, cv::Size texSize)
+{
+    return {float(uv(0)*texSize.width),
+            float(texSize.height-1 - uv(1)*texSize.height)};
+}
+
+//! Convert from pixel-based to normalized texture coordinates.
+//!
+math::Point3d normalizeUV(const UVCoord &uv, cv::Size texSize)
+{
+    return {double(uv.x)/texSize.width,
+            (texSize.height-1 - double(uv.y))/texSize.height,
+            0.0};
+}
+
 // helpers to convert between math points and cv points
 cv::Point3d vertex(const math::Point3d &v)
     { return {v(0), v(1), v(2)}; }
 
 math::Point3d vertex(const cv::Point3d &v)
     { return {v.x, v.y, v.z}; }
-
-cv::Point2f tcoord(const math::Point3d &t)
-    { return {float(t(0)), float(t(1))}; }
-
-math::Point3d tcoord(const cv::Point2f &t)
-    { return {t.x, t.y, 0.0}; }
 
 } // namespace
 
@@ -187,7 +230,7 @@ math::Point3d tcoord(const cv::Point2f &t)
 Tile merge(long tileSize, const Tile::list &tiles
            , const Tile &fallback, int fallbackQuad)
 {
-#if 1
+#if 0
     // sort tiles by quality
     typedef std::pair<unsigned, double> TileQuality;
     std::vector<TileQuality> qualities;
@@ -221,6 +264,7 @@ Tile merge(long tileSize, const Tile::list &tiles
     ClipTriangle::list faces;
     for (unsigned i = 0; i < tiles.size(); i++) {
         const Tile &tile(tiles[i]);
+        cv::Size asize(tile.atlas.size);
 
         for (unsigned j = 0; j < tile.mesh.facets.size(); j++) {
             const Mesh::Facet &face(tile.mesh.facets[j]);
@@ -230,14 +274,14 @@ Tile merge(long tileSize, const Tile::list &tiles
                         vertex(tile.mesh.vertices[face.v[0]]),
                         vertex(tile.mesh.vertices[face.v[1]]),
                         vertex(tile.mesh.vertices[face.v[2]]),
-                        tcoord(tile.mesh.texcoords[face.t[0]]),
-                        tcoord(tile.mesh.texcoords[face.t[1]]),
-                        tcoord(tile.mesh.texcoords[face.t[2]]) );
+                        denormalizeUV(tile.mesh.texcoords[face.t[0]], asize),
+                        denormalizeUV(tile.mesh.texcoords[face.t[1]], asize),
+                        denormalizeUV(tile.mesh.texcoords[face.t[2]], asize) );
             }
         }
     }
 
-    // mark areas in the atlases that we will need to repack
+    // mark areas in the atlases that will need to be repacked
     std::vector<cv::Mat> marks;
     for (const auto& tile : tiles) {
         marks.emplace_back(tile.atlas.size(), CV_8U, cv::Scalar(0));
@@ -246,11 +290,54 @@ Tile merge(long tileSize, const Tile::list &tiles
         markFace(face, marks[face.id1]);
     }
 
+    // determine UV rectangles that will get repacked
+    std::vector<std::vector<UVRect> > rects;
+    for (const auto &m : marks)
+    {
+        std::vector<std::vector<cv::Point> > contours;
+        cv::findContours(m, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
 
+        // add one UVRect for each connected component in the mark matrix
+        rects.emplace_back();
+        for (const auto& c : contours) {
+            rects.back().push_back(makeRect(c));
+        }
+
+#if DEBUG
+        cv::Mat dbg(m.size(), CV_8UC3, cv::Scalar(0,0,0));
+        for (const auto &c : contours) {
+            cv::Vec3b color(rand() % 256, rand() % 256, rand() % 256);
+            for (const cv::Point &pt : c) {
+                dbg.at<cv::Vec3b>(pt.y, pt.x) = color;
+            }
+        }
+        static int idx = 0;
+        auto filename(str(boost::format("merge%03d.png") % (idx++)));
+        cv::imwrite(filename, dbg);
+#endif
+    }
+
+    // pack the rectangles
+    RectPacker packer;
+    for (auto &rlist : rects) {
+        for (auto &r : rlist)
+            packer.addRect(&r);
+    }
+    packer.pack();
+
+    // copy rectangles to final atlas
+    cv::Mat atlas(packer.height(), packer.width(), CV_8UC3, cv::Scalar(0,0,0));
+    /*for (const auto &rlist : rects) {
+        for (const auto &r : rlist) {
+            copyRect(r, );
+        }
+    }*/
+
+
+
+    // almost done
     Tile result;
-
-    // TODO
-    result.atlas = tiles[0].atlas;
+    result.atlas = atlas;
 
     // create final geometry, with duplicate vertices removed
     Mesh &mesh(result.mesh);
