@@ -101,6 +101,13 @@ void rasterizeTile(const Tile &tile, const math::Matrix4 &trafo,
     }
 }
 
+//!
+//!
+bool validMatPos(int x, int y, const cv::Mat &mat)
+{
+    return x >= 0 && x < mat.cols && y >= 0 && y < mat.rows;
+}
+
 //! Returns true if at least one element in the area of the qbuffer
 //! corresponding to the given face belongs to tile number 'index'.
 //!
@@ -126,7 +133,7 @@ bool faceCovered(const Mesh &mesh, const Mesh::Facet &face,
     if (!covered) {
         // do one more check in case the triangle is smaller than one pixel
         int x(round(tri[0].x)), y(round(tri[0].y));
-        if (x >= 0 && x < qbuffer.cols && y >= 0 && y < qbuffer.rows) {
+        if (validMatPos(x, y, qbuffer)) {
             covered = (qbuffer.at<int>(y, x) == index);
         }
     }
@@ -140,11 +147,11 @@ void markFace(const ClipTriangle &face, cv::Mat/*<char>*/ &mat)
 {
     cv::Point3f tri[3];
     for (int i = 0; i < 3; i++) {
-        tri[i] = {face.uv[i].x * mat.cols, face.uv[i].y * mat.rows, 0};
+        tri[i] = {face.uv[i].x, face.uv[i].y, 0};
 
         // make sure the vertices are always marked
         int x(round(tri[i].x)), y(round(tri[i].y));
-        if (x >= 0 && x < mat.cols && y >= 0 && y < mat.rows) {
+        if (validMatPos(x, y, mat)) {
             mat.at<char>(y, x) = 1;
         }
     }
@@ -156,6 +163,20 @@ void markFace(const ClipTriangle &face, cv::Mat/*<char>*/ &mat)
         imgproc::processScanline(sl, 0, mat.cols,
             [&](int x, int y, float){ mat.at<char>(y, x) = 1; } );
     }
+}
+
+//! A wrapper for cv::findContours to solve for the 1-pixel border that the cv
+//! function ignores.
+//!
+void findContours(const cv::Mat &mat,
+                  std::vector<std::vector<cv::Point> > &contours)
+{
+    cv::Mat tmp(mat.rows + 2, mat.cols + 2, mat.type(), cv::Scalar(0));
+    cv::Rect rect(1, 1, mat.cols, mat.rows);
+    mat.copyTo(cv::Mat(tmp, rect));
+
+    cv::findContours(tmp, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE,
+                     cv::Point(-1, -1));
 }
 
 //! Returns a trasformation from tile local coordinates to qbuffer coordinates.
@@ -190,27 +211,59 @@ UVRect makeRect(const std::vector<cv::Point> points)
     return rect;
 }
 
+//! Finds a UV rectangle containing the given face.
 //!
-//!
-/*const UVRect& findRect(const ClipTriangle &face,
-                       const std::vector<UVRect> &rects)
+unsigned findRect(const ClipTriangle &face, const std::vector<UVRect> &rects)
 {
-}*/
+    const auto &pt(face.uv[0]);
+    for (unsigned i = 0; i < rects.size(); i++)
+    {
+        const UVRect &r(rects[i]);
+        const float safety(0.5);
+
+        if (pt.x > (r.min.x - safety) && pt.x < (r.max.x + safety) &&
+            pt.y > (r.min.y - safety) && pt.y < (r.max.y + safety))
+        {
+            return i;
+        }
+    }
+    LOGTHROW(err2, std::runtime_error) << "Rectangle not found.";
+    return 0;
+}
+
+//! Copies a rectangle from one atlas to another (src -> dst).
+//!
+void copyRect(const UVRect &rect, const cv::Mat &src, cv::Mat &dst)
+{
+    for (int y = 0; y < rect.height(); y++)
+    for (int x = 0; x < rect.width(); x++)
+    {
+        int sx(rect.x() + x), sy(rect.y() + y);
+        if (!validMatPos(sx, sy, src)) continue;
+
+        int dx(rect.packX + x), dy(rect.packY + y);
+        if (!validMatPos(dx, dy, dst)) continue;
+
+        dst.at<cv::Vec3b>(dy, dx) = src.at<cv::Vec3b>(sy, sx);
+    }
+}
 
 //! Convert from normalized to pixel-based texture coordinates.
 //!
 UVCoord denormalizeUV(const math::Point3d &uv, cv::Size texSize)
 {
-    return {float(uv(0)*texSize.width),
-            float(texSize.height-1 - uv(1)*texSize.height)};
+    return {float(uv(0) * texSize.width),
+            //float(texSize.height-1 - uv(1)*texSize.height)
+            float((1.0 - uv(1)) * texSize.height)};
 }
 
 //! Convert from pixel-based to normalized texture coordinates.
 //!
 math::Point3d normalizeUV(const UVCoord &uv, cv::Size texSize)
 {
-    return {double(uv.x)/texSize.width,
-            (texSize.height-1 - double(uv.y))/texSize.height,
+    return {double(uv.x) / texSize.width,
+            //(texSize.height-1 - double(uv.y)) / texSize.height,
+            1.0 - double(uv.y) / texSize.height,
             0.0};
 }
 
@@ -230,7 +283,7 @@ math::Point3d vertex(const cv::Point3d &v)
 Tile merge(long tileSize, const Tile::list &tiles
            , const Tile &fallback, int fallbackQuad)
 {
-#if 0
+#if 1
     // sort tiles by quality
     typedef std::pair<unsigned, double> TileQuality;
     std::vector<TileQuality> qualities;
@@ -264,13 +317,13 @@ Tile merge(long tileSize, const Tile::list &tiles
     ClipTriangle::list faces;
     for (unsigned i = 0; i < tiles.size(); i++) {
         const Tile &tile(tiles[i]);
-        cv::Size asize(tile.atlas.size);
+        cv::Size asize(tile.atlas.size());
 
         for (unsigned j = 0; j < tile.mesh.facets.size(); j++) {
             const Mesh::Facet &face(tile.mesh.facets[j]);
 
             if (faceCovered(tile.mesh, face, trafo, i, qbuffer)) {
-                faces.emplace_back(i, j,
+                faces.emplace_back(i, 0,
                         vertex(tile.mesh.vertices[face.v[0]]),
                         vertex(tile.mesh.vertices[face.v[1]]),
                         vertex(tile.mesh.vertices[face.v[2]]),
@@ -295,7 +348,7 @@ Tile merge(long tileSize, const Tile::list &tiles
     for (const auto &m : marks)
     {
         std::vector<std::vector<cv::Point> > contours;
-        cv::findContours(m, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+        findContours(m, contours);
 
         // add one UVRect for each connected component in the mark matrix
         rects.emplace_back();
@@ -317,6 +370,19 @@ Tile merge(long tileSize, const Tile::list &tiles
 #endif
     }
 
+    // recalculate the rectangles directly from face UVs for subpixel precision
+    for (auto &face : faces) {
+        face.id2 = findRect(face, rects[face.id1]);
+    }
+    for (auto &rlist : rects) {
+        for (auto &r : rlist)
+            r.clear();
+    }
+    for (const auto &face : faces) {
+        for (int i = 0; i < 3; i++)
+            rects[face.id1][face.id2].update(face.uv[i]);
+    }
+
     // pack the rectangles
     RectPacker packer;
     for (auto &rlist : rects) {
@@ -327,13 +393,18 @@ Tile merge(long tileSize, const Tile::list &tiles
 
     // copy rectangles to final atlas
     cv::Mat atlas(packer.height(), packer.width(), CV_8UC3, cv::Scalar(0,0,0));
-    /*for (const auto &rlist : rects) {
-        for (const auto &r : rlist) {
-            copyRect(r, );
+    for (unsigned i = 0; i < tiles.size(); i++) {
+        for (const auto &rect : rects[i]) {
+            // TODO: mask out pixels that are not needed!
+            copyRect(rect, tiles[i].atlas, atlas);
         }
-    }*/
+    }
 
-
+    // adjust face UVs to point to the new atlas
+    for (auto &face : faces) {
+        for (int i = 0; i < 3; i++)
+            rects[face.id1][face.id2].adjustUV(face.uv[i]);
+    }
 
     // almost done
     Tile result;
@@ -344,7 +415,7 @@ Tile merge(long tileSize, const Tile::list &tiles
     PointIndex<ClipTriangle::Point> vindex;
     PointIndex<ClipTriangle::TCoord> tindex;
 
-    for (const ClipTriangle &face1 : faces)
+    for (const auto &face1 : faces)
     {
         mesh.facets.emplace_back();
         Mesh::Facet &face2(mesh.facets.back());
@@ -357,7 +428,8 @@ Tile merge(long tileSize, const Tile::list &tiles
 
             face2.t[i] = tindex.assign(face1.uv[i]);
             if (unsigned(face2.t[i]) >= mesh.texcoords.size()) {
-                mesh.texcoords.push_back(tcoord(face1.uv[i]));
+                auto uv(normalizeUV(face1.uv[i], atlas.size()));
+                mesh.texcoords.push_back(uv);
             }
         }
     }
