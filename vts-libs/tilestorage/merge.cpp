@@ -101,7 +101,7 @@ void rasterizeTile(const Tile &tile, const math::Matrix4 &trafo,
     }
 }
 
-//!
+//! Returns true if x and y are valid column and row indices, respectively.
 //!
 bool validMatPos(int x, int y, const cv::Mat &mat)
 {
@@ -189,6 +189,23 @@ math::Matrix4 tileToBuffer(long tileSize, int bufferSize)
     return trafo;
 }
 
+//! Returns a trasformation from fallback tile local coordinates to qbuffer
+//! coordinates.
+//!
+math::Matrix4 fallbackToBuffer(long tileSize, int bufferSize, int fallbackQuad)
+{
+    math::Matrix4 trafo(tileToBuffer(tileSize, bufferSize));
+    double shift(double(bufferSize) / 2);
+
+    switch (fallbackQuad) {
+    case 0: trafo(0,3) += shift, trafo(1,3) += shift; break;
+    case 1: trafo(0,3) -= shift, trafo(1,3) += shift; break;
+    case 2: trafo(0,3) += shift, trafo(1,3) -= shift; break;
+    case 3: trafo(0,3) -= shift, trafo(1,3) -= shift; break;
+    }
+    return trafo;
+}
+
 //! Returns true if 'qbuffer' is filled with the same value (returned in 'index')
 //!
 bool sameIndices(const cv::Mat &qbuffer, int& index)
@@ -198,6 +215,16 @@ bool sameIndices(const cv::Mat &qbuffer, int& index)
         if (*it != index) return false;
     }
     return true;
+}
+
+//! Returns true if 'qbuffer' contains at least one element equal to 'index'.
+//!
+bool haveIndices(const cv::Mat &qbuffer, int index)
+{
+    for (auto it = qbuffer.begin<int>(); it != qbuffer.end<int>(); ++it) {
+        if (*it == index) return true;
+    }
+    return false;
 }
 
 //! Calculate a bounding rectangle of a list of points in the UV space.
@@ -283,7 +310,7 @@ math::Point3d vertex(const cv::Point3d &v)
 Tile merge(long tileSize, const Tile::list &tiles
            , const Tile &fallback, int fallbackQuad)
 {
-#if 1
+#if 0
     // sort tiles by quality
     typedef std::pair<unsigned, double> TileQuality;
     std::vector<TileQuality> qualities;
@@ -317,27 +344,60 @@ Tile merge(long tileSize, const Tile::list &tiles
     ClipTriangle::list faces;
     for (unsigned i = 0; i < tiles.size(); i++) {
         const Tile &tile(tiles[i]);
+        const Mesh &mesh(tile.mesh);
         cv::Size asize(tile.atlas.size());
 
-        for (unsigned j = 0; j < tile.mesh.facets.size(); j++) {
-            const Mesh::Facet &face(tile.mesh.facets[j]);
+        for (unsigned j = 0; j < mesh.facets.size(); j++) {
+            const Mesh::Facet &face(mesh.facets[j]);
 
-            if (faceCovered(tile.mesh, face, trafo, i, qbuffer)) {
+            if (faceCovered(mesh, face, trafo, i, qbuffer)) {
                 faces.emplace_back(i, 0,
-                        vertex(tile.mesh.vertices[face.v[0]]),
-                        vertex(tile.mesh.vertices[face.v[1]]),
-                        vertex(tile.mesh.vertices[face.v[2]]),
-                        denormalizeUV(tile.mesh.texcoords[face.t[0]], asize),
-                        denormalizeUV(tile.mesh.texcoords[face.t[1]], asize),
-                        denormalizeUV(tile.mesh.texcoords[face.t[2]], asize) );
+                        vertex(mesh.vertices[face.v[0]]),
+                        vertex(mesh.vertices[face.v[1]]),
+                        vertex(mesh.vertices[face.v[2]]),
+                        denormalizeUV(mesh.texcoords[face.t[0]], asize),
+                        denormalizeUV(mesh.texcoords[face.t[1]], asize),
+                        denormalizeUV(mesh.texcoords[face.t[2]], asize) );
             }
         }
+    }
+
+    // get faces also from the fallback tile, if available and if necessary
+    bool doFb(false);
+    if (fallbackQuad >= 0 && haveIndices(qbuffer, -1))
+    {
+        const Mesh &mesh(fallback.mesh);
+        math::Matrix4 trafo(fallbackToBuffer(tileSize, QBSize, fallbackQuad));
+        cv::Size asize(fallback.atlas.size());
+        unsigned fbIndex(tiles.size());
+
+        for (unsigned j = 0; j < mesh.facets.size(); j++) {
+            const Mesh::Facet &face(mesh.facets[j]);
+
+            if (faceCovered(mesh, face, trafo, -1, qbuffer)) {
+                faces.emplace_back(fbIndex, 0,
+                        vertex(mesh.vertices[face.v[0]]),
+                        vertex(mesh.vertices[face.v[1]]),
+                        vertex(mesh.vertices[face.v[2]]),
+                        denormalizeUV(mesh.texcoords[face.t[0]], asize),
+                        denormalizeUV(mesh.texcoords[face.t[1]], asize),
+                        denormalizeUV(mesh.texcoords[face.t[2]], asize) );
+            }
+        }
+
+        // clip faces to the right extents
+
+        // we want to work with the fallback tile in the following code
+        doFb = true;
     }
 
     // mark areas in the atlases that will need to be repacked
     std::vector<cv::Mat> marks;
     for (const auto& tile : tiles) {
         marks.emplace_back(tile.atlas.size(), CV_8U, cv::Scalar(0));
+    }
+    if (doFb) {
+        marks.emplace_back(fallback.atlas.size(), CV_8U, cv::Scalar(0));
     }
     for (const ClipTriangle &face : faces) {
         markFace(face, marks[face.id1]);
@@ -397,6 +457,12 @@ Tile merge(long tileSize, const Tile::list &tiles
         for (const auto &rect : rects[i]) {
             // TODO: mask out pixels that are not needed!
             copyRect(rect, tiles[i].atlas, atlas);
+        }
+    }
+    if (doFb) {
+        for (const auto &rect : rects.back()) {
+            // TODO: mask out pixels that are not needed!
+            copyRect(rect, fallback.atlas, atlas);
         }
     }
 
