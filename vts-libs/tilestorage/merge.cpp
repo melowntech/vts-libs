@@ -577,7 +577,9 @@ Tile merge(long tileSize, const Tile::list &tiles
     }
 
     // one more thing: merge the 5x5 heightfields
-    result.metanode = tiles[qualities.back().first].metanode;
+    if (tiles.size()) {
+        result.metanode = tiles[qualities.back().first].metanode;
+    }
 
     const int hms(MetaNode::HMSize);
     float fbheight[hms][hms];
