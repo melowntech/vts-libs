@@ -645,7 +645,7 @@ MetaNode TileSet::Detail::setTile(const TileId &tileId, const Mesh &mesh
 void TileSet::Detail::begin()
 {
     LOG(info3)
-        << "Tile set <" << properties.id << ">: Opening transaction."
+        << "Tile set <" << properties.id << ">: Opening transaction.";
 
     driver->wannaWrite("begin transaction");
     if (tx) {
@@ -661,7 +661,7 @@ void TileSet::Detail::begin()
 void TileSet::Detail::commit()
 {
     LOG(info3)
-        << "Tile set <" << properties.id << ">: Commiting transaction."
+        << "Tile set <" << properties.id << ">: Commiting transaction.";
     driver->wannaWrite("commit transaction");
 
     if (!tx) {
@@ -680,7 +680,7 @@ void TileSet::Detail::commit()
 void TileSet::Detail::rollback()
 {
     LOG(info3)
-        << "Tile set <" << properties.id << ">: Rolling back transaction."
+        << "Tile set <" << properties.id << ">: Rolling back transaction.";
     if (!tx) {
         LOGTHROW(err2, PendingTransaction)
             << "There is no active transaction to roll back.";
