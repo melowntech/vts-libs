@@ -350,19 +350,16 @@ math::Point3d vertex(const cv::Point3d &v)
 Tile merge(long tileSize, const Tile::list &tiles
            , const Tile &fallback, int fallbackQuad)
 {
-#ifndef BUILDSYS_CUSTOMER_BUILD
-    // save fallback tile on merge crash
-    utility::ScopedGuard sg([&]() {
-            if (!std::uncaught_exception()) { return; }
-
-            LOG(warn3)
-                << "Saving fallback tile on merge crash. Info:"
-                << "\ntileSize: " << tileSize
-                << "\nfallbackQuad: " << fallbackQuad
-                ;
-            writeBinaryMesh("./crash-fallback.bin", fallback.mesh);
-            cv::imwrite("./crash-fallback.png", fallback.atlas);
-        });
+#if DEBUG
+    {
+        LOG(info2)
+            << "Saving fallback tile on merge. Info:"
+            << "\ntileSize: " << tileSize
+            << "\nfallbackQuad: " << fallbackQuad
+            ;
+        writeBinaryMesh("./merge-fallback.bin", fallback.mesh);
+        cv::imwrite("./merge-fallback.png", fallback.atlas);
+    };
 #endif
 
     // sort tiles by quality
