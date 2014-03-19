@@ -525,7 +525,7 @@ bool TileSet::Detail::isFoat(const TileId &tileId) const
 void TileSet::Detail::flush()
 {
     if (driver->readOnly()) { return; }
-    LOG(info2) << "Tile set <" << properties.id << ">: flushing";
+    LOG(info3) << "Tile set <" << properties.id << ">: flushing.";
 
     // force metadata save
     if (metadataChanged) {
@@ -536,6 +536,7 @@ void TileSet::Detail::flush()
     if (propertiesChanged) {
         saveConfig();
     }
+    LOG(info3) << "Tile set <" << properties.id << ">: flushed.";
 }
 
 void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)

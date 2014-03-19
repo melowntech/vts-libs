@@ -6,12 +6,15 @@
 #include "math/geometry.hpp"
 #include "math/transform.hpp"
 #include "imgproc/scanconversion.hpp"
+#include "utility/scopedguard.hpp"
 
 #include "vadstena-libs/faceclip.hpp"
 #include "vadstena-libs/pointindex.hpp"
 #include "vadstena-libs/uvpack.hpp"
 
 #include "./merge.hpp"
+
+#include "../binmesh.hpp"
 
 namespace ublas = boost::numeric::ublas;
 
@@ -347,6 +350,21 @@ math::Point3d vertex(const cv::Point3d &v)
 Tile merge(long tileSize, const Tile::list &tiles
            , const Tile &fallback, int fallbackQuad)
 {
+#ifndef BUILDSYS_CUSTOMER_BUILD
+    // save fallback tile on merge crash
+    utility::ScopedGuard sg([&]() {
+            if (!std::uncaught_exception()) { return; }
+
+            LOG(warn3)
+                << "Saving fallback tile on merge crash. Info:"
+                << "\ntileSize: " << tileSize
+                << "\nfallbackQuad: " << fallbackQuad
+                ;
+            writeBinaryMesh("./crash-fallback.bin", fallback.mesh);
+            cv::imwrite("./crash-fallback.png", fallback.atlas);
+        });
+#endif
+
     // sort tiles by quality
     typedef std::pair<unsigned, double> TileQuality;
     std::vector<TileQuality> qualities;
