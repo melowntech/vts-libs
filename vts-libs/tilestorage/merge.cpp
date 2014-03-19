@@ -6,7 +6,7 @@
 #include "math/geometry.hpp"
 #include "math/transform.hpp"
 #include "imgproc/scanconversion.hpp"
-#include "utility/scopedguard.hpp"
+#include "imgproc/binterpolate.hpp"
 
 #include "vadstena-libs/faceclip.hpp"
 #include "vadstena-libs/pointindex.hpp"
@@ -267,7 +267,7 @@ unsigned findRect(const ClipTriangle &face, const std::vector<UVRect> &rects)
     for (unsigned i = 0; i < rects.size(); i++)
     {
         const UVRect &r(rects[i]);
-        const float safety(0.5);
+        const float safety(0.51);
 
         if (pt.x > (r.min.x - safety) && pt.x < (r.max.x + safety) &&
             pt.y > (r.min.y - safety) && pt.y < (r.max.y + safety))
@@ -275,7 +275,7 @@ unsigned findRect(const ClipTriangle &face, const std::vector<UVRect> &rects)
             return i;
         }
     }
-    LOGTHROW(err2, std::runtime_error) << "Rectangle not found.";
+    LOGONCE(err2) << "Rectangle not found (pt = " << pt << ").";
     return 0;
 }
 
@@ -322,8 +322,30 @@ cv::Point3d vertex(const math::Point3d &v)
 math::Point3d vertex(const cv::Point3d &v)
     { return {v.x, v.y, v.z}; }
 
-} // namespace
 
+//! Bilinearly upsamples the specified quadrant of the fallback tile heightmap.
+//!
+void getFallbackHeightmap(const Tile &fallback, int fallbackQuad,
+                          float heightmap[MetaNode::HMSize][MetaNode::HMSize])
+{
+    const int hms(MetaNode::HMSize);
+
+    double x(0.), y(0.);
+    if (fallbackQuad & 1) x += double(hms - 1)*0.5;
+    if (fallbackQuad & 2) y += double(hms - 1)*0.5;
+
+    for (int i = 0; i < hms; i++)
+    for (int j = 0; j < hms; j++)
+    {
+        math::Point2 point(x + 0.5*j, y + 0.5*i);
+        heightmap[i][j] = 0;
+        imgproc::bilinearInterpolate(
+                   (float*) fallback.metanode.heightmap, hms, hms, hms, 1,
+                   point, &heightmap[i][j]);
+    }
+}
+
+} // namespace
 
 //! Merges several tiles. The process has four phases:
 //!
@@ -331,8 +353,8 @@ math::Point3d vertex(const cv::Point3d &v)
 //!    of geometry at each point of the result. The tiles are rasterized from
 //!    worst to best (in terms of their texture resolution). This means that the
 //!    best tile will be complete in the result and only the remaining space
-//!    will be filled with the other tiles. The fallback geometry is used only
-//!    where no other geometry exists.
+//!    will be filled with other tiles. The fallback tile is used only where
+//!    no other geometry exists.
 //!
 //! 2. Faces that will appear in the output are collected, according to the
 //!    contents of the buffer. A face from a tile is used if at least one
@@ -359,7 +381,7 @@ Tile merge(long tileSize, const Tile::list &tiles
             ;
         writeBinaryMesh("./merge-fallback.bin", fallback.mesh);
         cv::imwrite("./merge-fallback.png", fallback.atlas);
-    };
+    }
 #endif
 
     // sort tiles by quality
@@ -552,6 +574,23 @@ Tile merge(long tileSize, const Tile::list &tiles
                 mesh.texcoords.push_back(uv);
             }
         }
+    }
+
+    // one more thing: merge the 5x5 heightfields
+    result.metanode = tiles[qualities.back().first].metanode;
+
+    const int hms(MetaNode::HMSize);
+    float fbheight[hms][hms];
+    if (doFb) getFallbackHeightmap(fallback, fallbackQuad, fbheight);
+
+    for (int i = 0; i < hms; i++)
+    for (int j = 0; j < hms; j++)
+    {
+        int what = qbuffer.at<int>(i * (QBSize-1) / hms, j * (QBSize-1) / hms);
+        if (what >= 0)
+            result.metanode.heightmap[i][j] = tiles[what].metanode.heightmap[i][j];
+        else if (doFb)
+            result.metanode.heightmap[i][j] = fbheight[i][j];
     }
 
     return result;
