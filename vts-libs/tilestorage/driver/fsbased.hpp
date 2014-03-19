@@ -27,6 +27,10 @@ public:
 
     virtual ~FsBasedDriver();
 
+    /** On-close callback
+     */
+    typedef std::function<void(bool)> OnClose;
+
 private:
     /** Implement in derived class.
      */
@@ -60,7 +64,8 @@ private:
 
     fs::path readPath(const fs::path &dir, const fs::path &name) const;
 
-    fs::path writePath(const fs::path &dir, const fs::path &name);
+    std::pair<fs::path, OnClose>
+    writePath(const fs::path &dir, const fs::path &name);
 
     /** Backing root.
      */

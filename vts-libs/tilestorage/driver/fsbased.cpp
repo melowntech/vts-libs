@@ -5,6 +5,7 @@
 #include <boost/utility/in_place_factory.hpp>
 
 #include "utility/streams.hpp"
+#include "utility/path.hpp"
 
 #include "./fsbased.hpp"
 #include "./flat.hpp"
@@ -52,8 +53,9 @@ namespace {
 
     class FileOStream : public OStream {
     public:
-        FileOStream(const fs::path &path)
-            : path_(path), f_()
+        FileOStream(const fs::path &path, FsBasedDriver::OnClose onClose
+                    = FsBasedDriver::OnClose())
+            : path_(path), f_(), onClose_(onClose)
         {
             try {
                 f_.exceptions(std::ios::badbit | std::ios::failbit);
@@ -76,7 +78,10 @@ namespace {
         }
 
         virtual void close() UTILITY_OVERRIDE {
+            // TODO: call onClose in case of failure (when exception is thrown)
+            // via utility::ScopeGuard
             f_.close();
+            onClose_(true);
         }
 
         virtual std::string name() UTILITY_OVERRIDE {
@@ -86,6 +91,7 @@ namespace {
     private:
         fs::path path_;
         utility::ofstreambuf f_;
+        FsBasedDriver::OnClose onClose_;
     };
 
     class FileIStream : public IStream {
@@ -173,8 +179,8 @@ OStream::pointer FsBasedDriver::output_impl(File type)
     const auto name(filePath(type));
     const auto dir(fileDir(type, name));
     const auto path(writePath(dir, name));
-    LOG(info1) << "Saving to " << path << ".";
-    return std::make_shared<FileOStream>(path);
+    LOG(info1) << "Saving to " << path.first << ".";
+    return std::make_shared<FileOStream>(path.first, path.second);
 }
 
 IStream::pointer FsBasedDriver::input_impl(File type) const
@@ -191,8 +197,8 @@ OStream::pointer FsBasedDriver::output_impl(const TileId tileId, TileFile type)
     const auto name(filePath(tileId, type));
     const auto dir(fileDir(tileId, type, name));
     const auto path(writePath(dir, name));
-    LOG(info1) << "Saving to " << path << ".";
-    return std::make_shared<FileOStream>(path);
+    LOG(info1) << "Saving to " << path.first << ".";
+    return std::make_shared<FileOStream>(path.first, path.second);
 }
 
 IStream::pointer FsBasedDriver::input_impl(const TileId tileId, TileFile type)
@@ -277,19 +283,42 @@ fs::path FsBasedDriver::readPath(const fs::path &dir, const fs::path &name)
     return root_ / dir / name;
 }
 
-fs::path FsBasedDriver::writePath(const fs::path &dir, const fs::path &name)
+std::pair<fs::path, FsBasedDriver::OnClose>
+FsBasedDriver::writePath(const fs::path &dir, const fs::path &name)
 {
     DirCache *dirCache(&dirCache_);
     if (tx_) {
-        // remember file in transaction
-        tx_->files.insert(Tx::Files::value_type(name, dir));
-
         // temporary file
         dirCache = &tx_->dirCache;
     }
 
     // get dir and return full path
-    return dirCache->create(dir) / name;
+    auto outFile(dirCache->create(dir) / name);
+    if (!tx_) {
+        // no destination
+        return { outFile, [](bool){} };
+    }
+
+    auto tmpFile(utility::addExtension(outFile, ".tmp"));
+    return { tmpFile
+            , [this, outFile, tmpFile, name, dir] (bool success)
+            {
+                if (!success) {
+                    // failed -> remove
+                    LOG(warn2)
+                        << "Removing failed file " << tmpFile << ".";
+                    fs::remove(tmpFile);
+                    return;
+                }
+
+                // OK -> move file to destination
+                LOG(info1)
+                    << "Moving file " << tmpFile << " to " << outFile << ".";
+                rename(tmpFile, outFile);
+
+                // // remember file in transaction
+                tx_->files.insert(Tx::Files::value_type(name, dir));
+            } };
 }
 
 fs::path FsBasedDriver::DirCache::create(const fs::path &dir)

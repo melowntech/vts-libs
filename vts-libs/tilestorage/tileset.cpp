@@ -221,17 +221,17 @@ void TileSet::Detail::saveConfig()
         << utility::dump(properties, "    ");
 
     // save json
-    try {
+    // try {
         driver->wannaWrite("save config");
         build(config, properties);
         auto f(driver->output(File::config));
         f->get().precision(15);
         Json::StyledStreamWriter().write(*f, config);
         f->close();
-    } catch (const std::exception &e) {
-        LOGTHROW(err2, Error)
-            << "Unable to write config: <" << e.what() << ">.";
-    }
+    // } catch (const std::exception &e) {
+    //     LOGTHROW(err2, Error)
+    //         << "Unable to write config: <" << e.what() << ">.";
+    // }
     // done; remember saved properties and go on
     savedProperties = properties;
     propertiesChanged = false;
