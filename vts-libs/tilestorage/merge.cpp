@@ -16,7 +16,7 @@
 namespace ublas = boost::numeric::ublas;
 
 #ifndef BUILDSYS_CUSTOMER_BUILD
-#   define DEBUG 1 // save debug images
+//#define DEBUG 1 // save debug images
 #endif
 
 namespace cv {
@@ -179,6 +179,24 @@ void findContours(const cv::Mat &mat,
                      cv::Point(-1, -1));
 }
 
+//! Clips faces to tile boundaries.
+//!
+void clipFaces(ClipTriangle::list &faces, long tileSize)
+{
+    double ts2(double(tileSize)/2);
+
+    ClipPlane planes[4] = {
+        { 1.,  0., 0., ts2},
+        {-1.,  0., 0., ts2},
+        { 0.,  1., 0., ts2},
+        { 0., -1., 0., ts2}
+    };
+
+    for (int i = 0; i < 4; i++) {
+        faces = clipTriangles(faces, planes[i]);
+    }
+}
+
 //! Returns a trasformation from tile local coordinates to qbuffer coordinates.
 //!
 math::Matrix4 tileToBuffer(long tileSize, int bufferSize)
@@ -189,19 +207,19 @@ math::Matrix4 tileToBuffer(long tileSize, int bufferSize)
     return trafo;
 }
 
-//! Returns a trasformation from fallback tile local coordinates to qbuffer
-//! coordinates.
+//! Returns a trasformation of the (2x larger) fallback tile so that its given
+//! quadrant aligns with tile of size `tileSize`.
 //!
-math::Matrix4 fallbackToBuffer(long tileSize, int bufferSize, int fallbackQuad)
+math::Matrix4 quadrantTransform(long tileSize, int fallbackQuad)
 {
-    math::Matrix4 trafo(tileToBuffer(tileSize, bufferSize));
-    double shift(double(bufferSize) / 2);
+    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
+    double shift(double(tileSize) / 2);
 
     switch (fallbackQuad) {
-    case 0: trafo(0,3) += shift, trafo(1,3) += shift; break;
-    case 1: trafo(0,3) -= shift, trafo(1,3) += shift; break;
-    case 2: trafo(0,3) += shift, trafo(1,3) -= shift; break;
-    case 3: trafo(0,3) -= shift, trafo(1,3) -= shift; break;
+    case 0: trafo(0,3) = +shift, trafo(1,3) = +shift; break;
+    case 1: trafo(0,3) = -shift, trafo(1,3) = +shift; break;
+    case 2: trafo(0,3) = +shift, trafo(1,3) = -shift; break;
+    case 3: trafo(0,3) = -shift, trafo(1,3) = -shift; break;
     }
     return trafo;
 }
@@ -304,13 +322,31 @@ math::Point3d vertex(const cv::Point3d &v)
 } // namespace
 
 
-//! TODO: describe
+//! Merges several tiles. The process has four phases:
 //!
+//! 1. The meshes are rasterized into a buffer which determines the source
+//!    of geometry at each point of the result. The tiles are rasterized from
+//!    worst to best (in terms of their texture resolution). This means that the
+//!    best tile will be complete in the result and only the remaining space
+//!    will be filled with the other tiles. The fallback geometry is used only
+//!    where no other geometry exists.
+//!
+//! 2. Faces that will appear in the output are collected, according to the
+//!    contents of the buffer. A face from a tile is used if at least one
+//!    underlying element of the qbuffer indicates that the tile should be used
+//!    at that place. In addition, the fallback faces are transformed according
+//!    to `fallbackQuad` and clipped.
+//!
+//! 3. Pixels in atlases that are needed by the collected faces are marked.
+//!    Rectangles that cover the marked areas are identified and then repacked
+//!    into a single new atlas.
+//!
+//! 4. The isolated faces are converted into a standard mesh with vertices and
+//!    texture vertices that don't repeat.
 //!
 Tile merge(long tileSize, const Tile::list &tiles
            , const Tile &fallback, int fallbackQuad)
 {
-#if 0
     // sort tiles by quality
     typedef std::pair<unsigned, double> TileQuality;
     std::vector<TileQuality> qualities;
@@ -363,41 +399,44 @@ Tile merge(long tileSize, const Tile::list &tiles
     }
 
     // get faces also from the fallback tile, if available and if necessary
-    bool doFb(false);
-    if (fallbackQuad >= 0 && haveIndices(qbuffer, -1))
+    bool doFb(fallbackQuad >= 0 && haveIndices(qbuffer, -1));
+    if (doFb)
     {
         const Mesh &mesh(fallback.mesh);
-        math::Matrix4 trafo(fallbackToBuffer(tileSize, QBSize, fallbackQuad));
         cv::Size asize(fallback.atlas.size());
+
+        math::Matrix4 quadtr(quadrantTransform(tileSize, fallbackQuad));
+        math::Matrix4 trafo2(prod(trafo, quadtr));
+
+        ClipTriangle::list fbFaces;
         unsigned fbIndex(tiles.size());
 
         for (unsigned j = 0; j < mesh.facets.size(); j++) {
             const Mesh::Facet &face(mesh.facets[j]);
 
-            if (faceCovered(mesh, face, trafo, -1, qbuffer)) {
-                faces.emplace_back(fbIndex, 0,
-                        vertex(mesh.vertices[face.v[0]]),
-                        vertex(mesh.vertices[face.v[1]]),
-                        vertex(mesh.vertices[face.v[2]]),
-                        denormalizeUV(mesh.texcoords[face.t[0]], asize),
-                        denormalizeUV(mesh.texcoords[face.t[1]], asize),
-                        denormalizeUV(mesh.texcoords[face.t[2]], asize) );
+            if (faceCovered(mesh, face, trafo2, -1, qbuffer)) {
+                fbFaces.emplace_back(fbIndex, 0,
+                          vertex(transform(quadtr, mesh.vertices[face.v[0]])),
+                          vertex(transform(quadtr, mesh.vertices[face.v[1]])),
+                          vertex(transform(quadtr, mesh.vertices[face.v[2]])),
+                          denormalizeUV(mesh.texcoords[face.t[0]], asize),
+                          denormalizeUV(mesh.texcoords[face.t[1]], asize),
+                          denormalizeUV(mesh.texcoords[face.t[2]], asize) );
             }
         }
 
-        // clip faces to the right extents
-
-        // we want to work with the fallback tile in the following code
-        doFb = true;
+        clipFaces(fbFaces, tileSize);
+        faces.insert(faces.end(), fbFaces.begin(), fbFaces.end());
     }
 
     // mark areas in the atlases that will need to be repacked
     std::vector<cv::Mat> marks;
+    cv::Size safety(1, 1);
     for (const auto& tile : tiles) {
-        marks.emplace_back(tile.atlas.size(), CV_8U, cv::Scalar(0));
+        marks.emplace_back(tile.atlas.size() + safety, CV_8U, cv::Scalar(0));
     }
     if (doFb) {
-        marks.emplace_back(fallback.atlas.size(), CV_8U, cv::Scalar(0));
+        marks.emplace_back(fallback.atlas.size() + safety, CV_8U, cv::Scalar(0));
     }
     for (const ClipTriangle &face : faces) {
         markFace(face, marks[face.id1]);
@@ -501,31 +540,6 @@ Tile merge(long tileSize, const Tile::list &tiles
     }
 
     return result;
-
-#else
-    // simple no-merge algo :P
-
-    LOG(info2) << "merging " << tiles.size() << " tiles";
-
-    // find tile with largest triangle area
-    const Tile *t(nullptr);
-    double area(0);
-    for (const auto &tile : tiles) {
-        auto a(tileQuality(tile));
-        if (a > area) {
-            area = a;
-            t = &tile;
-        }
-    }
-
-    if (t) { return *t; }
-    return {};
-#endif
-
-    (void) tileSize;
-    (void) fallback;
-    (void) fallbackQuad;
-    (void) tiles;
 }
 
 } } // namespace vadstena::tilestorage
