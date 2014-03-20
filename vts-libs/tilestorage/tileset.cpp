@@ -17,6 +17,8 @@
 #include "./metatile.hpp"
 #include "./merge.hpp"
 
+// #define VADSTENA_LIBS_DUMP_TILEINDEX 1
+
 namespace vadstena { namespace tilestorage {
 
 namespace {
@@ -805,7 +807,8 @@ LodRange range(const TileSet::list &sets)
         return { 0, -1 };
     }
 
-    LodRange r;
+    // initialize with invalid range
+    LodRange r(0, -1);
     for (const auto &set : sets) {
         r = unite(r, TileSet::Accessor::detail(*set).lodRange);
     }

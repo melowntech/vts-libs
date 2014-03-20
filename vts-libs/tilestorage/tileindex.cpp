@@ -381,10 +381,9 @@ TileIndex unite(const Alignment &alignment
 {
     LOG(info2) << "unite: " << tis.size();
 
-    // handle special cases
-    switch (tis.size()) {
-    case 0: return {};
-    case 1: return *tis.front();
+    // empty tile set -> nothing
+    if (tis.empty()) {
+        return {};
     }
 
     // calculate basic parameters
@@ -494,6 +493,14 @@ void dumpAsImages(const fs::path &path, const TileIndex &ti)
         pixelSize *= 2;
         --lod;
     }
+}
+
+void TileIndex::clear(Lod lod)
+{
+    auto *m(mask(lod));
+    if (!m) { return; }
+
+    *m = RasterMask(m->dims(), RasterMask::InitMode::EMPTY);
 }
 
 } } // namespace vadstena::tilestorage

@@ -84,6 +84,10 @@ public:
 
     Traverser traverser() const;
 
+    /** Clears lod content.
+     */
+    void clear(Lod lod);
+
 private:
     const RasterMask* mask(Lod lod) const;
 
