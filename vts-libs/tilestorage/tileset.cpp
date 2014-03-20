@@ -406,6 +406,12 @@ MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId)
         return nullptr;
     }
 
+    // no tile (or metatile) cannot be in an lod below lowest level in the tile
+    // set)
+    if (tileId.lod > lodRange.max) {
+        return nullptr;
+    }
+
     // sanity check
     if (!savedProperties.foatSize) {
         // no data on disk
