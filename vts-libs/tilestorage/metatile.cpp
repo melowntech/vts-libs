@@ -220,7 +220,7 @@ void Saver::saveMetatileTree(std::ostream &f, const MetatileDef &tile)
     std::uint8_t mask(1);
     auto childrenIds(children(baseTileSize, tile.id));
 
-    for (auto &childId : childrenIds) {
+    for (const auto &childId : childrenIds) {
         LOG(debug) << "processing child: " << childId;
         if (saver.getNode(childId)) {
             childFlags |= mask;

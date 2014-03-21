@@ -15,6 +15,8 @@ namespace vadstena { namespace tilestorage {
 
 typedef std::map<TileId, MetaNode> Metadata;
 
+typedef std::set<TileId> TileIdSet;
+
 struct TileSet::Detail {
     Driver::pointer driver;
 
@@ -29,6 +31,7 @@ struct TileSet::Detail {
     Extents extents;              // extents covered by tiles
     LodRange lodRange;            // covered lod range
     mutable Metadata metadata;    // all metadata as in-memory structure
+    mutable TileIdSet loadedMetatiles; // marks that given tiles are loaded
     bool metadataChanged;         // marks whether metadata have been changed
 
     mutable Json::Value config;
@@ -78,6 +81,8 @@ struct TileSet::Detail {
     void updateTree(const TileId &tileId, MetaNode &metanode);
 
     void flush();
+
+    void purgeMetadata();
 
     void saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex) const;
 

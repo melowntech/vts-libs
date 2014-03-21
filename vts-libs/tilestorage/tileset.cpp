@@ -252,6 +252,9 @@ void TileSet::Detail::saveMetadata()
                  , extents, {properties.foat.lod, lodRange.max}
                  , &ti);
 
+    // purge out nonexistent leaves from metadata tree
+    purgeMetadata();
+
     // well, dump metatiles now
     saveMetatiles(ti, mi);
 
@@ -396,6 +399,8 @@ void TileSet::Detail::loadMetatileFromFile(const TileId &tileId) const
              metadata.insert(Metadata::value_type(tileId, node));
          });
     f->close();
+
+    loadedMetatiles.insert(tileId);
 }
 
 MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId)
@@ -436,6 +441,11 @@ MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId)
         return nullptr;
     }
 
+    if (loadedMetatiles.find(metaId) != loadedMetatiles.end()) {
+        // this metatile already loaded
+        return nullptr;
+    }
+
     LOG(info2) << "(" << properties.id << "): Found metatile "
                << metaId << " for tile " << tileId << ".";
 
@@ -444,6 +454,8 @@ MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId)
     // now, we can execute lookup again
     auto fmetadata(metadata.find(tileId));
     if (fmetadata != metadata.end()) {
+        LOG(info1) << "(" << properties.id << "): Meta node for "
+            "tile " << tileId << " loaded from disk.";
         return &fmetadata->second;
     }
 
@@ -545,6 +557,45 @@ void TileSet::Detail::flush()
         saveConfig();
     }
     LOG(info3) << "Tile set <" << properties.id << ">: flushed.";
+}
+
+void TileSet::Detail::purgeMetadata()
+{
+    struct Crawler {
+        Crawler(TileSet::Detail &detail) : detail(detail) {}
+
+        /** Processes given tile and returns whether tile was kept in the tree
+         */
+        bool run(const TileId &tileId) {
+            const auto *node(detail.findMetaNode(tileId));
+            if (!node) { return false; }
+
+            LOG(info1) << "(purge): " << tileId;
+
+            int hasChild(0);
+
+            // process children
+            for (auto childId
+                     : children(detail.properties.baseTileSize, tileId))
+            {
+                hasChild += run(childId);
+            }
+
+            if (!hasChild && !node->exists()) {
+                // no children and no content -> kill
+                detail.metadata.erase(tileId);
+                detail.metadataChanged = true;
+                return false;
+            }
+
+            // keep this node
+            return true;
+        }
+
+        TileSet::Detail &detail;
+    };
+
+    Crawler(*this).run(properties.foat);
 }
 
 void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)
@@ -729,6 +780,7 @@ void TileSet::Detail::rollback()
     // destroy tile index
     tileIndex = { savedProperties.baseTileSize };
     metadata = {};
+    loadedMetatiles = {};
     metadataChanged = false;
 
     if (savedProperties.foatSize) {
