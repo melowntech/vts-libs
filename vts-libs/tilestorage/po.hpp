@@ -7,9 +7,9 @@
 
 namespace vadstena { namespace tilestorage {
 
-void validate(boost::any &v
-              , const std::vector<std::string>& values
-              , Locator*, int)
+inline void validate(boost::any &v
+                     , const std::vector<std::string>& values
+                     , Locator*, int)
 {
     namespace po = boost::program_options;
 

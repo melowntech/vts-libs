@@ -462,14 +462,14 @@ TileIndex intersect(const Alignment &alignment
                  }, "intersect");
 }
 
-TileIndex subtract(const Alignment &alignment
-                   , const TileIndex &l, const TileIndex &r
-                   , const Bootstrap &bootstrap)
+TileIndex difference(const Alignment &alignment
+                     , const TileIndex &l, const TileIndex &r
+                     , const Bootstrap &bootstrap)
 {
     return bitop(alignment, l, r, bootstrap
                  , [](TileIndex &out, const TileIndex &in) {
                      out.subtract(in);
-                 }, "subtract");
+                 }, "difference");
 }
 
 void dumpAsImages(const fs::path &path, const TileIndex &ti)

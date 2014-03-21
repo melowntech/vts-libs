@@ -70,6 +70,8 @@ class Storage : boost::noncopyable
 public:
     typedef std::shared_ptr<Storage> pointer;
 
+    StorageProperties getProperties() const;
+
     void addTileSet(const Locator &locator);
 
     void addTileSets(const std::vector<Locator> &locators);

@@ -939,9 +939,54 @@ void TileSet::mergeIn(const list &kept, const list &update)
 
 void TileSet::mergeOut(const list &kept, const list &update)
 {
-    // TODO: implement when mergeIn works
-    (void) update;
-    (void) kept;
+#ifdef VADSTENA_LIBS_DUMP_TILEINDEX
+    dump("debug/update", update);
+#endif // VADSTENA_LIBS_DUMP_TILEINDEX
+
+    const auto &alignment(detail().properties.alignment);
+
+    // calculate storage update (we need to know lod range of kept sets to
+    // ensure all indices cover same lod range)
+    auto tsUpdate(unite(alignment, tileIndices(update), range(kept)));
+    if (empty(tsUpdate.extents())) {
+        LOG(warn3) << "(merge-out) Nothing to merge in. Bailing out.";
+        return;
+    }
+
+    DUMP_TILEINDEX("debug/tsUpdate", tsUpdate);
+    tsUpdate.growDown();
+    DUMP_TILEINDEX("debug/tsUpdate-gd", tsUpdate);
+
+    // calculate storage post state
+    auto tsPost(unite(alignment, tileIndices(update, kept), tsUpdate));
+    DUMP_TILEINDEX("debug/tsPost", tsPost);
+    tsPost.growUp();
+    DUMP_TILEINDEX("debug/tsPost-gu", tsPost);
+
+    // calculate storage pre state
+    auto tsPre(unite(alignment, tileIndices(kept), tsUpdate));
+    DUMP_TILEINDEX("debug/tsPre", tsPre);
+    tsPre.growUp();
+
+    // create remove set
+    auto remove(difference(alignment, tsPre, tsPost));
+    DUMP_TILEINDEX("debug/remove", remove);
+
+    tsPre.growUp().invert();
+    DUMP_TILEINDEX("debug/tsPre-gu-inv", tsPre);
+
+    LOG(info2) << "(merge-out) down(tsUpdate): " << tsUpdate;
+    LOG(info2) << "(merge-out) up(tsPost): " << tsPost;
+    LOG(info2) << "(merge-out) inv(up(tsPre)): " << tsPre;
+
+    auto generate(intersect(alignment, tsPost
+                            , unite(alignment, tsUpdate, tsPre)));
+    DUMP_TILEINDEX("debug/generate", generate);
+
+    LOG(info2) << "(merge-out) generate: " << generate;
+    LOG(info2) << "(merge-out) remove: " << remove;
+
+    // TODO: process
 }
 
 Tile TileSet::Detail::generateTile(const TileId &tileId

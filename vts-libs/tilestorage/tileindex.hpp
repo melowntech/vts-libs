@@ -140,9 +140,9 @@ TileIndex intersect(const Alignment &alignment
                     , const TileIndex &l, const TileIndex &r
                     , const Bootstrap &bootstrap = Bootstrap());
 
-TileIndex subtract(const Alignment &alignment
-                   , const TileIndex &l, const TileIndex &r
-                   , const Bootstrap &bootstrap = Bootstrap());
+TileIndex difference(const Alignment &alignment
+                     , const TileIndex &l, const TileIndex &r
+                     , const Bootstrap &bootstrap = Bootstrap());
 
 // inline stuff
 

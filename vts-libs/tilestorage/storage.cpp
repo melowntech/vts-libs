@@ -228,6 +228,7 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
         LOG(info4) << "Copying tile set <" << ts.first << "> into storage.";
 
         // add to properties
+        // TODO: what tileset type to use?
         Locator dst(DefaultInputType
                     , (fs::path(InputDir) / ts.first).string());
         properties.inputSets[ts.first].locator = dst;
@@ -259,7 +260,7 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
         update.insert(TileSetMap::value_type(id, openTileSet(desc->locator)));
     }
 
-    // open and add all existing tile sets to the merge input
+    // open and add all tile sets that should be kept to the merge input
     for (const auto &input : properties.inputSets) {
         if (update.find(input.first) == update.end()) {
             auto tileSet(openTileSet(rooted(root, input.second.locator)));
@@ -290,6 +291,11 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
 }
 
 // storage
+
+StorageProperties Storage::getProperties() const
+{
+    return detail().properties;
+}
 
 const std::string Storage::getDefaultOutputType()
 {
