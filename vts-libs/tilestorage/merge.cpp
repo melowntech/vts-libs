@@ -19,7 +19,7 @@
 namespace ublas = boost::numeric::ublas;
 
 #ifndef BUILDSYS_CUSTOMER_BUILD
-//#define DEBUG 1 // save debug images
+#define DEBUG 1 // save debug images
 #endif
 
 namespace cv {
@@ -109,6 +109,58 @@ void rasterizeTile(const Tile &tile, const math::Matrix4 &trafo,
 bool validMatPos(int x, int y, const cv::Mat &mat)
 {
     return x >= 0 && x < mat.cols && y >= 0 && y < mat.rows;
+}
+
+//! Dilates indices of a qbuffer to reduce areas with index -1 (fallback).
+//!
+template<typename MatType>
+void dilateIndices(cv::Mat &mat)
+{
+    cv::Mat result(mat.size(), mat.type());
+    for (int y = 0; y < mat.rows; y++)
+    for (int x = 0; x < mat.cols; x++)
+    {
+        MatType maximum(-1);
+
+        for (int i = -3; i <= 3; i++) {
+            if (y+i < 0 || y+i >= mat.rows) continue;
+
+            for (int j = -3; j <= 3; j++) {
+                if (x+j < 0 || x+j >= mat.cols) continue;
+
+                MatType value = mat.at<MatType>(y+i, x+j);
+                maximum = std::max(value, maximum);
+            }
+        }
+        result.at<MatType>(y, x) = maximum;
+    }
+    result.copyTo(mat);
+}
+
+//! Inverse to dilateIndices.
+//!
+template<typename MatType>
+void erodeIndices(cv::Mat &mat)
+{
+    cv::Mat result(mat.size(), mat.type());
+    for (int y = 0; y < mat.rows; y++)
+    for (int x = 0; x < mat.cols; x++)
+    {
+        MatType minimum(mat.at<MatType>(y, x));
+
+        for (int i = -3; i <= 3; i++) {
+            if (y+i < 0 || y+i >= mat.rows) continue;
+
+            for (int j = -3; j <= 3; j++) {
+                if (x+j < 0 || x+j >= mat.cols) continue;
+
+                MatType value = mat.at<MatType>(y+i, x+j);
+                if (value < 0) minimum = -1;
+            }
+        }
+        result.at<MatType>(y, x) = minimum;
+    }
+    result.copyTo(mat);
 }
 
 //! Returns true if at least one element in the area of the qbuffer
@@ -405,6 +457,19 @@ Tile merge(long tileSize, const Tile::list &tiles
     }
 #if DEBUG
     std::ofstream("qbuffer.m") << "QB = " << qbuffer << ";\n";
+#endif
+
+    // close small holes in the meshes so that the fallback doesn't show through
+    // unneccessarily
+    const int closeSteps(2);
+    for (int i = 0; i < closeSteps; i++) {
+        dilateIndices<int>(qbuffer);
+    }
+    for (int i = 0; i < closeSteps; i++) {
+        erodeIndices<int>(qbuffer);
+    }
+#if DEBUG
+    std::ofstream("qbufferclosed.m") << "QB = " << qbuffer << ";\n";
 #endif
 
     // optimization: if a tile covers the entire area, return it and do nothing
