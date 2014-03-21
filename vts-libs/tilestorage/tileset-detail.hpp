@@ -57,6 +57,8 @@ struct TileSet::Detail {
     MetaNode setTile(const TileId &tileId, const Mesh &mesh
                      , const Atlas &atlas, const TileMetadata *metadata);
 
+    MetaNode removeTile(const TileId &tileId);
+
     MetaNode* loadMetatile(const TileId &tileId) const;
 
     void loadMetatileFromFile(const TileId &tileId) const;
@@ -85,10 +87,16 @@ struct TileSet::Detail {
 
     void rollback();
 
-    void mergeInSubtree(const TileIndex &generate, const Index &index
-                        , const TileSet::list &src
-                        , const Tile &parentTile = Tile(), int quadrant = -1
-                        , bool parentGenerated = false);
+    /** Merge subtree starting at index.
+     *  Calls itself recursively.
+     *
+     * NB If remove tile set must have same dimensions as generate tile set (it
+     * non-null).
+     */
+    void mergeSubtree(const TileIndex &generate, const TileIndex *remove
+                      , const Index &index, const TileSet::list &src
+                      , const Tile &parentTile = Tile(), int quadrant = -1
+                      , bool parentGenerated = false);
 
     /** Generates new tile as a merge of tiles from other tilesets.
      */

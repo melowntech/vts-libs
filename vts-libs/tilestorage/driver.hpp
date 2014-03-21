@@ -22,6 +22,8 @@ public:
 
     IStream::pointer input(const TileId tileId, TileFile type) const;
 
+    void remove(const TileId tileId, TileFile type);
+
     bool readOnly() const { return readOnly_; }
 
     void wannaWrite(const std::string &what) const;
@@ -56,6 +58,8 @@ private:
 
     virtual IStream::pointer
     input_impl(const TileId tileId, TileFile type) const = 0;
+
+    virtual void remove_impl(const TileId tileId, TileFile type) = 0;
 
     virtual void begin_impl() = 0;
 
@@ -112,6 +116,11 @@ inline OStream::pointer Driver::output(const TileId tileId, TileFile type)
 inline IStream::pointer Driver::input(const TileId tileId, TileFile type) const
 {
     return input_impl(tileId, type);
+}
+
+inline void Driver::remove(const TileId tileId, TileFile type)
+{
+    return remove_impl(tileId, type);
 }
 
 inline void Driver::begin()

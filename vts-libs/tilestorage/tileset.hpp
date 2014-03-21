@@ -74,6 +74,11 @@ public:
      */
     void setMetadata(const TileId &tileId, const TileMetadata &metadata);
 
+    /** Remove tile. Tile can be non-existent.
+     * \param tileId idetifier of tile write
+     */
+    void removeTile(const TileId &tileId);
+
     /** Query for tile's existence.
      * \param tileId identifier of queried tile
      * \return true if given tile exists, false otherwise

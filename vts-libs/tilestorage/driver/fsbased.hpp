@@ -51,6 +51,9 @@ private:
     virtual IStream::pointer
     input_impl(const TileId tileId, TileFile type) const UTILITY_OVERRIDE;
 
+    virtual void remove_impl(const TileId tileId, TileFile type)
+        UTILITY_OVERRIDE;
+
     virtual void begin_impl() UTILITY_OVERRIDE;
 
     virtual void commit_impl() UTILITY_OVERRIDE;
@@ -67,6 +70,8 @@ private:
     std::pair<fs::path, OnClose>
     writePath(const fs::path &dir, const fs::path &name);
 
+    fs::path removePath(const fs::path &dir, const fs::path &name);
+
     /** Backing root.
      */
     const fs::path root_;
@@ -81,6 +86,8 @@ private:
 
         fs::path create(const fs::path &dir);
 
+        fs::path path(const fs::path &dir);
+
     private:
         typedef std::set<fs::path> DirSet;
 
@@ -93,7 +100,18 @@ private:
     struct Tx {
         Tx(const fs::path &root) : dirCache(root) {}
 
-        typedef std::map<fs::path, fs::path> Files;
+        struct Record {
+            fs::path dir;
+            bool removed;
+
+            Record(const fs::path &dir, bool removed = false)
+                : dir(dir), removed(removed)
+            {}
+
+            operator const fs::path&() const { return dir; }
+        };
+
+        typedef std::map<fs::path, Record> Files;
 
         Files files;
         DirCache dirCache;

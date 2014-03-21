@@ -257,7 +257,8 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
                 << id << ">.";
         }
 
-        update.insert(TileSetMap::value_type(id, openTileSet(desc->locator)));
+        update.insert(TileSetMap::value_type
+                      (id, openTileSet(rooted(root, desc->locator))));
     }
 
     // open and add all tile sets that should be kept to the merge input

@@ -211,6 +211,16 @@ IStream::pointer FsBasedDriver::input_impl(const TileId tileId, TileFile type)
     return std::make_shared<FileIStream>(path);
 }
 
+void FsBasedDriver::remove_impl(const TileId tileId, TileFile type)
+{
+    const auto name(filePath(tileId, type));
+    const auto dir(fileDir(tileId, type, name));
+    const auto path(removePath(dir, name));
+    LOG(info1) << "Removing " << path << ".";
+
+    fs::remove_all(path);
+}
+
 void FsBasedDriver::begin_impl()
 {
     if (tx_) {
@@ -237,13 +247,18 @@ void FsBasedDriver::commit_impl()
     // move all files updated in transaction to from tmp to regular directory
     for (const auto &file : tx_->files) {
         const auto &name = file.first;
-        const auto &dir = file.second;
+        const auto &record = file.second;
+        const auto path(record.dir / name);
 
-        // create directory for file
-        dirCache_.create(dir);
-
-        const auto path(dir / name);
-        rename(tmp_ / path, root_ / path);
+        if (record.removed) {
+            // remove file
+            remove_all(root_ / path);
+        } else {
+            // create directory for file
+            dirCache_.create(record.dir);
+            // move file
+            rename(tmp_ / path, root_ / path);
+        }
     }
 
     // remove whole tmp directory
@@ -316,9 +331,29 @@ FsBasedDriver::writePath(const fs::path &dir, const fs::path &name)
                     << "Moving file " << tmpFile << " to " << outFile << ".";
                 rename(tmpFile, outFile);
 
-                // // remember file in transaction
+                // remember file in transaction
                 tx_->files.insert(Tx::Files::value_type(name, dir));
             } };
+}
+
+fs::path
+FsBasedDriver::removePath(const fs::path &dir, const fs::path &name)
+{
+    DirCache *dirCache(&dirCache_);
+    if (tx_) {
+        // temporary file
+        dirCache = &tx_->dirCache;
+    }
+
+    // get dir and return full path
+    auto outFile(dirCache->path(dir) / name);
+
+    // remember removal in transaction
+    if (tx_) {
+        tx_->files.insert(Tx::Files::value_type(name, { dir, true }));
+    }
+
+    return outFile;
 }
 
 fs::path FsBasedDriver::DirCache::create(const fs::path &dir)
@@ -332,6 +367,11 @@ fs::path FsBasedDriver::DirCache::create(const fs::path &dir)
         dirs_.insert(dir);
     }
     return rdir;
+}
+
+fs::path FsBasedDriver::DirCache::path(const fs::path &dir)
+{
+    return root_ / dir;
 }
 
 const std::string FlatDriver::help
