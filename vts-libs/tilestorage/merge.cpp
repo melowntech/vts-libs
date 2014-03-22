@@ -19,7 +19,7 @@
 namespace ublas = boost::numeric::ublas;
 
 #ifndef BUILDSYS_CUSTOMER_BUILD
-#define DEBUG 1 // save debug images
+//#define DEBUG 1 // save debug images
 #endif
 
 namespace cv {

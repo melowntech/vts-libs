@@ -106,9 +106,11 @@ void dumpAsImages(const boost::filesystem::path &path, const TileIndex &ti);
 class Bootstrap {
 public:
     Bootstrap() : lodRange_(0, -1), extents_() {}
-    Bootstrap(const LodRange &lodRange) : lodRange_(lodRange), extents_() {}
+    Bootstrap(const LodRange &lodRange)
+        : lodRange_(lodRange), extents_(), baseTileSize_() {}
     Bootstrap(const TileIndex &ti)
         : lodRange_(ti.lodRange()), extents_(ti.extents())
+        , baseTileSize_(ti.baseTileSize())
     {}
 
     const LodRange& lodRange() const { return lodRange_; }
@@ -123,9 +125,16 @@ public:
         return *this;
     }
 
+    long baseTileSize() const { return baseTileSize_; }
+    Bootstrap& extents(long baseTileSize) {
+        baseTileSize_ = baseTileSize;
+        return *this;
+    }
+
 private:
     LodRange lodRange_;
     Extents extents_;
+    long baseTileSize_;
 };
 
 TileIndex unite(const Alignment &alignment

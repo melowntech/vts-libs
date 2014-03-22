@@ -383,11 +383,16 @@ TileIndex unite(const Alignment &alignment
 
     // empty tile set -> nothing
     if (tis.empty()) {
-        return {};
+        // just use bootstrap
+        // TODO: check bootstrap validity
+        return TileIndex(alignment, bootstrap.baseTileSize()
+                         , bootstrap.extents(), bootstrap.lodRange());
     }
 
     // calculate basic parameters
-    auto baseTileSize(tis.front()->baseTileSize());
+    auto baseTileSize(bootstrap.baseTileSize()
+                      ? bootstrap.baseTileSize()
+                      : tis.front()->baseTileSize());
     auto lodRange(bootstrap.lodRange());
     auto extents(bootstrap.extents());
     for (const auto *ti : tis) {

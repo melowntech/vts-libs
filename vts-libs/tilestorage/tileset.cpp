@@ -955,6 +955,8 @@ inline void dump(const boost::filesystem::path &dir, const TileSet::list &set)
 
 void TileSet::mergeIn(const list &kept, const list &update)
 {
+    LOG(info3) << "(merge-in) Calculating generate set.";
+
 #ifdef VADSTENA_LIBS_DUMP_TILEINDEX
     dump("debug/update", update);
 #endif // VADSTENA_LIBS_DUMP_TILEINDEX
@@ -968,6 +970,8 @@ void TileSet::mergeIn(const list &kept, const list &update)
         LOG(warn3) << "(merge-in) Nothing to merge in. Bailing out.";
         return;
     }
+
+    LOG(info3) << "(merge-in) Calculating generate set.";
 
     DUMP_TILEINDEX("debug/tsUpdate", tsUpdate);
     tsUpdate.growDown();
@@ -1003,6 +1007,8 @@ void TileSet::mergeIn(const list &kept, const list &update)
     list all(kept.begin(), kept.end());
     all.insert(all.end(), update.begin(), update.end());
 
+    LOG(info3) << "(merge-in) Generate set calculated.";
+
     auto lod(generate.minLod());
     auto s(generate.rasterSize(lod));
     for (long j(0); j < s.height; ++j) {
@@ -1013,12 +1019,16 @@ void TileSet::mergeIn(const list &kept, const list &update)
         }
     }
 
+    LOG(info3) << "(merge-in) Tile sets merged in.";
+
     // center default position if not inside tileset
     detail().fixDefaultPosition(all);
 }
 
 void TileSet::mergeOut(const list &kept, const list &update)
 {
+    LOG(info3) << "(merge-out) Calculating generate and remove sets.";
+
 #ifdef VADSTENA_LIBS_DUMP_TILEINDEX
     dump("debug/update", update);
 #endif // VADSTENA_LIBS_DUMP_TILEINDEX
@@ -1071,6 +1081,8 @@ void TileSet::mergeOut(const list &kept, const list &update)
     list all(kept.begin(), kept.end());
     all.insert(all.end(), update.begin(), update.end());
 
+    LOG(info3) << "(merge-in) Generate and remove sets calculated.";
+
     auto lod(generate.minLod());
     auto s(generate.rasterSize(lod));
     for (long j(0); j < s.height; ++j) {
@@ -1080,6 +1092,8 @@ void TileSet::mergeOut(const list &kept, const list &update)
             detail().mergeSubtree(generate, &remove, {lod, i, j}, all);
         }
     }
+
+    LOG(info3) << "(merge-in) Tile sets merged out.";
 
     // center default position if not inside tileset
     detail().fixDefaultPosition(all);
