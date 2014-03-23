@@ -23,10 +23,6 @@ namespace vadstena { namespace tilestorage {
 
 namespace {
 
-const char METATILE_IO_MAGIC[8] = {  'M', 'E', 'T', 'A', 'T', 'I', 'L', 'E' };
-
-const unsigned METATILE_IO_VERSION = 1;
-
 Atlas loadAtlas(const IStream::pointer &is)
 {
     using utility::binaryio::read;
