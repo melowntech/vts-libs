@@ -315,25 +315,31 @@ FsBasedDriver::writePath(const fs::path &dir, const fs::path &name)
     }
 
     auto tmpFile(utility::addExtension(outFile, ".tmp"));
-    return { tmpFile
-            , [this, outFile, tmpFile, name, dir] (bool success)
-            {
-                if (!success) {
-                    // failed -> remove
-                    LOG(warn2)
-                        << "Removing failed file " << tmpFile << ".";
-                    fs::remove(tmpFile);
-                    return;
-                }
+    return {
+        tmpFile
+        , [this, outFile, tmpFile, name, dir] (bool success)
+        {
+            if (!success) {
+                // failed -> remove
+                LOG(warn2)
+                    << "Removing failed file " << tmpFile << ".";
+                fs::remove(tmpFile);
+                return;
+            }
 
-                // OK -> move file to destination
-                LOG(info1)
-                    << "Moving file " << tmpFile << " to " << outFile << ".";
-                rename(tmpFile, outFile);
+            // OK -> move file to destination
+            LOG(info1)
+                << "Moving file " << tmpFile << " to " << outFile << ".";
+            rename(tmpFile, outFile);
 
-                // remember file in transaction
-                tx_->files.insert(Tx::Files::value_type(name, dir));
-            } };
+            // remember file in transaction
+            auto res(tx_->files.insert(Tx::Files::value_type(name, dir)));
+            if (res.first->second.removed) {
+                // mark as existing
+                res.first->second.removed = false;
+            }
+        }
+    };
 }
 
 fs::path
@@ -350,7 +356,12 @@ FsBasedDriver::removePath(const fs::path &dir, const fs::path &name)
 
     // remember removal in transaction
     if (tx_) {
-        tx_->files.insert(Tx::Files::value_type(name, { dir, true }));
+        auto res
+            (tx_->files.insert(Tx::Files::value_type(name, { dir, true })));
+        if (!res.first->second.removed) {
+            // mark as removed
+            res.first->second.removed = true;
+        }
     }
 
     return outFile;
