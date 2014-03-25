@@ -104,6 +104,37 @@ void rasterizeTile(const Tile &tile, const math::Matrix4 &trafo,
     }
 }
 
+//! "Draws" all faces of a tile into a zbuffer. Only pixels allowed by the
+//! qbuffer are modified.
+//!
+void rasterizeHeights(const Tile &tile, const math::Matrix4 &trafo,
+                      int index, const cv::Mat &qbuffer, cv::Mat &zbuffer)
+{
+    std::vector<imgproc::Scanline> scanlines;
+
+    for (const auto face : tile.mesh.facets)
+    {
+        cv::Point3f tri[3];
+        for (int i = 0; i < 3; i++) {
+            auto pt(transform(trafo, tile.mesh.vertices[face.v[i]]));
+            tri[i] = {float(pt(0)), float(pt(1)), float(pt(2))};
+        }
+
+        scanlines.clear();
+        imgproc::scanConvertTriangle(tri, 0, qbuffer.rows, scanlines);
+
+        for (const auto& sl : scanlines) {
+            imgproc::processScanline(sl, 0, qbuffer.cols,
+                [&](int x, int y, float z) {
+                   if (qbuffer.at<int>(y, x) == index) {
+                       float &height(zbuffer.at<float>(y, x));
+                       if (z > height) height = z;
+                   };
+                } );
+        }
+    }
+}
+
 //! Returns true if x and y are valid column and row indices, respectively.
 //!
 bool validMatPos(int x, int y, const cv::Mat &mat)
@@ -302,7 +333,7 @@ bool haveIndices(const cv::Mat &qbuffer, int index)
 
 //! Calculate a bounding rectangle of a list of points in the UV space.
 //!
-UVRect makeRect(const std::vector<cv::Point> points)
+UVRect makeRect(const std::vector<cv::Point> &points)
 {
     UVRect rect;
     for (const auto &pt : points) {
@@ -478,6 +509,13 @@ Tile merge(long tileSize, const Tile::list &tiles
         return tiles[index];
     }
 
+    // create a z-buffer
+    /*const float InvalidHeight(-123);
+    cv::Mat zbuffer(QBSize, QBSize, CV_32F, cv::Scalar(InvalidHeight));
+    for (unsigned i = 0; i < tiles.size(); i++) {
+        rasterizeHeights(tiles[i], trafo, i, qbuffer, zbuffer);
+    }*/
+
     // collect faces that are allowed by the qbuffer
     ClipTriangle::list faces;
     for (unsigned i = 0; i < tiles.size(); i++) {
@@ -640,6 +678,19 @@ Tile merge(long tileSize, const Tile::list &tiles
             }
         }
     }
+
+    // make sure no vertex is higher than the zbuffer
+    /*for (auto &v : mesh.vertices) {
+        auto tv(transform(trafo, v));
+        int x(round(tv(0))), y(round(tv(1)));
+
+        if (validMatPos(x, y, zbuffer)) {
+            const float &height(zbuffer.at<float>(y, x));
+            if (height != InvalidHeight) {
+                if (v(2) > height) v(2) = height;
+            }
+        }
+    }*/
 
     // one more thing: merge the 5x5 heightfields
     if (tiles.size()) {
