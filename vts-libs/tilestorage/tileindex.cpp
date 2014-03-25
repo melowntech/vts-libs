@@ -123,7 +123,6 @@ void TileIndex::fill(Lod lod, const TileIndex &other)
 
     if (!(diff.width || diff.height) && (nsize == size)) {
         // same-sized masks at same position -> just merge
-        LOG(info1) << "fill: Merging masks";
         newMask->merge(*oldMask);
         return;
     }
@@ -164,7 +163,6 @@ void TileIndex::intersect(Lod lod, const TileIndex &other)
 
     if (!(diff.width || diff.height) && (nsize == size)) {
         // same-sized masks at same position -> just intersect
-        LOG(info1) << "fill: Intersecting masks";
         newMask->intersect(*oldMask);
         return;
     }
@@ -207,7 +205,6 @@ void TileIndex::subtract(Lod lod, const TileIndex &other)
 
     if (!(diff.width || diff.height) && (nsize == size)) {
         // same-sized masks at same position -> just subtract
-        LOG(info1) << "fill: Subtracting masks";
         newMask->subtract(*oldMask);
         return;
     }
