@@ -118,7 +118,15 @@ void TileIndex::fill(Lod lod, const TileIndex &other)
     math::Size2 diff((other.origin_(0) - origin_(0)) / ts
                      , (other.origin_(1) - origin_(1)) / ts);
 
+    auto nsize(newMask->dims());
     auto size(oldMask->dims());
+
+    if (!(diff.width || diff.height) && (nsize == size)) {
+        // same-sized masks at same position -> just merge
+        LOG(info1) << "fill: Merging masks";
+        newMask->merge(*oldMask);
+        return;
+    }
 
     for (int j(0); j < size.height; ++j) {
         for (int i(0); i < size.width; ++i) {
@@ -151,7 +159,16 @@ void TileIndex::intersect(Lod lod, const TileIndex &other)
     math::Size2 diff((origin_(0) - other.origin_(0)) / ts
                      , (origin_(1) - other.origin_(1)) / ts);
 
+    auto nsize(newMask->dims());
     auto size(oldMask->dims());
+
+    if (!(diff.width || diff.height) && (nsize == size)) {
+        // same-sized masks at same position -> just intersect
+        LOG(info1) << "fill: Intersecting masks";
+        newMask->intersect(*oldMask);
+        return;
+    }
+
     for (int j(0); j < size.height; ++j) {
         for (int i(0); i < size.width; ++i) {
             if (!oldMask->get(i, j) && newMask->get(i, j)) {
@@ -185,7 +202,16 @@ void TileIndex::subtract(Lod lod, const TileIndex &other)
     math::Size2 diff((origin_(0) - other.origin_(0)) / ts
                      , (origin_(1) - other.origin_(1)) / ts);
 
+    auto nsize(newMask->dims());
     auto size(oldMask->dims());
+
+    if (!(diff.width || diff.height) && (nsize == size)) {
+        // same-sized masks at same position -> just subtract
+        LOG(info1) << "fill: Subtracting masks";
+        newMask->subtract(*oldMask);
+        return;
+    }
+
     for (int j(0); j < size.height; ++j) {
         for (int i(0); i < size.width; ++i) {
             if (oldMask->get(i, j) && newMask->get(i, j)) {
@@ -286,34 +312,20 @@ TileIndex& TileIndex::growUp()
     }
 
     // traverse masks bottom to top
+    auto lod(lodRange().max);
     auto cmasks(masks_.rbegin());
+
     for (auto imasks(cmasks + 1), emasks(masks_.rend());
-         imasks != emasks; ++imasks, ++cmasks)
+         imasks != emasks; ++imasks, ++cmasks, --lod)
     {
+        LOG(info1) << "gu: " << lod << " -> " << (lod - 1);
+
         auto &child(*cmasks);
         auto &mask(*imasks);
 
-        // rasterize current mask
-        auto size(mask.dims());
-        for (int j(0), jj(0); j < size.height; ++j, jj += 2) {
-            for (int i(0), ii(0); i < size.width; ++i, ii += 2) {
-                // if there is any child ensure parent exists and as well as all
-                // four children
-
-                if (child.get(ii, jj) || child.get(ii + 1, jj)
-                    || child.get(ii, jj + 1) || child.get(ii + 1, jj + 1))
-                {
-                    // at least one child exists, mark all children
-                    child.set(ii, jj);
-                    child.set(ii + 1, jj);
-                    child.set(ii, jj + 1);
-                    child.set(ii + 1, jj + 1);
-
-                    // mark me
-                    mask.set(i, j);
-                }
-            }
-        }
+        // coarsen
+        child.coarsen(2);
+        mask.merge(child, false);
     }
 
     return *this;
@@ -327,26 +339,17 @@ TileIndex& TileIndex::growDown()
     }
 
     // traverse masks top to bottom
+    auto lod(lodRange().min);
     auto pmasks(masks_.begin());
+
     for (auto imasks(pmasks + 1), emasks(masks_.end());
-         imasks != emasks; ++imasks, ++pmasks)
+         imasks != emasks; ++imasks, ++pmasks, ++lod)
     {
+        LOG(info1) << "gd: " << lod << " -> " << (lod + 1);
         const auto &parent(*pmasks);
         auto &mask(*imasks);
-
-        // rasterize parent mask
-        auto size(parent.dims());
-        for (int j(0), jj(0); j < size.height; ++j, jj += 2) {
-            for (int i(0), ii(0); i < size.width; ++i, ii += 2) {
-                // if previous tile exists ensure all four children exist
-                if (parent.get(i, j)) {
-                    mask.set(ii, jj);
-                    mask.set(ii + 1, jj);
-                    mask.set(ii, jj + 1);
-                    mask.set(ii + 1, jj + 1);
-                }
-            }
-        }
+        // merge in parent mask, ignore its size
+        mask.merge(parent, false);
     }
 
     return *this;
@@ -477,17 +480,38 @@ TileIndex difference(const Alignment &alignment
                  }, "difference");
 }
 
-void dumpAsImages(const fs::path &path, const TileIndex &ti)
+namespace {
+
+double initialPixelSize(const RasterMask &mask
+                                       , const long maxArea)
+{
+    const auto dims(mask.dims());
+    long a(long(dims.width) * long(dims.height));
+    if (a <= maxArea) {
+        // OK
+        return 1.;
+    }
+
+    auto scale(std::sqrt(double(maxArea) / double(a)));
+    return scale;
+}
+
+}
+
+void dumpAsImages(const fs::path &path, const TileIndex &ti
+                  , const long maxArea)
 {
     LOG(info2) << "Dumping tileIndex as image stack at " << path << ".";
     create_directories(path);
 
     auto lod(ti.lodRange().max);
     const auto &masks(ti.masks());
-    int pixelSize(1);
+
+    auto pixelSize(initialPixelSize(masks.back(), maxArea));
     for (auto imasks(masks.rbegin()), emasks(masks.rend());
          imasks != emasks; ++imasks)
     {
+        LOG(info1) << "Dumping lod " << lod;
         // rasterize and dump
         auto file(path / str(boost::format("%02d.png") % lod));
         cv::Mat mat;

@@ -101,7 +101,8 @@ private:
 
 /** Dump tile indes as set of images.
  */
-void dumpAsImages(const boost::filesystem::path &path, const TileIndex &ti);
+void dumpAsImages(const boost::filesystem::path &path, const TileIndex &ti
+                  , const long maxArea = 1 << 26);
 
 class Bootstrap {
 public:

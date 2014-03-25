@@ -218,8 +218,13 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
     // begin transaction
     output->begin();
 
-    // merge in tile sets to the output tile set
-    output->mergeIn(asList(kept), asList(update));
+    if (kept.empty() && (update.size() == 1)) {
+        // TODO: no merge at all, just clone in
+        output->mergeIn(asList(kept), asList(update));
+    } else {
+        // merge in tile sets to the output tile set
+        output->mergeIn(asList(kept), asList(update));
+    }
 
     // should be fine now
 

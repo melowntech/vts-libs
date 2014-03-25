@@ -944,7 +944,10 @@ inline void dump(const boost::filesystem::path &dir, const TileSet::list &set)
 } // namespace
 
 #ifdef VADSTENA_LIBS_DUMP_TILEINDEX
-#    define DUMP_TILEINDEX(name, index) dumpAsImages(name, index)
+#    define DUMP_TILEINDEX(name, index) do {        \
+            dumpAsImages(name, index);              \
+            index.save(fs::path(name) / "raw.bin"); \
+        } while (false)
 #else
 #    define DUMP_TILEINDEX(name, index) do {} while (false)
 #endif // VADSTENA_LIBS_DUMP_TILEINDEX
