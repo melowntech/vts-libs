@@ -315,7 +315,7 @@ TileIndex& TileIndex::growUp()
     for (auto imasks(cmasks + 1), emasks(masks_.rend());
          imasks != emasks; ++imasks, ++cmasks, --lod)
     {
-        LOG(info1) << "gu: " << lod << " -> " << (lod - 1);
+        LOG(debug) << "gu: " << lod << " -> " << (lod - 1);
 
         auto &child(*cmasks);
         auto &mask(*imasks);
@@ -342,7 +342,7 @@ TileIndex& TileIndex::growDown()
     for (auto imasks(pmasks + 1), emasks(masks_.end());
          imasks != emasks; ++imasks, ++pmasks, ++lod)
     {
-        LOG(info1) << "gd: " << lod << " -> " << (lod + 1);
+        LOG(debug) << "gd: " << lod << " -> " << (lod + 1);
         const auto &parent(*pmasks);
         auto &mask(*imasks);
         // merge in parent mask, ignore its size
@@ -379,7 +379,7 @@ TileIndex unite(const Alignment &alignment
                 , const std::vector<const TileIndex*> &tis
                 , const Bootstrap &bootstrap)
 {
-    LOG(info2) << "unite: " << tis.size();
+    LOG(info2) << "unite: " << tis.size() << " sets";
 
     // empty tile set -> nothing
     if (tis.empty()) {
@@ -400,8 +400,8 @@ TileIndex unite(const Alignment &alignment
         lodRange = unite(lodRange, ti->lodRange());
     }
 
-    LOG(info2) << "lodRange: " << lodRange;
-    LOG(info2) << "extents: " << extents;
+    LOG(info1) << "unite: lodRange: " << lodRange
+               << ", extents: " << extents;
 
     // result tile index
     TileIndex out(alignment, baseTileSize, extents, lodRange);
