@@ -142,6 +142,17 @@ bool validMatPos(int x, int y, const cv::Mat &mat)
     return x >= 0 && x < mat.cols && y >= 0 && y < mat.rows;
 }
 
+//! Adjusts x and y so that they are valid column and row indices, respectively.
+//!
+void clampMatPos(int &x, int &y, const cv::Mat &mat)
+{
+    if (x < 0) x = 0;
+    else if (x >= mat.cols) x = mat.cols-1;
+
+    if (y < 0) y = 0;
+    else if (y >= mat.rows) y = mat.rows-1;
+}
+
 //! Dilates indices of a qbuffer to reduce areas with index -1 (fallback).
 //!
 template<typename MatType>
@@ -198,7 +209,8 @@ void erodeIndices(cv::Mat &mat)
 //! corresponding to the given face belongs to tile number 'index'.
 //!
 bool faceCovered(const Mesh &mesh, const Mesh::Facet &face,
-                 const math::Matrix4 &trafo, int index, const cv::Mat &qbuffer)
+                 const math::Matrix4 &trafo, int index,
+                 const cv::Mat/*<int>*/ &qbuffer)
 {
     cv::Point3f tri[3];
     for (int i = 0; i < 3; i++) {
@@ -217,10 +229,11 @@ bool faceCovered(const Mesh &mesh, const Mesh::Facet &face,
     }
 
     if (!covered) {
-        // do one more check in case the triangle is smaller than one pixel
-        int x(round(tri[0].x)), y(round(tri[0].y));
-        if (validMatPos(x, y, qbuffer)) {
-            covered = (qbuffer.at<int>(y, x) == index);
+        // do one more check in case the triangle is thinner than one pixel
+        for (int i = 0; i < 3; i++) {
+            int x(round(tri[i].x)), y(round(tri[i].y));
+            clampMatPos(x, y, qbuffer);
+            if (qbuffer.at<int>(y, x) == index) covered = true;
         }
     }
 
@@ -370,7 +383,7 @@ void copyRect(const UVRect &rect, const cv::Mat &src, cv::Mat &dst)
     for (int x = 0; x < rect.width(); x++)
     {
         int sx(rect.x() + x), sy(rect.y() + y);
-        if (!validMatPos(sx, sy, src)) continue;
+        clampMatPos(sx, sy, src);
 
         int dx(rect.packX + x), dy(rect.packY + y);
         if (!validMatPos(dx, dy, dst)) continue;
