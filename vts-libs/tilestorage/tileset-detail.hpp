@@ -3,6 +3,7 @@
 #include <set>
 
 #include "dbglog/dbglog.hpp"
+#include "utility/progress.hpp"
 #include "jsoncpp/json.hpp"
 
 #include "../tilestorage.hpp"
@@ -97,10 +98,11 @@ struct TileSet::Detail {
     /** Merge subtree starting at index.
      *  Calls itself recursively.
      *
-     * NB If remove tile set must have same dimensions as generate tile set (it
+     * NB Remove tile set must have same dimensions as generate tile set (if
      * non-null).
      */
-    void mergeSubtree(const TileIndex &generate, const TileIndex *remove
+    void mergeSubtree(utility::Progress &progress
+                      , const TileIndex &generate, const TileIndex *remove
                       , const Index &index, const TileSet::list &src
                       , const Tile &parentTile = Tile(), int quadrant = -1
                       , bool parentGenerated = false);

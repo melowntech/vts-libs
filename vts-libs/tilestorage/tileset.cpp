@@ -967,6 +967,7 @@ inline void dump(const boost::filesystem::path &dir, const TileSet::list &set)
 
         auto path(dir / str(boost::format("%03d") % i));
         dumpAsImages(path, detail.tileIndex);
+        detail.tileIndex.save(path / "raw.bin");
         ++i;
     }
 }
@@ -995,6 +996,8 @@ void TileSet::mergeIn(const list &kept, const list &update)
 {
     // TODO: check validity of kept and update
     detail().checkValidity();
+
+    // TODO: check tile compatibility
 
     LOG(info3) << "(merge-in) Calculating generate set.";
 
@@ -1046,7 +1049,11 @@ void TileSet::mergeIn(const list &kept, const list &update)
     list all(kept.begin(), kept.end());
     all.insert(all.end(), update.begin(), update.end());
 
-    LOG(info3) << "(merge-in) Generate set calculated.";
+    utility::Progress progress(generate.count());
+
+    LOG(info3)
+        << "(merge-in) Generate set calculated. "
+        << "About to process " << progress.total() << " tiles.";
 
     auto lod(generate.minLod());
     auto s(generate.rasterSize(lod));
@@ -1054,7 +1061,8 @@ void TileSet::mergeIn(const list &kept, const list &update)
         for (long i(0); i < s.width; ++i) {
             LOG(info2) << "(merge-in) Processing subtree "
                        << lod << "/(" << i << ", " << j << ").";
-            detail().mergeSubtree(generate, nullptr, {lod, i, j}, all);
+            detail().mergeSubtree(progress, generate, nullptr
+                                  , {lod, i, j}, all);
         }
     }
 
@@ -1068,6 +1076,8 @@ void TileSet::mergeOut(const list &kept, const list &update)
 {
     // TODO: check validity of kept and update
     detail().checkValidity();
+
+    // TODO: check tile compatibility
 
     LOG(info3) << "(merge-out) Calculating generate and remove sets.";
 
@@ -1123,7 +1133,10 @@ void TileSet::mergeOut(const list &kept, const list &update)
     list all(kept.begin(), kept.end());
     all.insert(all.end(), update.begin(), update.end());
 
-    LOG(info3) << "(merge-in) Generate and remove sets calculated.";
+    utility::Progress progress(generate.count() + remove.count());
+
+    LOG(info3) << "(merge-out) Generate and remove sets calculated. "
+               << "About to process " << progress.total() << " tiles.";
 
     auto lod(generate.minLod());
     auto s(generate.rasterSize(lod));
@@ -1131,7 +1144,8 @@ void TileSet::mergeOut(const list &kept, const list &update)
         for (long i(0); i < s.width; ++i) {
             LOG(info2) << "(merge-out) Processing subtree "
                        << lod << "/(" << i << ", " << j << ").";
-            detail().mergeSubtree(generate, &remove, {lod, i, j}, all);
+            detail().mergeSubtree(progress, generate, &remove
+                                  , {lod, i, j}, all);
         }
     }
 
@@ -1180,7 +1194,8 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
     return tile;
 }
 
-void TileSet::Detail::mergeSubtree(const TileIndex &generate
+void TileSet::Detail::mergeSubtree(utility::Progress &progress
+                                   , const TileIndex &generate
                                    , const TileIndex *remove
                                    , const Index &index
                                    , const TileSet::list &src
@@ -1216,11 +1231,13 @@ void TileSet::Detail::mergeSubtree(const TileIndex &generate
             // regular generation
             tile = generateTile(tileId, src, parentTile, quadrant);
         }
+        (++progress).report(utility::Progress::ratio_t(5, 1000), "(merge) ");
     } else if (r) {
         auto tileId(generate.tileId(index));
         LOG(info2) << "(merge-out) Processing tile "
                    << index << ", " << tileId << ".";
         removeTile(tileId);
+        (++progress).report(utility::Progress::ratio_t(5, 1000), "(merge) ");
     } else if (parentGenerated && !remove) {
         // parent was generated but this tile will not be generated and no
         // tiles are about to be removed => reached bottom of this subreee
@@ -1239,7 +1256,8 @@ void TileSet::Detail::mergeSubtree(const TileIndex &generate
     // in merge operation
     quadrant = valid(tile) ? 0 : MERGE_NO_FALLBACK_TILE;
     for (const auto &child : children(index)) {
-        mergeSubtree(generate, remove, child, src, tile, quadrant, g);
+        mergeSubtree(progress, generate, remove, child
+                     , src, tile, quadrant, g);
         if (quadrant != MERGE_NO_FALLBACK_TILE) {
             ++quadrant;
         }

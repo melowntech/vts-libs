@@ -529,4 +529,13 @@ void TileIndex::clear(Lod lod)
     *m = RasterMask(m->dims(), RasterMask::InitMode::EMPTY);
 }
 
+std::size_t TileIndex::count() const
+{
+    std::size_t total(0);
+    for (const auto &mask : masks_) {
+        total += mask.count();
+    }
+    return total;
+}
+
 } } // namespace vadstena::tilestorage

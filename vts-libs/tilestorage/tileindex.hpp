@@ -88,6 +88,10 @@ public:
      */
     void clear(Lod lod);
 
+    /** Returns count of tiles in the index.
+     */
+    std::size_t count() const;
+
 private:
     const RasterMask* mask(Lod lod) const;
 
