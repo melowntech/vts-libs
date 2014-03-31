@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 #include <boost/format.hpp>
 #include <boost/utility/in_place_factory.hpp>
 
@@ -5,6 +7,7 @@
 
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
+#include "utility/progress.hpp"
 
 #include "../binmesh.hpp"
 #include "../tilestorage.hpp"
@@ -17,11 +20,11 @@
 #include "./metatile.hpp"
 #include "./merge.hpp"
 
-// #define VADSTENA_LIBS_DUMP_TILEINDEX 1
-
 namespace vadstena { namespace tilestorage {
 
 namespace {
+
+const char *TILEINDEX_DUMP_ROOT("TILEINDEX_DUMP_ROOT");
 
 Atlas loadAtlas(const IStream::pointer &is)
 {
@@ -822,27 +825,33 @@ TileSet::~TileSet()
 
 void TileSet::flush()
 {
+    detail().checkValidity();
     detail().flush();
 }
 
 Tile TileSet::getTile(const TileId &tileId) const
 {
+    detail().checkValidity();
     return detail().getTile(tileId);
 }
 
 void TileSet::setTile(const TileId &tileId, const Mesh &mesh
                       , const Atlas &atlas, const TileMetadata *metadata)
 {
+    detail().checkValidity();
     detail().setTile(tileId, mesh, atlas, metadata);
 }
 
 void TileSet::removeTile(const TileId &tileId)
 {
+    detail().checkValidity();
     detail().removeTile(tileId);
 }
 
 void TileSet::setMetadata(const TileId &tileId, const TileMetadata &metadata)
 {
+    detail().checkValidity();
+
     detail().driver->wannaWrite("set tile metadata");
 
     detail().check(tileId);
@@ -852,6 +861,8 @@ void TileSet::setMetadata(const TileId &tileId, const TileMetadata &metadata)
 
 bool TileSet::tileExists(const TileId &tileId) const
 {
+    detail().checkValidity();
+
     // have look to in-memory data
     const auto &metadata(detail().metadata);
     auto fmetadata(metadata.find(tileId));
@@ -871,6 +882,7 @@ Properties TileSet::getProperties() const
 Properties TileSet::setProperties(const SettableProperties &properties
                                   , SettableProperties::MaskType mask)
 {
+    detail().checkValidity();
     detail().driver->wannaWrite("set properties");
 
     // merge in new properties
@@ -882,16 +894,19 @@ Properties TileSet::setProperties(const SettableProperties &properties
 
 void TileSet::begin()
 {
+    detail().checkValidity();
     detail().begin();
 }
 
 void TileSet::commit()
 {
+    detail().checkValidity();
     detail().commit();
 }
 
 void TileSet::rollback()
 {
+    detail().checkValidity();
     detail().rollback();
 }
 
@@ -956,24 +971,36 @@ inline void dump(const boost::filesystem::path &dir, const TileSet::list &set)
     }
 }
 
-} // namespace
+inline void dump(const char *root, const boost::filesystem::path &dir
+                 , const TileSet::list &set)
+{
+    if (!root) { return; }
+    dump(root / dir, set);
+}
 
-#ifdef VADSTENA_LIBS_DUMP_TILEINDEX
-#    define DUMP_TILEINDEX(name, index) do {        \
-            dumpAsImages(name, index);              \
-            index.save(fs::path(name) / "raw.bin"); \
-        } while (false)
-#else
-#    define DUMP_TILEINDEX(name, index) do {} while (false)
-#endif // VADSTENA_LIBS_DUMP_TILEINDEX
+inline void dumpTileIndex(const char *root, const fs::path &name
+                          , const TileIndex &index)
+{
+    if (!root) { return; }
+
+    const auto path(root / name);
+
+    dumpAsImages(path, index);
+    index.save(path / "raw.bin");
+}
+
+} // namespace
 
 void TileSet::mergeIn(const list &kept, const list &update)
 {
+    // TODO: check validity of kept and update
+    detail().checkValidity();
+
     LOG(info3) << "(merge-in) Calculating generate set.";
 
-#ifdef VADSTENA_LIBS_DUMP_TILEINDEX
-    dump("debug/update", update);
-#endif // VADSTENA_LIBS_DUMP_TILEINDEX
+    const auto *dumpRoot(std::getenv(TILEINDEX_DUMP_ROOT));
+
+    dump(dumpRoot, "update", update);
 
     const auto &alignment(detail().properties.alignment);
 
@@ -985,21 +1012,21 @@ void TileSet::mergeIn(const list &kept, const list &update)
         return;
     }
 
-    DUMP_TILEINDEX("debug/tsUpdate", tsUpdate);
+    dumpTileIndex(dumpRoot, "tsUpdate", tsUpdate);
     tsUpdate.growDown();
-    DUMP_TILEINDEX("debug/tsUpdate-gd", tsUpdate);
+    dumpTileIndex(dumpRoot, "tsUpdate-gd", tsUpdate);
 
     // calculate storage post state
     auto tsPost(unite(alignment, tileIndices(update, kept), tsUpdate));
-    DUMP_TILEINDEX("debug/tsPost", tsPost);
+    dumpTileIndex(dumpRoot, "/tsPost", tsPost);
     tsPost.growUp();
-    DUMP_TILEINDEX("debug/tsPost-gu", tsPost);
+    dumpTileIndex(dumpRoot, "/tsPost-gu", tsPost);
 
     // calculate storage pre state
     auto tsPre(unite(alignment, tileIndices(kept), tsUpdate));
-    DUMP_TILEINDEX("debug/tsPre", tsPre);
+    dumpTileIndex(dumpRoot, "/tsPre", tsPre);
     tsPre.growUp().invert();
-    DUMP_TILEINDEX("debug/tsPre-gu-inv", tsPre);
+    dumpTileIndex(dumpRoot, "/tsPre-gu-inv", tsPre);
 
     LOG(info2) << "(merge-in) down(tsUpdate): " << tsUpdate;
     LOG(info2) << "(merge-in) up(tsPost): " << tsPost;
@@ -1007,7 +1034,7 @@ void TileSet::mergeIn(const list &kept, const list &update)
 
     auto generate(intersect(alignment, tsPost
                             , unite(alignment, tsUpdate, tsPre)));
-    DUMP_TILEINDEX("debug/generate", generate);
+    dumpTileIndex(dumpRoot, "/generate", generate);
 
     LOG(info2) << "(merge-in) generate: " << generate;
 
@@ -1039,11 +1066,14 @@ void TileSet::mergeIn(const list &kept, const list &update)
 
 void TileSet::mergeOut(const list &kept, const list &update)
 {
+    // TODO: check validity of kept and update
+    detail().checkValidity();
+
     LOG(info3) << "(merge-out) Calculating generate and remove sets.";
 
-#ifdef VADSTENA_LIBS_DUMP_TILEINDEX
-    dump("debug/update", update);
-#endif // VADSTENA_LIBS_DUMP_TILEINDEX
+    const auto *dumpRoot(std::getenv(TILEINDEX_DUMP_ROOT));
+
+    dump(dumpRoot, "update", update);
 
     const auto &alignment(detail().properties.alignment);
 
@@ -1055,28 +1085,28 @@ void TileSet::mergeOut(const list &kept, const list &update)
         return;
     }
 
-    DUMP_TILEINDEX("debug/tsUpdate", tsUpdate);
+    dumpTileIndex(dumpRoot, "tsUpdate", tsUpdate);
     tsUpdate.growDown();
-    DUMP_TILEINDEX("debug/tsUpdate-gd", tsUpdate);
+    dumpTileIndex(dumpRoot, "tsUpdate-gd", tsUpdate);
 
     // calculate storage post state
     auto tsPost(unite(alignment, tileIndices(kept), tsUpdate));
-    DUMP_TILEINDEX("debug/tsPost", tsPost);
+    dumpTileIndex(dumpRoot, "tsPost", tsPost);
     tsPost.growUp();
-    DUMP_TILEINDEX("debug/tsPost-gu", tsPost);
+    dumpTileIndex(dumpRoot, "tsPost-gu", tsPost);
 
     // calculate storage pre state
     auto tsPre(unite(alignment, tileIndices(update, kept), tsUpdate));
-    DUMP_TILEINDEX("debug/tsPre", tsPre);
+    dumpTileIndex(dumpRoot, "tsPre", tsPre);
     tsPre.growUp();
-    DUMP_TILEINDEX("debug/tsPre-gu", tsPre);
+    dumpTileIndex(dumpRoot, "tsPre-gu", tsPre);
 
     // create remove set
     auto remove(difference(alignment, tsPre, tsPost));
-    DUMP_TILEINDEX("debug/remove", remove);
+    dumpTileIndex(dumpRoot, "remove", remove);
 
     tsPre.invert();
-    DUMP_TILEINDEX("debug/tsPre-gu-inv", tsPre);
+    dumpTileIndex(dumpRoot, "tsPre-gu-inv", tsPre);
 
     LOG(info2) << "(merge-out) down(tsUpdate): " << tsUpdate;
     LOG(info2) << "(merge-out) up(tsPost): " << tsPost;
@@ -1084,7 +1114,7 @@ void TileSet::mergeOut(const list &kept, const list &update)
 
     auto generate(intersect(alignment, tsPost
                             , unite(alignment, tsUpdate, tsPre)));
-    DUMP_TILEINDEX("debug/generate", generate);
+    dumpTileIndex(dumpRoot, "generate", generate);
 
     LOG(info2) << "(merge-out) generate: " << generate;
     LOG(info2) << "(merge-out) remove: " << remove;
@@ -1283,41 +1313,61 @@ bool TileSet::empty() const
     return !detail().properties.foatSize;
 }
 
+void TileSet::drop()
+{
+    detail().driver->drop();
+    // make invalid!
+    detail().driver.reset();
+}
+
 TileSet::AdvancedApi TileSet::advancedApi()
 {
+    detail().checkValidity();
     return TileSet::AdvancedApi(shared_from_this());
 }
 
 Traverser TileSet::AdvancedApi::tileTraverser() const
 {
-    return Traverser(&tileSet_->detail().tileIndex);
+    const auto &detail(tileSet_->detail());
+    detail.checkValidity();
+    return Traverser(&detail.tileIndex);
 }
 
 Traverser TileSet::AdvancedApi::metaTraverser() const
 {
-    return Traverser(&tileSet_->detail().metaIndex);
+    const auto &detail(tileSet_->detail());
+    detail.checkValidity();
+    return Traverser(&detail.metaIndex);
 }
 
 OStream::pointer TileSet::AdvancedApi::output(File type)
 {
-    return tileSet_->detail().driver->output(type);
+    auto &detail(tileSet_->detail());
+    detail.checkValidity();
+    return detail.driver->output(type);
 }
 
 IStream::pointer TileSet::AdvancedApi::input(File type) const
 {
-    return tileSet_->detail().driver->input(type);
+    const auto &detail(tileSet_->detail());
+    detail.checkValidity();
+    return detail.driver->input(type);
 }
 
 OStream::pointer TileSet::AdvancedApi::output(const TileId tileId
                                               , TileFile type)
 {
-    return tileSet_->detail().driver->output(tileId, type);
+    auto &detail(tileSet_->detail());
+    detail.checkValidity();
+    return detail.driver->output(tileId, type);
 }
 
 IStream::pointer TileSet::AdvancedApi::input(const TileId tileId
                                              , TileFile type) const
 {
-    return tileSet_->detail().driver->input(tileId, type);
+    const auto &detail(tileSet_->detail());
+    detail.checkValidity();
+    return detail.driver->input(tileId, type);
 }
 
 } } // namespace vadstena::tilestorage

@@ -60,6 +60,8 @@ private:
 
     virtual void rollback_impl() UTILITY_OVERRIDE;
 
+    virtual void drop_impl() UTILITY_OVERRIDE;
+
     fs::path fileDir(File type, const fs::path &name) const;
 
     fs::path fileDir(const TileId &tileId, TileFile type

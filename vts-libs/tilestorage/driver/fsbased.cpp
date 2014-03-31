@@ -282,6 +282,17 @@ void FsBasedDriver::rollback_impl()
     tx_ = boost::none;
 }
 
+void FsBasedDriver::drop_impl()
+{
+    if (tx_) {
+        LOGTHROW(err2, PendingTransaction)
+            << "Cannot drop tile set inside an active transaction.";
+    }
+
+    // remove whole tmp directory
+    remove_all(root_);
+}
+
 fs::path FsBasedDriver::readPath(const fs::path &dir, const fs::path &name)
     const
 {

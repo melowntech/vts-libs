@@ -43,6 +43,8 @@ struct TileSet::Detail {
 
     ~Detail();
 
+    void checkValidity() const;
+
     void check(const TileId &tileId) const;
 
     void loadConfig();
@@ -123,6 +125,14 @@ inline TileId TileSet::Detail::parent(const TileId &tileId) const
     return tilestorage::parent(properties.alignment
                                , properties.baseTileSize
                                , tileId);
+}
+
+inline void TileSet::Detail::checkValidity() const
+{
+    if (!driver) {
+        LOGTHROW(err2, NoSuchTileSet)
+            << "Tile set <" << properties.id << "> was removed.";
+    }
 }
 
 } } // namespace vadstena::tilestorage

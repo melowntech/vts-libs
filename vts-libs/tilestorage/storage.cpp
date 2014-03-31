@@ -293,10 +293,27 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
     // merge out tile sets from the output tile set
     output->mergeOut(asList(kept), asList(update));
 
-    // TODO: remove out tile sets from the storage
+    // remove out tile sets from the storage
+    for (const auto &ts : update) {
+        LOG(info3) << "Removing tile set <" << ts.first << "> from storage.";
+
+        // remove from properties
+        properties.inputSets.erase(ts.first);
+    }
 
     // commit changes to output
     output->commit();
+
+    // done
+    saveConfig();
+
+    // remove out tile sets from the storage
+    for (const auto &ts : update) {
+        LOG(info3) << "Removing tile set <" << ts.first << "> from storage.";
+
+        // remove tileset
+        ts.second->drop();
+    }
 }
 
 // storage

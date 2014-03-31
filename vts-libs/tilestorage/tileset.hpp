@@ -125,6 +125,10 @@ public:
      */
     bool empty() const;
 
+    /** Remove storage.
+     */
+    void drop();
+
     /** Merge in tile sets.
      *
      * Only parts covered by in sets are affected.

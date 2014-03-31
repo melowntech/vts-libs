@@ -34,6 +34,10 @@ public:
 
     void rollback();
 
+    /** Drop storage.
+     */
+    void drop();
+
     class Factory;
 
     template <typename DriverClass> static void registerDriver();
@@ -66,6 +70,8 @@ private:
     virtual void commit_impl() = 0;
 
     virtual void rollback_impl() = 0;
+
+    virtual void drop_impl() = 0;
 
     static void registerDriver(const std::shared_ptr<Factory> &factory);
 
@@ -136,6 +142,11 @@ inline void Driver::commit()
 inline void Driver::rollback()
 {
     return rollback_impl();
+}
+
+inline void Driver::drop()
+{
+    return drop_impl();
 }
 
 } } // namespace vadstena::tilestorage
