@@ -219,8 +219,11 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
     output->begin();
 
     if (kept.empty() && (update.size() == 1)) {
-        // TODO: no merge at all, just clone in
-        output->mergeIn(asList(kept), asList(update));
+        LOG(info3)
+            << "Copying tile set <" << update.begin()->first
+            << "> to empty storage.";
+        cloneTileSet(output, update.begin()->second
+                     , CreateMode::overwrite);
     } else {
         // merge in tile sets to the output tile set
         output->mergeIn(asList(kept), asList(update));
@@ -230,7 +233,7 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
 
     // copy in tile sets to the storage
     for (const auto &ts : update) {
-        LOG(info4) << "Copying tile set <" << ts.first << "> into storage.";
+        LOG(info3) << "Copying tile set <" << ts.first << "> into storage.";
 
         // add to properties
         // TODO: what tileset type to use?

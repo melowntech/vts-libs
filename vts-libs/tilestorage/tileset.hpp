@@ -121,6 +121,10 @@ public:
      */
     void rollback();
 
+    /** Is the tile set empty (i.e. has it no tile?)
+     */
+    bool empty() const;
+
     /** Merge in tile sets.
      *
      * Only parts covered by in sets are affected.

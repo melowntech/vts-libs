@@ -125,6 +125,21 @@ TileSet::pointer cloneTileSet(const Locator &locator
     return dst;
 }
 
+TileSet::pointer cloneTileSet(const TileSet::pointer &dst
+                              , const TileSet::pointer &src
+                              , CreateMode mode)
+{
+    // make sure dst is flushed
+    dst->flush();
+    if (!dst->empty() && (mode != CreateMode::overwrite)) {
+        LOGTHROW(err2, TileSetNotEmpty)
+            << "Tile set <" << dst->getProperties().id
+            << "> is not empty.";
+    }
+    TileSet::Factory::clone(src, dst);
+    return dst;
+}
+
 TileSet::Detail::Detail(const Driver::pointer &driver)
     : driver(driver), propertiesChanged(false)
     , metadataChanged(false)
@@ -327,7 +342,7 @@ MetaNode TileSet::Detail::setMetaNode(const TileId &tileId
 
     // update extents/lod-range; only when tile is valid
     if (valid(metanode)) {
-        if (empty(extents)) {
+        if (math::empty(extents)) {
             // invalid extents, add first tile!
             extents = tileExtents(properties, tileId);
             // initial lod range
@@ -965,12 +980,10 @@ void TileSet::mergeIn(const list &kept, const list &update)
     // calculate storage update (we need to know lod range of kept sets to
     // ensure all indices cover same lod range)
     auto tsUpdate(unite(alignment, tileIndices(update), range(kept)));
-    if (empty(tsUpdate.extents())) {
+    if (math::empty(tsUpdate.extents())) {
         LOG(warn3) << "(merge-in) Nothing to merge in. Bailing out.";
         return;
     }
-
-    LOG(info3) << "(merge-in) Calculating generate set.";
 
     DUMP_TILEINDEX("debug/tsUpdate", tsUpdate);
     tsUpdate.growDown();
@@ -1037,7 +1050,7 @@ void TileSet::mergeOut(const list &kept, const list &update)
     // calculate storage update (we need to know lod range of kept sets to
     // ensure all indices cover same lod range)
     auto tsUpdate(unite(alignment, tileIndices(update), range(kept)));
-    if (empty(tsUpdate.extents())) {
+    if (math::empty(tsUpdate.extents())) {
         LOG(warn3) << "(merge-out) Nothing to merge in. Bailing out.";
         return;
     }
@@ -1262,6 +1275,12 @@ void TileSet::Detail::clone(const Detail &src)
         copyFile(sd.input(tile.id, TileFile::meta)
                  , dd.output(tile.id, TileFile::meta));
     }
+}
+
+bool TileSet::empty() const
+{
+    // no foat -> no tile
+    return !detail().properties.foatSize;
 }
 
 TileSet::AdvancedApi TileSet::advancedApi()

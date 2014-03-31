@@ -25,6 +25,10 @@ struct TileSetAlreadyExists : Error {
     TileSetAlreadyExists(const std::string &message) : Error(message) {}
 };
 
+struct TileSetNotEmpty : Error {
+    TileSetNotEmpty(const std::string &message) : Error(message) {}
+};
+
 struct StorageAlreadyExists : Error {
     StorageAlreadyExists(const std::string &message) : Error(message) {}
 };

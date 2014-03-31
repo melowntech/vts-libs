@@ -116,6 +116,20 @@ TileSet::pointer cloneTileSet(const Locator &locator
                               , const TileSet::pointer &src
                               , CreateMode mode = CreateMode::failIfExists);
 
+/** Clones existing tile set another existing tile set.
+ *
+ * \param dst destination tile set
+ * \param src source tile set
+ * \param mode what to do when dst tile set is not empty
+ *                 * failIfExists: tile set be empty prior this call
+ *                 * overwrite: tile set is overwritten
+ * \return dst
+ * \throws Error if tile set cannot be opened
+ */
+TileSet::pointer cloneTileSet(const TileSet::pointer &dst
+                              , const TileSet::pointer &src
+                              , CreateMode mode = CreateMode::failIfExists);
+
 } } // namespace vadstena::tilestorage
 
 #endif // vadstena_libs_tilestorage_hpp_included_
