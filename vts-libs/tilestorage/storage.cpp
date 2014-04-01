@@ -222,8 +222,13 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
         LOG(info3)
             << "Copying tile set <" << update.begin()->first
             << "> to empty storage.";
+        // save properties
+        SettableProperties props(output->getProperties());
+        // clone
         cloneTileSet(output, update.begin()->second
                      , CreateMode::overwrite);
+        // renew properties (only texture quality so far)
+        output->setProperties(props, SettableProperties::Mask::textureQuality);
     } else {
         // merge in tile sets to the output tile set
         output->mergeIn(asList(kept), asList(update));
