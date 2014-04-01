@@ -257,6 +257,9 @@ void TileSet::Detail::saveMetadata()
 {
     driver->wannaWrite("save metadata");
 
+    // purge out nonexistent leaves from metadata tree
+    purgeMetadata();
+
     // create tile index (initialize parameters with existing one)
     TileIndex ti(properties.alignment, properties.baseTileSize
                  , extents, lodRange, &tileIndex);
@@ -265,9 +268,6 @@ void TileSet::Detail::saveMetadata()
     TileIndex mi(properties.alignment, properties.baseTileSize
                  , extents, {properties.foat.lod, lodRange.max}
                  , &ti);
-
-    // purge out nonexistent leaves from metadata tree
-    purgeMetadata();
 
     // well, dump metatiles now
     saveMetatiles(ti, mi);
@@ -289,6 +289,7 @@ void TileSet::Detail::saveMetadata()
     if (metadata.empty()) {
         // no tile, we should invalidate foat
         properties.foat = {};
+        properties.foatSize = 0;
         propertiesChanged = true;
         LOG(info2) << "Tile set <" << properties.id << ">: New foat is "
                    << properties.foat << ".";
@@ -597,6 +598,7 @@ void TileSet::Detail::purgeMetadata()
 
             if (!hasChild && !node->exists()) {
                 // no children and no content -> kill
+                detail.driver->remove(tileId, TileFile::meta);
                 detail.metadata.erase(tileId);
                 detail.metadataChanged = true;
                 return false;
@@ -609,12 +611,24 @@ void TileSet::Detail::purgeMetadata()
         TileSet::Detail &detail;
     };
 
-    Crawler(*this).run(properties.foat);
+    if (!Crawler(*this).run(properties.foat)) {
+        // FOAT has been removed! Empty storage!
+        properties.foat = {};
+        properties.foatSize = 0;
+        propertiesChanged = true;
+        LOG(info2) << "Tile set <" << properties.id << ">: New foat is "
+                   << properties.foat << ".";
+    }
 }
 
 void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)
     const
 {
+    if (!properties.foatSize) {
+        // no data
+        return;
+    }
+
     struct Saver : MetaNodeSaver {
         const TileSet::Detail &detail;
         TileIndex &tileIndex;
@@ -1021,15 +1035,15 @@ void TileSet::mergeIn(const list &kept, const list &update)
 
     // calculate storage post state
     auto tsPost(unite(alignment, tileIndices(update, kept), tsUpdate));
-    dumpTileIndex(dumpRoot, "/tsPost", tsPost);
+    dumpTileIndex(dumpRoot, "tsPost", tsPost);
     tsPost.growUp();
-    dumpTileIndex(dumpRoot, "/tsPost-gu", tsPost);
+    dumpTileIndex(dumpRoot, "tsPost-gu", tsPost);
 
     // calculate storage pre state
     auto tsPre(unite(alignment, tileIndices(kept), tsUpdate));
-    dumpTileIndex(dumpRoot, "/tsPre", tsPre);
+    dumpTileIndex(dumpRoot, "tsPre", tsPre);
     tsPre.growUp().invert();
-    dumpTileIndex(dumpRoot, "/tsPre-gu-inv", tsPre);
+    dumpTileIndex(dumpRoot, "tsPre-gu-inv", tsPre);
 
     LOG(info2) << "(merge-in) down(tsUpdate): " << tsUpdate;
     LOG(info2) << "(merge-in) up(tsPost): " << tsPost;
@@ -1037,7 +1051,7 @@ void TileSet::mergeIn(const list &kept, const list &update)
 
     auto generate(intersect(alignment, tsPost
                             , unite(alignment, tsUpdate, tsPre)));
-    dumpTileIndex(dumpRoot, "/generate", generate);
+    dumpTileIndex(dumpRoot, "generate", generate);
 
     LOG(info2) << "(merge-in) generate: " << generate;
 
@@ -1045,6 +1059,11 @@ void TileSet::mergeIn(const list &kept, const list &update)
         LOG(warn3) << "(merge-in) Nothing to generate. Bailing out.";
         return;
     }
+
+    // make world
+    TileIndex world(generate);
+    world.makeComplete();
+    dumpTileIndex(dumpRoot, "world", world);
 
     list all(kept.begin(), kept.end());
     all.insert(all.end(), update.begin(), update.end());
@@ -1061,7 +1080,7 @@ void TileSet::mergeIn(const list &kept, const list &update)
         for (long i(0); i < s.width; ++i) {
             LOG(info2) << "(merge-in) Processing subtree "
                        << lod << "/(" << i << ", " << j << ").";
-            detail().mergeSubtree(progress, generate, nullptr
+            detail().mergeSubtree(progress, world, generate, nullptr
                                   , {lod, i, j}, all);
         }
     }
@@ -1130,6 +1149,12 @@ void TileSet::mergeOut(const list &kept, const list &update)
     LOG(info2) << "(merge-out) remove: " << remove;
 
 
+    // make world
+    TileIndex world(generate);
+    world.fill(remove);
+    world.makeComplete();
+    dumpTileIndex(dumpRoot, "world", world);
+
     list all(kept.begin(), kept.end());
     all.insert(all.end(), update.begin(), update.end());
 
@@ -1144,7 +1169,7 @@ void TileSet::mergeOut(const list &kept, const list &update)
         for (long i(0); i < s.width; ++i) {
             LOG(info2) << "(merge-out) Processing subtree "
                        << lod << "/(" << i << ", " << j << ").";
-            detail().mergeSubtree(progress, generate, &remove
+            detail().mergeSubtree(progress, world, generate, &remove
                                   , {lod, i, j}, all);
         }
     }
@@ -1195,6 +1220,7 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
 }
 
 void TileSet::Detail::mergeSubtree(utility::Progress &progress
+                                   , const TileIndex &world
                                    , const TileIndex &generate
                                    , const TileIndex *remove
                                    , const Index &index
@@ -1203,6 +1229,11 @@ void TileSet::Detail::mergeSubtree(utility::Progress &progress
                                    , int quadrant
                                    , bool parentGenerated)
 {
+    if (!world.exists(index)) {
+        // no data below
+        return;
+    }
+
     // tile generated in this run (empty and invalid by default)
     Tile tile;
 
@@ -1238,10 +1269,6 @@ void TileSet::Detail::mergeSubtree(utility::Progress &progress
                    << index << ", " << tileId << ".";
         removeTile(tileId);
         (++progress).report(utility::Progress::ratio_t(5, 1000), "(merge) ");
-    } else if (parentGenerated && !remove) {
-        // parent was generated but this tile will not be generated and no
-        // tiles are about to be removed => reached bottom of this subreee
-        return;
     }
 
     // can we go down?
@@ -1256,7 +1283,7 @@ void TileSet::Detail::mergeSubtree(utility::Progress &progress
     // in merge operation
     quadrant = valid(tile) ? 0 : MERGE_NO_FALLBACK_TILE;
     for (const auto &child : children(index)) {
-        mergeSubtree(progress, generate, remove, child
+        mergeSubtree(progress, world, generate, remove, child
                      , src, tile, quadrant, g);
         if (quadrant != MERGE_NO_FALLBACK_TILE) {
             ++quadrant;

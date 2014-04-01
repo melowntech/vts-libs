@@ -103,6 +103,14 @@ TileIndex::TileIndex(const Alignment &alignment, long baseTileSize
     }
 }
 
+TileIndex::TileIndex(const TileIndex &other)
+    : baseTileSize_(other.baseTileSize_)
+    , origin_(other.origin_)
+    , minLod_(other.minLod_)
+    , masks_(other.masks_)
+{
+}
+
 void TileIndex::fill(Lod lod, const TileIndex &other)
 {
     // find old and new masks
@@ -347,6 +355,35 @@ TileIndex& TileIndex::growDown()
         auto &mask(*imasks);
         // merge in parent mask, ignore its size
         mask.merge(parent, false);
+    }
+
+    return *this;
+}
+
+TileIndex& TileIndex::makeComplete()
+{
+    if (masks_.size() < 2) {
+        // nothing to grow
+        return *this;
+    }
+
+    // traverse masks bottom to top
+    auto lod(lodRange().max);
+    auto cmasks(masks_.rbegin());
+
+    for (auto imasks(cmasks + 1), emasks(masks_.rend());
+         imasks != emasks; ++imasks, ++cmasks, --lod)
+    {
+        LOG(debug) << "gu: " << lod << " -> " << (lod - 1);
+
+        // make copy of child
+        RasterMask child(*cmasks);
+        auto &mask(*imasks);
+
+        // coarsen child (do not change child!)
+        child.coarsen(2);
+        // merge in coarsened child -> all parents are set
+        mask.merge(child, false);
     }
 
     return *this;

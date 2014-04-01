@@ -26,6 +26,8 @@ public:
               , LodRange lodRange
               , const TileIndex *other = nullptr);
 
+    TileIndex(const TileIndex &other);
+
     typedef std::vector<RasterMask> Masks;
 
     void load(std::istream &is);
@@ -72,9 +74,20 @@ public:
 
     LodRange lodRange() const;
 
+    /** Grow-up operator:
+     *  existing tile -> mark parent and its all 4 children as existing
+     */
     TileIndex& growUp();
 
+    /** Grow-down operator:
+     *  existing tile -> mark all its 4 children as existing
+     */
     TileIndex& growDown();
+
+    /** Makes every existing tile reachable from top level. In other words: if
+     *  tile exists, create all its parents up to the root.
+     */
+    TileIndex& makeComplete();
 
     TileIndex& invert();
 
