@@ -183,6 +183,10 @@ TileSetDescriptor* Storage::Detail::findInput(const std::string &id)
 
 void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
 {
+    // open output tile set
+    auto output(openTileSet(rooted(root, properties.outputSet.locator)
+                            , OpenMode::readWrite));
+
     TileSetMap kept;
     TileSetMap update;
 
@@ -195,6 +199,12 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
             LOGTHROW(err2, TileSetAlreadyExists)
                 << "This storage already contains input tile set <"
                 << tsp.id << ">.";
+        }
+
+        if (!output->compatible(*tileSet)) {
+            LOGTHROW(err2, IncompatibleTileSet)
+                << "Tile set <" << tsp.id
+                << "> is incompatible with this storage.";
         }
 
         update.insert(TileSetMap::value_type(tsp.id, tileSet));
@@ -211,10 +221,6 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
         auto tileSet(openTileSet(rooted(root, input.second.locator)));
         kept.insert(TileSetMap::value_type(input.first, tileSet));
     }
-
-    // open output tile set
-    auto output(openTileSet(rooted(root, properties.outputSet.locator)
-                            , OpenMode::readWrite));
 
     // begin transaction
     output->begin();

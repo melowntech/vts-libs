@@ -1358,7 +1358,6 @@ void TileSet::Detail::clone(const Detail &src)
     // copy tiles
     auto traverser(src.tileIndex.traverser());
     while (auto tile = traverser.next()) {
-        if (!tile.value) { continue; }
         for (auto type : { TileFile::mesh, TileFile::atlas }) {
             copyFile(sd.input(tile.id, type), dd.output(tile.id, type));
         }
@@ -1367,7 +1366,6 @@ void TileSet::Detail::clone(const Detail &src)
     // copy metatiles
     traverser = src.metaIndex.traverser();
     while (auto tile = traverser.next()) {
-        if (!tile.value) { continue; }
         copyFile(sd.input(tile.id, TileFile::meta)
                  , dd.output(tile.id, TileFile::meta));
     }
@@ -1388,7 +1386,6 @@ void TileSet::Detail::dropRemovedMetatiles(const TileIndex &before
 
     auto traverser(remove.traverser());
     while (auto tile = traverser.next()) {
-        if (!tile.value) { continue; }
         driver->remove(tile.id, TileFile::meta);
     }
 }
@@ -1520,6 +1517,39 @@ void TileSet::AdvancedApi::rename(const std::string &newId)
 
     // propetries has been changed
     detail.propertiesChanged = true;
+}
+
+bool TileSet::compatible(const TileSet &other)
+{
+    const auto props(detail().properties);
+
+    const auto oDetail(other.detail());
+    const auto oProps(oDetail.properties);
+    if (oProps.baseTileSize != props.baseTileSize) {
+        LOG(warn2)
+            << "Tile set <" << props.id
+            << ">: set <" << oProps.id
+            << "> has incompatible base tile size.";
+        return false;
+    }
+
+    if (oProps.alignment == props.alignment) {
+        // same alignment -> fine
+        return true;
+    }
+
+    // different alignment: we have to check min-lod alignment compatibility
+    auto ts(tileSize(oProps, oDetail.lodRange.min));
+
+    auto diff(props.alignment - oProps.alignment);
+    if ((diff(0) % ts) || (diff(1) % ts)) {
+        LOG(warn2)
+            << "Tile set <" << props.id
+            << ">: set <" << oProps.id
+            << "> has incompatible alignment.";
+        return false;
+    }
+    return true;
 }
 
 } } // namespace vadstena::tilestorage

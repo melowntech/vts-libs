@@ -11,20 +11,21 @@ Traverser::Traverser(const TileIndex *owner)
 
 void Traverser::load()
 {
-    mask_ = owner_->mask(index_.lod);
-    if (!mask_) { return; }
+    // load next non-empty mask
+    for (;;) {
+        mask_ = owner_->mask(index_.lod);
+        if (!mask_) { return; }
+        if (!mask_->empty()) { return; }
+        ++index_.lod;
+    }
+
     auto size(mask_->dims());
     size_ = Size2l(size.width, size.height);
     index_.easting = index_.northing = 0;
 }
 
-Traverser::Tile Traverser::next()
+void Traverser::increment()
 {
-    if (!mask_ ) { return {}; }
-    Tile t(index_, owner_->tileId(index_)
-           , mask_->get(index_.easting, index_.northing));
-
-    // increment
     ++index_.easting;
     if (index_.easting >= size_.width) {
         index_.easting = 0;
@@ -35,8 +36,18 @@ Traverser::Tile Traverser::next()
         ++index_.lod;
         load();
     }
+}
 
-    return t;
+Traverser::Tile Traverser::next()
+{
+    for (;;) {
+        if (!mask_ ) { return {}; }
+        bool value(mask_->get(index_.easting, index_.northing));
+        Tile t(index_, owner_->tileId(index_));
+
+        increment();
+        if (value) { return t; }
+    }
 }
 
 } } // namespace vadstena::tilestorage

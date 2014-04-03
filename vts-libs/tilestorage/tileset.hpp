@@ -129,6 +129,14 @@ public:
      */
     void drop();
 
+    /** Checks whether tile sets are compatible with this set (i.e. can be
+     * merged into this set)
+     *
+     * \param sets tile sets to check
+     * \return true if all sets can be merged into this set
+     */
+    bool compatible(const TileSet &other);
+
     /** Merge in tile sets.
      *
      * Only parts covered by in sets are affected.

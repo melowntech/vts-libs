@@ -13,14 +13,13 @@ public:
     Traverser(const TileIndex *owner);
 
     struct Tile {
-        Tile(const Index &index, const TileId &tileId, bool value)
-            : index(index), id(tileId), value(value), valid_(true)
+        Tile(const Index &index, const TileId &tileId)
+            : index(index), id(tileId), valid_(true)
         {}
-        Tile() : value(false), valid_(false) {}
+        Tile() : valid_(false) {}
 
         Index index;
         TileId id;
-        bool value;
 
         operator bool() const { return valid_; }
 
@@ -32,6 +31,8 @@ public:
 
 private:
     void load();
+
+    void increment();
 
     const TileIndex *owner_;
     const RasterMask *mask_;

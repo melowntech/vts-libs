@@ -49,6 +49,10 @@ struct PendingTransaction : Error {
     PendingTransaction(const std::string &message) : Error(message) {}
 };
 
+struct IncompatibleTileSet : Error {
+    IncompatibleTileSet(const std::string &message) : Error(message) {}
+};
+
 } } // namespace vadstena::tilestorage
 
 #endif // vadstena_libs_tilestorage_error_hpp_included_
