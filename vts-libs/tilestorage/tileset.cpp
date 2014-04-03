@@ -1356,17 +1356,19 @@ void TileSet::Detail::clone(const Detail &src)
     }
 
     // copy tiles
-    traverse(src.tileIndex, [&](const TileId &tileId) {
-            for (auto type : { TileFile::mesh, TileFile::atlas }) {
-                copyFile(sd.input(tileId, type), dd.output(tileId, type));
-            }
-        });
+    traverseTiles(src.tileIndex, [&](const TileId &tileId)
+    {
+        for (auto type : { TileFile::mesh, TileFile::atlas }) {
+            copyFile(sd.input(tileId, type), dd.output(tileId, type));
+        }
+    });
 
     // copy metatiles
-    traverse(src.metaIndex, [&](const TileId &metaId) {
-            copyFile(sd.input(metaId, TileFile::meta)
-                     , dd.output(metaId, TileFile::meta));
-        });
+    traverseTiles(src.metaIndex, [&](const TileId &metaId)
+    {
+        copyFile(sd.input(metaId, TileFile::meta)
+                 , dd.output(metaId, TileFile::meta));
+    });
 
     // reload in new stuff
     loadConfig();
@@ -1383,9 +1385,10 @@ void TileSet::Detail::dropRemovedMetatiles(const TileIndex &before
     auto remove(difference(properties.alignment, before, after));
 
     // copy metatiles
-    traverse(remove, [&](const TileId &metaId) {
-            driver->remove(metaId, TileFile::meta);
-        });
+    traverseTiles(remove, [&](const TileId &metaId)
+    {
+        driver->remove(metaId, TileFile::meta);
+    });
 }
 
 bool TileSet::empty() const

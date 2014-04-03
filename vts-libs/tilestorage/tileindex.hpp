@@ -271,8 +271,24 @@ inline void TileIndex::set(const Index &index, bool value)
     }
 }
 
+/** Traverses tile index and calls op(Index) for each existing tile.
+ */
 template <typename Op>
 inline void traverse(const TileIndex &ti, const Op &op)
+{
+    auto lod(ti.minLod());
+    for (const auto &mask : ti.masks()) {
+        mask.forEach([&](long easting, long northing, bool) {
+                op(Index(lod, easting, northing));
+            }, RasterMask::Filter::white);
+        ++lod;
+    }
+}
+
+/** Traverses tile index and calls op(TileId) for each existing tile.
+ */
+template <typename Op>
+inline void traverseTiles(const TileIndex &ti, const Op &op)
 {
     auto lod(ti.minLod());
     for (const auto &mask : ti.masks()) {

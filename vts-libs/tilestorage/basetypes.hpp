@@ -66,6 +66,8 @@ struct Index {
     long easting;
     long northing;
 
+    bool operator<(const Index &index) const;
+
     Index(Lod lod = 0, long easting = 0, long northing = 0)
         : lod(lod), easting(easting), northing(northing)
     {}
@@ -105,15 +107,26 @@ enum class CreateMode {
 
 // inline stuff
 
-inline bool TileId::operator<(const TileId &tid) const
+inline bool TileId::operator<(const TileId &tileId) const
 {
-    if (lod < tid.lod) { return true; }
-    else if (tid.lod < lod) { return false; }
+    if (lod < tileId.lod) { return true; }
+    else if (tileId.lod < lod) { return false; }
 
-    if (easting < tid.easting) { return true; }
-    else if (tid.easting < easting) { return false; }
+    if (easting < tileId.easting) { return true; }
+    else if (tileId.easting < easting) { return false; }
 
-    return northing < tid.northing;
+    return northing < tileId.northing;
+}
+
+inline bool Index::operator<(const Index &index) const
+{
+    if (lod < index.lod) { return true; }
+    else if (index.lod < lod) { return false; }
+
+    if (easting < index.easting) { return true; }
+    else if (index.easting < easting) { return false; }
+
+    return northing < index.northing;
 }
 
 inline Locator::Locator(const std::string &locator)

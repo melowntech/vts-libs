@@ -58,8 +58,12 @@ public:
     template <typename Op> void traverseMetas(const Op &op);
 
 private:
+    /** Returns tile index.
+     */
     const TileIndex& tileIndex() const;
 
+    /** Returns metatile index.
+     */
     const TileIndex& metaIndex() const;
 
     TileSet::pointer tileSet_;
@@ -68,13 +72,13 @@ private:
 template <typename Op>
 void TileSet::AdvancedApi::traverseTiles(const Op &op)
 {
-    traverse(tileIndex(), op);
+    traverseTiles(tileIndex(), op);
 }
 
 template <typename Op>
 void TileSet::AdvancedApi::traverseMetas(const Op &op)
 {
-    traverse(metaIndex(), op);
+    traverseTiles(metaIndex(), op);
 }
 
 } } // namespace vadstena::tilestorage
