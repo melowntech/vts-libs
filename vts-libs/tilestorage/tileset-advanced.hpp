@@ -51,11 +51,11 @@ public:
 
     /** Traverse tiles. Calls op(TileId) for each existing tile.
      */
-    template <typename Op> void traverseTiles(const Op &op);
+    template <typename Op> void traverseTiles(const Op &op) const;
 
     /** Traverse metatiles. Calls op(TileId) for each existing metatile.
      */
-    template <typename Op> void traverseMetas(const Op &op);
+    template <typename Op> void traverseMetas(const Op &op) const;
 
 private:
     /** Returns tile index.
@@ -70,15 +70,15 @@ private:
 };
 
 template <typename Op>
-void TileSet::AdvancedApi::traverseTiles(const Op &op)
+void TileSet::AdvancedApi::traverseTiles(const Op &op) const
 {
-    traverseTiles(tileIndex(), op);
+    ::vadstena::tilestorage::traverseTiles(tileIndex(), op);
 }
 
 template <typename Op>
-void TileSet::AdvancedApi::traverseMetas(const Op &op)
+void TileSet::AdvancedApi::traverseMetas(const Op &op) const
 {
-    traverseTiles(metaIndex(), op);
+    ::vadstena::tilestorage::traverseTiles(metaIndex(), op);
 }
 
 } } // namespace vadstena::tilestorage
