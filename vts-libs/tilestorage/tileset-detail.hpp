@@ -48,6 +48,8 @@ struct TileSet::Detail {
 
     void check(const TileId &tileId) const;
 
+    void checkTx(const std::string &action) const;
+
     void loadConfig();
 
     void saveConfig();
@@ -67,7 +69,10 @@ struct TileSet::Detail {
 
     MetaNode* loadMetatile(const TileId &tileId) const;
 
-    void loadMetatileFromFile(const TileId &tileId) const;
+    void loadMetatileFromFile
+        (Metadata &metadata, const TileId &tileId
+         , const MetaNodeNotify &notify = MetaNodeNotify())
+        const;
 
     MetaNode* findMetaNode(const TileId &tileId) const;
 
@@ -86,6 +91,8 @@ struct TileSet::Detail {
     void flush();
 
     void purgeMetadata();
+
+    void dropRemovedMetatiles(const TileIndex &before, const TileIndex &after);
 
     void saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex) const;
 

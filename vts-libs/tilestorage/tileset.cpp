@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <queue>
 
 #include <boost/format.hpp>
 #include <boost/utility/in_place_factory.hpp>
@@ -260,17 +261,23 @@ void TileSet::Detail::saveMetadata()
     // purge out nonexistent leaves from metadata tree
     purgeMetadata();
 
-    // create tile index (initialize parameters with existing one)
-    TileIndex ti(properties.alignment, properties.baseTileSize
-                 , extents, lodRange, &tileIndex);
+    // TODO: when purgeMetadata() re-calculates extents, ti is not needed to be
+    // initialized with original tileIndex
 
-    // create metatile index (initialize parameters with existing one)
+    // create tile index (initialize parameters with existing one, do not copy
+    // data)
+    TileIndex ti(properties.alignment, properties.baseTileSize
+                 , extents, lodRange, &tileIndex, true);
+
+    // create metatile index (initialize parameters with ti's ones, do not copy
+    // data)
     TileIndex mi(properties.alignment, properties.baseTileSize
-                 , extents, {properties.foat.lod, lodRange.max}
-                 , &ti);
+                 , extents, {properties.foat.lod, lodRange.max});
 
     // well, dump metatiles now
     saveMetatiles(ti, mi);
+
+    dropRemovedMetatiles(metaIndex, mi);
 
     // save index
     try {
@@ -283,8 +290,9 @@ void TileSet::Detail::saveMetadata()
             << "Unable to write tile index: " << e.what() << ".";
     }
 
-    // cool, we have new tile index
+    // cool, we have new tile/meta index
     tileIndex = ti;
+    metaIndex = mi;
 
     if (metadata.empty()) {
         // no tile, we should invalidate foat
@@ -403,19 +411,21 @@ TileSet::Detail::createVirtualMetaNode(const TileId &tileId)
     return *md;
 }
 
-void TileSet::Detail::loadMetatileFromFile(const TileId &tileId) const
+void TileSet::Detail
+::loadMetatileFromFile(Metadata &metadata, const TileId &tileId
+                       , const MetaNodeNotify &notify)
+    const
 {
     auto f(driver->input(tileId, TileFile::meta));
     tilestorage::loadMetatile
         (*f, properties.baseTileSize, tileId
-         , [this] (const TileId &tileId, const MetaNode &node
-                   , std::uint8_t)
+         , [&metadata]
+         (const TileId &tileId, const MetaNode &node, std::uint8_t)
          {
              metadata.insert(Metadata::value_type(tileId, node));
-         });
+         }
+         , notify);
     f->close();
-
-    loadedMetatiles.insert(tileId);
 }
 
 MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId)
@@ -464,7 +474,8 @@ MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId)
     LOG(info2) << "(" << properties.id << "): Found metatile "
                << metaId << " for tile " << tileId << ".";
 
-    loadMetatileFromFile(metaId);
+    loadMetatileFromFile(metadata, metaId);
+    loadedMetatiles.insert(metaId);
 
     // now, we can execute lookup again
     auto fmetadata(metadata.find(tileId));
@@ -499,6 +510,14 @@ void TileSet::Detail::check(const TileId &tileId) const
     if ((aligned.easting % ts) || (aligned.northing % ts)) {
         LOGTHROW(err2, NoSuchTile)
             << "Misaligned tile at " << tileId << " cannot exist.";
+    }
+}
+
+void TileSet::Detail::checkTx(const std::string &action) const
+{
+    if (!tx) {
+        LOGTHROW(err2, PendingTransaction)
+            << "Cannot " << action << ": no transaction open.";
     }
 }
 
@@ -576,6 +595,8 @@ void TileSet::Detail::flush()
 
 void TileSet::Detail::purgeMetadata()
 {
+    // TODO: re-calculate extents and lod-extents
+
     struct Crawler {
         Crawler(TileSet::Detail &detail) : detail(detail) {}
 
@@ -778,8 +799,8 @@ void TileSet::Detail::commit()
     if (!tx) {
         LOGTHROW(err2, PendingTransaction)
             << "There is no active transaction to commit.";
-
     }
+
     // forced flush
     flush();
 
@@ -1350,6 +1371,26 @@ void TileSet::Detail::clone(const Detail &src)
         copyFile(sd.input(tile.id, TileFile::meta)
                  , dd.output(tile.id, TileFile::meta));
     }
+
+    // reload in new stuff
+    loadConfig();
+    if (savedProperties.foatSize) {
+        // load tile index only if foat is valid
+        loadTileIndex();
+    }
+}
+
+void TileSet::Detail::dropRemovedMetatiles(const TileIndex &before
+                                           , const TileIndex &after)
+{
+    // calculate difference between original and new state
+    auto remove(difference(properties.alignment, before, after));
+
+    auto traverser(remove.traverser());
+    while (auto tile = traverser.next()) {
+        if (!tile.value) { continue; }
+        driver->remove(tile.id, TileFile::meta);
+    }
 }
 
 bool TileSet::empty() const
@@ -1413,6 +1454,72 @@ IStream::pointer TileSet::AdvancedApi::input(const TileId tileId
     const auto &detail(tileSet_->detail());
     detail.checkValidity();
     return detail.driver->input(tileId, type);
+}
+
+void TileSet::AdvancedApi::regenerateTileIndex()
+{
+    // TODO: ensure that there are no pending changes
+    auto &detail(tileSet_->detail());
+    if (!detail.savedProperties.foatSize) {
+        // TODO: save empty index if nothing there
+        return;
+    }
+
+    Metadata metadata;
+
+    std::queue<TileId> subtrees({ detail.savedProperties.foat });
+
+    while (!subtrees.empty()) {
+        detail.loadMetatileFromFile
+            (metadata, subtrees.front()
+             , [&subtrees](const TileId &tileId) {subtrees.push(tileId); });
+        subtrees.pop();
+    }
+
+    LOG(info3) << "Loaded " << metadata.size() << " nodes from metatiles.";
+}
+
+void TileSet::AdvancedApi::changeMetaLevels(const LodLevels &metaLevels)
+{
+    auto &detail(tileSet_->detail());
+
+    // this action can be performed in transaction only
+    detail.checkTx("change metalevels");
+
+    LOG(info2)
+        << "Trying to change metalevels from " << detail.properties.metaLevels
+        << " to " << metaLevels << ".";
+
+    if (detail.properties.metaLevels == metaLevels) {
+        LOG(info2) << "Metalevels are same. No change.";
+        return;
+    }
+
+    LOG(info2)
+        << "Changing metalevels from " << detail.properties.metaLevels
+        << " to " << metaLevels << ".";
+
+    // set levels
+    detail.properties.metaLevels = metaLevels;
+
+    // propetries has been changed
+    detail.propertiesChanged = true;
+    // force flush -> metatiles are about to be regenerated
+    detail.metadataChanged = true;
+}
+
+void TileSet::AdvancedApi::rename(const std::string &newId)
+{
+    auto &detail(tileSet_->detail());
+
+    if (detail.properties.id == newId) {
+        return;
+    }
+
+    detail.properties.id = newId;
+
+    // propetries has been changed
+    detail.propertiesChanged = true;
 }
 
 } } // namespace vadstena::tilestorage

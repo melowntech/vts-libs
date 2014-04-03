@@ -136,6 +136,20 @@ inline std::string Locator::asString() const
     return s;
 }
 
+inline bool operator==(const LodLevels &l, const LodLevels &r)
+{
+    // deltas must be same
+    if (l.delta != r.delta) { return false; }
+    // difference between reference lods must be divisible by delta
+    if (std::abs(l.lod - r.lod) % l.delta) { return false; }
+    return true;
+}
+
+inline bool operator!=(const LodLevels &l, const LodLevels &r)
+{
+    return !operator==(l, r);
+}
+
 } } // namespace vadstena::tilestorage
 
 #endif // vadstena_libs_tilestorage_basetypes_hpp_included_

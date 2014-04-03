@@ -3,6 +3,7 @@
 #include "./storage.hpp"
 #include "./tileset.hpp"
 #include "../tilestorage.hpp"
+#include "./tileset-advanced.hpp"
 #include "./error.hpp"
 #include "./json.hpp"
 #include "./io.hpp"
@@ -223,12 +224,17 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
             << "Copying tile set <" << update.begin()->first
             << "> to empty storage.";
         // save properties
-        SettableProperties props(output->getProperties());
+        auto props(output->getProperties());
         // clone
         cloneTileSet(output, update.begin()->second
                      , CreateMode::overwrite);
+
         // renew properties (only texture quality so far)
         output->setProperties(props, SettableProperties::Mask::textureQuality);
+        // renew metalevels + id
+        auto a(output->advancedApi());
+        a.rename(props.id);
+        a.changeMetaLevels(props.metaLevels);
     } else {
         // merge in tile sets to the output tile set
         output->mergeIn(asList(kept), asList(update));

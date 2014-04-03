@@ -87,7 +87,9 @@ const char METATILE_IO_MAGIC[8] = {  'M', 'E', 'T', 'A', 'T', 'I', 'L', 'E' };
 const unsigned METATILE_IO_VERSION = 1;
 
 void loadMetatileTree(long baseTileSize, const TileId &tileId
-                      , const MetaNodeLoader &loader, std::istream &f)
+                      , const MetaNodeLoader &loader
+                      , const MetaNodeNotify &notify
+                      , std::istream &f)
 {
     using utility::binaryio::read;
 
@@ -119,19 +121,26 @@ void loadMetatileTree(long baseTileSize, const TileId &tileId
     // remember node
     loader(tileId, node, childFlags);
 
-    std::uint8_t mask(1 << 4);
+    std::uint8_t gmask(1);
+    std::uint8_t lmask(1 << 4);
     for (const auto &childId : children(baseTileSize, tileId)) {
-        if (childFlags & mask) {
-            loadMetatileTree(baseTileSize, childId, loader, f);
+        if (childFlags & lmask) {
+            // node exists and is inside this metatile
+            loadMetatileTree(baseTileSize, childId, loader, notify, f);
+        } else if ((childFlags & gmask) && notify) {
+            // node exists but lives inside other metatile
+            notify(childId);
         }
-        mask <<= 1;
+
+        lmask <<= 1;
+        gmask <<= 1;
     }
 }
 
 } // namespace
 
 void loadMetatile(std::istream &f, long baseTileSize, const TileId &tileId
-                  , const MetaNodeLoader &loader)
+                  , const MetaNodeLoader &loader, const MetaNodeNotify &notify)
 {
     using utility::binaryio::read;
     uint32_t version;
@@ -150,7 +159,7 @@ void loadMetatile(std::istream &f, long baseTileSize, const TileId &tileId
     }
 
     // TODO: use version to load different versions of metatile
-    loadMetatileTree(baseTileSize, tileId, loader, f);
+    loadMetatileTree(baseTileSize, tileId, loader, notify, f);
 }
 
 namespace {

@@ -24,7 +24,8 @@ public:
     TileIndex(const Alignment &alignment, long baseTileSize
               , Extents extents
               , LodRange lodRange
-              , const TileIndex *other = nullptr);
+              , const TileIndex *other = nullptr
+              , bool noFill = false);
 
     TileIndex(const TileIndex &other);
 

@@ -45,6 +45,18 @@ public:
      */
     IStream::pointer input(const TileId tileId, TileFile type) const;
 
+    /** Change metalevels. Metatiles and tile/meta indices are regenerated.
+     */
+    void changeMetaLevels(const LodLevels &metaLevels);
+
+    /** Renames tile set, i.e. its id is changed.
+     */
+    void rename(const std::string &newId);
+
+    /** Regenerate index from metadata.
+     */
+    void regenerateTileIndex();
+
 private:
     TileSet::pointer tileSet_;
 };

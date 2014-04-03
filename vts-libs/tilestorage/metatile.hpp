@@ -68,8 +68,11 @@ struct MetaNode : TileMetadata
 typedef std::function<void(const TileId &tileId, const MetaNode &node
                            , std::uint8_t childFlags)> MetaNodeLoader;
 
+typedef std::function<void(const TileId &tileId)> MetaNodeNotify;
+
 void loadMetatile(std::istream &f, long baseTileSize, const TileId &tileId
-                  , const MetaNodeLoader &loader);
+                  , const MetaNodeLoader &loader
+                  , const MetaNodeNotify &notify = MetaNodeNotify());
 
 struct MetaNodeSaver
 {

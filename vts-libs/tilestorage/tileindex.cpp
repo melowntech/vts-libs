@@ -63,7 +63,7 @@ Extents grid(const Extents &extents, const Alignment &alignment
 
 TileIndex::TileIndex(const Alignment &alignment, long baseTileSize
                      , Extents extents, LodRange lodRange
-                     , const TileIndex *other)
+                     , const TileIndex *other, bool noFill)
     : baseTileSize_(baseTileSize)
     , minLod_(lodRange.min)
 {
@@ -97,7 +97,7 @@ TileIndex::TileIndex(const Alignment &alignment, long baseTileSize
         tiling.height *= 2;
 
         // fill in old data (if exists)
-        if (other) {
+        if (other && !noFill) {
             fill(lod, *other);
         };
     }
