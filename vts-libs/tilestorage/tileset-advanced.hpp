@@ -21,14 +21,6 @@ public:
     // creates new api
     AdvancedApi(const TileSet::pointer &tileSet) : tileSet_(tileSet) {}
 
-    /** Returns traverser over tiles.
-     */
-    Traverser tileTraverser() const;
-
-    /** Returns traverser over metatiles.
-     */
-    Traverser metaTraverser() const;
-
     /** Returns output stream for given file.
      */
     OStream::pointer output(File type);
@@ -57,9 +49,33 @@ public:
      */
     void regenerateTileIndex();
 
+    /** Traverse tiles. Calls op(TileId) for each existing tile.
+     */
+    template <typename Op> void traverseTiles(const Op &op);
+
+    /** Traverse metatiles. Calls op(TileId) for each existing metatile.
+     */
+    template <typename Op> void traverseMetas(const Op &op);
+
 private:
+    const TileIndex& tileIndex() const;
+
+    const TileIndex& metaIndex() const;
+
     TileSet::pointer tileSet_;
 };
+
+template <typename Op>
+void TileSet::AdvancedApi::traverseTiles(const Op &op)
+{
+    traverse(tileIndex(), op);
+}
+
+template <typename Op>
+void TileSet::AdvancedApi::traverseMetas(const Op &op)
+{
+    traverse(metaIndex(), op);
+}
 
 } } // namespace vadstena::tilestorage
 

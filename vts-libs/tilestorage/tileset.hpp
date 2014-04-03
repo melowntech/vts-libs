@@ -26,7 +26,6 @@
 #include "./types.hpp"
 #include "./tileindex.hpp"
 #include "./properties.hpp"
-#include "./traverser.hpp"
 #include "../ids.hpp"
 #include "../range.hpp"
 

@@ -71,7 +71,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/io.hpp tilestorage/po.hpp
     tilestorage/json.hpp tilestorage/json.cpp
     tilestorage/tileindex.hpp tilestorage/tileindex.cpp
-    tilestorage/traverser.hpp tilestorage/traverser.cpp
     tilestorage/metatile.hpp tilestorage/metatile.cpp
     tilestorage/driver.hpp tilestorage/driver/driver.cpp
     tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp

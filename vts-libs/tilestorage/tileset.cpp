@@ -1356,19 +1356,17 @@ void TileSet::Detail::clone(const Detail &src)
     }
 
     // copy tiles
-    auto traverser(src.tileIndex.traverser());
-    while (auto tile = traverser.next()) {
-        for (auto type : { TileFile::mesh, TileFile::atlas }) {
-            copyFile(sd.input(tile.id, type), dd.output(tile.id, type));
-        }
-    }
+    traverse(src.tileIndex, [&](const TileId &tileId) {
+            for (auto type : { TileFile::mesh, TileFile::atlas }) {
+                copyFile(sd.input(tileId, type), dd.output(tileId, type));
+            }
+        });
 
     // copy metatiles
-    traverser = src.metaIndex.traverser();
-    while (auto tile = traverser.next()) {
-        copyFile(sd.input(tile.id, TileFile::meta)
-                 , dd.output(tile.id, TileFile::meta));
-    }
+    traverse(src.metaIndex, [&](const TileId &metaId) {
+            copyFile(sd.input(metaId, TileFile::meta)
+                     , dd.output(metaId, TileFile::meta));
+        });
 
     // reload in new stuff
     loadConfig();
@@ -1384,10 +1382,10 @@ void TileSet::Detail::dropRemovedMetatiles(const TileIndex &before
     // calculate difference between original and new state
     auto remove(difference(properties.alignment, before, after));
 
-    auto traverser(remove.traverser());
-    while (auto tile = traverser.next()) {
-        driver->remove(tile.id, TileFile::meta);
-    }
+    // copy metatiles
+    traverse(remove, [&](const TileId &metaId) {
+            driver->remove(metaId, TileFile::meta);
+        });
 }
 
 bool TileSet::empty() const
@@ -1409,18 +1407,18 @@ TileSet::AdvancedApi TileSet::advancedApi()
     return TileSet::AdvancedApi(shared_from_this());
 }
 
-Traverser TileSet::AdvancedApi::tileTraverser() const
+const TileIndex& TileSet::AdvancedApi::tileIndex() const
 {
     const auto &detail(tileSet_->detail());
     detail.checkValidity();
-    return Traverser(&detail.tileIndex);
+    return detail.tileIndex ;
 }
 
-Traverser TileSet::AdvancedApi::metaTraverser() const
+const TileIndex& TileSet::AdvancedApi::metaIndex() const
 {
     const auto &detail(tileSet_->detail());
     detail.checkValidity();
-    return Traverser(&detail.metaIndex);
+    return detail.metaIndex ;
 }
 
 OStream::pointer TileSet::AdvancedApi::output(File type)
@@ -1457,6 +1455,8 @@ void TileSet::AdvancedApi::regenerateTileIndex()
 {
     // TODO: ensure that there are no pending changes
     auto &detail(tileSet_->detail());
+    detail.checkValidity();
+
     if (!detail.savedProperties.foatSize) {
         // TODO: save empty index if nothing there
         return;
@@ -1508,6 +1508,7 @@ void TileSet::AdvancedApi::changeMetaLevels(const LodLevels &metaLevels)
 void TileSet::AdvancedApi::rename(const std::string &newId)
 {
     auto &detail(tileSet_->detail());
+    detail.checkValidity();
 
     if (detail.properties.id == newId) {
         return;

@@ -10,7 +10,6 @@
 #include "./maskfwd.hpp"
 #include "./basetypes.hpp"
 #include "./tileop.hpp"
-#include "./traverser.hpp"
 
 #include "../entities.hpp"
 
@@ -61,6 +60,8 @@ public:
 
     TileId tileId(const Index &index) const;
 
+    TileId tileId(Lod lod, long easting, long northing) const;
+
     Index index(const TileId &tileId) const;
 
     Size2l rasterSize(Lod lod) const;
@@ -92,11 +93,7 @@ public:
 
     TileIndex& invert();
 
-    const Masks masks() const { return masks_; };
-
-    friend class Traverser;
-
-    Traverser traverser() const;
+    const Masks& masks() const { return masks_; };
 
     /** Clears lod content.
      */
@@ -243,11 +240,16 @@ inline bool TileIndex::exists(const TileId &tileId) const
     return exists(index(tileId));
 }
 
+inline TileId TileIndex::tileId(Lod lod, long easting, long northing) const
+{
+    const auto ts(tileSize(baseTileSize_, lod));
+    return { lod, origin_(0) + easting * ts
+            , origin_(1) + northing * ts };
+}
+
 inline TileId TileIndex::tileId(const Index &index) const
 {
-    const auto ts(tileSize(baseTileSize_, index.lod));
-    return { index.lod, origin_(0) + index.easting * ts
-            , origin_(1) + index.northing * ts };
+    return tileId(index.lod, index.easting, index.northing);
 }
 
 inline Index TileIndex::index(const TileId &tileId) const
@@ -269,9 +271,16 @@ inline void TileIndex::set(const Index &index, bool value)
     }
 }
 
-inline Traverser TileIndex::traverser() const
+template <typename Op>
+inline void traverse(const TileIndex &ti, const Op &op)
 {
-    return Traverser(this);
+    auto lod(ti.minLod());
+    for (const auto &mask : ti.masks()) {
+        mask.forEach([&](long easting, long northing, bool) {
+                op(ti.tileId(lod, easting, northing));
+            }, RasterMask::Filter::white);
+        ++lod;
+    }
 }
 
 } } // namespace vadstena::tilestorage
