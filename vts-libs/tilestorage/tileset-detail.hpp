@@ -92,6 +92,8 @@ struct TileSet::Detail {
 
     void purgeMetadata();
 
+    void removeOverFoat();
+
     void dropRemovedMetatiles(const TileIndex &before, const TileIndex &after);
 
     void saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex) const;

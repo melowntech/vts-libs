@@ -267,6 +267,8 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
 
     // done
     saveConfig();
+
+    LOG(info3) << "Add: done";
 }
 
 void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
@@ -331,6 +333,8 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
         // remove tileset
         ts.second->drop();
     }
+
+    LOG(info3) << "Remove: done";
 }
 
 // storage
