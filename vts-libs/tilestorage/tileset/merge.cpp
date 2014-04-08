@@ -2,12 +2,18 @@
 
 #include "../tileset-detail.hpp"
 #include "../merge.hpp"
+#include "./dump.hpp"
 
 namespace vadstena { namespace tilestorage {
 
 namespace {
     const char *TILEINDEX_DUMP_ROOT("TILEINDEX_DUMP_ROOT");
 } // namespace
+
+const char* getDumpDir()
+{
+    return std::getenv(TILEINDEX_DUMP_ROOT);
+}
 
 /** This simple class allows access to the "detail" implementation of a tile
  * set.
@@ -87,8 +93,10 @@ inline void dump(const char *root, const boost::filesystem::path &dir
     dump(root / dir, set);
 }
 
-inline void dumpTileIndex(const char *root, const fs::path &name
-                          , const TileIndex &index)
+} // namespace
+
+void dumpTileIndex(const char *root, const fs::path &name
+                   , const TileIndex &index)
 {
     if (!root) { return; }
 
@@ -97,8 +105,6 @@ inline void dumpTileIndex(const char *root, const fs::path &name
     dumpAsImages(path, index);
     index.save(path / "raw.bin");
 }
-
-} // namespace
 
 void TileSet::mergeIn(const list &kept, const list &update)
 {
@@ -109,7 +115,7 @@ void TileSet::mergeIn(const list &kept, const list &update)
 
     LOG(info3) << "(merge-in) Calculating generate set.";
 
-    const auto *dumpRoot(std::getenv(TILEINDEX_DUMP_ROOT));
+    const auto *dumpRoot(getDumpDir());
 
     dump(dumpRoot, "update", update);
 
@@ -194,7 +200,7 @@ void TileSet::mergeOut(const list &kept, const list &update)
 
     LOG(info3) << "(merge-out) Calculating generate and remove sets.";
 
-    const auto *dumpRoot(std::getenv(TILEINDEX_DUMP_ROOT));
+    const auto *dumpRoot(getDumpDir());
 
     dump(dumpRoot, "update", update);
 
@@ -249,9 +255,6 @@ void TileSet::mergeOut(const list &kept, const list &update)
     world.makeComplete();
     dumpTileIndex(dumpRoot, "world", world);
 
-    list all(kept.begin(), kept.end());
-    all.insert(all.end(), update.begin(), update.end());
-
     utility::Progress progress(generate.count() + remove.count());
 
     LOG(info3) << "(merge-out) Generate and remove sets calculated. "
@@ -264,14 +267,14 @@ void TileSet::mergeOut(const list &kept, const list &update)
             LOG(info2) << "(merge-out) Processing subtree "
                        << lod << "/(" << i << ", " << j << ").";
             detail().mergeSubtree(progress, world, generate, &remove
-                                  , {lod, i, j}, all);
+                                  , {lod, i, j}, kept);
         }
     }
 
     LOG(info3) << "(merge-in) Tile sets merged out.";
 
     // center default position if not inside tileset
-    detail().fixDefaultPosition(all);
+    detail().fixDefaultPosition(kept);
 }
 
 Tile TileSet::Detail::generateTile(const TileId &tileId
@@ -281,7 +284,7 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
 {
     auto ts(tileSize(properties.baseTileSize, tileId.lod));
 
-    // Fetch tiles from other tiles.
+    // Fetch tiles from other source.
     Tile::list tiles;
     for (const auto &ts : src) {
         if (auto t = ts->detail().getTile(tileId, std::nothrow)) {
@@ -293,7 +296,8 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
     if (quadrant < 0) {
         // no parent data
         if (tiles.empty()) {
-            // no data
+            // no data -> remove tile and return empty tile
+            removeTile(tileId);
             return {};
         } else if ((tiles.size() == 1)) {
             // just one single tile without any fallback

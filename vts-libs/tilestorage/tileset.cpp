@@ -20,6 +20,7 @@
 #include "./tileset-advanced.hpp"
 #include "./metatile.hpp"
 #include "./merge.hpp"
+#include "./tileset/dump.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -197,6 +198,20 @@ TileSet::Detail::~Detail()
     }
 }
 
+void TileSet::Detail::setFoat(const TileId &tileId)
+{
+    properties.foat = tileId;
+    properties.foatSize = tileSize(properties, tileId.lod);
+    propertiesChanged = true;
+}
+
+void TileSet::Detail::resetFoat()
+{
+    properties.foat = {};
+    properties.foatSize = 0;
+    propertiesChanged = true;
+}
+
 void TileSet::Detail::loadConfig()
 {
     // load json
@@ -282,9 +297,7 @@ void TileSet::Detail::saveMetadata()
 
     if (metadata.empty()) {
         // no tile, we should invalidate foat
-        properties.foat = {};
-        properties.foatSize = 0;
-        propertiesChanged = true;
+        resetFoat();
         LOG(info2) << "Tile set <" << properties.id << ">: New foat is "
                    << properties.foat << ".";
     }
@@ -530,9 +543,7 @@ void TileSet::Detail::updateTree(const TileId &tileId
     if (isFoat(tileId)) {
         // we reached foat tile => way up
         if (tileId != properties.foat) {
-            properties.foat = tileId;
-            properties.foatSize = tileSize(properties, tileId.lod);
-            propertiesChanged = true;
+            setFoat(tileId);
             LOG(info2) << "Tile set <" << properties.id
                        << ">: New foat is " << properties.foat << ".";
         }
@@ -616,7 +627,7 @@ void TileSet::Detail::removeOverFoat()
         metadataChanged = true;
 
         // remember new foat
-        properties.foat = *foatChild;
+        setFoat(*foatChild);
         LOG(info2) << "Decreased foat to " << properties.foat;
 
         // try next level
@@ -682,9 +693,7 @@ void TileSet::Detail::purgeMetadata()
 
     if (!Crawler(*this, newExtents, newLodRange).purge(properties.foat)) {
         // FOAT has been removed! Empty storage!
-        properties.foat = {};
-        properties.foatSize = 0;
-        propertiesChanged = true;
+        resetFoat();
         LOG(info2) << "Tile set <" << properties.id << ">: New foat is "
                    << properties.foat << ".";
         return;
@@ -1060,6 +1069,14 @@ void TileSet::Detail::dropRemovedMetatiles(const TileIndex &before
 {
     // calculate difference between original and new state
     auto remove(difference(properties.alignment, before, after));
+
+    {
+        const auto *dumpRoot(getDumpDir());
+        LOG(info4) << "dumpRoot: " << dumpRoot;
+        dumpTileIndex(dumpRoot, "rm-before", before);
+        dumpTileIndex(dumpRoot, "rm-after", after);
+        dumpTileIndex(dumpRoot, "rm-remove", remove);
+    }
 
     // copy metatiles
     traverseTiles(remove, [&](const TileId &metaId)

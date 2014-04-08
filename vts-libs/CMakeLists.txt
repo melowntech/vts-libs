@@ -78,6 +78,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/driver/hash-crc.hpp tilestorage/driver/hash-crc.cpp
     tilestorage/merge.hpp tilestorage/merge.cpp
     tilestorage/tileset/merge.cpp
+    tilestorage/tileset/dump.hpp
 
     licence/fingerprint.hpp licence/fingerprint.cpp
 

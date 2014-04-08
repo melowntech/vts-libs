@@ -11,6 +11,7 @@
 #include "./tileindex.hpp"
 #include "./tileop.hpp"
 #include "./error.hpp"
+#include "./io.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -163,8 +164,8 @@ void TileIndex::intersect(Lod lod, const TileIndex &other)
     // calculate origin difference in tiles at given lod
     auto ts(tileSize(baseTileSize_, lod));
 
-    math::Size2 diff((origin_(0) - other.origin_(0)) / ts
-                     , (origin_(1) - other.origin_(1)) / ts);
+    math::Size2 diff((other.origin_(0) - origin_(0)) / ts
+                     , (other.origin_(1) - origin_(1)) / ts);
 
     auto nsize(newMask->dims());
     auto size(oldMask->dims());
@@ -177,7 +178,9 @@ void TileIndex::intersect(Lod lod, const TileIndex &other)
 
     for (int j(0); j < size.height; ++j) {
         for (int i(0); i < size.width; ++i) {
-            if (!oldMask->get(i, j) && newMask->get(i, j)) {
+            if (!oldMask->get(i, j)
+                && newMask->get(diff.width + i, diff.height + j))
+            {
                 // new set but old unset -> unset
                 newMask->set(diff.width + i, diff.height + j
                              , false);
@@ -205,8 +208,8 @@ void TileIndex::subtract(Lod lod, const TileIndex &other)
     // calculate origin difference in tiles at given lod
     auto ts(tileSize(baseTileSize_, lod));
 
-    math::Size2 diff((origin_(0) - other.origin_(0)) / ts
-                     , (origin_(1) - other.origin_(1)) / ts);
+    math::Size2 diff((other.origin_(0) - origin_(0)) / ts
+                     , (other.origin_(1) - origin_(1)) / ts);
 
     auto nsize(newMask->dims());
     auto size(oldMask->dims());
@@ -217,10 +220,16 @@ void TileIndex::subtract(Lod lod, const TileIndex &other)
         return;
     }
 
+    if (newMask->empty() || oldMask->empty()) {
+        // either empty -> nothing to do
+        return;
+    }
+
     for (int j(0); j < size.height; ++j) {
         for (int i(0); i < size.width; ++i) {
-            if (oldMask->get(i, j) && newMask->get(i, j)) {
-                // new set but old unset -> unset
+            if (oldMask->get(i, j)
+                && newMask->get(diff.width + i, diff.height + j))
+            {
                 newMask->set(diff.width + i, diff.height + j
                              , false);
             }
@@ -469,6 +478,9 @@ TileIndex bitop(const Alignment &alignment
                                            , l.extents()), r.extents()));
     if (empty(extents)) { return {}; }
 
+    LOG(info2) << "(" << opName << ") l: " << l;
+    LOG(info2) << "(" << opName << ") r: " << r;
+
     LOG(info2) << "(" << opName << ") lodRange: " << lodRange;
     LOG(info2) << "(" << opName << ") extents: " << extents;
 
@@ -537,6 +549,8 @@ void dumpAsImages(const fs::path &path, const TileIndex &ti
 {
     LOG(info2) << "Dumping tileIndex as image stack at " << path << ".";
     create_directories(path);
+
+    if (ti.masks().empty()) { return; }
 
     auto lod(ti.lodRange().max);
     const auto &masks(ti.masks());

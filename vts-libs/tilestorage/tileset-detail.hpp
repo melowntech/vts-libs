@@ -126,6 +126,10 @@ struct TileSet::Detail {
     TileId parent(const TileId &tileId) const;
 
     void clone(const Detail &src);
+
+    void setFoat(const TileId &tileId);
+
+    void resetFoat();
 };
 
 
