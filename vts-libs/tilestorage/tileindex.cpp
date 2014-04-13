@@ -469,7 +469,11 @@ TileIndex bitop(const Alignment &alignment
                 , const Bootstrap &bootstrap
                 , const Op &op, const char *opName)
 {
-    auto baseTileSize(l.baseTileSize());
+    if (l.empty() && r.empty()) { return {}; }
+
+    auto baseTileSize(l.empty() ? r.baseTileSize() : l.baseTileSize());
+    if (!baseTileSize) { return {}; }
+
     auto lodRange(unite(unite(bootstrap.lodRange()
                               , l.lodRange()), r.lodRange()));
     if (lodRange.empty()) { return {}; }
