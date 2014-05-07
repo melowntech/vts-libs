@@ -52,6 +52,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
 
     rectalloc.hpp rectalloc.cpp
     viewrasterize.hpp viewrasterize.cpp
+    viewfootprints.hpp viewfootprints.cpp
 
     shapefile.hpp shapefile.cpp
 
