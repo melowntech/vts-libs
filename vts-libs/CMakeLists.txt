@@ -52,7 +52,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
 
     rectalloc.hpp rectalloc.cpp
     viewrasterize.hpp viewrasterize.cpp
-    viewquality.hpp viewquality.cpp
 
     shapefile.hpp shapefile.cpp
 
@@ -89,6 +88,12 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
 
     ${vadstena-libs_BROWSER_SOURCES}
     )
+
+  if (CGAL_FOUND)
+    list(APPEND vadstena-libs_SOURCES
+         viewquality.hpp viewquality.cpp
+    )
+  endif()
 
   # fallback to non-C++11 standard for this helper file
   if (${CMAKE_C_COMPILER_ID} MATCHES GNU)
