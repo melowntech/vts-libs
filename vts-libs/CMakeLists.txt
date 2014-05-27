@@ -107,6 +107,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     ${CMAKE_SOURCE_DIR}/lib)
 
   target_link_libraries(vadstena-libs ${MODULE_LIBRARIES})
+  target_compile_definitions(vadstena-libs PRIVATE ${MODULE_DEFINITIONS})
 endif()
 
 # private library; NOT to be USED in customer code!
