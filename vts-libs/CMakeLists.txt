@@ -103,11 +103,9 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
   endif()
 
   add_library(vadstena-libs STATIC ${vadstena-libs_SOURCES})
-  set_target_properties(vadstena-libs PROPERTIES ARCHIVE_OUTPUT_DIRECTORY
-    ${CMAKE_SOURCE_DIR}/lib)
-
+  buildsys_library(vadstena-libs)
   target_link_libraries(vadstena-libs ${MODULE_LIBRARIES})
-  target_compile_definitions(vadstena-libs PRIVATE ${MODULE_DEFINITIONS})
+  buildsys_target_compile_definitions(vadstena-libs ${MODULE_DEFINITIONS})
 endif()
 
 # private library; NOT to be USED in customer code!
@@ -122,8 +120,7 @@ if (DEFINED BUILDSYS_BUILD_TARGET_vadstena-libs-private)
     )
 
   add_library(vadstena-libs-private STATIC ${vadstena-libs-private_SOURCES})
-  set_target_properties(vadstena-libs-private PROPERTIES ARCHIVE_OUTPUT_DIRECTORY
-    ${CMAKE_SOURCE_DIR}/lib)
-
+  buildsys_library(vadstena-libs-private)
   target_link_libraries(vadstena-libs-private ${MODULE_LIBRARIES})
+  buildsys_target_compile_definitions(vadstena-libs-private ${MODULE_DEFINITIONS})
 endif()
