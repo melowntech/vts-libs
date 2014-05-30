@@ -26,26 +26,24 @@ namespace {
 /** Converts coordinate to grid defined by reference point and cell size.
  *  Coordinates not on grid are rounded up.
  */
-long gridUp(long value, long origin, unsigned long size)
+long gridUp(long value, long origin, long size)
 {
     auto oft(value - origin);
     if (oft < 0) {
         return (oft / size);
     }
-
-    return ((size - 1 + oft) / size);
+    return ((oft + (size - 1)) / size);
 }
 
 /** Converts coordinate to grid defined by reference point and cell size.
  *  Coordinates not on grid are rounded down.
  */
-long gridDown(long value, long origin, unsigned long size)
+long gridDown(long value, long origin, long size)
 {
     auto oft(value - origin);
     if (oft < 0) {
-        return ((size - 1 - oft) / size);
+        return ((oft - (size - 1)) / size);
     }
-
     return (oft / size);
 }
 
@@ -85,6 +83,9 @@ TileIndex::TileIndex(const Alignment &alignment, long baseTileSize
 
     // get tiling
     math::Size2i tiling(size(ex));
+
+    LOG(info1) << "TileIndex tiling: extents=" << ex
+               << ", size=" << tiling << ".";
 
     // create raster mask for all lods
     for (auto lod : lodRange) {
