@@ -53,6 +53,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     rectalloc.hpp rectalloc.cpp
     viewrasterize.hpp viewrasterize.cpp
     viewquality.hpp viewquality.cpp
+    orthopreview.hpp orthopreview.cpp
 
     shapefile.hpp shapefile.cpp
 
