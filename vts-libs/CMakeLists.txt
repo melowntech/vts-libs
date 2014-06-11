@@ -61,6 +61,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     flowconfig.hpp flowconfig.cpp
     fitting.hpp fitting.cpp
     fittingset.hpp fittingset.cpp
+    measurements.hpp measurements.cpp
     features.hpp features.cpp
 
     tilestorage.hpp
