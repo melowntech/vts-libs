@@ -13,6 +13,7 @@
 #include "../error.hpp"
 
 #include "tilestorage/browser/index.html.hpp"
+#include "tilestorage/browser/index-offline.html.hpp"
 #include "tilestorage/browser/skydome.jpg.hpp"
 
 namespace vadstena { namespace tilestorage {
@@ -149,6 +150,7 @@ FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
 
     // write convenience browser
     utility::write(root_ / "index.html", browser::index_html);
+    utility::write(root_ / "index-offline.html", browser::index_offline_html);
     utility::write(root_ / "skydome.jpg", browser::skydome_jpg);
 }
 
