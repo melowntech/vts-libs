@@ -22,6 +22,9 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     vadstena::tilestorage::browser::index_html
     tilestorage/browser/index.html)
   file_to_cpp(vadstena-libs_BROWSER_SOURCES
+    vadstena::tilestorage::browser::index_offline_html
+    tilestorage/browser/index-offline.html)
+  file_to_cpp(vadstena-libs_BROWSER_SOURCES
     vadstena::tilestorage::browser::skydome_jpg
     tilestorage/browser/skydome.jpg)
 
