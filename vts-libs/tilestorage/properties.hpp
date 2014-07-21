@@ -30,6 +30,10 @@ struct StaticProperties {
      */
     Alignment alignment;
 
+    /** Spatial reference system of map.
+     */
+    std::string srs;
+
     StaticProperties() : baseTileSize() {}
 };
 

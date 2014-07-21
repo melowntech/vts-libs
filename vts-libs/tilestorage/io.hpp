@@ -117,6 +117,7 @@ dump(std::basic_ostream<CharT, Traits> &os
     os << prefix << "baseTileSize = " << p.baseTileSize << '\n'
        << prefix << "alignment = " << p.alignment(0) << ','
        << p.alignment(1) << '\n';
+    os << prefix << "srs = " << p.srs << '\n';
     return os;
 }
 
