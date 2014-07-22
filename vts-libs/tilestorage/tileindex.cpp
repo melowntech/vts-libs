@@ -483,11 +483,11 @@ TileIndex bitop(const Alignment &alignment
                                            , l.extents()), r.extents()));
     if (empty(extents)) { return {}; }
 
-    LOG(info2) << "(" << opName << ") l: " << l;
-    LOG(info2) << "(" << opName << ") r: " << r;
+    LOG(debug) << "(" << opName << ") l: " << l;
+    LOG(debug) << "(" << opName << ") r: " << r;
 
-    LOG(info2) << "(" << opName << ") lodRange: " << lodRange;
-    LOG(info2) << "(" << opName << ") extents: " << extents;
+    LOG(debug) << "(" << opName << ") lodRange: " << lodRange;
+    LOG(debug) << "(" << opName << ") extents: " << extents;
 
     // result tile index (initialize with first tile index)
     TileIndex out(alignment, baseTileSize, extents, lodRange, &l);
