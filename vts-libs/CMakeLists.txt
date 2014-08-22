@@ -43,6 +43,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     faceclip.hpp faceclip.cpp
     binmesh.hpp binmesh.cpp
 
+    memory-requirements.hpp
+
     # crypto stuff
     clog.hpp clog.cpp
     deferredlogger.hpp deferredlogger.cpp
@@ -57,6 +59,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     viewrasterize.hpp viewrasterize.cpp
     viewquality.hpp viewquality.cpp
     orthopreview.hpp orthopreview.cpp
+
+    coverage-map.hpp coverage-map.cpp
 
     shapefile.hpp shapefile.cpp
 
