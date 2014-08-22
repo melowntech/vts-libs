@@ -66,6 +66,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     fittingset.hpp fittingset.cpp
     features.hpp features.cpp
 
+    measurements.hpp measurements.cpp
+
     tilestorage.hpp
     tilestorage/basetypes.hpp tilestorage/types.hpp
     tilestorage/properties.hpp
