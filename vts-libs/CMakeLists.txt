@@ -69,6 +69,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     fitting.hpp fitting.cpp
     fittingset.hpp fittingset.cpp
     features.hpp features.cpp
+    filelist.hpp filelist.cpp
 
     measurements.hpp measurements.cpp
 
