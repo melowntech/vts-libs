@@ -32,7 +32,14 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     db.hpp db.cpp
     file.hpp
     entities.hpp entities.cpp
-    utility.hpp utility.cpp
+
+    utility.hpp
+    utility/utility.cpp
+    utility/job.cpp
+    utility/maintenance.cpp
+    utility/convert.hpp utility/convert.cpp
+    utility/detail.hpp
+
     tiling.hpp tiling.cpp
     copyfile.hpp copyfile.cpp
     colorconfig.hpp colorconfig.cpp
