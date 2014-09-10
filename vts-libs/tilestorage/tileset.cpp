@@ -1098,6 +1098,13 @@ void TileSet::drop()
     detail().driver.reset();
 }
 
+void TileSet::update()
+{
+    // tell driver to update its stuff
+    detail().driver->wannaWrite("update tile set");
+    detail().driver->update();
+}
+
 TileSet::AdvancedApi TileSet::advancedApi()
 {
     detail().checkValidity();

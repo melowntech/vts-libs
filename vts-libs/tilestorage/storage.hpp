@@ -80,6 +80,11 @@ public:
 
     void removeTileSets(const std::vector<std::string> &ids);
 
+    /** Updates all input and output tilesets.
+     *  (Currently, only embedded browser is updated).
+     */
+    void update();
+
     static std::map<std::string, std::string> listSupportedDrivers();
 
     static const std::string getDefaultOutputType();

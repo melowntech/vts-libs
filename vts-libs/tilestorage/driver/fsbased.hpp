@@ -62,6 +62,8 @@ private:
 
     virtual void drop_impl() UTILITY_OVERRIDE;
 
+    virtual void update_impl() UTILITY_OVERRIDE;
+
     fs::path fileDir(File type, const fs::path &name) const;
 
     fs::path fileDir(const TileId &tileId, TileFile type
@@ -73,6 +75,8 @@ private:
     writePath(const fs::path &dir, const fs::path &name);
 
     fs::path removePath(const fs::path &dir, const fs::path &name);
+
+    void writeExtraFiles();
 
     /** Backing root.
      */

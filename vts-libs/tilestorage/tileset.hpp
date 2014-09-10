@@ -158,6 +158,11 @@ public:
      */
     void mergeOut(const list &kept, const list &update);
 
+    /** Updates tileset. Currently, only embedded web browser is updated to
+     *  compiled-in version.
+     */
+    void update();
+
     // extended API; not to be used by general public :)
     class AdvancedApi; friend class AdvancedApi;
 

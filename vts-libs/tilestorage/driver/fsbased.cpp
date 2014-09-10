@@ -148,10 +148,8 @@ FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
         }
     }
 
-    // write convenience browser
-    utility::write(root_ / "index.html", browser::index_html);
-    utility::write(root_ / "index-offline.html", browser::index_offline_html);
-    utility::write(root_ / "skydome.jpg", browser::skydome_jpg);
+    // write extra files
+    writeExtraFiles();
 }
 
 FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
@@ -174,6 +172,14 @@ FsBasedDriver::~FsBasedDriver()
                 "driver close: <" << e.what() << ">.";
         }
     }
+}
+
+void FsBasedDriver::writeExtraFiles()
+{
+    // write convenience browser
+    utility::write(root_ / "index.html", browser::index_html);
+    utility::write(root_ / "index-offline.html", browser::index_offline_html);
+    utility::write(root_ / "skydome.jpg", browser::skydome_jpg);
 }
 
 OStream::pointer FsBasedDriver::output_impl(File type)
@@ -293,6 +299,17 @@ void FsBasedDriver::drop_impl()
 
     // remove whole tmp directory
     remove_all(root_);
+}
+
+void FsBasedDriver::update_impl()
+{
+    if (tx_) {
+        LOGTHROW(err2, PendingTransaction)
+            << "Cannot update tile set inside an active transaction.";
+    }
+
+    // write extra files (i.e. browser)
+    writeExtraFiles();
 }
 
 fs::path FsBasedDriver::readPath(const fs::path &dir, const fs::path &name)

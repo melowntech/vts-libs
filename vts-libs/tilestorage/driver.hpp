@@ -38,6 +38,10 @@ public:
      */
     void drop();
 
+    /** Update driver stuff. Currenlty, only embedded browser is updated.
+     */
+    void update();
+
     class Factory;
 
     template <typename DriverClass> static void registerDriver();
@@ -72,6 +76,8 @@ private:
     virtual void rollback_impl() = 0;
 
     virtual void drop_impl() = 0;
+
+    virtual void update_impl() = 0;
 
     static void registerDriver(const std::shared_ptr<Factory> &factory);
 
@@ -147,6 +153,11 @@ inline void Driver::rollback()
 inline void Driver::drop()
 {
     return drop_impl();
+}
+
+inline void Driver::update()
+{
+    return update_impl();
 }
 
 } } // namespace vadstena::tilestorage
