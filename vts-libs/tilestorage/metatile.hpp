@@ -59,8 +59,8 @@ struct MetaNode : TileMetadata
         return pixelSize[0][0] < detail::invalidPixelSize;
     }
 
-    void dump(std::ostream &f) const;
-    void load(std::istream &f);
+    void dump(std::ostream &f, const unsigned int version) const;
+    void load(std::istream &f, const unsigned int version);
 };
 
 // metatile IO

@@ -1072,7 +1072,7 @@ void TileSet::Detail::dropRemovedMetatiles(const TileIndex &before
 
     {
         const auto *dumpRoot(getDumpDir());
-        LOG(info4) << "dumpRoot: " << dumpRoot;
+        LOG(info1) << "dumpRoot: " << dumpRoot;
         dumpTileIndex(dumpRoot, "rm-before", before);
         dumpTileIndex(dumpRoot, "rm-after", after);
         dumpTileIndex(dumpRoot, "rm-remove", remove);

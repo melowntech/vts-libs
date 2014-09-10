@@ -1,10 +1,14 @@
 #include <queue>
 #include <bitset>
 #include <iostream>
+#include <limits>
+#include <algorithm>
 
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
+#include "utility/algorithm.hpp"
 #include "math/geometry.hpp"
+#include "math/math.hpp"
 
 #include "./error.hpp"
 #include "./tileop.hpp"
@@ -63,57 +67,150 @@ void MetaNode::calcParams(const geometry::Obj &mesh,
 }
 
 
-void MetaNode::dump(std::ostream &f) const
+namespace {
+    constexpr unsigned int METATILE_IO_VERSION_ABSOLUTE_HEIGHTFIELD = 1;
+    constexpr unsigned int METATILE_IO_VERSION_SCALED_HEIGHTFIELD = 2;
+
+    template <typename IntType>
+    float height2Save(const float height, float min, float max)
+    {
+        // min-max range sanitizer
+        constexpr float Epsilon(1e-10);
+
+        // get limits of given type as floats
+        constexpr float IMin(std::numeric_limits<IntType>::min());
+        constexpr float IMax(std::numeric_limits<IntType>::max());
+
+        // sanity check
+        if (min > max) { std::swap(min, max); }
+
+        // check for too small range
+        if ((max - min) < Epsilon) { return 0.0; }
+
+        // newHeight = newMinimum + oldOffsett * scale
+        // scale = newRange / oldRange
+        return math::clamp
+            (IMin + (height - min) * ((IMax - IMin) / (max - min))
+             , IMin, IMax);
+    }
+
+    template <typename IntType>
+    float height2Load(const float height, float min, float max)
+    {
+        // get limits of given type as floats
+        constexpr float IMin(std::numeric_limits<IntType>::min());
+        constexpr float IMax(std::numeric_limits<IntType>::max());
+
+        // sanity check
+        if (min > max) { std::swap(min, max); }
+
+        // newHeight = newMinimum + oldOffsett * scale
+        // scale = newRange / oldRange
+        return math::clamp
+            (min + (height - IMin) * ((max - min) / (IMax - IMin))
+             , min, max);
+    }
+
+    template <typename T, int rows, int cols>
+    std::pair<float, float> minmax(const T(&data)[rows][cols])
+    {
+        auto r(std::minmax_element(&data[0][0], &data[rows - 1][cols]));
+        return { *r.first, *r.second };
+    }
+} // namespace
+
+void MetaNode::dump(std::ostream &f, const unsigned int version) const
 {
     namespace bin = utility::binaryio;
 
-    bin::write(f, int16_t(std::floor(zmin)));
-    bin::write(f, int16_t(std::ceil(zmax)));
+    // write Z-box as floored/cieled 16bit signed integers
+    bin::write(f, std::int16_t(std::floor(zmin)));
+    bin::write(f, std::int16_t(std::ceil(zmax)));
 
-    for (int i = 0; i < 2; i++)
-    for (int j = 0; j < 2; j++) {
-        bin::write(f, pixelSize[i][j]);
+    utility::array::for_each(pixelSize, [&, this](const float value)
+    {
+        bin::write(f, value);
+    });
+
+    // heightmax minimum/maximum was added in SCALED-HEIGHTFIELD version
+    std::int16_t hmin(0), hmax(0);
+    if (version >= METATILE_IO_VERSION_SCALED_HEIGHTFIELD) {
+        // calculate and write minimum/maximum heigthmap values
+        float hmin_, hmax_;
+        std::tie(hmin_, hmax_) = minmax(heightmap);
+        hmin = std::floor(hmin_);
+        hmax = std::ceil(hmax_);
+        bin::write(f, hmin);
+        bin::write(f, hmax);
     }
 
-    for (int i = 0; i < HMSize; i++)
-    for (int j = 0; j < HMSize; j++) {
-        bin::write(f, int16_t(round(heightmap[i][j])));
+    utility::array::for_each(heightmap, [&, this](float height)
+    {
+        if (version == METATILE_IO_VERSION_ABSOLUTE_HEIGHTFIELD) {
+            // write height as is
+        } else {
+            // map height from izmin/izmax range to int16_t range
+            height = height2Save<std::int16_t>(height, hmin, hmax);
+        }
+        // write rounded height as 16bit signed integer
+        bin::write(f, std::int16_t(round(height)));
+    });
+}
+
+void MetaNode::load(std::istream &f, const unsigned int version)
+{
+    namespace bin = utility::binaryio;
+
+    std::int16_t zmin_, zmax_;
+    bin::read(f, zmin_);
+    bin::read(f, zmax_);
+    zmin = zmin_;
+    zmax = zmax_;
+
+    utility::array::for_each(pixelSize, [&, this](float &value)
+    {
+        bin::read(f, value);
+    });
+
+    // heightmax minimum/maximum was added in SCALED-HEIGHTFIELD version
+    std::int16_t hmin(0), hmax(0);
+    if (version >= METATILE_IO_VERSION_SCALED_HEIGHTFIELD) {
+        // load minimum/maximum heigthmap values
+        bin::read(f, hmin);
+        bin::read(f, hmax);
     }
+
+    utility::array::for_each(heightmap, [&, this](float &height)
+    {
+        std::int16_t value;
+        bin::read(f, value);
+
+        if (version == METATILE_IO_VERSION_ABSOLUTE_HEIGHTFIELD) {
+            // read height as is
+            height = value;
+        } else {
+            // map height from int16_t to zmin/zmax range range
+            height = height2Load<int16_t>(value, hmin, hmax);
+        }
+    });
 }
 
 namespace {
 const char METATILE_IO_MAGIC[8] = {  'M', 'E', 'T', 'A', 'T', 'I', 'L', 'E' };
 
-const unsigned METATILE_IO_VERSION = 1;
+const unsigned METATILE_IO_VERSION = METATILE_IO_VERSION_SCALED_HEIGHTFIELD;
+//const unsigned METATILE_IO_VERSION = METATILE_IO_VERSION_ABSOLUTE_HEIGHTFIELD;
 
 void loadMetatileTree(long baseTileSize, const TileId &tileId
                       , const MetaNodeLoader &loader
                       , const MetaNodeNotify &notify
-                      , std::istream &f)
+                      , std::istream &f
+                      , const unsigned int version)
 {
     using utility::binaryio::read;
 
     MetaNode node;
-
-    std::int16_t zmin, zmax;
-    read(f, zmin);
-    read(f, zmax);
-    node.zmin = zmin;
-    node.zmax = zmax;
-
-    for (int i = 0; i < 2; ++i) {
-        for (int j = 0; j < 2; ++j) {
-            read(f, node.pixelSize[i][j]);
-        }
-    }
-
-    for (int i = 0; i < MetaNode::HMSize; ++i) {
-        for (int j = 0; j < MetaNode::HMSize; ++j) {
-            std::int16_t value;
-            read(f, value);
-            node.heightmap[i][j] = value;
-        }
-    }
+    node.load(f, version);
 
     std::uint8_t childFlags;
     read(f, childFlags);
@@ -126,7 +223,8 @@ void loadMetatileTree(long baseTileSize, const TileId &tileId
     for (const auto &childId : children(baseTileSize, tileId)) {
         if (childFlags & lmask) {
             // node exists and is inside this metatile
-            loadMetatileTree(baseTileSize, childId, loader, notify, f);
+            loadMetatileTree(baseTileSize, childId, loader, notify
+                             , f, version);
         } else if ((childFlags & gmask) && notify) {
             // node exists but lives inside other metatile
             notify(childId);
@@ -158,8 +256,7 @@ void loadMetatile(std::istream &f, long baseTileSize, const TileId &tileId
         }
     }
 
-    // TODO: use version to load different versions of metatile
-    loadMetatileTree(baseTileSize, tileId, loader, notify, f);
+    loadMetatileTree(baseTileSize, tileId, loader, notify, f, version);
 }
 
 namespace {
@@ -178,9 +275,10 @@ struct MetatileDef {
 class Saver {
 public:
     Saver(long baseTileSize, const LodLevels &metaLevels
+          , const unsigned int version
           , const MetaNodeSaver &saver)
         : baseTileSize(baseTileSize), metaLevels(metaLevels)
-        , saver(saver)
+        , version(version), saver(saver)
     {}
 
     void operator()(const TileId &foat);
@@ -192,6 +290,7 @@ private:
 
     long baseTileSize;
     LodLevels metaLevels;
+    const unsigned int version;
     const MetaNodeSaver &saver;
 
     std::queue<MetatileDef> subtrees;
@@ -223,7 +322,7 @@ void Saver::saveMetatileTree(std::ostream &f, const MetatileDef &tile)
                << ", meta mode:\n" << utility::dump(*node, "    ");
 
     // save
-    node->dump(f);
+    node->dump(f, version);
 
     std::uint8_t childFlags(0);
     std::uint8_t mask(1);
@@ -256,7 +355,7 @@ void Saver::saveMetatileTree(std::ostream &f, const MetatileDef &tile)
             } else {
                 // save subtree in this tile
                 saveMetatileTree
-                    (f , { childId, deltaDown(metaLevels, childId.lod) });
+                    (f, { childId, deltaDown(metaLevels, childId.lod) });
             }
         }
         mask <<= 1;
@@ -268,7 +367,7 @@ void Saver::saveMetatile(const MetatileDef &tile)
     saver.saveTile(tile.id, [this, &tile](std::ostream &f) {
             using utility::binaryio::write;
             write(f, METATILE_IO_MAGIC);
-            write(f, uint32_t(METATILE_IO_VERSION));
+            write(f, uint32_t(version));
             saveMetatileTree(f, tile);
         });
 }
@@ -279,7 +378,7 @@ void saveMetatile(long baseTileSize, const TileId &foat
                   , const LodLevels &metaLevels
                   , const MetaNodeSaver &saver)
 {
-    Saver(baseTileSize, metaLevels, saver)(foat);
+    Saver(baseTileSize, metaLevels, METATILE_IO_VERSION, saver)(foat);
 }
 
 } } // namespace vadstena::tilestorage
