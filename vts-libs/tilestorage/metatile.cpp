@@ -84,8 +84,8 @@ namespace {
         // sanity check
         if (min > max) { std::swap(min, max); }
 
-        // check for too small range
-        if ((max - min) < Epsilon) { return 0.0; }
+        // check for too small range -> return minimum
+        if ((max - min) < Epsilon) { return IMin; }
 
         // newHeight = newMinimum + oldOffsett * scale
         // scale = newRange / oldRange
