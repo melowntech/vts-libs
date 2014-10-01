@@ -63,7 +63,8 @@ struct TileSet::Detail {
     boost::optional<Tile> getTile(const TileId &tileId, std::nothrow_t) const;
 
     MetaNode setTile(const TileId &tileId, const Mesh &mesh
-                     , const Atlas &atlas, const TileMetadata *metadata);
+                     , const Atlas &atlas, const TileMetadata *metadata
+                     , const boost::optional<double> &pixelSize = boost::none);
 
     MetaNode removeTile(const TileId &tileId);
 

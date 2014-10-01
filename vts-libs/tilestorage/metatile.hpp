@@ -5,6 +5,8 @@
 #include <iosfwd>
 #include <functional>
 
+#include <boost/optional.hpp>
+
 #include "./basetypes.hpp"
 
 namespace vadstena { namespace tilestorage {
@@ -44,7 +46,8 @@ struct MetaNode : TileMetadata
         invalidate();
     }
 
-    void calcParams(const geometry::Obj &mesh, const math::Size2 &atlasSize);
+    void calcParams(const geometry::Obj &mesh, const math::Size2 &atlasSize
+                    , const boost::optional<double> &pixelSize = boost::none);
 
     /** Make node invalid (i.e. having no real data).
      */

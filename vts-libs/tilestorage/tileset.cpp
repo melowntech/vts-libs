@@ -795,7 +795,8 @@ boost::optional<Tile> TileSet::Detail::getTile(const TileId &tileId
 
 MetaNode TileSet::Detail::setTile(const TileId &tileId, const Mesh &mesh
                                   , const Atlas &atlas
-                                  , const TileMetadata *metadata)
+                                  , const TileMetadata *metadata
+                                  , const boost::optional<double> &pixelSize)
 {
     driver->wannaWrite("set tile");
 
@@ -812,7 +813,7 @@ MetaNode TileSet::Detail::setTile(const TileId &tileId, const Mesh &mesh
     }
 
     // calculate dependent metadata
-    metanode.calcParams(mesh, { atlas.cols, atlas.rows });
+    metanode.calcParams(mesh, { atlas.cols, atlas.rows }, pixelSize);
 
     if (metanode.exists()) {
         // save data only if valid
@@ -947,10 +948,11 @@ Tile TileSet::getTile(const TileId &tileId) const
 }
 
 void TileSet::setTile(const TileId &tileId, const Mesh &mesh
-                      , const Atlas &atlas, const TileMetadata *metadata)
+                      , const Atlas &atlas, const TileMetadata *metadata
+                      , const boost::optional<double> &pixelSize)
 {
     detail().checkValidity();
-    detail().setTile(tileId, mesh, atlas, metadata);
+    detail().setTile(tileId, mesh, atlas, metadata, pixelSize);
 }
 
 void TileSet::removeTile(const TileId &tileId)

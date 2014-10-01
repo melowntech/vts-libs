@@ -21,6 +21,8 @@ Extents tileExtents(const Properties &properties, const TileId &tile);
 
 TileId fromAlignment(const Properties &properties, const TileId &tileId);
 
+TileId parent(const Properties &properties, const TileId &tileId);
+
 TileId parent(const Alignment &alignment, long baseTileSize
               , const TileId &tileId);
 
@@ -74,6 +76,11 @@ inline TileId fromAlignment(const Properties &properties, const TileId &tileId)
 {
     return { tileId.lod, tileId.easting - properties.alignment(0)
             , tileId.northing - properties.alignment(1) };
+}
+
+inline TileId parent(const Properties &properties, const TileId &tileId)
+{
+    return parent(properties.alignment, properties.baseTileSize, tileId);
 }
 
 inline TileId parent(const Alignment &alignment, long baseTileSize

@@ -47,8 +47,9 @@ double pixelSize(const geometry::Obj &mesh, const math::Size2 &atlasSize)
 
 } // namespace
 
-void MetaNode::calcParams(const geometry::Obj &mesh,
-                          const math::Size2 &atlasSize)
+void MetaNode::calcParams(const geometry::Obj &mesh
+                          , const math::Size2 &atlasSize
+                          , const boost::optional<double> &forcePixelSize)
 {
     if (mesh.facets.empty()) return;
 
@@ -60,8 +61,12 @@ void MetaNode::calcParams(const geometry::Obj &mesh,
         if (vertex(2) > zmax) zmax = vertex(2);
     }
 
+    // calculate pixel size from atlas or used forced value
+    double ps(forcePixelSize
+              ? *forcePixelSize
+              : detail::pixelSize(mesh, atlasSize));
+
     // calculate texture resolution
-    double ps(detail::pixelSize(mesh, atlasSize));
     pixelSize[0][0] = pixelSize[0][1] = ps;
     pixelSize[1][0] = pixelSize[1][1] = ps;
 }

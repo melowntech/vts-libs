@@ -20,6 +20,7 @@
 #include <string>
 #include <array>
 
+#include <boost/optional.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem/path.hpp>
 
@@ -62,9 +63,12 @@ public:
      * \param mesh new tile's mesh
      * \param atlas new tile's atlas
      * \param metadata initial metadata of tile (optional)
+     * \param pixelSize metadata pixel size of tile
+     *                  (optional, calculated from mesh and atlas otherwise)
      */
     void setTile(const TileId &tileId, const Mesh &mesh, const Atlas &atlas
-                 , const TileMetadata *metadata = nullptr);
+                 , const TileMetadata *metadata = nullptr
+                 , const boost::optional<double> &pixelSize = boost::none);
 
     /** Set new tile's metadata.
      * \param tileId idetifier of tile write
