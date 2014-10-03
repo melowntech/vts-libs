@@ -45,7 +45,29 @@ double pixelSize(const geometry::Obj &mesh, const math::Size2 &atlasSize)
     return sqrt(xyzArea / uvArea);
 }
 
-} // namespace
+} // namespace detail
+
+std::pair<double, double> area(const Tile &tile)
+{
+    if (tile.mesh.facets.empty()) {
+        return { 0.0, 0.0 };
+    }
+
+    // calculate the total area of the faces in both the XYZ and UV spaces
+    double xyzArea(0), uvArea(0);
+    for (const auto &face : tile.mesh.facets)
+    {
+        xyzArea += detail::triangleArea(tile.mesh.vertices[face.v[0]],
+                                        tile.mesh.vertices[face.v[1]],
+                                        tile.mesh.vertices[face.v[2]]);
+        uvArea += detail::triangleArea(tile.mesh.texcoords[face.t[0]],
+                                       tile.mesh.texcoords[face.t[1]],
+                                       tile.mesh.texcoords[face.t[2]]);
+    }
+    uvArea *= tile.atlas.cols * tile.atlas.rows;
+
+    return { xyzArea, uvArea };
+}
 
 void MetaNode::calcParams(const geometry::Obj &mesh
                           , const math::Size2 &atlasSize

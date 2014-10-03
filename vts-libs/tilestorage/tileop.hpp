@@ -46,6 +46,10 @@ int child(const Index &index);
 
 bool in(const LodRange &range, const TileId &tileId);
 
+/** Calculates area of tile's mesh (m^2) and atlas (pixel^2).
+ */
+std::pair<double, double> area(const Tile &tile);
+
 // inline stuff
 
 inline long tileSize(long baseTileSize, Lod lod)

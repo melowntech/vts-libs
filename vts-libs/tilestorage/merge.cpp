@@ -13,6 +13,7 @@
 #include "vadstena-libs/uvpack.hpp"
 
 #include "./merge.hpp"
+#include "./io.hpp"
 
 #include "../binmesh.hpp"
 
@@ -465,9 +466,10 @@ void getFallbackHeightmap(const Tile &fallback, int fallbackQuad,
 //! 4. The isolated faces are converted into a standard mesh with vertices and
 //!    texture vertices that don't repeat.
 //!
-Tile merge(long tileSize, const Tile::list &tiles
-           , const Tile &fallback, int fallbackQuad)
+MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
+                 , const Tile &fallback, int fallbackQuad)
 {
+    (void) tileId;
 #if DEBUG
     {
         LOG(info2)
@@ -519,7 +521,7 @@ Tile merge(long tileSize, const Tile::list &tiles
     // optimization: if a tile covers the entire area, return it and do nothing
     int index;
     if (sameIndices(qbuffer, index) && index >= 0) {
-        return tiles[index];
+        return { tiles[index], true };
     }
 
     // create a z-buffer
@@ -665,7 +667,7 @@ Tile merge(long tileSize, const Tile::list &tiles
     }
 
     // almost done
-    Tile result;
+    MergedTile result;
     result.atlas = atlas;
 
     // create final geometry, with duplicate vertices removed
@@ -724,7 +726,16 @@ Tile merge(long tileSize, const Tile::list &tiles
             result.metanode.heightmap[i][j] = fbheight[i][j];
     }
 
+    // TODO: calculate this value
+    result.singleSource = false;
+
     return result;
+}
+
+boost::optional<double> MergedTile::pixelSize() const
+{
+    if (singleSource) { return metanode.pixelSize[0][0]; }
+    return boost::none;
 }
 
 } } // namespace vadstena::tilestorage

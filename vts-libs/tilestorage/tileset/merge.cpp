@@ -301,9 +301,11 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
             return {};
         } else if ((tiles.size() == 1)) {
             // just one single tile without any fallback
+            // NB: copy pixelSize
             auto tile(tiles.front());
             tile.metanode
-                = setTile(tileId, tile.mesh, tile.atlas, &tile.metanode);
+                = setTile(tileId, tile.mesh, tile.atlas, &tile.metanode
+                          , tile.metanode.pixelSize[0][0]);
             return tile;
         }
 
@@ -311,9 +313,11 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
     }
 
     // we have to merge tiles
-    auto tile(merge(ts, tiles, parentTile, quadrant));
+    auto tile(merge(tileId, ts, tiles, parentTile, quadrant));
+
     tile.metanode
-        = setTile(tileId, tile.mesh, tile.atlas, &tile.metanode);
+        = setTile(tileId, tile.mesh, tile.atlas, &tile.metanode
+                  , tile.pixelSize());
     return tile;
 }
 
