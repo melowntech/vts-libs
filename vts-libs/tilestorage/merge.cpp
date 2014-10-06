@@ -554,11 +554,16 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
     }
 
     // get faces also from the fallback tile, if available and if necessary
+    std::unique_ptr<Atlas> fallbackAtlas;
+
     bool doFb(fallbackQuad >= 0 && haveIndices(qbuffer, -1));
     if (doFb)
     {
         const Mesh &mesh(fallback.mesh);
         cv::Size asize(fallback.atlas.size());
+        // we need 2x bigger atlas
+        asize.width *= 2;
+        asize.height *= 2;
 
         math::Matrix4 quadtr(quadrantTransform(tileSize, fallbackQuad));
         math::Matrix4 trafo2(prod(trafo, quadtr));
@@ -580,8 +585,22 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
             }
         }
 
-        clipFaces(fbFaces, tileSize);
-        faces.insert(faces.end(), fbFaces.begin(), fbFaces.end());
+        if (!fbFaces.empty()) {
+            // check whether we have taken any face from fallback
+            clipFaces(fbFaces, tileSize);
+
+            // scale fallback tile's atlas by 2 to inflate its quality
+            fallbackAtlas.reset
+                (new Atlas(fallback.atlas.rows * 2, fallback.atlas.cols * 2
+                           , fallback.atlas.type()));
+            cv::resize(fallback.atlas, *fallbackAtlas, fallbackAtlas->size()
+                       , 0, 0, cv::INTER_LANCZOS4);
+
+            faces.insert(faces.end(), fbFaces.begin(), fbFaces.end());
+        } else {
+            // nothing, tell rest of code there is no fallback
+            doFb = false;
+        }
     }
 
     // mark areas in the atlases that will need to be repacked
@@ -591,7 +610,7 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
         marks.emplace_back(tile.atlas.size() + safety, CV_8U, cv::Scalar(0));
     }
     if (doFb) {
-        marks.emplace_back(fallback.atlas.size() + safety, CV_8U, cv::Scalar(0));
+        marks.emplace_back(fallbackAtlas->size() + safety, CV_8U, cv::Scalar(0));
     }
     for (const ClipTriangle &face : faces) {
         markFace(face, marks[face.id1]);
@@ -656,7 +675,7 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
     if (doFb) {
         for (const auto &rect : rects.back()) {
             // TODO: mask out pixels that are not needed!
-            copyRect(rect, fallback.atlas, atlas);
+            copyRect(rect, *fallbackAtlas, atlas);
         }
     }
 
