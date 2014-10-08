@@ -420,3 +420,4 @@ const std::string FlatDriver::help
  "files are stored in one directory.");
 
 } } // namespace vadstena::tilestorage
+
