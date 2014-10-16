@@ -11,6 +11,7 @@
 #include "vadstena-libs/faceclip.hpp"
 #include "vadstena-libs/pointindex.hpp"
 #include "vadstena-libs/uvpack.hpp"
+#include "vadstena-libs/faceclip.hpp"
 
 #include "./merge.hpp"
 #include "./io.hpp"
@@ -18,6 +19,7 @@
 #include "../binmesh.hpp"
 
 namespace ublas = boost::numeric::ublas;
+namespace va = vadstena;
 
 #ifndef BUILDSYS_CUSTOMER_BUILD
 //#define DEBUG 1 // save debug images
@@ -53,28 +55,14 @@ double triangleArea(const math::Point3 &a, const math::Point3 &b,
     return norm_2(math::crossProduct(b - a, c - a)) * 0.5;
 }
 
-//! Calculates tile quality, defined as the ratio of texel area and mesh area.
+//! Returns a trasformation from tile local coordinates to qbuffer coordinates.
 //!
-double tileQuality(const Tile &tile)
+math::Matrix4 tileToBuffer(long tileSize, int bufferSize)
 {
-    // calculate the total area of the faces in both the XYZ and UV spaces
-    double xyzArea(0), uvArea(0);
-    const Mesh &mesh(tile.mesh);
-
-    for (const auto &face : mesh.facets)
-    {
-        xyzArea += triangleArea(mesh.vertices[face.v[0]],
-                                mesh.vertices[face.v[1]],
-                                mesh.vertices[face.v[2]]);
-
-        uvArea += triangleArea(mesh.texcoords[face.t[0]],
-                               mesh.texcoords[face.t[1]],
-                               mesh.texcoords[face.t[2]]);
-    }
-    uvArea *= tile.atlas.cols * tile.atlas.rows;
-
-    // return the number of texels per unit area
-    return uvArea / xyzArea;
+    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
+    trafo(0,0) = trafo(1,1) = double(bufferSize) / tileSize;
+    trafo(0,3) = trafo(1,3) = double(bufferSize) / 2;
+    return trafo;
 }
 
 //! "Draws" all faces of a tile into the qbuffer, i.e., stores the tile's index
@@ -134,6 +122,62 @@ void rasterizeHeights(const Tile &tile, const math::Matrix4 &trafo,
                 } );
         }
     }
+}
+
+//! Calculates tile quality, defined as the ratio of mesh area and area
+//! of the covered tile part
+//!
+double tileGeometryQuality(const Tile &tile, long tileSize)
+{
+    // calculate the total area of the faces in both the XYZ and UV spaces
+    double xyzArea(0);
+    const Mesh &mesh(tile.mesh);
+
+    //clip mesh to the tile extents
+    va::ClipTriangle::list triangles;
+    for(auto &face : mesh.facets){
+        triangles.emplace_back( 0, 0,
+                                mesh.vertices[face.v[0]],
+                                mesh.vertices[face.v[1]],
+                                mesh.vertices[face.v[2]],
+                                math::Point2(0,0),
+                                math::Point2(0,0),
+                                math::Point2(0,0));
+    }
+
+    //cut small border of the tile to get rid of the skirts
+    double eps = 0.0001;
+    double halfsize = 0.5*tileSize - tileSize*eps;
+
+    va::ClipPlane planes[4];
+    planes[0] = {+1.,  0., 0., halfsize};
+    planes[1] = {-1.,  0., 0., halfsize};
+    planes[2] = { 0., +1., 0., halfsize};
+    planes[3] = { 0., -1., 0., halfsize};
+
+    for (int i = 0; i < 4; i++) {
+        triangles = va::clipTriangles(triangles, planes[i]);
+    }
+
+    LOG( info2 )<<"";
+    //compute the mesh area from clipped triangles
+    for (const auto &face : triangles)
+    {
+        xyzArea += triangleArea(
+            math::Point3(face.pos[0].x, face.pos[0].y, face.pos[0].z),
+            math::Point3(face.pos[1].x, face.pos[1].y, face.pos[1].z),
+            math::Point3(face.pos[2].x, face.pos[2].y, face.pos[2].z));
+    }
+
+    const int cBSize(tileSize);
+    cv::Mat cbuffer(cBSize, cBSize, CV_32S, cv::Scalar(0));
+
+    math::Matrix4 trafo(tileToBuffer(tileSize, cBSize));
+    rasterizeTile(tile, trafo,1, cbuffer);
+    double coveredArea = static_cast<double>(cv::countNonZero(cbuffer))
+                            /(cBSize*cBSize);
+
+    return coveredArea ? xyzArea/coveredArea : 0;
 }
 
 //! Returns true if x and y are valid column and row indices, respectively.
@@ -297,16 +341,6 @@ void clipFaces(ClipTriangle::list &faces, long tileSize)
     }
 }
 
-//! Returns a trasformation from tile local coordinates to qbuffer coordinates.
-//!
-math::Matrix4 tileToBuffer(long tileSize, int bufferSize)
-{
-    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
-    trafo(0,0) = trafo(1,1) = double(bufferSize) / tileSize;
-    trafo(0,3) = trafo(1,3) = double(bufferSize) / 2;
-    return trafo;
-}
-
 //! Returns a trasformation of the (2x larger) fallback tile so that its given
 //! quadrant aligns with tile of size `tileSize`.
 //!
@@ -448,7 +482,7 @@ void getFallbackHeightmap(const Tile &fallback, int fallbackQuad,
 //!
 //! 1. The meshes are rasterized into a buffer which determines the source
 //!    of geometry at each point of the result. The tiles are rasterized from
-//!    worst to best (in terms of their texture resolution). This means that the
+//!    worst to best (in terms of their geometry quality). This means that the
 //!    best tile will be complete in the result and only the remaining space
 //!    will be filled with other tiles. The fallback tile is used only where
 //!    no other geometry exists.
@@ -467,7 +501,8 @@ void getFallbackHeightmap(const Tile &fallback, int fallbackQuad,
 //!    texture vertices that don't repeat.
 //!
 MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
-                 , const Tile &fallback, int fallbackQuad)
+                 , const Tile &fallback, int fallbackQuad
+                 , std::vector<TileMergeInfo> tileMergeInfos)
 {
     (void) tileId;
 #if DEBUG
@@ -483,15 +518,65 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
 #endif
 
     // sort tiles by quality
-    typedef std::pair<unsigned, double> TileQuality;
-    std::vector<TileQuality> qualities;
 
+    LOG( info2 ) << "Tile id:" << tileId;
+
+    struct TileQuality{
+        std::size_t tileId;
+        double geometryQuality;
+        double coarseness;
+
+        TileQuality( std::size_t tileId
+                   , double coarseness)
+            : tileId(tileId)
+            , geometryQuality(-1)
+            , coarseness(coarseness){};
+
+        TileQuality( std::size_t tileId
+                   , double geometryQuality, double coarseness)
+            : tileId(tileId)
+            , geometryQuality(geometryQuality)
+            , coarseness(coarseness){};
+    };
+
+    std::vector<TileQuality> qualities;
+    bool sortTileGeometryQuality = false;
     for (unsigned i = 0; i < tiles.size(); i++) {
-        qualities.emplace_back(i, tileQuality(tiles[i]));
+        if(tileMergeInfos[i].coarseness<0){
+            sortTileGeometryQuality=true;
+        }
+        qualities.emplace_back(
+            i, tileGeometryQuality( tiles[i], tileSize ), tileMergeInfos[i].coarseness);
     }
-    std::sort(qualities.begin(), qualities.end(),
-              [](const TileQuality &a, const TileQuality &b)
-                { return a.second < b.second; } );
+
+    auto compareCoarseness
+        = [](const TileQuality &a, const TileQuality &b) -> bool
+                {
+                  if(a.coarseness > b.coarseness){
+                    return true;
+                  }
+                  else if(a.coarseness < b.coarseness){
+                    return false;
+                  }
+                  //fallback if coarsenesses aren't set or are equal
+                  if(a.geometryQuality < b.geometryQuality){
+                        return true;
+                  }
+                  return false;
+                };
+
+    auto compareGeometryQuality
+        = [](const TileQuality &a, const TileQuality &b) -> bool
+                {
+                  return a.geometryQuality < b.geometryQuality;
+                };
+
+    if(sortTileGeometryQuality){
+        std::sort(qualities.begin(), qualities.end(), compareGeometryQuality);
+    }
+    else{
+        std::sort(qualities.begin(), qualities.end(), compareCoarseness);
+    }
 
     // create qbuffer, rasterize meshes in increasing order of quality
     const int QBSize(512);
@@ -499,7 +584,7 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
 
     math::Matrix4 trafo(tileToBuffer(tileSize, QBSize));
     for (const TileQuality &tq : qualities) {
-        rasterizeTile(tiles[tq.first], trafo, tq.first, qbuffer);
+        rasterizeTile(tiles[tq.tileId], trafo, tq.tileId, qbuffer);
     }
 #if DEBUG
     std::ofstream("qbuffer.m") << "QB = " << qbuffer << ";\n";
@@ -564,6 +649,8 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
         // we need 2x bigger atlas
         asize.width *= 2;
         asize.height *= 2;
+
+        //TODO subdivide mesh
 
         math::Matrix4 quadtr(quadrantTransform(tileSize, fallbackQuad));
         math::Matrix4 trafo2(prod(trafo, quadtr));
@@ -728,7 +815,7 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
 
     // one more thing: merge the 5x5 heightfields
     if (tiles.size()) {
-        result.metanode = tiles[qualities.back().first].metanode;
+        result.metanode = tiles[qualities.back().tileId].metanode;
     }
 
     const int hms(MetaNode::HMSize);

@@ -7,7 +7,7 @@ namespace vadstena { namespace tilestorage {
 
 namespace detail { namespace tileset {
 
-const int CURRENT_JSON_FORMAT_VERSION(2);
+const int CURRENT_JSON_FORMAT_VERSION(3);
 
 Properties parse1(const Json::Value &config)
 {
@@ -91,6 +91,51 @@ Properties parse2(const Json::Value &config)
     return properties;
 }
 
+Properties parse3(const Json::Value &config)
+{
+    Properties properties;
+    Json::get(properties.id, config["id"]);
+
+    const auto &foat(config["foat"]);
+    Json::get(properties.foat.lod, foat[0]);
+    Json::get(properties.foat.easting, foat[1]);
+    Json::get(properties.foat.northing, foat[2]);
+    Json::get(properties.foatSize, foat[3]);
+
+    const auto &meta(config["meta"]);
+    Json::get(properties.metaLevels.lod, meta[0]);
+    Json::get(properties.metaLevels.delta, meta[1]);
+
+    Json::get(properties.baseTileSize, config["baseTileSize"]);
+
+    const auto &alignment(config["alignment"]);
+    Json::get(properties.alignment(0), alignment[0]);
+    Json::get(properties.alignment(1), alignment[1]);
+
+    Json::get(properties.srs, config["srs"]);
+
+    Json::get(properties.meshTemplate, config["meshTemplate"]);
+    Json::get(properties.textureTemplate, config["textureTemplate"]);
+    Json::get(properties.metaTemplate, config["metaTemplate"]);
+
+    const auto &defaultPosition(config["defaultPosition"]);
+    Json::get(properties.defaultPosition(0), defaultPosition[0]);
+    Json::get(properties.defaultPosition(1), defaultPosition[1]);
+    Json::get(properties.defaultPosition(2), defaultPosition[2]);
+
+    const auto &defaultOrientation(config["defaultOrientation"]);
+    Json::get(properties.defaultOrientation(0), defaultOrientation[0]);
+    Json::get(properties.defaultOrientation(1), defaultOrientation[1]);
+    Json::get(properties.defaultOrientation(2), defaultOrientation[2]);
+
+    Json::get(properties.textureQuality, config["textureQuality"]);
+
+    Json::get(properties.coarseness, config["coarseness"]);
+    Json::get(properties.gsd, config["gsd"]);
+
+    return properties;
+}
+
 } } // namespace detail::tileset
 
 void parse(Properties &properties, const Json::Value &config)
@@ -106,6 +151,9 @@ void parse(Properties &properties, const Json::Value &config)
         case 2:
             properties = detail::tileset::parse2(config);
             return;
+        case 3:
+            properties = detail::tileset::parse3(config);
+            return;    
         }
 
         LOGTHROW(err2, FormatError)
@@ -162,6 +210,9 @@ void build(Json::Value &config, const Properties &properties)
     defaultOrientation.append(properties.defaultOrientation(2));
 
     config["textureQuality"] = Json::Int(properties.textureQuality);
+
+    config["gsd"] = Json::Value(properties.gsd);
+    config["coarseness"] = Json::Value(properties.coarseness);
 }
 
 namespace detail { namespace storage {

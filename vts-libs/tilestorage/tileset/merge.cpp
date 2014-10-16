@@ -286,9 +286,12 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
 
     // Fetch tiles from other source.
     Tile::list tiles;
+    std::vector<TileMergeInfo> tileMergeInfos;
     for (const auto &ts : src) {
         if (auto t = ts->detail().getTile(tileId, std::nothrow)) {
             tiles.push_back(*t);
+            tileMergeInfos.push_back(
+                TileMergeInfo(ts->getProperties().coarseness));
         }
     }
 
@@ -313,7 +316,7 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
     }
 
     // we have to merge tiles
-    auto tile(merge(tileId, ts, tiles, parentTile, quadrant));
+    auto tile(merge(tileId, ts, tiles, parentTile, quadrant, tileMergeInfos));
 
     tile.metanode
         = setTile(tileId, tile.mesh, tile.atlas, &tile.metanode

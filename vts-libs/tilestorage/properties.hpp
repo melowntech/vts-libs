@@ -44,17 +44,30 @@ struct SettableProperties {
     math::Point3 defaultOrientation; // yaw, pitch, roll
     short textureQuality;            // JPEG quality
 
+    /** Coarseness of the tileset - set as gsd.
+     *  It's value is -1 if coarseness is not set to the tileset.
+     */
+    double coarseness;   
+    /** Gsd of the tileset.
+     *  It's value is -1 if coarseness is not set to the tileset.
+     */            
+    double gsd;                      
+
     struct Mask { enum {             // mask bitfields
         defaultPosition = 0x01
         , defaultOrientation = 0x02
         , textureQuality = 0x04
+        , coarseness = 0x08
+        , gsd = 0x16
     }; };
 
     typedef int MaskType;
 
     SettableProperties()
         : defaultOrientation(0, -90, 0)
-        , textureQuality(85) {}
+        , textureQuality(85)
+        , coarseness(-1)
+        , gsd(-1) {}
 
     bool merge(const SettableProperties &other
                , MaskType mask = ~(MaskType(0)));
@@ -113,6 +126,8 @@ inline bool SettableProperties::merge(const SettableProperties &other
     SETTABLEPROPERTIES_MERGE(defaultPosition);
     SETTABLEPROPERTIES_MERGE(defaultOrientation);
     SETTABLEPROPERTIES_MERGE(textureQuality);
+    SETTABLEPROPERTIES_MERGE(coarseness);
+    SETTABLEPROPERTIES_MERGE(gsd);
 
 #undef SETTABLEPROPERTIES_MERGE
     return changed;
