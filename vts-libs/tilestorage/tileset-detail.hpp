@@ -85,6 +85,10 @@ struct TileSet::Detail {
 
     bool isFoat(const TileId &tileId) const;
 
+    void updateTreeMetadata(const TileId &tileId);
+
+    void updateTreeMetadata(const TileId &tileId, MetaNode &metanode);
+
     void updateTree(const TileId &tileId);
 
     void updateTree(const TileId &tileId, MetaNode &metanode);

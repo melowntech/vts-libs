@@ -49,6 +49,15 @@ public:
      */
     void regenerateTileIndex();
 
+    void forceMetadata( TileId tileId
+                      , const TileMetadata &metadata
+                      , const TileMetadata::MaskType mask 
+                                        = ~(TileMetadata::MaskType(0)));
+
+    void forceMetadata( const TileMetadata &metadata
+                      , const TileMetadata::MaskType mask 
+                                        = ~(TileMetadata::MaskType(0)));
+
     /** Traverse tiles. Calls op(TileId) for each existing tile.
      */
     template <typename Op> void traverseTiles(const Op &op) const;

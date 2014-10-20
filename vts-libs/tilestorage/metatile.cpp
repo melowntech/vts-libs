@@ -3,17 +3,21 @@
 #include <iostream>
 #include <limits>
 #include <algorithm>
+#include <cfenv>
 
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
 #include "utility/algorithm.hpp"
 #include "math/geometry.hpp"
 #include "math/math.hpp"
+#include "half/half.hpp"
 
 #include "./error.hpp"
 #include "./tileop.hpp"
 #include "./io.hpp"
 #include "./metatile.hpp"
+
+namespace half = half_float::detail;
 
 namespace vadstena { namespace tilestorage {
 
@@ -97,6 +101,7 @@ void MetaNode::calcParams(const geometry::Obj &mesh
 namespace {
     constexpr unsigned int METATILE_IO_VERSION_ABSOLUTE_HEIGHTFIELD = 1;
     constexpr unsigned int METATILE_IO_VERSION_SCALED_HEIGHTFIELD = 2;
+    constexpr unsigned int METATILE_IO_VERSION_GDS_AND_COARSENESS = 3;
 
     template <typename IntType>
     float height2Save(const float height, float min, float max)
@@ -154,10 +159,21 @@ void MetaNode::dump(std::ostream &f, const unsigned int version) const
     bin::write(f, std::int16_t(std::floor(zmin)));
     bin::write(f, std::int16_t(std::ceil(zmax)));
 
-    utility::array::for_each(pixelSize, [&, this](const float value)
-    {
-        bin::write(f, value);
-    });
+    if( version >=METATILE_IO_VERSION_GDS_AND_COARSENESS){
+        utility::array::for_each(pixelSize, [&, this](const float value)
+        {
+            bin::write(f, half::float2half<std::round_to_nearest>(value) );
+        });
+        //save pixelsize gsd and coarseness as half-float
+        bin::write(f, half::float2half<std::round_to_nearest>(gsd) );
+        bin::write(f, half::float2half<std::round_to_nearest>(coarseness) );
+    }
+    else{
+        utility::array::for_each(pixelSize, [&, this](const float value)
+        {
+            bin::write(f, value);
+        });
+    }
 
     // heightmax minimum/maximum was added in SCALED-HEIGHTFIELD version
     std::int16_t hmin(0), hmax(0);
@@ -194,10 +210,25 @@ void MetaNode::load(std::istream &f, const unsigned int version)
     zmin = zmin_;
     zmax = zmax_;
 
-    utility::array::for_each(pixelSize, [&, this](float &value)
-    {
-        bin::read(f, value);
-    });
+    if( version >=METATILE_IO_VERSION_GDS_AND_COARSENESS){
+        utility::array::for_each(pixelSize, [&, this](float &value)
+        {
+            std::uint16_t half;
+            bin::read(f, half);
+            value = half::half2float(half);
+        });
+        std::uint16_t half;
+        bin::read(f, half );
+        gsd = half::half2float(half);
+        bin::read(f, half );
+        coarseness = half::half2float(half);
+    }
+    else{
+        utility::array::for_each(pixelSize, [&, this](float &value)
+        {
+            bin::read(f, value);
+        });
+    }
 
     // heightmax minimum/maximum was added in SCALED-HEIGHTFIELD version
     std::int16_t hmin(0), hmax(0);
@@ -225,7 +256,8 @@ void MetaNode::load(std::istream &f, const unsigned int version)
 namespace {
 const char METATILE_IO_MAGIC[8] = {  'M', 'E', 'T', 'A', 'T', 'I', 'L', 'E' };
 
-const unsigned METATILE_IO_VERSION = METATILE_IO_VERSION_SCALED_HEIGHTFIELD;
+const unsigned METATILE_IO_VERSION = METATILE_IO_VERSION_GDS_AND_COARSENESS;
+//const unsigned METATILE_IO_VERSION = METATILE_IO_VERSION_SCALED_HEIGHTFIELD;
 //const unsigned METATILE_IO_VERSION = METATILE_IO_VERSION_ABSOLUTE_HEIGHTFIELD;
 
 void loadMetatileTree(long baseTileSize, const TileId &tileId

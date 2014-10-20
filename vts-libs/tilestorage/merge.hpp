@@ -9,13 +9,6 @@ namespace vadstena { namespace tilestorage {
 
 constexpr int MERGE_NO_FALLBACK_TILE = -100;
 
-struct TileMergeInfo{
-    double coarseness;
-
-    TileMergeInfo(double coarseness):
-        coarseness(coarseness){};
-};
-
 struct MergedTile : public Tile {
     MergedTile() : singleSource(false) {}
     MergedTile(const Tile &tile) : Tile(tile), singleSource(false) {}
@@ -54,7 +47,7 @@ struct MergedTile : public Tile {
  */
 MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
                  , const Tile &fallback, int fallbackQuad
-                 , std::vector<TileMergeInfo> tileMergeInfos);
+                 );
 
 } } // namespace vadstena::tilestorage
 

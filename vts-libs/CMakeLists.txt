@@ -6,7 +6,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
   define_module(LIBRARY vadstena-libs DEPENDS
     service cvision optics math geo utility dbglog jsoncpp
     Boost_FILESYSTEM Boost_REGEX
-    OpenCV LIBSHP CRYPTO++ MYSQL++)
+    OpenCV LIBSHP CRYPTO++ MYSQL++
+    half)
 
   if (BUILDSYS_CUSTOMER_BUILD)
     message(STATUS "Building vadstena-libs customized for customer "

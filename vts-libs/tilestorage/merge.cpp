@@ -124,10 +124,10 @@ void rasterizeHeights(const Tile &tile, const math::Matrix4 &trafo,
     }
 }
 
-//! Calculates tile quality, defined as the ratio of mesh area and area
+//! Calculates tile geometry Coarseness, defined as the ratio of mesh area and area
 //! of the covered tile part
 //!
-double tileGeometryQuality(const Tile &tile, long tileSize)
+double tileGeometryCoarseness(const Tile &tile, long tileSize)
 {
     // calculate the total area of the faces in both the XYZ and UV spaces
     double xyzArea(0);
@@ -379,6 +379,17 @@ bool haveIndices(const cv::Mat &qbuffer, int index)
     return false;
 }
 
+//! Returns the set of 'qbuffer' indexes.
+//!
+std::set<int> qIndices(const cv::Mat &qbuffer)
+{
+    std::set<int> indices;
+    for (auto it = qbuffer.begin<int>(); it != qbuffer.end<int>(); ++it) {
+        indices.insert(*it);
+    }
+    return indices;
+}
+
 //! Calculate a bounding rectangle of a list of points in the UV space.
 //!
 UVRect makeRect(const std::vector<cv::Point> &points)
@@ -501,8 +512,7 @@ void getFallbackHeightmap(const Tile &fallback, int fallbackQuad,
 //!    texture vertices that don't repeat.
 //!
 MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
-                 , const Tile &fallback, int fallbackQuad
-                 , std::vector<TileMergeInfo> tileMergeInfos)
+                 , const Tile &fallback, int fallbackQuad)
 {
     (void) tileId;
 #if DEBUG
@@ -521,37 +531,39 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
 
     LOG( info2 ) << "Tile id:" << tileId;
 
-    struct TileQuality{
+    struct TileSortInfo{
         std::size_t tileId;
-        double geometryQuality;
+        double geometryCoarseness;
         double coarseness;
 
-        TileQuality( std::size_t tileId
+        TileSortInfo( std::size_t tileId
                    , double coarseness)
             : tileId(tileId)
-            , geometryQuality(-1)
+            , geometryCoarseness(-1)
             , coarseness(coarseness){};
 
-        TileQuality( std::size_t tileId
-                   , double geometryQuality, double coarseness)
+        TileSortInfo( std::size_t tileId
+                   , double geometryCoarseness, double coarseness)
             : tileId(tileId)
-            , geometryQuality(geometryQuality)
+            , geometryCoarseness(geometryCoarseness)
             , coarseness(coarseness){};
     };
 
-    std::vector<TileQuality> qualities;
-    bool sortTileGeometryQuality = false;
+    std::vector<TileSortInfo> sortingInfos;
+    bool sortGeometryCoarseness = false;
     for (unsigned i = 0; i < tiles.size(); i++) {
-        if(tileMergeInfos[i].coarseness<0){
-            sortTileGeometryQuality=true;
+        if(tiles[i].metanode.coarseness<0){
+            sortGeometryCoarseness=true;
         }
-        qualities.emplace_back(
-            i, tileGeometryQuality( tiles[i], tileSize ), tileMergeInfos[i].coarseness);
+        sortingInfos.emplace_back(
+            i, tileGeometryCoarseness( tiles[i], tileSize )
+             , tiles[i].metanode.coarseness);
     }
 
     auto compareCoarseness
-        = [](const TileQuality &a, const TileQuality &b) -> bool
+        = [](const TileSortInfo &a, const TileSortInfo &b) -> bool
                 {
+                  //tiles with lower coarseness comes first
                   if(a.coarseness > b.coarseness){
                     return true;
                   }
@@ -559,23 +571,24 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
                     return false;
                   }
                   //fallback if coarsenesses aren't set or are equal
-                  if(a.geometryQuality < b.geometryQuality){
+                  if(a.geometryCoarseness < b.geometryCoarseness){
                         return true;
                   }
                   return false;
                 };
 
-    auto compareGeometryQuality
-        = [](const TileQuality &a, const TileQuality &b) -> bool
+    auto compareGeometryCoarseness
+        = [](const TileSortInfo &a, const TileSortInfo &b) -> bool
                 {
-                  return a.geometryQuality < b.geometryQuality;
+                  //tiles with highem geometry quality comes first
+                  return a.geometryCoarseness < b.geometryCoarseness;
                 };
 
-    if(sortTileGeometryQuality){
-        std::sort(qualities.begin(), qualities.end(), compareGeometryQuality);
+    if(sortGeometryCoarseness){
+        std::sort(sortingInfos.begin(), sortingInfos.end(), compareGeometryCoarseness);
     }
     else{
-        std::sort(qualities.begin(), qualities.end(), compareCoarseness);
+        std::sort(sortingInfos.begin(), sortingInfos.end(), compareCoarseness);
     }
 
     // create qbuffer, rasterize meshes in increasing order of quality
@@ -583,7 +596,7 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
     cv::Mat qbuffer(QBSize, QBSize, CV_32S, cv::Scalar(-1));
 
     math::Matrix4 trafo(tileToBuffer(tileSize, QBSize));
-    for (const TileQuality &tq : qualities) {
+    for (const TileSortInfo &tq : sortingInfos) {
         rasterizeTile(tiles[tq.tileId], trafo, tq.tileId, qbuffer);
     }
 #if DEBUG
@@ -813,10 +826,27 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
         }
     }*/
 
-    // one more thing: merge the 5x5 heightfields
+    //  merge the 5x5 heightfields
     if (tiles.size()) {
-        result.metanode = tiles[qualities.back().tileId].metanode;
+        result.metanode = tiles[sortingInfos.back().tileId].metanode;
     }
+
+    //get lowest used gsd
+    float minGsd = std::numeric_limits<float>::max();
+    bool minGsdSet=false;
+    auto usedTiles = qIndices(qbuffer);
+
+    for(const auto& id: usedTiles){
+       if(id!=-1){
+            minGsd = std::min(minGsd, tiles[id].metanode.gsd);
+            minGsdSet=true;
+       }
+    }
+
+    result.metanode.gsd = minGsdSet ? minGsd : -1;
+
+    //coarseness is not used after merge - set to invalid value
+    result.metanode.coarseness = -1;
 
     const int hms(MetaNode::HMSize);
     float fbheight[hms][hms];

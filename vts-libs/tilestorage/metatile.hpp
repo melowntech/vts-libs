@@ -15,6 +15,8 @@ namespace detail {
 /** Invalid pixel size to mark tiles with no data
  */
 constexpr float invalidPixelSize = std::numeric_limits<float>::max();
+constexpr float invalidGsd = -1;
+constexpr float invalidCoarseness = -1;
 
 } // namespace detail
 
@@ -24,10 +26,21 @@ constexpr float invalidPixelSize = std::numeric_limits<float>::max();
 struct TileMetadata {
     enum { HMSize = 5 };
     float heightmap[HMSize][HMSize];
+    float coarseness;
+    float gsd;
+
+    struct Mask { enum {             // mask bitfields
+          coarseness = 0x01
+        , gsd = 0x02
+    }; };
+
+    typedef int MaskType;
 
     // NB: update initializer when HMSize changes!
     TileMetadata()
         : heightmap{{0.f}, {0.f}, {0.f}, {0.f}, {0.f}}
+        , coarseness(detail::invalidCoarseness)
+        , gsd(detail::invalidGsd)
     {}
 };
 
@@ -35,7 +48,6 @@ struct TileMetadata {
 struct MetaNode : TileMetadata
 {
     // NB: pulls in HMSize and heightmap!
-
     float zmin, zmax;
     float pixelSize[2][2];
 
@@ -102,6 +114,8 @@ dump(std::basic_ostream<CharT, Traits> &os
      , const TileMetadata &m
      , const std::string &prefix = std::string())
 {
+    os << prefix << "gsd: "<<m.gsd;
+    os << prefix << "coarseness: "<<m.coarseness;
     for (int j(0); j < TileMetadata::HMSize; ++j) {
         os << prefix << "heightmap[" << j << "]: ";
         for (int i(0); i < TileMetadata::HMSize; ++i) {
