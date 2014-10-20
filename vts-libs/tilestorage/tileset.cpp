@@ -500,7 +500,7 @@ void TileSet::Detail::setMetadata(const TileId &tileId
     // assign new metadata
     static_cast<TileMetadata&>(*metanode) = metadata;
 
-    updateTreeMetadata(tileId);
+    //updateTreeMetadata(tileId);
 
     metadataChanged = true;
 }
@@ -543,7 +543,7 @@ void TileSet::Detail::updateTreeMetadata(const TileId &tileId
     
     auto parentId(parent(tileId));
     if (auto *parentNode = findMetaNode(parentId)) {
-        updateTree(parentId, *parentNode);
+        updateTreeMetadata(parentId, *parentNode);
     }
 }
 
