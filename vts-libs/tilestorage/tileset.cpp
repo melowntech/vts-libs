@@ -525,7 +525,7 @@ void TileSet::Detail::checkTx(const std::string &action) const
 }
 
 void TileSet::Detail::updateTreeMetadata(const TileId &tileId)
-{    
+{
     if (auto *node = findMetaNode(tileId)) {
         updateTreeMetadata(tileId, *node);
     }
@@ -540,7 +540,7 @@ void TileSet::Detail::updateTreeMetadata(const TileId &tileId
             metanode.gsd = std::min(metanode.gsd, node->gsd);
         }
     }
-    
+
     auto parentId(parent(tileId));
     if (auto *parentNode = findMetaNode(parentId)) {
         updateTreeMetadata(parentId, *parentNode);
@@ -558,15 +558,21 @@ void TileSet::Detail::updateTree(const TileId &tileId)
 void TileSet::Detail::updateTree(const TileId &tileId
                                  , MetaNode &metanode)
 {
+    float minGsd = std::numeric_limits<float>::max();
+    bool minGsdSet = false;
     // process all 4 children
     for (const auto &childId : children(properties.baseTileSize, tileId)) {
         if (auto *node = findMetaNode(childId)) {
             metanode.zmin = std::min(metanode.zmin, node->zmin);
             metanode.zmax = std::max(metanode.zmax, node->zmax);
-            metanode.gsd = std::min(metanode.gsd, node->gsd);
+            minGsd = std::min(minGsd, node->gsd);
+            minGsdSet = true;
         }
     }
-    
+
+    if(minGsdSet){
+        metanode.gsd = minGsd;
+    }
     // this tile is (current) foat -> no parent can ever exist (until real tile
     // is added)
     if (isFoat(tileId)) {
@@ -1260,7 +1266,7 @@ void TileSet::AdvancedApi::rename(const std::string &newId)
 void TileSet::AdvancedApi::forceMetadata( const TileId tileId
                                         , const TileMetadata &metadata
                                         , const TileMetadata::MaskType mask)
-{   
+{
     auto &detail(tileSet_->detail());
 
 
@@ -1276,12 +1282,12 @@ void TileSet::AdvancedApi::forceMetadata( const TileId tileId
         for (const auto &childId : children(detail.properties.baseTileSize, tileId)) {
             forceMetadata(childId, metadata, mask);
         }
-    };  
+    };
 }
 
 void TileSet::AdvancedApi::forceMetadata( const TileMetadata &metadata
                                         , const TileMetadata::MaskType mask)
-{  
+{
     (void) mask;
     auto &detail(tileSet_->detail());
 

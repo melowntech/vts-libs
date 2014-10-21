@@ -833,17 +833,18 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
 
     //get lowest used gsd
     float minGsd = std::numeric_limits<float>::max();
-    bool minGsdSet=false;
     auto usedTiles = qIndices(qbuffer);
 
     for(const auto& id: usedTiles){
        if(id!=-1){
             minGsd = std::min(minGsd, tiles[id].metanode.gsd);
-            minGsdSet=true;
+       }
+       else{
+            minGsd = std::min(minGsd, fallback.metanode.gsd);
        }
     }
 
-    result.metanode.gsd = minGsdSet ? minGsd : -1;
+    result.metanode.gsd = minGsd;
 
     //coarseness is not used after merge - set to invalid value
     result.metanode.coarseness = -1;
