@@ -430,10 +430,17 @@ void TileSet::Detail
 MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId)
     const
 {
+    /* following condition is wrong for merged data, where
+     * two or more tilesets with no intersecting area are merged and one tileset
+     * has different lodRange.min than the other one. Virtual tiles can exist even
+     * in the lodRange
+     */ 
     // if tile is not marked in the index it cannot be found on the disk
+    /*
     if (in(lodRange, tileId) && !tileIndex.exists(tileId)) {
         return nullptr;
     }
+    */ 
 
     // no tile (or metatile) cannot be in an lod below lowest level in the tile
     // set)
@@ -500,8 +507,6 @@ void TileSet::Detail::setMetadata(const TileId &tileId
     // assign new metadata
     static_cast<TileMetadata&>(*metanode) = metadata;
 
-    //updateTreeMetadata(tileId);
-
     metadataChanged = true;
 }
 
@@ -560,6 +565,7 @@ void TileSet::Detail::updateTree(const TileId &tileId
 {
     float minGsd = std::numeric_limits<float>::max();
     bool minGsdSet = false;
+
     // process all 4 children
     for (const auto &childId : children(properties.baseTileSize, tileId)) {
         if (auto *node = findMetaNode(childId)) {
@@ -686,7 +692,6 @@ void TileSet::Detail::purgeMetadata()
             LOG(info1) << "(purge): " << tileId;
 
             int hasChild(0);
-
             // process children
             for (auto childId
                      : children(detail.properties.baseTileSize, tileId))
@@ -1262,6 +1267,34 @@ void TileSet::AdvancedApi::rename(const std::string &newId)
     // propetries has been changed
     detail.propertiesChanged = true;
 }
+
+void TileSet::AdvancedApi::removeOutOfExtents( const TileId &tileId
+                                             , const math::Extents2 & extents )
+{
+    auto &detail(tileSet_->detail());
+
+    if(auto *node = detail.findMetaNode(tileId)){
+        (void ) node;
+        for (const auto &childId : children(detail.properties.baseTileSize, tileId)) {
+            removeOutOfExtents(childId, extents);
+        }
+        //if leaf node and outside of the extents, remove tile
+        if(!math::overlaps(tileExtents(detail.properties.baseTileSize, tileId), extents )){
+            LOG(info2)<< "Removing tile "<<tileId;
+            tileSet_->removeTile(tileId);
+        }
+    }
+}
+
+void TileSet::AdvancedApi::removeOutOfExtents( const math::Extents2 & extents )
+{
+    auto &detail(tileSet_->detail());
+
+    removeOutOfExtents( detail.properties.foat, extents );
+
+    detail.metadataChanged = true;
+}
+
 
 void TileSet::AdvancedApi::forceMetadata( const TileId tileId
                                         , const TileMetadata &metadata

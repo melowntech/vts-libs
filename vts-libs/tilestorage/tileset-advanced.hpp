@@ -49,11 +49,25 @@ public:
      */
     void regenerateTileIndex();
 
+    /** Removes the tiles out of the defined extents
+     */
+    void removeOutOfExtents( const TileId &tileId
+                           , const math::Extents2 & extents );
+
+    /** Removes the tiles out of the defined extents
+     */
+    void removeOutOfExtents( const math::Extents2 & extents );
+
+
+    /** Forces metadata to the tile and its descendants
+     */
     void forceMetadata( TileId tileId
                       , const TileMetadata &metadata
                       , const TileMetadata::MaskType mask 
                                         = ~(TileMetadata::MaskType(0)));
 
+    /** Forces metadata to the whole tileset
+     */
     void forceMetadata( const TileMetadata &metadata
                       , const TileMetadata::MaskType mask 
                                         = ~(TileMetadata::MaskType(0)));
