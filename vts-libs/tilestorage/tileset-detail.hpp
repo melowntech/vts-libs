@@ -11,6 +11,7 @@
 #include "./io.hpp"
 #include "./tileop.hpp"
 #include "./driver/flat.hpp"
+#include "./merge.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -118,13 +119,17 @@ struct TileSet::Detail {
     void mergeSubtree(utility::Progress &progress, const TileIndex &world
                       , const TileIndex &generate, const TileIndex *remove
                       , const Index &index, const TileSet::list &src
-                      , const Tile &parentTile = Tile(), int quadrant = -1
+                      , const MergeInput::list &parentIncidendTiles = MergeInput::list()
+                      , int quadrant = -1
                       , bool parentGenerated = false);
 
     /** Generates new tile as a merge of tiles from other tilesets.
      */
-    Tile generateTile(const TileId &tileId, const TileSet::list &src
-                      , const Tile &parentTile, int quadrant);
+    Tile generateTile( const TileId &tileId
+                     , const TileSet::list &src
+                     , const MergeInput::list &parentIncidendTiles
+                     , MergeInput::list &incidendTiles
+                     , int quadrant);
 
     void fixDefaultPosition(const list &tileSets);
 

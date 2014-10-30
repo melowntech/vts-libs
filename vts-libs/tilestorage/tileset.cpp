@@ -1268,6 +1268,34 @@ void TileSet::AdvancedApi::rename(const std::string &newId)
     detail.propertiesChanged = true;
 }
 
+
+void TileSet::AdvancedApi::removeOutOfLodRange( const TileId &tileId
+                                             , const LodRange & lodRange )
+{
+    auto &detail(tileSet_->detail());
+
+    if(auto *node = detail.findMetaNode(tileId)){
+        (void ) node;
+        for (const auto &childId : children(detail.properties.baseTileSize, tileId)) {
+            removeOutOfLodRange(childId, lodRange);
+        }
+        //if leaf node and outside of the extents, remove tile
+        if(tileId.lod < lodRange.min || tileId.lod > lodRange.max){
+            LOG(info2)<< "Removing tile "<<tileId;
+            tileSet_->removeTile(tileId);
+        }
+    }
+}
+
+void TileSet::AdvancedApi::removeOutOfLodRange( const LodRange & lodRange )
+{
+    auto &detail(tileSet_->detail());
+
+    removeOutOfLodRange( detail.properties.foat, lodRange );
+
+    detail.metadataChanged = true;
+}
+
 void TileSet::AdvancedApi::removeOutOfExtents( const TileId &tileId
                                              , const math::Extents2 & extents )
 {

@@ -278,17 +278,18 @@ void TileSet::mergeOut(const list &kept, const list &update)
 }
 
 Tile TileSet::Detail::generateTile(const TileId &tileId
-                                   , const TileSet::list &src
-                                   , const Tile &parentTile
-                                   , int quadrant)
+                                  , const TileSet::list &src
+                                  , const MergeInput::list &parentIncidendTiles
+                                  , MergeInput::list &incidendTiles
+                                  , int quadrant)
 {
     auto ts(tileSize(properties.baseTileSize, tileId.lod));
 
     // Fetch tiles from other source.
-    Tile::list tiles;
+    MergeInput::list tiles;
     for (const auto &ts : src) {
         if (auto t = ts->detail().getTile(tileId, std::nothrow)) {
-            tiles.push_back(*t);
+            tiles.push_back(MergeInput(t.get(), ts.get(), tileId ));
         }
     }
 
@@ -302,7 +303,8 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
         } else if ((tiles.size() == 1)) {
             // just one single tile without any fallback
             // NB: copy pixelSize
-            auto tile(tiles.front());
+            auto tile(tiles.front().tile());
+            //auto tile(tiles2.front());
             tile.metanode
                 = setTile(tileId, tile.mesh, tile.atlas, &tile.metanode
                           , tile.metanode.pixelSize[0][0]);
@@ -313,11 +315,12 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
     }
 
     // we have to merge tiles
-    auto tile(merge(tileId, ts, tiles, parentTile, quadrant));
+    auto tile(merge(tileId, ts, tiles, quadrant, parentIncidendTiles, incidendTiles));
 
     tile.metanode
         = setTile(tileId, tile.mesh, tile.atlas, &tile.metanode
                   , tile.pixelSize());
+
     return tile;
 }
 
@@ -327,7 +330,7 @@ void TileSet::Detail::mergeSubtree(utility::Progress &progress
                                    , const TileIndex *remove
                                    , const Index &index
                                    , const TileSet::list &src
-                                   , const Tile &parentTile
+                                   , const MergeInput::list &parentIncidendTiles
                                    , int quadrant
                                    , bool parentGenerated)
 {
@@ -338,6 +341,8 @@ void TileSet::Detail::mergeSubtree(utility::Progress &progress
 
     // tile generated in this run (empty and invalid by default)
     Tile tile;
+    MergeInput::list incidendTiles;
+
 
     // should this tile be generated?
     auto g(generate.exists(index));
@@ -352,17 +357,19 @@ void TileSet::Detail::mergeSubtree(utility::Progress &progress
             if (auto t = getTile(parent(tileId), std::nothrow)) {
                 // no parent was generated and we have sucessfully loaded parent
                 // tile from existing content as a fallback tile!
+                MergeInput::list loadedParentTiles;
+                loadedParentTiles.push_back(MergeInput(t.get(),nullptr,tileId));
 
-                LOG(info2) << "Parent tile loaded.";
                 quadrant = child(index);
-                tile = generateTile(tileId, src, *t, quadrant);
+                tile = generateTile( tileId, src, loadedParentTiles
+                                   , incidendTiles, quadrant);
                 thisGenerated = true;
             }
         }
 
         if (!thisGenerated) {
             // regular generation
-            tile = generateTile(tileId, src, parentTile, quadrant);
+            tile = generateTile(tileId, src, parentIncidendTiles, incidendTiles, quadrant);
         }
         (++progress).report(utility::Progress::ratio_t(5, 1000), "(merge) ");
     } else if (r) {
@@ -386,7 +393,7 @@ void TileSet::Detail::mergeSubtree(utility::Progress &progress
     quadrant = valid(tile) ? 0 : MERGE_NO_FALLBACK_TILE;
     for (const auto &child : children(index)) {
         mergeSubtree(progress, world, generate, remove, child
-                     , src, tile, quadrant, g);
+                     , src, incidendTiles, quadrant, g);
         if (quadrant != MERGE_NO_FALLBACK_TILE) {
             ++quadrant;
         }

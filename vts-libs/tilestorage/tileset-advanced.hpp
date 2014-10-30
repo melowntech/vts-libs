@@ -49,7 +49,18 @@ public:
      */
     void regenerateTileIndex();
 
+    /** Remove the tile and its descendants if its out of the 
+     *  defined Lod Range
+     */
+    void removeOutOfLodRange( const TileId &tileId
+                            , const LodRange & lodRange );
+
     /** Removes the tiles out of the defined extents
+     */
+    void removeOutOfLodRange( const LodRange & lodRange );
+
+    /** Remove the tile and its descendants if its out of the 
+     *  defined extents
      */
     void removeOutOfExtents( const TileId &tileId
                            , const math::Extents2 & extents );
@@ -57,6 +68,8 @@ public:
     /** Removes the tiles out of the defined extents
      */
     void removeOutOfExtents( const math::Extents2 & extents );
+
+
 
 
     /** Forces metadata to the tile and its descendants

@@ -3,6 +3,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include "math/math.hpp"
 #include "math/geometry.hpp"
 #include "math/transform.hpp"
 #include "imgproc/scanconversion.hpp"
@@ -13,6 +14,10 @@
 #include "vadstena-libs/uvpack.hpp"
 #include "vadstena-libs/faceclip.hpp"
 
+#include "geometry/mesh.hpp"
+#include "geometry/meshop.hpp"
+
+#include "./tileset.hpp"
 #include "./merge.hpp"
 #include "./io.hpp"
 
@@ -20,6 +25,7 @@
 
 namespace ublas = boost::numeric::ublas;
 namespace va = vadstena;
+namespace fs = boost::filesystem;
 
 #ifndef BUILDSYS_CUSTOMER_BUILD
 //#define DEBUG 1 // save debug images
@@ -88,7 +94,9 @@ void rasterizeTile(const Tile &tile, const math::Matrix4 &trafo,
         for (const auto& sl : scanlines) {
             imgproc::processScanline(sl, 0, qbuffer.cols,
                 [&](int x, int y, float)
-                   { qbuffer.at<int>(y, x) = index; } );
+                    {
+                        qbuffer.at<int>(y, x) = index; 
+                    } );
         }
     }
 }
@@ -124,10 +132,10 @@ void rasterizeHeights(const Tile &tile, const math::Matrix4 &trafo,
     }
 }
 
-//! Calculates tile geometry Coarseness, defined as the ratio of mesh area and area
+//! Calculates tile Inverse Geometry Coarseness, defined as the ratio of mesh area and area
 //! of the covered tile part
 //!
-double tileGeometryCoarseness(const Tile &tile, long tileSize)
+double tileInvGeometryCoarseness(const Tile &tile, long tileSize)
 {
     // calculate the total area of the faces in both the XYZ and UV spaces
     double xyzArea(0);
@@ -159,7 +167,6 @@ double tileGeometryCoarseness(const Tile &tile, long tileSize)
         triangles = va::clipTriangles(triangles, planes[i]);
     }
 
-    LOG( info2 )<<"";
     //compute the mesh area from clipped triangles
     for (const auto &face : triangles)
     {
@@ -341,54 +348,38 @@ void clipFaces(ClipTriangle::list &faces, long tileSize)
     }
 }
 
-//! Returns a trasformation of the (2x larger) fallback tile so that its given
-//! quadrant aligns with tile of size `tileSize`.
+//! Convert from normalized to pixel-based texture coordinates.
 //!
-math::Matrix4 quadrantTransform(long tileSize, int fallbackQuad)
+UVCoord denormalizeUV(const math::Point3d &uv, cv::Size texSize)
 {
-    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
-    double shift(double(tileSize) / 2);
-
-    switch (fallbackQuad) {
-    case 0: trafo(0,3) = +shift, trafo(1,3) = +shift; break;
-    case 1: trafo(0,3) = -shift, trafo(1,3) = +shift; break;
-    case 2: trafo(0,3) = +shift, trafo(1,3) = -shift; break;
-    case 3: trafo(0,3) = -shift, trafo(1,3) = -shift; break;
-    }
-    return trafo;
+    return {float(uv(0) * texSize.width),
+            //float(texSize.height-1 - uv(1)*texSize.height)
+            float((1.0 - uv(1)) * texSize.height)};
 }
 
-//! Returns true if 'qbuffer' is filled with the same value (returned in 'index')
+//! Convert from pixel-based to normalized texture coordinates.
 //!
-bool sameIndices(const cv::Mat &qbuffer, int& index)
+math::Point3d normalizeUV(const UVCoord &uv, cv::Size texSize)
 {
-    index = qbuffer.at<int>(0, 0);
-    for (auto it = qbuffer.begin<int>(); it != qbuffer.end<int>(); ++it) {
-        if (*it != index) return false;
-    }
-    return true;
+    return {double(uv.x) / texSize.width,
+            //(texSize.height-1 - double(uv.y)) / texSize.height,
+            1.0 - double(uv.y) / texSize.height,
+            0.0};
 }
 
-//! Returns true if 'qbuffer' contains at least one element equal to 'index'.
-//!
-bool haveIndices(const cv::Mat &qbuffer, int index)
-{
-    for (auto it = qbuffer.begin<int>(); it != qbuffer.end<int>(); ++it) {
-        if (*it == index) return true;
-    }
-    return false;
-}
 
-//! Returns the set of 'qbuffer' indexes.
-//!
-std::set<int> qIndices(const cv::Mat &qbuffer)
-{
-    std::set<int> indices;
-    for (auto it = qbuffer.begin<int>(); it != qbuffer.end<int>(); ++it) {
-        indices.insert(*it);
-    }
-    return indices;
-}
+// helpers to convert between math points and cv points
+cv::Point3d vertex(const math::Point3d &v)
+    { return {v(0), v(1), v(2)}; }
+
+math::Point3d vertex(const cv::Point3d &v)
+    { return {v.x, v.y, v.z}; }    
+
+cv::Point2d tCoord(const math::Point2 &t)
+    { return { t(0), t(1)}; }
+
+math::Point2 tCoord(const cv::Point2d &t)
+    { return {t.x, t.y}; }        
 
 //! Calculate a bounding rectangle of a list of points in the UV space.
 //!
@@ -438,126 +429,69 @@ void copyRect(const UVRect &rect, const cv::Mat &src, cv::Mat &dst)
     }
 }
 
-//! Convert from normalized to pixel-based texture coordinates.
+//! Returns a trasformation of the (2x larger) fallback tile so that its given
+//! quadrant aligns with tile of size `tileSize`.
 //!
-UVCoord denormalizeUV(const math::Point3d &uv, cv::Size texSize)
+math::Matrix4 quadrantTransform(long tileSize, int fallbackQuad)
 {
-    return {float(uv(0) * texSize.width),
-            //float(texSize.height-1 - uv(1)*texSize.height)
-            float((1.0 - uv(1)) * texSize.height)};
-}
+    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
+    double shift(double(tileSize) / 2);
 
-//! Convert from pixel-based to normalized texture coordinates.
-//!
-math::Point3d normalizeUV(const UVCoord &uv, cv::Size texSize)
-{
-    return {double(uv.x) / texSize.width,
-            //(texSize.height-1 - double(uv.y)) / texSize.height,
-            1.0 - double(uv.y) / texSize.height,
-            0.0};
-}
-
-// helpers to convert between math points and cv points
-cv::Point3d vertex(const math::Point3d &v)
-    { return {v(0), v(1), v(2)}; }
-
-math::Point3d vertex(const cv::Point3d &v)
-    { return {v.x, v.y, v.z}; }
-
-
-//! Bilinearly upsamples the specified quadrant of the fallback tile heightmap.
-//!
-void getFallbackHeightmap(const Tile &fallback, int fallbackQuad,
-                          float heightmap[MetaNode::HMSize][MetaNode::HMSize])
-{
-    const int hms(MetaNode::HMSize);
-
-    double x(0.), y(0.);
-    if (fallbackQuad & 1) x += double(hms - 1)*0.5;
-    if (fallbackQuad & 2) y += double(hms - 1)*0.5;
-
-    for (int i = 0; i < hms; i++)
-    for (int j = 0; j < hms; j++)
-    {
-        math::Point2 point(x + 0.5*j, y + 0.5*i);
-        heightmap[i][j] = 0;
-        imgproc::bilinearInterpolate(
-                   (float*) fallback.metanode.heightmap, hms, hms, hms, 1,
-                   point, &heightmap[i][j]);
+    switch (fallbackQuad) {
+    case 0: trafo(0,3) = +shift, trafo(1,3) = +shift; break;
+    case 1: trafo(0,3) = -shift, trafo(1,3) = +shift; break;
+    case 2: trafo(0,3) = +shift, trafo(1,3) = -shift; break;
+    case 3: trafo(0,3) = -shift, trafo(1,3) = -shift; break;
     }
+    return trafo;
 }
 
-} // namespace
-
-//! Merges several tiles. The process has four phases:
-//!
-//! 1. The meshes are rasterized into a buffer which determines the source
-//!    of geometry at each point of the result. The tiles are rasterized from
-//!    worst to best (in terms of their geometry quality). This means that the
-//!    best tile will be complete in the result and only the remaining space
-//!    will be filled with other tiles. The fallback tile is used only where
-//!    no other geometry exists.
-//!
-//! 2. Faces that will appear in the output are collected, according to the
-//!    contents of the buffer. A face from a tile is used if at least one
-//!    underlying element of the qbuffer indicates that the tile should be used
-//!    at that place. In addition, the fallback faces are transformed according
-//!    to `fallbackQuad` and clipped.
-//!
-//! 3. Pixels in atlases that are needed by the collected faces are marked.
-//!    Rectangles that cover the marked areas are identified and then repacked
-//!    into a single new atlas.
-//!
-//! 4. The isolated faces are converted into a standard mesh with vertices and
-//!    texture vertices that don't repeat.
-//!
-MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
-                 , const Tile &fallback, int fallbackQuad)
+math::Matrix4 tileTransform( const long dstTileSize, const math::Point2 dst
+                           , const long srcTileSize, const math::Point2 src)
 {
-    (void) tileId;
-#if DEBUG
-    {
-        LOG(info2)
-            << "Saving fallback tile on merge. Info:"
-            << "\ntileSize: " << tileSize
-            << "\nfallbackQuad: " << fallbackQuad
-            ;
-        writeBinaryMesh("./merge-fallback.bin", fallback.mesh);
-        cv::imwrite("./merge-fallback.png", fallback.atlas);
-    }
-#endif
+    math::Matrix4 trafo(ublas::identity_matrix<double>(4));
 
-    // sort tiles by quality
+    double shiftSrc(double(srcTileSize) / 2);
+    double shiftDst(double(dstTileSize) / 2);
 
-    LOG( info2 ) << "Tile id:" << tileId;
+    math::Point2 quadrantShift = src-dst;
+
+    trafo(0,3) = shiftSrc+quadrantShift(0)-shiftDst;
+    trafo(1,3) = shiftSrc+quadrantShift(1)-shiftDst;
+
+    return trafo;
+}
+
+MergeInput::list sortMergeInput(const MergeInput::list & mergeInput, long tileSize){
+    MergeInput::list result;
 
     struct TileSortInfo{
-        std::size_t tileId;
-        double geometryCoarseness;
+        std::size_t id;
+        double invGeometryCoarseness;
         double coarseness;
 
-        TileSortInfo( std::size_t tileId
+        TileSortInfo( std::size_t id
                    , double coarseness)
-            : tileId(tileId)
-            , geometryCoarseness(-1)
+            : id(id)
+            , invGeometryCoarseness(-1)
             , coarseness(coarseness){};
 
-        TileSortInfo( std::size_t tileId
-                   , double geometryCoarseness, double coarseness)
-            : tileId(tileId)
-            , geometryCoarseness(geometryCoarseness)
+        TileSortInfo( std::size_t id
+                   , double invGeometryCoarseness, double coarseness)
+            : id(id)
+            , invGeometryCoarseness(invGeometryCoarseness)
             , coarseness(coarseness){};
     };
 
     std::vector<TileSortInfo> sortingInfos;
-    bool sortGeometryCoarseness = false;
-    for (unsigned i = 0; i < tiles.size(); i++) {
-        if(tiles[i].metanode.coarseness<0){
-            sortGeometryCoarseness=true;
+    bool sortinvGeometryCoarseness = false;
+    for (unsigned i = 0; i < mergeInput.size(); i++) {
+        if(mergeInput[i].tile().metanode.coarseness<0){
+            sortinvGeometryCoarseness=true;
         }
         sortingInfos.emplace_back(
-            i, tileGeometryCoarseness( tiles[i], tileSize )
-             , tiles[i].metanode.coarseness);
+            i, tileInvGeometryCoarseness( mergeInput[i].tile(), tileSize )
+             , mergeInput[i].tile().metanode.coarseness);
     }
 
     auto compareCoarseness
@@ -571,149 +505,71 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
                     return false;
                   }
                   //fallback if coarsenesses aren't set or are equal
-                  if(a.geometryCoarseness < b.geometryCoarseness){
+                  if(a.invGeometryCoarseness < b.invGeometryCoarseness){
                         return true;
                   }
                   return false;
                 };
 
-    auto compareGeometryCoarseness
+    auto compareinvGeometryCoarseness
         = [](const TileSortInfo &a, const TileSortInfo &b) -> bool
                 {
                   //tiles with highem geometry quality comes first
-                  return a.geometryCoarseness < b.geometryCoarseness;
+                  return a.invGeometryCoarseness < b.invGeometryCoarseness;
                 };
 
-    if(sortGeometryCoarseness){
-        std::sort(sortingInfos.begin(), sortingInfos.end(), compareGeometryCoarseness);
+    if(sortinvGeometryCoarseness){
+        std::sort(sortingInfos.begin(), sortingInfos.end(), compareinvGeometryCoarseness);
     }
     else{
         std::sort(sortingInfos.begin(), sortingInfos.end(), compareCoarseness);
     }
 
-    // create qbuffer, rasterize meshes in increasing order of quality
-    const int QBSize(512);
-    cv::Mat qbuffer(QBSize, QBSize, CV_32S, cv::Scalar(-1));
-
-    math::Matrix4 trafo(tileToBuffer(tileSize, QBSize));
-    for (const TileSortInfo &tq : sortingInfos) {
-        rasterizeTile(tiles[tq.tileId], trafo, tq.tileId, qbuffer);
-    }
-#if DEBUG
-    std::ofstream("qbuffer.m") << "QB = " << qbuffer << ";\n";
-#endif
-
-    // close small holes in the meshes so that the fallback doesn't show through
-    // unneccessarily
-    const int closeSteps(2);
-    for (int i = 0; i < closeSteps; i++) {
-        dilateIndices<int>(qbuffer);
-    }
-    for (int i = 0; i < closeSteps; i++) {
-        erodeIndices<int>(qbuffer);
-    }
-#if DEBUG
-    std::ofstream("qbufferclosed.m") << "QB = " << qbuffer << ";\n";
-#endif
-
-    // optimization: if a tile covers the entire area, return it and do nothing
-    int index;
-    if (sameIndices(qbuffer, index) && index >= 0) {
-        return { tiles[index], true };
+    for(const auto & tq : sortingInfos){
+        result.push_back(mergeInput[tq.id]);
     }
 
-    // create a z-buffer
-    /*const float InvalidHeight(-123);
-    cv::Mat zbuffer(QBSize, QBSize, CV_32F, cv::Scalar(InvalidHeight));
-    for (unsigned i = 0; i < tiles.size(); i++) {
-        rasterizeHeights(tiles[i], trafo, i, qbuffer, zbuffer);
-    }*/
+    return result;
+}
 
-    // collect faces that are allowed by the qbuffer
-    ClipTriangle::list faces;
-    for (unsigned i = 0; i < tiles.size(); i++) {
-        const Tile &tile(tiles[i]);
-        const Mesh &mesh(tile.mesh);
-        cv::Size asize(tile.atlas.size());
+Mesh removeDuplicateVertexes(ClipTriangle::list & faces, cv::Size atlasSize){
+    Mesh result;
+    PointIndex<ClipTriangle::Point> vindex;
+    PointIndex<ClipTriangle::TCoord> tindex;
 
-        for (unsigned j = 0; j < mesh.facets.size(); j++) {
-            const Mesh::Facet &face(mesh.facets[j]);
-
-            if (faceCovered(mesh, face, trafo, i, qbuffer)) {
-                faces.emplace_back(i, 0,
-                        vertex(mesh.vertices[face.v[0]]),
-                        vertex(mesh.vertices[face.v[1]]),
-                        vertex(mesh.vertices[face.v[2]]),
-                        denormalizeUV(mesh.texcoords[face.t[0]], asize),
-                        denormalizeUV(mesh.texcoords[face.t[1]], asize),
-                        denormalizeUV(mesh.texcoords[face.t[2]], asize) );
-            }
-        }
-    }
-
-    // get faces also from the fallback tile, if available and if necessary
-    std::unique_ptr<Atlas> fallbackAtlas;
-
-    bool doFb(fallbackQuad >= 0 && haveIndices(qbuffer, -1));
-    if (doFb)
+    for (const auto &face1 : faces)
     {
-        const Mesh &mesh(fallback.mesh);
-        cv::Size asize(fallback.atlas.size());
-        // we need 2x bigger atlas
-        asize.width *= 2;
-        asize.height *= 2;
+        result.facets.emplace_back();
+        Mesh::Facet &face2(result.facets.back());
 
-        //TODO subdivide mesh
-
-        math::Matrix4 quadtr(quadrantTransform(tileSize, fallbackQuad));
-        math::Matrix4 trafo2(prod(trafo, quadtr));
-
-        ClipTriangle::list fbFaces;
-        unsigned fbIndex(tiles.size());
-
-        for (unsigned j = 0; j < mesh.facets.size(); j++) {
-            const Mesh::Facet &face(mesh.facets[j]);
-
-            if (faceCovered(mesh, face, trafo2, -1, qbuffer)) {
-                fbFaces.emplace_back(fbIndex, 0,
-                          vertex(transform(quadtr, mesh.vertices[face.v[0]])),
-                          vertex(transform(quadtr, mesh.vertices[face.v[1]])),
-                          vertex(transform(quadtr, mesh.vertices[face.v[2]])),
-                          denormalizeUV(mesh.texcoords[face.t[0]], asize),
-                          denormalizeUV(mesh.texcoords[face.t[1]], asize),
-                          denormalizeUV(mesh.texcoords[face.t[2]], asize) );
+        for (int i = 0; i < 3; i++) {
+            face2.v[i] = vindex.assign(face1.pos[i]);
+            if (unsigned(face2.v[i]) >= result.vertices.size()) {
+                result.vertices.push_back(vertex(face1.pos[i]));
             }
-        }
 
-        if (!fbFaces.empty()) {
-            // check whether we have taken any face from fallback
-            clipFaces(fbFaces, tileSize);
-
-            // scale fallback tile's atlas by 2 to inflate its quality
-            fallbackAtlas.reset
-                (new Atlas(fallback.atlas.rows * 2, fallback.atlas.cols * 2
-                           , fallback.atlas.type()));
-            cv::resize(fallback.atlas, *fallbackAtlas, fallbackAtlas->size()
-                       , 0, 0, cv::INTER_LANCZOS4);
-
-            faces.insert(faces.end(), fbFaces.begin(), fbFaces.end());
-        } else {
-            // nothing, tell rest of code there is no fallback
-            doFb = false;
+            face2.t[i] = tindex.assign(face1.uv[i]);
+            if (unsigned(face2.t[i]) >= result.texcoords.size()) {
+                auto uv(normalizeUV(face1.uv[i], atlasSize));
+                result.texcoords.push_back(uv);
+            }
         }
     }
 
-    // mark areas in the atlases that will need to be repacked
+    return result;
+}
+
+
+Atlas mergeAtlases( const std::vector<Atlas*> & atlases
+                  , ClipTriangle::list & faces){
     std::vector<cv::Mat> marks;
     cv::Size safety(1, 1);
-    for (const auto& tile : tiles) {
-        marks.emplace_back(tile.atlas.size() + safety, CV_8U, cv::Scalar(0));
-    }
-    if (doFb) {
-        marks.emplace_back(fallbackAtlas->size() + safety, CV_8U, cv::Scalar(0));
+
+    for(uint i=0; i<atlases.size(); ++i){
+        marks.emplace_back(atlases[i]->size() + safety, CV_8U, cv::Scalar(0));
     }
     for (const ClipTriangle &face : faces) {
-        markFace(face, marks[face.id1]);
+        markFace(face, marks[face.id1]);       
     }
 
     // determine UV rectangles that will get repacked
@@ -766,16 +622,10 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
 
     // copy rectangles to final atlas
     cv::Mat atlas(packer.height(), packer.width(), CV_8UC3, cv::Scalar(0,0,0));
-    for (unsigned i = 0; i < tiles.size(); i++) {
+    for (unsigned i = 0; i < atlases.size(); i++) {
         for (const auto &rect : rects[i]) {
             // TODO: mask out pixels that are not needed!
-            copyRect(rect, tiles[i].atlas, atlas);
-        }
-    }
-    if (doFb) {
-        for (const auto &rect : rects.back()) {
-            // TODO: mask out pixels that are not needed!
-            copyRect(rect, *fallbackAtlas, atlas);
+            copyRect(rect, *atlases[i], atlas);
         }
     }
 
@@ -785,82 +635,244 @@ MergedTile merge(const TileId &tileId, long tileSize, const Tile::list &tiles
             rects[face.id1][face.id2].adjustUV(face.uv[i]);
     }
 
-    // almost done
-    MergedTile result;
-    result.atlas = atlas;
+    return atlas;
+}
 
-    // create final geometry, with duplicate vertices removed
-    Mesh &mesh(result.mesh);
-    PointIndex<ClipTriangle::Point> vindex;
-    PointIndex<ClipTriangle::TCoord> tindex;
-
-    for (const auto &face1 : faces)
-    {
-        mesh.facets.emplace_back();
-        Mesh::Facet &face2(mesh.facets.back());
-
-        for (int i = 0; i < 3; i++) {
-            face2.v[i] = vindex.assign(face1.pos[i]);
-            if (unsigned(face2.v[i]) >= mesh.vertices.size()) {
-                mesh.vertices.push_back(vertex(face1.pos[i]));
-            }
-
-            face2.t[i] = tindex.assign(face1.uv[i]);
-            if (unsigned(face2.t[i]) >= mesh.texcoords.size()) {
-                auto uv(normalizeUV(face1.uv[i], atlas.size()));
-                mesh.texcoords.push_back(uv);
-            }
-        }
+//! Returns true if 'qbuffer' is filled with the same value (returned in 'index')
+//!
+bool sameIndices(const cv::Mat &qbuffer, int& index)
+{
+    index = qbuffer.at<int>(0, 0);
+    for (auto it = qbuffer.begin<int>(); it != qbuffer.end<int>(); ++it) {
+        if (*it != index) return false;
     }
+    return true;
+}
 
-    // make sure no vertex is higher than the zbuffer
-    /*for (auto &v : mesh.vertices) {
-        auto tv(transform(trafo, v));
-        int x(round(tv(0))), y(round(tv(1)));
-
-        if (validMatPos(x, y, zbuffer)) {
-            const float &height(zbuffer.at<float>(y, x));
-            if (height != InvalidHeight) {
-                if (v(2) > height) v(2) = height;
-            }
-        }
-    }*/
-
-    //  merge the 5x5 heightfields
-    if (tiles.size()) {
-        result.metanode = tiles[sortingInfos.back().tileId].metanode;
+//! Returns true if 'qbuffer' contains at least one element equal to 'index'.
+//!
+bool haveIndices(const cv::Mat &qbuffer, int index)
+{
+    for (auto it = qbuffer.begin<int>(); it != qbuffer.end<int>(); ++it) {
+        if (*it == index) return true;
     }
+    return false;
+}
 
-    //get lowest used gsd
-    float minGsd = std::numeric_limits<float>::max();
-    auto usedTiles = qIndices(qbuffer);
-
-    for(const auto& id: usedTiles){
-       if(id!=-1){
-            minGsd = std::min(minGsd, tiles[id].metanode.gsd);
-       }
-       else{
-            minGsd = std::min(minGsd, fallback.metanode.gsd);
-       }
-    }
-
-    result.metanode.gsd = minGsd;
-
-    //coarseness is not used after merge - set to invalid value
-    result.metanode.coarseness = -1;
-
+//! Bilinearly upsamples the specified quadrant of the fallback tile heightmap.
+//!
+void getFallbackHeightmap(const Tile &fallback, int fallbackQuad,
+                          float heightmap[MetaNode::HMSize][MetaNode::HMSize])
+{
     const int hms(MetaNode::HMSize);
-    float fbheight[hms][hms];
-    if (doFb) getFallbackHeightmap(fallback, fallbackQuad, fbheight);
+
+    double x(0.), y(0.);
+    if (fallbackQuad & 1) x += double(hms - 1)*0.5;
+    if (fallbackQuad & 2) y += double(hms - 1)*0.5;
 
     for (int i = 0; i < hms; i++)
     for (int j = 0; j < hms; j++)
     {
-        int what = qbuffer.at<int>(i * (QBSize-1) / hms, j * (QBSize-1) / hms);
-        if (what >= 0)
-            result.metanode.heightmap[i][j] = tiles[what].metanode.heightmap[i][j];
-        else if (doFb)
-            result.metanode.heightmap[i][j] = fbheight[i][j];
+        math::Point2 point(x + 0.5*j, y + 0.5*i);
+        heightmap[i][j] = 0;
+        imgproc::bilinearInterpolate(
+                   (float*) fallback.metanode.heightmap, hms, hms, hms, 1,
+                   point, &heightmap[i][j]);
+    }
+}
+
+MergeInput clipQuad( const MergeInput & mergeInput, int fallbackQuad
+                   , long tileSize){
+
+    math::Matrix4 shift = quadrantTransform(tileSize, fallbackQuad);
+    const Tile &tile(mergeInput.tile());
+    const Mesh &mesh(tile.mesh);
+    cv::Size asize(tile.atlas.size());
+    asize.width *= 2;
+    asize.height *= 2;
+
+    ClipTriangle::list faces;
+    for (unsigned j = 0; j < mesh.facets.size(); j++) {
+        const Mesh::Facet &face(mesh.facets[j]);
+        faces.emplace_back(0,0,
+                vertex(transform(shift,mesh.vertices[face.v[0]])),
+                vertex(transform(shift,mesh.vertices[face.v[1]])),
+                vertex(transform(shift,mesh.vertices[face.v[2]])),
+                denormalizeUV(mesh.texcoords[face.t[0]], asize),
+                denormalizeUV(mesh.texcoords[face.t[1]], asize),
+                denormalizeUV(mesh.texcoords[face.t[2]], asize));
+    }
+    clipFaces(faces, tileSize); 
+    
+    Atlas atlas(asize.height, asize.width, tile.atlas.type());
+    cv::resize( tile.atlas, atlas, atlas.size()
+              , 0, 0, cv::INTER_LANCZOS4);
+
+    std::vector<Atlas*> usedAtlases;
+    usedAtlases.push_back(&atlas);
+    
+    Tile resultTile;
+    resultTile.atlas = mergeAtlases(usedAtlases, faces);
+    resultTile.mesh = removeDuplicateVertexes(faces, resultTile.atlas.size());
+    resultTile.metanode = tile.metanode;
+    getFallbackHeightmap(tile, fallbackQuad, resultTile.metanode.heightmap);
+
+    return { resultTile, &mergeInput.tileSet()
+           , mergeInput.tileId(), mergeInput.srcFaceCount() };
+}
+
+} // namespace
+
+//! Merges several tiles. The process has four phases:
+//!
+//! 1. AncestorTiles are clipped and transformed according to 'quad'.
+//!    The meshes of all tiles are rasterized into a buffer which determines 
+//!    the source of geometry at each point of the result. The tiles are 
+//!    rasterized from worst to best (in terms of their geometry quality). 
+//!    This means that the best tile will be complete in the result and only 
+//!    the remaining space will be filled with other tiles.
+//!
+//! 2. Faces that will appear in the output are collected, according to the
+//!    contents of the buffer. A face from a tile is used if at least one
+//!    underlying element of the qbuffer indicates that the tile should be used
+//!    at that place.
+//!
+//! 3. Pixels in atlases that are needed by the collected faces are marked.
+//!    Rectangles that cover the marked areas are identified and then repacked
+//!    into a single new atlas.
+//!
+//! 4. The isolated faces are converted into a standard mesh with vertices and
+//!    texture vertices that don't repeat.
+//!
+MergedTile merge( const TileId &tileId, long tileSize
+                , const MergeInput::list &mergeInput
+                , int quad
+                , const MergeInput::list &ancestorTiles
+                , MergeInput::list &incidentTiles)
+{
+
+    (void) tileId;
+    LOG(info2)<<"Merging tile "<<tileId<<" from "<<mergeInput.size()<<" sets";
+
+    // sort tiles by quality
+    auto sortedMergeInput = sortMergeInput(mergeInput, tileSize);
+    // create qbuffer, rasterize meshes in increasing order of quality
+    const int QBSize(512);
+    cv::Mat qbuffer(QBSize, QBSize, CV_32S, cv::Scalar(-1));
+    math::Matrix4 trafo(tileToBuffer(tileSize, QBSize));
+
+    std::set<const TileSet*> mergedTileSetMap;
+    for (const auto &mi : sortedMergeInput) {
+        mergedTileSetMap.insert(&mi.tileSet());
+    }  
+    
+    incidentTiles.clear();
+    //clip and repack ancestor tiles
+    for(const auto &fb : ancestorTiles){
+        if(mergedTileSetMap.find(&fb.tileSet()) == mergedTileSetMap.end()){
+            MergeInput mi = clipQuad(fb, quad, tileSize);
+            if(mi.tile().mesh.facets.size()>0){            
+                incidentTiles.push_back(clipQuad(fb, quad, tileSize));
+            }
+        }
+    }
+    for (const auto &mi : sortedMergeInput) {
+        incidentTiles.push_back(mi);
+    }
+
+    for(uint i=0; i<incidentTiles.size(); ++i) {
+        rasterizeTile(incidentTiles[i].tile(), trafo, i, qbuffer);
+    }
+
+    // close small holes in the meshes so that the acestor tiles doesn't show through
+    // unneccessarily
+    const int closeSteps(2);
+    for (int i = 0; i < closeSteps; i++) {
+        dilateIndices<int>(qbuffer);
+    }
+    for (int i = 0; i < closeSteps; i++) {
+        erodeIndices<int>(qbuffer);
+    }
+
+    int index;
+    if ( sameIndices(qbuffer, index) && index >= 0) {
+        return { incidentTiles[index].tile(), true };
+    }
+
+    vadstena::Lod refineLod = -1;
+    std::vector<Atlas*> usedAtlases;
+    ClipTriangle::list mergedFaces;
+    const int hms(MetaNode::HMSize);
+    float minGsd = std::numeric_limits<float>::max();
+    float heightmap[hms][hms];
+    cv::Mat hmask(hms, hms, CV_32S, cv::Scalar(0));
+
+    for(int i=incidentTiles.size(); i>=0; --i) {
+        if(haveIndices(qbuffer,i)){
+
+            const Tile &tile(incidentTiles[i].tile());
+            cv::Size asize(tile.atlas.size());
+
+            //refine mesh if necessary
+            geometry::Obj mesh = tile.mesh;
+
+            if (refineLod >= 0) {
+                auto cmesh = *geometry::asMesh(mesh); 
+                auto rmesh(geometry::refine( cmesh
+                                       , incidentTiles[i].srcFaceCount()));
+                mesh = geometry::asObj(rmesh);
+            }
+
+            usedAtlases.emplace_back(&incidentTiles[i].tile().atlas);
+            for (unsigned j = 0; j < mesh.facets.size(); j++) {
+                const Mesh::Facet &face(mesh.facets[j]);
+                if (faceCovered(mesh, face, trafo, i, qbuffer)) {
+                    mergedFaces.emplace_back(usedAtlases.size()-1,0,
+                            vertex(mesh.vertices[face.v[0]]),
+                            vertex(mesh.vertices[face.v[1]]),
+                            vertex(mesh.vertices[face.v[2]]),
+                            denormalizeUV(mesh.texcoords[face.t[0]], asize),
+                            denormalizeUV(mesh.texcoords[face.t[1]], asize),
+                            denormalizeUV(mesh.texcoords[face.t[2]], asize) );
+                }
+            }
+
+            //if the merged tile was from the current lod all the other merged 
+            //tiles must be refined
+            refineLod = std::max(incidentTiles[i].tileId().lod, refineLod);
+
+            //update metadata
+            minGsd = std::min(tile.metanode.gsd, minGsd);
+            for (int c = 0; c < hms; c++)
+            for (int r = 0; r < hms; r++)
+            {
+                int what = qbuffer.at<int>( c * (QBSize-1) / hms
+                                          , r * (QBSize-1) / hms);
+                if(what==i || hmask.at<int>(c,r)==0){
+                    hmask.at<int>(c,r)=1;
+                    heightmap[c][r] = tile.metanode.heightmap[c][r];
+                }
+            }
+        }
+    }
+
+    // almost done
+    MergedTile result;
+    result.atlas = mergeAtlases(usedAtlases, mergedFaces);
+    result.mesh = removeDuplicateVertexes(mergedFaces, result.atlas.size());
+
+    if(sortedMergeInput.size()>0){
+        result.metanode = sortedMergeInput.front().tile().metanode;
+    }
+
+    result.metanode.gsd = minGsd;
+    //coarseness is not used after merge - set to invalid value
+    result.metanode.coarseness = -1;
+
+    for (int i = 0; i < hms; i++)
+    for (int j = 0; j < hms; j++)
+    {
+        result.metanode.heightmap[i][j] = heightmap[i][j];
     }
 
     // TODO: calculate this value
