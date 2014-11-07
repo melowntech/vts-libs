@@ -264,6 +264,21 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
         cloneTileSet(rooted(root, dst), ts.second, CreateMode::overwrite);
     }
 
+    float minTexelSize = std::numeric_limits<float>::max();
+    for(const auto &mtileset : kept){
+        minTexelSize=std::min( minTexelSize
+                             , mtileset.second->getProperties().texelSize);
+    }
+    for(const auto &mtileset : update){
+        minTexelSize=std::min( minTexelSize
+                             , mtileset.second->getProperties().texelSize);
+    }
+
+    SettableProperties properties;
+    properties.texelSize=minTexelSize;
+    SettableProperties::MaskType mask = SettableProperties::Mask::texelSize;
+    output->setProperties(properties, mask);
+
     // commit changes to output
     output->commit();
 
@@ -321,6 +336,17 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
         // remove from properties
         properties.inputSets.erase(ts.first);
     }
+
+    float minTexelSize = std::numeric_limits<float>::max();
+    for(const auto &mtileset : kept){
+        minTexelSize=std::min( minTexelSize
+                             , mtileset.second->getProperties().texelSize);
+    }
+
+    SettableProperties properties;
+    properties.texelSize=minTexelSize;
+    SettableProperties::MaskType mask = SettableProperties::Mask::texelSize;
+    output->setProperties(properties, mask);
 
     // commit changes to output
     output->commit();

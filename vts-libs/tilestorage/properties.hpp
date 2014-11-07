@@ -43,18 +43,21 @@ struct SettableProperties {
     math::Point3 defaultPosition;    // easting, northing, altitude
     math::Point3 defaultOrientation; // yaw, pitch, roll
     short textureQuality;            // JPEG quality   
+    float texelSize;                 // texelSize
 
     struct Mask { enum {             // mask bitfields
         defaultPosition = 0x01
         , defaultOrientation = 0x02
         , textureQuality = 0x04
+        , texelSize = 0x08
     }; };
 
     typedef int MaskType;
 
     SettableProperties()
         : defaultOrientation(0, -90, 0)
-        , textureQuality(85){}
+        , textureQuality(85)
+        , texelSize(0.1){}
 
     bool merge(const SettableProperties &other
                , MaskType mask = ~(MaskType(0)));
@@ -113,6 +116,7 @@ inline bool SettableProperties::merge(const SettableProperties &other
     SETTABLEPROPERTIES_MERGE(defaultPosition);
     SETTABLEPROPERTIES_MERGE(defaultOrientation);
     SETTABLEPROPERTIES_MERGE(textureQuality);
+    SETTABLEPROPERTIES_MERGE(texelSize);
 
 #undef SETTABLEPROPERTIES_MERGE
     return changed;
