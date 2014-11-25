@@ -45,7 +45,12 @@ double pixelSize(const geometry::Obj &mesh, const math::Size2 &atlasSize)
                                mesh.texcoords[face.t[2]]);
     }
     uvArea *= atlasSize.width * atlasSize.height;
-
+    
+    // no texturing -> invalid tile
+    if (!uvArea) {
+        return detail::invalidPixelSize;
+    }
+    
     return sqrt(xyzArea / uvArea);
 }
 
@@ -91,7 +96,7 @@ void MetaNode::calcParams(const geometry::Obj &mesh
     double ps(forcePixelSize
               ? *forcePixelSize
               : detail::pixelSize(mesh, atlasSize));
-
+    
     // calculate texture resolution
     pixelSize[0][0] = pixelSize[0][1] = ps;
     pixelSize[1][0] = pixelSize[1][1] = ps;
