@@ -342,34 +342,43 @@ MetaNode TileSet::Detail::setMetaNode(const TileId &tileId
                                       , const MetaNode& metanode)
 {
     // this ensures that we have old metanode in memory
-    findMetaNode(tileId);
-
-    // insert new node or update existing
-    auto res(metadata.insert(Metadata::value_type(tileId, metanode)));
-    auto &newNode(res.first->second);
-    if (!res.second) {
-        newNode = metanode;
+    auto old(findMetaNode(tileId));
+    
+    // update existing node
+    if (old) {
+        *old = metanode;
+    }
+    
+    // invalid node = node removal -> no metadata update
+    if (!valid(metanode)) {
+        return metanode;
     }
 
-    // update extents/lod-range; only when tile is valid
-    if (valid(metanode)) {
-        if (math::empty(extents)) {
-            // invalid extents, add first tile!
-            extents = tileExtents(properties, tileId);
-            // initial lod range
-            lodRange.min = lodRange.max = tileId.lod;
-        } else {
-            // add tile
+    // insert new node
+    if (!old) {
+        metadata.insert(Metadata::value_type(tileId, metanode));
+    }
+    
+    // now there surely is one
+    auto newNode(*findMetaNode(tileId));
 
-            // update extents
-            extents = unite(extents, tileExtents(properties, tileId));
+    // update extents/lod-range
+    if (math::empty(extents)) {
+        // invalid extents, add first tile!
+        extents = tileExtents(properties, tileId);
+        // initial lod range
+        lodRange.min = lodRange.max = tileId.lod;
+    } else {
+        // add tile
 
-            // update lod range
-            if (tileId.lod < lodRange.min) {
-                lodRange.min = tileId.lod;
-            } else if (tileId.lod > lodRange.max) {
-                lodRange.max = tileId.lod;
-            }
+        // update extents
+        extents = unite(extents, tileExtents(properties, tileId));
+
+        // update lod range
+        if (tileId.lod < lodRange.min) {
+            lodRange.min = tileId.lod;
+        } else if (tileId.lod > lodRange.max) {
+            lodRange.max = tileId.lod;
         }
     }
 
