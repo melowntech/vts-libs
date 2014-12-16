@@ -561,7 +561,7 @@ Mesh removeDuplicateVertexes(ClipTriangle::list & faces, cv::Size atlasSize){
 
 
 Atlas mergeAtlases( const std::vector<Atlas*> & atlases
-                  , ClipTriangle::list & faces){
+                  , ClipTriangle::list & faces, float inflate = 0){
     std::vector<cv::Mat> marks;
     cv::Size safety(1, 1);
 
@@ -610,6 +610,14 @@ Atlas mergeAtlases( const std::vector<Atlas*> & atlases
     for (const auto &face : faces) {
         for (int i = 0; i < 3; i++)
             rects[face.id1][face.id2].update(face.uv[i]);
+    }
+
+    //inflate rectangles
+    if(inflate>0){
+        for (auto &rlist : rects) {
+            for (auto &r : rlist)
+                r.inflate(inflate);
+        }
     }
 
     // pack the rectangles
@@ -708,11 +716,12 @@ MergeInput clipQuad( const MergeInput & mergeInput, int fallbackQuad
     cv::resize( tile.atlas, atlas, atlas.size()
               , 0, 0, cv::INTER_LANCZOS4);
 
+
     std::vector<Atlas*> usedAtlases;
     usedAtlases.push_back(&atlas);
     
     Tile resultTile;
-    resultTile.atlas = mergeAtlases(usedAtlases, faces);
+    resultTile.atlas = mergeAtlases(usedAtlases, faces, 2);
     resultTile.mesh = removeDuplicateVertexes(faces, resultTile.atlas.size());
     resultTile.metanode = tile.metanode;
     getFallbackHeightmap(tile, fallbackQuad, resultTile.metanode.heightmap);
