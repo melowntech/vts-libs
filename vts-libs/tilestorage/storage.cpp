@@ -18,7 +18,7 @@ namespace {
 
     const std::string OutputDir("output");
 
-    const std::string DefaultInputType("flat");
+    const std::string DefaultInputType("hash/crc");
 
     const std::string DefaultOutputType("hash/crc");
 
