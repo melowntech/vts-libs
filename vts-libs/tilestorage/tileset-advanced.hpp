@@ -40,6 +40,11 @@ public:
     /** Change metalevels. Metatiles and tile/meta indices are regenerated.
      */
     void changeMetaLevels(const LodLevels &metaLevels);
+    
+    /** Changes SRS - succeeds only if there is no current SRS or if current SRS
+        is same as new SRS
+     */
+    void changeSrs(const std::string& srs);
 
     /** Renames tile set, i.e. its id is changed.
      */

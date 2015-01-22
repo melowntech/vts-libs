@@ -10,6 +10,8 @@
 #include "utility/binaryio.hpp"
 #include "utility/progress.hpp"
 
+#include "geo/srsdef.hpp"
+
 #include "../binmesh.hpp"
 #include "../tilestorage.hpp"
 #include "./tileindex.hpp"
@@ -1256,9 +1258,39 @@ void TileSet::AdvancedApi::changeMetaLevels(const LodLevels &metaLevels)
     // set levels
     detail.properties.metaLevels = metaLevels;
 
-    // propetries has been changed
+    // properties has been changed
     detail.propertiesChanged = true;
     // force flush -> metatiles are about to be regenerated
+    detail.metadataChanged = true;
+}
+
+void TileSet::AdvancedApi::changeSrs(const std::string& srs) 
+{
+    auto &detail(tileSet_->detail());
+
+    // this action can be performed in transaction only
+    detail.checkTx("change metalevels");
+
+    LOG(info2)
+        << "Trying to change SRS from " << detail.properties.srs
+        << " to " << srs << ".";
+
+    if (   detail.properties.srs != "" 
+       && !geo::areSame(detail.properties.srs, srs)) 
+    {
+        LOGTHROW(err3, std::logic_error) << "Unable to change SRS.";
+    }
+
+    LOG(info2)
+        << "Changing SRS from " << detail.properties.srs
+        << " to " << srs << ".";
+
+    // set levels
+    detail.properties.srs = srs;
+
+    // properties has been changed
+    detail.propertiesChanged = true;
+    // force flush -> mapConfig is about to be regenerated
     detail.metadataChanged = true;
 }
 
@@ -1372,6 +1404,15 @@ bool TileSet::compatible(const TileSet &other)
 
     const auto oDetail(other.detail());
     const auto oProps(oDetail.properties);
+    
+    if ( !geo::areSame(oProps.srs, props.srs) ) {
+         LOG(warn2)
+            << "Tile set <" << props.id
+            << ">: set <" << oProps.id
+            << "> has incompatible SRS.";
+         return false;
+    }
+    
     if (oProps.baseTileSize != props.baseTileSize) {
         LOG(warn2)
             << "Tile set <" << props.id

@@ -239,10 +239,12 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
 
         // renew properties (only texture quality so far)
         output->setProperties(props, SettableProperties::Mask::textureQuality);
-        // renew metalevels + id
+        
+        // renew metalevels, id, srs
         auto a(output->advancedApi());
         a.rename(props.id);
         a.changeMetaLevels(props.metaLevels);
+        a.changeSrs(props.srs);
     } else {
         // merge in tile sets to the output tile set
         output->mergeIn(asList(kept), asList(update));
