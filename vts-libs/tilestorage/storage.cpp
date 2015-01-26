@@ -130,6 +130,8 @@ struct Storage::Detail {
     void saveConfig();
 
     void addTileSets(const std::vector<Locator> &locators);
+    
+    void rebuildOutput();
 
     void removeTileSets(const std::vector<std::string> &ids);
 
@@ -182,6 +184,31 @@ TileSetDescriptor* Storage::Detail::findInput(const std::string &id)
     }
     return &finputSets->second;
 }
+
+namespace {
+
+void updateTexelSize( TileSet::pointer &output
+                    , const TileSetMap &kept
+                    , const TileSetMap &update )
+{
+    float minTexelSize = std::numeric_limits<float>::max();
+    for(const auto &mtileset : kept) {
+        minTexelSize=std::min( minTexelSize
+                             , mtileset.second->getProperties().texelSize);
+    }
+    for(const auto &mtileset : update) {
+        minTexelSize=std::min( minTexelSize
+                             , mtileset.second->getProperties().texelSize);
+    }
+
+    SettableProperties properties;
+    properties.texelSize = minTexelSize;
+    SettableProperties::MaskType mask = SettableProperties::Mask::texelSize;
+    
+    output->setProperties(properties, mask);
+}
+
+} // namespace
 
 void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
 {
@@ -266,20 +293,21 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
         cloneTileSet(rooted(root, dst), ts.second, CreateMode::overwrite);
     }
 
-    float minTexelSize = std::numeric_limits<float>::max();
-    for(const auto &mtileset : kept){
-        minTexelSize=std::min( minTexelSize
-                             , mtileset.second->getProperties().texelSize);
-    }
-    for(const auto &mtileset : update){
-        minTexelSize=std::min( minTexelSize
-                             , mtileset.second->getProperties().texelSize);
-    }
-
-    SettableProperties properties;
-    properties.texelSize=minTexelSize;
-    SettableProperties::MaskType mask = SettableProperties::Mask::texelSize;
-    output->setProperties(properties, mask);
+    updateTexelSize(output, kept, update);
+//    float minTexelSize = std::numeric_limits<float>::max();
+//    for(const auto &mtileset : kept){
+//        minTexelSize=std::min( minTexelSize
+//                             , mtileset.second->getProperties().texelSize);
+//    }
+//    for(const auto &mtileset : update){
+//        minTexelSize=std::min( minTexelSize
+//                             , mtileset.second->getProperties().texelSize);
+//    }
+//
+//    SettableProperties properties;
+//    properties.texelSize=minTexelSize;
+//    SettableProperties::MaskType mask = SettableProperties::Mask::texelSize;
+//    output->setProperties(properties, mask);
 
     // commit changes to output
     output->commit();
@@ -288,6 +316,72 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
     saveConfig();
 
     LOG(info3) << "Add: done";
+}
+
+void Storage::Detail::rebuildOutput()
+{
+    // open output tile set
+    auto output(openTileSet(rooted(root, properties.outputSet.locator)
+                            , OpenMode::readWrite));
+
+    TileSetMap kept; // stays empty, whole output is rebuilt from scratch
+    TileSetMap update;
+
+    // open and add all existing tile sets to the update sets
+    for (const auto &input : properties.inputSets) {
+        auto tileSet(openTileSet(rooted(root, input.second.locator)));
+        update.insert(TileSetMap::value_type(input.first, tileSet));
+    }
+
+    // begin transaction
+    output->begin();
+
+    if (kept.empty() && (update.size() == 1)) {
+        LOG(info3)
+            << "(rebuild) Copying tile set <" << update.begin()->first
+            << "> to empty storage.";
+        // save properties
+        auto props(output->getProperties());
+        // clone
+        cloneTileSet(output, update.begin()->second
+                     , CreateMode::overwrite);
+
+        // renew properties (only texture quality so far)
+        output->setProperties(props, SettableProperties::Mask::textureQuality);
+        
+        // renew metalevels, id, srs
+        auto a(output->advancedApi());
+        a.rename(props.id);
+        a.changeMetaLevels(props.metaLevels);
+        a.changeSrs(props.srs);
+    } else {
+        // merge in tile sets to the output tile set
+        output->mergeIn(asList(kept), asList(update));
+    }
+
+    updateTexelSize(output, kept, update);
+//    float minTexelSize = std::numeric_limits<float>::max();
+//    for(const auto &mtileset : kept){
+//        minTexelSize=std::min( minTexelSize
+//                             , mtileset.second->getProperties().texelSize);
+//    }
+//    for(const auto &mtileset : update){
+//        minTexelSize=std::min( minTexelSize
+//                             , mtileset.second->getProperties().texelSize);
+//    }
+//
+//    SettableProperties properties;
+//    properties.texelSize=minTexelSize;
+//    SettableProperties::MaskType mask = SettableProperties::Mask::texelSize;
+//    output->setProperties(properties, mask);
+
+    // commit changes to output
+    output->commit();
+
+    // done
+    saveConfig();
+
+    LOG(info3) << "Rebuild: done";
 }
 
 void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
@@ -339,16 +433,17 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
         properties.inputSets.erase(ts.first);
     }
 
-    float minTexelSize = std::numeric_limits<float>::max();
-    for(const auto &mtileset : kept){
-        minTexelSize=std::min( minTexelSize
-                             , mtileset.second->getProperties().texelSize);
-    }
-
-    SettableProperties properties;
-    properties.texelSize=minTexelSize;
-    SettableProperties::MaskType mask = SettableProperties::Mask::texelSize;
-    output->setProperties(properties, mask);
+    updateTexelSize(output, kept, TileSetMap());
+//    float minTexelSize = std::numeric_limits<float>::max();
+//    for(const auto &mtileset : kept){
+//        minTexelSize=std::min( minTexelSize
+//                             , mtileset.second->getProperties().texelSize);
+//    }
+//
+//    SettableProperties properties;
+//    properties.texelSize=minTexelSize;
+//    SettableProperties::MaskType mask = SettableProperties::Mask::texelSize;
+//    output->setProperties(properties, mask);
 
     // commit changes to output
     output->commit();
@@ -408,6 +503,11 @@ Storage::Storage(const fs::path &root, bool readOnly)
 void Storage::addTileSets(const std::vector<Locator> &locators)
 {
     return detail().addTileSets(locators);
+}
+
+void Storage::rebuildOutput()
+{
+    return detail().rebuildOutput();
 }
 
 void Storage::removeTileSets(const std::vector<std::string> &ids)

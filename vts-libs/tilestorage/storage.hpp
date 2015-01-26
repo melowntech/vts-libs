@@ -75,6 +75,8 @@ public:
     void addTileSet(const Locator &locator);
 
     void addTileSets(const std::vector<Locator> &locators);
+    
+    void rebuildOutput();
 
     void removeTileSet(const std::string &id);
 
