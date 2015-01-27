@@ -294,20 +294,6 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
     }
 
     updateTexelSize(output, kept, update);
-//    float minTexelSize = std::numeric_limits<float>::max();
-//    for(const auto &mtileset : kept){
-//        minTexelSize=std::min( minTexelSize
-//                             , mtileset.second->getProperties().texelSize);
-//    }
-//    for(const auto &mtileset : update){
-//        minTexelSize=std::min( minTexelSize
-//                             , mtileset.second->getProperties().texelSize);
-//    }
-//
-//    SettableProperties properties;
-//    properties.texelSize=minTexelSize;
-//    SettableProperties::MaskType mask = SettableProperties::Mask::texelSize;
-//    output->setProperties(properties, mask);
 
     // commit changes to output
     output->commit();
@@ -360,20 +346,6 @@ void Storage::Detail::rebuildOutput()
     }
 
     updateTexelSize(output, kept, update);
-//    float minTexelSize = std::numeric_limits<float>::max();
-//    for(const auto &mtileset : kept){
-//        minTexelSize=std::min( minTexelSize
-//                             , mtileset.second->getProperties().texelSize);
-//    }
-//    for(const auto &mtileset : update){
-//        minTexelSize=std::min( minTexelSize
-//                             , mtileset.second->getProperties().texelSize);
-//    }
-//
-//    SettableProperties properties;
-//    properties.texelSize=minTexelSize;
-//    SettableProperties::MaskType mask = SettableProperties::Mask::texelSize;
-//    output->setProperties(properties, mask);
 
     // commit changes to output
     output->commit();
@@ -434,16 +406,6 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
     }
 
     updateTexelSize(output, kept, TileSetMap());
-//    float minTexelSize = std::numeric_limits<float>::max();
-//    for(const auto &mtileset : kept){
-//        minTexelSize=std::min( minTexelSize
-//                             , mtileset.second->getProperties().texelSize);
-//    }
-//
-//    SettableProperties properties;
-//    properties.texelSize=minTexelSize;
-//    SettableProperties::MaskType mask = SettableProperties::Mask::texelSize;
-//    output->setProperties(properties, mask);
 
     // commit changes to output
     output->commit();
