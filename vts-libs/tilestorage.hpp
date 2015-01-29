@@ -130,6 +130,25 @@ TileSet::pointer cloneTileSet(const TileSet::pointer &dst
                               , const TileSet::pointer &src
                               , CreateMode mode = CreateMode::failIfExists);
 
+/** This function pastes tiles from one or more tile sets into existing tile
+ *  set. Tile data are copied into result and metadata are generated
+ *  accordingly.
+ *
+ * This operation is simplified merge of tile sets. Be aware that "last tile
+ * wins" strategy is used: if there are more than one tiles with the same tileId
+ * the last one (from last tile set specified on the command line) is placed
+ * into the result.
+
+ * To be used only to glue together non-overlaping data sets like:
+ *   * webexports from one scene's targets
+ *   * piecewise generated heightfield
+ *
+ * \param dst destination tile set
+ * \param src source tile sets
+ */
+void pasteTileSets(const TileSet::pointer &dst
+                   , const TileSet::list &src);
+
 } } // namespace vadstena::tilestorage
 
 #endif // vadstena_libs_tilestorage_hpp_included_

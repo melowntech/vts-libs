@@ -1074,14 +1074,9 @@ void TileSet::rollback()
     detail().rollback();
 }
 
-namespace {
-    void copyFile(const IStream::pointer &in
-                  , const OStream::pointer &out)
-    {
-        out->get() << in->get().rdbuf();
-        in->close();
-        out->close();
-    }
+bool TileSet::inTx() const
+{
+    return detail().tx;
 }
 
 void TileSet::Detail::clone(const Detail &src)
@@ -1438,6 +1433,24 @@ bool TileSet::compatible(const TileSet &other)
         return false;
     }
     return true;
+}
+
+void pasteTileSets(const TileSet::pointer &dst
+                   , const TileSet::list &src)
+{
+    // paste tiles
+    dst->paste(src);
+
+    // creates and immidiately commits a transaction -> generates metadata in tx
+    // that is flushed and commited
+    if (!dst->inTx()) {
+        // no pending transaction -> create one :)
+        dst->begin();
+        dst->commit();
+    } else {
+        // just flush
+        dst->flush();
+    }
 }
 
 } } // namespace vadstena::tilestorage

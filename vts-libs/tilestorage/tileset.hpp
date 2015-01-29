@@ -124,6 +124,10 @@ public:
      */
     void rollback();
 
+    /** Check for pending transaction.
+     */
+    bool inTx() const;
+
     /** Is the tile set empty (i.e. has it no tile?)
      */
     bool empty() const;
@@ -166,6 +170,10 @@ public:
      *  compiled-in version.
      */
     void update();
+
+    /** Pastes conent of supplied tilesets into this tileset.
+     */
+    void paste(const list &update);
 
     // extended API; not to be used by general public :)
     class AdvancedApi; friend class AdvancedApi;

@@ -33,6 +33,14 @@ public:
     typedef std::shared_ptr<IStream> pointer;
 };
 
+inline void copyFile(const IStream::pointer &in
+                     , const OStream::pointer &out)
+{
+    out->get() << in->get().rdbuf();
+    in->close();
+    out->close();
+}
+
 } } // namespace vadstena::tilestorage
 
 #endif // vadstena_libs_tilestorage_streams_hpp_included_

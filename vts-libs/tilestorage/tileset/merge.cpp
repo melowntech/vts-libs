@@ -423,4 +423,42 @@ void TileSet::Detail::fixDefaultPosition(const list &tileSets)
     }
 }
 
+void TileSet::paste(const list &update)
+{
+    const auto thisId(getProperties().id);
+    const utility::Progress::ratio_t reportRatio(1, 100);
+    for (const auto &src : update) {
+        const auto id(src->getProperties().id);
+        const auto name(str(boost::format("Pasting <%s> into <%s> ")
+                            % id % thisId));
+
+        LOG(info2) << "Copying all tiles from <" << id << ">.";
+        auto &det(detail());
+        auto &sdet(src->detail());
+
+        utility::Progress progress(sdet.tileIndex.count());
+
+        // process all tiles
+        traverseTiles(src->detail().tileIndex, [&](const TileId &tileId)
+        {
+            const auto *metanode(sdet.findMetaNode(tileId));
+            if (!metanode) {
+                LOG(warn2)
+                    << "Cannot find metanode for tile " << tileId << "; "
+                    << "skipping.";
+                return;
+            }
+
+            // copy mesh and atlas
+            for (auto type : { TileFile::mesh, TileFile::atlas }) {
+                copyFile(sdet.driver->input(tileId, type)
+                         , det.driver->output(tileId, type));
+            }
+
+            det.setMetaNode(tileId, *metanode);
+            (++progress).report(reportRatio, name);
+        });
+    }
+}
+
 } } // namespace vadstena::tilestorage
