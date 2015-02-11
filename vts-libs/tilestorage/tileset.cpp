@@ -788,7 +788,7 @@ void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)
 
         virtual void saveTile(const TileId &metaId
                               , const MetaTileSaver &saver)
-            UTILITY_OVERRIDE
+            const UTILITY_OVERRIDE
         {
             metaIndex.set(metaId);
             auto f(detail.driver->output(metaId, TileFile::meta));
@@ -797,7 +797,7 @@ void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)
         }
 
         virtual const MetaNode* getNode(const TileId &tileId)
-            UTILITY_OVERRIDE
+            const UTILITY_OVERRIDE
         {
             auto *node(detail.findMetaNode(tileId));
             tileIndex.set(tileId, node && node->exists());
@@ -805,10 +805,9 @@ void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)
         }
     };
 
-    Saver saver(*this, tileIndex, metaIndex);
     tilestorage::saveMetatile(properties.baseTileSize, properties.foat
                               , properties.metaLevels
-                              , saver);
+                              , Saver(*this, tileIndex, metaIndex));
 }
 
 Tile TileSet::Detail::getTile(const TileId &tileId) const
