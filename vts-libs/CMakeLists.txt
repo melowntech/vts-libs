@@ -81,6 +81,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
 
     measurements.hpp measurements.cpp
 
+    facespertile.hpp facespertile.cpp
+
     tilestorage.hpp
     tilestorage/basetypes.hpp tilestorage/types.hpp
     tilestorage/properties.hpp
