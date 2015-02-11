@@ -200,7 +200,7 @@ inline const RasterMask* TileIndex::mask(Lod lod) const
 inline RasterMask* TileIndex::mask(Lod lod)
 {
     auto idx(lod - minLod_);
-    if ((idx < 0) || (idx > int(masks_.size()))) {
+    if ((idx < 0) || (idx >= int(masks_.size()))) {
         return nullptr;
     }
 

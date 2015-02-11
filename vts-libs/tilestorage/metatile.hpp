@@ -94,8 +94,8 @@ struct MetaNodeSaver
     typedef std::function<void(std::ostream &os)> MetaTileSaver;
 
     virtual void saveTile(const TileId &metaId, const MetaTileSaver &saver)
-        const = 0;
-    virtual const MetaNode* getNode(const TileId &tileId) const = 0;
+        = 0;
+    virtual const MetaNode* getNode(const TileId &tileId) = 0;
     virtual ~MetaNodeSaver() {}
 };
 
@@ -103,7 +103,7 @@ typedef std::function<MetaNode*(const TileId &tileId)> MetaNodeGetter;
 
 void saveMetatile(long baseTileSize, const TileId &foat
                   , const LodLevels &metaLevels
-                  , const MetaNodeSaver &saver);
+                  , MetaNodeSaver &saver);
 
 
 // inline method implementation

@@ -340,7 +340,7 @@ class Saver {
 public:
     Saver(long baseTileSize, const LodLevels &metaLevels
           , const unsigned int version
-          , const MetaNodeSaver &saver)
+          , MetaNodeSaver &saver)
         : baseTileSize(baseTileSize), metaLevels(metaLevels)
         , version(version), saver(saver)
     {}
@@ -355,7 +355,7 @@ private:
     long baseTileSize;
     LodLevels metaLevels;
     const unsigned int version;
-    const MetaNodeSaver &saver;
+    MetaNodeSaver &saver;
 
     std::queue<MetatileDef> subtrees;
 };
@@ -440,7 +440,7 @@ void Saver::saveMetatile(const MetatileDef &tile)
 
 void saveMetatile(long baseTileSize, const TileId &foat
                   , const LodLevels &metaLevels
-                  , const MetaNodeSaver &saver)
+                  , MetaNodeSaver &saver)
 {
     Saver(baseTileSize, metaLevels, METATILE_IO_VERSION, saver)(foat);
 }
