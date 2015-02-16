@@ -83,6 +83,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
 
     facespertile.hpp facespertile.cpp
 
+    lodmapping.hpp
+
     tilestorage.hpp
     tilestorage/basetypes.hpp tilestorage/types.hpp
     tilestorage/properties.hpp
