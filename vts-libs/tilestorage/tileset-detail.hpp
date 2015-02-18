@@ -140,6 +140,23 @@ struct TileSet::Detail {
     void setFoat(const TileId &tileId);
 
     void resetFoat();
+
+    /** Filters heightfield in area affected by tiles mentioned in changed
+     *  index.
+     *
+     * \param changed index of changed tiles
+     * \param hwin filter halfwindow
+     */
+    void filterHeightmap(const TileIndex &changed, double hwin = 2.0);
+
+    /** Filters heightfield in area affected by tiles mentioned in changed index
+     *  at given lod.
+     *
+     * \param lod lod to process
+     * \param changed index of changed tiles
+     * \param hwin filter halfwindow
+     */
+    void filterHeightmap(Lod lod, const TileIndex &changed, double hwin);
 };
 
 

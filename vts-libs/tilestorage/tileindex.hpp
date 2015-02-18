@@ -103,9 +103,9 @@ public:
      */
     std::size_t count() const;
 
-private:
     const RasterMask* mask(Lod lod) const;
 
+private:
     RasterMask* mask(Lod lod);
 
     long baseTileSize_;

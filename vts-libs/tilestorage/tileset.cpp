@@ -1441,7 +1441,7 @@ void pasteTileSets(const TileSet::pointer &dst
     // paste tiles
     dst->paste(src);
 
-    // creates and immidiately commits a transaction -> generates metadata in tx
+    // creates and immediately commits a transaction -> generates metadata in tx
     // that is flushed and commited
     if (!dst->inTx()) {
         // no pending transaction -> create one :)

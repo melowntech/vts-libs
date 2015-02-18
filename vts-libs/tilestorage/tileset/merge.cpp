@@ -425,7 +425,11 @@ void TileSet::Detail::fixDefaultPosition(const list &tileSets)
 
 void TileSet::paste(const list &update)
 {
+    boost::optional<TileIndex> changed;
+
     const auto thisId(getProperties().id);
+    auto &det(detail());
+
     const utility::Progress::ratio_t reportRatio(1, 100);
     for (const auto &src : update) {
         const auto id(src->getProperties().id);
@@ -433,13 +437,12 @@ void TileSet::paste(const list &update)
                             % id % thisId));
 
         LOG(info2) << "Copying all tiles from <" << id << ">.";
-        auto &det(detail());
         auto &sdet(src->detail());
 
         utility::Progress progress(sdet.tileIndex.count());
 
         // process all tiles
-        traverseTiles(src->detail().tileIndex, [&](const TileId &tileId)
+        traverseTiles(sdet.tileIndex, [&](const TileId &tileId)
         {
             const auto *metanode(sdet.findMetaNode(tileId));
             if (!metanode) {
@@ -458,6 +461,18 @@ void TileSet::paste(const list &update)
             det.setMetaNode(tileId, *metanode);
             (++progress).report(reportRatio, name);
         });
+
+        if (!changed) {
+            changed = sdet.tileIndex;
+        } else {
+            // add tileindes into this
+            changed = unite(det.properties.alignment
+                            , { &*changed, &sdet.tileIndex });
+        }
+    }
+
+    if (changed) {
+        det.filterHeightmap(*changed);
     }
 }
 
