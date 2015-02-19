@@ -25,7 +25,8 @@ constexpr float invalidCoarseness = -1;
  */
 struct TileMetadata {
     enum { HMSize = 5 };
-    float heightmap[HMSize][HMSize];
+    typedef float Heightmap[HMSize][HMSize];
+    Heightmap heightmap;
     float coarseness;
     float gsd;
 
