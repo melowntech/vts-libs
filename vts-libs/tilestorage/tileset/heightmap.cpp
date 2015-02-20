@@ -11,16 +11,6 @@
 
 namespace vadstena { namespace tilestorage {
 
-void TileSet::Detail::filterHeightmap(const TileIndex &changed, double hwin)
-{
-    LOG(info2)
-        << "Filtering height map in LOD range "
-        << changed.lodRange() << ".";
-    for (auto lod : changed.lodRange()) {
-        filterHeightmap(lod, changed, hwin);
-    }
-}
-
 namespace {
 
 void dumpMat(Lod lod, const std::string &name, const cv::Mat &mat)
@@ -92,158 +82,159 @@ cv::Mat createMask(Lod lod, const TileIndex &changed, int hwin, int margin)
     return inside;
 }
 
-} // namespace
+class Node {
+public:
+    Node(TileMetadata *node) : node_(node) {}
+    void flush() const {
+        std::copy
+            (&heightmap[0][0]
+             , &heightmap[TileMetadata::HMSize - 1][TileMetadata::HMSize]
+             , &node_->heightmap[0][0]);
+    }
 
-void TileSet::Detail::filterHeightmap(Lod lod, const TileIndex &changed
-                                      , double hwin)
+    TileMetadata::Heightmap heightmap;
+
+    typedef std::vector<Node> list;
+
+private:
+    TileMetadata *node_;
+};
+
+template <typename Filter>
+class Window
+    : public imgproc::BoundsValidator<Window<Filter> >
 {
-    class Node {
-    public:
-        Node(TileMetadata *node) : node_(node) {}
-        void flush() const {
-            std::copy
-                (&heightmap[0][0]
-                 , &heightmap[TileMetadata::HMSize - 1][TileMetadata::HMSize]
-                 , &node_->heightmap[0][0]);
-        }
+public:
+    typedef double channel_type;
+    typedef cv::Vec<channel_type, 1> value_type;
 
-        TileMetadata::Heightmap heightmap;
-
-        typedef std::vector<Node> list;
-
-    private:
-        TileMetadata *node_;
-    };
-
-    class Window
-        : public imgproc::BoundsValidator<Window>
+    Window(TileSet::Detail &ts, Lod lod, int margin, const Filter &filter)
+        : step_(TileMetadata::HMSize - 1)
+        , ts_(ts), tileSize_(tileSize(ts.properties, lod))
+        , margin_(margin), size_(2 * margin_ + 1, 2 * margin_ + 1)
+        , raster_(step_ * size_.height + 1
+                  , step_ * size_.width + 1, CV_64FC1)
+        , mask_(raster_.rows, raster_.cols, CV_8UC1)
+        , filter_(filter.scaled(step_, step_))
     {
-    public:
-        typedef double channel_type;
-        typedef cv::Vec<channel_type, 1> value_type;
+        LOG(info1)
+            << "Using filter with half-window: "
+            << filter_.halfwinx() << "x" << filter_.halfwiny();
+    }
 
-        Window(TileSet::Detail &ts, Lod lod, double hwin, int margin)
-            : step_(TileMetadata::HMSize - 1)
-            , ts_(ts), tileSize_(tileSize(ts.properties, lod))
-            , margin_(margin), size_(2 * margin_ + 1, 2 * margin_ + 1)
-            , raster_(step_ * size_.height + 1
-                      , step_ * size_.width + 1, CV_64FC1)
-            , mask_(raster_.rows, raster_.cols, CV_8UC1)
-            , filter_(step_ * hwin, step_ * hwin)
+    // NB: mask and raster are stored upside-down!
+    void process(const TileId &center) {
+        auto *tile(ts_.findMetaNode(center));
+        if (!tile) { return; }
+
+        // reset mask
+        mask_ = cv::Scalar(0x00);
+
+        TileId id(center.lod);
+
+        // set northing to the bottom tile
+        id.northing = (center.northing - tileSize_ * margin_);
+
+        // process all tiles
+        for (int j(0), y(0); j < size_.height;
+             ++j, y += step_, id.northing += tileSize_)
         {
-            LOG(info1)
-                << "Using filter with half-window: "
-                << filter_.halfwinx() << "x" << filter_.halfwiny();
-        }
-
-        // NB: mask and raster are stored upside-down!
-        void process(const TileId &center) {
-            auto *tile(ts_.findMetaNode(center));
-            if (!tile) { return; }
-
-            // reset mask
-            mask_ = cv::Scalar(0x00);
-
-            TileId id(center.lod);
-
-            // set northing to the bottom tile
-            id.northing = (center.northing - tileSize_ * margin_);
-
-            // process all tiles
-            for (int j(0), y(0); j < size_.height;
-                 ++j, y += step_, id.northing += tileSize_)
+            // set easting to the left tile
+            id.easting = (center.easting - tileSize_ * margin_);
+            for (int i(0), x(0); i < size_.width;
+                 ++i, x += step_, id.easting += tileSize_)
             {
-                // set easting to the left tile
-                id.easting = (center.easting - tileSize_ * margin_);
-                for (int i(0), x(0); i < size_.width;
-                     ++i, x += step_, id.easting += tileSize_)
-                {
-                    const auto *node(ts_.findMetaNode(id));
-                    if (!node) { continue; }
-                    LOG(info1) << "Loading tile: " << id << " at position ("
-                               << i << ", " << j << ").";
+                const auto *node(ts_.findMetaNode(id));
+                if (!node) { continue; }
+                LOG(info1) << "Loading tile: " << id << " at position ("
+                           << i << ", " << j << ").";
 
-                    // copy data from tile's heightmap
-                    for (int jj(0); jj < TileMetadata::HMSize; ++jj) {
-                        for (int ii(0); ii < TileMetadata::HMSize; ++ii) {
-                            int xx(x + ii), yy(y + jj);
-                            auto value(node->heightmap[jj][ii]);
-                            if (mask_.at<unsigned char>(yy, xx)) {
-                                // valid value from other tile, use average
-                                value += raster_.at<channel_type>(yy, xx);
-                                value /= 2.f;
-                            }
-                            raster_.at<channel_type>(yy, xx) = value;
+                // copy data from tile's heightmap
+                for (int jj(0); jj < TileMetadata::HMSize; ++jj) {
+                    for (int ii(0); ii < TileMetadata::HMSize; ++ii) {
+                        int xx(x + ii), yy(y + jj);
+                        auto value(node->heightmap[jj][ii]);
+                        if (mask_.at<unsigned char>(yy, xx)) {
+                            // valid value from other tile, use average
+                            value += raster_.at<channel_type>(yy, xx);
+                            value /= 2.f;
                         }
+                        raster_.at<channel_type>(yy, xx) = value;
                     }
-
-                    // update mask
-                    cv::Rect area
-                        (cv::Point2i(x, y), cv::Size(TileMetadata::HMSize
-                                                     , TileMetadata::HMSize));
-                    cv::rectangle
-                        (mask_, area, cv::Scalar(0xff), CV_FILLED, 4);
                 }
-            }
 
-            updated_.emplace_back(tile);
-            auto &hm(updated_.back().heightmap);
-
-            for (int j(0); j < TileMetadata::HMSize; ++j) {
-                for (int i(0); i < TileMetadata::HMSize; ++i) {
-                    auto old(tile->heightmap[j][i]);
-                    hm[j][i] = (imgproc::reconstruct
-                                (*this, filter_, math::Point2(i, j))[0]);
-                    LOG(info1)
-                        << old << " -> " << hm[j][i]
-                        << ": diff (" << i << ", " << j << "): "
-                        << (old - hm[j][i]);
-                }
+                // update mask
+                cv::Rect area
+                    (cv::Point2i(x, y), cv::Size(TileMetadata::HMSize
+                                                 , TileMetadata::HMSize));
+                cv::rectangle
+                    (mask_, area, cv::Scalar(0xff), CV_FILLED, 4);
             }
         }
 
-        void flush() {
-            for (auto &node : updated_) { node.flush(); }
+        updated_.emplace_back(tile);
+        auto &hm(updated_.back().heightmap);
+
+        for (int j(0); j < TileMetadata::HMSize; ++j) {
+            for (int i(0); i < TileMetadata::HMSize; ++i) {
+                auto old(tile->heightmap[j][i]);
+                hm[j][i] = (imgproc::reconstruct
+                            (*this, filter_, math::Point2(i, j))[0]);
+                LOG(info1)
+                    << old << " -> " << hm[j][i]
+                    << ": diff (" << i << ", " << j << "): "
+                    << (old - hm[j][i]);
+            }
         }
+    }
 
-        // reconstruction interface follows
-        int channels() const { return 1; };
-        channel_type saturate(double value) const { return value; }
-        channel_type undefined() const { return 0.f; }
-        int width() const { return step_ * size_.width + 1; }
-        int height() const { return step_ * size_.height + 1; }
-        math::Size2 size() const { return { width(), height() }; }
+    void flush() {
+        for (auto &node : updated_) { node.flush(); }
+    }
 
-        bool valid(int x, int y) const {
-            x = translate(x); y = translate(y);
-            return (BoundsValidatorType::valid(x, y)
-                    && mask_.at<unsigned char>(y, x));
-        }
+    // reconstruction interface follows
+    int channels() const { return 1; };
+    channel_type saturate(double value) const { return value; }
+    channel_type undefined() const { return 0.f; }
+    int width() const { return step_ * size_.width + 1; }
+    int height() const { return step_ * size_.height + 1; }
+    math::Size2 size() const { return { width(), height() }; }
 
-        const value_type& operator()(int x, int y) const {
-            x = translate(x); y = translate(y);
-            return raster_.at<value_type>(y, x);
-        }
+    bool valid(int x, int y) const {
+        x = translate(x); y = translate(y);
+        return (imgproc::BoundsValidator<Window<Filter> >::valid(x, y)
+                && mask_.at<unsigned char>(y, x));
+    }
 
-    private:
-        int translate(int index) const { return index + step_ * margin_; }
+    const value_type& operator()(int x, int y) const {
+        x = translate(x); y = translate(y);
+        return raster_.at<value_type>(y, x);
+    }
 
-        const int step_;
-        TileSet::Detail &ts_;
-        const long tileSize_;
-        const int margin_;
-        const math::Size2 size_;
-        cv::Mat raster_;
-        cv::Mat mask_;
+private:
+    int translate(int index) const { return index + step_ * margin_; }
 
-        const math::CatmullRom2 filter_;
+    const int step_;
+    TileSet::Detail &ts_;
+    const long tileSize_;
+    const int margin_;
+    const math::Size2 size_;
+    cv::Mat raster_;
+    cv::Mat mask_;
 
-        Node::list updated_;
-    };
+    const Filter &filter_;
 
+    Node::list updated_;
+};
+
+template <typename Filter>
+void filterHeightmapLod(TileSet::Detail &ts, Lod lod, const TileIndex &changed
+                        , const Filter &filter)
+{
     LOG(info2) << "Filtering height map at LOD " << lod << ".";
 
     // half-window as an integer; add small epsilon to deal with numeric errors
+    auto hwin(filter.halfwinx());
     auto intHwin(int(std::ceil(hwin - 1e-5)));
     auto margin(intHwin);
 
@@ -254,7 +245,7 @@ void TileSet::Detail::filterHeightmap(Lod lod, const TileIndex &changed
 
     auto flags(createMask(lod, changed, intHwin, margin));
 
-    Window window(*this, lod, hwin, intHwin);
+    Window<Filter> window(ts, lod, intHwin, filter);
 
     // process raster
     for (int j(0); j < flags.rows; ++j) {
@@ -264,7 +255,7 @@ void TileSet::Detail::filterHeightmap(Lod lod, const TileIndex &changed
 
             // regenerate tile
             auto tileId(getTileId(i, j));
-            LOG(info2) << "Filtering tile [" << i << ", " << j << "] "
+            LOG(info1) << "Filtering tile [" << i << ", " << j << "] "
                        << tileId << ".";
 
             window.process(tileId);
@@ -272,6 +263,21 @@ void TileSet::Detail::filterHeightmap(Lod lod, const TileIndex &changed
     }
 
     window.flush();
+}
+
+} // namespace
+
+void TileSet::Detail::filterHeightmap(const TileIndex &changed, double cutoff)
+{
+    // tile-level filter
+    const math::CatmullRom2 filter(cutoff, cutoff);
+
+    LOG(info2)
+        << "Filtering height map in LOD range "
+        << changed.lodRange() << ".";
+    for (auto lod : changed.lodRange()) {
+        filterHeightmapLod(*this, lod, changed, filter);
+    }
 }
 
 } } // namespace vadstena::tilestorage

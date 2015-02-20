@@ -381,7 +381,7 @@ void Saver::saveMetatileTree(std::ostream &f, const MetatileDef &tile)
             << "Can't find metanode for tile " << tile.id;
     }
 
-    LOG(info2) << "Dumping " << tile.id << ", " << tile.end
+    LOG(info1) << "Dumping " << tile.id << ", " << tile.end
                << ", bottom: " << bottom
                << ", meta mode:\n" << utility::dump(*node, "    ");
 
@@ -406,7 +406,7 @@ void Saver::saveMetatileTree(std::ostream &f, const MetatileDef &tile)
     }
     write(f, childFlags);
 
-    LOG(info2) << "    child flags: " << std::bitset<8>(childFlags);
+    LOG(info1) << "    child flags: " << std::bitset<8>(childFlags);
 
     // either dump 4 subnodes now or remember them in the subtrees
     mask = 1;

@@ -180,16 +180,21 @@ public:
 
     AdvancedApi advancedApi();
 
+    /** Internals. Public to ease library developers' life, not to allow users
+     *  to put their dirty hands in the tileset's guts!
+     */
+    struct Detail;
+
 private:
     TileSet(const std::shared_ptr<Driver> &driver);
 
     TileSet(const std::shared_ptr<Driver> &driver
             , const CreateProperties &properties);
 
-    struct Detail;
     std::unique_ptr<Detail> detail_;
     Detail& detail() { return *detail_; }
     const Detail& detail() const { return *detail_; }
+
 public:
     /** Needed to instantiate.
      */

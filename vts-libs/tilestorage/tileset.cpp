@@ -270,12 +270,12 @@ void TileSet::Detail::saveMetadata()
     // create tile index
     TileIndex ti(properties.alignment, properties.baseTileSize
                  , extents, lodRange);
-    LOG(info2) << "New tile index:\n" << ti;
+    LOG(info1) << "New tile index:\n" << ti;
 
     // create metatile index
     TileIndex mi(properties.alignment, properties.baseTileSize
                  , extents, {properties.foat.lod, lodRange.max});
-    LOG(info2) << "New metatile index:\n" << mi;
+    LOG(info1) << "New metatile index:\n" << mi;
 
     // well, dump metatiles now
     saveMetatiles(ti, mi);
@@ -300,7 +300,7 @@ void TileSet::Detail::saveMetadata()
     if (metadata.empty()) {
         // no tile, we should invalidate foat
         resetFoat();
-        LOG(info2) << "Tile set <" << properties.id << ">: New foat is "
+        LOG(info1) << "Tile set <" << properties.id << ">: New foat is "
                    << properties.foat << ".";
     }
 
@@ -488,7 +488,7 @@ MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId)
         return nullptr;
     }
 
-    LOG(info2) << "(" << properties.id << "): Found metatile "
+    LOG(info1) << "(" << properties.id << "): Found metatile "
                << metaId << " for tile " << tileId << ".";
 
     loadMetatileFromFile(metadata, metaId);
