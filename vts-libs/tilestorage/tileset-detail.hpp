@@ -141,13 +141,13 @@ struct TileSet::Detail {
 
     void resetFoat();
 
-    /** Filters heightfield in area affected by tiles mentioned in changed
-     *  index.
+    /** Filters heightfield in area affected by bordering tiles of area
+     *  defined in changed tile index.
      *
-     * \param changed index of changed tiles
+     * \param update list of tile indices of changed tiles
      * \param cutoff cut off period of CatmullRom2 (in both directions)
      */
-    void filterHeightmap(const TileIndex &changed, double cutoff = 2.0);
+    void filterHeightmap(const TileIndices &update, double cutoff = 2.0);
 };
 
 

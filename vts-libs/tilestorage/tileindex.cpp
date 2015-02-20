@@ -422,8 +422,7 @@ Extents uniteExtents(const Extents &l, const Extents &r)
 
 } // namespace
 
-TileIndex unite(const Alignment &alignment
-                , const std::vector<const TileIndex*> &tis
+TileIndex unite(const Alignment &alignment, const TileIndices &tis
                 , const Bootstrap &bootstrap)
 {
     LOG(info2) << "unite: " << tis.size() << " sets";

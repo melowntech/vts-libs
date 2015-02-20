@@ -6,8 +6,7 @@
 
 #include "../tileset-detail.hpp"
 
-// #define DUMP_FLAGS 1
-#undef DUMP_FLAGS
+//#define HM_FILTER_DUMP_FLAGS 1
 
 namespace vadstena { namespace tilestorage {
 
@@ -15,8 +14,8 @@ namespace {
 
 void dumpMat(Lod lod, const std::string &name, const cv::Mat &mat)
 {
-#ifdef DUMP_FLAGS
-    auto file(str(boost::format("changed-%s-%02d.png") % name % lod));
+#ifdef HM_FILTER_DUMP_FLAGS
+    auto file(str(boost::format("%02d-changed-%s.png") % lod % name));
     cv::Mat tmp;
     flip(mat, tmp, 0);
     cv::imwrite(file, tmp);
@@ -25,12 +24,16 @@ void dumpMat(Lod lod, const std::string &name, const cv::Mat &mat)
 #endif
 }
 
-cv::Mat createMask(Lod lod, const TileIndex &changed, int hwin, int margin)
+void createMask(cv::Mat &flags, Lod lod, const RasterMask &rmask
+                , int hwin, int margin, const Extents &roi
+                , const Point2l &origin, int idx)
 {
-    const auto &rmask(*changed.mask(lod));
-    auto size(rmask.dims());
-    size.width += (2 * margin);
-    size.height += (2 * margin);
+    const auto size(math::size(roi));
+    const auto &offset(roi.ll);
+
+    LOG(info1)
+        << "Creating mask at lod" << lod << ", roi: " << roi
+        << ", size: " << size;
 
     // inside mask, clear
     cv::Mat inside(size.height, size.width, CV_8UC1);
@@ -57,29 +60,136 @@ cv::Mat createMask(Lod lod, const TileIndex &changed, int hwin, int margin)
     rmask.forEachQuad([&](uint xstart, uint ystart, uint xsize
                           , uint ysize, bool valid)
     {
-        cv::Point2i start(xstart + margin - hwin
-                          , ystart + margin - hwin);
-        cv::Point2i end(xstart + xsize + margin + hwin - 1
-                        , ystart + ysize + margin + hwin - 1);
+        cv::Point2i start(xstart - offset(0) - hwin
+                          , ystart - offset(1) - hwin);
+        cv::Point2i end(xstart + xsize - offset(0) + hwin - 1
+                        , ystart + ysize - offset(1) + hwin - 1);
 
         cv::rectangle((valid ? inside : outside)
                       , start, end, white, CV_FILLED, 4);
     }, RasterMask::Filter::both);
 
-    dumpMat(lod, "inside", inside);
-    dumpMat(lod, "outside", outside);
+    dumpMat(lod, str(boost::format("inside%d") % idx), inside);
+    dumpMat(lod, str(boost::format("outside%d") % idx), outside);
 
     // intersect inside and outside mask, place result into inside mask
     for (int j(0); j < size.height; ++j) {
         for (int i(0); i < size.width; ++i) {
+            if (inside.at<unsigned char>(j, i)
+                && outside.at<unsigned char>(j, i))
+            {
+                flags.at<unsigned char>(origin(1) + j, origin(0) + i) = 0xff;
+            }
+
+#ifdef HM_FILTER_DUMP_FLAGS
+            // only for debug (to allow local mask dump)
             inside.at<unsigned char>(j, i)
                 = 0xff * (inside.at<unsigned char>(j, i)
                           && outside.at<unsigned char>(j, i));
+#endif
         }
     }
 
-    dumpMat(lod, "mask", inside);
-    return inside;
+    dumpMat(lod, str(boost::format("mask%d") % idx), inside);
+}
+
+/** Calculate area covered by white quads in rmask + margin around.
+ *  NB: result.ll() is valid point, result.ur() is first invalid point,
+ *  i.e. size(result) is full raster size
+ */
+Extents coveredArea(const RasterMask *rmask, int margin)
+{
+    Extents extents{math::InvalidExtents()};
+    if (!rmask) { return extents; }
+
+    rmask->forEachQuad([&](uint xstart, uint ystart, uint xsize
+                           , uint ysize, bool)
+    {
+        update(extents, Point2l(xstart, ystart));
+        update(extents, Point2l(xstart + xsize, ystart + ysize));
+    }, RasterMask::Filter::white);
+
+    // grow extents by margin
+    return extents + margin;
+}
+
+class Flags {
+public:
+    Flags() = default;
+
+    Flags(const cv::Mat &flags, const TileId &origin, long tileSize)
+        : flags_(flags), origin_(origin), tileSize_(tileSize)
+    {}
+
+    operator bool() const { return flags_.data; }
+
+    int width() const { return flags_.cols; }
+    int height() const { return flags_.rows; }
+
+    bool operator()(int x, int y) const {
+        return flags_.at<unsigned char>(y, x);
+    }
+
+    TileId tileId(int x, int y) const {
+        return { origin_.lod, origin_.easting + x * tileSize_
+                , origin_.northing + y * tileSize_ };
+    }
+
+private:
+    cv::Mat flags_;
+    TileId origin_;
+    long tileSize_;
+};
+
+Flags createFlags(const Properties &properties
+                  , Lod lod, const TileIndices &tis
+                  , int hwin, int margin)
+{
+    std::vector<Extents> localRois;
+    std::vector<Extents> rois;
+    Extents roi{math::InvalidExtents()};
+    for (const auto *ti : tis) {
+        // calculate covered area of tiles in tileindex, add margin and hwin
+        localRois.push_back(coveredArea(ti->mask(lod), margin));
+        if (empty(localRois.back())) { continue; }
+        rois.emplace_back
+            (ti->fromReference(properties.alignment
+                               , lod, localRois.back().ll)
+             , ti->fromReference(properties.alignment
+                                 , lod, localRois.back().ur));
+
+        // update common origin
+        roi = unite(roi, rois.back());
+    }
+
+    if (empty(roi)) { return {}; }
+
+    LOG(info1) << "Flags roi in tiles from alignment: " << roi;
+
+    cv::Mat flags(size(roi).height, size(roi).width, CV_8UC1);
+    flags = cv::Scalar(0x00);
+
+    int i(0);
+    auto ilocalRois(localRois.begin());
+    auto irois(rois.begin());
+    for (const auto *ti : tis) {
+        if (const auto *mask = ti->mask(lod)) {
+            createMask(flags, lod, *mask, hwin, margin, *ilocalRois
+                       , irois->ll - roi.ll, i);
+        }
+        ++ilocalRois;
+        ++irois;
+        ++i;
+    }
+
+    dumpMat(lod, "flags", flags);
+
+    const auto tSize(tileSize(properties, lod));
+    return {
+        flags, { lod, properties.alignment(0) + tSize * roi.ll(0)
+                , properties.alignment(1) + tSize * roi.ll(1) }
+        , tSize
+    };
 }
 
 class Node {
@@ -227,8 +337,18 @@ private:
     Node::list updated_;
 };
 
+LodRange lodSpan(const TileIndices &tis)
+{
+    auto out(LodRange::emptyRange());
+    for (const auto *ti : tis) {
+        out = unite(out, ti->lodRange());
+    }
+    return out;
+}
+
 template <typename Filter>
-void filterHeightmapLod(TileSet::Detail &ts, Lod lod, const TileIndex &changed
+void filterHeightmapLod(TileSet::Detail &ts, Lod lod
+                        , const TileIndices &update
                         , const Filter &filter)
 {
     LOG(info2) << "Filtering height map at LOD " << lod << ".";
@@ -238,23 +358,20 @@ void filterHeightmapLod(TileSet::Detail &ts, Lod lod, const TileIndex &changed
     auto intHwin(int(std::ceil(hwin - 1e-5)));
     auto margin(intHwin);
 
-    const auto getTileId([&](int i, int j)
-    {
-        return changed.tileId(lod, i - margin, j - margin);
-    });
-
-    auto flags(createMask(lod, changed, intHwin, margin));
+    // build flags
+    auto flags(createFlags(ts.properties, lod, update, intHwin, margin));
+    if (!flags) { return; }
 
     Window<Filter> window(ts, lod, intHwin, filter);
 
     // process raster
-    for (int j(0); j < flags.rows; ++j) {
-        for (int i(0); i < flags.cols; ++i) {
+    for (int j(0); j < flags.height(); ++j) {
+        for (int i(0); i < flags.width(); ++i) {
             // get flags
-            if (!flags.at<unsigned char>(j, i)) { continue; }
+            if (!flags(i, j)) { continue; }
 
             // regenerate tile
-            auto tileId(getTileId(i, j));
+            auto tileId(flags.tileId(i, j));
             LOG(info1) << "Filtering tile [" << i << ", " << j << "] "
                        << tileId << ".";
 
@@ -267,16 +384,20 @@ void filterHeightmapLod(TileSet::Detail &ts, Lod lod, const TileIndex &changed
 
 } // namespace
 
-void TileSet::Detail::filterHeightmap(const TileIndex &changed, double cutoff)
+void TileSet::Detail::filterHeightmap(const TileIndices &update
+                                      , double cutoff)
 {
+    if (update.empty()) { return; }
+
     // tile-level filter
     const math::CatmullRom2 filter(cutoff, cutoff);
 
+
+    auto lodRange(lodSpan(update));
     LOG(info2)
-        << "Filtering height map in LOD range "
-        << changed.lodRange() << ".";
-    for (auto lod : changed.lodRange()) {
-        filterHeightmapLod(*this, lod, changed, filter);
+        << "Filtering height map in LOD range " << lodRange << ".";
+    for (auto lod : lodRange) {
+        filterHeightmapLod(*this, lod, update, filter);
     }
 }
 

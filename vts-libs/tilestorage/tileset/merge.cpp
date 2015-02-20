@@ -41,8 +41,6 @@ LodRange range(const TileSet::list &sets)
     return r;
 }
 
-typedef std::vector<const TileIndex*> TileIndices;
-
 inline void tileIndicesImpl(TileIndices &indices, const TileSet::list &set)
 {
     // get all tile indices
@@ -425,7 +423,7 @@ void TileSet::Detail::fixDefaultPosition(const list &tileSets)
 
 void TileSet::paste(const list &update)
 {
-    boost::optional<TileIndex> changed;
+    TileIndices changed;
 
     const auto thisId(getProperties().id);
     auto &det(detail());
@@ -462,18 +460,11 @@ void TileSet::paste(const list &update)
             (++progress).report(reportRatio, name);
         });
 
-        if (!changed) {
-            changed = sdet.tileIndex;
-        } else {
-            // add tileindes into this
-            changed = unite(det.properties.alignment
-                            , { &*changed, &sdet.tileIndex });
-        }
+        changed.push_back(&sdet.tileIndex);
     }
 
-    if (changed) {
-        det.filterHeightmap(*changed);
-    }
+    // filter heightmap in bordering tiles in all pasted tile sets
+    det.filterHeightmap(changed);
 }
 
 } } // namespace vadstena::tilestorage

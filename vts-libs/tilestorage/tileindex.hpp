@@ -105,6 +105,14 @@ public:
 
     const RasterMask* mask(Lod lod) const;
 
+    /** Converts given index to index from given reference in space.
+     */
+    Index fromReference(const Point2l &reference, const Index &index)
+        const;
+
+    Point2l fromReference(const Point2l &reference, Lod lod
+                          , const Point2l &point)  const;
+
 private:
     RasterMask* mask(Lod lod);
 
@@ -113,6 +121,8 @@ private:
     Lod minLod_;
     Masks masks_;
 };
+
+typedef std::vector<const TileIndex*> TileIndices;
 
 /** Dump tile indes as set of images.
  */
@@ -154,7 +164,7 @@ private:
 };
 
 TileIndex unite(const Alignment &alignment
-                , const std::vector<const TileIndex*> &tis
+                , const TileIndices &tis
                 , const Bootstrap &bootstrap = Bootstrap());
 
 TileIndex unite(const Alignment &alignment
@@ -297,6 +307,25 @@ inline void traverseTiles(const TileIndex &ti, const Op &op)
             }, RasterMask::Filter::white);
         ++lod;
     }
+}
+
+
+inline Index TileIndex::fromReference(const Point2l &reference
+                                      , const Index &index)
+    const
+{
+    const auto ts(tileSize(baseTileSize_, index.lod));
+    return { index.lod, (origin_(0) - reference(0)) / ts + index.easting
+            , (origin_(1) - reference(1)) / ts  + index.northing };
+}
+
+inline Point2l TileIndex::fromReference(const Point2l &reference, Lod lod
+                                        , const Point2l &point)
+    const
+{
+    const auto ts(tileSize(baseTileSize_, lod));
+    return { (origin_(0) - reference(0)) / ts + point(0)
+            , (origin_(1) - reference(1)) / ts  + point(1) };
 }
 
 } } // namespace vadstena::tilestorage

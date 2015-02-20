@@ -76,6 +76,7 @@ struct Index {
 typedef math::Size2_<long> Size2l;
 
 typedef math::Point2_<long> Point2l;
+typedef std::vector<Point2l> Points2l;
 
 typedef Point2l Alignment;
 
@@ -161,6 +162,11 @@ inline bool operator==(const LodLevels &l, const LodLevels &r)
 inline bool operator!=(const LodLevels &l, const LodLevels &r)
 {
     return !operator==(l, r);
+}
+
+inline Point2l point(const Index &index)
+{
+    return { index.easting, index.northing };
 }
 
 } } // namespace vadstena::tilestorage
