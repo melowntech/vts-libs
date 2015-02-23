@@ -11,7 +11,6 @@
 #include "./io.hpp"
 #include "./tileop.hpp"
 #include "./driver/flat.hpp"
-#include "./merge.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -110,32 +109,14 @@ struct TileSet::Detail {
 
     void rollback();
 
-    /** Merge subtree starting at index.
-     *  Calls itself recursively.
-     *
-     * NB Remove tile set must have same dimensions as generate tile set (if
-     * non-null).
-     */
-    void mergeSubtree(utility::Progress &progress, const TileIndex &world
-                      , const TileIndex &generate, const TileIndex *remove
-                      , const Index &index, const TileSet::list &src
-                      , const MergeInput::list &parentIncidendTiles = MergeInput::list()
-                      , int quadrant = -1
-                      , bool parentGenerated = false);
-
-    /** Generates new tile as a merge of tiles from other tilesets.
-     */
-    Tile generateTile( const TileId &tileId
-                     , const TileSet::list &src
-                     , const MergeInput::list &parentIncidendTiles
-                     , MergeInput::list &incidendTiles
-                     , int quadrant);
-
     void fixDefaultPosition(const list &tileSets);
 
     TileId parent(const TileId &tileId) const;
 
     void clone(const Detail &src);
+
+    void clone(const Detail &src, const boost::optional<Extents> &extents
+               , const boost::optional<LodRange> &lodRange);
 
     void setFoat(const TileId &tileId);
 
@@ -148,6 +129,14 @@ struct TileSet::Detail {
      * \param cutoff cut off period of CatmullRom2 (in both directions)
      */
     void filterHeightmap(const TileIndices &update, double cutoff = 2.0);
+
+    Detail& other(const TileSet::pointer &otherSet) {
+        return otherSet->detail();
+    }
+
+    const Detail& other(const TileSet::pointer &otherSet) const {
+        return otherSet->detail();
+    }
 };
 
 

@@ -104,6 +104,46 @@ void dumpTileIndex(const char *root, const fs::path &name
     index.save(path / "raw.bin");
 }
 
+namespace {
+
+struct Merger {
+    Merger(TileSet::Detail &self, const TileIndex &world
+           , const TileIndex &generate, const TileIndex *remove
+           , const TileSet::list &src)
+        : self(self), world(world), generate(generate), remove(remove)
+        , src(src), progress(generate.count() + (remove ? remove->count() : 0))
+    {}
+
+    /** Merge subtree starting at index.
+     *  Calls itself recursively.
+     *
+     * NB Remove tile set must have same dimensions as generate tile set (if
+     * non-null).
+     */
+    void mergeSubtree(const Index &index
+                      , const MergeInput::list &parentIncidendTiles
+                      = MergeInput::list()
+                      , int quadrant = -1
+                      , bool parentGenerated = false);
+
+    /** Generates new tile as a merge of tiles from other tilesets.
+     */
+    Tile generateTile(const TileId &tileId
+                      , const MergeInput::list &parentIncidendTiles
+                      , MergeInput::list &incidendTiles
+                      , int quadrant);
+
+    TileSet::Detail &self;
+    const TileIndex &world;
+    const TileIndex &generate;
+    const TileIndex *remove;
+    const TileSet::list &src;
+
+    utility::Progress progress;
+};
+
+} // namespace
+
 void TileSet::mergeIn(const list &kept, const list &update)
 {
     // TODO: check validity of kept and update
@@ -166,11 +206,11 @@ void TileSet::mergeIn(const list &kept, const list &update)
     list all(kept.begin(), kept.end());
     all.insert(all.end(), update.begin(), update.end());
 
-    utility::Progress progress(generate.count());
+    Merger merger(detail(), world, generate, nullptr, all);
 
     LOG(info3)
         << "(merge-in) Generate set calculated. "
-        << "About to process " << progress.total() << " tiles.";
+        << "About to process " << merger.progress.total() << " tiles.";
 
     auto lod(generate.minLod());
     auto s(generate.rasterSize(lod));
@@ -178,8 +218,7 @@ void TileSet::mergeIn(const list &kept, const list &update)
         for (long i(0); i < s.width; ++i) {
             LOG(info2) << "(merge-in) Processing subtree "
                        << lod << "/(" << i << ", " << j << ").";
-            detail().mergeSubtree(progress, world, generate, nullptr
-                                  , {lod, i, j}, all);
+            merger.mergeSubtree({lod, i, j});
         }
     }
 
@@ -253,10 +292,10 @@ void TileSet::mergeOut(const list &kept, const list &update)
     world.makeComplete();
     dumpTileIndex(dumpRoot, "world", world);
 
-    utility::Progress progress(generate.count() + remove.count());
+    Merger merger(detail(), world, generate, &remove, kept);
 
     LOG(info3) << "(merge-out) Generate and remove sets calculated. "
-               << "About to process " << progress.total() << " tiles.";
+               << "About to process " << merger.progress.total() << " tiles.";
 
     auto lod(generate.minLod());
     auto s(generate.rasterSize(lod));
@@ -264,8 +303,7 @@ void TileSet::mergeOut(const list &kept, const list &update)
         for (long i(0); i < s.width; ++i) {
             LOG(info2) << "(merge-out) Processing subtree "
                        << lod << "/(" << i << ", " << j << ").";
-            detail().mergeSubtree(progress, world, generate, &remove
-                                  , {lod, i, j}, kept);
+            merger.mergeSubtree({lod, i, j});
         }
     }
 
@@ -275,18 +313,19 @@ void TileSet::mergeOut(const list &kept, const list &update)
     detail().fixDefaultPosition(kept);
 }
 
-Tile TileSet::Detail::generateTile(const TileId &tileId
-                                  , const TileSet::list &src
-                                  , const MergeInput::list &parentIncidendTiles
-                                  , MergeInput::list &incidendTiles
-                                  , int quadrant)
+namespace {
+
+Tile Merger::generateTile(const TileId &tileId
+                          , const MergeInput::list &parentIncidendTiles
+                          , MergeInput::list &incidendTiles
+                          , int quadrant)
 {
-    auto ts(tileSize(properties.baseTileSize, tileId.lod));
+    auto ts(tileSize(self.properties.baseTileSize, tileId.lod));
 
     // Fetch tiles from other source.
     MergeInput::list tiles;
     for (const auto &ts : src) {
-        if (auto t = ts->detail().getTile(tileId, std::nothrow)) {
+        if (auto t = self.other(ts).getTile(tileId, std::nothrow)) {
             tiles.push_back(MergeInput(t.get(), ts.get(), tileId ));
         }
     }
@@ -296,7 +335,7 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
         // no parent data
         if (tiles.empty()) {
             // no data -> remove tile and return empty tile
-            removeTile(tileId);
+            self.removeTile(tileId);
             return {};
         } else if ((tiles.size() == 1)) {
             // just one single tile without any fallback
@@ -304,8 +343,8 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
             auto tile(tiles.front().tile());
             //auto tile(tiles2.front());
             tile.metanode
-                = setTile(tileId, tile.mesh, tile.atlas, &tile.metanode
-                          , tile.metanode.pixelSize[0][0]);
+                = self.setTile(tileId, tile.mesh, tile.atlas, &tile.metanode
+                               , tile.metanode.pixelSize[0][0]);
             return tile;
         }
 
@@ -313,24 +352,19 @@ Tile TileSet::Detail::generateTile(const TileId &tileId
     }
 
     // we have to merge tiles
-    auto tile(merge(tileId, ts, tiles, quadrant, parentIncidendTiles, incidendTiles));
+    auto tile(merge(tileId, ts, tiles, quadrant
+                    , parentIncidendTiles, incidendTiles));
 
     tile.metanode
-        = setTile(tileId, tile.mesh, tile.atlas, &tile.metanode
-                  , tile.pixelSize());
+        = self.setTile(tileId, tile.mesh, tile.atlas, &tile.metanode
+                       , tile.pixelSize());
 
     return tile;
 }
 
-void TileSet::Detail::mergeSubtree(utility::Progress &progress
-                                   , const TileIndex &world
-                                   , const TileIndex &generate
-                                   , const TileIndex *remove
-                                   , const Index &index
-                                   , const TileSet::list &src
-                                   , const MergeInput::list &parentIncidendTiles
-                                   , int quadrant
-                                   , bool parentGenerated)
+void Merger::mergeSubtree(const Index &index
+                          , const MergeInput::list &parentIncidendTiles
+                          , int quadrant, bool parentGenerated)
 {
     if (!world.exists(index)) {
         // no data below
@@ -340,7 +374,6 @@ void TileSet::Detail::mergeSubtree(utility::Progress &progress
     // tile generated in this run (empty and invalid by default)
     Tile tile;
     MergeInput::list incidendTiles;
-
 
     // should this tile be generated?
     auto g(generate.exists(index));
@@ -352,29 +385,30 @@ void TileSet::Detail::mergeSubtree(utility::Progress &progress
 
         bool thisGenerated(false);
         if (!parentGenerated) {
-            if (auto t = getTile(parent(tileId), std::nothrow)) {
+            if (auto t = self.getTile(self.parent(tileId), std::nothrow)) {
                 // no parent was generated and we have sucessfully loaded parent
                 // tile from existing content as a fallback tile!
                 MergeInput::list loadedParentTiles;
                 loadedParentTiles.push_back(MergeInput(t.get(),nullptr,tileId));
 
                 quadrant = child(index);
-                tile = generateTile( tileId, src, loadedParentTiles
-                                   , incidendTiles, quadrant);
+                tile = generateTile(tileId, loadedParentTiles
+                                    , incidendTiles, quadrant);
                 thisGenerated = true;
             }
         }
 
         if (!thisGenerated) {
             // regular generation
-            tile = generateTile(tileId, src, parentIncidendTiles, incidendTiles, quadrant);
+            tile = generateTile(tileId, parentIncidendTiles
+                                , incidendTiles, quadrant);
         }
         (++progress).report(utility::Progress::ratio_t(5, 1000), "(merge) ");
     } else if (r) {
         auto tileId(generate.tileId(index));
         LOG(info2) << "(merge-out) Processing tile "
                    << index << ", " << tileId << ".";
-        removeTile(tileId);
+        self.removeTile(tileId);
         (++progress).report(utility::Progress::ratio_t(5, 1000), "(merge) ");
     }
 
@@ -390,13 +424,14 @@ void TileSet::Detail::mergeSubtree(utility::Progress &progress
     // in merge operation
     quadrant = valid(tile) ? 0 : MERGE_NO_FALLBACK_TILE;
     for (const auto &child : children(index)) {
-        mergeSubtree(progress, world, generate, remove, child
-                     , src, incidendTiles, quadrant, g);
+        mergeSubtree(child, incidendTiles, quadrant, g);
         if (quadrant != MERGE_NO_FALLBACK_TILE) {
             ++quadrant;
         }
     }
 }
+
+} // namespace
 
 void TileSet::Detail::fixDefaultPosition(const list &tileSets)
 {

@@ -88,6 +88,18 @@ TileSet::pointer createTileSet(const Locator &locator
 TileSet::pointer openTileSet(const Locator &locator
                              , OpenMode mode = OpenMode::readOnly);
 
+/** Clone options.
+ */
+struct CloneOptions {
+    CloneOptions(CreateMode createMode = CreateMode::failIfExists)
+        : createMode(createMode)
+    {}
+
+    CreateMode createMode;
+    boost::optional<Extents> extents;
+    boost::optional<LodRange> lodRange;
+};
+
 /** Clones existing tile set to a new tile set.
  *
  * \param locator locator that specifies tile set type and location.
@@ -100,7 +112,7 @@ TileSet::pointer openTileSet(const Locator &locator
  */
 TileSet::pointer cloneTileSet(const Locator &locator
                               , const Locator &srcLocator
-                              , CreateMode mode = CreateMode::failIfExists);
+                              , const CloneOptions &options = CloneOptions());
 
 /** Clones existing tile set to a new tile set.
  *
@@ -114,7 +126,7 @@ TileSet::pointer cloneTileSet(const Locator &locator
  */
 TileSet::pointer cloneTileSet(const Locator &locator
                               , const TileSet::pointer &src
-                              , CreateMode mode = CreateMode::failIfExists);
+                              , const CloneOptions &options = CloneOptions());
 
 /** Clones existing tile set another existing tile set.
  *
@@ -128,7 +140,7 @@ TileSet::pointer cloneTileSet(const Locator &locator
  */
 TileSet::pointer cloneTileSet(const TileSet::pointer &dst
                               , const TileSet::pointer &src
-                              , CreateMode mode = CreateMode::failIfExists);
+                              , const CloneOptions &options = CloneOptions());
 
 /** This function pastes tiles from one or more tile sets into existing tile
  *  set. Tile data are copied into result and metadata are generated

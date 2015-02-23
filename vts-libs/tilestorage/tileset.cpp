@@ -91,6 +91,18 @@ struct TileSet::Factory
     {
         dst->detail().clone(src->detail());
     }
+
+    static void clone(const TileSet::pointer &src
+                      , const TileSet::pointer &dst
+                      , const boost::optional<Extents> &extents
+                      , const boost::optional<LodRange> &lodRange)
+    {
+        if (!extents && !lodRange) {
+            return clone(src, dst);
+        }
+
+        dst->detail().clone(src->detail(), extents, lodRange);
+    }
 };
 
 TileSet::pointer createTileSet(const Locator &locator
@@ -106,33 +118,33 @@ TileSet::pointer openTileSet(const Locator &locator, OpenMode mode)
 }
 
 TileSet::pointer cloneTileSet(const Locator &locator, const Locator &srcLocator
-                              , CreateMode mode)
+                              , const CloneOptions &options)
 {
     return cloneTileSet(locator, openTileSet(srcLocator, OpenMode::readOnly)
-                        , mode);
+                        , options);
 }
 
 TileSet::pointer cloneTileSet(const Locator &locator
                               , const TileSet::pointer &src
-                              , CreateMode mode)
+                              , const CloneOptions &options)
 {
-    auto dst(createTileSet(locator, src->getProperties(), mode));
-    TileSet::Factory::clone(src, dst);
+    auto dst(createTileSet(locator, src->getProperties(), options.createMode));
+    TileSet::Factory::clone(src, dst, options.extents, options.lodRange);
     return dst;
 }
 
 TileSet::pointer cloneTileSet(const TileSet::pointer &dst
                               , const TileSet::pointer &src
-                              , CreateMode mode)
+                              , const CloneOptions &options)
 {
     // make sure dst is flushed
     dst->flush();
-    if (!dst->empty() && (mode != CreateMode::overwrite)) {
+    if (!dst->empty() && (options.createMode != CreateMode::overwrite)) {
         LOGTHROW(err2, TileSetNotEmpty)
             << "Tile set <" << dst->getProperties().id
             << "> is not empty.";
     }
-    TileSet::Factory::clone(src, dst);
+    TileSet::Factory::clone(src, dst, options.extents, options.lodRange);
     return dst;
 }
 
@@ -1112,6 +1124,61 @@ void TileSet::Detail::clone(const Detail &src)
     }
 }
 
+void TileSet::Detail::clone(const Detail &src
+                            , const boost::optional<Extents> &extents
+                            , const boost::optional<LodRange> &lodRange)
+{
+    const auto &sd(*src.driver);
+    auto &dd(*driver);
+
+    // copy single files
+    for (auto type : { File::config }) {
+        copyFile(sd.input(type), dd.output(type));
+    }
+
+    // copy tiles
+    const utility::Progress::ratio_t reportRatio(1, 100);
+    utility::Progress progress(src.tileIndex.count());
+    const auto name(str(boost::format("Cloning <%s> into <%s> ")
+                        % src.properties.id % properties.id));
+    traverseTiles(src.tileIndex, [&](const TileId &tileId)
+    {
+        if (lodRange && !in(*lodRange, tileId.lod)) {
+            (++progress).report(reportRatio, name);
+            return;
+        }
+        if (extents && !overlaps(*extents, tileExtents(properties, tileId))) {
+            (++progress).report(reportRatio, name);
+            return;
+        }
+
+        const auto *metanode(src.findMetaNode(tileId));
+        if (!metanode) {
+            LOG(warn2)
+                << "Cannot find metanode for tile " << tileId << "; "
+                << "skipping.";
+            return;
+        }
+
+        // copy mesh and atlas
+        for (auto type : { TileFile::mesh, TileFile::atlas }) {
+            copyFile(sd.input(tileId, type), dd.output(tileId, type));
+        }
+
+        setMetaNode(tileId, *metanode);
+        (++progress).report(reportRatio, name);
+    });
+
+    flush();
+
+    // reload in new stuff
+    loadConfig();
+    if (savedProperties.foatSize) {
+        // load tile index only if foat is valid
+        loadTileIndex();
+    }
+}
+
 void TileSet::Detail::dropRemovedMetatiles(const TileIndex &before
                                            , const TileIndex &after)
 {
@@ -1434,6 +1501,10 @@ bool TileSet::compatible(const TileSet &other)
     }
     return true;
 }
+
+Extents TileSet::extents() const {return detail().extents; }
+
+LodRange TileSet::lodRange() const {return detail().lodRange; }
 
 void pasteTileSets(const TileSet::pointer &dst
                    , const TileSet::list &src)
