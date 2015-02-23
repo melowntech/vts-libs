@@ -1,6 +1,9 @@
+#include <array>
+
 #include <boost/format.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include "imgproc/filtering.hpp"
 
@@ -24,7 +27,160 @@ void dumpMat(Lod lod, const std::string &name, const cv::Mat &mat)
 #endif
 }
 
-void createMask(cv::Mat &flags, Lod lod, const RasterMask &rmask
+struct Vicinity {
+    std::uint8_t value;
+    Vicinity(std::uint8_t value = 0x0) : value(value) {}
+    void merge(const Vicinity &o) { value |= o.value; }
+    bool full() const { return value == 0xff; }
+    Vicinity negate() const { return { std::uint8_t(~value) }; }
+
+    struct Neighbour {
+        int x;
+        int y;
+        std::uint8_t flag;
+    };
+
+    typedef std::array<Neighbour, 8> Neighbours;
+    static const Neighbours neighbours;
+
+    std::string utf8() const {
+        std::string s("[");
+        for (std::uint8_t i(0), flag(0x80); i < 8; ++i, flag >>= 1) {
+            if (value & flag) {
+                s.append(utf8(value & flag));
+            } else {
+                s.push_back(' ');
+            }
+        }
+        s.push_back(']');
+        return s;
+    }
+
+private:
+    static const char* utf8(std::uint8_t v) {
+        switch (v) {
+        case 0x01: return "\xe2\x86\x92";
+        case 0x02: return "\xe2\x86\x97";
+        case 0x04: return "\xe2\x86\x91";
+        case 0x08: return "\xe2\x86\x96";
+        case 0x10: return "\xe2\x86\x90";
+        case 0x20: return "\xe2\x86\x99";
+        case 0x40: return "\xe2\x86\x93";
+        case 0x80: return "\xe2\x86\x98";
+        }
+        return "?";
+    }
+};
+
+const Vicinity::Neighbours Vicinity::neighbours = {{
+    { 1, 0, (1 << 0) }
+    , { 1, 1, (1 << 1) }
+    , { 0, 1, (1 << 2) }
+    , { -1, 1, (1 << 3) }
+    , { -1, 0, (1 << 4) }
+    , { -1, -1, (1 << 5) }
+    , { 0, -1, (1 << 6) }
+    , { 1, -1, (1 << 7) }
+}};
+
+class Frontier {
+public:
+    Frontier() = default;
+    Frontier(const TileId &origin, long tileSize)
+        : origin_(origin), tileSize_(tileSize)
+    {}
+
+    operator bool() const { return !tiles_.empty(); }
+
+    void add(long x, long y, Vicinity vicinity) {
+        tiles_.emplace_back(x, y, vicinity);
+    }
+
+    struct Tile {
+        TileId id;
+
+        /** presence flags of all 8 neighbours
+         */
+        Vicinity vicinity;
+
+        typedef std::vector<Tile> list;
+
+        Tile() = default;
+        Tile(const TileId &id, Vicinity vicinity)
+            : id(id), vicinity(vicinity)
+        {}
+    };
+
+    Tile::list tiles();
+
+    void debug(const math::Size2 &size) const;
+
+private:
+    struct LocalTile {
+        long easting;
+        long northing;
+
+        /** presence flags of all 8 neighbours
+         */
+        Vicinity vicinity;
+
+        typedef std::vector<LocalTile> list;
+
+        LocalTile(long easting, long northing, Vicinity vicinity)
+            : easting(easting), northing(northing), vicinity(vicinity)
+        {}
+    };
+
+    LocalTile::list tiles_;
+    TileId origin_;
+    long tileSize_;
+};
+
+Frontier::Tile::list Frontier::tiles()
+{
+    // sort tiles
+    std::sort(tiles_.begin(), tiles_.end()
+              , [](const LocalTile &l, const LocalTile &r) -> bool
+    {
+        if (l.northing < r.northing) { return true; }
+        else if (r.northing < l.northing) { return false; }
+        return l.easting < r.easting;
+    });
+
+    const LocalTile *prev(nullptr);
+    Tile::list tiles;
+    for (const auto &tile : tiles_) {
+        if (prev && (prev->easting == tile.easting)
+           && (prev->northing == tile.northing))
+        {
+            // same position as previous tile, merge vicinity
+            tiles.back().vicinity.merge(tile.vicinity);
+            continue;
+        }
+
+        // new tile
+        tiles.emplace_back
+            (TileId(origin_.lod, origin_.easting + tile.easting * tileSize_
+                    , origin_.northing + tile.northing * tileSize_)
+             , tile.vicinity);
+        prev = &tile;
+    }
+    return tiles;
+}
+
+void Frontier::debug(const math::Size2 &size) const
+{
+    cv::Mat flags(size.height, size.width, CV_8UC1);
+    for (const auto &tile : tiles_) {
+        // only for debug (to allow local mask dump)
+        auto &current(flags.at<unsigned char>(tile.northing, tile.easting));
+        int value(current + 0x40);
+        current = (value > 0xff) ? 0xff : value;
+    }
+    dumpMat(origin_.lod, "flags", flags);
+}
+
+void createMask(Frontier &frontier, Lod lod, const RasterMask &rmask
                 , int hwin, int margin, const Extents &roi
                 , const Point2l &origin, int idx)
 {
@@ -32,7 +188,7 @@ void createMask(cv::Mat &flags, Lod lod, const RasterMask &rmask
     const auto &offset(roi.ll);
 
     LOG(info1)
-        << "Creating mask at lod" << lod << ", roi: " << roi
+        << "Creating mask at LOD " << lod << ", roi: " << roi
         << ", size: " << size;
 
     // inside mask, clear
@@ -73,24 +229,45 @@ void createMask(cv::Mat &flags, Lod lod, const RasterMask &rmask
     dumpMat(lod, str(boost::format("outside%d") % idx), outside);
 
     // intersect inside and outside mask, place result into inside mask
+    const auto intersect([&](int i, int j) -> bool
+    {
+        return (inside.at<unsigned char>(j, i)
+                && outside.at<unsigned char>(j, i));
+    });
+
+    const auto checkedIntersect([&](int i, int j) -> bool
+    {
+        return ((i >= 0) && (i < size.width)
+                && (j >= 0) && (j < size.height)
+                && intersect(i, j));
+    });
+
     for (int j(0); j < size.height; ++j) {
         for (int i(0); i < size.width; ++i) {
-            if (inside.at<unsigned char>(j, i)
-                && outside.at<unsigned char>(j, i))
-            {
-                flags.at<unsigned char>(origin(1) + j, origin(0) + i) = 0xff;
+            if (!intersect(i, j)) { continue; }
+
+            // calculate vicinity flags
+            Vicinity vicinity;
+            for (const auto &neightbour : Vicinity::neighbours) {
+                vicinity.merge
+                    (checkedIntersect(i + neightbour.x, j + neightbour.y)
+                     * neightbour.flag);
             }
+            frontier.add(origin(0) + i, origin(1) + j, vicinity);
+        }
+    }
 
 #ifdef HM_FILTER_DUMP_FLAGS
+    for (int j(0); j < size.height; ++j) {
+        for (int i(0); i < size.width; ++i) {
             // only for debug (to allow local mask dump)
             inside.at<unsigned char>(j, i)
                 = 0xff * (inside.at<unsigned char>(j, i)
                           && outside.at<unsigned char>(j, i));
-#endif
         }
     }
-
     dumpMat(lod, str(boost::format("mask%d") % idx), inside);
+#endif
 }
 
 /** Calculate area covered by white quads in rmask + margin around.
@@ -113,37 +290,9 @@ Extents coveredArea(const RasterMask *rmask, int margin)
     return extents + margin;
 }
 
-class Flags {
-public:
-    Flags() = default;
-
-    Flags(const cv::Mat &flags, const TileId &origin, long tileSize)
-        : flags_(flags), origin_(origin), tileSize_(tileSize)
-    {}
-
-    operator bool() const { return flags_.data; }
-
-    int width() const { return flags_.cols; }
-    int height() const { return flags_.rows; }
-
-    bool operator()(int x, int y) const {
-        return flags_.at<unsigned char>(y, x);
-    }
-
-    TileId tileId(int x, int y) const {
-        return { origin_.lod, origin_.easting + x * tileSize_
-                , origin_.northing + y * tileSize_ };
-    }
-
-private:
-    cv::Mat flags_;
-    TileId origin_;
-    long tileSize_;
-};
-
-Flags createFlags(const Properties &properties
-                  , Lod lod, const TileIndices &tis
-                  , int hwin, int margin)
+Frontier::Tile::list createFrontier(const Properties &properties
+                                    , Lod lod, const TileIndices &tis
+                                    , int hwin, int margin)
 {
     std::vector<Extents> localRois;
     std::vector<Extents> rois;
@@ -164,17 +313,19 @@ Flags createFlags(const Properties &properties
 
     if (empty(roi)) { return {}; }
 
-    LOG(info1) << "Flags roi in tiles from alignment: " << roi;
+    LOG(info1) << "Frontier roi in tiles from alignment: " << roi;
 
-    cv::Mat flags(size(roi).height, size(roi).width, CV_8UC1);
-    flags = cv::Scalar(0x00);
+    const auto tSize(tileSize(properties, lod));
+    Frontier frontier({ lod, properties.alignment(0) + tSize * roi.ll(0)
+                        , properties.alignment(1) + tSize * roi.ll(1) }
+                      , tSize);
 
     int i(0);
     auto ilocalRois(localRois.begin());
     auto irois(rois.begin());
     for (const auto *ti : tis) {
         if (const auto *mask = ti->mask(lod)) {
-            createMask(flags, lod, *mask, hwin, margin, *ilocalRois
+            createMask(frontier, lod, *mask, hwin, margin, *ilocalRois
                        , irois->ll - roi.ll, i);
         }
         ++ilocalRois;
@@ -182,14 +333,10 @@ Flags createFlags(const Properties &properties
         ++i;
     }
 
-    dumpMat(lod, "flags", flags);
-
-    const auto tSize(tileSize(properties, lod));
-    return {
-        flags, { lod, properties.alignment(0) + tSize * roi.ll(0)
-                , properties.alignment(1) + tSize * roi.ll(1) }
-        , tSize
-    };
+#ifdef HM_FILTER_DUMP_FLAGS
+    frontier.debug(size(roi));
+#endif
+    return frontier.tiles();
 }
 
 class Node {
@@ -226,16 +373,23 @@ public:
                   , step_ * size_.width + 1, CV_64FC1)
         , mask_(raster_.rows, raster_.cols, CV_8UC1)
         , filter_(filter.scaled(step_, step_))
+        , distanceSeed_(TileMetadata::HMSize, TileMetadata::HMSize, CV_8UC1)
+        , distance_(TileMetadata::HMSize, TileMetadata::HMSize, CV_32FC1)
     {
+        distance_ = cv::Scalar(0);
         LOG(info1)
             << "Using filter with half-window: "
             << filter_.halfwinx() << "x" << filter_.halfwiny();
     }
 
     // NB: mask and raster are stored upside-down!
-    void process(const TileId &center) {
+    void process(const Frontier::Tile &ftile) {
+        const auto &center(ftile.id);
         auto *tile(ts_.findMetaNode(center));
         if (!tile) { return; }
+
+        LOG(info1) << "Processing tile: " << center << " with vicinity "
+                   << ftile.vicinity.utf8() << ".";
 
         // reset mask
         mask_ = cv::Scalar(0x00);
@@ -285,9 +439,12 @@ public:
         updated_.emplace_back(tile);
         auto &hm(updated_.back().heightmap);
 
+        auto applyDistance(calculateDistance(ftile.vicinity));
+        (void) applyDistance;
+
         for (int j(0); j < TileMetadata::HMSize; ++j) {
             for (int i(0); i < TileMetadata::HMSize; ++i) {
-                auto old(tile->heightmap[j][i]);
+                const auto old(tile->heightmap[j][i]);
                 hm[j][i] = (imgproc::reconstruct
                             (*this, filter_, math::Point2(i, j))[0]);
                 LOG(info1)
@@ -297,6 +454,8 @@ public:
             }
         }
     }
+
+    bool calculateDistance(const Vicinity &vicinity);
 
     void flush() {
         for (auto &node : updated_) { node.flush(); }
@@ -335,7 +494,59 @@ private:
     const Filter &filter_;
 
     Node::list updated_;
+
+    cv::Mat distanceSeed_;
+    cv::Mat distance_;
 };
+
+template <typename Filter>
+bool Window<Filter>::calculateDistance(const Vicinity &vicinity)
+{
+    if (vicinity.full()) { return false; }
+
+    auto &m(distanceSeed_);
+    m = cv::Scalar(0xff);
+    const cv::Scalar zero(0x00);
+    for (std::uint8_t i(0), flag(1); i < 8; ++i, flag <<= 1) {
+        if (vicinity.value & flag) { continue; }
+        LOG(info4) << "flag: " << std::hex << int(flag);
+
+        switch (flag) {
+        case 0x01: // right
+            m(cv::Rect(m.cols - 1, 0, 1, m.rows)) = zero; break;
+
+        case 0x02: // right/up
+            m.at<unsigned char>(m.rows - 1, m.cols - 1) = 0; break;
+
+        case 0x04: // up
+            m(cv::Rect(0, m.rows - 1, m.cols, 1)) = zero; break;
+
+        case 0x08: // left/up
+            m.at<unsigned char>(m.rows - 1, 0) = 0; break;
+
+        case 0x10: // left
+            m(cv::Rect(0, 0, 1, m.rows)) = zero; break;
+
+        case 0x20: // left, down
+            m.at<unsigned char>(0, 0) = 0; break;
+
+        case 0x40: // down
+            m(cv::Rect(0, 0, m.cols, 1)) = zero; break;
+
+        case 0x80: // down/right
+            m.at<unsigned char>(0, m.cols - 1) = 0; break;
+        }
+    }
+
+    cv::distanceTransform(m, distance_, CV_DIST_C, 3);
+
+    LOG(info1)
+        << "Calculated distance map; empty tiles in vicinity: "
+        << vicinity.negate().utf8() << ": m: "
+        << m << ", distance: " << distance_;
+
+    return true;
+}
 
 LodRange lodSpan(const TileIndices &tis)
 {
@@ -358,25 +569,16 @@ void filterHeightmapLod(TileSet::Detail &ts, Lod lod
     auto intHwin(int(std::ceil(hwin - 1e-5)));
     auto margin(intHwin);
 
-    // build flags
-    auto flags(createFlags(ts.properties, lod, update, intHwin, margin));
-    if (!flags) { return; }
+    // build frontier
+    auto frontier(createFrontier(ts.properties, lod, update, intHwin, margin));
+    if (frontier.empty()) { return; }
 
     Window<Filter> window(ts, lod, intHwin, filter);
 
-    // process raster
-    for (int j(0); j < flags.height(); ++j) {
-        for (int i(0); i < flags.width(); ++i) {
-            // get flags
-            if (!flags(i, j)) { continue; }
-
-            // regenerate tile
-            auto tileId(flags.tileId(i, j));
-            LOG(info1) << "Filtering tile [" << i << ", " << j << "] "
-                       << tileId << ".";
-
-            window.process(tileId);
-        }
+    // process frontier
+    for (const auto &tile : frontier) {
+        LOG(info1) << "Filtering tile " << tile.id << ".";
+        window.process(tile);
     }
 
     window.flush();
