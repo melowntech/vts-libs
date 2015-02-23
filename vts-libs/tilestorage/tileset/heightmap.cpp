@@ -43,34 +43,40 @@ struct Vicinity {
     typedef std::array<Neighbour, 8> Neighbours;
     static const Neighbours neighbours;
 
-    std::string utf8() const {
-        std::string s("[");
-        for (std::uint8_t i(0), flag(0x80); i < 8; ++i, flag >>= 1) {
-            if (value & flag) {
-                s.append(utf8(value & flag));
-            } else {
-                s.push_back(' ');
-            }
-        }
-        s.push_back(']');
-        return s;
-    }
+    std::string utf8() const;
 
 private:
-    static const char* utf8(std::uint8_t v) {
-        switch (v) {
-        case 0x01: return "\xe2\x86\x92";
-        case 0x02: return "\xe2\x86\x97";
-        case 0x04: return "\xe2\x86\x91";
-        case 0x08: return "\xe2\x86\x96";
-        case 0x10: return "\xe2\x86\x90";
-        case 0x20: return "\xe2\x86\x99";
-        case 0x40: return "\xe2\x86\x93";
-        case 0x80: return "\xe2\x86\x98";
-        }
-        return "?";
-    }
+    static const char* utf8(std::uint8_t v);
 };
+
+std::string Vicinity::utf8() const
+{
+    std::string s("[");
+    for (std::uint8_t i(0), flag(0x80); i < 8; ++i, flag >>= 1) {
+        if (value & flag) {
+            s.append(utf8(value & flag));
+        } else {
+            s.push_back(' ');
+        }
+    }
+    s.push_back(']');
+    return s;
+}
+
+const char* Vicinity::utf8(std::uint8_t v)
+{
+    switch (v) {
+    case 0x01: return "\xe2\x86\x92";
+    case 0x02: return "\xe2\x86\x97";
+    case 0x04: return "\xe2\x86\x91";
+    case 0x08: return "\xe2\x86\x96";
+    case 0x10: return "\xe2\x86\x90";
+    case 0x20: return "\xe2\x86\x99";
+    case 0x40: return "\xe2\x86\x93";
+    case 0x80: return "\xe2\x86\x98";
+    }
+    return "?";
+}
 
 const Vicinity::Neighbours Vicinity::neighbours = {{
     { 1, 0, (1 << 0) }
@@ -82,6 +88,13 @@ const Vicinity::Neighbours Vicinity::neighbours = {{
     , { 0, -1, (1 << 6) }
     , { 1, -1, (1 << 7) }
 }};
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const Vicinity &v)
+{
+    return os << v.utf8();
+}
 
 class Frontier {
 public:
@@ -389,7 +402,7 @@ public:
         if (!tile) { return; }
 
         LOG(info1) << "Processing tile: " << center << " with vicinity "
-                   << ftile.vicinity.utf8() << ".";
+                   << ftile.vicinity << ".";
 
         // reset mask
         mask_ = cv::Scalar(0x00);
@@ -546,7 +559,7 @@ bool Window<Filter>::calculateDistance(const Vicinity &vicinity)
 
     LOG(info1)
         << "Calculated distance map; empty tiles in vicinity: "
-        << vicinity.negate().utf8() << ": m: "
+        << vicinity.negate() << ": m: "
         << m << ", distance: " << distance_;
 
     return true;
