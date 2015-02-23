@@ -445,8 +445,10 @@ public:
         for (int j(0); j < TileMetadata::HMSize; ++j) {
             for (int i(0); i < TileMetadata::HMSize; ++i) {
                 const auto old(tile->heightmap[j][i]);
-                hm[j][i] = (imgproc::reconstruct
-                            (*this, filter_, math::Point2(i, j))[0]);
+                hm[j][i] = blend
+                    (applyDistance, i, j, old
+                     , imgproc::reconstruct
+                     (*this, filter_, math::Point2(i, j))[0]);
                 LOG(info1)
                     << old << " -> " << hm[j][i]
                     << ": diff (" << i << ", " << j << "): "
@@ -454,6 +456,9 @@ public:
             }
         }
     }
+
+    double blend(bool applyDistance, int i, int j, double oldValue
+                 , double newValue);
 
     bool calculateDistance(const Vicinity &vicinity);
 
@@ -509,7 +514,6 @@ bool Window<Filter>::calculateDistance(const Vicinity &vicinity)
     const cv::Scalar zero(0x00);
     for (std::uint8_t i(0), flag(1); i < 8; ++i, flag <<= 1) {
         if (vicinity.value & flag) { continue; }
-        LOG(info4) << "flag: " << std::hex << int(flag);
 
         switch (flag) {
         case 0x01: // right
@@ -546,6 +550,20 @@ bool Window<Filter>::calculateDistance(const Vicinity &vicinity)
         << m << ", distance: " << distance_;
 
     return true;
+}
+
+template <typename Filter>
+double Window<Filter>::blend(bool applyDistance, int i, int j, double oldValue
+                             , double newValue)
+{
+    // just new value if not blending by distance
+    if (!applyDistance) { return newValue; }
+
+    const double max(distance_.rows);
+    const auto weight(distance_.at<float>(j, i));
+
+    // blend new and old value
+    return (weight * newValue + (max - weight) * oldValue) / max;
 }
 
 LodRange lodSpan(const TileIndices &tis)
