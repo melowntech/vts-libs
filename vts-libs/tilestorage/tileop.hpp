@@ -54,7 +54,7 @@ std::pair<double, double> area(const Tile &tile);
 
 inline long tileSize(long baseTileSize, Lod lod)
 {
-    return (baseTileSize >> lod);
+    return (lod >= 0) ? (baseTileSize >> lod) : (baseTileSize << -lod);
 }
 
 inline long tileSize(const Properties &properties, Lod lod)
