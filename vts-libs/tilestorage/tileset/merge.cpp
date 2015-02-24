@@ -112,7 +112,13 @@ struct Merger {
            , const TileSet::list &src)
         : self(self), world(world), generate(generate), remove(remove)
         , src(src), progress(generate.count() + (remove ? remove->count() : 0))
-    {}
+    {
+        for (const auto &ts : src) {
+            affectedTiles.insert
+                ({ ts.get(), std::make_shared<AffectedArea>
+                        (self.other(ts).tileIndex) });
+        }
+    }
 
     /** Merge subtree starting at index.
      *  Calls itself recursively.
@@ -121,7 +127,7 @@ struct Merger {
      * non-null).
      */
     void mergeSubtree(const Index &index
-                      , const MergeInput::list &parentIncidendTiles
+                      , const MergeInput::list &parentIncidentTiles
                       = MergeInput::list()
                       , int quadrant = -1
                       , bool parentGenerated = false);
@@ -129,9 +135,11 @@ struct Merger {
     /** Generates new tile as a merge of tiles from other tilesets.
      */
     Tile generateTile(const TileId &tileId
-                      , const MergeInput::list &parentIncidendTiles
-                      , MergeInput::list &incidendTiles
+                      , const MergeInput::list &parentIncidentTiles
+                      , MergeInput::list &incidentTiles
                       , int quadrant);
+
+    void filterHeightmap();
 
     TileSet::Detail &self;
     const TileIndex &world;
@@ -140,6 +148,21 @@ struct Merger {
     const TileSet::list &src;
 
     utility::Progress progress;
+
+    struct AffectedArea {
+        TileIndex continuous;
+        TileIndex discrete;
+
+        typedef std::map<const TileSet*, std::shared_ptr<AffectedArea> >
+            map;
+
+        AffectedArea(const TileIndex &ti)
+            : continuous(ti, TileIndex::ShallowCopy{})
+            , discrete(ti, TileIndex::ShallowCopy{})
+        {}
+    };
+
+    AffectedArea::map affectedTiles;
 };
 
 } // namespace
@@ -226,6 +249,8 @@ void TileSet::mergeIn(const list &kept, const list &update)
 
     // center default position if not inside tileset
     detail().fixDefaultPosition(all);
+
+    merger.filterHeightmap();
 }
 
 void TileSet::mergeOut(const list &kept, const list &update)
@@ -311,13 +336,15 @@ void TileSet::mergeOut(const list &kept, const list &update)
 
     // center default position if not inside tileset
     detail().fixDefaultPosition(kept);
+
+    merger.filterHeightmap();
 }
 
 namespace {
 
 Tile Merger::generateTile(const TileId &tileId
-                          , const MergeInput::list &parentIncidendTiles
-                          , MergeInput::list &incidendTiles
+                          , const MergeInput::list &parentIncidentTiles
+                          , MergeInput::list &incidentTiles
                           , int quadrant)
 {
     auto ts(tileSize(self.properties.baseTileSize, tileId.lod));
@@ -353,8 +380,15 @@ Tile Merger::generateTile(const TileId &tileId
 
     // we have to merge tiles
     auto tile(merge(tileId, ts, tiles, quadrant
-                    , parentIncidendTiles, incidendTiles));
+                    , parentIncidentTiles, incidentTiles));
 
+    if (tile.singleSource()) {
+        affectedTiles[tile.sources.front()]->continuous.set(tileId);
+    } else {
+        affectedTiles[tile.sources.front()]->discrete.set(tileId);
+    }
+
+    // TODO: if single sourced => clone original tile instead
     tile.metanode
         = self.setTile(tileId, tile.mesh, tile.atlas, &tile.metanode
                        , tile.pixelSize());
@@ -363,7 +397,7 @@ Tile Merger::generateTile(const TileId &tileId
 }
 
 void Merger::mergeSubtree(const Index &index
-                          , const MergeInput::list &parentIncidendTiles
+                          , const MergeInput::list &parentIncidentTiles
                           , int quadrant, bool parentGenerated)
 {
     if (!world.exists(index)) {
@@ -373,7 +407,7 @@ void Merger::mergeSubtree(const Index &index
 
     // tile generated in this run (empty and invalid by default)
     Tile tile;
-    MergeInput::list incidendTiles;
+    MergeInput::list incidentTiles;
 
     // should this tile be generated?
     auto g(generate.exists(index));
@@ -393,15 +427,15 @@ void Merger::mergeSubtree(const Index &index
 
                 quadrant = child(index);
                 tile = generateTile(tileId, loadedParentTiles
-                                    , incidendTiles, quadrant);
+                                    , incidentTiles, quadrant);
                 thisGenerated = true;
             }
         }
 
         if (!thisGenerated) {
             // regular generation
-            tile = generateTile(tileId, parentIncidendTiles
-                                , incidendTiles, quadrant);
+            tile = generateTile(tileId, parentIncidentTiles
+                                , incidentTiles, quadrant);
         }
         (++progress).report(utility::Progress::ratio_t(5, 1000), "(merge) ");
     } else if (r) {
@@ -424,11 +458,26 @@ void Merger::mergeSubtree(const Index &index
     // in merge operation
     quadrant = valid(tile) ? 0 : MERGE_NO_FALLBACK_TILE;
     for (const auto &child : children(index)) {
-        mergeSubtree(child, incidendTiles, quadrant, g);
+        mergeSubtree(child, incidentTiles, quadrant, g);
         if (quadrant != MERGE_NO_FALLBACK_TILE) {
             ++quadrant;
         }
     }
+}
+
+void Merger::filterHeightmap()
+{
+    TileIndices continuous;
+    TileIndices discrete;
+    for (const auto &info : affectedTiles) {
+        LOG(info4)
+            << "Using tile index from <" << info.first->getProperties().id
+            << ">.";
+        continuous.push_back(&info.second->continuous);
+        discrete.push_back(&info.second->discrete);
+    }
+
+    self.filterHeightmap(continuous, &discrete);
 }
 
 } // namespace

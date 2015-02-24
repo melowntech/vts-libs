@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <boost/format.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
@@ -805,7 +807,7 @@ MergedTile merge( const TileId &tileId, long tileSize
 
     int index;
     if ( sameIndices(qbuffer, index) && index >= 0) {
-        return { incidentTiles[index].tile(), true };
+        return { incidentTiles[index].tile(), incidentTiles[index].tileSet() };
     }
 
     vadstena::Lod refineLod = -1;
@@ -815,6 +817,9 @@ MergedTile merge( const TileId &tileId, long tileSize
     float minGsd = std::numeric_limits<float>::max();
     float heightmap[hms][hms];
     cv::Mat hmask(hms, hms, CV_32S, cv::Scalar(0));
+
+    // result tile
+    MergedTile result;
 
     for(int i=incidentTiles.size(); i>=0; --i) {
         if(haveIndices(qbuffer,i)){
@@ -862,11 +867,13 @@ MergedTile merge( const TileId &tileId, long tileSize
                     heightmap[c][r] = tile.metanode.heightmap[c][r];
                 }
             }
+
+            // remember tile's set as origin of this tile
+            result.sources.push_back(&incidentTiles[i].tileSet());
         }
     }
 
     // almost done
-    MergedTile result;
     result.atlas = mergeAtlases(usedAtlases, mergedFaces);
     result.mesh = removeDuplicateVertexes(mergedFaces, result.atlas.size());
 
@@ -878,21 +885,16 @@ MergedTile merge( const TileId &tileId, long tileSize
     //coarseness is not used after merge - set to invalid value
     result.metanode.coarseness = -1;
 
-    for (int i = 0; i < hms; i++)
-    for (int j = 0; j < hms; j++)
-    {
-        result.metanode.heightmap[i][j] = heightmap[i][j];
-    }
-
-    // TODO: calculate this value
-    result.singleSource = false;
+    // copy heightmap
+    std::copy(&heightmap[0][0], &heightmap[hms - 1][hms]
+              , &result.metanode.heightmap[0][0]);
 
     return result;
 }
 
 boost::optional<double> MergedTile::pixelSize() const
 {
-    if (singleSource) { return metanode.pixelSize[0][0]; }
+    if (singleSource()) { return metanode.pixelSize[0][0]; }
     return boost::none;
 }
 

@@ -1,6 +1,7 @@
 #include <array>
 
 #include <boost/format.hpp>
+#include <boost/filesystem.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -9,22 +10,32 @@
 
 #include "../tileset-detail.hpp"
 
-//#define HM_FILTER_DUMP_FLAGS 1
-
 namespace vadstena { namespace tilestorage {
 
 namespace {
 
-void dumpMat(Lod lod, const std::string &name, const cv::Mat &mat)
+const char *HM_FILTER_DUMP_ROOT("HM_FILTER_DUMP_ROOT");
+const char* getDumpDir() {
+    const char *dir(std::getenv(HM_FILTER_DUMP_ROOT));
+    if (dir) {
+        boost::filesystem::create_directories(dir);
+    }
+    return dir;
+}
+
+void dumpMat(const char *dumpDir, Lod lod, const std::string &name
+             , const cv::Mat &mat, int idx = -1)
 {
-#ifdef HM_FILTER_DUMP_FLAGS
-    auto file(str(boost::format("%02d-changed-%s.png") % lod % name));
+    if (!dumpDir) { return; }
+
+    auto file((idx >= 0)
+              ? str(boost::format("%s/%02d-%s-%02d.png")
+                    % dumpDir % lod % name % idx)
+              : str(boost::format("%s/%02d-%s.png")
+                    % dumpDir % lod % name));
     cv::Mat tmp;
     flip(mat, tmp, 0);
     cv::imwrite(file, tmp);
-#else
-    (void) lod; (void) name; (void) mat;
-#endif
 }
 
 struct Vicinity {
@@ -106,6 +117,7 @@ public:
     operator bool() const { return !tiles_.empty(); }
 
     void add(long x, long y, Vicinity vicinity) {
+        LOG(debug) << "adding(" << x << ", " << y << "): " << vicinity << ".";
         tiles_.emplace_back(x, y, vicinity);
     }
 
@@ -126,7 +138,7 @@ public:
 
     Tile::list tiles();
 
-    void debug(const math::Size2 &size) const;
+    void debug(const char *dumpDir, const Size2l &size) const;
 
 private:
     struct LocalTile {
@@ -181,19 +193,25 @@ Frontier::Tile::list Frontier::tiles()
     return tiles;
 }
 
-void Frontier::debug(const math::Size2 &size) const
+void Frontier::debug(const char *dumpDir, const Size2l &size) const
 {
+    if (!dumpDir) { return; }
+
+    LOG(info1) << "debug: size: " << size;
+
     cv::Mat flags(size.height, size.width, CV_8UC1);
+    flags = cv::Scalar(0x00);
     for (const auto &tile : tiles_) {
-        // only for debug (to allow local mask dump)
         auto &current(flags.at<unsigned char>(tile.northing, tile.easting));
         int value(current + 0x40);
         current = (value > 0xff) ? 0xff : value;
     }
-    dumpMat(origin_.lod, "flags", flags);
+    dumpMat(dumpDir, origin_.lod, "flags", flags);
 }
 
-void createMask(Frontier &frontier, Lod lod, const RasterMask &rmask
+void createMask(const char *dumpDir, Frontier &frontier
+                , Lod lod, const RasterMask &continuous
+                , const RasterMask *discrete
                 , int hwin, int margin, const Extents &roi
                 , const Point2l &origin, int idx)
 {
@@ -202,7 +220,7 @@ void createMask(Frontier &frontier, Lod lod, const RasterMask &rmask
 
     LOG(info1)
         << "Creating mask at LOD " << lod << ", roi: " << roi
-        << ", size: " << size;
+        << ", size: " << size << ", origin: " << origin << ".";
 
     // inside mask, clear
     cv::Mat inside(size.height, size.width, CV_8UC1);
@@ -223,11 +241,11 @@ void createMask(Frontier &frontier, Lod lod, const RasterMask &rmask
         }
     }
 
-    // render dilated valid quads in inside mask
-    // render dilated invalid quads in outside mask
+    // render dilated valid quads from continuous mask in inside mask
+    // render dilated invalid quads from continuous mask in outside mask
     const auto white(cv::Scalar(0xff));
-    rmask.forEachQuad([&](uint xstart, uint ystart, uint xsize
-                          , uint ysize, bool valid)
+    continuous.forEachQuad([&](uint xstart, uint ystart, uint xsize
+                               , uint ysize, bool valid)
     {
         cv::Point2i start(xstart - offset(0) - hwin
                           , ystart - offset(1) - hwin);
@@ -238,8 +256,24 @@ void createMask(Frontier &frontier, Lod lod, const RasterMask &rmask
                       , start, end, white, CV_FILLED, 4);
     }, RasterMask::Filter::both);
 
-    dumpMat(lod, str(boost::format("inside%d") % idx), inside);
-    dumpMat(lod, str(boost::format("outside%d") % idx), outside);
+    // render dilate valid quads from concrete mask in both inside and outside
+    // mask
+    if (discrete) {
+        discrete->forEachQuad([&](uint xstart, uint ystart, uint xsize
+                                  , uint ysize, bool)
+        {
+            cv::Point2i start(xstart - offset(0) - hwin
+                              , ystart - offset(1) - hwin);
+            cv::Point2i end(xstart + xsize - offset(0) + hwin - 1
+                            , ystart + ysize - offset(1) + hwin - 1);
+
+            cv::rectangle(inside, start, end, white, CV_FILLED, 4);
+            cv::rectangle(outside, start, end, white, CV_FILLED, 4);
+        }, RasterMask::Filter::white);
+    }
+
+    dumpMat(dumpDir, lod, "inside", inside, idx);
+    dumpMat(dumpDir, lod, "outside", outside, idx);
 
     // intersect inside and outside mask, place result into inside mask
     const auto intersect([&](int i, int j) -> bool
@@ -270,50 +304,93 @@ void createMask(Frontier &frontier, Lod lod, const RasterMask &rmask
         }
     }
 
-#ifdef HM_FILTER_DUMP_FLAGS
-    for (int j(0); j < size.height; ++j) {
-        for (int i(0); i < size.width; ++i) {
-            // only for debug (to allow local mask dump)
-            inside.at<unsigned char>(j, i)
-                = 0xff * (inside.at<unsigned char>(j, i)
-                          && outside.at<unsigned char>(j, i));
+    if (dumpDir) {
+        for (int j(0); j < size.height; ++j) {
+            for (int i(0); i < size.width; ++i) {
+                // only for debug (to allow local mask dump)
+                inside.at<unsigned char>(j, i)
+                    = 0xff * (inside.at<unsigned char>(j, i)
+                              && outside.at<unsigned char>(j, i));
+            }
         }
+        dumpMat(dumpDir, lod, "flags", inside, idx);
     }
-    dumpMat(lod, str(boost::format("mask%d") % idx), inside);
-#endif
 }
 
-/** Calculate area covered by white quads in rmask + margin around.
+void renderMasks(cv::Mat &m, const RasterMask *continuous
+                 , const RasterMask *discrete, const Point2l &offset)
+{
+    const cv::Scalar colors[2]{ { 0xff, 0xff, 0xff }, { 0x00, 0x00, 0xff } };
+    const cv::Scalar *color(colors);
+    for (const auto *mask : { continuous, discrete }) {
+        if (mask) {
+            mask->forEachQuad([&](uint xstart, uint ystart, uint xsize
+                                  , uint ysize, bool)
+            {
+                cv::Point2i start(xstart - offset(0), ystart - offset(1));
+                cv::Point2i end(xstart + xsize - offset(0) - 1
+                                , ystart + ysize - offset(1) - 1);
+                cv::rectangle(m, start, end, *color, CV_FILLED, 4);
+            }, RasterMask::Filter::white);
+        }
+        ++color;
+    }
+}
+
+/** Calculate area covered by white quads in both rmask and supMask + margin
+ *  around.
+ *
  *  NB: result.ll() is valid point, result.ur() is first invalid point,
  *  i.e. size(result) is full raster size
  */
-Extents coveredArea(const RasterMask *rmask, int margin)
+Extents coveredArea(const RasterMask *rmask, const RasterMask *supMask
+                    , int margin)
 {
     Extents extents{math::InvalidExtents()};
-    if (!rmask) { return extents; }
 
-    rmask->forEachQuad([&](uint xstart, uint ystart, uint xsize
-                           , uint ysize, bool)
-    {
-        update(extents, Point2l(xstart, ystart));
-        update(extents, Point2l(xstart + xsize, ystart + ysize));
-    }, RasterMask::Filter::white);
+    // merge both masks
+    for (const auto *mask : { rmask, supMask }) {
+        if (!mask) { continue; }
+
+        mask->forEachQuad([&](uint xstart, uint ystart, uint xsize
+                              , uint ysize, bool)
+        {
+            update(extents, Point2l(xstart, ystart));
+            update(extents, Point2l(xstart + xsize, ystart + ysize));
+        }, RasterMask::Filter::white);
+    }
+
+    if (empty(extents)) { return extents; }
 
     // grow extents by margin
     return extents + margin;
 }
 
-Frontier::Tile::list createFrontier(const Properties &properties
-                                    , Lod lod, const TileIndices &tis
+Frontier::Tile::list createFrontier(const char *dumpDir
+                                    , const Properties &properties
+                                    , Lod lod, const TileIndices &continuous
+                                    , const TileIndices *discrete
                                     , int hwin, int margin)
 {
     std::vector<Extents> localRois;
     std::vector<Extents> rois;
     Extents roi{math::InvalidExtents()};
-    for (const auto *ti : tis) {
+    for (std::size_t index(0), eindex(continuous.size());
+         index != eindex; ++index)
+    {
+        const auto *ti(continuous[index]);
         // calculate covered area of tiles in tileindex, add margin and hwin
-        localRois.push_back(coveredArea(ti->mask(lod), margin));
-        if (empty(localRois.back())) { continue; }
+        localRois.push_back
+            (coveredArea
+             (ti->mask(lod)
+              , (discrete ? (*discrete)[index]->mask(lod) : nullptr)
+              , margin));
+
+        if (empty(localRois.back())) {
+            rois.push_back(localRois.back());
+            continue;
+        }
+
         rois.emplace_back
             (ti->fromReference(properties.alignment
                                , lod, localRois.back().ll)
@@ -333,22 +410,38 @@ Frontier::Tile::list createFrontier(const Properties &properties
                         , properties.alignment(1) + tSize * roi.ll(1) }
                       , tSize);
 
-    int i(0);
+    cv::Mat inputDebug;
+    if (dumpDir) {
+        inputDebug.create(size(roi).height, size(roi).width, CV_8UC3);
+        inputDebug = cv::Scalar(0x00, 0x00, 0x00);
+    }
+
     auto ilocalRois(localRois.begin());
     auto irois(rois.begin());
-    for (const auto *ti : tis) {
+    for (std::size_t index(0), eindex(continuous.size());
+         index != eindex; ++index)
+    {
+        const auto *ti(continuous[index]);
         if (const auto *mask = ti->mask(lod)) {
-            createMask(frontier, lod, *mask, hwin, margin, *ilocalRois
-                       , irois->ll - roi.ll, i);
+            const auto *dmask
+                (discrete ? (*discrete)[index]->mask(lod) : nullptr);
+            createMask(dumpDir, frontier, lod, *mask, dmask, hwin
+                       , margin, *ilocalRois, irois->ll - roi.ll, index);
+
+            if (dumpDir) {
+                renderMasks(inputDebug, mask, dmask
+                            , (irois->ll - roi.ll + ilocalRois->ll));
+            }
         }
         ++ilocalRois;
         ++irois;
-        ++i;
     }
 
-#ifdef HM_FILTER_DUMP_FLAGS
-    frontier.debug(size(roi));
-#endif
+    if (dumpDir) {
+        frontier.debug(dumpDir, size(roi));
+        dumpMat(dumpDir, lod, "input", inputDebug);
+    }
+
     return frontier.tiles();
 }
 
@@ -589,8 +682,9 @@ LodRange lodSpan(const TileIndices &tis)
 }
 
 template <typename Filter>
-void filterHeightmapLod(TileSet::Detail &ts, Lod lod
-                        , const TileIndices &update
+void filterHeightmapLod(const char *dumpDir, TileSet::Detail &ts, Lod lod
+                        , const TileIndices &continuous
+                        , const TileIndices *discrete
                         , const Filter &filter)
 {
     LOG(info2) << "Filtering height map at LOD " << lod << ".";
@@ -601,7 +695,8 @@ void filterHeightmapLod(TileSet::Detail &ts, Lod lod
     auto margin(intHwin);
 
     // build frontier
-    auto frontier(createFrontier(ts.properties, lod, update, intHwin, margin));
+    auto frontier(createFrontier(dumpDir, ts.properties, lod, continuous
+                                 , discrete, intHwin, margin));
     if (frontier.empty()) { return; }
 
     Window<Filter> window(ts, lod, intHwin, filter);
@@ -617,20 +712,21 @@ void filterHeightmapLod(TileSet::Detail &ts, Lod lod
 
 } // namespace
 
-void TileSet::Detail::filterHeightmap(const TileIndices &update
+void TileSet::Detail::filterHeightmap(const TileIndices &continuous
+                                      , const TileIndices *discrete
                                       , double cutoff)
 {
-    if (update.empty()) { return; }
+    if (continuous.empty()) { return; }
 
     // tile-level filter
     const math::CatmullRom2 filter(cutoff, cutoff);
 
-
-    auto lodRange(lodSpan(update));
+    auto lodRange(lodSpan(continuous));
+    const char *dumpDir(getDumpDir());
     LOG(info2)
         << "Filtering height map in LOD range " << lodRange << ".";
     for (auto lod : lodRange) {
-        filterHeightmapLod(*this, lod, update, filter);
+        filterHeightmapLod(dumpDir, *this, lod, continuous, discrete, filter);
     }
 }
 

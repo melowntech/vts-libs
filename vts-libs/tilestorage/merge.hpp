@@ -11,18 +11,23 @@ namespace vadstena { namespace tilestorage {
 constexpr int MERGE_NO_FALLBACK_TILE = -100;
 
 struct MergedTile : public Tile {
-    MergedTile() : singleSource(false) {}
-    MergedTile(const Tile &tile) : Tile(tile), singleSource(false) {}
-    MergedTile(const Tile &tile, bool singleSource)
-        : Tile(tile), singleSource(singleSource) {}
-
-    /** Tile data originates from single tile if true.
-     */
-    bool singleSource;
+    MergedTile() = default;
+    MergedTile(const Tile &tile) : Tile(tile) {}
+    MergedTile(const Tile &tile, const TileSet &ts)
+        : Tile(tile), sources{&ts}
+    {}
 
     /** Returns prefered pixel size if available.
      */
-    boost::optional<double> pixelSize() const;   
+    boost::optional<double> pixelSize() const;
+
+    /** Tile data originates from single tile if true.
+     */
+    bool singleSource() const { return sources.size() == 1; }
+
+    /** List of tilesets this tile was merged from
+     */
+    std::vector<const TileSet*> sources;
 };
 
 class MergeInput

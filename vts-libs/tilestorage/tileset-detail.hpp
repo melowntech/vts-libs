@@ -122,13 +122,18 @@ struct TileSet::Detail {
 
     void resetFoat();
 
-    /** Filters heightfield in area affected by bordering tiles of area
-     *  defined in changed tile index.
+    /** Filters heightfield in area affected by bordering tiles of continuous
+     *  area and bordering tiles of discrete tiles.
      *
-     * \param update list of tile indices of changed tiles
+     * Each entry in discrete list belongs to appropriate continuous list.
+     *
+     * \param continuous list of tile indices of continuous area
+     * \param discrete list of tile indices of individual tiles
      * \param cutoff cut off period of CatmullRom2 (in both directions)
      */
-    void filterHeightmap(const TileIndices &update, double cutoff = 2.0);
+    void filterHeightmap(const TileIndices &continuous
+                         , const TileIndices *discrete = nullptr
+                         , double cutoff = 2.0);
 
     Detail& other(const TileSet::pointer &otherSet) {
         return otherSet->detail();

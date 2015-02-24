@@ -113,6 +113,17 @@ TileIndex::TileIndex(const TileIndex &other)
 {
 }
 
+TileIndex::TileIndex(const TileIndex &other, ShallowCopy)
+    : baseTileSize_(other.baseTileSize_)
+    , origin_(other.origin_)
+    , minLod_(other.minLod_)
+{
+    masks_.reserve(other.masks_.size());
+    for (const auto &mask : other.masks_) {
+        masks_.emplace_back(mask, RasterMask::EMPTY);
+    }
+}
+
 void TileIndex::fill(Lod lod, const TileIndex &other)
 {
     // find old and new masks

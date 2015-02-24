@@ -28,6 +28,9 @@ public:
 
     TileIndex(const TileIndex &other);
 
+    struct ShallowCopy {};
+    TileIndex(const TileIndex &other, ShallowCopy);
+
     typedef std::vector<RasterMask> Masks;
 
     void load(std::istream &is);
