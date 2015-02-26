@@ -1048,7 +1048,11 @@ bool TileSet::tileExists(const TileId &tileId) const
 
 Properties TileSet::getProperties() const
 {
-    return detail().properties;
+    // copy and use current driver's properties (returns information about read
+    // driver, not saved data, i.e. tar driver says it is tar)
+    auto p(detail().properties);
+    p.driver = detail().driver->properties();
+    return p;
 }
 
 Properties TileSet::setProperties(const SettableProperties &properties

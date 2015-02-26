@@ -136,13 +136,11 @@ namespace {
 } // namespace
 
 FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
-                       , CreateMode mode, const StaticProperties &properties)
+                       , CreateMode mode, const StaticProperties&)
     : Driver(false)
     , root_(root), tmp_(root / TransactionRoot)
     , dirCache_(root_)
 {
-    (void) properties;
-
     if (!create_directories(root_)) {
         // directory already exists -> fail if mode says so
         if (mode == CreateMode::failIfExists) {
