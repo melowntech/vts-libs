@@ -34,6 +34,24 @@ namespace {
         throw "unknown file type";
     }
 
+    const char *extension(TileFile type)
+    {
+        switch (type) {
+        case TileFile::meta:
+            return "metatiles";
+        case TileFile::mesh:
+        case TileFile::atlas:
+            return "tiles";
+        }
+        throw "unknown tile file type";
+    }
+
+    fs::path filePath(const Index &index, TileFile type)
+    {
+        return str(boost::format("%s-%07d-%07d.%s")
+                   % index.lod % index.easting % index.northing
+                   % extension(type));
+    }
 } // namespace
 
 TilarDriver::TilarDriver(const boost::filesystem::path &root

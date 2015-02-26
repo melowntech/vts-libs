@@ -5,6 +5,7 @@
 #include "./flat.hpp"
 #include "./hash-crc.hpp"
 #include "./tar.hpp"
+#include "./tilardriver.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -22,6 +23,7 @@ void registerDriversOnce()
     Driver::registerDriver<FlatDriver>();
     Driver::registerDriver<HashCrcDriver>();
     Driver::registerDriver<TarDriver>();
+    Driver::registerDriver<TilarDriver>();
 }
 
 void registerDefaultDrivers()

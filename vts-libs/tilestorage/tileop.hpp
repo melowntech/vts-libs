@@ -50,6 +50,14 @@ bool in(const LodRange &range, const TileId &tileId);
  */
 std::pair<double, double> area(const Tile &tile);
 
+/** Calculates tileIndex of given tile in tiles from alignment.
+ *
+ * Non-zero shift allows us to move in the LOD hierarchy without touching
+ * tileId.
+ */
+Index tileIndex(const Alignment &alignment, long baseTileSize
+                , const TileId &tileId, Lod shift = 0);
+
 // inline stuff
 
 inline long tileSize(long baseTileSize, Lod lod)
@@ -80,6 +88,15 @@ inline TileId fromAlignment(const Properties &properties, const TileId &tileId)
 {
     return { tileId.lod, tileId.easting - properties.alignment(0)
             , tileId.northing - properties.alignment(1) };
+}
+
+inline Index tileIndex(const Alignment &alignment, long baseTileSize
+                       , const TileId &tileId, Lod shift)
+{
+    Lod lod(tileId.lod + shift);
+    auto ts(tileSize(baseTileSize, lod));
+    return { lod, (tileId.easting - alignment(0)) / ts
+            , (tileId.northing - alignment(1)) / ts };
 }
 
 inline TileId parent(const Properties &properties, const TileId &tileId)

@@ -73,6 +73,14 @@ private:
     /** temporary files backing root.
      */
     const fs::path tmp_;
+
+    /** Tile size at LOD=0.
+     */
+    long baseTileSize_;
+
+    /** Tile alignment. No tile exists that contains this point inside.
+     */
+    Alignment alignment_;
 };
 
 } } // namespace vadstena::tilestorage
