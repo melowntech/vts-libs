@@ -6,9 +6,30 @@
 #ifndef vadstena_libs_tilestorage_properties_hpp_included_
 #define vadstena_libs_tilestorage_properties_hpp_included_
 
+#include <map>
+
+#include <boost/optional.hpp>
+#include <boost/any.hpp>
+
 #include "./basetypes.hpp"
 
 namespace vadstena { namespace tilestorage {
+
+
+/** Driver properties.
+ */
+struct DriverProperties {
+    /** Tile set type/driver name
+     */
+    std::string type;
+
+    typedef std::map<std::string, boost::any> Options;
+
+    /** Driver options, maps name to boost::any instance. Interpretation is
+     *  driver dependent.
+     */
+    Options options;
+};
 
 /** Tile set properties that must be specified during creation. They cannot be
  *  changed later.
@@ -34,6 +55,10 @@ struct StaticProperties {
      */
     std::string srs;
 
+    /** Driver properties.
+     */
+    DriverProperties driver;
+
     StaticProperties() : baseTileSize() {}
 };
 
@@ -42,7 +67,7 @@ struct StaticProperties {
 struct SettableProperties {
     math::Point3 defaultPosition;    // easting, northing, altitude
     math::Point3 defaultOrientation; // yaw, pitch, roll
-    short textureQuality;            // JPEG quality   
+    short textureQuality;            // JPEG quality
     float texelSize;                 // texelSize
 
     struct Mask { enum {             // mask bitfields

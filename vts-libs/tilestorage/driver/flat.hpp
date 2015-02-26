@@ -8,8 +8,9 @@ namespace vadstena { namespace tilestorage {
 
 class FlatDriver : public FsBasedDriver {
 public:
-    FlatDriver(const boost::filesystem::path &root, CreateMode mode)
-        : FsBasedDriver(root, mode)
+    FlatDriver(const boost::filesystem::path &root, CreateMode mode
+               , const StaticProperties &properties)
+        : FsBasedDriver(root, mode, properties)
     {}
 
     /** Opens storage.
@@ -36,6 +37,10 @@ private:
         const UTILITY_OVERRIDE
     {
         return {};
+    }
+
+    virtual DriverProperties properties_impl() const UTILITY_OVERRIDE {
+        return { Factory::staticType(), {} };
     }
 };
 

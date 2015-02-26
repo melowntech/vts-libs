@@ -1,3 +1,5 @@
+#include <typeinfo>
+#include <cstdint>
 #include "jsoncpp/as.hpp"
 
 #include "./json.hpp"
@@ -8,6 +10,64 @@ namespace vadstena { namespace tilestorage {
 namespace detail { namespace tileset {
 
 const int CURRENT_JSON_FORMAT_VERSION(3);
+
+DriverProperties parseDriver(const Json::Value &driver)
+{
+    DriverProperties dp;
+    Json::get(dp.type, driver["type"]);
+    if (!driver.isMember("options")) { return dp; }
+
+    const auto options(driver["options"]);
+    for (const auto &member : options.getMemberNames()) {
+        DriverProperties::Options::value_type vt(member, {});
+        const auto &v(options[member]);
+
+        switch (v.type()) {
+        case Json::ValueType::intValue: vt.second = v.asInt64(); break;
+        case Json::ValueType::uintValue: vt.second = v.asUInt64(); break;
+        case Json::ValueType::realValue: vt.second = v.asDouble(); break;
+        case Json::ValueType::stringValue: vt.second = v.asString(); break;
+        case Json::ValueType::booleanValue: vt.second = v.asBool(); break;
+        default: continue; // ignoring compound types and null
+        }
+
+        dp.options.insert(vt);
+    }
+
+    return dp;
+}
+
+Json::Value buildDriver(const DriverProperties &dp)
+{
+    Json::Value driver;
+    driver["type"] = dp.type;
+    if (dp.options.empty()) { return driver; }
+
+    for (const auto &vt : dp.options) {
+        auto &v(driver[vt.first]);
+        const auto &ti(vt.second.type());
+
+        if (ti == typeid(std::int64_t)) {
+            v = Json::Value
+                (Json::Int64(boost::any_cast<std::int64_t>(vt.second)));
+        } else if (ti == typeid(std::uint64_t)) {
+            v = Json::Value
+                (Json::UInt64(boost::any_cast<std::uint64_t>(vt.second)));
+        } else if (ti == typeid(double)) {
+            v = Json::Value(boost::any_cast<double>(vt.second));
+        } else if (ti == typeid(std::string)) {
+            v = Json::Value(boost::any_cast<std::string>(vt.second));
+        } else if (ti == typeid(bool)) {
+            v = Json::Value(boost::any_cast<bool>(vt.second));
+        } else {
+            LOGTHROW(err2, std::runtime_error)
+                << "Driver properties: unable to serialize C++ type "
+                "with type_info::name <" << ti.name() << ">.";
+        }
+    }
+
+    return driver;
+}
 
 Properties parse1(const Json::Value &config)
 {
@@ -130,6 +190,10 @@ Properties parse3(const Json::Value &config)
     Json::get(properties.textureQuality, config["textureQuality"]);
     Json::get(properties.texelSize, config["texelSize"]);
 
+    if (config.isMember("driver")) {
+        properties.driver = parseDriver(config["driver"]);
+    }
+
     return properties;
 }
 
@@ -209,6 +273,8 @@ void build(Json::Value &config, const Properties &properties)
 
     config["textureQuality"] = Json::Int(properties.textureQuality);
     config["texelSize"] = Json::Value(properties.texelSize);
+
+    config["driver"] = detail::tileset::buildDriver(properties.driver);
 }
 
 namespace detail { namespace storage {

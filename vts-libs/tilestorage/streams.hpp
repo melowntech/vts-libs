@@ -2,6 +2,7 @@
 #define vadstena_libs_tilestorage_streams_hpp_included_
 
 #include <iostream>
+#include <memory>
 
 namespace vadstena { namespace tilestorage {
 

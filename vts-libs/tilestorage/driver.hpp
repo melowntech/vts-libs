@@ -4,6 +4,7 @@
 #include <map>
 
 #include "./types.hpp"
+#include "./properties.hpp"
 #include "./streams.hpp"
 
 namespace vadstena { namespace tilestorage {
@@ -42,12 +43,15 @@ public:
      */
     void update();
 
+    DriverProperties properties() const;
+
     class Factory;
 
     template <typename DriverClass> static void registerDriver();
 
     static Driver::pointer create(Locator locator
-                                  , CreateMode mode);
+                                  , CreateMode mode
+                                  , const StaticProperties &properties);
 
     static Driver::pointer open(Locator locator, OpenMode mode);
 
@@ -79,7 +83,11 @@ private:
 
     virtual void update_impl() = 0;
 
+    virtual DriverProperties properties_impl() const = 0;
+
     static void registerDriver(const std::shared_ptr<Factory> &factory);
+
+    static std::string detectType(const std::string &location);
 
     bool readOnly_;
 };
@@ -92,12 +100,19 @@ public:
     virtual ~Factory() {}
 
     virtual Driver::pointer create(const std::string location
-                                   , CreateMode mode) const = 0;
+                                   , CreateMode mode
+                                   , const StaticProperties &properties)
+        const = 0;
 
     virtual Driver::pointer open(const std::string location
                                  , OpenMode mode) const = 0;
 
     virtual std::string help() const = 0;
+
+    /** Returns type of tileset at given location if location makes sense.
+     */
+    virtual std::string detectType(const std::string &location)
+        const = 0;
 
     const std::string type;
 };
@@ -158,6 +173,11 @@ inline void Driver::drop()
 inline void Driver::update()
 {
     return update_impl();
+}
+
+inline DriverProperties Driver::properties() const
+{
+    return properties_impl();
 }
 
 } } // namespace vadstena::tilestorage

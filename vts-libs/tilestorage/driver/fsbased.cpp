@@ -11,6 +11,7 @@
 #include "./flat.hpp"
 #include "../io.hpp"
 #include "../error.hpp"
+#include "../config.hpp"
 
 #include "tilestorage/browser/index.html.hpp"
 #include "tilestorage/browser/index-offline.html.hpp"
@@ -135,11 +136,13 @@ namespace {
 } // namespace
 
 FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
-                       , CreateMode mode)
+                       , CreateMode mode, const StaticProperties &properties)
     : Driver(false)
     , root_(root), tmp_(root / TransactionRoot)
     , dirCache_(root_)
 {
+    (void) properties;
+
     if (!create_directories(root_)) {
         // directory already exists -> fail if mode says so
         if (mode == CreateMode::failIfExists) {
@@ -413,6 +416,18 @@ fs::path FsBasedDriver::DirCache::create(const fs::path &dir)
 fs::path FsBasedDriver::DirCache::path(const fs::path &dir)
 {
     return root_ / dir;
+}
+
+std::string FsBasedDriver::detectType_impl(const std::string &location)
+{
+    try {
+        // try load config
+        FileIStream f(fs::path(location) / filePath(File::config));
+        const auto p(tilestorage::loadConfig(f));
+        f.close();
+        return p.driver.type;
+    } catch (const std::exception&) {}
+    return {};
 }
 
 const std::string FlatDriver::help

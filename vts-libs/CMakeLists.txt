@@ -106,6 +106,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/tileset/merge.cpp
     tilestorage/tileset/dump.hpp
     tilestorage/tileset/heightmap.cpp
+    tilestorage/config.hpp tilestorage/config.cpp
 
     licence/fingerprint.hpp licence/fingerprint.cpp
 

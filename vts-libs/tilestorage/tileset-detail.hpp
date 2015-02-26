@@ -35,8 +35,6 @@ struct TileSet::Detail {
     mutable TileIdSet loadedMetatiles; // marks that given tiles are loaded
     bool metadataChanged;         // marks whether metadata have been changed
 
-    mutable Json::Value config;
-
     bool tx; // pending transaction?
 
     Detail(const Driver::pointer &driver);

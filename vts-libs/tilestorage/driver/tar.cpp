@@ -5,6 +5,7 @@
 #include <boost/utility/in_place_factory.hpp>
 
 #include "utility/path.hpp"
+#include "utility/magic.hpp"
 
 #include "./tar.hpp"
 #include "../io.hpp"
@@ -171,6 +172,16 @@ IStream::pointer TarDriver::input_impl(const TileId tileId, TileFile type)
             << "No data for " << tileId << " " << desc << ".";
     }
     return readFile(reader_, fsrc->second);
+}
+
+std::string TarDriver::detectType_impl(const std::string &location)
+{
+    try {
+        if (utility::Magic().mime(location) == "application/x-tar") {
+            return "tar";
+        }
+    } catch (const std::exception&) {}
+    return {};
 }
 
 const std::string TarDriver::help

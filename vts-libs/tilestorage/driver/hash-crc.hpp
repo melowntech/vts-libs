@@ -8,8 +8,9 @@ namespace vadstena { namespace tilestorage {
 
 class HashCrcDriver : public FsBasedDriver {
 public:
-    HashCrcDriver(const boost::filesystem::path &root, CreateMode mode)
-        : FsBasedDriver(root, mode)
+    HashCrcDriver(const boost::filesystem::path &root, CreateMode mode
+                  , const StaticProperties &properties)
+        : FsBasedDriver(root, mode, properties)
     {}
 
     /** Opens storage.
@@ -36,6 +37,10 @@ private:
     virtual boost::filesystem::path
     fileDir_impl(const TileId &tileId, TileFile type, const fs::path &name)
         const UTILITY_OVERRIDE;
+
+    virtual DriverProperties properties_impl() const UTILITY_OVERRIDE {
+        return { Factory::staticType(), {} };
+    }
 };
 
 } } // namespace vadstena::tilestorage

@@ -14,10 +14,10 @@
 
 #include "../binmesh.hpp"
 #include "../tilestorage.hpp"
+#include "./config.hpp"
 #include "./tileindex.hpp"
 #include "./io.hpp"
 #include "./tileop.hpp"
-#include "./json.hpp"
 #include "./tileset-detail.hpp"
 #include "./tileset-advanced.hpp"
 #include "./metatile.hpp"
@@ -73,10 +73,10 @@ void saveMesh(const OStream::pointer &os, const Mesh &mesh)
 struct TileSet::Factory
 {
     static TileSet::pointer create(const Locator &locator
-                                   , const CreateProperties &properties
+                                   , const StaticProperties &properties
                                    , CreateMode mode)
     {
-        auto driver(Driver::create(locator, mode));
+        auto driver(Driver::create(locator, mode, properties));
         return TileSet::pointer(new TileSet(driver, properties));
     }
 
@@ -109,7 +109,8 @@ TileSet::pointer createTileSet(const Locator &locator
                                , const CreateProperties &properties
                                , CreateMode mode)
 {
-    return TileSet::Factory::create(locator, properties, mode);
+    return TileSet::Factory::create
+        (locator, properties.staticProperties, mode);
 }
 
 TileSet::pointer openTileSet(const Locator &locator, OpenMode mode)
@@ -187,6 +188,9 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     static_cast<SettableProperties&>(p)
         .merge(properties.settableProperties, properties.mask);
 
+    // force save of properties
+    p.driver = driver->properties();
+
     // leave foat and foat size to be zero
     // leave default position
 
@@ -228,25 +232,18 @@ void TileSet::Detail::resetFoat()
 
 void TileSet::Detail::loadConfig()
 {
-    // load json
     try {
+        // load config
         auto f(driver->input(File::config));
-        Json::Reader reader;
-        if (!reader.parse(*f, config)) {
-            LOGTHROW(err2, FormatError)
-                << "Unable to parse config: "
-                << reader.getFormattedErrorMessages() << ".";
-        }
+        const auto p(tilestorage::loadConfig(*f));
         f->close();
+
+        // set
+        savedProperties = properties = p;
     } catch (const std::exception &e) {
         LOGTHROW(err2, Error)
             << "Unable to read config: <" << e.what() << ">.";
     }
-
-    Properties p;
-    parse(p, config);
-    properties = p;
-    savedProperties = properties = p;
 }
 
 void TileSet::Detail::saveConfig()
@@ -258,15 +255,14 @@ void TileSet::Detail::saveConfig()
     // save json
     try {
         driver->wannaWrite("save config");
-        build(config, properties);
         auto f(driver->output(File::config));
-        f->get().precision(15);
-        Json::StyledStreamWriter().write(*f, config);
+        tilestorage::saveConfig(*f, properties);
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, Error)
             << "Unable to write config: <" << e.what() << ">.";
     }
+
     // done; remember saved properties and go on
     savedProperties = properties;
     propertiesChanged = false;

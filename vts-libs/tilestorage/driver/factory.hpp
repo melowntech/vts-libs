@@ -12,11 +12,13 @@ namespace vadstena { namespace tilestorage {
     public:                                                             \
         Factory() : Driver::Factory(DRIVER_TYPE) {}                     \
                                                                         \
-        virtual Driver::pointer create(const std::string location       \
-                                       , CreateMode mode)               \
+        virtual Driver::pointer                                         \
+        create(const std::string location, CreateMode mode              \
+               , const StaticProperties &properties)                    \
             const UTILITY_OVERRIDE                                      \
         {                                                               \
-            return std::make_shared<DRIVER_CLASS>(location, mode);      \
+            return std::make_shared<DRIVER_CLASS>                       \
+                (location, mode, properties);                           \
         }                                                               \
                                                                         \
         virtual Driver::pointer open(const std::string location         \
@@ -29,6 +31,17 @@ namespace vadstena { namespace tilestorage {
         virtual std::string help() const UTILITY_OVERRIDE               \
         {                                                               \
             return DRIVER_CLASS::help;                                  \
+        }                                                               \
+                                                                        \
+        virtual std::string detectType(const std::string &location)     \
+            const UTILITY_OVERRIDE                                      \
+        {                                                               \
+            return DRIVER_CLASS::detectType_impl(location);             \
+        }                                                               \
+                                                                        \
+        static const char* staticType() UTILITY_OVERRIDE                \
+        {                                                               \
+            return DRIVER_TYPE;                                         \
         }                                                               \
     }
 

@@ -19,7 +19,8 @@ public:
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.
      */
-    FsBasedDriver(const fs::path &root, CreateMode mode);
+    FsBasedDriver(const fs::path &root, CreateMode mode
+                  , const StaticProperties &properties);
 
     /** Opens storage.
      */
@@ -30,6 +31,8 @@ public:
     /** On-close callback
      */
     typedef std::function<void(bool)> OnClose;
+
+    static std::string detectType_impl(const std::string &location);
 
 private:
     /** Implement in derived class.

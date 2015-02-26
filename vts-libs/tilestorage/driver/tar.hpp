@@ -18,7 +18,9 @@ namespace fs = boost::filesystem;
 
 class TarDriver : public ReadOnlyDriver {
 public:
-    TarDriver(const fs::path&, CreateMode mode) : ReadOnlyDriver(mode) {}
+    TarDriver(const fs::path&, CreateMode mode
+              , const StaticProperties &properties)
+        : ReadOnlyDriver(mode, properties) {}
 
     /** Opens storage.
      */
@@ -41,11 +43,17 @@ public:
         {}
     };
 
+    static std::string detectType_impl(const std::string &location);
+
 private:
     virtual IStream::pointer input_impl(File type) const UTILITY_OVERRIDE;
 
     virtual IStream::pointer
     input_impl(const TileId tileId, TileFile type) const UTILITY_OVERRIDE;
+
+    virtual DriverProperties properties_impl() const UTILITY_OVERRIDE {
+        return { Factory::staticType(), {} };
+    }
 
     const fs::path tarPath_;
     mutable utility::tar::Reader reader_;

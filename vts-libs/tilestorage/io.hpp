@@ -109,6 +109,25 @@ dump(std::basic_ostream<CharT, Traits> &os
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
 dump(std::basic_ostream<CharT, Traits> &os
+     , const DriverProperties &p
+     , const std::string &prefix = std::string())
+{
+    os << prefix << "driver:\n";
+    const std::string subPrefix(prefix.size() + 4, ' ');
+    os << subPrefix << "type = " << p.type << '\n';
+    os << subPrefix << "options:";
+    const std::string subSubPrefix(subPrefix.size() + 4, ' ');
+    for (const auto &vt : p.options) {
+        os << subSubPrefix << vt.first;
+        // TODO: print value and type
+    }
+    os << '\n';
+    return os;
+}
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+dump(std::basic_ostream<CharT, Traits> &os
      , const StaticProperties &p
      , const std::string &prefix = std::string())
 {
@@ -118,6 +137,7 @@ dump(std::basic_ostream<CharT, Traits> &os
        << prefix << "alignment = " << p.alignment(0) << ','
        << p.alignment(1) << '\n';
     os << prefix << "srs = " << p.srs << '\n';
+    dump(os, p.driver, prefix);
     return os;
 }
 

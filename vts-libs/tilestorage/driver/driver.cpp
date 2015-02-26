@@ -44,12 +44,17 @@ void Driver::registerDriver(const Driver::Factory::pointer &factory)
     driverRegistry[factory->type] = factory;
 }
 
-Driver::pointer Driver::create(Locator locator, CreateMode mode)
+Driver::pointer Driver::create(Locator locator, CreateMode mode
+                               , const StaticProperties &properties)
 {
     registerDefaultDrivers();
 
     if (locator.type.empty()) {
-        locator.type = DefaultDriver;
+        if (!properties.driver.type.empty()) {
+            locator.type = properties.driver.type;
+        } else {
+            locator.type = DefaultDriver;
+        }
     }
 
     auto fregistry(driverRegistry.find(locator.type));
@@ -57,7 +62,7 @@ Driver::pointer Driver::create(Locator locator, CreateMode mode)
         LOGTHROW(err2, NoSuchTileSet)
             << "Invalid tile set type <" << locator.type << ">.";
     }
-    return fregistry->second->create(locator.location, mode);
+    return fregistry->second->create(locator.location, mode, properties);
 }
 
 Driver::pointer Driver::open(Locator locator, OpenMode mode)
@@ -65,6 +70,11 @@ Driver::pointer Driver::open(Locator locator, OpenMode mode)
     registerDefaultDrivers();
 
     if (locator.type.empty()) {
+        // no type specified -> try to locate config file and pull in options
+        locator.type = detectType(locator.location);
+    }
+    if (locator.type.empty()) {
+        // cannot detect -> try default driver
         locator.type = DefaultDriver;
     }
 
@@ -85,6 +95,18 @@ std::map<std::string, std::string> Driver::listSupportedDrivers()
         list.insert(std::make_pair(pair.first, pair.second->help()));
     }
     return list;
+}
+
+std::string Driver::detectType(const std::string &location)
+{
+    (void) location;
+
+    for (const auto &pair : driverRegistry) {
+        const auto type = pair.second->detectType(location);
+        if (!type.empty()) { return type; }
+    }
+
+    return {};
 }
 
 } } // namespace vadstena::tilestorage
