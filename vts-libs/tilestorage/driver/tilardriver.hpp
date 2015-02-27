@@ -9,6 +9,7 @@
 
 #include "../driver.hpp"
 #include "./factory.hpp"
+#include "./fstreams.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -27,10 +28,6 @@ public:
     TilarDriver(const fs::path &root, OpenMode mode);
 
     virtual ~TilarDriver();
-
-    /** On-close callback
-     */
-    typedef std::function<void(bool)> OnClose;
 
     static std::string detectType_impl(const std::string &location);
 
@@ -74,13 +71,29 @@ private:
      */
     const fs::path tmp_;
 
-    /** Tile size at LOD=0.
-     */
-    long baseTileSize_;
+    struct Options {
+        /** Tile size at LOD=0.
+         */
+        long baseTileSize;
 
-    /** Tile alignment. No tile exists that contains this point inside.
-     */
-    Alignment alignment_;
+        /** Tile alignment. No tile exists that contains this point inside.
+         */
+        Alignment alignment;
+
+        /** Binary order of magnitude of data stored in the individial tile
+         *  archives (each archive has square grid of
+         *  (2^binarySize_)*(2^binarySize_) tiles.
+         *
+         * This information maps directly to LOD-shift (tile space of tiles at
+         * any LOD are stored in space of "super" tiles at (LOD - binarySize_)).
+         */
+        std::uint8_t binarySize;
+
+        Options(const StaticProperties &properties);
+        Options(const StaticProperties &properties, bool);
+    };
+
+    Options options_;
 };
 
 } } // namespace vadstena::tilestorage

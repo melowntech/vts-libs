@@ -13,6 +13,7 @@ const int CURRENT_JSON_FORMAT_VERSION(3);
 
 DriverProperties parseDriver(const Json::Value &driver)
 {
+    LOG(info4) << "parsing driver";
     DriverProperties dp;
     Json::get(dp.type, driver["type"]);
     if (!driver.isMember("options")) { return dp; }
@@ -23,8 +24,15 @@ DriverProperties parseDriver(const Json::Value &driver)
         const auto &v(options[member]);
 
         switch (v.type()) {
-        case Json::ValueType::intValue: vt.second = v.asInt64(); break;
-        case Json::ValueType::uintValue: vt.second = v.asUInt64(); break;
+        case Json::ValueType::intValue:
+            if (v.asInt64() >= 0) {
+                vt.second = std::uint64_t(v.asUInt64());
+            } else {
+                vt.second = std::int64_t(v.asInt64());
+            }
+            break;
+        case Json::ValueType::uintValue:
+            vt.second = std::uint64_t(v.asUInt64()); break;
         case Json::ValueType::realValue: vt.second = v.asDouble(); break;
         case Json::ValueType::stringValue: vt.second = v.asString(); break;
         case Json::ValueType::booleanValue: vt.second = v.asBool(); break;
@@ -43,8 +51,9 @@ Json::Value buildDriver(const DriverProperties &dp)
     driver["type"] = dp.type;
     if (dp.options.empty()) { return driver; }
 
+    auto &options(driver["options"] = Json::Value(Json::objectValue));
     for (const auto &vt : dp.options) {
-        auto &v(driver[vt.first]);
+        auto &v(options[vt.first]);
         const auto &ti(vt.second.type());
 
         if (ti == typeid(std::int64_t)) {

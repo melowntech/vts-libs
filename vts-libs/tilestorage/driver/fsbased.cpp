@@ -4,7 +4,6 @@
 #include <boost/format.hpp>
 #include <boost/utility/in_place_factory.hpp>
 
-#include "utility/streams.hpp"
 #include "utility/path.hpp"
 
 #include "./fsbased.hpp"
@@ -52,87 +51,6 @@ namespace {
                    % tileId.lod % tileId.easting % tileId.northing
                    % extension(type));
     }
-
-    class FileOStream : public OStream {
-    public:
-        FileOStream(const fs::path &path, FsBasedDriver::OnClose onClose
-                    = FsBasedDriver::OnClose())
-            : path_(path), f_(), onClose_(onClose)
-        {
-            try {
-                f_.exceptions(std::ios::badbit | std::ios::failbit);
-                f_.open(path.string()
-                        , std::ios_base::out | std::ios_base::trunc);
-            } catch (const std::exception &e) {
-                LOGTHROW(err1, std::runtime_error)
-                    << "Unable to open file " << path << " for writing.";
-            }
-        }
-
-        virtual ~FileOStream() {
-            if (!std::uncaught_exception() && f_.is_open()) {
-                LOG(warn3) << "File was not closed!";
-            }
-        }
-
-        virtual std::ostream& get() UTILITY_OVERRIDE {
-            return f_;
-        }
-
-        virtual void close() UTILITY_OVERRIDE {
-            // TODO: call onClose in case of failure (when exception is thrown)
-            // via utility::ScopeGuard
-            f_.close();
-            onClose_(true);
-        }
-
-        virtual std::string name() UTILITY_OVERRIDE {
-            return path_.string();
-        };
-
-    private:
-        fs::path path_;
-        utility::ofstreambuf f_;
-        FsBasedDriver::OnClose onClose_;
-    };
-
-    class FileIStream : public IStream {
-    public:
-        FileIStream(const fs::path &path)
-            : path_(path), f_()
-        {
-            try {
-                f_.exceptions(std::ios::badbit | std::ios::failbit);
-                f_.open(path.string());
-            } catch (const std::exception &e) {
-                LOGTHROW(err1, std::runtime_error)
-                    << "Unable to open file " << path << " for reading.";
-            }
-        }
-
-        virtual ~FileIStream() {
-            if (!std::uncaught_exception() && f_.is_open()) {
-                LOG(warn3) << "File was not closed!";
-            }
-        }
-
-        virtual std::istream& get() UTILITY_OVERRIDE {
-            return f_;
-        }
-
-        virtual void close() UTILITY_OVERRIDE {
-            f_.close();
-        }
-
-        virtual std::string name() UTILITY_OVERRIDE {
-            return path_.string();
-        };
-
-    private:
-        fs::path path_;
-        utility::ifstreambuf f_;
-    };
-
 } // namespace
 
 FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
@@ -329,7 +247,7 @@ fs::path FsBasedDriver::readPath(const fs::path &dir, const fs::path &name)
     return root_ / dir / name;
 }
 
-std::pair<fs::path, FsBasedDriver::OnClose>
+std::pair<fs::path, FileOStream::OnClose>
 FsBasedDriver::writePath(const fs::path &dir, const fs::path &name)
 {
     DirCache *dirCache(&dirCache_);
@@ -420,10 +338,8 @@ std::string FsBasedDriver::detectType_impl(const std::string &location)
 {
     try {
         // try load config
-        FileIStream f(fs::path(location) / filePath(File::config));
-        const auto p(tilestorage::loadConfig(f));
-        f.close();
-        return p.driver.type;
+        return tilestorage::loadConfig
+            (fs::path(location) / filePath(File::config)).driver.type;
     } catch (const std::exception&) {}
     return {};
 }

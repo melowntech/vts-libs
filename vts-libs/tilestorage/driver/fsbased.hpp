@@ -9,6 +9,7 @@
 
 #include "../driver.hpp"
 #include "./factory.hpp"
+#include "./fstreams.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -27,10 +28,6 @@ public:
     FsBasedDriver(const fs::path &root, OpenMode mode);
 
     virtual ~FsBasedDriver();
-
-    /** On-close callback
-     */
-    typedef std::function<void(bool)> OnClose;
 
     static std::string detectType_impl(const std::string &location);
 
@@ -74,7 +71,7 @@ private:
 
     fs::path readPath(const fs::path &dir, const fs::path &name) const;
 
-    std::pair<fs::path, OnClose>
+    std::pair<fs::path, FileOStream::OnClose>
     writePath(const fs::path &dir, const fs::path &name);
 
     fs::path removePath(const fs::path &dir, const fs::path &name);

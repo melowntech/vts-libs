@@ -2,6 +2,7 @@
 #define vadstena_libs_tilestorage_io_hpp_included_
 
 #include <iostream>
+#include <typeinfo>
 
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/qi_match.hpp>
@@ -118,8 +119,21 @@ dump(std::basic_ostream<CharT, Traits> &os
     os << subPrefix << "options:";
     const std::string subSubPrefix(subPrefix.size() + 4, ' ');
     for (const auto &vt : p.options) {
-        os << subSubPrefix << vt.first;
-        // TODO: print value and type
+        os << "\n" << subSubPrefix << vt.first << " = ";
+        const auto &ti(vt.second.type());
+        if (ti == typeid(std::int64_t)) {
+            os << boost::any_cast<std::int64_t>(vt.second);
+        } else if (ti == typeid(std::uint64_t)) {
+            os << boost::any_cast<std::uint64_t>(vt.second);
+        } else if (ti == typeid(double)) {
+            os << boost::any_cast<double>(vt.second);
+        } else if (ti == typeid(std::string)) {
+            os << '"' << boost::any_cast<double>(vt.second) << '"';
+        } else if (ti == typeid(bool)) {
+            os << std::boolalpha << boost::any_cast<bool>(vt.second);
+        } else {
+            os << "???";
+        }
     }
     os << '\n';
     return os;
@@ -152,8 +166,8 @@ dump(std::basic_ostream<CharT, Traits> &os
     dump(os, AsPosition{p.defaultPosition}, prefix + "defaultPosition.");
     dump(os, AsOrientation{p.defaultOrientation}
          , prefix + "defaultOrientation.");
-    os << prefix << "textureQuality = " << p.textureQuality
-       << '\n';
+    os << prefix << "textureQuality = " << p.textureQuality << '\n'
+       << prefix << "texelSize = " << p.texelSize << '\n';
 
     return os;
 }

@@ -1,3 +1,6 @@
+#include <stdexcept>
+#include <limits>
+#include <type_traits>
 #include <fstream>
 
 #include <boost/filesystem.hpp>
@@ -21,6 +24,9 @@ namespace vadstena { namespace tilestorage {
 namespace fs = boost::filesystem;
 
 namespace {
+    const std::string KeyBinarySize("binarySize");
+    const std::uint8_t DefaultBinarySize(5);
+
     const std::string ConfigName("mapConfig.json");
     const std::string TileIndexName("index.bin");
     const std::string TransactionRoot("tx");
@@ -52,12 +58,66 @@ namespace {
                    % index.lod % index.easting % index.northing
                    % extension(type));
     }
+
+    template <typename T, class Enable = void>
+    T getOption(const DriverProperties::Options&, const std::string &
+                , const boost::optional<T>& = boost::none);
+
+    template
+    <typename T
+     , class = typename std::enable_if<std::is_unsigned<T>::value>::type>
+    T getOption(const DriverProperties::Options &options
+                , const std::string &key
+                , const boost::optional<T> &defaultValue = boost::none)
+    {
+        auto foptions(options.find(key));
+        if (foptions == options.end()) {
+            if (!defaultValue) {
+                LOGTHROW(err2, std::runtime_error)
+                    << "Option <" << key << "> not found "
+                    "and no default value has been provided.";
+            }
+            return *defaultValue;
+        }
+
+        std::uint64_t value{};
+        try {
+            value = boost::any_cast<std::uint64_t>(foptions->second);
+        } catch (const boost::bad_any_cast&) {
+            LOGTHROW(err2, std::logic_error)
+                << "Options value <" << key << "> is not an unsigned integer.";
+        }
+
+        if (value > std::numeric_limits<T>::max()) {
+            LOGTHROW(err2, std::logic_error)
+                << "Options value <" << key << "> is doesn't fit into "
+                "requested type.";
+        }
+        return static_cast<T>(value);
+    }
 } // namespace
 
+TilarDriver::Options::Options(const StaticProperties &properties)
+    : baseTileSize(properties.baseTileSize)
+    , alignment(properties.alignment)
+    , binarySize(getOption<decltype(binarySize)>
+                 (properties.driver.options, KeyBinarySize))
+{}
+
+TilarDriver::Options::Options(const StaticProperties &properties
+                              , bool)
+    : baseTileSize(properties.baseTileSize)
+    , alignment(properties.alignment)
+    , binarySize(getOption<decltype(binarySize)>
+                 (properties.driver.options, KeyBinarySize
+                  , DefaultBinarySize))
+{}
+
 TilarDriver::TilarDriver(const boost::filesystem::path &root
-                         , CreateMode mode, const StaticProperties&)
+                         , CreateMode mode, const StaticProperties &properties)
     : Driver(false)
     , root_(root), tmp_(root / TransactionRoot)
+    , options_(properties, true)
 {
     if (!create_directories(root_)) {
         // directory already exists -> fail if mode says so
@@ -75,6 +135,7 @@ TilarDriver::TilarDriver(const boost::filesystem::path &root
                          , OpenMode mode)
     : Driver(mode == OpenMode::readOnly)
     , root_(root), tmp_(root / TransactionRoot)
+    , options_(tilestorage::loadConfig(root_ / filePath(File::config)))
 {
 }
 
@@ -104,14 +165,20 @@ void TilarDriver::writeExtraFiles()
 
 OStream::pointer TilarDriver::output_impl(File type)
 {
-    (void) type;
-    return {};
+    // TODO: add tx support
+    const auto name(filePath(type));
+    const auto path(root_ / name);
+    LOG(info1) << "Saving to " << path << ".";
+    return std::make_shared<FileOStream>(path);
 }
 
 IStream::pointer TilarDriver::input_impl(File type) const
 {
-    (void) type;
-    return {};
+    // TODO: add tx support
+    const auto name(filePath(type));
+    const auto path(root_ / name);
+    LOG(info1) << "Loading from " << path << ".";
+    return std::make_shared<FileIStream>(path);
 }
 
 OStream::pointer TilarDriver::output_impl(const TileId tileId, TileFile type)
@@ -158,20 +225,18 @@ void TilarDriver::update_impl()
 
 DriverProperties TilarDriver::properties_impl() const
 {
-    // TODO: return options
-    return { Factory::staticType(), {} };
+    DriverProperties dp;
+    dp.type = Factory::staticType();
+    dp.options[KeyBinarySize] = boost::any(std::uint64_t(options_.binarySize));
+    return dp;
 }
 
 std::string TilarDriver::detectType_impl(const std::string &location)
 {
     try {
         // try load config
-        std::ifstream f;
-        f.exceptions(std::ios::badbit | std::ios::failbit);
-        f.open((fs::path(location) / filePath(File::config)).string());
-        const auto p(tilestorage::loadConfig(f));
-        f.close();
-        return p.driver.type;
+        return tilestorage::loadConfig
+            (fs::path(location) / filePath(File::config)).driver.type;
     } catch (const std::exception&) {}
     return {};
 }

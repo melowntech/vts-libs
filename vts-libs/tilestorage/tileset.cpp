@@ -73,10 +73,11 @@ void saveMesh(const OStream::pointer &os, const Mesh &mesh)
 struct TileSet::Factory
 {
     static TileSet::pointer create(const Locator &locator
-                                   , const StaticProperties &properties
+                                   , const CreateProperties &properties
                                    , CreateMode mode)
     {
-        auto driver(Driver::create(locator, mode, properties));
+        auto driver(Driver::create
+                    (locator, mode, properties.staticProperties));
         return TileSet::pointer(new TileSet(driver, properties));
     }
 
@@ -109,8 +110,7 @@ TileSet::pointer createTileSet(const Locator &locator
                                , const CreateProperties &properties
                                , CreateMode mode)
 {
-    return TileSet::Factory::create
-        (locator, properties.staticProperties, mode);
+    return TileSet::Factory::create(locator, properties, mode);
 }
 
 TileSet::pointer openTileSet(const Locator &locator, OpenMode mode)
@@ -248,10 +248,6 @@ void TileSet::Detail::loadConfig()
 
 void TileSet::Detail::saveConfig()
 {
-    LOG(info1)
-        << "Saving properties:\n"
-        << utility::dump(properties, "    ");
-
     // save json
     try {
         driver->wannaWrite("save config");
@@ -988,6 +984,8 @@ TileSet::TileSet(const Driver::pointer &driver
                  , const CreateProperties &properties)
     : detail_(new Detail(driver, properties))
 {
+    LOG(info4) << "properties: " << &properties;
+    LOG(info4) << "Mask: " << std::hex << properties.mask;
 }
 
 TileSet::~TileSet()
