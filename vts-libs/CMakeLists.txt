@@ -96,6 +96,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/json.hpp tilestorage/json.cpp
     tilestorage/tileindex.hpp tilestorage/tileindex.cpp
     tilestorage/metatile.hpp tilestorage/metatile.cpp
+    tilestorage/tilar.hpp tilestorage/tilar.cpp
     tilestorage/driver.hpp tilestorage/driver/driver.cpp
     tilestorage/streams.hpp tilestorage/driver/fstreams.hpp
     tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp
