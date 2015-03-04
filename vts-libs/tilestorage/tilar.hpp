@@ -55,10 +55,13 @@ public:
                         , const Options &options
                         , CreateMode createMode = CreateMode::append);
 
+    // these 3 functions cannot be defined here due to undefined Detail struct
+    Tilar(Tilar&&);
+    Tilar& operator=(Tilar&&);
+    ~Tilar();
+
     Tilar(const Tilar&) = delete;
     Tilar& operator=(const Tilar&) = delete;
-
-    ~Tilar();
 
 private:
     struct Detail;

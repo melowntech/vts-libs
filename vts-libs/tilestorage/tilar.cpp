@@ -32,6 +32,18 @@ Tilar::Tilar(Tilar::Detail *detail)
     : detail_(detail)
 {}
 
+Tilar::Tilar(Tilar &&o)
+    : detail_(std::move(o.detail_))
+{}
+
+Tilar& Tilar::operator=(Tilar &&o)
+{
+    if (&o != this) {
+        detail_ = std::move(o.detail_);
+    }
+    return *this;
+}
+
 Tilar::~Tilar() {}
 
 namespace {
@@ -198,9 +210,6 @@ Tilar Tilar::create(const fs::path &path, const Options &options
         }
     }
 
-    // loadHeader(path, fd)
-
-    // TODO: if there was already existing file, check for compatibility
     return { new Detail(path, options, std::move(fd)) };
 }
 
