@@ -384,7 +384,7 @@ Tile Merger::generateTile(const TileId &tileId
 
     if (tile.singleSource()) {
         affectedTiles[tile.sources.front()]->continuous.set(tileId);
-    } else {
+    } else if (tile.multiSource()) {
         affectedTiles[tile.sources.front()]->discrete.set(tileId);
     }
 
