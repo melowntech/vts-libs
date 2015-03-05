@@ -35,8 +35,8 @@ public:
     enum class OpenMode { readOnly, readWrite };
 
     struct Options {
-        std::uint8_t binaryOrder;
-        std::uint8_t filesPerTile;
+        unsigned int binaryOrder;
+        unsigned int filesPerTile;
 
         bool operator==(const Options &o) const {
             return ((binaryOrder == o.binaryOrder)
