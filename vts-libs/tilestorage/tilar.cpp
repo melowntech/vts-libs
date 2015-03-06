@@ -20,6 +20,7 @@ namespace vadstena { namespace tilestorage {
 
 namespace fs = boost::filesystem;
 using utility::Filedes;
+typedef Tilar::FileIndex FileIndex;
 
 namespace {
 
@@ -108,7 +109,7 @@ void truncate(const Filedes &fd, off_t size)
 
 off_t seekFromEnd(const Filedes &fd, off_t pos = 0)
 {
-    LOG(info4) << "Seeking to " << pos << " bytes from the end.";
+    LOG(debug) << "Seeking to " << pos << " bytes from the end.";
     const auto p(::lseek(fd, -pos, SEEK_END));
     if (-1 == p) {
         std::system_error e(errno, std::system_category());
@@ -217,7 +218,6 @@ Version saveHeader(const Filedes &fd, const Tilar::Options &options)
     return version;
 }
 
-
 inline unsigned int edge(const Tilar::Options &o) {
     return 1u << o.binaryOrder;
 }
@@ -236,12 +236,15 @@ public:
         std::uint32_t size;
 
         Slot() : start(0), size(0) {}
+
+        bool valid() const { return start > 0; }
     };
 
     ArchiveIndex(const Tilar::Options &options)
-        : options_(options_)
-        , rowSkip_(sizeof(Slot) * edge(options))
-        , typeSkip_(sizeof(Slot) * tiles(options))
+        : options_(options)
+        , edge_(edge(options))
+        , rowSkip_(edge_)
+        , typeSkip_(tiles(options))
         , grid_(files(options), Slot()), overhead_(0), changed_(0)
     {}
 
@@ -254,9 +257,9 @@ public:
      */
     void save(const Filedes &fd) const;
 
-    void set(const Tilar::FileIndex &index, off_t start, off_t end);
+    void set(const FileIndex &index, off_t start, off_t end);
 
-    void unset(const Tilar::FileIndex &index);
+    void unset(const FileIndex &index);
 
     std::uint32_t crc(std::uint64_t timestamp) const {
         boost::crc_32_type crc;
@@ -273,14 +276,16 @@ public:
         return index_constants::size + (grid_.size() * sizeof(Slot));
     }
 
+    Tilar::Entry::list list() const;
+
 private:
-    inline Slot& slot(const Tilar::FileIndex &index) {
+    inline Slot& slot(const FileIndex &index) {
         return grid_[index.col
                      + (rowSkip_ * index.row)
                      + (typeSkip_ * index.type)];
     }
 
-    inline const Slot& slot(const Tilar::FileIndex &index) const {
+    inline const Slot& slot(const FileIndex &index) const {
         return grid_[index.col
                      + (rowSkip_ * index.row)
                      + (typeSkip_ * index.type)];
@@ -289,8 +294,10 @@ private:
     typedef std::vector<Slot> Grid;
 
     const Tilar::Options options_;
-    const int rowSkip_;
-    const int typeSkip_;
+    const unsigned int edge_;
+    const unsigned int rowSkip_;
+    const unsigned int typeSkip_;
+
     Grid grid_;
     std::uint32_t overhead_;
 
@@ -355,12 +362,12 @@ void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
     }
 }
 
-void ArchiveIndex::set(const Tilar::FileIndex &index, off_t start, off_t end)
+void ArchiveIndex::set(const FileIndex &index, off_t start, off_t end)
 {
     const auto size(end - start);
     auto &s(slot(index));
 
-    if (s.start) {
+    if (s.valid()) {
         overhead_ += size;
     }
 
@@ -369,15 +376,33 @@ void ArchiveIndex::set(const Tilar::FileIndex &index, off_t start, off_t end)
     s.size = size;
 }
 
-void ArchiveIndex::unset(const Tilar::FileIndex &index)
+void ArchiveIndex::unset(const FileIndex &index)
 {
     auto &s(slot(index));
 
-    if (s.start) {
+    if (s.valid()) {
         overhead_ += s.size;
         s.start = s.size = 0;
         changed_ = true;
     }
+}
+
+Tilar::Entry::list ArchiveIndex::list() const
+{
+    Tilar::Entry::list list;
+
+    auto fgrid(grid_.begin());
+    FileIndex index;
+    for (index.type = 0; index.type < options_.filesPerTile; ++index.type) {
+        for (index.row = 0; index.row < edge_; ++index.row) {
+            for (index.col = 0; index.col < edge_; ++index.col, ++fgrid) {
+                if (!fgrid->valid()) { continue; }
+                list.emplace_back(index, fgrid->start, fgrid->size);
+            }
+        }
+    }
+
+    return list;
 }
 
 } // namespace
@@ -730,6 +755,11 @@ IStream::pointer Tilar::input(const FileIndex &index)
 void Tilar::remove(const FileIndex &index)
 {
     detail().index.unset(index);
+}
+
+Tilar::Entry::list Tilar::list()
+{
+    return detail().index.list();
 }
 
 } } // namespace vadstena::tilestorage

@@ -74,8 +74,19 @@ public:
 
         FileIndex(unsigned int col = 0, unsigned int row = 0
                   , unsigned int type = 0)
-            : col(col), row(row), type(type)
-        {}
+            : col(col), row(row), type(type) {}
+    };
+
+    struct Entry {
+        FileIndex index;
+        std::uint32_t start;
+        std::uint32_t size;
+
+        Entry(const FileIndex &index, std::uint32_t start
+              , std::uint32_t size)
+            : index(index), start(start), size(size) {}
+
+        typedef std::vector<Entry> list;
     };
 
     /** Flushes file to the disk (writes new index if needed).
@@ -96,6 +107,10 @@ public:
     /** Removes file at given index.
      */
     void remove(const FileIndex &index);
+
+    /** List all existing files.
+     */
+    Entry::list list();
 
 private:
     struct Detail;
