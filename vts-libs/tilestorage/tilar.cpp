@@ -54,6 +54,13 @@ void serialize(std::array<std::uint8_t, S> &out, int index, const T &value)
     *reinterpret_cast<T*>(out.data() + index) = value;
 }
 
+template <typename T, size_t S>
+void deserialize(const std::array<std::uint8_t, S> &in, int index
+                 , T &value)
+{
+    value = *reinterpret_cast<const T*>(in.data() + index);
+}
+
 int flags(Tilar::OpenMode openMode)
 {
     return ((openMode == Tilar::OpenMode::readOnly)
@@ -101,7 +108,8 @@ void truncate(const Filedes &fd, off_t size)
 
 off_t seekFromEnd(const Filedes &fd, off_t pos = 0)
 {
-    const auto p(::lseek(fd, pos, SEEK_END));
+    LOG(info4) << "Seeking to " << pos << " bytes from the end.";
+    const auto p(::lseek(fd, -pos, SEEK_END));
     if (-1 == p) {
         std::system_error e(errno, std::system_category());
         LOG(warn1)
@@ -136,7 +144,8 @@ void write(const Filedes &fd, const Block &block)
 template <typename Block>
 void read(const Filedes &fd, Block &block)
 {
-    auto left(block.size() * sizeof(typename Block::value_type));
+    auto size(block.size() * sizeof(typename Block::value_type));
+    auto left(size);
     auto *data(reinterpret_cast<unsigned char*>(block.data()));
     while (left) {
         auto bytes(::read(fd, data, left));
@@ -148,6 +157,13 @@ void read(const Filedes &fd, Block &block)
                 << ": <" << e.code() << ", " << e.what() << ">.";
             throw e;
         }
+        if (!bytes) {
+            // EOF!
+            LOGTHROW(err1, std::runtime_error)
+                << "EOF while trying to read " << size
+                << " bytes from file " << fd.path() << " (only "
+                << (size - left) << " bytes have been read).";
+        }
         left -= bytes;
         data += left;
     }
@@ -155,6 +171,8 @@ void read(const Filedes &fd, Block &block)
 
 std::tuple<Tilar::Options, std::uint8_t> loadHeader(const Filedes &fd)
 {
+    LOG(info1) << "Loading archive header.";
+
     std::array<std::uint8_t, header_constants::size> header;
     read(fd, header);
 
@@ -182,6 +200,8 @@ std::tuple<Tilar::Options, std::uint8_t> loadHeader(const Filedes &fd)
 
 Version saveHeader(const Filedes &fd, const Tilar::Options &options)
 {
+    LOG(info1) << "Saving archive header.";
+
     auto version(header_constants::version);
 
     std::array<std::uint8_t, header_constants::size> header;
@@ -225,10 +245,10 @@ public:
         , grid_(files(options), Slot()), overhead_(0), changed_(0)
     {}
 
-    /** Loads index from given file descriptor. If (pos <= 0) then the search
-     *  for Spock^Wthe index is initiated from the current end of the file.
+    /** Loads index from given file descriptor at pos bytes from the end of a
+     *  file.
      */
-    void load(const Filedes &fd, off_t pos = 0);
+    void load(const Filedes &fd, off_t pos, bool checkCrc = false);
 
     /** Saves new index to the end of the file;
      */
@@ -248,6 +268,10 @@ public:
 
     bool changed() const { return changed_; }
     void fresh() { changed_ = false; }
+
+    int savedSize() const {
+        return index_constants::size + (grid_.size() * sizeof(Slot));
+    }
 
 private:
     inline Slot& slot(const Tilar::FileIndex &index) {
@@ -275,7 +299,7 @@ private:
 
 void ArchiveIndex::save(const Filedes &fd) const
 {
-    LOG(info1) << "Saving new archive index.";
+    LOG(info1) << "Saving new archive index to file.";
     std::uint64_t timestamp(std::time(nullptr));
 
     // save header first
@@ -290,6 +314,45 @@ void ArchiveIndex::save(const Filedes &fd) const
     seekFromEnd(fd);
     write(fd, header);
     write(fd, grid_);
+}
+
+void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
+{
+    LOG(info1) << "Loading archive index from file.";
+    seekFromEnd(fd, pos);
+
+    // load header first
+    std::array<std::uint8_t, index_constants::size> header;
+    read(fd, header);
+
+    if (!std::equal(index_constants::magic.begin()
+                    , index_constants::magic.end()
+                    , header.begin()))
+    {
+        LOGTHROW(warn1, std::runtime_error)
+            << "Invalid magic in index of tilar file "
+            << fd.path() << " at position "
+            << pos << ".";
+    }
+
+    std::uint64_t timestamp;
+    std::uint32_t savedCrc;
+    deserialize(header, index_constants::index::overhead, overhead_);
+    deserialize(header, index_constants::index::timestamp, timestamp);
+    deserialize(header, index_constants::index::crc32, savedCrc);
+
+    read(fd, grid_);
+
+    if (checkCrc) {
+        auto computedCrc(crc(timestamp));
+        if (computedCrc != savedCrc) {
+            LOGTHROW(warn1, InvalidSignature)
+                << "Invalid CRC32 of archive index in file " << fd.path()
+                << " at position " << pos << "; expected 0x"
+                << std::hex << computedCrc << ", encoutered 0x"
+                << savedCrc << ".";
+        }
+    }
 }
 
 void ArchiveIndex::set(const Tilar::FileIndex &index, off_t start, off_t end)
@@ -327,11 +390,21 @@ struct Tilar::Detail
     Detail& operator=(Detail&&) = delete;
 
     Detail(std::uint8_t version, const Options &options
-           , Filedes &&fd, bool readOnly)
-        : version(version), options(options), fd(std::move(fd))
+           , Filedes &&srcFd, bool readOnly)
+        : version(version), options(options), fd(std::move(srcFd))
         , readOnly(readOnly), index(options)
-        , checkpoint(fileSize(this->fd)), tx(0)
-    {}
+        , checkpoint(fileSize(fd)), tx(0)
+    {
+        if (checkpoint > off_t(header_constants::size)) {
+            // more bytes than header
+            if (checkpoint < (index.savedSize() + header_constants::size)) {
+                LOGTHROW(warn1, InvalidSignature)
+                    << "File is too short.";
+            }
+            // TODO: do not check crc in regular open
+            index.load(fd, index.savedSize(), true);
+        }
+    }
 
     ~Detail();
 
