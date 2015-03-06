@@ -245,7 +245,8 @@ public:
         , edge_(edge(options))
         , rowSkip_(edge_)
         , typeSkip_(tiles(options))
-        , grid_(files(options), Slot()), overhead_(0), changed_(0)
+        , grid_(files(options), Slot()), overhead_(0), changed_(false)
+        , loaded_(false)
     {}
 
     /** Loads index from given file descriptor at pos bytes from the end of a
@@ -255,7 +256,7 @@ public:
 
     /** Saves new index to the end of the file;
      */
-    void save(const Filedes &fd) const;
+    void save(const Filedes &fd);
 
     void set(const FileIndex &index, off_t start, off_t end);
 
@@ -302,9 +303,10 @@ private:
     std::uint32_t overhead_;
 
     bool changed_;
+    bool loaded_;
 };
 
-void ArchiveIndex::save(const Filedes &fd) const
+void ArchiveIndex::save(const Filedes &fd)
 {
     LOG(info1) << "Saving new archive index to file.";
     std::uint64_t timestamp(std::time(nullptr));
@@ -314,13 +316,21 @@ void ArchiveIndex::save(const Filedes &fd) const
     std::copy(index_constants::magic.begin(), index_constants::magic.end()
               , header.begin());
 
-    serialize(header, index_constants::index::overhead, overhead_);
+    auto overhead(overhead_);
+    // take into account index size of index if there is already some index
+    // present in the file
+    if (loaded_) { overhead += savedSize(); }
+
+    serialize(header, index_constants::index::overhead, overhead);
     serialize(header, index_constants::index::timestamp, timestamp);
     serialize(header, index_constants::index::crc32, crc(timestamp));
 
     seekFromEnd(fd);
     write(fd, header);
     write(fd, grid_);
+
+    // update overhead
+    overhead_ = overhead;
 }
 
 void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
@@ -360,6 +370,8 @@ void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
                 << savedCrc << ".";
         }
     }
+
+    loaded_ = true;
 }
 
 void ArchiveIndex::set(const FileIndex &index, off_t start, off_t end)
