@@ -113,11 +113,11 @@ off_t seekFromEnd(const Filedes &fd, off_t pos = 0)
     return p;
 }
 
-template <size_t S>
-void write(const Filedes &fd, const std::array<std::uint8_t, S> &block)
+template <typename Block>
+void write(const Filedes &fd, const Block &block)
 {
-    auto left(block.size());
-    const unsigned char *data(block.data());
+    auto left(block.size() * sizeof(typename Block::value_type));
+    const auto *data(reinterpret_cast<const unsigned char*>(block.data()));
     while (left) {
         auto bytes(::write(fd, data, left));
         if (-1 == bytes) {
@@ -133,11 +133,11 @@ void write(const Filedes &fd, const std::array<std::uint8_t, S> &block)
     }
 }
 
-template <size_t S>
-void read(const Filedes &fd, std::array<std::uint8_t, S> &block)
+template <typename Block>
+void read(const Filedes &fd, Block &block)
 {
-    auto left(block.size());
-    unsigned char *data(block.data());
+    auto left(block.size() * sizeof(typename Block::value_type));
+    auto *data(reinterpret_cast<unsigned char*>(block.data()));
     while (left) {
         auto bytes(::read(fd, data, left));
         if (-1 == bytes) {
@@ -221,8 +221,8 @@ public:
     ArchiveIndex(const Tilar::Options &options)
         : options_(options_)
         , rowSkip_(sizeof(Slot) * edge(options))
-        , gridSkip_(sizeof(Slot) * tiles(options))
-        , grids_(files(options), Slot())
+        , typeSkip_(sizeof(Slot) * tiles(options))
+        , grid_(files(options), Slot())
         , overhead_(0)
     {}
 
@@ -243,29 +243,29 @@ public:
         boost::crc_32_type crc;
         crc.process_bytes(&overhead_, sizeof(overhead_));
         crc.process_bytes(&timestamp, sizeof(timestamp));
-        crc.process_bytes(grids_.data(), grids_.size());
+        crc.process_bytes(grid_.data(), grid_.size());
         return crc.checksum();
     }
 
 private:
     inline Slot& slot(const Tilar::FileIndex &index) {
-        return grids_[index.col
-                      + (rowSkip_ * index.row)
-                      + (gridSkip_ * index.type)];
+        return grid_[index.col
+                     + (rowSkip_ * index.row)
+                     + (typeSkip_ * index.type)];
     }
 
     inline const Slot& slot(const Tilar::FileIndex &index) const {
-        return grids_[index.col
-                      + (rowSkip_ * index.row)
-                      + (gridSkip_ * index.type)];
+        return grid_[index.col
+                     + (rowSkip_ * index.row)
+                     + (typeSkip_ * index.type)];
     }
 
-    typedef std::vector<Slot> Grids;
+    typedef std::vector<Slot> Grid;
 
     const Tilar::Options options_;
     const int rowSkip_;
-    const int gridSkip_;
-    Grids grids_;
+    const int typeSkip_;
+    Grid grid_;
     std::uint32_t overhead_;
 };
 
@@ -285,6 +285,7 @@ void ArchiveIndex::save(const Filedes &fd) const
 
     seekFromEnd(fd);
     write(fd, header);
+    write(fd, grid_);
 }
 
 void ArchiveIndex::set(const Tilar::FileIndex &index, off_t start, off_t end)
