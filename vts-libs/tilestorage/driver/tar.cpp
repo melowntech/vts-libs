@@ -35,7 +35,7 @@ public:
 
     virtual void close() UTILITY_OVERRIDE {}
 
-    virtual std::string name() UTILITY_OVERRIDE {
+    virtual std::string name() const UTILITY_OVERRIDE {
         return path_.string();
     };
 

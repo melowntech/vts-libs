@@ -10,12 +10,16 @@
 
 #include <memory>
 #include <cstdint>
+#include <ostream>
 
 #include <boost/filesystem/path.hpp>
+#include <boost/iostreams/categories.hpp>
 
-#include "./types.hpp"
 #include "../ids.hpp"
 #include "../range.hpp"
+
+#include "./types.hpp"
+#include "./streams.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -63,6 +67,26 @@ public:
     Tilar(const Tilar&) = delete;
     Tilar& operator=(const Tilar&) = delete;
 
+    struct Index {
+        unsigned int col;
+        unsigned int row;
+        unsigned int type;
+
+        Index(unsigned int col = 0, unsigned int row = 0
+              , unsigned int type = 0)
+            : col(col), row(row), type(type)
+        {}
+    };
+
+    /** Flushes file to the disk (writes new index if needed).
+     */
+    void flush();
+
+    // operations
+    OStream::pointer output(const Index &index);
+
+    IStream::pointer input(const Index &index);
+
 private:
     struct Detail;
 
@@ -71,6 +95,10 @@ private:
     std::unique_ptr<Detail> detail_;
     Detail& detail() { return *detail_; }
     const Detail& detail() const { return *detail_; }
+
+    class Device; friend class Device;
+    class Source; friend class Source;
+    class Sink; friend class Sink;
 };
 
 } } // namespace vadstena::tilestorage

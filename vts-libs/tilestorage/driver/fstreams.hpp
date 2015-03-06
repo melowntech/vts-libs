@@ -51,7 +51,9 @@ public:
         if (onClose_) { onClose_(true); }
     }
 
-    virtual std::string name() UTILITY_OVERRIDE { return path_.string(); };
+    virtual std::string name() const UTILITY_OVERRIDE {
+        return path_.string();
+    };
 
 private:
     boost::filesystem::path path_;
@@ -83,7 +85,9 @@ public:
 
     virtual void close() UTILITY_OVERRIDE { f_.close(); }
 
-    virtual std::string name() UTILITY_OVERRIDE { return path_.string(); };
+    virtual std::string name() const UTILITY_OVERRIDE {
+        return path_.string();
+    };
 
 private:
     boost::filesystem::path path_;

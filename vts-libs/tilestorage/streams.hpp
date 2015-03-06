@@ -16,7 +16,7 @@ public:
     virtual ~OStream() {}
     virtual std::ostream& get() = 0;
     virtual void close() = 0;
-    virtual std::string name() = 0;
+    virtual std::string name() const = 0;
 
     operator std::ostream&() { return get(); }
     typedef std::shared_ptr<OStream> pointer;
@@ -28,7 +28,7 @@ public:
     virtual ~IStream() {}
     virtual std::istream& get() = 0;
     virtual void close() = 0;
-    virtual std::string name() = 0;
+    virtual std::string name() const = 0;
 
     operator std::istream&() { return get(); }
     typedef std::shared_ptr<IStream> pointer;
