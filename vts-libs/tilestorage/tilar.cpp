@@ -222,8 +222,7 @@ public:
         : options_(options_)
         , rowSkip_(sizeof(Slot) * edge(options))
         , typeSkip_(sizeof(Slot) * tiles(options))
-        , grid_(files(options), Slot())
-        , overhead_(0)
+        , grid_(files(options), Slot()), overhead_(0), changed_(0)
     {}
 
     /** Loads index from given file descriptor. If (pos <= 0) then the search
@@ -247,6 +246,9 @@ public:
         return crc.checksum();
     }
 
+    bool changed() const { return changed_; }
+    void fresh() { changed_ = false; }
+
 private:
     inline Slot& slot(const Tilar::FileIndex &index) {
         return grid_[index.col
@@ -267,6 +269,8 @@ private:
     const int typeSkip_;
     Grid grid_;
     std::uint32_t overhead_;
+
+    bool changed_;
 };
 
 void ArchiveIndex::save(const Filedes &fd) const
@@ -296,6 +300,8 @@ void ArchiveIndex::set(const Tilar::FileIndex &index, off_t start, off_t end)
     if (s.start) {
         overhead_ += size;
     }
+
+    changed_ = (s.start != start);
     s.start = start;
     s.size = size;
 }
@@ -306,8 +312,9 @@ void ArchiveIndex::unset(const Tilar::FileIndex &index)
 
     if (s.start) {
         overhead_ += s.size;
+        s.start = s.size = 0;
+        changed_ = true;
     }
-    s.start = s.size = 0;
 }
 
 } // namespace
@@ -371,6 +378,10 @@ struct Tilar::Detail
         tx = 0;
     }
 
+    bool changed() {
+        return (!readOnly && (index.changed() || fileSize(fd) != checkpoint));
+    }
+
     Version version;
     const Options options;
     Filedes fd;
@@ -388,18 +399,22 @@ struct Tilar::Detail
 
 void Tilar::Detail::flush()
 {
-    if (!readOnly) {
+    if (tx) {
+        LOGTHROW(err2, PendingTransaction)
+            << "Pending transaction in archive " << fd.path() << ".";
+    }
+
+    if (changed()) {
         // save index and remember new checkpoint
         index.save(fd);
         checkpoint = fileSize(fd);
+        index.fresh();
     }
 }
 
 Tilar::Detail::~Detail()
 {
-    if (readOnly) { return; }
-
-    if (fileSize(fd) != checkpoint) {
+    if (changed()) {
         // unflushed -> rollback
         LOG(warn2) << "File was not flushed, rolling back.";
         truncate(fd, checkpoint);
@@ -637,6 +652,11 @@ OStream::pointer Tilar::output(const FileIndex &index)
 IStream::pointer Tilar::input(const FileIndex &index)
 {
     return std::make_shared<Source::Stream>(detail(), index);
+}
+
+void Tilar::remove(const FileIndex &index)
+{
+    detail().index.unset(index);
 }
 
 } } // namespace vadstena::tilestorage

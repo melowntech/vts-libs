@@ -83,9 +83,19 @@ public:
     void flush();
 
     // operations
+
+    /** Get output stream to write content of new file at given index.
+     */
     OStream::pointer output(const FileIndex &index);
 
+    /** Get input stream to read content of file at given index.
+     *  Throws if file doesn't exist.
+     */
     IStream::pointer input(const FileIndex &index);
+
+    /** Removes file at given index.
+     */
+    void remove(const FileIndex &index);
 
 private:
     struct Detail;
