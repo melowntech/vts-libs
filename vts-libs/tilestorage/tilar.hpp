@@ -67,13 +67,13 @@ public:
     Tilar(const Tilar&) = delete;
     Tilar& operator=(const Tilar&) = delete;
 
-    struct Index {
+    struct FileIndex {
         unsigned int col;
         unsigned int row;
         unsigned int type;
 
-        Index(unsigned int col = 0, unsigned int row = 0
-              , unsigned int type = 0)
+        FileIndex(unsigned int col = 0, unsigned int row = 0
+                  , unsigned int type = 0)
             : col(col), row(row), type(type)
         {}
     };
@@ -83,9 +83,9 @@ public:
     void flush();
 
     // operations
-    OStream::pointer output(const Index &index);
+    OStream::pointer output(const FileIndex &index);
 
-    IStream::pointer input(const Index &index);
+    IStream::pointer input(const FileIndex &index);
 
 private:
     struct Detail;
