@@ -315,6 +315,12 @@ public:
 
     Tilar::Info info() const;
 
+    bool check(const FileIndex &fileIndex) const {
+        return ((fileIndex.col < edge_)
+                && (fileIndex.row < edge_)
+                && (fileIndex.type < options_.filesPerTile));
+    }
+
 private:
     inline Slot& slot(const FileIndex &index) {
         return grid_[index.col
@@ -517,12 +523,22 @@ struct Tilar::Detail
         LOG(debug) << fd.path() << ": " <<  what << ".";
     }
 
+    void checkIndex(const FileIndex &fileIndex) const {
+        if (!index.check(fileIndex)) {
+            LOGTHROW(err2, std::runtime_error)
+                << "Index [" << fileIndex.col << ',' << fileIndex.row
+                << ',' << fileIndex.type << "] out of bounds.";
+        }
+    }
+
     void begin(const FileIndex &index, off_t start) {
         wannaWrite("start a transaction");
         if (tx) {
             LOGTHROW(err2, PendingTransaction)
                 << "Pending transaction in archive " << fd.path() << ".";
         }
+        checkIndex(index);
+
         txIndex = index;
         tx = start;
     }
