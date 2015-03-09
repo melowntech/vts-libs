@@ -67,6 +67,8 @@ public:
     Tilar(const Tilar&) = delete;
     Tilar& operator=(const Tilar&) = delete;
 
+    /** Index of a file in the tilar archive (3-dimensional index).
+     */
     struct FileIndex {
         unsigned int col;
         unsigned int row;
@@ -77,6 +79,8 @@ public:
             : col(col), row(row), type(type) {}
     };
 
+    /** File entry in the tilar archive. Used only in listing.
+     */
     struct Entry {
         FileIndex index;
         std::uint32_t start;
@@ -87,6 +91,13 @@ public:
             : index(index), start(start), size(size) {}
 
         typedef std::vector<Entry> list;
+    };
+
+    /** Archive information.
+     */
+    struct Info {
+        std::uint32_t overhead;
+        std::time_t modified;
     };
 
     /** Flushes file to the disk (writes new index if needed).
@@ -110,7 +121,9 @@ public:
 
     /** List all existing files.
      */
-    Entry::list list();
+    Entry::list list() const;
+
+    Info info() const;
 
 private:
     struct Detail;

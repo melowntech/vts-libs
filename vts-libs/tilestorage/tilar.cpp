@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <boost/noncopyable.hpp>
 #include <boost/crc.hpp>
 
 #include "utility/filedes.hpp"
@@ -229,7 +230,7 @@ inline unsigned int files(const Tilar::Options &o) {
     return o.filesPerTile * tiles(o);
 }
 
-class ArchiveIndex {
+class ArchiveIndex : boost::noncopyable {
 public:
     struct Slot {
         std::uint32_t start;
@@ -245,8 +246,8 @@ public:
         , edge_(edge(options))
         , rowSkip_(edge_)
         , typeSkip_(tiles(options))
-        , grid_(files(options), Slot()), overhead_(0), changed_(false)
-        , loaded_(false)
+        , grid_(files(options), Slot()), overhead_(0), timestamp_(0)
+        , changed_(false), loaded_(false)
     {}
 
     /** Loads index from given file descriptor at pos bytes from the end of a
@@ -262,14 +263,7 @@ public:
 
     void unset(const FileIndex &index);
 
-    std::uint32_t crc(std::uint64_t timestamp) const {
-        boost::crc_32_type crc;
-        crc.process_bytes(&overhead_, sizeof(overhead_));
-        crc.process_bytes(&timestamp, sizeof(timestamp));
-        crc.process_bytes(grid_.data(), grid_.size());
-        return crc.checksum();
-    }
-
+    std::uint32_t crc(std::uint32_t overhead) const;
     bool changed() const { return changed_; }
     void fresh() { changed_ = false; }
 
@@ -278,6 +272,8 @@ public:
     }
 
     Tilar::Entry::list list() const;
+
+    Tilar::Info info() const;
 
 private:
     inline Slot& slot(const FileIndex &index) {
@@ -301,15 +297,24 @@ private:
 
     Grid grid_;
     std::uint32_t overhead_;
+    std::uint64_t timestamp_;
 
     bool changed_;
     bool loaded_;
 };
 
+std::uint32_t ArchiveIndex::crc(std::uint32_t overhead) const
+{
+    boost::crc_32_type crc;
+    crc.process_bytes(&overhead, sizeof(overhead));
+    crc.process_bytes(&timestamp_, sizeof(timestamp_));
+    crc.process_bytes(grid_.data(), grid_.size());
+    return crc.checksum();
+}
+
 void ArchiveIndex::save(const Filedes &fd)
 {
     LOG(info1) << "Saving new archive index to file.";
-    std::uint64_t timestamp(std::time(nullptr));
 
     // save header first
     std::array<std::uint8_t, index_constants::size> header;
@@ -321,9 +326,12 @@ void ArchiveIndex::save(const Filedes &fd)
     // present in the file
     if (loaded_) { overhead += savedSize(); }
 
+    // update timestamp
+    timestamp_ = std::time(nullptr);
+
     serialize(header, index_constants::index::overhead, overhead);
-    serialize(header, index_constants::index::timestamp, timestamp);
-    serialize(header, index_constants::index::crc32, crc(timestamp));
+    serialize(header, index_constants::index::timestamp, timestamp_);
+    serialize(header, index_constants::index::crc32, crc(overhead));
 
     seekFromEnd(fd);
     write(fd, header);
@@ -352,16 +360,15 @@ void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
             << pos << ".";
     }
 
-    std::uint64_t timestamp;
     std::uint32_t savedCrc;
     deserialize(header, index_constants::index::overhead, overhead_);
-    deserialize(header, index_constants::index::timestamp, timestamp);
+    deserialize(header, index_constants::index::timestamp, timestamp_);
     deserialize(header, index_constants::index::crc32, savedCrc);
 
     read(fd, grid_);
 
     if (checkCrc) {
-        auto computedCrc(crc(timestamp));
+        auto computedCrc(crc(overhead_));
         if (computedCrc != savedCrc) {
             LOGTHROW(warn1, InvalidSignature)
                 << "Invalid CRC32 of archive index in file " << fd.path()
@@ -417,6 +424,11 @@ Tilar::Entry::list ArchiveIndex::list() const
     return list;
 }
 
+Tilar::Info ArchiveIndex::info() const
+{
+    return { overhead_, timestamp_ };
+}
+
 } // namespace
 
 struct Tilar::Detail
@@ -436,7 +448,7 @@ struct Tilar::Detail
             // more bytes than header
             if (checkpoint < (index.savedSize() + header_constants::size)) {
                 LOGTHROW(warn1, InvalidSignature)
-                    << "File is too short.";
+                    << "File " << fd.path() << " is too short.";
             }
             // TODO: do not check crc in regular open
             index.load(fd, index.savedSize(), true);
@@ -551,7 +563,7 @@ Tilar::~Tilar() {}
 
 Tilar Tilar::open(const fs::path &path, OpenMode openMode)
 {
-    Filedes fd(::open(path.string().c_str(), flags(openMode)));
+    Filedes fd(::open(path.string().c_str(), flags(openMode)), path);
     if (-1 == fd) {
         std::system_error e(errno, std::system_category());
         LOG(warn1)
@@ -769,9 +781,14 @@ void Tilar::remove(const FileIndex &index)
     detail().index.unset(index);
 }
 
-Tilar::Entry::list Tilar::list()
+Tilar::Entry::list Tilar::list() const
 {
     return detail().index.list();
+}
+
+Tilar::Info Tilar::info() const
+{
+    return detail().index.info();
 }
 
 } } // namespace vadstena::tilestorage
