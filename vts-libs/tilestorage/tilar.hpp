@@ -14,6 +14,7 @@
 
 #include <boost/filesystem/path.hpp>
 #include <boost/iostreams/categories.hpp>
+#include <boost/uuid/uuid.hpp>
 
 #include "../ids.hpp"
 #include "../range.hpp"
@@ -32,22 +33,35 @@ public:
         truncate
         //!< fail if the file exists
         , failIfExists
+        //!< about to extend already existing file, options must match
+        , append
+        //!< append file if options exist, truncate otherwise
+        , appendOrTruncate
     };
 
     enum class OpenMode { readOnly, readWrite };
 
     struct Options {
+        /** square edge = 2^binaryOrder
+         */
         unsigned int binaryOrder;
+
+        /** Number of files per tile.
+         */
         unsigned int filesPerTile;
 
-        bool operator==(const Options &o) const {
-            return ((binaryOrder == o.binaryOrder)
-                    && (filesPerTile == o.filesPerTile));
-        }
+        /** UUID of file. In case of a group of file (i.e. used as backing store
+         *  of a tileset use UUID of tileset.
+         */
+        boost::uuids::uuid uuid;
+
+        bool operator==(const Options &o) const;
 
         bool operator!=(const Options &o) const {
             return !operator==(o);
         }
+
+        Options(unsigned int binaryOrder = 0, unsigned int filesPerTile = 0);
     };
 
     /** Opens existing tilar files.

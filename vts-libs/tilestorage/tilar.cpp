@@ -11,8 +11,10 @@
 
 #include <boost/noncopyable.hpp>
 #include <boost/crc.hpp>
+#include <boost/uuid/nil_generator.hpp>
 
 #include "utility/filedes.hpp"
+#include "utility/enum.hpp"
 
 #include "./tilar.hpp"
 #include "./error.hpp"
@@ -28,14 +30,16 @@ namespace {
 typedef std::uint8_t Version;
 
 namespace header_constants {
-    const std::size_t size(8);
+    const std::size_t size(28);
     const std::array<std::uint8_t, 5> magic({{ 'T', 'I', 'L', 'A', 'R' }});
     const Version version(0);
 
     namespace index {
         const int version(5);
-        const int binaryOrder(6);
-        const int filesPerTile(7);
+        const int binaryOrder(version + 1);
+        const int filesPerTile(binaryOrder + 1);
+        const int uuid(filesPerTile + 1);
+        const int crc32(uuid + 16);
     }  // namespace index
 } // namespace header
 
@@ -82,6 +86,10 @@ int flags(Tilar::CreateMode createMode)
 
     case Tilar::CreateMode::truncate:
         return O_RDWR | O_TRUNC | O_CREAT;
+
+    case Tilar::CreateMode::append:
+    case Tilar::CreateMode::appendOrTruncate:
+        return O_RDWR | O_CREAT;
     }
     throw;
 }
@@ -173,6 +181,16 @@ void read(const Filedes &fd, Block &block)
     }
 }
 
+std::uint32_t crc(std::uint8_t version, const Tilar::Options &options)
+{
+    boost::crc_32_type crc;
+    crc.process_byte(version);
+    crc.process_byte(options.binaryOrder);
+    crc.process_byte(options.filesPerTile);
+    crc.process_bytes(options.uuid.data, options.uuid.size());
+    return crc.checksum();
+}
+
 std::tuple<Tilar::Options, std::uint8_t> loadHeader(const Filedes &fd)
 {
     LOG(info1) << "Loading archive header.";
@@ -196,10 +214,25 @@ std::tuple<Tilar::Options, std::uint8_t> loadHeader(const Filedes &fd)
             << fd.path() << ": " << int(version) << ".";
     }
 
-    return std::tuple<Tilar::Options, std::uint8_t>
-        (Tilar::Options{ header[header_constants::index::binaryOrder]
-                         , header[header_constants::index::filesPerTile] }
-         , version);
+    Tilar::Options options(header[header_constants::index::binaryOrder]
+                           , header[header_constants::index::filesPerTile]);
+
+    std::copy(header.begin() + header_constants::index::uuid
+              , header.begin()
+              + (header_constants::index::uuid + options.uuid.size())
+              , options.uuid.data);
+
+    std::uint32_t savedCrc;
+    deserialize(header, header_constants::index::crc32, savedCrc);
+    auto computedCrc(crc(version, options));
+    if (computedCrc != savedCrc) {
+        LOGTHROW(warn1, InvalidSignature)
+            << "Invalid CRC32 of archive file " << fd.path() << "; expected 0x"
+            << std::hex << computedCrc << ", encoutered 0x"
+            << savedCrc << ".";
+    }
+
+    return std::tuple<Tilar::Options, std::uint8_t>(options, version);
 }
 
 Version saveHeader(const Filedes &fd, const Tilar::Options &options)
@@ -215,6 +248,10 @@ Version saveHeader(const Filedes &fd, const Tilar::Options &options)
 
     header[header_constants::index::binaryOrder] = options.binaryOrder;
     header[header_constants::index::filesPerTile] = options.filesPerTile;
+
+    std::copy(options.uuid.data, options.uuid.data + options.uuid.size()
+              , header.begin() + header_constants::index::uuid);
+    serialize(header, header_constants::index::crc32, crc(version, options));
 
     write(fd, header);
 
@@ -625,8 +662,40 @@ Tilar Tilar::create(const fs::path &path, const Options &options
 
     std::uint8_t version(0);
 
-    // write header
-    version = saveHeader(fd, options);
+    if (utility::in
+        (createMode, CreateMode::failIfExists, CreateMode::truncate))
+    {
+        // empty file -> write header
+        version = saveHeader(fd, options);
+    } else {
+        auto size(fileSize(fd));
+        if (!size) {
+            // empty -> write header
+            version = saveHeader(fd, options);
+        } else {
+            // something already in the file
+            const auto current(loadHeader(fd));
+            if (std::get<0>(current) != options) {
+                // different setup
+                // append -> fail
+                if (createMode == CreateMode::append) {
+                    LOGTHROW(warn1, std::runtime_error)
+                        << "Unable to append file " << path
+                        << ": file has different configuration.";
+                }
+
+                // appendOrTruncate -> regenerate
+                LOGTHROW(warn1, std::runtime_error)
+                    << "File " << path << " has different configuration"
+                    << ", truncating.";
+
+                truncate(fd, 0);
+                version = saveHeader(fd, options);
+            } else {
+                version = std::get<1>(current);
+            }
+        }
+    }
 
     return { new Detail(version, options, std::move(fd), false, 0) };
 }
@@ -816,6 +885,18 @@ void Tilar::expect(const Options &options)
             << "Expectation faleid: file " << detail().fd.path()
             << " has different configuration.";
     }
+}
+
+Tilar::Options::Options(unsigned int binaryOrder, unsigned int filesPerTile)
+    : binaryOrder(binaryOrder), filesPerTile(filesPerTile)
+    , uuid(boost::uuids::nil_uuid())
+{}
+
+bool Tilar::Options::operator==(const Options &o) const
+{
+    return ((binaryOrder == o.binaryOrder)
+            && (filesPerTile == o.filesPerTile)
+            && (uuid == o.uuid));
 }
 
 } } // namespace vadstena::tilestorage
