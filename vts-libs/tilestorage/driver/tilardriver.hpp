@@ -6,6 +6,7 @@
 
 #include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/uuid/uuid.hpp>
 
 #include "../driver.hpp"
 #include "./factory.hpp"
@@ -82,12 +83,17 @@ private:
 
         /** Binary order of magnitude of data stored in the individial tile
          *  archives (each archive has square grid of
-         *  (2^binarySize_)*(2^binarySize_) tiles.
+         *  (2^binaryOrder_)*(2^binaryOrder_) tiles.
          *
          * This information maps directly to LOD-shift (tile space of tiles at
-         * any LOD are stored in space of "super" tiles at (LOD - binarySize_)).
+         * any LOD are stored in space of "super" tiles at (LOD - binaryOrder_)).
          */
-        std::uint8_t binarySize;
+        std::uint8_t binaryOrder;
+
+        /** UUID of storage. Generated automatically on creation. Passed to
+         *  tilar file create/check.
+         */
+        boost::uuids::uuid uuid;
 
         Options(const StaticProperties &properties);
         Options(const StaticProperties &properties, bool);

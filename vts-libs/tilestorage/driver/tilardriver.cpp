@@ -6,6 +6,9 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/utility/in_place_factory.hpp>
+#include <boost/uuid/string_generator.hpp>
+#include <boost/uuid/random_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
 
 #include "utility/streams.hpp"
 #include "utility/path.hpp"
@@ -24,8 +27,10 @@ namespace vadstena { namespace tilestorage {
 namespace fs = boost::filesystem;
 
 namespace {
-    const std::string KeyBinarySize("binarySize");
-    const std::uint8_t DefaultBinarySize(5);
+    const std::string KeyBinaryOrder("binaryOrder");
+    const std::uint8_t DefaultBinaryOrder(5);
+
+    const std::string KeyUUID("uuid");
 
     const std::string ConfigName("mapConfig.json");
     const std::string TileIndexName("index.bin");
@@ -95,22 +100,58 @@ namespace {
         }
         return static_cast<T>(value);
     }
+
+    template<>
+    boost::uuids::uuid getOption<boost::uuids::uuid, void>
+    (const DriverProperties::Options &options, const std::string &key
+     , const boost::optional<boost::uuids::uuid> &defaultValue)
+    {
+        auto foptions(options.find(key));
+        if (foptions == options.end()) {
+            if (!defaultValue) {
+                LOGTHROW(err2, std::runtime_error)
+                    << "Option <" << key << "> not found "
+                    "and no default value has been provided.";
+            }
+            return *defaultValue;
+        }
+
+        try {
+            return boost::uuids::string_generator()
+                (boost::any_cast<std::string>(foptions->second));
+        } catch (const boost::bad_any_cast&) {
+            LOGTHROW(err2, std::logic_error)
+                << "Options value <" << key << "> is not a string.";
+        }
+
+        throw;
+    }
+
+    boost::uuids::uuid generateUuid() {
+        // generate random uuid
+        return boost::uuids::random_generator()();
+    }
 } // namespace
 
 TilarDriver::Options::Options(const StaticProperties &properties)
     : baseTileSize(properties.baseTileSize)
     , alignment(properties.alignment)
-    , binarySize(getOption<decltype(binarySize)>
-                 (properties.driver.options, KeyBinarySize))
+    , binaryOrder(getOption<decltype(binaryOrder)>
+                 (properties.driver.options, KeyBinaryOrder))
+    , uuid(getOption<boost::uuids::uuid>
+           (properties.driver.options, KeyUUID))
 {}
 
 TilarDriver::Options::Options(const StaticProperties &properties
                               , bool)
     : baseTileSize(properties.baseTileSize)
     , alignment(properties.alignment)
-    , binarySize(getOption<decltype(binarySize)>
-                 (properties.driver.options, KeyBinarySize
-                  , DefaultBinarySize))
+    , binaryOrder(getOption<decltype(binaryOrder)>
+                 (properties.driver.options, KeyBinaryOrder
+                  , DefaultBinaryOrder))
+    , uuid(getOption<boost::uuids::uuid>
+           (properties.driver.options, KeyUUID
+            , generateUuid()))
 {}
 
 TilarDriver::TilarDriver(const boost::filesystem::path &root
@@ -227,7 +268,10 @@ DriverProperties TilarDriver::properties_impl() const
 {
     DriverProperties dp;
     dp.type = Factory::staticType();
-    dp.options[KeyBinarySize] = boost::any(std::uint64_t(options_.binarySize));
+    dp.options[KeyBinaryOrder]
+        = boost::any(std::uint64_t(options_.binaryOrder));
+    dp.options[KeyUUID]
+        = boost::any(to_string(options_.uuid));
     return dp;
 }
 

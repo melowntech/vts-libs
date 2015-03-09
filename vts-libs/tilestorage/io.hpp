@@ -128,7 +128,7 @@ dump(std::basic_ostream<CharT, Traits> &os
         } else if (ti == typeid(double)) {
             os << boost::any_cast<double>(vt.second);
         } else if (ti == typeid(std::string)) {
-            os << '"' << boost::any_cast<double>(vt.second) << '"';
+            os << '"' << boost::any_cast<std::string>(vt.second) << '"';
         } else if (ti == typeid(bool)) {
             os << std::boolalpha << boost::any_cast<bool>(vt.second);
         } else {
