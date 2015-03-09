@@ -40,13 +40,14 @@ namespace header_constants {
 } // namespace header
 
 namespace index_constants {
-    const std::size_t size(20);
+    const std::size_t size(24);
     const std::array<std::uint8_t, 4> magic({{ 'T', 'I', 'D', 'X' }});
 
     namespace index {
-        const int overhead(4);
-        const int timestamp(8);
-        const int crc32(16);
+        const int previous(4);
+        const int overhead(previous + 4);
+        const int timestamp(overhead + 4);
+        const int crc32(timestamp + 8);
     }  // namespace index
 } // namespace index_constants
 
@@ -54,13 +55,17 @@ template <typename T, size_t S>
 void serialize(std::array<std::uint8_t, S> &out, int index, const T &value)
 {
     *reinterpret_cast<T*>(out.data() + index) = value;
+    std::copy(reinterpret_cast<const std::uint8_t*>(&value)
+              , reinterpret_cast<const std::uint8_t*>(&value) + sizeof(T)
+              , out.data() + index);
 }
 
 template <typename T, size_t S>
 void deserialize(const std::array<std::uint8_t, S> &in, int index
                  , T &value)
 {
-    value = *reinterpret_cast<const T*>(in.data() + index);
+    std::copy(in.data() + index, in.data() + index + sizeof(T)
+              , reinterpret_cast<std::uint8_t*>(&value));
 }
 
 int flags(Tilar::OpenMode openMode)
@@ -77,9 +82,6 @@ int flags(Tilar::CreateMode createMode)
 
     case Tilar::CreateMode::truncate:
         return O_RDWR | O_TRUNC | O_CREAT;
-
-    case Tilar::CreateMode::append:
-        return O_RDWR | O_CREAT;
     }
     throw;
 }
@@ -246,8 +248,9 @@ public:
         , edge_(edge(options))
         , rowSkip_(edge_)
         , typeSkip_(tiles(options))
-        , grid_(files(options), Slot()), overhead_(0), timestamp_(0)
-        , changed_(false), loaded_(false)
+        , grid_(files(options), Slot())
+        , previous_(0), overhead_(0), timestamp_(0)
+        , changed_(false), loadedFrom_(0)
     {}
 
     /** Loads index from given file descriptor at pos bytes from the end of a
@@ -296,11 +299,12 @@ private:
     const unsigned int typeSkip_;
 
     Grid grid_;
+    std::uint32_t previous_;
     std::uint32_t overhead_;
     std::uint64_t timestamp_;
 
     bool changed_;
-    bool loaded_;
+    std::uint32_t loadedFrom_;
 };
 
 std::uint32_t ArchiveIndex::crc(std::uint32_t overhead) const
@@ -315,6 +319,7 @@ std::uint32_t ArchiveIndex::crc(std::uint32_t overhead) const
 void ArchiveIndex::save(const Filedes &fd)
 {
     LOG(info1) << "Saving new archive index to file.";
+    auto offset(fileSize(fd));
 
     // save header first
     std::array<std::uint8_t, index_constants::size> header;
@@ -324,11 +329,12 @@ void ArchiveIndex::save(const Filedes &fd)
     auto overhead(overhead_);
     // take into account index size of index if there is already some index
     // present in the file
-    if (loaded_) { overhead += savedSize(); }
+    if (loadedFrom_) { overhead += savedSize(); }
 
     // update timestamp
     timestamp_ = std::time(nullptr);
 
+    serialize(header, index_constants::index::previous, loadedFrom_);
     serialize(header, index_constants::index::overhead, overhead);
     serialize(header, index_constants::index::timestamp, timestamp_);
     serialize(header, index_constants::index::crc32, crc(overhead));
@@ -339,12 +345,14 @@ void ArchiveIndex::save(const Filedes &fd)
 
     // update overhead
     overhead_ = overhead;
+    previous_ = loadedFrom_;
+    loadedFrom_ = offset;
 }
 
 void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
 {
     LOG(info1) << "Loading archive index from file.";
-    seekFromEnd(fd, pos);
+    auto start(seekFromEnd(fd, pos));
 
     // load header first
     std::array<std::uint8_t, index_constants::size> header;
@@ -361,6 +369,7 @@ void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
     }
 
     std::uint32_t savedCrc;
+    deserialize(header, index_constants::index::previous, previous_);
     deserialize(header, index_constants::index::overhead, overhead_);
     deserialize(header, index_constants::index::timestamp, timestamp_);
     deserialize(header, index_constants::index::crc32, savedCrc);
@@ -378,7 +387,7 @@ void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
         }
     }
 
-    loaded_ = true;
+    loadedFrom_ = start;
 }
 
 void ArchiveIndex::set(const FileIndex &index, off_t start, off_t end)
@@ -426,7 +435,7 @@ Tilar::Entry::list ArchiveIndex::list() const
 
 Tilar::Info ArchiveIndex::info() const
 {
-    return { overhead_, timestamp_ };
+    return { loadedFrom_, previous_, overhead_, timestamp_ };
 }
 
 } // namespace
@@ -439,12 +448,15 @@ struct Tilar::Detail
     Detail& operator=(Detail&&) = delete;
 
     Detail(std::uint8_t version, const Options &options
-           , Filedes &&srcFd, bool readOnly)
+           , Filedes &&srcFd, bool readOnly
+           , std::uint32_t indexOffset)
         : version(version), options(options), fd(std::move(srcFd))
         , readOnly(readOnly), index(options)
         , checkpoint(fileSize(fd)), tx(0)
     {
-        if (checkpoint > off_t(header_constants::size)) {
+        if (indexOffset > header_constants::size) {
+            index.load(fd, checkpoint - indexOffset, true);
+        } else if (checkpoint > off_t(header_constants::size)) {
             // more bytes than header
             if (checkpoint < (index.savedSize() + header_constants::size)) {
                 LOGTHROW(warn1, InvalidSignature)
@@ -575,9 +587,26 @@ Tilar Tilar::open(const fs::path &path, OpenMode openMode)
     auto header(loadHeader(fd));
 
     return { new Detail(std::get<1>(header), std::get<0>(header)
-                        , std::move(fd), (openMode == OpenMode::readOnly)) };
+                        , std::move(fd), (openMode == OpenMode::readOnly)
+                        , 0) };
 }
 
+Tilar Tilar::open(const fs::path &path, std::uint32_t indexOffset)
+{
+    Filedes fd(::open(path.string().c_str(), flags(OpenMode::readOnly)), path);
+    if (-1 == fd) {
+        std::system_error e(errno, std::system_category());
+        LOG(warn1)
+            << "Failed to open tilar file " << path << ": <" << e.code()
+            << ", " << e.what() << ">.";
+        throw e;
+    }
+
+    auto header(loadHeader(fd));
+
+    return { new Detail(std::get<1>(header), std::get<0>(header)
+                        , std::move(fd), true, indexOffset) };
+}
 
 Tilar Tilar::create(const fs::path &path, const Options &options
                     , CreateMode createMode)
@@ -596,26 +625,10 @@ Tilar Tilar::create(const fs::path &path, const Options &options
 
     std::uint8_t version(0);
 
-    if (createMode != CreateMode::append) {
-        // empty file -> write header
-        version = saveHeader(fd, options);
-    } else {
-        auto size(fileSize(fd));
-        if (!size) {
-            // empty -> write header
-            version = saveHeader(fd, options);
-        } else {
-            const auto current(loadHeader(fd));
-            if (std::get<0>(current) != options) {
-                LOGTHROW(warn1, std::runtime_error)
-                    << "Unable to append file " << path
-                    << ": file has different configuration.";
-            }
-            version = std::get<1>(current);
-        }
-    }
+    // write header
+    version = saveHeader(fd, options);
 
-    return { new Detail(version, options, std::move(fd), false) };
+    return { new Detail(version, options, std::move(fd), false, 0) };
 }
 
 class Tilar::Device {
@@ -789,6 +802,20 @@ Tilar::Entry::list Tilar::list() const
 Tilar::Info Tilar::info() const
 {
     return detail().index.info();
+}
+
+const Tilar::Options& Tilar::options() const
+{
+    return detail().options;
+}
+
+void Tilar::expect(const Options &options)
+{
+    if (options != detail().options) {
+        LOGTHROW(warn1, std::runtime_error)
+            << "Expectation faleid: file " << detail().fd.path()
+            << " has different configuration.";
+    }
 }
 
 } } // namespace vadstena::tilestorage

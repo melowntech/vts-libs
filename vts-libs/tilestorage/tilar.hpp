@@ -30,8 +30,6 @@ public:
     enum class CreateMode {
         //!< truncates already existing file
         truncate
-        //!< about to extend already existing file, options must match
-        , append
         //!< fail if the file exists
         , failIfExists
     };
@@ -52,12 +50,34 @@ public:
         }
     };
 
+    /** Opens existing tilar files.
+     *
+     *  \param path to the tilar file
+     *  \param openMode open mode (r/o, r/w)
+     *  \return open tilar file
+     */
     static Tilar open(const boost::filesystem::path &path
                       , OpenMode openMode = OpenMode::readWrite);
 
+    /** Creates a new tilar file.
+     *
+     *  \param path to the tilar file
+     *  \param options options to set
+     *  \param createMode creation mode (fail if file exists, truncate original)
+     *  \return freshly created tilar file (r/w mode)
+     */
     static Tilar create(const boost::filesystem::path &path
                         , const Options &options
-                        , CreateMode createMode = CreateMode::append);
+                        , CreateMode createMode = CreateMode::failIfExists);
+
+    /** Special version of open: read-only access older file revision.
+     *
+     *  \param path to the tilar file
+     *  \param indexOffset index offset inside the file
+     *  \return open tilar file
+     */
+    static Tilar open(const boost::filesystem::path &path
+                      , std::uint32_t indexOffset);
 
     // these 3 functions cannot be defined here due to undefined Detail struct
     Tilar(Tilar&&);
@@ -96,7 +116,20 @@ public:
     /** Archive information.
      */
     struct Info {
+        /** Position of previous index in the file.
+         */
+        std::uint32_t offset;
+
+        /** Position of previous index in the file.
+         */
+        std::uint32_t previousOffset;
+
+        /** Number of bytes wasted in this file.
+         */
         std::uint32_t overhead;
+
+        /** Timestamp when this index has been saved.
+         */
         std::time_t modified;
     };
 
@@ -105,6 +138,10 @@ public:
     void flush();
 
     // operations
+
+    const Options& options() const;
+
+    void expect(const Options &options);
 
     /** Get output stream to write content of new file at given index.
      */
