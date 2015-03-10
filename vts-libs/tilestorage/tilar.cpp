@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <system_error>
 #include <algorithm>
+#include <sstream>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -99,7 +100,7 @@ off_t fileSize(const Filedes &fd)
     struct ::stat buf;
     if (-1 == ::fstat(fd, &buf)) {
         std::system_error e(errno, std::system_category());
-        LOG(warn1)
+        LOG(err1)
             << "Failed to stat tilar file " << fd.path() << ": <" << e.code()
             << ", " << e.what() << ">.";
         throw e;
@@ -111,7 +112,7 @@ void truncate(const Filedes &fd, off_t size)
 {
     if (-1 == ::ftruncate(fd, size)) {
         std::system_error e(errno, std::system_category());
-        LOG(warn1)
+        LOG(err1)
             << "Failed to truncate file " << fd.path() << ": <" << e.code()
             << ", " << e.what() << ">.";
         throw e;
@@ -124,7 +125,7 @@ off_t seekFromEnd(const Filedes &fd, off_t pos = 0)
     const auto p(::lseek(fd, -pos, SEEK_END));
     if (-1 == p) {
         std::system_error e(errno, std::system_category());
-        LOG(warn1)
+        LOG(err1)
             << "Failed to seek to the end in the  tilar file "
             << fd.path() << ": <" << e.code()
             << ", " << e.what() << ">.";
@@ -143,7 +144,7 @@ void write(const Filedes &fd, const Block &block)
         if (-1 == bytes) {
             if (EINTR == errno) { continue; }
             std::system_error e(errno, std::system_category());
-            LOG(warn1)
+            LOG(err1)
                 << "Unable to write to tilar file " << fd.path()
                 << ": <" << e.code() << ", " << e.what() << ">.";
             throw e;
@@ -164,7 +165,7 @@ void read(const Filedes &fd, Block &block)
         if (-1 == bytes) {
             if (EINTR == errno) { continue; }
             std::system_error e(errno, std::system_category());
-            LOG(warn1)
+            LOG(err1)
                 << "Unable to read from tilar file " << fd.path()
                 << ": <" << e.code() << ", " << e.what() << ">.";
             throw e;
@@ -202,14 +203,14 @@ std::tuple<Tilar::Options, std::uint8_t> loadHeader(const Filedes &fd)
                     , header_constants::magic.end()
                     , header.begin()))
     {
-        LOGTHROW(warn1, std::runtime_error)
+        LOGTHROW(err1, InvalidSignature)
             << "Invalid magic in header of tilar file "
             << fd.path() << ".";
     }
 
     auto version(header[header_constants::index::version]);
     if (version != header_constants::version) {
-        LOGTHROW(warn1, std::runtime_error)
+        LOGTHROW(err1, std::runtime_error)
             << "Invalid version in header of tilar file "
             << fd.path() << ": " << int(version) << ".";
     }
@@ -226,7 +227,7 @@ std::tuple<Tilar::Options, std::uint8_t> loadHeader(const Filedes &fd)
     deserialize(header, header_constants::index::crc32, savedCrc);
     auto computedCrc(crc(version, options));
     if (computedCrc != savedCrc) {
-        LOGTHROW(warn1, InvalidSignature)
+        LOGTHROW(err1, InvalidSignature)
             << "Invalid CRC32 of archive file " << fd.path() << "; expected 0x"
             << std::hex << computedCrc << ", encoutered 0x"
             << savedCrc << ".";
@@ -278,6 +279,8 @@ public:
         Slot() : start(0), size(0) {}
 
         bool valid() const { return start > 0; }
+
+        std::uint32_t end() const { return start + size; }
     };
 
     ArchiveIndex(const Tilar::Options &options)
@@ -303,6 +306,8 @@ public:
 
     void unset(const FileIndex &index);
 
+    const Slot& get(const FileIndex &index) const { return slot(index); }
+
     std::uint32_t crc(std::uint32_t overhead) const;
     bool changed() const { return changed_; }
     void fresh() { changed_ = false; }
@@ -315,20 +320,27 @@ public:
 
     Tilar::Info info() const;
 
-    bool check(const FileIndex &fileIndex) const {
-        return ((fileIndex.col < edge_)
-                && (fileIndex.row < edge_)
-                && (fileIndex.type < options_.filesPerTile));
+    void check(const FileIndex &fileIndex) const {
+        if (!((fileIndex.col < edge_)
+              && (fileIndex.row < edge_)
+              && (fileIndex.type < options_.filesPerTile)))
+        {
+            LOGTHROW(err2, std::runtime_error)
+                << "Index [" << fileIndex.col << ',' << fileIndex.row
+                << ',' << fileIndex.type << "] out of bounds.";
+        }
     }
 
 private:
     inline Slot& slot(const FileIndex &index) {
+        check(index);
         return grid_[index.col
                      + (rowSkip_ * index.row)
                      + (typeSkip_ * index.type)];
     }
 
     inline const Slot& slot(const FileIndex &index) const {
+        check(index);
         return grid_[index.col
                      + (rowSkip_ * index.row)
                      + (typeSkip_ * index.type)];
@@ -405,7 +417,7 @@ void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
                     , index_constants::magic.end()
                     , header.begin()))
     {
-        LOGTHROW(warn1, std::runtime_error)
+        LOGTHROW(err1, InvalidSignature)
             << "Invalid magic in index of tilar file "
             << fd.path() << " at position "
             << pos << ".";
@@ -422,7 +434,7 @@ void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
     if (checkCrc) {
         auto computedCrc(crc(overhead_));
         if (computedCrc != savedCrc) {
-            LOGTHROW(warn1, InvalidSignature)
+            LOGTHROW(err1, InvalidSignature)
                 << "Invalid CRC32 of archive index in file " << fd.path()
                 << " at position " << pos << "; expected 0x"
                 << std::hex << computedCrc << ", encoutered 0x"
@@ -485,6 +497,8 @@ Tilar::Info ArchiveIndex::info() const
 
 struct Tilar::Detail
 {
+    typedef std::shared_ptr<Detail> pointer;
+
     Detail(const Detail&) = delete;
     Detail& operator=(const Detail&) = delete;
     Detail(Detail&&) = delete;
@@ -502,7 +516,7 @@ struct Tilar::Detail
         } else if (checkpoint > off_t(header_constants::size)) {
             // more bytes than header
             if (checkpoint < (index.savedSize() + header_constants::size)) {
-                LOGTHROW(warn1, InvalidSignature)
+                LOGTHROW(err1, InvalidSignature)
                     << "File " << fd.path() << " is too short.";
             }
             // TODO: do not check crc in regular open
@@ -523,21 +537,13 @@ struct Tilar::Detail
         LOG(debug) << fd.path() << ": " <<  what << ".";
     }
 
-    void checkIndex(const FileIndex &fileIndex) const {
-        if (!index.check(fileIndex)) {
-            LOGTHROW(err2, std::runtime_error)
-                << "Index [" << fileIndex.col << ',' << fileIndex.row
-                << ',' << fileIndex.type << "] out of bounds.";
-        }
-    }
-
     void begin(const FileIndex &index, off_t start) {
         wannaWrite("start a transaction");
         if (tx) {
             LOGTHROW(err2, PendingTransaction)
                 << "Pending transaction in archive " << fd.path() << ".";
         }
-        checkIndex(index);
+        this->index.check(index);
 
         txIndex = index;
         tx = start;
@@ -608,7 +614,7 @@ Tilar::Detail::~Detail()
     }
 }
 
-Tilar::Tilar(Tilar::Detail *detail)
+Tilar::Tilar(const Tilar::Detail::pointer &detail)
     : detail_(detail)
 {}
 
@@ -631,7 +637,7 @@ Tilar Tilar::open(const fs::path &path, OpenMode openMode)
     Filedes fd(::open(path.string().c_str(), flags(openMode)), path);
     if (-1 == fd) {
         std::system_error e(errno, std::system_category());
-        LOG(warn1)
+        LOG(err1)
             << "Failed to open tilar file " << path << ": <" << e.code()
             << ", " << e.what() << ">.";
         throw e;
@@ -639,9 +645,9 @@ Tilar Tilar::open(const fs::path &path, OpenMode openMode)
 
     auto header(loadHeader(fd));
 
-    return { new Detail(std::get<1>(header), std::get<0>(header)
-                        , std::move(fd), (openMode == OpenMode::readOnly)
-                        , 0) };
+    return { std::make_shared<Detail>
+            (std::get<1>(header), std::get<0>(header)
+             , std::move(fd), (openMode == OpenMode::readOnly), 0) };
 }
 
 Tilar Tilar::open(const fs::path &path, std::uint32_t indexOffset)
@@ -649,7 +655,7 @@ Tilar Tilar::open(const fs::path &path, std::uint32_t indexOffset)
     Filedes fd(::open(path.string().c_str(), flags(OpenMode::readOnly)), path);
     if (-1 == fd) {
         std::system_error e(errno, std::system_category());
-        LOG(warn1)
+        LOG(err1)
             << "Failed to open tilar file " << path << ": <" << e.code()
             << ", " << e.what() << ">.";
         throw e;
@@ -657,8 +663,9 @@ Tilar Tilar::open(const fs::path &path, std::uint32_t indexOffset)
 
     auto header(loadHeader(fd));
 
-    return { new Detail(std::get<1>(header), std::get<0>(header)
-                        , std::move(fd), true, indexOffset) };
+    return { std::make_shared<Detail>
+            (std::get<1>(header), std::get<0>(header)
+             , std::move(fd), true, indexOffset) };
 }
 
 Tilar Tilar::create(const fs::path &path, const Options &options
@@ -670,7 +677,7 @@ Tilar Tilar::create(const fs::path &path, const Options &options
          , path);
     if (-1 == fd) {
         std::system_error e(errno, std::system_category());
-        LOG(warn1)
+        LOG(err1)
             << "Failed to create tilar file " << path << ": <" << e.code()
             << ", " << e.what() << ">.";
         throw e;
@@ -695,13 +702,13 @@ Tilar Tilar::create(const fs::path &path, const Options &options
                 // different setup
                 // append -> fail
                 if (createMode == CreateMode::append) {
-                    LOGTHROW(warn1, std::runtime_error)
+                    LOGTHROW(err1, std::runtime_error)
                         << "Unable to append file " << path
                         << ": file has different configuration.";
                 }
 
                 // appendOrTruncate -> regenerate
-                LOGTHROW(warn1, std::runtime_error)
+                LOGTHROW(err1, std::runtime_error)
                     << "File " << path << " has different configuration"
                     << ", truncating.";
 
@@ -713,7 +720,8 @@ Tilar Tilar::create(const fs::path &path, const Options &options
         }
     }
 
-    return { new Detail(version, options, std::move(fd), false, 0) };
+    return { std::make_shared<Detail>
+            (version, options, std::move(fd), false, 0) };
 }
 
 class Tilar::Device {
@@ -721,12 +729,30 @@ public:
     typedef char char_type;
 
     // write constructor
-    Device(Tilar::Detail &owner, const FileIndex &index
+    Device(const Tilar::Detail::pointer &owner, const FileIndex &index
            , off_t start)
-        : owner(owner), fd(owner.fd), index(index)
+        : owner(owner), fd(owner->fd), index(index)
         , start(start), pos(start), end(0)
     {
-        owner.begin(index, start);
+        owner->begin(index, start);
+    }
+
+    // read constructor
+    Device(const Tilar::Detail::pointer &owner, const FileIndex &index)
+        : owner(owner), fd(owner->fd), index(index)
+        , start(0), pos(0), end(0)
+    {
+        const auto &slot(owner->index.get(index));
+        if (!slot.valid()) {
+            LOGTHROW(err1, std::runtime_error)
+                << "File [" << index.col << ',' << index.row
+                << ',' << index.type << " does not exist in the archive "
+                << fd.path() << ".";
+        }
+
+        // update
+        pos = start = slot.start;
+        end = slot.end();
     }
 
     ~Device() {
@@ -736,20 +762,29 @@ public:
                 LOG(warn3) << "File write was not finished!";
             }
             LOG(warn1) << "Rolling back file.";
-            owner.rollback();
+            owner->rollback();
         } catch (...) {}
     }
 
     void commit() {
         if (start != pos) {
             // commit transaction
-            owner.commit(pos);
+            owner->commit(pos);
             // pretend there was nothing written
             start = pos;
         }
     }
 
-    Tilar::Detail &owner;
+    std::string name() const {
+        std::ostringstream os;
+        os << fd.path().string()
+           << ':' << index.row
+           << ',' << index.col
+           << ',' << index.type;
+        return os.str();
+    }
+
+    Tilar::Detail::pointer owner;
     Filedes &fd;
     const FileIndex index;
 
@@ -763,13 +798,13 @@ public:
     typedef char char_type;
     typedef boost::iostreams::sink_tag category;
 
-    Sink(Tilar::Detail &owner, const FileIndex &index)
+    Sink(const Tilar::Detail::pointer &owner, const FileIndex &index)
         : device_(std::make_shared<Device>
-                  (owner, index, seekFromEnd(owner.fd)))
+                  (owner, index, seekFromEnd(owner->fd)))
     {}
 
-
     void commit() { device_->commit(); }
+    std::string name() const { return device_->name(); }
 
     std::streamsize write(const char *s, std::streamsize n);
 
@@ -784,14 +819,18 @@ public:
     typedef char char_type;
     typedef boost::iostreams::source_tag category;
 
-    Source(Tilar::Detail &owner, const FileIndex &index) {
-        (void) owner; (void) index;
-    }
-        // : Device(owner, index) {}
+    Source(const Tilar::Detail::pointer &owner, const FileIndex &index)
+        : device_(std::make_shared<Device>(owner, index))
+    {}
+
+    std::string name() const { return device_->name(); }
 
     std::streamsize read(char *s, std::streamsize n);
 
     class Stream;
+
+private:
+    std::shared_ptr<Device> device_;
 };
 
 class Tilar::Sink::Stream
@@ -799,9 +838,8 @@ class Tilar::Sink::Stream
     , public tilestorage::OStream
 {
 public:
-    Stream(Tilar::Detail &owner, const FileIndex &index)
-        : buffer_(owner, index), stream_(&buffer_)
-    {}
+    Stream(const Tilar::Detail::pointer &owner, const FileIndex &index)
+        : buffer_(owner, index), stream_(&buffer_) {}
 
     virtual std::ostream& get() { return stream_; }
     virtual void close() {
@@ -809,7 +847,10 @@ public:
         buffer_->commit();
         buffer_.close();
     }
-    virtual std::string name() const { return "unknown"; }
+    virtual std::string name() const {
+        // stream_buffer has only non-const version of operator-> :(
+        return const_cast<decltype(buffer_)&>(buffer_)->name();
+    }
 
 private:
     boost::iostreams::stream_buffer<Tilar::Sink> buffer_;
@@ -817,20 +858,22 @@ private:
 };
 
 class Tilar::Source::Stream
-    : private boost::iostreams::stream_buffer<Tilar::Sink>
+    : private boost::iostreams::stream_buffer<Tilar::Source>
     , public tilestorage::IStream
 {
 public:
-    Stream(Tilar::Detail &owner, const FileIndex &index)
-        : boost::iostreams::stream_buffer<Tilar::Sink>(owner, index)
-        , stream_(this)
-    {}
+    Stream(const Tilar::Detail::pointer &owner, const FileIndex &index)
+        : buffer_(owner, index), stream_(&buffer_) {}
 
     virtual std::istream& get() { return stream_; }
-    virtual void close() {}
-    virtual std::string name() const { return "unknown"; }
+    virtual void close() { buffer_.close(); }
+    virtual std::string name() const {
+        // stream_buffer has only non-const version of operator-> :(
+        return const_cast<decltype(buffer_)&>(buffer_)->name();
+    }
 
 private:
+    boost::iostreams::stream_buffer<Tilar::Source> buffer_;
     std::istream stream_;
 };
 
@@ -843,7 +886,7 @@ std::streamsize Tilar::Sink::write(const char *data, std::streamsize size)
         if (-1 == bytes) {
             if (EINTR == errno) { continue; }
             std::system_error e(errno, std::system_category());
-            LOG(warn1)
+            LOG(err1)
                 << "Unable to write to tilar file " << fd.path()
                 << ": <" << e.code() << ", " << e.what() << ">.";
             throw e;
@@ -853,10 +896,29 @@ std::streamsize Tilar::Sink::write(const char *data, std::streamsize size)
     }
 }
 
-std::streamsize Tilar::Source::read(char *s, std::streamsize n)
+std::streamsize Tilar::Source::read(char *data, std::streamsize size)
 {
-    (void) s;
-    return n;
+    // get pos and end and trim size if large than available
+    auto &pos(device_->pos);
+    auto end(device_->end);
+    if (size > (end - pos)) { size = end - pos; }
+
+    if (!size) { return size; }
+
+    const auto &fd(device_->fd);
+    for (;;) {
+        auto bytes(::pread(fd, data, size, pos));
+        if (-1 == bytes) {
+            if (EINTR == errno) { continue; }
+            std::system_error e(errno, std::system_category());
+            LOG(err1)
+                << "Unable to write to tilar file " << fd.path()
+                << ": <" << e.code() << ", " << e.what() << ">.";
+            throw e;
+        }
+        pos += bytes;
+        return bytes;
+    }
 }
 
 void Tilar::flush()
@@ -866,12 +928,12 @@ void Tilar::flush()
 
 OStream::pointer Tilar::output(const FileIndex &index)
 {
-    return std::make_shared<Sink::Stream>(detail(), index);
+    return std::make_shared<Sink::Stream>(detail_, index);
 }
 
 IStream::pointer Tilar::input(const FileIndex &index)
 {
-    return std::make_shared<Source::Stream>(detail(), index);
+    return std::make_shared<Source::Stream>(detail_, index);
 }
 
 void Tilar::remove(const FileIndex &index)
@@ -897,8 +959,8 @@ const Tilar::Options& Tilar::options() const
 void Tilar::expect(const Options &options)
 {
     if (options != detail().options) {
-        LOGTHROW(warn1, std::runtime_error)
-            << "Expectation faleid: file " << detail().fd.path()
+        LOGTHROW(err1, std::runtime_error)
+            << "Expectation failed: file " << detail().fd.path()
             << " has different configuration.";
     }
 }

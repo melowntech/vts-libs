@@ -179,9 +179,9 @@ public:
 private:
     struct Detail;
 
-    Tilar(Detail *detail);
+    Tilar(const std::shared_ptr<Detail> &detail);
 
-    std::unique_ptr<Detail> detail_;
+    std::shared_ptr<Detail> detail_;
     Detail& detail() { return *detail_; }
     const Detail& detail() const { return *detail_; }
 
