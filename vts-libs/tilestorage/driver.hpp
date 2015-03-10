@@ -13,6 +13,18 @@ class Driver : boost::noncopyable {
 public:
     typedef std::shared_ptr<Driver> pointer;
 
+    struct CreateProperties {
+        StaticProperties properties;
+        bool cloned;
+
+        CreateProperties(const StaticProperties &properties
+                         , bool cloned = false)
+            : properties(properties), cloned(cloned) {}
+
+        StaticProperties* operator->() { return &properties; }
+        const StaticProperties* operator->() const { return &properties; }
+    };
+
     virtual ~Driver() {};
 
     OStream::pointer output(File type);
@@ -53,7 +65,7 @@ public:
 
     static Driver::pointer create(Locator locator
                                   , CreateMode mode
-                                  , const StaticProperties &properties);
+                                  , const CreateProperties &properties);
 
     static Driver::pointer open(Locator locator, OpenMode mode);
 
@@ -103,9 +115,9 @@ public:
 
     virtual ~Factory() {}
 
-    virtual Driver::pointer create(const std::string location
-                                   , CreateMode mode
-                                   , const StaticProperties &properties)
+    virtual Driver::pointer
+    create(const std::string location, CreateMode mode
+           , const Driver::CreateProperties &properties)
         const = 0;
 
     virtual Driver::pointer open(const std::string location

@@ -11,7 +11,7 @@ namespace fs = boost::filesystem;
 
 class ReadOnlyDriver : public Driver {
 public:
-    ReadOnlyDriver(CreateMode, const StaticProperties&)
+    ReadOnlyDriver(CreateMode, const CreateProperties&)
         : Driver(true)
     {
         LOGTHROW(err2, ReadOnlyError)

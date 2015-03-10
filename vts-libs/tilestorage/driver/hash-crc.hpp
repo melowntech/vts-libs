@@ -9,7 +9,7 @@ namespace vadstena { namespace tilestorage {
 class HashCrcDriver : public FsBasedDriver {
 public:
     HashCrcDriver(const boost::filesystem::path &root, CreateMode mode
-                  , const StaticProperties &properties)
+                  , const CreateProperties &properties)
         : FsBasedDriver(root, mode, properties)
     {}
 

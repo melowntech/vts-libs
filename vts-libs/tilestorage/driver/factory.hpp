@@ -14,7 +14,7 @@ namespace vadstena { namespace tilestorage {
                                                                         \
         virtual Driver::pointer                                         \
         create(const std::string location, CreateMode mode              \
-               , const StaticProperties &properties)                    \
+               , const Driver::CreateProperties &properties)            \
             const UTILITY_OVERRIDE                                      \
         {                                                               \
             return std::make_shared<DRIVER_CLASS>                       \

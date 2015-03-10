@@ -126,32 +126,33 @@ long mask(int order)
     return value;
 }
 
-Options::Options(const StaticProperties &properties)
-    : baseTileSize(properties.baseTileSize)
-    , alignment(properties.alignment)
+Options::Options(const Driver::CreateProperties &properties)
+    : baseTileSize(properties->baseTileSize)
+    , alignment(properties->alignment)
     , binaryOrder(getOption<decltype(binaryOrder)>
-                 (properties.driver.options, KeyBinaryOrder))
+                 (properties->driver.options, KeyBinaryOrder))
     , uuid(getOption<boost::uuids::uuid>
-           (properties.driver.options, KeyUUID))
+           (properties->driver.options, KeyUUID))
     , tileMask(mask(binaryOrder))
 {}
 
-Options::Options(const StaticProperties &properties, bool)
-    : baseTileSize(properties.baseTileSize)
-    , alignment(properties.alignment)
+Options::Options(const Driver::CreateProperties &properties, bool)
+    : baseTileSize(properties->baseTileSize)
+    , alignment(properties->alignment)
     , binaryOrder(getOption<decltype(binaryOrder)>
-                 (properties.driver.options, KeyBinaryOrder
+                 (properties->driver.options, KeyBinaryOrder
                   , DefaultBinaryOrder))
-    , uuid(getOption<boost::uuids::uuid>
-           (properties.driver.options, KeyUUID
-            , generateUuid()))
+    , uuid(properties.cloned
+           ? generateUuid()
+           : getOption<boost::uuids::uuid>
+           (properties->driver.options, KeyUUID, generateUuid()))
     , tileMask(mask(binaryOrder))
 {}
 
 } // namespace tilardriver
 
 TilarDriver::TilarDriver(const boost::filesystem::path &root
-                         , CreateMode mode, const StaticProperties &properties)
+                         , CreateMode mode, const CreateProperties &properties)
     : Driver(false)
     , root_(root), tmp_(root / TransactionRoot)
     , options_(properties, true)

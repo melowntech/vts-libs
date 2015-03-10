@@ -54,7 +54,7 @@ namespace {
 } // namespace
 
 FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
-                       , CreateMode mode, const StaticProperties&)
+                       , CreateMode mode, const CreateProperties&)
     : Driver(false)
     , root_(root), tmp_(root / TransactionRoot)
     , dirCache_(root_)

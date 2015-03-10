@@ -74,10 +74,11 @@ struct TileSet::Factory
 {
     static TileSet::pointer create(const Locator &locator
                                    , const CreateProperties &properties
-                                   , CreateMode mode)
+                                   , CreateMode mode
+                                   , bool cloned = false)
     {
         auto driver(Driver::create
-                    (locator, mode, properties.staticProperties));
+                    (locator, mode, { properties.staticProperties, cloned }));
         return TileSet::pointer(new TileSet(driver, properties));
     }
 
@@ -134,7 +135,8 @@ TileSet::pointer cloneTileSet(const Locator &locator
     properties.staticProperties.merge(options.staticProperties, options.mask);
 
     // create tileset and clone
-    auto dst(createTileSet(locator, properties, options.createMode));
+    auto dst(TileSet::Factory::create
+             (locator, properties, options.createMode, true));
     TileSet::Factory::clone(src, dst, options.extents, options.lodRange);
     return dst;
 }

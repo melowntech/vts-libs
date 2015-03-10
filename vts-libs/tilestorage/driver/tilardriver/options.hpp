@@ -9,6 +9,7 @@
 #include <boost/uuid/uuid.hpp>
 
 #include "../../properties.hpp"
+#include "../../driver.hpp"
 #include "../../tilar.hpp"
 #include "../../tileop.hpp"
 
@@ -45,8 +46,8 @@ struct Options {
      */
     Tilar::Options tilar(int filesPerTile) const;
 
-    Options(const StaticProperties &properties);
-    Options(const StaticProperties &properties, bool);
+    Options(const Driver::CreateProperties &properties);
+    Options(const Driver::CreateProperties &properties, bool);
 
     struct Index {
         tilestorage::Index archive;

@@ -47,13 +47,13 @@ void Driver::registerDriver(const Driver::Factory::pointer &factory)
 }
 
 Driver::pointer Driver::create(Locator locator, CreateMode mode
-                               , const StaticProperties &properties)
+                               , const CreateProperties &properties)
 {
     registerDefaultDrivers();
 
     if (locator.type.empty()) {
-        if (!properties.driver.type.empty()) {
-            locator.type = properties.driver.type;
+        if (!properties->driver.type.empty()) {
+            locator.type = properties->driver.type;
         } else {
             locator.type = DefaultDriver;
         }

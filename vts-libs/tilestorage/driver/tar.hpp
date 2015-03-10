@@ -19,7 +19,7 @@ namespace fs = boost::filesystem;
 class TarDriver : public ReadOnlyDriver {
 public:
     TarDriver(const fs::path&, CreateMode mode
-              , const StaticProperties &properties)
+              , const CreateProperties &properties)
         : ReadOnlyDriver(mode, properties) {}
 
     /** Opens storage.

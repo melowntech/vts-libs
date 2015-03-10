@@ -21,7 +21,7 @@ public:
      *  CreateMode::overwrite.
      */
     FsBasedDriver(const fs::path &root, CreateMode mode
-                  , const StaticProperties &properties);
+                  , const CreateProperties &properties);
 
     /** Opens storage.
      */
