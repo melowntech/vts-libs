@@ -1,4 +1,6 @@
+#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
+#include <boost/crc.hpp>
 
 #include "dbglog/dbglog.hpp"
 
@@ -8,6 +10,20 @@
 namespace vadstena { namespace tilestorage { namespace tilardriver {
 
 namespace {
+
+std::uint32_t calculateHash(const std::string &data)
+{
+    boost::crc_32_type crc;
+    crc.process_bytes(data.data(), data.size());
+    return crc.checksum();
+}
+
+fs::path dir(const fs::path &filename)
+{
+    const auto hash(calculateHash(filename.string()));
+    return (str(boost::format("%02x") % ((hash >> 24) & 0xff))
+            / filename);
+}
 
 int fileType(TileFile type) {
     switch (type) {
@@ -26,11 +42,15 @@ Cache::Archives::Archives(const std::string &extension, int filesPerTile
     , options(options.binaryOrder, filesPerTile, options.uuid)
 {}
 
-fs::path Cache::Archives::filePath(const Index &index) const
+fs::path Cache::Archives::filePath(const fs::path &root
+                                   , const Index &index) const
 {
-    return str(boost::format("%s-%07d-%07d.%s")
-               % index.lod % index.easting % index.northing
-               % extension);
+    const auto filename(str(boost::format("%s-%07d-%07d.%s")
+                            % index.lod % index.easting % index.northing
+                            % extension));
+    const auto parent(root / dir(filename));
+    create_directories(parent);
+    return parent / filename;
 }
 
 Cache::Cache(const fs::path &root, const Options &options
@@ -46,7 +66,7 @@ Tilar& Cache::open(Archives &archives, const Index &archive)
         return fmap->second;
     }
 
-    const auto path(root_ / archives.filePath(archive));
+    const auto path(archives.filePath(root_, archive));
 
     if (readOnly_) {
         // read-only
@@ -70,7 +90,6 @@ Tilar& Cache::open(Archives &archives, const Index &archive)
 IStream::pointer Cache::input(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
-    LOG(info4) << "index: " << index.archive;
     return open(getArchives(type), index.archive).input(index.file);
 }
 

@@ -129,7 +129,12 @@ TileSet::pointer cloneTileSet(const Locator &locator
                               , const TileSet::pointer &src
                               , const CloneOptions &options)
 {
-    auto dst(createTileSet(locator, src->getProperties(), options.createMode));
+    // merge existing properties with new properties
+    CreateProperties properties(src->getProperties());
+    properties.staticProperties.merge(options.staticProperties, options.mask);
+
+    // create tileset and clone
+    auto dst(createTileSet(locator, properties, options.createMode));
     TileSet::Factory::clone(src, dst, options.extents, options.lodRange);
     return dst;
 }
@@ -184,7 +189,8 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     auto &p(this->properties);
 
     // initialize create properties
-    static_cast<StaticProperties&>(p) = properties.staticProperties;
+    static_cast<StaticProperties&>(p)
+        .merge(properties.staticProperties, properties.mask);
     static_cast<SettableProperties&>(p)
         .merge(properties.settableProperties, properties.mask);
 
@@ -1062,7 +1068,9 @@ Properties TileSet::setProperties(const SettableProperties &properties
     detail().driver->wannaWrite("set properties");
 
     // merge in new properties
-    if (detail().properties.merge(properties, mask)) {
+    if (static_cast<SettableProperties&>
+        (detail().properties).merge(properties, mask))
+    {
         detail().propertiesChanged = true;
     }
     return detail().properties;
@@ -1093,18 +1101,19 @@ bool TileSet::inTx() const
 
 void TileSet::Detail::clone(const Detail &src)
 {
+    // update properties
+    properties.driver = driver->properties();
+    properties.foat = src.properties.foat;
+    properties.foatSize = src.properties.foatSize;
+    propertiesChanged = true;
+
     const auto &sd(*src.driver);
     auto &dd(*driver);
 
     // copy single files
-    for (auto type : { File::tileIndex, File::config }) {
+    for (auto type : { File::tileIndex  }) {
         copyFile(sd.input(type), dd.output(type));
     }
-
-    // reload config and update properties
-    loadConfig();
-    properties.driver = driver->properties();
-    propertiesChanged = true;
 
     // copy tiles
     traverseTiles(src.tileIndex, [&](const TileId &tileId)
@@ -1121,6 +1130,8 @@ void TileSet::Detail::clone(const Detail &src)
                  , dd.output(metaId, TileFile::meta));
     });
 
+    flush();
+
     // load index if we have anything
     if (savedProperties.foatSize) {
         // load tile index only if foat is valid
@@ -1132,6 +1143,10 @@ void TileSet::Detail::clone(const Detail &src
                             , const boost::optional<Extents> &extents
                             , const boost::optional<LodRange> &lodRange)
 {
+    // update properties
+    properties.driver = driver->properties();
+    propertiesChanged = true;
+
     const auto &sd(*src.driver);
     auto &dd(*driver);
 

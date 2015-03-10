@@ -59,7 +59,27 @@ struct StaticProperties {
      */
     DriverProperties driver;
 
+    /** Mask bitfields.
+     */
+    struct Mask { enum {             // mask bitfields
+        id = 0x001
+        , metaLevels = 0x002
+        , baseTileSize = 0x004
+        , alignment = 0x008
+        , srs = 0x010
+        , driver = 0x020
+        // IF YOU WANT TO NEW ITEM DO NOT COLIDE WITH SettableProperties
+        // AND UPDATE ALL:
+        , all = (id | metaLevels | baseTileSize | alignment | srs | driver)
+    }; };
+
+    typedef int MaskType;
+
     StaticProperties() : baseTileSize() {}
+
+    bool merge(const StaticProperties &other, MaskType mask = Mask::all);
+
+    struct Setter;
 };
 
 /** Tile set properties that can be set anytime.
@@ -71,10 +91,14 @@ struct SettableProperties {
     float texelSize;                 // texelSize
 
     struct Mask { enum {             // mask bitfields
-        defaultPosition = 0x01
-        , defaultOrientation = 0x02
-        , textureQuality = 0x04
-        , texelSize = 0x08
+        defaultPosition = 0x040
+        , defaultOrientation = 0x080
+        , textureQuality = 0x100
+        , texelSize = 0x200
+        // IF YOU WANT TO NEW ITEM DO NOT COLIDE WITH SettableProperties
+        // AND UPDATE ALL:
+        , all = (defaultPosition | defaultOrientation | textureQuality
+                 | texelSize)
     }; };
 
     typedef int MaskType;
@@ -85,7 +109,11 @@ struct SettableProperties {
         , texelSize(0.1){}
 
     bool merge(const SettableProperties &other
-               , MaskType mask = ~(MaskType(0)));
+               , MaskType mask = Mask::all);
+
+    static MaskType all() { return ~(MaskType(0)); }
+
+    struct Setter;
 };
 
 /** All tile set properties.
@@ -106,21 +134,24 @@ struct Properties
 
 struct CreateProperties {
 public:
-    typedef SettableProperties::MaskType MaskType;
+    typedef int MaskType;
 
-    CreateProperties() : mask(0) {}
+    CreateProperties() : mask(StaticProperties::Mask::all) {}
 
     CreateProperties(const StaticProperties &cp)
-        : staticProperties(cp), mask(0)
+        : staticProperties(cp), mask(StaticProperties::Mask::all)
     {}
 
     CreateProperties(const StaticProperties &cp
                      , const SettableProperties &sp
-                     , MaskType mask = ~(MaskType(0)))
+                     , MaskType mask = (StaticProperties::Mask::all
+                                        | SettableProperties::Mask::all))
         : staticProperties(cp), settableProperties(sp), mask(mask)
     {}
 
-    CreateProperties(const Properties &p, MaskType mask = ~(MaskType(0)))
+    CreateProperties(const Properties &p
+                     , MaskType mask = (StaticProperties::Mask::all
+                                        | SettableProperties::Mask::all))
         : staticProperties(p), settableProperties(p), mask(mask)
     {}
 
@@ -129,23 +160,85 @@ public:
     MaskType mask;
 };
 
+#define TILESTORAGE_PROPERTIES_SETTER(NAME)                     \
+        Setter& NAME(const decltype(Properties::NAME) &value) { \
+            p_.NAME = value;                                    \
+            m_ |= Properties::Mask::NAME;                       \
+            return *this;                                       \
+        }
+
+class StaticProperties::Setter {
+public:
+    typedef StaticProperties Properties;
+    Setter(Properties &p, Properties::MaskType &m)
+        : p_(p), m_(m)
+    {}
+
+    TILESTORAGE_PROPERTIES_SETTER(id)
+    TILESTORAGE_PROPERTIES_SETTER(metaLevels)
+    TILESTORAGE_PROPERTIES_SETTER(baseTileSize)
+    TILESTORAGE_PROPERTIES_SETTER(alignment)
+    TILESTORAGE_PROPERTIES_SETTER(srs)
+    TILESTORAGE_PROPERTIES_SETTER(driver)
+
+private:
+    Properties &p_;
+    Properties::MaskType &m_;
+};
+
+class SettableProperties::Setter {
+public:
+    typedef SettableProperties Properties;
+    Setter(Properties &p, Properties::MaskType &m)
+        : p_(p), m_(m)
+    {}
+
+    TILESTORAGE_PROPERTIES_SETTER(defaultPosition)
+    TILESTORAGE_PROPERTIES_SETTER(defaultOrientation)
+    TILESTORAGE_PROPERTIES_SETTER(textureQuality)
+    TILESTORAGE_PROPERTIES_SETTER(texelSize)
+
+private:
+    Properties &p_;
+    Properties::MaskType &m_;
+};
+
+#undef TILESTORAGE_PROPERTIES_SETTER
+
 // inline stuff
+
+#define TILESTORAGE_PROPERTIES_MERGE(WHAT)                          \
+    if (mask & Mask::WHAT) { WHAT = other.WHAT; changed = true; }
 
 inline bool SettableProperties::merge(const SettableProperties &other
                                       , MaskType mask)
 {
     bool changed(false);
-#define SETTABLEPROPERTIES_MERGE(WHAT) \
-    if (mask & Mask::WHAT) { WHAT = other.WHAT; changed = true; }
 
-    SETTABLEPROPERTIES_MERGE(defaultPosition);
-    SETTABLEPROPERTIES_MERGE(defaultOrientation);
-    SETTABLEPROPERTIES_MERGE(textureQuality);
-    SETTABLEPROPERTIES_MERGE(texelSize);
+    TILESTORAGE_PROPERTIES_MERGE(defaultPosition);
+    TILESTORAGE_PROPERTIES_MERGE(defaultOrientation);
+    TILESTORAGE_PROPERTIES_MERGE(textureQuality);
+    TILESTORAGE_PROPERTIES_MERGE(texelSize);
 
-#undef SETTABLEPROPERTIES_MERGE
     return changed;
 }
+
+inline bool StaticProperties::merge(const StaticProperties &other
+                                    , MaskType mask)
+{
+    bool changed(false);
+
+    TILESTORAGE_PROPERTIES_MERGE(id);
+    TILESTORAGE_PROPERTIES_MERGE(metaLevels);
+    TILESTORAGE_PROPERTIES_MERGE(baseTileSize);
+    TILESTORAGE_PROPERTIES_MERGE(alignment);
+    TILESTORAGE_PROPERTIES_MERGE(srs);
+    TILESTORAGE_PROPERTIES_MERGE(driver);
+
+    return changed;
+}
+
+#undef TILESTORAGE_PROPERTIES_MERGE
 
 } } // namespace vadstena::tilestorage
 

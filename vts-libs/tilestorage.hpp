@@ -92,12 +92,18 @@ TileSet::pointer openTileSet(const Locator &locator
  */
 struct CloneOptions {
     CloneOptions(CreateMode createMode = CreateMode::failIfExists)
-        : createMode(createMode)
+        : createMode(createMode), mask(0)
     {}
 
     CreateMode createMode;
     boost::optional<Extents> extents;
     boost::optional<LodRange> lodRange;
+    StaticProperties staticProperties;
+    StaticProperties::MaskType mask;
+
+    StaticProperties::Setter setter() {
+        return { staticProperties, mask };
+    }
 };
 
 /** Clones existing tile set to a new tile set.

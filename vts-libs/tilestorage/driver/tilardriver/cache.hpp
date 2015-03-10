@@ -38,7 +38,7 @@ private:
         Archives(const std::string &extension, int filesPerTile
                  , const Options &options);
 
-        fs::path filePath(const Index &index) const;
+        fs::path filePath(const fs::path &root, const Index &index) const;
 
         void flush();
     };
