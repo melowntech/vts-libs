@@ -1097,9 +1097,14 @@ void TileSet::Detail::clone(const Detail &src)
     auto &dd(*driver);
 
     // copy single files
-    for (auto type : { File::tileIndex }) {
+    for (auto type : { File::tileIndex, File::config }) {
         copyFile(sd.input(type), dd.output(type));
     }
+
+    // reload config and update properties
+    loadConfig();
+    properties.driver = driver->properties();
+    propertiesChanged = true;
 
     // copy tiles
     traverseTiles(src.tileIndex, [&](const TileId &tileId)
@@ -1116,8 +1121,7 @@ void TileSet::Detail::clone(const Detail &src)
                  , dd.output(metaId, TileFile::meta));
     });
 
-    // reload in new stuff
-    loadConfig();
+    // load index if we have anything
     if (savedProperties.foatSize) {
         // load tile index only if foat is valid
         loadTileIndex();
@@ -1466,7 +1470,7 @@ bool TileSet::compatible(const TileSet &other)
 
     const auto oDetail(other.detail());
     const auto oProps(oDetail.properties);
-    
+
     if ( !geo::areSame(oProps.srs, props.srs) ) {
          LOG(warn2)
             << "Tile set <" << props.id
@@ -1474,7 +1478,7 @@ bool TileSet::compatible(const TileSet &other)
             << "> has incompatible SRS.";
          return false;
     }
-    
+
     if (oProps.baseTileSize != props.baseTileSize) {
         LOG(warn2)
             << "Tile set <" << props.id
