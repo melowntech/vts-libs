@@ -4,13 +4,10 @@
 #include <set>
 #include <map>
 
-#include <boost/optional.hpp>
-#include <boost/filesystem/path.hpp>
-#include <boost/uuid/uuid.hpp>
-
-#include "../driver.hpp"
+#include "./tilardriver/options.hpp"
+#include "./tilardriver/cache.hpp"
 #include "./factory.hpp"
-#include "./fstreams.hpp"
+#include "../streams.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -56,6 +53,8 @@ private:
 
     virtual void rollback_impl() UTILITY_OVERRIDE;
 
+    virtual void flush_impl() UTILITY_OVERRIDE;
+
     virtual void drop_impl() UTILITY_OVERRIDE;
 
     virtual void update_impl() UTILITY_OVERRIDE;
@@ -72,34 +71,9 @@ private:
      */
     const fs::path tmp_;
 
-    struct Options {
-        /** Tile size at LOD=0.
-         */
-        long baseTileSize;
+    tilardriver::Options options_;
 
-        /** Tile alignment. No tile exists that contains this point inside.
-         */
-        Alignment alignment;
-
-        /** Binary order of magnitude of data stored in the individial tile
-         *  archives (each archive has square grid of
-         *  (2^binaryOrder_)*(2^binaryOrder_) tiles.
-         *
-         * This information maps directly to LOD-shift (tile space of tiles at
-         * any LOD are stored in space of "super" tiles at (LOD - binaryOrder_)).
-         */
-        std::uint8_t binaryOrder;
-
-        /** UUID of storage. Generated automatically on creation. Passed to
-         *  tilar file create/check.
-         */
-        boost::uuids::uuid uuid;
-
-        Options(const StaticProperties &properties);
-        Options(const StaticProperties &properties, bool);
-    };
-
-    Options options_;
+    mutable tilardriver::Cache cache_;
 };
 
 } } // namespace vadstena::tilestorage

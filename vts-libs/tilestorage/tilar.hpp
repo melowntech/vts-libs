@@ -62,6 +62,11 @@ public:
         }
 
         Options(unsigned int binaryOrder = 0, unsigned int filesPerTile = 0);
+
+        Options(unsigned int binaryOrder, unsigned int filesPerTile
+                , const boost::uuids::uuid &uuid)
+            : binaryOrder(binaryOrder), filesPerTile(filesPerTile), uuid(uuid)
+        {}
     };
 
     /** Opens existing tilar files.
@@ -71,6 +76,17 @@ public:
      *  \return open tilar file
      */
     static Tilar open(const boost::filesystem::path &path
+                      , OpenMode openMode = OpenMode::readWrite);
+
+    /** Opens existing tilar files and checks options before returning.
+     *
+     *  \param path to the tilar file
+     *  \param options expected options
+     *  \param openMode open mode (r/o, r/w)
+     *  \return open tilar file
+     */
+    static Tilar open(const boost::filesystem::path &path
+                      , const Options &options
                       , OpenMode openMode = OpenMode::readWrite);
 
     /** Creates a new tilar file.
@@ -189,6 +205,14 @@ private:
     class Source; friend class Source;
     class Sink; friend class Sink;
 };
+
+inline Tilar Tilar::open(const boost::filesystem::path &path
+                         , const Options &options, OpenMode openMode)
+{
+    auto tilar(open(path, openMode));
+    tilar.expect(options);
+    return tilar;
+}
 
 } } // namespace vadstena::tilestorage
 

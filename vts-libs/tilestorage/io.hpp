@@ -13,13 +13,20 @@
 
 namespace vadstena { namespace tilestorage {
 
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const Locator &l)
+{
+    return os << l.type << ':' << l.location;
+}
+
 // LodLevels
 
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits> &os, const LodLevels &ll)
 {
-    return os << ll.lod << "/" << ll.delta;
+    return os << ll.lod << '/' << ll.delta;
 }
 
 template<typename CharT, typename Traits>

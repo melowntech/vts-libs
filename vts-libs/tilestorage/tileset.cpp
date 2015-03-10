@@ -643,6 +643,9 @@ void TileSet::Detail::flush()
     if (propertiesChanged) {
         saveConfig();
     }
+
+    // flush driver
+    driver->flush();
     LOG(info3) << "Tile set <" << properties.id << ">: flushed.";
 }
 
@@ -936,7 +939,9 @@ void TileSet::Detail::commit()
     // forced flush
     flush();
 
+    LOG(info3) << "Tile set <" << properties.id << ">: commit started.";
     driver->commit();
+    LOG(info3) << "Tile set <" << properties.id << ">: commit finished.";
 
     tx = false;
 }
@@ -983,10 +988,7 @@ TileSet::TileSet(const Driver::pointer &driver)
 TileSet::TileSet(const Driver::pointer &driver
                  , const CreateProperties &properties)
     : detail_(new Detail(driver, properties))
-{
-    LOG(info4) << "properties: " << &properties;
-    LOG(info4) << "Mask: " << std::hex << properties.mask;
-}
+{}
 
 TileSet::~TileSet()
 {
@@ -1095,7 +1097,7 @@ void TileSet::Detail::clone(const Detail &src)
     auto &dd(*driver);
 
     // copy single files
-    for (auto type : { File::config, File::tileIndex }) {
+    for (auto type : { File::tileIndex }) {
         copyFile(sd.input(type), dd.output(type));
     }
 

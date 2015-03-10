@@ -18,6 +18,7 @@
 #include "utility/enum.hpp"
 
 #include "./tilar.hpp"
+#include "./tilar-io.hpp"
 #include "./error.hpp"
 
 namespace vadstena { namespace tilestorage {
@@ -95,6 +96,40 @@ int flags(Tilar::CreateMode createMode)
     throw;
 }
 
+off_t seekFromEnd(const Filedes &fd, off_t pos = 0)
+{
+    LOG(debug)
+        << "Seeking to " << pos << " bytes from the end in file "
+        << fd.path() << ".";
+    const auto p(::lseek(fd, -pos, SEEK_END));
+    if (-1 == p) {
+        std::system_error e(errno, std::system_category());
+        LOG(err1)
+            << "Failed to seek to the end in the  tilar file "
+            << fd.path() << ": <" << e.code()
+            << ", " << e.what() << ">.";
+        throw e;
+    }
+    return p;
+}
+
+off_t seekFromStart(const Filedes &fd, off_t pos = 0)
+{
+    LOG(debug)
+        << "Seeking to " << pos << " bytes from the start in file "
+        << fd.path() << ".";
+    const auto p(::lseek(fd, pos, SEEK_SET));
+    if (-1 == p) {
+        std::system_error e(errno, std::system_category());
+        LOG(err1)
+            << "Failed to seek to the end in the  tilar file "
+            << fd.path() << ": <" << e.code()
+            << ", " << e.what() << ">.";
+        throw e;
+    }
+    return p;
+}
+
 off_t fileSize(const Filedes &fd)
 {
     struct ::stat buf;
@@ -108,7 +143,7 @@ off_t fileSize(const Filedes &fd)
     return buf.st_size;
 }
 
-void truncate(const Filedes &fd, off_t size)
+off_t truncate(const Filedes &fd, off_t size)
 {
     if (-1 == ::ftruncate(fd, size)) {
         std::system_error e(errno, std::system_category());
@@ -117,21 +152,7 @@ void truncate(const Filedes &fd, off_t size)
             << ", " << e.what() << ">.";
         throw e;
     }
-}
-
-off_t seekFromEnd(const Filedes &fd, off_t pos = 0)
-{
-    LOG(debug) << "Seeking to " << pos << " bytes from the end.";
-    const auto p(::lseek(fd, -pos, SEEK_END));
-    if (-1 == p) {
-        std::system_error e(errno, std::system_category());
-        LOG(err1)
-            << "Failed to seek to the end in the  tilar file "
-            << fd.path() << ": <" << e.code()
-            << ", " << e.what() << ">.";
-        throw e;
-    }
-    return p;
+    return seekFromStart(fd, size);
 }
 
 template <typename Block>
@@ -671,6 +692,10 @@ Tilar Tilar::open(const fs::path &path, std::uint32_t indexOffset)
 Tilar Tilar::create(const fs::path &path, const Options &options
                     , CreateMode createMode)
 {
+    LOG(info1)
+        << "Creating tilar file at " << path << " in "
+        << createMode << " mode.";
+
     Filedes fd
         (::open(path.string().c_str(), flags(createMode)
                 , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
@@ -683,45 +708,54 @@ Tilar Tilar::create(const fs::path &path, const Options &options
         throw e;
     }
 
-    std::uint8_t version(0);
-
     if (utility::in
         (createMode, CreateMode::failIfExists, CreateMode::truncate))
     {
         // empty file -> write header
-        version = saveHeader(fd, options);
-    } else {
-        auto size(fileSize(fd));
-        if (!size) {
-            // empty -> write header
-            version = saveHeader(fd, options);
-        } else {
-            // something already in the file
-            const auto current(loadHeader(fd));
-            if (std::get<0>(current) != options) {
-                // different setup
-                // append -> fail
-                if (createMode == CreateMode::append) {
-                    LOGTHROW(err1, std::runtime_error)
-                        << "Unable to append file " << path
-                        << ": file has different configuration.";
-                }
+        return { std::make_shared<Detail>
+                 (saveHeader(fd, options), options, std::move(fd), false, 0) };
+    }
 
-                // appendOrTruncate -> regenerate
-                LOGTHROW(err1, std::runtime_error)
-                    << "File " << path << " has different configuration"
-                    << ", truncating.";
-
-                truncate(fd, 0);
-                version = saveHeader(fd, options);
-            } else {
-                version = std::get<1>(current);
-            }
+    auto size(fileSize(fd));
+    if (!size) {
+        // empty -> write header
+        return { std::make_shared<Detail>
+                (saveHeader(fd, options), options, std::move(fd), false, 0) };
+    } else if (createMode == CreateMode::append) {
+        const auto current(loadHeader(fd));
+        if (std::get<0>(current) != options) {
+            // different setup
+            LOGTHROW(err1, std::runtime_error)
+                << "Unable to append file " << path
+                << ": file has different configuration.";
         }
+        return { std::make_shared<Detail>
+                (std::get<1>(current), options, std::move(fd), false, 0) };
+    }
+
+    boost::optional<std::uint8_t> version;
+    try {
+        const auto current(loadHeader(fd));
+        if (std::get<0>(current) != options) {
+            LOG(warn1)
+                << "File " << path << " has different configuration"
+                << ", truncating.";
+        } else {
+            version = std::get<1>(current);
+        }
+    } catch (const std::exception &e) {
+        LOG(warn1)
+            << "File " << path << " has invalid header (" << e.what()
+            << "): truncating";
+    }
+
+    if (!version) {
+        truncate(fd, 0);
+        version = saveHeader(fd, options);
     }
 
     return { std::make_shared<Detail>
-            (version, options, std::move(fd), false, 0) };
+             (*version, options, std::move(fd), false, 0) };
 }
 
 class Tilar::Device {

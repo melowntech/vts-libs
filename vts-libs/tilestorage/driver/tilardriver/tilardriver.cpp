@@ -13,10 +13,11 @@
 #include "utility/streams.hpp"
 #include "utility/path.hpp"
 
-#include "./tilardriver.hpp"
-#include "../io.hpp"
-#include "../error.hpp"
-#include "../config.hpp"
+#include "../tilardriver.hpp"
+#include "../../io.hpp"
+#include "../../error.hpp"
+#include "../../config.hpp"
+#include "../fstreams.hpp"
 
 #include "tilestorage/browser/index.html.hpp"
 #include "tilestorage/browser/index-offline.html.hpp"
@@ -43,25 +44,6 @@ namespace {
         case File::tileIndex: return TileIndexName;
         }
         throw "unknown file type";
-    }
-
-    const char *extension(TileFile type)
-    {
-        switch (type) {
-        case TileFile::meta:
-            return "metatiles";
-        case TileFile::mesh:
-        case TileFile::atlas:
-            return "tiles";
-        }
-        throw "unknown tile file type";
-    }
-
-    fs::path filePath(const Index &index, TileFile type)
-    {
-        return str(boost::format("%s-%07d-%07d.%s")
-                   % index.lod % index.easting % index.northing
-                   % extension(type));
     }
 
     template <typename T, class Enable = void>
@@ -133,17 +115,28 @@ namespace {
     }
 } // namespace
 
-TilarDriver::Options::Options(const StaticProperties &properties)
+namespace tilardriver {
+
+long mask(int order)
+{
+    long value(0);
+    for (long bit(1l); order; --order, bit <<= 1) {
+        value |= bit;
+    }
+    return value;
+}
+
+Options::Options(const StaticProperties &properties)
     : baseTileSize(properties.baseTileSize)
     , alignment(properties.alignment)
     , binaryOrder(getOption<decltype(binaryOrder)>
                  (properties.driver.options, KeyBinaryOrder))
     , uuid(getOption<boost::uuids::uuid>
            (properties.driver.options, KeyUUID))
+    , tileMask(mask(binaryOrder))
 {}
 
-TilarDriver::Options::Options(const StaticProperties &properties
-                              , bool)
+Options::Options(const StaticProperties &properties, bool)
     : baseTileSize(properties.baseTileSize)
     , alignment(properties.alignment)
     , binaryOrder(getOption<decltype(binaryOrder)>
@@ -152,13 +145,17 @@ TilarDriver::Options::Options(const StaticProperties &properties
     , uuid(getOption<boost::uuids::uuid>
            (properties.driver.options, KeyUUID
             , generateUuid()))
+    , tileMask(mask(binaryOrder))
 {}
+
+} // namespace tilardriver
 
 TilarDriver::TilarDriver(const boost::filesystem::path &root
                          , CreateMode mode, const StaticProperties &properties)
     : Driver(false)
     , root_(root), tmp_(root / TransactionRoot)
     , options_(properties, true)
+    , cache_(root_, options_, false)
 {
     if (!create_directories(root_)) {
         // directory already exists -> fail if mode says so
@@ -177,6 +174,7 @@ TilarDriver::TilarDriver(const boost::filesystem::path &root
     : Driver(mode == OpenMode::readOnly)
     , root_(root), tmp_(root / TransactionRoot)
     , options_(tilestorage::loadConfig(root_ / filePath(File::config)))
+    , cache_(root_, options_, (mode == OpenMode::readOnly))
 {
 }
 
@@ -224,15 +222,13 @@ IStream::pointer TilarDriver::input_impl(File type) const
 
 OStream::pointer TilarDriver::output_impl(const TileId tileId, TileFile type)
 {
-    (void) tileId; (void) type;
-    return {};
+    return cache_.output(tileId, type);
 }
 
 IStream::pointer TilarDriver::input_impl(const TileId tileId, TileFile type)
     const
 {
-    (void) tileId; (void) type;
-    return {};
+    return cache_.input(tileId, type);
 }
 
 void TilarDriver::remove_impl(const TileId tileId, TileFile type)
@@ -250,6 +246,11 @@ void TilarDriver::commit_impl()
 
 void TilarDriver::rollback_impl()
 {
+}
+
+void TilarDriver::flush_impl()
+{
+    cache_.flush();
 }
 
 void TilarDriver::drop_impl()

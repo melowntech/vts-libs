@@ -35,6 +35,8 @@ public:
 
     void rollback();
 
+    void flush();
+
     /** Drop storage.
      */
     void drop();
@@ -78,6 +80,8 @@ private:
     virtual void commit_impl() = 0;
 
     virtual void rollback_impl() = 0;
+
+    virtual void flush_impl() {};
 
     virtual void drop_impl() = 0;
 
@@ -163,6 +167,11 @@ inline void Driver::commit()
 inline void Driver::rollback()
 {
     return rollback_impl();
+}
+
+inline void Driver::flush()
+{
+    return flush_impl();
 }
 
 inline void Driver::drop()

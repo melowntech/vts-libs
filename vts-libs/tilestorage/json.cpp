@@ -13,7 +13,6 @@ const int CURRENT_JSON_FORMAT_VERSION(3);
 
 DriverProperties parseDriver(const Json::Value &driver)
 {
-    LOG(info4) << "parsing driver";
     DriverProperties dp;
     Json::get(dp.type, driver["type"]);
     if (!driver.isMember("options")) { return dp; }
