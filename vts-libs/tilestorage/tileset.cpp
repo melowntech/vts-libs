@@ -1291,6 +1291,21 @@ IStream::pointer TileSet::AdvancedApi::input(const TileId tileId
     return detail.driver->input(tileId, type);
 }
 
+std::size_t TileSet::AdvancedApi::size(File type) const
+{
+    const auto &detail(tileSet_->detail());
+    detail.checkValidity();
+    return detail.driver->size(type);
+}
+
+std::size_t TileSet::AdvancedApi::size(const TileId tileId, TileFile type)
+    const
+{
+    const auto &detail(tileSet_->detail());
+    detail.checkValidity();
+    return detail.driver->size(tileId, type);
+}
+
 void TileSet::AdvancedApi::regenerateTileIndex()
 {
     // FIXME: not implemented so far

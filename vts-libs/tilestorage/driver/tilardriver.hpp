@@ -47,6 +47,11 @@ private:
     virtual void remove_impl(const TileId tileId, TileFile type)
         UTILITY_OVERRIDE;
 
+    virtual std::size_t size_impl(File type) const UTILITY_OVERRIDE;
+
+    virtual std::size_t size_impl(const TileId tileId, TileFile type)
+        const UTILITY_OVERRIDE;
+
     virtual void begin_impl() UTILITY_OVERRIDE;
 
     virtual void commit_impl() UTILITY_OVERRIDE;

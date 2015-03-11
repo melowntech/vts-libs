@@ -3,6 +3,7 @@
 
 #include "../entities.hpp"
 #include "./types.hpp"
+#include "./filetypes.hpp"
 #include "./properties.hpp"
 
 namespace vadstena { namespace tilestorage {
@@ -57,6 +58,12 @@ std::pair<double, double> area(const Tile &tile);
  */
 Index tileIndex(const Alignment &alignment, long baseTileSize
                 , const TileId &tileId, Lod shift = 0);
+
+std::string asFilename(const TileId &tileId, TileFile type);
+
+bool fromFilename(TileId &tileId, TileFile &type
+                  , const std::string &str
+                  , std::string::size_type offset = 0);
 
 // inline stuff
 

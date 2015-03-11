@@ -232,6 +232,20 @@ IStream::pointer TilarDriver::input_impl(const TileId tileId, TileFile type)
     return cache_.input(tileId, type);
 }
 
+std::size_t TilarDriver::size_impl(File type) const UTILITY_OVERRIDE
+{
+    // TODO: add tx support
+    const auto name(filePath(type));
+    const auto path(root_ / name);
+    LOG(info1) << "Statting " << path << ".";
+    return file_size(path);
+}
+
+std::size_t TilarDriver::size_impl(const TileId tileId, TileFile type) const
+{
+    return cache_.size(tileId, type);
+}
+
 void TilarDriver::remove_impl(const TileId tileId, TileFile type)
 {
     (void) tileId; (void) type;

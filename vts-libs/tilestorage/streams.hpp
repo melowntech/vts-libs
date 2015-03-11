@@ -4,11 +4,9 @@
 #include <iostream>
 #include <memory>
 
+#include "./filetypes.hpp"
+
 namespace vadstena { namespace tilestorage {
-
-enum class TileFile { meta, mesh, atlas };
-
-enum class File { config, tileIndex };
 
 class OStream {
 public:

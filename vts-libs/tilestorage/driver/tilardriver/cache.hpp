@@ -25,6 +25,8 @@ public:
 
     OStream::pointer output(const TileId tileId, TileFile type);
 
+    std::size_t size(const TileId tileId, TileFile type);
+
     void flush();
 
 private:

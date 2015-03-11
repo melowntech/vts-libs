@@ -10,6 +10,7 @@
 #include "./tar.hpp"
 #include "../io.hpp"
 #include "../error.hpp"
+#include "../tileop.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -44,23 +45,6 @@ private:
     std::istringstream s_;
 };
 
-bool decodeTileId(TileId &tileId, const std::string &str)
-{
-    const char *p(str.c_str());
-    char *e(nullptr);
-
-    tileId.lod = std::strtoul(p, &e, 10);
-    if (*e != '-') { return false; }
-    p = e + 1;
-
-    tileId.easting = std::strtoul(p, &e, 10);
-    if (*e != '-') { return false; }
-    p = e + 1;
-
-    tileId.northing = std::strtoul(p, &e, 10);
-    return !*e;
-}
-
 IStream::pointer readFile(utility::tar::Reader &reader
                           , const TarDriver::Record &record)
 {
@@ -77,6 +61,7 @@ TarDriver::TarDriver(const boost::filesystem::path &root
 {
     utility::tar::Block block;
     TileId tileId;
+    TileFile type;
     const auto &header(block.header);
     while (reader_.read(block)) {
         if (!header.valid()) {
@@ -93,20 +78,21 @@ TarDriver::TarDriver(const boost::filesystem::path &root
             } else if (filename == TileIndexName) {
                 indexFile_ = record;
             } else {
-                const auto stem(f.stem().string());
-                const auto ext(f.extension().string());
-                FileMap *dst{};
+                if (fromFilename(tileId, type, f.string())) {
+                    switch (type) {
+                    case TileFile::meta:
+                        metaMap_.insert(FileMap::value_type(tileId, record));
+                        break;
 
-                if (ext == ".bin") {
-                    dst = &meshMap_;
-                } else if (ext == ".jpg") {
-                    dst = &atlasMap_;
-                } else if (ext == ".meta") {
-                    dst = &metaMap_;
-                }
+                    case TileFile::mesh:
+                        meshMap_.insert(FileMap::value_type(tileId, record));
+                        break;
 
-                if (dst && decodeTileId(tileId, stem)) {
-                    dst->insert(FileMap::value_type(tileId, record));
+                    case TileFile::atlas:
+                        atlasMap_.insert(FileMap::value_type(tileId, record));
+                        break;
+
+                    }
                 }
             }
         }
@@ -172,6 +158,61 @@ IStream::pointer TarDriver::input_impl(const TileId tileId, TileFile type)
             << "No data for " << tileId << " " << desc << ".";
     }
     return readFile(reader_, fsrc->second);
+}
+
+std::size_t TarDriver::size_impl(File type) const
+{
+    const Record *r{};
+    const char *desc{};
+
+    switch (type) {
+    case File::config:
+        desc = "config";
+        r = &configFile_;
+        break;
+
+    case File::tileIndex:
+        desc = "tile index";
+        r = &indexFile_;
+        break;
+    }
+
+    if (!r->size) {
+        LOGTHROW(err1, std::runtime_error)
+            << "No data for " << desc << ".";
+    }
+    return r->size;
+}
+
+std::size_t TarDriver::size_impl(const TileId tileId, TileFile type) const
+{
+    const FileMap *src{};
+    const char *desc{};
+
+    switch (type) {
+    case TileFile::meta:
+        src = &metaMap_;
+        desc = "metatile";
+        break;
+
+    case TileFile::mesh:
+        src = &meshMap_;
+        desc = "mesh";
+        break;
+
+    case TileFile::atlas:
+        src = &atlasMap_;
+        desc = "atlas";
+        break;
+    }
+
+    auto fsrc(src->find(tileId));
+    if (fsrc == src->end()) {
+        LOGTHROW(err1, std::runtime_error)
+            << "No data for " << tileId << " " << desc << ".";
+    }
+
+    return fsrc->second.size;
 }
 
 std::string TarDriver::detectType_impl(const std::string &location)

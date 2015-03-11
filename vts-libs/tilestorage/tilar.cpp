@@ -970,6 +970,18 @@ IStream::pointer Tilar::input(const FileIndex &index)
     return std::make_shared<Source::Stream>(detail_, index);
 }
 
+std::size_t Tilar::size(const FileIndex &index)
+{
+    const auto &slot(detail().index.get(index));
+    if (!slot.valid()) {
+        LOGTHROW(err1, std::runtime_error)
+            << "File [" << index.col << ',' << index.row
+            << ',' << index.type << " does not exist in the archive "
+            << detail().fd.path() << ".";
+    }
+    return slot.size;
+}
+
 void Tilar::remove(const FileIndex &index)
 {
     detail().index.unset(index);

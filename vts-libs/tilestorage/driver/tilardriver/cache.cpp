@@ -99,6 +99,12 @@ OStream::pointer Cache::output(const TileId tileId, TileFile type)
     return open(getArchives(type), index.archive).output(index.file);
 }
 
+std::size_t Cache::size(const TileId tileId, TileFile type)
+{
+    auto index(options_.index(tileId, fileType(type)));
+    return open(getArchives(type), index.archive).size(index.file);
+}
+
 void Cache::flush()
 {
     if (readOnly_) { return; }

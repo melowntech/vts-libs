@@ -88,7 +88,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage.hpp
     tilestorage/basetypes.hpp tilestorage/types.hpp
     tilestorage/properties.hpp
-    tilestorage/tileop.hpp
+    tilestorage/tileop.hpp tilestorage/tileop.cpp
     tilestorage/error.hpp
     tilestorage/storage.hpp tilestorage/storage.cpp
     tilestorage/tileset.hpp tilestorage/tileset.cpp

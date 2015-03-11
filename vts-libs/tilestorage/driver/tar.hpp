@@ -51,6 +51,11 @@ private:
     virtual IStream::pointer
     input_impl(const TileId tileId, TileFile type) const UTILITY_OVERRIDE;
 
+    virtual std::size_t size_impl(File type) const UTILITY_OVERRIDE;
+
+    virtual std::size_t size_impl(const TileId tileId, TileFile type)
+        const UTILITY_OVERRIDE;
+
     virtual DriverProperties properties_impl() const UTILITY_OVERRIDE {
         return { Factory::staticType(), {} };
     }

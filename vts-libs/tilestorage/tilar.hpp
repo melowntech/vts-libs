@@ -182,6 +182,11 @@ public:
      */
     IStream::pointer input(const FileIndex &index);
 
+    /** Get size of stored file.
+     *  Throws if file doesn't exist.
+     */
+    std::size_t size(const FileIndex &index);
+
     /** Removes file at given index.
      */
     void remove(const FileIndex &index);

@@ -37,6 +37,10 @@ public:
 
     void remove(const TileId tileId, TileFile type);
 
+    virtual std::size_t size(File type) const;
+
+    virtual std::size_t size(const TileId tileId, TileFile type) const;
+
     bool readOnly() const { return readOnly_; }
 
     void wannaWrite(const std::string &what) const;
@@ -86,6 +90,11 @@ private:
     input_impl(const TileId tileId, TileFile type) const = 0;
 
     virtual void remove_impl(const TileId tileId, TileFile type) = 0;
+
+    virtual std::size_t size_impl(File type) const = 0;
+
+    virtual std::size_t size_impl(const TileId tileId, TileFile type)
+        const = 0;
 
     virtual void begin_impl() = 0;
 
@@ -164,6 +173,16 @@ inline IStream::pointer Driver::input(const TileId tileId, TileFile type) const
 inline void Driver::remove(const TileId tileId, TileFile type)
 {
     return remove_impl(tileId, type);
+}
+
+inline std::size_t Driver::size(File type) const
+{
+    return size_impl(type);
+}
+
+inline std::size_t Driver::size(const TileId tileId, TileFile type) const
+{
+    return size_impl(tileId, type);
 }
 
 inline void Driver::begin()

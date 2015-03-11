@@ -37,6 +37,14 @@ public:
      */
     IStream::pointer input(const TileId tileId, TileFile type) const;
 
+    /** Returns size of given file.
+     */
+    std::size_t size(File type) const;
+
+    /** Returns size of given tile file.
+     */
+    std::size_t size(const TileId tileId, TileFile type) const;
+
     /** Change metalevels. Metatiles and tile/meta indices are regenerated.
      */
     void changeMetaLevels(const LodLevels &metaLevels);
