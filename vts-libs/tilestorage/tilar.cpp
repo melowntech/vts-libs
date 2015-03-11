@@ -818,6 +818,10 @@ public:
         return os.str();
     }
 
+    void rewind(off_t newPos) {
+        pos = start + newPos;
+    }
+
     Tilar::Detail::pointer owner;
     Filedes &fd;
     const FileIndex index;
@@ -860,7 +864,17 @@ public:
 
     std::string name() const { return device_->name(); }
 
-    std::streamsize read(char *s, std::streamsize n);
+    std::streamsize read(char *data, std::streamsize size
+                         , boost::iostreams::stream_offset pos)
+    {
+        // read data from given position
+        auto bytes(read_impl(data, size, pos + device_->start));
+        // update position after read block
+        device_->rewind(pos + bytes);
+        return bytes;
+    }
+
+    std::streamsize read(char *data, std::streamsize size);
 
     std::streampos seek(boost::iostreams::stream_offset off
                         , std::ios_base::seekdir way);
@@ -868,6 +882,9 @@ public:
     class Stream;
 
 private:
+    std::streamsize read_impl(char *data, std::streamsize size
+                              , boost::iostreams::stream_offset pos);
+
     std::shared_ptr<Device> device_;
 };
 
@@ -910,6 +927,12 @@ public:
         return const_cast<decltype(buffer_)&>(buffer_)->name();
     }
 
+    virtual std::size_t read(char *buf, std::size_t size
+                             , std::istream::pos_type off)
+    {
+        return buffer_->read(buf, size, off);
+    }
+
 private:
     boost::iostreams::stream_buffer<Tilar::Source> buffer_;
     std::istream stream_;
@@ -934,16 +957,18 @@ std::streamsize Tilar::Sink::write(const char *data, std::streamsize size)
     }
 }
 
-std::streamsize Tilar::Source::read(char *data, std::streamsize size)
+std::streamsize
+Tilar::Source::read_impl(char *data, std::streamsize size
+                         , boost::iostreams::stream_offset pos)
 {
-    // get pos and end and trim size if large than available
-    auto &pos(device_->pos);
+    // trim if out of range
     auto end(device_->end);
     if (size > (end - pos)) { size = end - pos; }
 
     if (!size) { return size; }
 
     const auto &fd(device_->fd);
+    LOG(info4) << "Reading " << size << " bytes from " << pos << ".";
     for (;;) {
         auto bytes(::pread(fd, data, size, pos));
         if (-1 == bytes) {
@@ -954,9 +979,18 @@ std::streamsize Tilar::Source::read(char *data, std::streamsize size)
                 << ": <" << e.code() << ", " << e.what() << ">.";
             throw e;
         }
-        pos += bytes;
+        LOG(info4) << "Read " << bytes << " bytes.";
         return bytes;
     }
+}
+
+std::streamsize Tilar::Source::read(char *data, std::streamsize size)
+{
+    LOG(info4) << "before: " << device_->pos;
+    auto bytes(read_impl(data, size, device_->pos));
+    device_->pos += bytes;
+    LOG(info4) << "after: " << device_->pos;
+    return bytes;
 }
 
 std::streampos Tilar::Source::seek(boost::iostreams::stream_offset off
