@@ -851,7 +851,8 @@ private:
 class Tilar::Source {
 public:
     typedef char char_type;
-    typedef boost::iostreams::source_tag category;
+    struct category : boost::iostreams::device_tag
+                    , boost::iostreams::input_seekable {};
 
     Source(const Tilar::Detail::pointer &owner, const FileIndex &index)
         : device_(std::make_shared<Device>(owner, index))
@@ -860,6 +861,9 @@ public:
     std::string name() const { return device_->name(); }
 
     std::streamsize read(char *s, std::streamsize n);
+
+    std::streampos seek(boost::iostreams::stream_offset off
+                        , std::ios_base::seekdir way);
 
     class Stream;
 
@@ -953,6 +957,39 @@ std::streamsize Tilar::Source::read(char *data, std::streamsize size)
         pos += bytes;
         return bytes;
     }
+}
+
+std::streampos Tilar::Source::seek(boost::iostreams::stream_offset off
+                                   , std::ios_base::seekdir way)
+{
+    std::int64_t newPos(0);
+
+    switch (way) {
+    case std::ios_base::beg:
+        newPos = device_->start + off;
+        break;
+
+    case std::ios_base::end:
+        newPos = device_->end + off;
+        break;
+
+    case std::ios_base::cur:
+        newPos = device_->pos + off;
+        break;
+
+    default: // shut up compiler!
+        break;
+    };
+
+    if (newPos < std::int64_t(device_->start)) {
+        device_->pos = device_->start;
+    } else if (newPos > std::int64_t(device_->end)) {
+        device_->pos = device_->end;
+    } else {
+        device_->pos = newPos;
+    }
+
+    return (device_->pos - device_->start);
 }
 
 void Tilar::flush()

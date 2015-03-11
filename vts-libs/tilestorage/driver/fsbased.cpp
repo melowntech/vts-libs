@@ -12,9 +12,7 @@
 #include "../error.hpp"
 #include "../config.hpp"
 
-#include "tilestorage/browser/index.html.hpp"
-#include "tilestorage/browser/index-offline.html.hpp"
-#include "tilestorage/browser/skydome.jpg.hpp"
+#include "../support.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -96,9 +94,10 @@ FsBasedDriver::~FsBasedDriver()
 void FsBasedDriver::writeExtraFiles()
 {
     // write convenience browser
-    utility::write(root_ / "index.html", browser::index_html);
-    utility::write(root_ / "index-offline.html", browser::index_offline_html);
-    utility::write(root_ / "skydome.jpg", browser::skydome_jpg);
+    for (const auto &file : SupportFile::files) {
+        utility::write(root_ / file.first, file.second.data
+                       , file.second.size);
+    }
 }
 
 OStream::pointer FsBasedDriver::output_impl(File type)

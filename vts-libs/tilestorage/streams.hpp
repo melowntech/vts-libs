@@ -28,17 +28,17 @@ public:
     virtual void close() = 0;
     virtual std::string name() const = 0;
 
+    /** Read data from stream at given location.
+     *  defaults to seek & read
+     */
+    virtual std::size_t read(char *buf, std::size_t size
+                             , std::istream::pos_type off);
+
     operator std::istream&() { return get(); }
     typedef std::shared_ptr<IStream> pointer;
 };
 
-inline void copyFile(const IStream::pointer &in
-                     , const OStream::pointer &out)
-{
-    out->get() << in->get().rdbuf();
-    in->close();
-    out->close();
-}
+void copyFile(const IStream::pointer &in, const OStream::pointer &out);
 
 } } // namespace vadstena::tilestorage
 

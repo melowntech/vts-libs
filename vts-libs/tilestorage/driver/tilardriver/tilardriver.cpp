@@ -19,10 +19,6 @@
 #include "../../config.hpp"
 #include "../fstreams.hpp"
 
-#include "tilestorage/browser/index.html.hpp"
-#include "tilestorage/browser/index-offline.html.hpp"
-#include "tilestorage/browser/skydome.jpg.hpp"
-
 namespace vadstena { namespace tilestorage {
 
 namespace fs = boost::filesystem;
@@ -165,9 +161,6 @@ TilarDriver::TilarDriver(const boost::filesystem::path &root
                 << "Tile set at " << root_ << " already exists.";
         }
     }
-
-    // write extra files
-    writeExtraFiles();
 }
 
 TilarDriver::TilarDriver(const boost::filesystem::path &root
@@ -193,14 +186,6 @@ TilarDriver::~TilarDriver()
         }
     }
 #endif
-}
-
-void TilarDriver::writeExtraFiles()
-{
-    // write convenience browser
-    utility::write(root_ / "index.html", browser::index_html);
-    utility::write(root_ / "index-offline.html", browser::index_offline_html);
-    utility::write(root_ / "skydome.jpg", browser::skydome_jpg);
 }
 
 OStream::pointer TilarDriver::output_impl(File type)
@@ -274,11 +259,7 @@ void TilarDriver::drop_impl()
     remove_all(root_);
 }
 
-void TilarDriver::update_impl()
-{
-    // write extra files (i.e. browser)
-    writeExtraFiles();
-}
+void TilarDriver::update_impl() {}
 
 DriverProperties TilarDriver::properties_impl() const
 {

@@ -97,11 +97,14 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/tileindex.hpp tilestorage/tileindex.cpp
     tilestorage/metatile.hpp tilestorage/metatile.cpp
 
+    tilestorage/support.hpp tilestorage/support.cpp
+
     tilestorage/tilar.hpp tilestorage/tilar.cpp
     tilestorage/tilar-io.hpp
 
     tilestorage/driver.hpp tilestorage/driver/driver.cpp
-    tilestorage/streams.hpp tilestorage/driver/fstreams.hpp
+    tilestorage/streams.hpp tilestorage/streams.cpp
+    tilestorage/driver/fstreams.hpp
     tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp
     tilestorage/driver/flat.hpp
     tilestorage/driver/hash-crc.hpp tilestorage/driver/hash-crc.cpp
