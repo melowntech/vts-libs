@@ -968,7 +968,6 @@ Tilar::Source::read_impl(char *data, std::streamsize size
     if (!size) { return size; }
 
     const auto &fd(device_->fd);
-    LOG(info4) << "Reading " << size << " bytes from " << pos << ".";
     for (;;) {
         auto bytes(::pread(fd, data, size, pos));
         if (-1 == bytes) {
@@ -979,17 +978,14 @@ Tilar::Source::read_impl(char *data, std::streamsize size
                 << ": <" << e.code() << ", " << e.what() << ">.";
             throw e;
         }
-        LOG(info4) << "Read " << bytes << " bytes.";
         return bytes;
     }
 }
 
 std::streamsize Tilar::Source::read(char *data, std::streamsize size)
 {
-    LOG(info4) << "before: " << device_->pos;
     auto bytes(read_impl(data, size, device_->pos));
     device_->pos += bytes;
-    LOG(info4) << "after: " << device_->pos;
     return bytes;
 }
 
