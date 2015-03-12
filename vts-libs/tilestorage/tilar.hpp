@@ -197,6 +197,14 @@ public:
 
     Info info() const;
 
+    /** Returns true if low-level I/O ignores interrupts.
+     */
+    bool ignoreInterrupts() const;
+
+    /** Sets interrupt ignoring flag.
+     */
+    void ignoreInterrupts(bool value);
+
 private:
     struct Detail;
 

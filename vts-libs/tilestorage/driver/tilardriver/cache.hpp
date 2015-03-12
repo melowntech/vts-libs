@@ -25,6 +25,10 @@ public:
 
     OStream::pointer output(const TileId tileId, TileFile type);
 
+    /** Removes file but doesn't throw if file didn't exist.
+     */
+    void remove(const TileId tileId, TileFile type);
+
     std::size_t size(const TileId tileId, TileFile type);
 
     void flush();

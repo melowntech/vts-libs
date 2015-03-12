@@ -21,8 +21,7 @@ std::uint32_t calculateHash(const std::string &data)
 fs::path dir(const fs::path &filename)
 {
     const auto hash(calculateHash(filename.string()));
-    return (str(boost::format("%02x") % ((hash >> 24) & 0xff))
-            / filename);
+    return str(boost::format("%02x") % ((hash >> 24) & 0xff));
 }
 
 int fileType(TileFile type) {
@@ -97,6 +96,16 @@ OStream::pointer Cache::output(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
     return open(getArchives(type), index.archive).output(index.file);
+}
+
+void Cache::remove(const TileId tileId, TileFile type)
+{
+    auto index(options_.index(tileId, fileType(type)));
+    try {
+        return open(getArchives(type), index.archive).remove(index.file);
+    } catch (const std::exception &e) {
+        // ignore, this fails when the file cannot be opened
+    }
 }
 
 std::size_t Cache::size(const TileId tileId, TileFile type)

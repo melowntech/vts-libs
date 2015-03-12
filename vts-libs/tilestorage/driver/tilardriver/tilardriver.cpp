@@ -174,7 +174,6 @@ TilarDriver::TilarDriver(const boost::filesystem::path &root
 
 TilarDriver::~TilarDriver()
 {
-#if 0
     if (tx_) {
         LOG(warn3) << "Active transaction on driver close; rolling back.";
         try {
@@ -185,23 +184,57 @@ TilarDriver::~TilarDriver()
                 "driver close: <" << e.what() << ">.";
         }
     }
-#endif
 }
 
 OStream::pointer TilarDriver::output_impl(File type)
 {
-    // TODO: add tx support
     const auto name(filePath(type));
-    const auto path(root_ / name);
+    if (!tx_) {
+        // no transaction -> plain file
+        const auto path(root_ / name);
+        LOG(info1) << "Saving to " << path << ".";
+        return std::make_shared<FileOStream>(path);
+    }
+
+    const auto path(tmp_ / name);
     LOG(info1) << "Saving to " << path << ".";
-    return std::make_shared<FileOStream>(path);
+
+    const auto tmpPath(utility::addExtension(path, ".tmp"));
+    return std::make_shared<FileOStream>
+        (path, [this, path, tmpPath, name](bool success)
+    {
+        if (!success) {
+            // failed -> remove
+            LOG(warn2)
+                << "Removing failed file " << tmpPath << ".";
+            fs::remove(tmpPath);
+            return;
+        }
+
+        // OK -> move file to destination
+        LOG(info1)
+            << "Moving file " << tmpPath << " to " << path << ".";
+        rename(tmpPath, path);
+
+        // remember file in transaction
+        tx_->files.insert(name);
+});
 }
 
 IStream::pointer TilarDriver::input_impl(File type) const
 {
-    // TODO: add tx support
     const auto name(filePath(type));
-    const auto path(root_ / name);
+
+    auto path(root_ / name);
+    if (tx_) {
+        // we have active transaction: is file part of the tx?
+        auto ffiles(tx_->files.find(name));
+        if (ffiles != tx_->files.end()) {
+            // yes -> tmp file
+            path = tmp_ / name;
+        }
+    }
+
     LOG(info1) << "Loading from " << path << ".";
     return std::make_shared<FileIStream>(path);
 }
@@ -233,19 +266,56 @@ std::size_t TilarDriver::size_impl(const TileId tileId, TileFile type) const
 
 void TilarDriver::remove_impl(const TileId tileId, TileFile type)
 {
-    (void) tileId; (void) type;
+    return cache_.remove(tileId, type);
 }
 
 void TilarDriver::begin_impl()
 {
+    if (tx_) {
+        LOGTHROW(err2, PendingTransaction)
+            << "Pending transaction.";
+    }
+
+    // remove whole tmp directory
+    remove_all(tmp_);
+    // create fresh tmp directory
+    create_directories(tmp_);
+
+    // begin tx
+    tx_ = boost::in_place();
 }
 
 void TilarDriver::commit_impl()
 {
+    if (!tx_) {
+        LOGTHROW(err2, PendingTransaction)
+            << "No pending transaction.";
+    }
+
+    for (const auto &file : tx_->files) {
+        // move file
+        rename(tmp_ / file, root_ / file);
+    }
+
+    // remove whole tmp directory
+    remove_all(tmp_);
+
+    // no tx at all
+    tx_ = boost::none;
 }
 
 void TilarDriver::rollback_impl()
 {
+    if (!tx_) {
+        LOGTHROW(err2, PendingTransaction)
+            << "No pending transaction.";
+    }
+
+    // remove whole tmp directory
+    remove_all(tmp_);
+
+    // no tx at all
+    tx_ = boost::none;
 }
 
 void TilarDriver::flush_impl()
@@ -255,11 +325,21 @@ void TilarDriver::flush_impl()
 
 void TilarDriver::drop_impl()
 {
+    if (tx_) {
+        LOGTHROW(err2, PendingTransaction)
+            << "Cannot drop tile set inside an active transaction.";
+    }
+
     // remove whole tmp directory
     remove_all(root_);
 }
 
-void TilarDriver::update_impl() {}
+void TilarDriver::update_impl() {
+    if (tx_) {
+        LOGTHROW(err2, PendingTransaction)
+            << "Cannot update tile set inside an active transaction.";
+    }
+}
 
 DriverProperties TilarDriver::properties_impl() const
 {

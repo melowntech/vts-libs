@@ -204,7 +204,7 @@ void updateTexelSize( TileSet::pointer &output
     SettableProperties properties;
     properties.texelSize = minTexelSize;
     SettableProperties::MaskType mask = SettableProperties::Mask::texelSize;
-    
+
     output->setProperties(properties, mask);
 }
 
@@ -251,52 +251,61 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
         kept.insert(TileSetMap::value_type(input.first, tileSet));
     }
 
-    // begin transaction
-    output->begin();
+    try {
+        // begin transaction
+        output->begin();
 
-    if (kept.empty() && (update.size() == 1)) {
-        LOG(info3)
-            << "Copying tile set <" << update.begin()->first
-            << "> to empty storage.";
-        // save properties
-        auto props(output->getProperties());
-        // clone
-        cloneTileSet(output, update.begin()->second
-                     , CreateMode::overwrite);
+        if (kept.empty() && (update.size() == 1)) {
+            LOG(info3)
+                << "Copying tile set <" << update.begin()->first
+                << "> to empty storage.";
+            // save properties
+            auto props(output->getProperties());
+            // clone
+            cloneTileSet(output, update.begin()->second
+                         , CreateMode::overwrite);
 
-        // renew properties (only texture quality so far)
-        output->setProperties(props, SettableProperties::Mask::textureQuality);
-        
-        // renew metalevels, id, srs
-        auto a(output->advancedApi());
-        a.rename(props.id);
-        a.changeMetaLevels(props.metaLevels);
-        a.changeSrs(props.srs);
-    } else {
-        // merge in tile sets to the output tile set
-        output->mergeIn(asList(kept), asList(update));
+            // renew properties (only texture quality so far)
+            output->setProperties
+                (props, SettableProperties::Mask::textureQuality);
+
+            // renew metalevels, id, srs
+            auto a(output->advancedApi());
+            a.rename(props.id);
+            a.changeMetaLevels(props.metaLevels);
+            a.changeSrs(props.srs);
+        } else {
+            // merge in tile sets to the output tile set
+            output->mergeIn(asList(kept), asList(update));
+        }
+
+        // should be fine now
+
+        // copy in tile sets to the storage
+        for (const auto &ts : update) {
+            LOG(info3)
+                << "Copying tile set <" << ts.first << "> into storage.";
+
+            // add to properties
+            // TODO: what tileset type to use?
+            Locator dst(DefaultInputType
+                        , (fs::path(InputDir) / ts.first).string());
+            properties.inputSets[ts.first].locator = dst;
+
+            // clone
+            cloneTileSet(rooted(root, dst), ts.second, CreateMode::overwrite);
+        }
+
+        updateTexelSize(output, kept, update);
+
+        // commit changes to output
+        output->commit();
+    } catch (const std::exception &e) {
+        LOG(warn3)
+            << "Operation being rolled back due to an error: <"
+            << e.what() << ">.";
+        output->rollback();
     }
-
-    // should be fine now
-
-    // copy in tile sets to the storage
-    for (const auto &ts : update) {
-        LOG(info3) << "Copying tile set <" << ts.first << "> into storage.";
-
-        // add to properties
-        // TODO: what tileset type to use?
-        Locator dst(DefaultInputType
-                    , (fs::path(InputDir) / ts.first).string());
-        properties.inputSets[ts.first].locator = dst;
-
-        // clone
-        cloneTileSet(rooted(root, dst), ts.second, CreateMode::overwrite);
-    }
-
-    updateTexelSize(output, kept, update);
-
-    // commit changes to output
-    output->commit();
 
     // done
     saveConfig();
@@ -319,36 +328,44 @@ void Storage::Detail::rebuildOutput()
         update.insert(TileSetMap::value_type(input.first, tileSet));
     }
 
-    // begin transaction
-    output->begin();
+    try {
+        // begin transaction
+        output->begin();
 
-    if (kept.empty() && (update.size() == 1)) {
-        LOG(info3)
-            << "(rebuild) Copying tile set <" << update.begin()->first
-            << "> to empty storage.";
-        // save properties
-        auto props(output->getProperties());
-        // clone
-        cloneTileSet(output, update.begin()->second
-                     , CreateMode::overwrite);
+        if (kept.empty() && (update.size() == 1)) {
+            LOG(info3)
+                << "(rebuild) Copying tile set <" << update.begin()->first
+                << "> to empty storage.";
+            // save properties
+            auto props(output->getProperties());
+            // clone
+            cloneTileSet(output, update.begin()->second
+                         , CreateMode::overwrite);
 
-        // renew properties (only texture quality so far)
-        output->setProperties(props, SettableProperties::Mask::textureQuality);
-        
-        // renew metalevels, id, srs
-        auto a(output->advancedApi());
-        a.rename(props.id);
-        a.changeMetaLevels(props.metaLevels);
-        a.changeSrs(props.srs);
-    } else {
-        // merge in tile sets to the output tile set
-        output->mergeIn(asList(kept), asList(update));
+            // renew properties (only texture quality so far)
+            output->setProperties
+                (props, SettableProperties::Mask::textureQuality);
+
+            // renew metalevels, id, srs
+            auto a(output->advancedApi());
+            a.rename(props.id);
+            a.changeMetaLevels(props.metaLevels);
+            a.changeSrs(props.srs);
+        } else {
+            // merge in tile sets to the output tile set
+            output->mergeIn(asList(kept), asList(update));
+        }
+
+        updateTexelSize(output, kept, update);
+
+        // commit changes to output
+        output->commit();
+    } catch (const std::exception &e) {
+        LOG(warn3)
+            << "Operation being rolled back due to an error: <"
+            << e.what() << ">.";
+        output->rollback();
     }
-
-    updateTexelSize(output, kept, update);
-
-    // commit changes to output
-    output->commit();
 
     // done
     saveConfig();
@@ -391,31 +408,40 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
     auto output(openTileSet(rooted(root, properties.outputSet.locator)
                             , OpenMode::readWrite));
 
-    // begin transaction
-    output->begin();
+    try {
+        // begin transaction
+        output->begin();
 
-    // merge out tile sets from the output tile set
-    output->mergeOut(asList(kept), asList(update));
+        // merge out tile sets from the output tile set
+        output->mergeOut(asList(kept), asList(update));
 
-    // remove out tile sets from the storage
-    for (const auto &ts : update) {
-        LOG(info3) << "Removing tile set <" << ts.first << "> from storage.";
+        // remove out tile sets from the storage
+        for (const auto &ts : update) {
+            LOG(info3)
+                << "Removing tile set <" << ts.first << "> from storage.";
 
-        // remove from properties
-        properties.inputSets.erase(ts.first);
+            // remove from properties
+            properties.inputSets.erase(ts.first);
+        }
+
+        updateTexelSize(output, kept, TileSetMap());
+
+        // commit changes to output
+        output->commit();
+    } catch (const std::exception &e) {
+        LOG(warn3)
+            << "Operation being rolled back due to an error: <"
+            << e.what() << ">.";
+        output->rollback();
     }
-
-    updateTexelSize(output, kept, TileSetMap());
-
-    // commit changes to output
-    output->commit();
 
     // done
     saveConfig();
 
     // remove out tile sets from the storage
     for (const auto &ts : update) {
-        LOG(info3) << "Removing tile set <" << ts.first << "> from storage.";
+        LOG(info3)
+            << "Removing tile set <" << ts.first << "> from storage.";
 
         // remove tileset
         ts.second->drop();

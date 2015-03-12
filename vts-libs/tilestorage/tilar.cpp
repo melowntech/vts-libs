@@ -531,6 +531,7 @@ struct Tilar::Detail
         : version(version), options(options), fd(std::move(srcFd))
         , readOnly(readOnly), index(options)
         , checkpoint(fileSize(fd)), tx(0)
+        , ignoreInterrupts(false)
     {
         if (indexOffset > header_constants::size) {
             index.load(fd, checkpoint - indexOffset, true);
@@ -540,7 +541,7 @@ struct Tilar::Detail
                 LOGTHROW(err1, InvalidSignature)
                     << "File " << fd.path() << " is too short.";
             }
-            // TODO: do not check crc in regular open
+            // load index but do not chech CRC
             index.load(fd, index.savedSize(), true);
         }
     }
@@ -609,6 +610,8 @@ struct Tilar::Detail
 
     FileIndex txIndex;
     off_t tx;
+
+    bool ignoreInterrupts;
 };
 
 void Tilar::Detail::flush()
@@ -822,6 +825,8 @@ public:
         pos = start + newPos;
     }
 
+    bool ignoreInterrupts() const { return owner->ignoreInterrupts; }
+
     Tilar::Detail::pointer owner;
     Filedes &fd;
     const FileIndex index;
@@ -945,7 +950,9 @@ std::streamsize Tilar::Sink::write(const char *data, std::streamsize size)
     for (;;) {
         auto bytes(::pwrite(fd, data, size, pos));
         if (-1 == bytes) {
-            if (EINTR == errno) { continue; }
+            if ((EINTR == errno) && device_->ignoreInterrupts()) {
+                continue;
+            }
             std::system_error e(errno, std::system_category());
             LOG(err1)
                 << "Unable to write to tilar file " << fd.path()
@@ -971,7 +978,9 @@ Tilar::Source::read_impl(char *data, std::streamsize size
     for (;;) {
         auto bytes(::pread(fd, data, size, pos));
         if (-1 == bytes) {
-            if (EINTR == errno) { continue; }
+            if ((EINTR == errno) && device_->ignoreInterrupts()) {
+                continue;
+            }
             std::system_error e(errno, std::system_category());
             LOG(err1)
                 << "Unable to write to tilar file " << fd.path()
@@ -1067,6 +1076,16 @@ Tilar::Info Tilar::info() const
 const Tilar::Options& Tilar::options() const
 {
     return detail().options;
+}
+
+bool Tilar::ignoreInterrupts() const
+{
+    return detail().ignoreInterrupts;
+}
+
+void Tilar::ignoreInterrupts(bool value)
+{
+    detail().ignoreInterrupts = value;
 }
 
 void Tilar::expect(const Options &options)

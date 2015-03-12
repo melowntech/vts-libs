@@ -79,6 +79,13 @@ private:
     tilardriver::Options options_;
 
     mutable tilardriver::Cache cache_;
+
+    struct Tx {
+        typedef std::set<fs::path> Files;
+        Files files;
+    };
+
+    boost::optional<Tx> tx_;
 };
 
 } } // namespace vadstena::tilestorage
