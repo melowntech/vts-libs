@@ -1,8 +1,12 @@
 #include <cstdlib>
+#include <stdexcept>
 
 #include <boost/format.hpp>
 
+#include "dbglog/dbglog.hpp"
+
 #include "./tileop.hpp"
+#include "./io.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -67,6 +71,15 @@ bool fromFilename(TileId &tileId, TileFile &type
     auto pp(tileFile(p, type));
     if (!pp) { return false; }
     return !*pp;
+}
+
+void misaligned(const Alignment &alignment, long baseTileSize
+                , const TileId &tileId)
+{
+    LOGTHROW(err1, std::domain_error)
+        << "Encountered misaligned tile " << tileId
+        << " to the grid (" << alignment(0) << ", " << alignment(1)
+        << ")/" << baseTileSize << ".";
 }
 
 } } // namespace vadstena::tilestorage

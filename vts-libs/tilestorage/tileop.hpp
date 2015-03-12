@@ -52,18 +52,18 @@ bool in(const LodRange &range, const TileId &tileId);
 std::pair<double, double> area(const Tile &tile);
 
 /** Calculates tileIndex of given tile in tiles from alignment.
- *
- * Non-zero shift allows us to move in the LOD hierarchy without touching
- * tileId.
  */
 Index tileIndex(const Alignment &alignment, long baseTileSize
-                , const TileId &tileId, Lod shift = 0);
+                , const TileId &tileId);
 
 std::string asFilename(const TileId &tileId, TileFile type);
 
 bool fromFilename(TileId &tileId, TileFile &type
                   , const std::string &str
                   , std::string::size_type offset = 0);
+
+void misaligned(const Alignment &alignment, long baseTileSize
+                , const TileId &tileId);
 
 // inline stuff
 
@@ -98,12 +98,14 @@ inline TileId fromAlignment(const Properties &properties, const TileId &tileId)
 }
 
 inline Index tileIndex(const Alignment &alignment, long baseTileSize
-                       , const TileId &tileId, Lod shift)
+                       , const TileId &tileId)
 {
-    Lod lod(tileId.lod + shift);
-    auto ts(tileSize(baseTileSize, lod));
-    return { lod, (tileId.easting - alignment(0)) / ts
-            , (tileId.northing - alignment(1)) / ts };
+    auto ts(tileSize(baseTileSize, tileId.lod));
+    auto e(std::ldiv(tileId.easting - alignment(0), ts));
+    if (e.rem) { misaligned(alignment, baseTileSize, tileId); }
+    auto n(std::ldiv(tileId.northing - alignment(1), ts));
+    if (n.rem) { misaligned(alignment, baseTileSize, tileId); }
+    return { tileId.lod, e.quot, n.quot };
 }
 
 inline TileId parent(const Properties &properties, const TileId &tileId)
