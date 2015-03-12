@@ -323,6 +323,10 @@ public:
      */
     void save(const Filedes &fd);
 
+    /** Clears every slot. Index is freshened.
+     */
+    void clear();
+
     void set(const FileIndex &index, off_t start, off_t end);
 
     void unset(const FileIndex &index);
@@ -331,7 +335,7 @@ public:
 
     std::uint32_t crc(std::uint32_t overhead) const;
     bool changed() const { return changed_; }
-    void fresh() { changed_ = false; }
+    void freshen() { changed_ = false; }
 
     int savedSize() const {
         return index_constants::size + (grid_.size() * sizeof(Slot));
@@ -464,6 +468,13 @@ void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
     }
 
     loadedFrom_ = start;
+    changed_ = false;
+}
+
+void ArchiveIndex::clear()
+{
+    grid_.assign(grid_.size(), Slot());
+    changed_ = false;
 }
 
 void ArchiveIndex::set(const FileIndex &index, off_t start, off_t end)
@@ -532,7 +543,14 @@ struct Tilar::Detail
         , readOnly(readOnly), index(options)
         , checkpoint(fileSize(fd)), tx(0)
         , ignoreInterrupts(false)
+        , indexOffset(indexOffset)
     {
+        loadIndex();
+    }
+
+    ~Detail();
+
+    void loadIndex() {
         if (indexOffset > header_constants::size) {
             index.load(fd, checkpoint - indexOffset, true);
         } else if (checkpoint > off_t(header_constants::size)) {
@@ -543,12 +561,14 @@ struct Tilar::Detail
             }
             // load index but do not chech CRC
             index.load(fd, index.savedSize(), true);
+        } else {
+            index.clear();
         }
     }
 
-    ~Detail();
+    void commitChanges();
 
-    void flush();
+    void discardChanges();
 
     void wannaWrite(const std::string &what) const {
         if (readOnly) {
@@ -612,9 +632,10 @@ struct Tilar::Detail
     off_t tx;
 
     bool ignoreInterrupts;
+    std::uint32_t indexOffset;
 };
 
-void Tilar::Detail::flush()
+void Tilar::Detail::commitChanges()
 {
     if (tx) {
         LOGTHROW(err2, PendingTransaction)
@@ -625,7 +646,20 @@ void Tilar::Detail::flush()
         // save index and remember new checkpoint
         index.save(fd);
         checkpoint = fileSize(fd);
-        index.fresh();
+        index.freshen();
+    }
+}
+
+void Tilar::Detail::discardChanges()
+{
+    if (tx) {
+        LOGTHROW(err2, PendingTransaction)
+            << "Pending transaction in archive " << fd.path() << ".";
+    }
+
+    if (changed()) {
+        truncate(fd, checkpoint);
+        loadIndex();
     }
 }
 
@@ -633,8 +667,10 @@ Tilar::Detail::~Detail()
 {
     if (changed()) {
         // unflushed -> rollback
-        LOG(warn2) << "File was not flushed, rolling back.";
-        truncate(fd, checkpoint);
+        LOG(warn2)
+            << "File " << fd.path() << " was not flushed, discarding changes.";
+        tx = 0;
+        discardChanges();
     }
 }
 
@@ -1031,9 +1067,14 @@ std::streampos Tilar::Source::seek(boost::iostreams::stream_offset off
     return (device_->pos - device_->start);
 }
 
-void Tilar::flush()
+void Tilar::commit()
 {
-    detail().flush();
+    detail().commitChanges();
+}
+
+void Tilar::rollback()
+{
+    detail().discardChanges();
 }
 
 OStream::pointer Tilar::output(const FileIndex &index)

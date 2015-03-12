@@ -14,6 +14,8 @@
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem/path.hpp>
 
+#include "utility/runnable.hpp"
+
 #include "./types.hpp"
 #include "./properties.hpp"
 
@@ -72,15 +74,19 @@ public:
 
     StorageProperties getProperties() const;
 
-    void addTileSet(const Locator &locator);
+    void addTileSet(const Locator &locator
+                    , utility::Runnable *runnable = nullptr);
 
-    void addTileSets(const std::vector<Locator> &locators);
-    
+    void addTileSets(const std::vector<Locator> &locators
+                     , utility::Runnable *runnable = nullptr);
+
     void rebuildOutput();
 
-    void removeTileSet(const std::string &id);
+    void removeTileSet(const std::string &id
+                       , utility::Runnable *runnable = nullptr);
 
-    void removeTileSets(const std::vector<std::string> &ids);
+    void removeTileSets(const std::vector<std::string> &ids
+                        , utility::Runnable *runnable = nullptr);
 
     /** Updates all input and output tilesets.
      *  (Currently, only embedded browser is updated).
@@ -108,14 +114,16 @@ private:
 
 // inline stuff
 
-inline void Storage::addTileSet(const Locator &locator)
+inline void Storage::addTileSet(const Locator &locator
+                                , utility::Runnable *runnable)
 {
-    return addTileSets({locator});
+    return addTileSets({locator}, runnable);
 }
 
-inline void Storage::removeTileSet(const std::string &id)
+inline void Storage::removeTileSet(const std::string &id
+                                   , utility::Runnable *runnable)
 {
-    return removeTileSets({id});
+    return removeTileSets({id}, runnable);
 }
 
 } } // namespace vadstena::tilestorage

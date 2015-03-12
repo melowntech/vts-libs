@@ -201,7 +201,7 @@ OStream::pointer TilarDriver::output_impl(File type)
 
     const auto tmpPath(utility::addExtension(path, ".tmp"));
     return std::make_shared<FileOStream>
-        (path, [this, path, tmpPath, name](bool success)
+        (tmpPath, [this, path, tmpPath, name](bool success)
     {
         if (!success) {
             // failed -> remove
@@ -299,6 +299,7 @@ void TilarDriver::commit_impl()
 
     // remove whole tmp directory
     remove_all(tmp_);
+    cache_.commit();
 
     // no tx at all
     tx_ = boost::none;
@@ -313,6 +314,7 @@ void TilarDriver::rollback_impl()
 
     // remove whole tmp directory
     remove_all(tmp_);
+    cache_.rollback();
 
     // no tx at all
     tx_ = boost::none;
@@ -320,7 +322,7 @@ void TilarDriver::rollback_impl()
 
 void TilarDriver::flush_impl()
 {
-    cache_.flush();
+    cache_.commit();
 }
 
 void TilarDriver::drop_impl()

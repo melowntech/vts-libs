@@ -32,6 +32,8 @@ public:
     std::size_t size(const TileId tileId, TileFile type);
 
     void flush();
+    void commit();
+    void rollback();
 
 private:
     struct Archives {
@@ -46,7 +48,8 @@ private:
 
         fs::path filePath(const fs::path &root, const Index &index) const;
 
-        void flush();
+        void commitChanges();
+        void discardChanges();
     };
 
     Archives& getArchives(TileFile type);
@@ -72,9 +75,14 @@ inline Cache::Archives& Cache::getArchives(TileFile type)
     throw;
 }
 
-inline void Cache::Archives::flush()
+inline void Cache::Archives::commitChanges()
 {
-    for (auto &item : map) { item.second.flush(); }
+    for (auto &item : map) { item.second.commit(); }
+}
+
+inline void Cache::Archives::discardChanges()
+{
+    for (auto &item : map) { item.second.rollback(); }
 }
 
 } } } // namespace vadstena::tilestorage::tilardriver

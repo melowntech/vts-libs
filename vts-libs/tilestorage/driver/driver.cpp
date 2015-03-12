@@ -111,4 +111,10 @@ std::string Driver::detectType(const std::string &location)
     return {};
 }
 
+void Driver::notRunning() const
+{
+    LOGTHROW(warn2, Interrupted)
+        << "Transaction has been interrupted.";
+}
+
 } } // namespace vadstena::tilestorage

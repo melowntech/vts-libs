@@ -114,11 +114,18 @@ std::size_t Cache::size(const TileId tileId, TileFile type)
     return open(getArchives(type), index.archive).size(index.file);
 }
 
-void Cache::flush()
+void Cache::commit()
 {
     if (readOnly_) { return; }
-    tiles_.flush();
-    metatiles_.flush();
+    tiles_.commitChanges();
+    metatiles_.commitChanges();
+}
+
+void Cache::rollback()
+{
+    if (readOnly_) { return; }
+    tiles_.discardChanges();
+    metatiles_.discardChanges();
 }
 
 } } } // namespace vadstena::tilestorage::tilardriver

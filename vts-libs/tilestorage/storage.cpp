@@ -129,11 +129,13 @@ struct Storage::Detail {
 
     void saveConfig();
 
-    void addTileSets(const std::vector<Locator> &locators);
-    
+    void addTileSets(const std::vector<Locator> &locators
+                     , utility::Runnable *runnable);
+
     void rebuildOutput();
 
-    void removeTileSets(const std::vector<std::string> &ids);
+    void removeTileSets(const std::vector<std::string> &ids
+                        , utility::Runnable *runnable);
 
     void update();
 
@@ -210,7 +212,8 @@ void updateTexelSize( TileSet::pointer &output
 
 } // namespace
 
-void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
+void Storage::Detail::addTileSets(const std::vector<Locator> &locators
+                                  , utility::Runnable *runnable)
 {
     // open output tile set
     auto output(openTileSet(rooted(root, properties.outputSet.locator)
@@ -253,7 +256,7 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators)
 
     try {
         // begin transaction
-        output->begin();
+        output->begin(runnable);
 
         if (kept.empty() && (update.size() == 1)) {
             LOG(info3)
@@ -373,7 +376,8 @@ void Storage::Detail::rebuildOutput()
     LOG(info3) << "Rebuild: done";
 }
 
-void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
+void Storage::Detail::removeTileSets(const std::vector<std::string> &ids
+                                     , utility::Runnable *runnable)
 {
     TileSetMap kept;
     TileSetMap update;
@@ -410,7 +414,7 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids)
 
     try {
         // begin transaction
-        output->begin();
+        output->begin(runnable);
 
         // merge out tile sets from the output tile set
         output->mergeOut(asList(kept), asList(update));
@@ -488,9 +492,10 @@ Storage::Storage(const fs::path &root, bool readOnly)
     detail().loadConfig();
 }
 
-void Storage::addTileSets(const std::vector<Locator> &locators)
+void Storage::addTileSets(const std::vector<Locator> &locators
+                          , utility::Runnable *runnable)
 {
-    return detail().addTileSets(locators);
+    return detail().addTileSets(locators, runnable);
 }
 
 void Storage::rebuildOutput()
@@ -498,9 +503,10 @@ void Storage::rebuildOutput()
     return detail().rebuildOutput();
 }
 
-void Storage::removeTileSets(const std::vector<std::string> &ids)
+void Storage::removeTileSets(const std::vector<std::string> &ids
+                             , utility::Runnable *runnable)
 {
-    return detail().removeTileSets(ids);
+    return detail().removeTileSets(ids, runnable);
 }
 
 void Storage::update()

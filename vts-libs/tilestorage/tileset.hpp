@@ -24,6 +24,8 @@
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem/path.hpp>
 
+#include "utility/runnable.hpp"
+
 #include "./types.hpp"
 #include "./tileindex.hpp"
 #include "./properties.hpp"
@@ -111,7 +113,7 @@ public:
 
     /** Starts new transaction. (R/W)
      */
-    void begin();
+    void begin(utility::Runnable *runnable = nullptr);
 
     /** Commits pending transaction. Calls flush to ensure any changes are
      *  propagated to the backing store.

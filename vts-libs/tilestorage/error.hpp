@@ -57,6 +57,10 @@ struct InvalidSignature : Error {
     InvalidSignature(const std::string &message) : Error(message) {}
 };
 
+struct Interrupted : Error {
+    Interrupted(const std::string &message) : Error(message) {}
+};
+
 } } // namespace vadstena::tilestorage
 
 #endif // vadstena_libs_tilestorage_error_hpp_included_

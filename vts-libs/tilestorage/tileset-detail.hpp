@@ -101,7 +101,7 @@ struct TileSet::Detail {
 
     void saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex) const;
 
-    void begin();
+    void begin(utility::Runnable *runnable);
 
     void commit();
 

@@ -3,6 +3,8 @@
 
 #include <map>
 
+#include "utility/runnable.hpp"
+
 #include "./types.hpp"
 #include "./properties.hpp"
 #include "./streams.hpp"
@@ -45,7 +47,7 @@ public:
 
     void wannaWrite(const std::string &what) const;
 
-    void begin();
+    void begin(utility::Runnable *runnable = nullptr);
 
     void commit();
 
@@ -76,7 +78,7 @@ public:
     static std::map<std::string, std::string> listSupportedDrivers();
 
 protected:
-    Driver(bool readOnly) : readOnly_(readOnly) {}
+    Driver(bool readOnly) : readOnly_(readOnly), runnable_() {}
 
 private:
     virtual OStream::pointer output_impl(const File type) = 0;
@@ -114,7 +116,15 @@ private:
 
     static std::string detectType(const std::string &location);
 
+    void checkRunning() const;
+
+    void notRunning() const;
+
     bool readOnly_;
+
+    /** Runnable associated with the transaction.
+     */
+    utility::Runnable *runnable_;
 };
 
 class Driver::Factory {
@@ -152,26 +162,31 @@ void Driver::registerDriver()
 
 inline OStream::pointer Driver::output(File type)
 {
+    checkRunning();
     return output_impl(type);
 }
 
 inline IStream::pointer Driver::input(File type) const
 {
+    checkRunning();
     return input_impl(type);
 }
 
 inline OStream::pointer Driver::output(const TileId tileId, TileFile type)
 {
+    checkRunning();
     return output_impl(tileId, type);
 }
 
 inline IStream::pointer Driver::input(const TileId tileId, TileFile type) const
 {
+    checkRunning();
     return input_impl(tileId, type);
 }
 
 inline void Driver::remove(const TileId tileId, TileFile type)
 {
+    checkRunning();
     return remove_impl(tileId, type);
 }
 
@@ -185,19 +200,22 @@ inline std::size_t Driver::size(const TileId tileId, TileFile type) const
     return size_impl(tileId, type);
 }
 
-inline void Driver::begin()
+inline void Driver::begin(utility::Runnable *runnable)
 {
-    return begin_impl();
+    begin_impl();
+    runnable_ = runnable;
 }
 
 inline void Driver::commit()
 {
-    return commit_impl();
+    commit_impl();
+    runnable_ = nullptr;
 }
 
 inline void Driver::rollback()
 {
-    return rollback_impl();
+    rollback_impl();
+    runnable_ = nullptr;
 }
 
 inline void Driver::flush()
@@ -218,6 +236,12 @@ inline void Driver::update()
 inline DriverProperties Driver::properties() const
 {
     return properties_impl();
+}
+
+inline void Driver::checkRunning() const
+{
+    if (!runnable_ || *runnable_) { return; }
+    notRunning();
 }
 
 } } // namespace vadstena::tilestorage

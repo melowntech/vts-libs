@@ -165,7 +165,11 @@ public:
 
     /** Flushes file to the disk (writes new index if needed).
      */
-    void flush();
+    void commit();
+
+    /** Rolls back all changes since last commit.
+     */
+    void rollback();
 
     // operations
 

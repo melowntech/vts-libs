@@ -219,8 +219,9 @@ TileSet::Detail::~Detail()
     if (!std::uncaught_exception()
         && (metadataChanged || propertiesChanged))
     {
-        LOG(warn3) << "Tile set is not flushed on destruction: "
-            "data could be unusable.";
+        LOG(warn3)
+            << "Tile set <" << properties.id
+            << "> is not flushed on destruction: data could be unusable.";
     }
 }
 
@@ -917,7 +918,7 @@ MetaNode TileSet::Detail::removeTile(const TileId &tileId)
     return setMetaNode(tileId, metanode);
 }
 
-void TileSet::Detail::begin()
+void TileSet::Detail::begin(utility::Runnable *runnable)
 {
     LOG(info3)
         << "Tile set <" << properties.id << ">: Opening transaction.";
@@ -928,7 +929,7 @@ void TileSet::Detail::begin()
             << "Transaction already in progress.";
     }
 
-    driver->begin();
+    driver->begin(runnable);
 
     tx = true;
 }
@@ -976,6 +977,7 @@ void TileSet::Detail::rollback()
     metadata = {};
     loadedMetatiles = {};
     metadataChanged = false;
+    propertiesChanged = false;
 
     if (savedProperties.foatSize) {
         // load tile index only if foat is valid
@@ -1078,10 +1080,10 @@ Properties TileSet::setProperties(const SettableProperties &properties
     return detail().properties;
 }
 
-void TileSet::begin()
+void TileSet::begin(utility::Runnable *runnable)
 {
     detail().checkValidity();
-    detail().begin();
+    detail().begin(runnable);
 }
 
 void TileSet::commit()
