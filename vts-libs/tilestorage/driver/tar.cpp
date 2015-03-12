@@ -57,7 +57,7 @@ IStream::pointer readFile(utility::tar::Reader &reader
 TarDriver::TarDriver(const boost::filesystem::path &root
          , OpenMode mode)
     : ReadOnlyDriver(mode == OpenMode::readOnly)
-    , tarPath_(root), reader_(root)
+    , tarPath_(absolute(root)), reader_(tarPath_)
 {
     utility::tar::Block block;
     TileId tileId;

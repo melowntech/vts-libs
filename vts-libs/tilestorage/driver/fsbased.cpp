@@ -54,7 +54,7 @@ namespace {
 FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
                        , CreateMode mode, const CreateProperties&)
     : Driver(false)
-    , root_(root), tmp_(root / TransactionRoot)
+    , root_(absolute(root)), tmp_(root_ / TransactionRoot)
     , dirCache_(root_)
 {
     if (!create_directories(root_)) {

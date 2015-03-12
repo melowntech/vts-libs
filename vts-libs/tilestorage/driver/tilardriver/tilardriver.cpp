@@ -150,7 +150,7 @@ Options::Options(const Driver::CreateProperties &properties, bool)
 TilarDriver::TilarDriver(const boost::filesystem::path &root
                          , CreateMode mode, const CreateProperties &properties)
     : Driver(false)
-    , root_(root), tmp_(root / TransactionRoot)
+    , root_(absolute(root)), tmp_(root_ / TransactionRoot)
     , options_(properties, true)
     , cache_(root_, options_, false)
 {
@@ -166,7 +166,7 @@ TilarDriver::TilarDriver(const boost::filesystem::path &root
 TilarDriver::TilarDriver(const boost::filesystem::path &root
                          , OpenMode mode)
     : Driver(mode == OpenMode::readOnly)
-    , root_(root), tmp_(root / TransactionRoot)
+    , root_(absolute(root)), tmp_(root_ / TransactionRoot)
     , options_(tilestorage::loadConfig(root_ / filePath(File::config)))
     , cache_(root_, options_, (mode == OpenMode::readOnly))
 {
