@@ -24,8 +24,10 @@ const std::string TileIndexName("index.bin");
 class StringIStream : public IStream {
 public:
     StringIStream(const std::string &path
-                  , const utility::tar::Reader::Data &data)
+                  , const utility::tar::Reader::Data &data
+                  , std::time_t time)
         : path_(path), s_(std::string(data.data(), data.size()))
+        , stat_{ data.size(), time }
     {}
 
     virtual ~StringIStream() {}
@@ -40,16 +42,19 @@ public:
         return path_.string();
     };
 
+    virtual FileStat stat() const UTILITY_OVERRIDE { return stat_; }
+
 private:
     fs::path path_;
     std::istringstream s_;
+    FileStat stat_;
 };
 
 IStream::pointer readFile(utility::tar::Reader &reader
                           , const TarDriver::Record &record)
 {
     return std::make_shared<StringIStream>
-        (record.path, reader.readData(record.block, record.size));
+        (record.path, reader.readData(record.block, record.size), record.time);
 }
 
 } // namespace
@@ -70,7 +75,8 @@ TarDriver::TarDriver(const boost::filesystem::path &root
 
         if (header.isFile()) {
             const auto f(header.getPath().filename());
-            Record record(f.string(), reader_.cursor(), header.getSize());
+            Record record(f.string(), reader_.cursor(), header.getSize()
+                          , header.getTime());
 
             const auto filename(f.string());
             if (filename == ConfigName) {
@@ -160,7 +166,7 @@ IStream::pointer TarDriver::input_impl(const TileId tileId, TileFile type)
     return readFile(reader_, fsrc->second);
 }
 
-std::size_t TarDriver::size_impl(File type) const
+FileStat TarDriver::stat_impl(File type) const
 {
     const Record *r{};
     const char *desc{};
@@ -181,10 +187,11 @@ std::size_t TarDriver::size_impl(File type) const
         LOGTHROW(err1, std::runtime_error)
             << "No data for " << desc << ".";
     }
-    return r->size;
+
+    return { r->size, r->time };
 }
 
-std::size_t TarDriver::size_impl(const TileId tileId, TileFile type) const
+FileStat TarDriver::stat_impl(const TileId tileId, TileFile type) const
 {
     const FileMap *src{};
     const char *desc{};
@@ -212,7 +219,7 @@ std::size_t TarDriver::size_impl(const TileId tileId, TileFile type) const
             << "No data for " << tileId << " " << desc << ".";
     }
 
-    return fsrc->second.size;
+    return { fsrc->second.size, fsrc->second.time };
 }
 
 std::string TarDriver::detectType_impl(const std::string &location)

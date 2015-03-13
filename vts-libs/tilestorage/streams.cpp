@@ -1,4 +1,13 @@
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <cerrno>
+#include <system_error>
+
 #include "dbglog/dbglog.hpp"
+
+#include "utility/raise.hpp"
 
 #include "./streams.hpp"
 
@@ -22,6 +31,20 @@ std::size_t IStream::read(char *buf, std::size_t size
         return 0;
     }
     return s.read(buf, size).gcount();
+}
+
+FileStat FileStat::stat(const boost::filesystem::path &path)
+{
+    struct ::stat st;
+    if (::stat(path.string().c_str(), &st) == -1) {
+        std::system_error e
+            (errno, std::system_category()
+             , utility::formatError("Cannot stat file %s.", path));
+        LOG(err1) << e.what();
+        throw e;
+    }
+
+    return { st.st_size, st.st_mtime };
 }
 
 } } // namespace vadstena::tilestorage

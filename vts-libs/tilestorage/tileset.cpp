@@ -1293,19 +1293,19 @@ IStream::pointer TileSet::AdvancedApi::input(const TileId tileId
     return detail.driver->input(tileId, type);
 }
 
-std::size_t TileSet::AdvancedApi::size(File type) const
+FileStat TileSet::AdvancedApi::stat(File type) const
 {
     const auto &detail(tileSet_->detail());
     detail.checkValidity();
-    return detail.driver->size(type);
+    return detail.driver->stat(type);
 }
 
-std::size_t TileSet::AdvancedApi::size(const TileId tileId, TileFile type)
+FileStat TileSet::AdvancedApi::stat(const TileId tileId, TileFile type)
     const
 {
     const auto &detail(tileSet_->detail());
     detail.checkValidity();
-    return detail.driver->size(tileId, type);
+    return detail.driver->stat(tileId, type);
 }
 
 void TileSet::AdvancedApi::regenerateTileIndex()

@@ -356,6 +356,8 @@ public:
         }
     }
 
+    FileStat stat(const FileIndex &index) const;
+
 private:
     inline Slot& slot(const FileIndex &index) {
         check(index);
@@ -525,6 +527,12 @@ Tilar::Info ArchiveIndex::info() const
     return { loadedFrom_, previous_, overhead_, timestamp_ };
 }
 
+FileStat ArchiveIndex::stat(const FileIndex &index) const
+{
+    // what time do uncommitted files have?
+    return { std::size_t(slot(index).size), std::time_t(timestamp_) };
+}
+
 } // namespace
 
 struct Tilar::Detail
@@ -615,6 +623,10 @@ struct Tilar::Detail
 
     bool changed() {
         return (!readOnly && (index.changed() || fileSize(fd) != checkpoint));
+    }
+
+    FileStat stat(const FileIndex &fileIndex) const {
+        return index.stat(fileIndex);
     }
 
     Version version;
@@ -857,11 +869,11 @@ public:
         return os.str();
     }
 
-    void rewind(off_t newPos) {
-        pos = start + newPos;
-    }
+    void rewind(off_t newPos) { pos = start + newPos; }
 
     bool ignoreInterrupts() const { return owner->ignoreInterrupts; }
+
+    FileStat stat() const { return owner->stat(index); }
 
     Tilar::Detail::pointer owner;
     Filedes &fd;
@@ -886,6 +898,8 @@ public:
     std::string name() const { return device_->name(); }
 
     std::streamsize write(const char *s, std::streamsize n);
+
+    FileStat stat() const { return device_->stat(); }
 
     class Stream;
 
@@ -920,6 +934,8 @@ public:
     std::streampos seek(boost::iostreams::stream_offset off
                         , std::ios_base::seekdir way);
 
+    FileStat stat() const { return device_->stat(); }
+
     class Stream;
 
 private:
@@ -948,6 +964,11 @@ public:
         return const_cast<decltype(buffer_)&>(buffer_)->name();
     }
 
+    virtual FileStat stat() const {
+        // stream_buffer has only non-const version of operator-> :(
+        return const_cast<decltype(buffer_)&>(buffer_)->stat();
+    }
+
 private:
     boost::iostreams::stream_buffer<Tilar::Sink> buffer_;
     std::ostream stream_;
@@ -972,6 +993,11 @@ public:
                              , std::istream::pos_type off)
     {
         return buffer_->read(buf, size, off);
+    }
+
+    virtual FileStat stat() const {
+        // stream_buffer has only non-const version of operator-> :(
+        return const_cast<decltype(buffer_)&>(buffer_)->stat();
     }
 
 private:
@@ -1089,14 +1115,12 @@ IStream::pointer Tilar::input(const FileIndex &index)
 
 std::size_t Tilar::size(const FileIndex &index)
 {
-    const auto &slot(detail().index.get(index));
-    if (!slot.valid()) {
-        LOGTHROW(err1, std::runtime_error)
-            << "File [" << index.col << ',' << index.row
-            << ',' << index.type << " does not exist in the archive "
-            << detail().fd.path() << ".";
-    }
-    return slot.size;
+    return detail().index.get(index).size;
+}
+
+FileStat Tilar::stat(const FileIndex &index)
+{
+    return detail().index.stat(index);
 }
 
 void Tilar::remove(const FileIndex &index)

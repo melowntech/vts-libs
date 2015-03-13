@@ -36,10 +36,11 @@ public:
         std::string path;
         std::size_t block;
         std::size_t size;
+        std::time_t time;
 
         Record(std::string path = "", std::size_t block = 0
-               , std::size_t size = 0)
-            : path(path), block(block), size(size)
+               , std::size_t size = 0, std::time_t time = 0)
+            : path(path), block(block), size(size), time(time)
         {}
     };
 
@@ -51,9 +52,9 @@ private:
     virtual IStream::pointer
     input_impl(const TileId tileId, TileFile type) const UTILITY_OVERRIDE;
 
-    virtual std::size_t size_impl(File type) const UTILITY_OVERRIDE;
+    virtual FileStat stat_impl(File type) const UTILITY_OVERRIDE;
 
-    virtual std::size_t size_impl(const TileId tileId, TileFile type)
+    virtual FileStat stat_impl(const TileId tileId, TileFile type)
         const UTILITY_OVERRIDE;
 
     virtual DriverProperties properties_impl() const UTILITY_OVERRIDE {

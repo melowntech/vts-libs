@@ -39,16 +39,16 @@ public:
 
     /** Returns size of given file.
      */
-    std::size_t size(File type) const;
+    FileStat stat(File type) const;
 
     /** Returns size of given tile file.
      */
-    std::size_t size(const TileId tileId, TileFile type) const;
+    FileStat stat(const TileId tileId, TileFile type) const;
 
     /** Change metalevels. Metatiles and tile/meta indices are regenerated.
      */
     void changeMetaLevels(const LodLevels &metaLevels);
-    
+
     /** Changes SRS - succeeds only if there is no current SRS or if current SRS
         is same as new SRS
      */

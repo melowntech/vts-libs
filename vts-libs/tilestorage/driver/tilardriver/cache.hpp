@@ -31,6 +31,8 @@ public:
 
     std::size_t size(const TileId tileId, TileFile type);
 
+    FileStat stat(const TileId tileId, TileFile type);
+
     void flush();
     void commit();
     void rollback();

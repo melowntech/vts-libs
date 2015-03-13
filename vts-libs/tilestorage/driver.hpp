@@ -39,9 +39,9 @@ public:
 
     void remove(const TileId tileId, TileFile type);
 
-    virtual std::size_t size(File type) const;
+    virtual FileStat stat(File type) const;
 
-    virtual std::size_t size(const TileId tileId, TileFile type) const;
+    virtual FileStat stat(const TileId tileId, TileFile type) const;
 
     bool readOnly() const { return readOnly_; }
 
@@ -93,9 +93,9 @@ private:
 
     virtual void remove_impl(const TileId tileId, TileFile type) = 0;
 
-    virtual std::size_t size_impl(File type) const = 0;
+    virtual FileStat stat_impl(File type) const = 0;
 
-    virtual std::size_t size_impl(const TileId tileId, TileFile type)
+    virtual FileStat stat_impl(const TileId tileId, TileFile type)
         const = 0;
 
     virtual void begin_impl() = 0;
@@ -190,14 +190,14 @@ inline void Driver::remove(const TileId tileId, TileFile type)
     return remove_impl(tileId, type);
 }
 
-inline std::size_t Driver::size(File type) const
+inline FileStat Driver::stat(File type) const
 {
-    return size_impl(type);
+    return stat_impl(type);
 }
 
-inline std::size_t Driver::size(const TileId tileId, TileFile type) const
+inline FileStat Driver::stat(const TileId tileId, TileFile type) const
 {
-    return size_impl(tileId, type);
+    return stat_impl(tileId, type);
 }
 
 inline void Driver::begin(utility::Runnable *runnable)

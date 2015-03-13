@@ -147,22 +147,22 @@ void FsBasedDriver::remove_impl(const TileId tileId, TileFile type)
     fs::remove_all(path);
 }
 
-std::size_t FsBasedDriver::size_impl(File type) const
+FileStat FsBasedDriver::stat_impl(File type) const
 {
     const auto name(filePath(type));
     const auto dir(fileDir(type, name));
     const auto path(readPath(dir, name));
     LOG(info1) << "Statting from " << path << ".";
-    return file_size(path);
+    return FileStat::stat(path);
 }
 
-std::size_t FsBasedDriver::size_impl(const TileId tileId, TileFile type) const
+FileStat FsBasedDriver::stat_impl(const TileId tileId, TileFile type) const
 {
     const auto name(filePath(tileId, type));
     const auto dir(fileDir(tileId, type, name));
     const auto path(readPath(dir, name));
     LOG(info1) << "Statting from " << path << ".";
-    return file_size(path);
+    return FileStat::stat(path);
 }
 
 void FsBasedDriver::begin_impl()

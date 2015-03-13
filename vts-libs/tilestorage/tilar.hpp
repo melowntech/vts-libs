@@ -191,6 +191,11 @@ public:
      */
     std::size_t size(const FileIndex &index);
 
+    /** Get file's statistics (size and time).
+     *  Throws if file doesn't exist.
+     */
+    FileStat stat(const FileIndex &index);
+
     /** Removes file at given index.
      */
     void remove(const FileIndex &index);

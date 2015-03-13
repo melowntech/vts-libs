@@ -55,6 +55,10 @@ public:
         return path_.string();
     };
 
+    virtual FileStat stat() const UTILITY_OVERRIDE {
+        return FileStat::stat(path_);
+    }
+
 private:
     boost::filesystem::path path_;
     utility::ofstreambuf f_;
@@ -88,6 +92,10 @@ public:
     virtual std::string name() const UTILITY_OVERRIDE {
         return path_.string();
     };
+
+    virtual FileStat stat() const UTILITY_OVERRIDE {
+        return FileStat::stat(path_);
+    }
 
 private:
     boost::filesystem::path path_;
