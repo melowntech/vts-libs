@@ -8,6 +8,7 @@
 #include <boost/optional.hpp>
 
 #include "./basetypes.hpp"
+#include "./typesfwd.hpp"
 
 namespace vadstena { namespace tilestorage {
 

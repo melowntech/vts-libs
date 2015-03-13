@@ -17,14 +17,10 @@
 #include <string>
 
 #include "math/geometry_core.hpp"
-#include "geometry/parse-obj.hpp"
 
 #include "../ids.hpp"
 
 namespace vadstena { namespace tilestorage {
-
-typedef geometry::Obj Mesh;
-typedef cv::Mat Atlas;
 
 /** Tile set locator
  */

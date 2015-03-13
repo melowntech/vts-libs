@@ -17,6 +17,7 @@
 #include "./config.hpp"
 #include "./tileindex.hpp"
 #include "./io.hpp"
+#include "./tileindex-io.hpp"
 #include "./tileop.hpp"
 #include "./tileset-detail.hpp"
 #include "./tileset-advanced.hpp"

@@ -3,6 +3,7 @@
 #include "../tileset-detail.hpp"
 #include "../merge.hpp"
 #include "./dump.hpp"
+#include "../tileindex-io.hpp"
 
 namespace vadstena { namespace tilestorage {
 

@@ -3,12 +3,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
   file_to_cpp(PUBLIC_KEY_SOURCES vadstena::fingerPrintManipulator
     detail/fingeprint-manipulator)
 
-  define_module(LIBRARY vadstena-libs DEPENDS
-    service cvision optics math geo utility dbglog jsoncpp
-    Boost_FILESYSTEM Boost_REGEX
-    OpenCV LIBSHP CRYPTO++ MYSQL++
-    half)
-
   if (BUILDSYS_CUSTOMER_BUILD)
     message(STATUS "Building vadstena-libs customized for customer "
       "'${BUILDSYS_CUSTOMER}'.")
@@ -28,6 +22,53 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
   file_to_cpp(vadstena-libs_BROWSER_SOURCES
     vadstena::tilestorage::browser::skydome_jpg
     tilestorage/browser/skydome.jpg)
+
+  set(vadstena-tileset-core_SOURCES
+    tilestorage/basetypes.hpp
+    tilestorage/properties.hpp
+    tilestorage/tileop.hpp tilestorage/tileop.cpp
+    tilestorage/error.hpp
+    tilestorage/io.hpp
+    tilestorage/json.hpp tilestorage/json.cpp
+
+    tilestorage/tilar.hpp tilestorage/tilar.cpp
+    tilestorage/tilar-io.hpp
+
+    tilestorage/driver.hpp tilestorage/driver/driver.cpp
+    tilestorage/streams.hpp tilestorage/streams.cpp
+    tilestorage/driver/fstreams.hpp
+    tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp
+    tilestorage/driver/flat.hpp
+    tilestorage/driver/hash-crc.hpp tilestorage/driver/hash-crc.cpp
+    tilestorage/driver/ro-base.hpp
+    tilestorage/driver/tar.hpp tilestorage/driver/tar.cpp
+
+    tilestorage/driver/tilardriver.hpp
+    tilestorage/driver/tilardriver/tilardriver.cpp
+    tilestorage/driver/tilardriver/options.hpp
+    tilestorage/driver/tilardriver/cache.hpp
+    tilestorage/driver/tilardriver/cache.cpp
+
+    tilestorage/config.hpp tilestorage/config.cpp
+
+    tilestorage/support.hpp tilestorage/support.cpp
+
+    ${vadstena-libs_BROWSER_SOURCES}
+    )
+
+  define_module(LIBRARY vadstena-tileset-core DEPENDS
+    math utility dbglog jsoncpp)
+  add_library(vadstena-tileset-core STATIC ${vadstena-tileset-core_SOURCES})
+  buildsys_library(vadstena-tileset-core)
+  target_link_libraries(vadstena-tileset-core ${MODULE_LIBRARIES})
+  buildsys_target_compile_definitions(vadstena-tileset-core ${MODULE_DEFINITIONS})
+
+  define_module(LIBRARY vadstena-libs DEPENDS
+    vadstena-tileset-core
+    service cvision optics math geo utility dbglog jsoncpp
+    Boost_FILESYSTEM Boost_REGEX
+    OpenCV LIBSHP CRYPTO++ MYSQL++
+    half)
 
   set(vadstena-libs_SOURCES
     db.hpp db.cpp
@@ -86,50 +127,23 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     lodmapping.hpp
 
     tilestorage.hpp
-    tilestorage/basetypes.hpp tilestorage/types.hpp
-    tilestorage/properties.hpp
-    tilestorage/tileop.hpp tilestorage/tileop.cpp
-    tilestorage/error.hpp
+    tilestorage/types.hpp
     tilestorage/storage.hpp tilestorage/storage.cpp
     tilestorage/tileset.hpp tilestorage/tileset.cpp
-    tilestorage/io.hpp tilestorage/po.hpp
-    tilestorage/json.hpp tilestorage/json.cpp
+    tilestorage/po.hpp
     tilestorage/tileindex.hpp tilestorage/tileindex.cpp
     tilestorage/metatile.hpp tilestorage/metatile.cpp
-
-    tilestorage/support.hpp tilestorage/support.cpp
-
-    tilestorage/tilar.hpp tilestorage/tilar.cpp
-    tilestorage/tilar-io.hpp
-
-    tilestorage/driver.hpp tilestorage/driver/driver.cpp
-    tilestorage/streams.hpp tilestorage/streams.cpp
-    tilestorage/driver/fstreams.hpp
-    tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp
-    tilestorage/driver/flat.hpp
-    tilestorage/driver/hash-crc.hpp tilestorage/driver/hash-crc.cpp
-    tilestorage/driver/ro-base.hpp
-    tilestorage/driver/tar.hpp tilestorage/driver/tar.cpp
-
-    tilestorage/driver/tilardriver.hpp
-    tilestorage/driver/tilardriver/tilardriver.cpp
-    tilestorage/driver/tilardriver/options.hpp
-    tilestorage/driver/tilardriver/cache.hpp
-    tilestorage/driver/tilardriver/cache.cpp
 
     tilestorage/merge.hpp tilestorage/merge.cpp
     tilestorage/tileset/merge.cpp
     tilestorage/tileset/dump.hpp
     tilestorage/tileset/heightmap.cpp
-    tilestorage/config.hpp tilestorage/config.cpp
 
     licence/fingerprint.hpp licence/fingerprint.cpp
 
     ${PUBLIC_KEY_SOURCES}
 
     customer.hpp ${CUSTOMER_SOURCES}
-
-    ${vadstena-libs_BROWSER_SOURCES}
     )
 
   if (CGAL_FOUND)

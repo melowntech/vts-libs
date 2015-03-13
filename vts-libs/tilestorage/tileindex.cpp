@@ -12,6 +12,7 @@
 #include "./tileop.hpp"
 #include "./error.hpp"
 #include "./io.hpp"
+#include "./tileindex-io.hpp"
 
 namespace vadstena { namespace tilestorage {
 

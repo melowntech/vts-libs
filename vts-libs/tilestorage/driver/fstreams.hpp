@@ -6,6 +6,8 @@
 
 #include <boost/filesystem/path.hpp>
 
+#include "dbglog/dbglog.hpp"
+
 #include "utility/streams.hpp"
 
 #include "../streams.hpp"

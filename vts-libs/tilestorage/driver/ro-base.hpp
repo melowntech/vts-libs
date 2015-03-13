@@ -3,6 +3,9 @@
 
 #include "../driver.hpp"
 #include "../error.hpp"
+
+#include "dbglog/dbglog.hpp"
+
 #include "utility/gccversion.hpp"
 
 namespace vadstena { namespace tilestorage {
