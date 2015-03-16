@@ -16,6 +16,7 @@
 
 #include "utility/filedes.hpp"
 #include "utility/enum.hpp"
+#include "utility/raise.hpp"
 
 #include "./tilar.hpp"
 #include "./tilar-io.hpp"
@@ -103,11 +104,12 @@ off_t seekFromEnd(const Filedes &fd, off_t pos = 0)
         << fd.path() << ".";
     const auto p(::lseek(fd, -pos, SEEK_END));
     if (-1 == p) {
-        std::system_error e(errno, std::system_category());
-        LOG(err1)
-            << "Failed to seek to the end in the  tilar file "
-            << fd.path() << ": <" << e.code()
-            << ", " << e.what() << ">.";
+        std::system_error e
+            (errno, std::system_category()
+             , utility::formatError
+             ("Failed to seek %s bytes from the end of the tilar file %s."
+              , pos, fd.path()));
+        LOG(err1) << e.what();
         throw e;
     }
     return p;
@@ -120,11 +122,12 @@ off_t seekFromStart(const Filedes &fd, off_t pos = 0)
         << fd.path() << ".";
     const auto p(::lseek(fd, pos, SEEK_SET));
     if (-1 == p) {
-        std::system_error e(errno, std::system_category());
-        LOG(err1)
-            << "Failed to seek to the end in the  tilar file "
-            << fd.path() << ": <" << e.code()
-            << ", " << e.what() << ">.";
+        std::system_error e
+            (errno, std::system_category()
+             , utility::formatError
+             ("Failed to seek %s bytes from the start of the tilar file %s."
+              , pos, fd.path()));
+        LOG(err1) << e.what();
         throw e;
     }
     return p;
@@ -134,10 +137,11 @@ off_t fileSize(const Filedes &fd)
 {
     struct ::stat buf;
     if (-1 == ::fstat(fd, &buf)) {
-        std::system_error e(errno, std::system_category());
-        LOG(err1)
-            << "Failed to stat tilar file " << fd.path() << ": <" << e.code()
-            << ", " << e.what() << ">.";
+        std::system_error e
+            (errno, std::system_category()
+             , utility::formatError
+             ("Failed to stat tilar file %s.", fd.path()));
+        LOG(err1) << e.what();
         throw e;
     }
     return buf.st_size;
@@ -146,10 +150,11 @@ off_t fileSize(const Filedes &fd)
 off_t truncate(const Filedes &fd, off_t size)
 {
     if (-1 == ::ftruncate(fd, size)) {
-        std::system_error e(errno, std::system_category());
-        LOG(err1)
-            << "Failed to truncate file " << fd.path() << ": <" << e.code()
-            << ", " << e.what() << ">.";
+        std::system_error e
+            (errno, std::system_category()
+             , utility::formatError
+             ("Failed to truncate tilar file %s.", fd.path()));
+        LOG(err1) << e.what();
         throw e;
     }
     return seekFromStart(fd, size);
@@ -163,11 +168,12 @@ void write(const Filedes &fd, const Block &block)
     while (left) {
         auto bytes(::write(fd, data, left));
         if (-1 == bytes) {
-            if (EINTR == errno) { continue; }
-            std::system_error e(errno, std::system_category());
-            LOG(err1)
-                << "Unable to write to tilar file " << fd.path()
-                << ": <" << e.code() << ", " << e.what() << ">.";
+            // if (EINTR == errno) { continue; }
+            std::system_error e
+                (errno, std::system_category()
+                 , utility::formatError
+                 ("Failed to write to tilar file %s.", fd.path()));
+            LOG(err1) << e.what();
             throw e;
         }
         left -= bytes;
@@ -184,11 +190,12 @@ void read(const Filedes &fd, Block &block)
     while (left) {
         auto bytes(::read(fd, data, left));
         if (-1 == bytes) {
-            if (EINTR == errno) { continue; }
-            std::system_error e(errno, std::system_category());
-            LOG(err1)
-                << "Unable to read from tilar file " << fd.path()
-                << ": <" << e.code() << ", " << e.what() << ">.";
+            // if (EINTR == errno) { continue; }
+            std::system_error e
+                (errno, std::system_category()
+                 , utility::formatError
+                 ("Failed to read from tilar file %s.", fd.path()));
+            LOG(err1) << e.what();
             throw e;
         }
         if (!bytes) {
@@ -708,10 +715,11 @@ Tilar Tilar::open(const fs::path &path, OpenMode openMode)
 {
     Filedes fd(::open(path.string().c_str(), flags(openMode)), path);
     if (-1 == fd) {
-        std::system_error e(errno, std::system_category());
-        LOG(err1)
-            << "Failed to open tilar file " << path << ": <" << e.code()
-            << ", " << e.what() << ">.";
+        std::system_error e
+            (errno, std::system_category()
+             , utility::formatError
+             ("Failed to open tilar file %s.", path));
+        LOG(err1) << e.what();
         throw e;
     }
 
@@ -726,10 +734,11 @@ Tilar Tilar::open(const fs::path &path, std::uint32_t indexOffset)
 {
     Filedes fd(::open(path.string().c_str(), flags(OpenMode::readOnly)), path);
     if (-1 == fd) {
-        std::system_error e(errno, std::system_category());
-        LOG(err1)
-            << "Failed to open tilar file " << path << ": <" << e.code()
-            << ", " << e.what() << ">.";
+        std::system_error e
+            (errno, std::system_category()
+             , utility::formatError
+             ("Failed to open tilar file %s.", path));
+        LOG(err1) << e.what();
         throw e;
     }
 
@@ -752,10 +761,10 @@ Tilar Tilar::create(const fs::path &path, const Options &options
                 , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
          , path);
     if (-1 == fd) {
-        std::system_error e(errno, std::system_category());
-        LOG(err1)
-            << "Failed to create tilar file " << path << ": <" << e.code()
-            << ", " << e.what() << ">.";
+        std::system_error e
+            (errno, std::system_category()
+             , utility::formatError
+             ("Failed to create tilar file %s.", path));
         throw e;
     }
 
@@ -1015,10 +1024,10 @@ std::streamsize Tilar::Sink::write(const char *data, std::streamsize size)
             if ((EINTR == errno) && device_->ignoreInterrupts()) {
                 continue;
             }
-            std::system_error e(errno, std::system_category());
-            LOG(err1)
-                << "Unable to write to tilar file " << fd.path()
-                << ": <" << e.code() << ", " << e.what() << ">.";
+            std::system_error e
+                (errno, std::system_category()
+                 , utility::formatError
+                 ("Unable to write to tilar file %s.", fd.path()));
             throw e;
         }
         pos += bytes;
@@ -1043,10 +1052,10 @@ Tilar::Source::read_impl(char *data, std::streamsize size
             if ((EINTR == errno) && device_->ignoreInterrupts()) {
                 continue;
             }
-            std::system_error e(errno, std::system_category());
-            LOG(err1)
-                << "Unable to write to tilar file " << fd.path()
-                << ": <" << e.code() << ", " << e.what() << ">.";
+            std::system_error e
+                (errno, std::system_category()
+                 , utility::formatError
+                 ("Unable to read from tilar file %s.", fd.path()));
             throw e;
         }
         return bytes;
