@@ -12,7 +12,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     set(CUSTOMER_SOURCES customer/none.cpp)
   endif()
 
-  # add browser files
+  # Create vadstena-tileset-browser library with browser files
   file_to_cpp(vadstena-libs_BROWSER_SOURCES
     vadstena::tilestorage::browser::index_html
     tilestorage/browser/index.html)
@@ -22,6 +22,35 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
   file_to_cpp(vadstena-libs_BROWSER_SOURCES
     vadstena::tilestorage::browser::skydome_jpg
     tilestorage/browser/skydome.jpg)
+
+  add_library(vadstena-tileset-browser STATIC
+    ${vadstena-libs_BROWSER_SOURCES}
+    tilestorage/support.hpp tilestorage/support.cpp
+    )
+  buildsys_library(vadstena-tileset-browser)
+
+  # Create vadstena-tileset-browser.pic library with browser files (position
+  # independent version for shared libraries)
+  file_to_cpp(vadstena-libs_BROWSER_PIC_SOURCES
+    vadstena::tilestorage::browser::index_html
+    tilestorage/browser/index.html
+    pic.)
+  file_to_cpp(vadstena-libs_BROWSER_PIC_SOURCES
+    vadstena::tilestorage::browser::index_offline_html
+    tilestorage/browser/index-offline.html
+    pic.)
+  file_to_cpp(vadstena-libs_BROWSER_PIC_SOURCES
+    vadstena::tilestorage::browser::skydome_jpg
+    tilestorage/browser/skydome.jpg
+    pic.)
+
+  add_library(vadstena-tileset-browser.pic
+    STATIC ${vadstena-libs_BROWSER_PIC_SOURCES}
+    tilestorage/support.hpp tilestorage/support.pic.cpp
+    )
+  buildsys_library(vadstena-tileset-browser.pic)
+  set_target_properties(vadstena-tileset-browser.pic
+    PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
   set(vadstena-tileset-core_SOURCES
     tilestorage/basetypes.hpp
@@ -50,17 +79,15 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/driver/tilardriver/cache.cpp
 
     tilestorage/config.hpp tilestorage/config.cpp
-
-    tilestorage/support.hpp tilestorage/support.cpp
-
-    ${vadstena-libs_BROWSER_SOURCES}
     )
 
   define_module(LIBRARY vadstena-tileset-core DEPENDS
     math utility dbglog jsoncpp)
   add_library(vadstena-tileset-core STATIC ${vadstena-tileset-core_SOURCES})
   buildsys_library(vadstena-tileset-core)
-  target_link_libraries(vadstena-tileset-core ${MODULE_LIBRARIES})
+  target_link_libraries(vadstena-tileset-core
+    vadstena-tileset-browser
+    ${MODULE_LIBRARIES})
   buildsys_target_compile_definitions(vadstena-tileset-core ${MODULE_DEFINITIONS})
 
   define_module(LIBRARY vadstena-libs DEPENDS

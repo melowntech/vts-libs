@@ -9,6 +9,7 @@
 #define vadstena_libs_tilestorage_support_hpp_included_
 
 #include <cstddef>
+#include <ctime>
 #include <string>
 #include <map>
 
@@ -17,6 +18,7 @@ namespace vadstena { namespace tilestorage {
 struct SupportFile {
     const unsigned char *data;
     std::size_t size;
+    std::time_t lastModified;
 
     typedef std::map<std::string, SupportFile> Files;
     static const Files files;
