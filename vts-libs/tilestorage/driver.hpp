@@ -39,9 +39,9 @@ public:
 
     void remove(const TileId tileId, TileFile type);
 
-    virtual FileStat stat(File type) const;
+    FileStat stat(File type) const;
 
-    virtual FileStat stat(const TileId tileId, TileFile type) const;
+    FileStat stat(const TileId tileId, TileFile type) const;
 
     bool readOnly() const { return readOnly_; }
 
@@ -192,12 +192,16 @@ inline void Driver::remove(const TileId tileId, TileFile type)
 
 inline FileStat Driver::stat(File type) const
 {
-    return stat_impl(type);
+    auto stat(stat_impl(type));
+    stat.contentType = contentType(type);
+    return stat;
 }
 
 inline FileStat Driver::stat(const TileId tileId, TileFile type) const
 {
-    return stat_impl(tileId, type);
+    auto stat(stat_impl(tileId, type));
+    stat.contentType = contentType(type);
+    return stat;
 }
 
 inline void Driver::begin(utility::Runnable *runnable)

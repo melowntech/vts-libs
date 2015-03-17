@@ -537,7 +537,8 @@ Tilar::Info ArchiveIndex::info() const
 FileStat ArchiveIndex::stat(const FileIndex &index) const
 {
     // what time do uncommitted files have?
-    return { std::size_t(slot(index).size), std::time_t(timestamp_) };
+    return { std::size_t(slot(index).size), std::time_t(timestamp_)
+            , "application/octet-stream" };
 }
 
 } // namespace

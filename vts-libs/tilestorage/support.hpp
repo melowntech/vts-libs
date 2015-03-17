@@ -19,6 +19,7 @@ struct SupportFile {
     const unsigned char *data;
     std::size_t size;
     std::time_t lastModified;
+    const char *contentType;
 
     typedef std::map<std::string, SupportFile> Files;
     static const Files files;

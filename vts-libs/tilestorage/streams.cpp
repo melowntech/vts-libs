@@ -44,7 +44,23 @@ FileStat FileStat::stat(const boost::filesystem::path &path)
         throw e;
     }
 
-    return { st.st_size, st.st_mtime };
+    return { st.st_size, st.st_mtime, "application/octet-stream" };
+}
+
+const char* contentType(File type)
+{
+    if (type == File::config) {
+        return "application/json";
+    }
+    return "application/octet-stream";
+}
+
+const char* contentType(TileFile type)
+{
+    if (type == TileFile::atlas) {
+        return "image/jpeg";
+    }
+    return "application/octet-stream";
 }
 
 } } // namespace vadstena::tilestorage

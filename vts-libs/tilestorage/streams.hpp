@@ -14,9 +14,18 @@ namespace vadstena { namespace tilestorage {
 struct FileStat {
     std::size_t size;
     std::time_t lastModified;
+    const char *contentType;
+
+    FileStat(std::size_t size, std::time_t lastModified
+             , const char *contentType = "application/octet-stream")
+        : size(size), lastModified(lastModified), contentType(contentType)
+    {}
 
     static FileStat stat(const boost::filesystem::path &path);
 };
+
+const char* contentType(File type);
+const char* contentType(TileFile type);
 
 class OStream {
 public:

@@ -4,16 +4,26 @@
 const SupportFile::Files SupportFile::files =
 {
     { "index.html"
-      , { browser::index_html
-          , sizeof(browser::index_html)
-          , browser::index_html_attr_lastModified } }
-    , { "index-offline.html"
-        , { browser::index_offline_html
+      , {
+            browser::index_html
+            , sizeof(browser::index_html)
+            , browser::index_html_attr_lastModified
+            , "text/html"
+        }
+    }, { "index-offline.html"
+         , {
+            browser::index_offline_html
             , sizeof(browser::index_offline_html)
-            , browser::index_offline_html_attr_lastModified } }
-    , { "skydome.jpg"
-        , { browser::skydome_jpg
+            , browser::index_offline_html_attr_lastModified
+            , "text/html"
+        }
+    }, {
+        "skydome.jpg"
+        , {
+            browser::skydome_jpg
             , sizeof(browser::skydome_jpg)
-            , browser::skydome_jpg_attr_lastModified } }
-
+            , browser::skydome_jpg_attr_lastModified
+            , "image/jpeg"
+        }
+    }
 };
