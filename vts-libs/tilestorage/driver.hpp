@@ -116,6 +116,8 @@ private:
 
     static std::string detectType(const std::string &location);
 
+    virtual void postOpenCheck() {}
+
     void checkRunning() const;
 
     void notRunning() const;

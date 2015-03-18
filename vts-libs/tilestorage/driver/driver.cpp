@@ -86,7 +86,10 @@ Driver::pointer Driver::open(Locator locator, OpenMode mode)
         LOGTHROW(err2, NoSuchTileSet)
             << "Invalid tile set type <" << locator.type << ">.";
     }
-    return fregistry->second->open(locator.location, mode);
+
+    auto driver(fregistry->second->open(locator.location, mode));
+    driver->postOpenCheck();
+    return driver;
 }
 
 std::map<std::string, std::string> Driver::listSupportedDrivers()

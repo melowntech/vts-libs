@@ -69,6 +69,8 @@ private:
 
     virtual void update_impl() UTILITY_OVERRIDE;
 
+    virtual void postOpenCheck() UTILITY_OVERRIDE;
+
     fs::path fileDir(File type, const fs::path &name) const;
 
     fs::path fileDir(const TileId &tileId, TileFile type

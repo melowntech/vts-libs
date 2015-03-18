@@ -33,7 +33,12 @@ Properties loadConfig(const boost::filesystem::path &path)
     LOG(info1) << "Loading config from " << path  << ".";
     std::ifstream f;
     f.exceptions(std::ios::badbit | std::ios::failbit);
-    f.open(path.string(), std::ios_base::in);
+    try {
+        f.open(path.string(), std::ios_base::in);
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, NoSuchTileSet)
+            << "Unable to load config file " << path << ".";
+    }
     auto p(loadConfig(f));
     f.close();
     return p;

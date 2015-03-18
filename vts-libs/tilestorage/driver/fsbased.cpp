@@ -87,6 +87,12 @@ FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
     }
 }
 
+void FsBasedDriver::postOpenCheck()
+{
+    // try to load config
+    tilestorage::loadConfig(root_ / filePath(File::config));
+}
+
 FsBasedDriver::~FsBasedDriver()
 {
     if (tx_) {
