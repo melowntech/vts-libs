@@ -946,6 +946,10 @@ public:
 
     FileStat stat() const { return device_->stat(); }
 
+    ReadOnlyFd readOnlyfd() {
+        return { device_->fd.get(), device_->start, device_->end };
+    }
+
     class Stream;
 
 private:
@@ -1008,6 +1012,10 @@ public:
     virtual FileStat stat() const {
         // stream_buffer has only non-const version of operator-> :(
         return const_cast<decltype(buffer_)&>(buffer_)->stat();
+    }
+
+    virtual boost::optional<ReadOnlyFd> fd() {
+        return buffer_->readOnlyfd();
     }
 
 private:

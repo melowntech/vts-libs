@@ -5,6 +5,7 @@
 #include <iostream>
 #include <memory>
 
+#include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include "./filetypes.hpp"
@@ -24,11 +25,20 @@ struct FileStat {
     static FileStat stat(const boost::filesystem::path &path);
 };
 
-const char* contentType(File type);
-const char* contentType(TileFile type);
+struct ReadOnlyFd {
+    int fd;
+    std::size_t start;
+    std::size_t end;
+
+    ReadOnlyFd(int fd, std::size_t start, std::size_t end)
+        : fd(fd), start(start), end(end)
+    {}
+};
 
 class OStream {
 public:
+    typedef std::shared_ptr<OStream> pointer;
+
     OStream() {}
     virtual ~OStream() {}
     virtual std::ostream& get() = 0;
@@ -38,11 +48,12 @@ public:
     virtual FileStat stat() const = 0;
 
     operator std::ostream&() { return get(); }
-    typedef std::shared_ptr<OStream> pointer;
 };
 
 class IStream {
 public:
+    typedef std::shared_ptr<IStream> pointer;
+
     IStream() {}
     virtual ~IStream() {}
     virtual std::istream& get() = 0;
@@ -58,10 +69,18 @@ public:
     virtual FileStat stat() const = 0;
 
     operator std::istream&() { return get(); }
-    typedef std::shared_ptr<IStream> pointer;
+
+    /** Returns file descriptor associated with this stream. Returns boost::none
+     *  if it is not possible to obtain such file descriptor (for example,
+     *  stream is not associated with real file but resides in memory, etc.)
+     */
+    virtual boost::optional<ReadOnlyFd> fd() { return {}; }
 };
 
 void copyFile(const IStream::pointer &in, const OStream::pointer &out);
+
+const char* contentType(File type);
+const char* contentType(TileFile type);
 
 } } // namespace vadstena::tilestorage
 
