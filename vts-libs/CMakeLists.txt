@@ -1,8 +1,82 @@
-if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
-  file_to_cpp(PUBLIC_KEY_SOURCES vadstena::matrixSource detail/matrix-source)
-  file_to_cpp(PUBLIC_KEY_SOURCES vadstena::fingerPrintManipulator
-    detail/fingeprint-manipulator)
+# Create vadstena-tileset-browser library with browser files
+file_to_cpp(vadstena-libs_BROWSER_SOURCES
+  vadstena::tilestorage::browser::index_html
+  tilestorage/browser/index.html)
+file_to_cpp(vadstena-libs_BROWSER_SOURCES
+  vadstena::tilestorage::browser::index_offline_html
+  tilestorage/browser/index-offline.html)
+file_to_cpp(vadstena-libs_BROWSER_SOURCES
+  vadstena::tilestorage::browser::skydome_jpg
+  tilestorage/browser/skydome.jpg)
 
+add_library(vadstena-tileset-browser STATIC
+  ${vadstena-libs_BROWSER_SOURCES}
+  tilestorage/support.hpp tilestorage/support.cpp
+  )
+buildsys_library(vadstena-tileset-browser)
+
+# Create vadstena-tileset-browser.pic library with browser files (position
+# independent version for shared libraries)
+file_to_cpp(vadstena-libs_BROWSER_PIC_SOURCES
+  vadstena::tilestorage::browser::index_html
+  tilestorage/browser/index.html
+  pic.)
+file_to_cpp(vadstena-libs_BROWSER_PIC_SOURCES
+  vadstena::tilestorage::browser::index_offline_html
+  tilestorage/browser/index-offline.html
+  pic.)
+file_to_cpp(vadstena-libs_BROWSER_PIC_SOURCES
+  vadstena::tilestorage::browser::skydome_jpg
+  tilestorage/browser/skydome.jpg
+  pic.)
+
+add_library(vadstena-tileset-browser.pic
+  STATIC ${vadstena-libs_BROWSER_PIC_SOURCES}
+  tilestorage/support.hpp tilestorage/support.pic.cpp
+  )
+buildsys_library(vadstena-tileset-browser.pic)
+set_target_properties(vadstena-tileset-browser.pic
+  PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
+set(vadstena-tileset-core_SOURCES
+  tilestorage/basetypes.hpp
+  tilestorage/properties.hpp
+  tilestorage/tileop.hpp tilestorage/tileop.cpp
+  tilestorage/error.hpp
+  tilestorage/io.hpp
+  tilestorage/json.hpp tilestorage/json.cpp
+
+  tilestorage/tilar.hpp tilestorage/tilar.cpp
+  tilestorage/tilar-io.hpp
+
+  tilestorage/driver.hpp tilestorage/driver/driver.cpp
+  tilestorage/streams.hpp tilestorage/streams.cpp
+  tilestorage/driver/fstreams.hpp
+  tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp
+  tilestorage/driver/flat.hpp
+  tilestorage/driver/hash-crc.hpp tilestorage/driver/hash-crc.cpp
+  tilestorage/driver/ro-base.hpp
+  tilestorage/driver/tar.hpp tilestorage/driver/tar.cpp
+
+  tilestorage/driver/tilardriver.hpp
+  tilestorage/driver/tilardriver/tilardriver.cpp
+  tilestorage/driver/tilardriver/options.hpp
+  tilestorage/driver/tilardriver/cache.hpp
+  tilestorage/driver/tilardriver/cache.cpp
+
+  tilestorage/config.hpp tilestorage/config.cpp
+  )
+
+define_module(LIBRARY vadstena-tileset-core DEPENDS
+  math utility dbglog jsoncpp)
+add_library(vadstena-tileset-core STATIC ${vadstena-tileset-core_SOURCES})
+buildsys_library(vadstena-tileset-core)
+target_link_libraries(vadstena-tileset-core
+  vadstena-tileset-browser
+  ${MODULE_LIBRARIES})
+buildsys_target_compile_definitions(vadstena-tileset-core ${MODULE_DEFINITIONS})
+
+if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
   if (BUILDSYS_CUSTOMER_BUILD)
     message(STATUS "Building vadstena-libs customized for customer "
       "'${BUILDSYS_CUSTOMER}'.")
@@ -12,83 +86,9 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     set(CUSTOMER_SOURCES customer/none.cpp)
   endif()
 
-  # Create vadstena-tileset-browser library with browser files
-  file_to_cpp(vadstena-libs_BROWSER_SOURCES
-    vadstena::tilestorage::browser::index_html
-    tilestorage/browser/index.html)
-  file_to_cpp(vadstena-libs_BROWSER_SOURCES
-    vadstena::tilestorage::browser::index_offline_html
-    tilestorage/browser/index-offline.html)
-  file_to_cpp(vadstena-libs_BROWSER_SOURCES
-    vadstena::tilestorage::browser::skydome_jpg
-    tilestorage/browser/skydome.jpg)
-
-  add_library(vadstena-tileset-browser STATIC
-    ${vadstena-libs_BROWSER_SOURCES}
-    tilestorage/support.hpp tilestorage/support.cpp
-    )
-  buildsys_library(vadstena-tileset-browser)
-
-  # Create vadstena-tileset-browser.pic library with browser files (position
-  # independent version for shared libraries)
-  file_to_cpp(vadstena-libs_BROWSER_PIC_SOURCES
-    vadstena::tilestorage::browser::index_html
-    tilestorage/browser/index.html
-    pic.)
-  file_to_cpp(vadstena-libs_BROWSER_PIC_SOURCES
-    vadstena::tilestorage::browser::index_offline_html
-    tilestorage/browser/index-offline.html
-    pic.)
-  file_to_cpp(vadstena-libs_BROWSER_PIC_SOURCES
-    vadstena::tilestorage::browser::skydome_jpg
-    tilestorage/browser/skydome.jpg
-    pic.)
-
-  add_library(vadstena-tileset-browser.pic
-    STATIC ${vadstena-libs_BROWSER_PIC_SOURCES}
-    tilestorage/support.hpp tilestorage/support.pic.cpp
-    )
-  buildsys_library(vadstena-tileset-browser.pic)
-  set_target_properties(vadstena-tileset-browser.pic
-    PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
-
-  set(vadstena-tileset-core_SOURCES
-    tilestorage/basetypes.hpp
-    tilestorage/properties.hpp
-    tilestorage/tileop.hpp tilestorage/tileop.cpp
-    tilestorage/error.hpp
-    tilestorage/io.hpp
-    tilestorage/json.hpp tilestorage/json.cpp
-
-    tilestorage/tilar.hpp tilestorage/tilar.cpp
-    tilestorage/tilar-io.hpp
-
-    tilestorage/driver.hpp tilestorage/driver/driver.cpp
-    tilestorage/streams.hpp tilestorage/streams.cpp
-    tilestorage/driver/fstreams.hpp
-    tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp
-    tilestorage/driver/flat.hpp
-    tilestorage/driver/hash-crc.hpp tilestorage/driver/hash-crc.cpp
-    tilestorage/driver/ro-base.hpp
-    tilestorage/driver/tar.hpp tilestorage/driver/tar.cpp
-
-    tilestorage/driver/tilardriver.hpp
-    tilestorage/driver/tilardriver/tilardriver.cpp
-    tilestorage/driver/tilardriver/options.hpp
-    tilestorage/driver/tilardriver/cache.hpp
-    tilestorage/driver/tilardriver/cache.cpp
-
-    tilestorage/config.hpp tilestorage/config.cpp
-    )
-
-  define_module(LIBRARY vadstena-tileset-core DEPENDS
-    math utility dbglog jsoncpp)
-  add_library(vadstena-tileset-core STATIC ${vadstena-tileset-core_SOURCES})
-  buildsys_library(vadstena-tileset-core)
-  target_link_libraries(vadstena-tileset-core
-    vadstena-tileset-browser
-    ${MODULE_LIBRARIES})
-  buildsys_target_compile_definitions(vadstena-tileset-core ${MODULE_DEFINITIONS})
+  file_to_cpp(PUBLIC_KEY_SOURCES vadstena::matrixSource detail/matrix-source)
+  file_to_cpp(PUBLIC_KEY_SOURCES vadstena::fingerPrintManipulator
+    detail/fingeprint-manipulator)
 
   define_module(LIBRARY vadstena-libs DEPENDS
     vadstena-tileset-core
