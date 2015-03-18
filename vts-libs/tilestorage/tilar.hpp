@@ -69,6 +69,8 @@ public:
         {}
     };
 
+    typedef std::vector<std::string> ContentTypes;
+
     /** Opens existing tilar files.
      *
      *  \param path to the tilar file
@@ -110,12 +112,17 @@ public:
                       , std::uint32_t indexOffset);
 
     // these 3 functions cannot be defined here due to undefined Detail struct
-    Tilar(Tilar&&);
-    Tilar& operator=(Tilar&&);
+    Tilar(Tilar&&) noexcept;
+    Tilar& operator=(Tilar&&) noexcept;
     ~Tilar();
 
     Tilar(const Tilar&) = delete;
     Tilar& operator=(const Tilar&) = delete;
+
+    /** Associates file type with content type.
+     *  Must have same number of arguments as options.filesPerTile.
+     */
+    Tilar& setContentTypes(const ContentTypes &mapping);
 
     /** Index of a file in the tilar archive (3-dimensional index).
      */

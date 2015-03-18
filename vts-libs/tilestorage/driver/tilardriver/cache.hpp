@@ -4,6 +4,7 @@
 #include <set>
 #include <map>
 
+#include <boost/noncopyable.hpp>
 #include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -17,7 +18,7 @@ namespace vadstena { namespace tilestorage { namespace tilardriver {
 
 namespace fs = boost::filesystem;
 
-class Cache {
+class Cache : boost::noncopyable {
 public:
     Cache(const fs::path &root, const Options &options, bool readOnly);
 
@@ -44,9 +45,11 @@ private:
         std::string extension;
         Tilar::Options options;
         Map map;
+        const Tilar::ContentTypes &contentTypes;
 
         Archives(const std::string &extension, int filesPerTile
-                 , const Options &options);
+                 , const Options &options
+                 , const Tilar::ContentTypes &contentTypes);
 
         fs::path filePath(const fs::path &root, const Index &index) const;
 

@@ -106,7 +106,7 @@ OStream::pointer FsBasedDriver::output_impl(File type)
     const auto dir(fileDir(type, name));
     const auto path(writePath(dir, name));
     LOG(info1) << "Saving to " << path.first << ".";
-    return std::make_shared<FileOStream>(path.first, path.second);
+    return std::make_shared<FileOStream>(type, path.first, path.second);
 }
 
 IStream::pointer FsBasedDriver::input_impl(File type) const
@@ -115,7 +115,7 @@ IStream::pointer FsBasedDriver::input_impl(File type) const
     const auto dir(fileDir(type, name));
     const auto path(readPath(dir, name));
     LOG(info1) << "Loading from " << path << ".";
-    return std::make_shared<FileIStream>(path);
+    return std::make_shared<FileIStream>(type, path);
 }
 
 OStream::pointer FsBasedDriver::output_impl(const TileId tileId, TileFile type)
@@ -124,7 +124,7 @@ OStream::pointer FsBasedDriver::output_impl(const TileId tileId, TileFile type)
     const auto dir(fileDir(tileId, type, name));
     const auto path(writePath(dir, name));
     LOG(info1) << "Saving to " << path.first << ".";
-    return std::make_shared<FileOStream>(path.first, path.second);
+    return std::make_shared<FileOStream>(type, path.first, path.second);
 }
 
 IStream::pointer FsBasedDriver::input_impl(const TileId tileId, TileFile type)
@@ -134,7 +134,7 @@ IStream::pointer FsBasedDriver::input_impl(const TileId tileId, TileFile type)
     const auto dir(fileDir(tileId, type, name));
     const auto path(readPath(dir, name));
     LOG(info1) << "Loading from " << path << ".";
-    return std::make_shared<FileIStream>(path);
+    return std::make_shared<FileIStream>(type, path);
 }
 
 void FsBasedDriver::remove_impl(const TileId tileId, TileFile type)

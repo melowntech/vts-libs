@@ -193,7 +193,7 @@ OStream::pointer TilarDriver::output_impl(File type)
         // no transaction -> plain file
         const auto path(root_ / name);
         LOG(info1) << "Saving to " << path << ".";
-        return std::make_shared<FileOStream>(path);
+        return std::make_shared<FileOStream>(type, path);
     }
 
     const auto path(tmp_ / name);
@@ -201,7 +201,7 @@ OStream::pointer TilarDriver::output_impl(File type)
 
     const auto tmpPath(utility::addExtension(path, ".tmp"));
     return std::make_shared<FileOStream>
-        (tmpPath, [this, path, tmpPath, name](bool success)
+        (type, tmpPath, [this, path, tmpPath, name](bool success)
     {
         if (!success) {
             // failed -> remove
@@ -236,7 +236,7 @@ IStream::pointer TilarDriver::input_impl(File type) const
     }
 
     LOG(info1) << "Loading from " << path << ".";
-    return std::make_shared<FileIStream>(path);
+    return std::make_shared<FileIStream>(type, path);
 }
 
 OStream::pointer TilarDriver::output_impl(const TileId tileId, TileFile type)

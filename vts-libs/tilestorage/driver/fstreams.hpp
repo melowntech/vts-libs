@@ -18,18 +18,12 @@ class FileOStream : public OStream {
 public:
     typedef std::function<void(bool)> OnClose;
 
-    FileOStream(const boost::filesystem::path &path
+    template <typename Type>
+    FileOStream(Type type, const boost::filesystem::path &path
                 , OnClose onClose = OnClose())
-        : path_(path), f_(), onClose_(onClose)
+        : OStream(type), path_(path), onClose_(onClose)
     {
-        try {
-            f_.exceptions(std::ios::badbit | std::ios::failbit);
-            f_.open(path.string()
-                    , std::ios_base::out | std::ios_base::trunc);
-        } catch (const std::exception &e) {
-            LOGTHROW(err1, std::runtime_error)
-                << "Unable to open file " << path << " for writing.";
-        }
+        open();
     }
 
     virtual ~FileOStream() {
@@ -57,11 +51,22 @@ public:
         return path_.string();
     };
 
-    virtual FileStat stat() const UTILITY_OVERRIDE {
+    virtual FileStat stat_impl() const UTILITY_OVERRIDE {
         return FileStat::stat(path_);
     }
 
 private:
+    void open() {
+        try {
+            f_.exceptions(std::ios::badbit | std::ios::failbit);
+            f_.open(path_.string()
+                    , std::ios_base::out | std::ios_base::trunc);
+        } catch (const std::exception &e) {
+            LOGTHROW(err1, std::runtime_error)
+                << "Unable to open file " << path_ << " for writing.";
+        }
+    }
+
     boost::filesystem::path path_;
     utility::ofstreambuf f_;
     OnClose onClose_;
@@ -69,16 +74,11 @@ private:
 
 class FileIStream : public IStream {
 public:
-    FileIStream(const boost::filesystem::path &path)
-        : path_(path), f_()
+    template <typename Type>
+    FileIStream(Type type, const boost::filesystem::path &path)
+        : IStream(type), path_(path), f_()
     {
-        try {
-            f_.exceptions(std::ios::badbit | std::ios::failbit);
-            f_.open(path.string());
-        } catch (const std::exception &e) {
-            LOGTHROW(err1, std::runtime_error)
-                << "Unable to open file " << path << " for reading.";
-        }
+        open();
     }
 
     virtual ~FileIStream() {
@@ -95,11 +95,21 @@ public:
         return path_.string();
     };
 
-    virtual FileStat stat() const UTILITY_OVERRIDE {
+    virtual FileStat stat_impl() const UTILITY_OVERRIDE {
         return FileStat::stat(path_);
     }
 
 private:
+    void open() {
+        try {
+            f_.exceptions(std::ios::badbit | std::ios::failbit);
+            f_.open(path_.string());
+        } catch (const std::exception &e) {
+            LOGTHROW(err1, std::runtime_error)
+                << "Unable to open file " << path_ << " for reading.";
+        }
+    }
+
     boost::filesystem::path path_;
     utility::ifstreambuf f_;
 };

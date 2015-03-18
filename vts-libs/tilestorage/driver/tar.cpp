@@ -23,14 +23,14 @@ const std::string TileIndexName("index.bin");
 
 class StringIStream : public IStream {
 public:
-    StringIStream(const std::string &path
+    template <typename Type>
+    StringIStream(Type type, const std::string &path
                   , const utility::tar::Reader::Data &data
                   , std::time_t time)
-        : path_(path), s_(std::string(data.data(), data.size()))
+        : IStream(type)
+        , path_(path), s_(std::string(data.data(), data.size()))
         , stat_{ data.size(), time }
     {}
-
-    virtual ~StringIStream() {}
 
     virtual std::istream& get() UTILITY_OVERRIDE {
         return s_;
@@ -42,7 +42,7 @@ public:
         return path_.string();
     };
 
-    virtual FileStat stat() const UTILITY_OVERRIDE { return stat_; }
+    virtual FileStat stat_impl() const UTILITY_OVERRIDE { return stat_; }
 
 private:
     fs::path path_;
@@ -50,11 +50,14 @@ private:
     FileStat stat_;
 };
 
+template <typename Type>
 IStream::pointer readFile(utility::tar::Reader &reader
-                          , const TarDriver::Record &record)
+                          , const TarDriver::Record &record
+                          , Type type)
 {
     return std::make_shared<StringIStream>
-        (record.path, reader.readData(record.block, record.size), record.time);
+        (type, record.path, reader.readData(record.block, record.size)
+         , record.time);
 }
 
 } // namespace
@@ -132,7 +135,7 @@ IStream::pointer TarDriver::input_impl(File type) const
             << "No data for " << desc << ".";
     }
 
-    return readFile(reader_, *r);
+    return readFile(reader_, *r, type);
 }
 
 IStream::pointer TarDriver::input_impl(const TileId tileId, TileFile type)
@@ -163,7 +166,7 @@ IStream::pointer TarDriver::input_impl(const TileId tileId, TileFile type)
         LOGTHROW(err1, std::runtime_error)
             << "No data for " << tileId << " " << desc << ".";
     }
-    return readFile(reader_, fsrc->second);
+    return readFile(reader_, fsrc->second, type);
 }
 
 FileStat TarDriver::stat_impl(File type) const

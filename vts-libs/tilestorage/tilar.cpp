@@ -30,6 +30,8 @@ typedef Tilar::FileIndex FileIndex;
 
 namespace {
 
+std::string DefaultContentType("application/octet-stream");
+
 typedef std::uint8_t Version;
 
 namespace header_constants {
@@ -637,6 +639,25 @@ struct Tilar::Detail
         return index.stat(fileIndex);
     }
 
+    void setContentTypes(const ContentTypes &mapping) {
+        if (!mapping.empty() && (mapping.size() != options.filesPerTile)) {
+            LOGTHROW(err2, Error)
+                << "Content type mapping has invalid size ("
+                << mapping.size() << ", should be "
+                << options.filesPerTile << ").";
+        }
+        contentTypes = mapping;
+    }
+
+    const std::string &getContentType(unsigned int type) const {
+        if (contentTypes.empty()) {
+            return DefaultContentType;
+        }
+        const auto &value(contentTypes[type]);
+        if (value.empty()) { return DefaultContentType; }
+        return value;
+    }
+
     Version version;
     const Options options;
     Filedes fd;
@@ -653,6 +674,8 @@ struct Tilar::Detail
 
     bool ignoreInterrupts;
     std::uint32_t indexOffset;
+
+    ContentTypes contentTypes;
 };
 
 void Tilar::Detail::commitChanges()
@@ -698,11 +721,11 @@ Tilar::Tilar(const Tilar::Detail::pointer &detail)
     : detail_(detail)
 {}
 
-Tilar::Tilar(Tilar &&o)
+Tilar::Tilar(Tilar &&o) noexcept
     : detail_(std::move(o.detail_))
 {}
 
-Tilar& Tilar::operator=(Tilar &&o)
+Tilar& Tilar::operator=(Tilar &&o) noexcept
 {
     if (&o != this) {
         detail_ = std::move(o.detail_);
@@ -959,26 +982,37 @@ private:
     std::shared_ptr<Device> device_;
 };
 
+struct ContentTypeHolder
+{
+    ContentTypeHolder(std::string contentType)
+        : contentType(contentType)
+    {}
+    std::string contentType;
+};
+
 class Tilar::Sink::Stream
     : private boost::iostreams::stream_buffer<Tilar::Sink>
+    , private ContentTypeHolder
     , public tilestorage::OStream
 {
 public:
     Stream(const Tilar::Detail::pointer &owner, const FileIndex &index)
-        : buffer_(owner, index), stream_(&buffer_) {}
+        : ContentTypeHolder(owner->getContentType(index.type))
+        , OStream(contentType.c_str())
+        , buffer_(owner, index), stream_(&buffer_) {}
 
-    virtual std::ostream& get() { return stream_; }
-    virtual void close() {
+    virtual std::ostream& get() UTILITY_OVERRIDE { return stream_; }
+    virtual void close() UTILITY_OVERRIDE {
         stream_.flush();
         buffer_->commit();
         buffer_.close();
     }
-    virtual std::string name() const {
+    virtual std::string name() const UTILITY_OVERRIDE {
         // stream_buffer has only non-const version of operator-> :(
         return const_cast<decltype(buffer_)&>(buffer_)->name();
     }
 
-    virtual FileStat stat() const {
+    virtual FileStat stat_impl() const UTILITY_OVERRIDE {
         // stream_buffer has only non-const version of operator-> :(
         return const_cast<decltype(buffer_)&>(buffer_)->stat();
     }
@@ -990,31 +1024,35 @@ private:
 
 class Tilar::Source::Stream
     : private boost::iostreams::stream_buffer<Tilar::Source>
+    , private ContentTypeHolder
     , public tilestorage::IStream
 {
 public:
     Stream(const Tilar::Detail::pointer &owner, const FileIndex &index)
-        : buffer_(owner, index), stream_(&buffer_) {}
+        : ContentTypeHolder(owner->getContentType(index.type))
+        , IStream(contentType.c_str())
+        , buffer_(owner, index), stream_(&buffer_) {}
 
-    virtual std::istream& get() { return stream_; }
-    virtual void close() { buffer_.close(); }
-    virtual std::string name() const {
+    virtual std::istream& get() UTILITY_OVERRIDE { return stream_; }
+    virtual void close() UTILITY_OVERRIDE { buffer_.close(); }
+    virtual std::string name() const UTILITY_OVERRIDE {
         // stream_buffer has only non-const version of operator-> :(
         return const_cast<decltype(buffer_)&>(buffer_)->name();
     }
 
     virtual std::size_t read(char *buf, std::size_t size
                              , std::istream::pos_type off)
+        UTILITY_OVERRIDE
     {
         return buffer_->read(buf, size, off);
     }
 
-    virtual FileStat stat() const {
+    virtual FileStat stat_impl() const UTILITY_OVERRIDE {
         // stream_buffer has only non-const version of operator-> :(
         return const_cast<decltype(buffer_)&>(buffer_)->stat();
     }
 
-    virtual boost::optional<ReadOnlyFd> fd() {
+    virtual boost::optional<ReadOnlyFd> fd() UTILITY_OVERRIDE {
         return buffer_->readOnlyfd();
     }
 
@@ -1178,6 +1216,12 @@ void Tilar::expect(const Options &options)
             << "Expectation failed: file " << detail().fd.path()
             << " has different configuration.";
     }
+}
+
+Tilar& Tilar::setContentTypes(const ContentTypes &mapping)
+{
+    detail().setContentTypes(mapping);
+    return *this;
 }
 
 Tilar::Options::Options(unsigned int binaryOrder, unsigned int filesPerTile)

@@ -11,6 +11,9 @@ namespace vadstena { namespace tilestorage { namespace tilardriver {
 
 namespace {
 
+Tilar::ContentTypes tileContentTypes({ "", "image/jpeg" });
+Tilar::ContentTypes metatileContentTypes;
+
 std::uint32_t calculateHash(const std::string &data)
 {
     boost::crc_32_type crc;
@@ -36,9 +39,11 @@ int fileType(TileFile type) {
 } // namespace
 
 Cache::Archives::Archives(const std::string &extension, int filesPerTile
-                          , const Options &options)
+                          , const Options &options
+                          , const Tilar::ContentTypes &contentTypes)
     : extension(extension)
     , options(options.binaryOrder, filesPerTile, options.uuid)
+    , contentTypes(contentTypes)
 {}
 
 fs::path Cache::Archives::filePath(const fs::path &root
@@ -55,8 +60,25 @@ fs::path Cache::Archives::filePath(const fs::path &root
 Cache::Cache(const fs::path &root, const Options &options
              , bool readOnly)
     : root_(root), options_(options), readOnly_(readOnly)
-    , tiles_("tiles", 2, options), metatiles_("metatiles", 1, options)
+    , tiles_("tiles", 2, options, tileContentTypes)
+    , metatiles_("metatiles", 1, options, metatileContentTypes)
 {}
+
+namespace {
+
+Tilar tilar(const fs::path &path, const Tilar::Options &options
+            , bool readOnly)
+{
+    if (readOnly) {
+        // read-only
+        return Tilar::open(path, options
+                           , Tilar::OpenMode::readOnly);
+    }
+    return Tilar::create(path, options
+                         , Tilar::CreateMode::appendOrTruncate);
+}
+
+} // namespace
 
 Tilar& Cache::open(Archives &archives, const Index &archive)
 {
@@ -67,23 +89,11 @@ Tilar& Cache::open(Archives &archives, const Index &archive)
 
     const auto path(archives.filePath(root_, archive));
 
-    if (readOnly_) {
-        // read-only
-        return archives.map.insert
-            (Archives::Map::value_type
-             (archive
-              , Tilar::open(path, archives.options
-                            , Tilar::OpenMode::readOnly)))
-            .first->second;
-    }
+    auto file(tilar(path, archives.options, readOnly_));
+    file.setContentTypes(archives.contentTypes);
 
-    // read/write
     return archives.map.insert
-        (Archives::Map::value_type
-         (archive
-          , Tilar::create(path, archives.options
-                          , Tilar::CreateMode::appendOrTruncate)))
-        .first->second;
+        (Archives::Map::value_type(archive, std::move(file))).first->second;
 }
 
 IStream::pointer Cache::input(const TileId tileId, TileFile type)
