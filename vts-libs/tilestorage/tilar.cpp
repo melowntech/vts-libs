@@ -865,9 +865,9 @@ public:
     {
         const auto &slot(owner->index.get(index));
         if (!slot.valid()) {
-            LOGTHROW(err1, std::runtime_error)
+            LOGTHROW(err1, NoSuchFile)
                 << "File [" << index.col << ',' << index.row
-                << ',' << index.type << " does not exist in the archive "
+                << ',' << index.type << "] does not exist in the archive "
                 << fd.path() << ".";
         }
 
