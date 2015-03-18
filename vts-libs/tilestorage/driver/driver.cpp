@@ -1,5 +1,6 @@
 #include <mutex>
 
+#include "../io.hpp"
 #include "../driver.hpp"
 #include "../error.hpp"
 #include "./flat.hpp"

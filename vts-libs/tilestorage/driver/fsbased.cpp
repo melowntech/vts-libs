@@ -75,6 +75,16 @@ FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
     , root_(root), tmp_(root / TransactionRoot)
     , dirCache_(root_)
 {
+    if (!exists(root_)) {
+        LOGTHROW(err2, NoSuchTileSet)
+            << "No tile set can be found at " << root_ << ".";
+    }
+
+    if (!is_directory(root_)) {
+        LOGTHROW(err2, NoSuchTileSet)
+            << "No tile set can be found at " << root_
+            << ": not a directory.";
+    }
 }
 
 FsBasedDriver::~FsBasedDriver()
