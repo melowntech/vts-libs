@@ -2,7 +2,7 @@
 #define vadstena_libs_tilestorage_tileop_hpp_included_
 
 #include "../entities.hpp"
-#include "./types.hpp"
+#include "./basetypes.hpp"
 #include "./filetypes.hpp"
 #include "./properties.hpp"
 
@@ -38,10 +38,6 @@ Lod deltaDown(const LodLevels &levels, Lod lod);
 /** Check whether super tile is above (or exactly the same tile) as tile.
  */
 bool above(long baseTileSize, const TileId &tile, const TileId &super);
-
-bool valid(const Tile &tile);
-
-bool valid(const MetaNode &metanode);
 
 int child(const Index &index);
 
@@ -192,16 +188,6 @@ inline bool above(long baseTileSize, const TileId &tile, const TileId &super)
             && (te.ll(1) >= se.ll(1))
             && (te.ur(0) <= se.ur(0))
             && (te.ur(1) <= se.ur(1)));
-}
-
-inline bool valid(const Tile &tile)
-{
-    return tile.metanode.exists();
-}
-
-inline bool valid(const MetaNode &metanode)
-{
-    return metanode.exists();
 }
 
 inline int child(const Index &index)

@@ -4,6 +4,7 @@
 #include "../merge.hpp"
 #include "./dump.hpp"
 #include "../tileindex-io.hpp"
+#include "../tileopext.hpp"
 
 namespace vadstena { namespace tilestorage {
 

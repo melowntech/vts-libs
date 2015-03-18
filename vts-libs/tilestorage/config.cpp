@@ -1,3 +1,5 @@
+#include "dbglog/dbglog.hpp"
+
 #include "./config.hpp"
 #include "./json.hpp"
 #include "./error.hpp"

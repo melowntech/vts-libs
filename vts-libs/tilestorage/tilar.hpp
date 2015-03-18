@@ -19,7 +19,7 @@
 #include "../ids.hpp"
 #include "../range.hpp"
 
-#include "./types.hpp"
+#include "./basetypes.hpp"
 #include "./streams.hpp"
 
 namespace vadstena { namespace tilestorage {

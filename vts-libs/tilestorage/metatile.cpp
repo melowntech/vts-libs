@@ -15,6 +15,7 @@
 #include "./error.hpp"
 #include "./tileop.hpp"
 #include "./io.hpp"
+#include "./types.hpp"
 #include "./metatile.hpp"
 
 namespace half = half_float::detail;

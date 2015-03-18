@@ -14,6 +14,8 @@
 #include <boost/crc.hpp>
 #include <boost/uuid/nil_generator.hpp>
 
+#include "dbglog/dbglog.hpp"
+
 #include "utility/filedes.hpp"
 #include "utility/enum.hpp"
 #include "utility/raise.hpp"

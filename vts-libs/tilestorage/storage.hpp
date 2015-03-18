@@ -16,7 +16,6 @@
 
 #include "utility/runnable.hpp"
 
-#include "./types.hpp"
 #include "./properties.hpp"
 
 namespace vadstena { namespace tilestorage {

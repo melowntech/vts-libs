@@ -1,5 +1,7 @@
 #include <typeinfo>
 #include <cstdint>
+
+#include "dbglog/dbglog.hpp"
 #include "jsoncpp/as.hpp"
 
 #include "./json.hpp"
