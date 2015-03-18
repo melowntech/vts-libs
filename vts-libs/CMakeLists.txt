@@ -15,29 +15,6 @@ add_library(vadstena-tileset-browser STATIC
   )
 buildsys_library(vadstena-tileset-browser)
 
-# Create vadstena-tileset-browser.pic library with browser files (position
-# independent version for shared libraries)
-file_to_cpp(vadstena-libs_BROWSER_PIC_SOURCES
-  vadstena::tilestorage::browser::index_html
-  tilestorage/browser/index.html
-  pic.)
-file_to_cpp(vadstena-libs_BROWSER_PIC_SOURCES
-  vadstena::tilestorage::browser::index_offline_html
-  tilestorage/browser/index-offline.html
-  pic.)
-file_to_cpp(vadstena-libs_BROWSER_PIC_SOURCES
-  vadstena::tilestorage::browser::skydome_jpg
-  tilestorage/browser/skydome.jpg
-  pic.)
-
-add_library(vadstena-tileset-browser.pic
-  STATIC ${vadstena-libs_BROWSER_PIC_SOURCES}
-  tilestorage/support.hpp tilestorage/support.pic.cpp
-  )
-buildsys_library(vadstena-tileset-browser.pic)
-set_target_properties(vadstena-tileset-browser.pic
-  PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
-
 set(vadstena-tileset-core_SOURCES
   tilestorage/basetypes.hpp
   tilestorage/properties.hpp
