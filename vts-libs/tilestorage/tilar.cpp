@@ -215,6 +215,25 @@ void read(const Filedes &fd, Block &block)
     }
 }
 
+Filedes openFile(const fs::path &path, int flags)
+{
+    Filedes fd(::open(path.string().c_str(), flags), path);
+    if (-1 == fd) {
+        if ((errno == ENOENT) || (errno == ENOTDIR)) {
+            LOGTHROW(err1, NoSuchFile)
+                << "Failed to open tilar file " << path
+                << ": file not found.";
+        }
+        std::system_error e
+            (errno, std::system_category()
+             , utility::formatError
+             ("Failed to open tilar file %s.", path));
+        LOG(err1) << e.what();
+        throw e;
+    }
+    return fd;
+}
+
 std::uint32_t crc(std::uint8_t version, const Tilar::Options &options)
 {
     boost::crc_32_type crc;
@@ -740,18 +759,8 @@ Tilar::~Tilar() {}
 
 Tilar Tilar::open(const fs::path &path, OpenMode openMode)
 {
-    Filedes fd(::open(path.string().c_str(), flags(openMode)), path);
-    if (-1 == fd) {
-        std::system_error e
-            (errno, std::system_category()
-             , utility::formatError
-             ("Failed to open tilar file %s.", path));
-        LOG(err1) << e.what();
-        throw e;
-    }
-
+    auto fd(openFile(path, flags(openMode)));
     auto header(loadHeader(fd));
-
     return { std::make_shared<Detail>
             (std::get<1>(header), std::get<0>(header)
              , std::move(fd), (openMode == OpenMode::readOnly), 0) };
@@ -759,18 +768,8 @@ Tilar Tilar::open(const fs::path &path, OpenMode openMode)
 
 Tilar Tilar::open(const fs::path &path, std::uint32_t indexOffset)
 {
-    Filedes fd(::open(path.string().c_str(), flags(OpenMode::readOnly)), path);
-    if (-1 == fd) {
-        std::system_error e
-            (errno, std::system_category()
-             , utility::formatError
-             ("Failed to open tilar file %s.", path));
-        LOG(err1) << e.what();
-        throw e;
-    }
-
+    auto fd(openFile(path, flags(OpenMode::readOnly)));
     auto header(loadHeader(fd));
-
     return { std::make_shared<Detail>
             (std::get<1>(header), std::get<0>(header)
              , std::move(fd), true, indexOffset) };
