@@ -41,6 +41,10 @@ struct NoSuchTile : Error {
     NoSuchTile(const std::string &message) : Error(message) {}
 };
 
+struct NoSuchFile : Error {
+    NoSuchFile(const std::string &message) : Error(message) {}
+};
+
 struct ReadOnlyError : Error {
     ReadOnlyError(const std::string &message) : Error(message) {}
 };
@@ -59,10 +63,6 @@ struct InvalidSignature : Error {
 
 struct Interrupted : Error {
     Interrupted(const std::string &message) : Error(message) {}
-};
-
-struct NoSuchFile : Error {
-    NoSuchFile(const std::string &message) : Error(message) {}
 };
 
 } } // namespace vadstena::tilestorage

@@ -109,6 +109,7 @@ TarDriver::TarDriver(const boost::filesystem::path &root
         // skip file/whatever content
         reader_.skip(header);
     }
+    LOG(info4) << "Done";
 }
 
 TarDriver::~TarDriver() {}
@@ -163,7 +164,7 @@ IStream::pointer TarDriver::input_impl(const TileId tileId, TileFile type)
 
     auto fsrc(src->find(tileId));
     if (fsrc == src->end()) {
-        LOGTHROW(err1, std::runtime_error)
+        LOGTHROW(err1, NoSuchFile)
             << "No data for " << tileId << " " << desc << ".";
     }
     return readFile(reader_, fsrc->second, type);
@@ -187,7 +188,7 @@ FileStat TarDriver::stat_impl(File type) const
     }
 
     if (!r->size) {
-        LOGTHROW(err1, std::runtime_error)
+        LOGTHROW(err1, NoSuchFile)
             << "No data for " << desc << ".";
     }
 
@@ -218,7 +219,7 @@ FileStat TarDriver::stat_impl(const TileId tileId, TileFile type) const
 
     auto fsrc(src->find(tileId));
     if (fsrc == src->end()) {
-        LOGTHROW(err1, std::runtime_error)
+        LOGTHROW(err1, NoSuchFile)
             << "No data for " << tileId << " " << desc << ".";
     }
 

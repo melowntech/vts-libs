@@ -4,13 +4,14 @@
 #include <fstream>
 #include <functional>
 
-#include <boost/filesystem/path.hpp>
+#include <boost/filesystem.hpp>
 
 #include "dbglog/dbglog.hpp"
 
 #include "utility/streams.hpp"
 
 #include "../streams.hpp"
+#include "../error.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -105,6 +106,10 @@ private:
             f_.exceptions(std::ios::badbit | std::ios::failbit);
             f_.open(path_.string());
         } catch (const std::exception &e) {
+            if (!exists(path_)) {
+                LOGTHROW(err1, NoSuchFile)
+                    << "Unable to open file " << path_ << " for reading.";
+            }
             LOGTHROW(err1, std::runtime_error)
                 << "Unable to open file " << path_ << " for reading.";
         }
