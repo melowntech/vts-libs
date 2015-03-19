@@ -109,7 +109,6 @@ TarDriver::TarDriver(const boost::filesystem::path &root
         // skip file/whatever content
         reader_.skip(header);
     }
-    LOG(info4) << "Done";
 }
 
 TarDriver::~TarDriver() {}
