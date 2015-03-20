@@ -37,7 +37,8 @@ public:
 
         Resources& operator+=(Resources &o);
         Resources& operator-=(Resources &o);
-        bool operator<(Resources &o) const;
+        bool operator<(const Resources &o) const;
+        bool operator>(const Resources &o) const;
     };
 
     virtual ~Driver() {};
@@ -286,7 +287,7 @@ inline Driver::Resources& Driver::Resources::operator-=(Resources &o)
     return *this;
 }
 
-inline bool Driver::Resources::operator<(Resources &o) const
+inline bool Driver::Resources::operator<(const Resources &o) const
 {
     if (openFiles < o.openFiles) {
         return true;
@@ -294,6 +295,16 @@ inline bool Driver::Resources::operator<(Resources &o) const
         return false;
     }
     return memory < o.memory;
+}
+
+inline bool Driver::Resources::operator>(const Resources &o) const
+{
+    if (openFiles > o.openFiles) {
+        return true;
+    } else if (o.openFiles > openFiles) {
+        return false;
+    }
+    return memory > o.memory;
 }
 
 template<typename CharT, typename Traits>
