@@ -52,6 +52,8 @@ private:
     virtual FileStat stat_impl(const TileId tileId, TileFile type)
         const UTILITY_OVERRIDE;
 
+    virtual Resources resources_impl() const UTILITY_OVERRIDE;
+
     virtual void begin_impl() UTILITY_OVERRIDE;
 
     virtual void commit_impl() UTILITY_OVERRIDE;

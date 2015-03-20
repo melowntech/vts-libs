@@ -34,6 +34,8 @@ public:
 
     FileStat stat(const TileId tileId, TileFile type);
 
+    Driver::Resources resources();
+
     void flush();
     void commit();
     void rollback();

@@ -27,6 +27,19 @@ public:
         const StaticProperties* operator->() const { return &properties; }
     };
 
+    struct Resources {
+        std::size_t openFiles;
+        std::size_t memory;
+
+        Resources(std::size_t openFiles = 0, std::size_t memory = 0)
+            : openFiles(openFiles), memory(memory)
+        {}
+
+        Resources& operator+=(Resources &o);
+        Resources& operator-=(Resources &o);
+        bool operator<(Resources &o) const;
+    };
+
     virtual ~Driver() {};
 
     OStream::pointer output(File type);
@@ -42,6 +55,8 @@ public:
     FileStat stat(File type) const;
 
     FileStat stat(const TileId tileId, TileFile type) const;
+
+    Resources resources() const;
 
     bool readOnly() const { return readOnly_; }
 
@@ -97,6 +112,8 @@ private:
 
     virtual FileStat stat_impl(const TileId tileId, TileFile type)
         const = 0;
+
+    virtual Resources resources_impl() const { return {}; }
 
     virtual void begin_impl() = 0;
 
@@ -206,6 +223,11 @@ inline FileStat Driver::stat(const TileId tileId, TileFile type) const
     return stat;
 }
 
+inline Driver::Resources Driver::resources() const
+{
+    return resources_impl();
+}
+
 inline void Driver::begin(utility::Runnable *runnable)
 {
     begin_impl();
@@ -250,7 +272,39 @@ inline void Driver::checkRunning() const
     notRunning();
 }
 
+inline Driver::Resources& Driver::Resources::operator+=(Resources &o)
+{
+    openFiles += o.openFiles;
+    memory += o.memory;
+    return *this;
+}
+
+inline Driver::Resources& Driver::Resources::operator-=(Resources &o)
+{
+    openFiles -= o.openFiles;
+    memory -= o.memory;
+    return *this;
+}
+
+inline bool Driver::Resources::operator<(Resources &o) const
+{
+    if (openFiles < o.openFiles) {
+        return true;
+    } else if (o.openFiles < openFiles) {
+        return false;
+    }
+    return memory < o.memory;
+}
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os
+           , const Driver::Resources &r)
+{
+    return os << "{openFiles=" << r.openFiles
+              << ", memory=" << r.memory << '}';
+}
+
 } } // namespace vadstena::tilestorage
 
 #endif // vadstena_libs_tilestorage_driver_hpp_included_
-

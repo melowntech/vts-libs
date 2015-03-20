@@ -130,6 +130,11 @@ FileStat Cache::stat(const TileId tileId, TileFile type)
     return open(getArchives(type), index.archive).stat(index.file);
 }
 
+Driver::Resources Cache::resources()
+{
+    return { tiles_.map.size() + metatiles_.map.size(), 0 };
+}
+
 void Cache::commit()
 {
     if (readOnly_) { return; }

@@ -61,6 +61,10 @@ private:
         return { Factory::staticType(), {} };
     }
 
+    virtual Resources resources_impl() const UTILITY_OVERRIDE {
+        return { 1, 0 };
+    }
+
     const fs::path tarPath_;
     mutable utility::tar::Reader reader_;
 

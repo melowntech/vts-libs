@@ -264,6 +264,11 @@ FileStat TilarDriver::stat_impl(const TileId tileId, TileFile type) const
     return cache_.stat(tileId, type);
 }
 
+Driver::Resources TilarDriver::resources_impl() const
+{
+    return cache_.resources();
+}
+
 void TilarDriver::remove_impl(const TileId tileId, TileFile type)
 {
     return cache_.remove(tileId, type);
