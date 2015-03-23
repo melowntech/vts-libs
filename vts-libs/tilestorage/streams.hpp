@@ -27,6 +27,8 @@ struct FileStat {
     {}
 
     static FileStat stat(const boost::filesystem::path &path);
+
+    static FileStat stat(int fd);
 };
 
 struct ReadOnlyFd {

@@ -13,7 +13,6 @@
 #include <ostream>
 
 #include <boost/filesystem/path.hpp>
-#include <boost/iostreams/categories.hpp>
 #include <boost/uuid/uuid.hpp>
 
 #include "../ids.hpp"

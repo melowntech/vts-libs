@@ -5,6 +5,7 @@
 #include <boost/utility/in_place_factory.hpp>
 
 #include "utility/path.hpp"
+#include "dbglog/dbglog.hpp"
 
 #include "./fsbased.hpp"
 #include "./flat.hpp"
@@ -122,7 +123,7 @@ OStream::pointer FsBasedDriver::output_impl(File type)
     const auto dir(fileDir(type, name));
     const auto path(writePath(dir, name));
     LOG(info1) << "Saving to " << path.first << ".";
-    return std::make_shared<FileOStream>(type, path.first, path.second);
+    return fileOStream(type, path.first, path.second);
 }
 
 IStream::pointer FsBasedDriver::input_impl(File type) const
@@ -131,7 +132,7 @@ IStream::pointer FsBasedDriver::input_impl(File type) const
     const auto dir(fileDir(type, name));
     const auto path(readPath(dir, name));
     LOG(info1) << "Loading from " << path << ".";
-    return std::make_shared<FileIStream>(type, path);
+    return fileIStream(type, path);
 }
 
 OStream::pointer FsBasedDriver::output_impl(const TileId tileId, TileFile type)
@@ -140,7 +141,7 @@ OStream::pointer FsBasedDriver::output_impl(const TileId tileId, TileFile type)
     const auto dir(fileDir(tileId, type, name));
     const auto path(writePath(dir, name));
     LOG(info1) << "Saving to " << path.first << ".";
-    return std::make_shared<FileOStream>(type, path.first, path.second);
+    return fileOStream(type, path.first, path.second);
 }
 
 IStream::pointer FsBasedDriver::input_impl(const TileId tileId, TileFile type)
@@ -150,7 +151,7 @@ IStream::pointer FsBasedDriver::input_impl(const TileId tileId, TileFile type)
     const auto dir(fileDir(tileId, type, name));
     const auto path(readPath(dir, name));
     LOG(info1) << "Loading from " << path << ".";
-    return std::make_shared<FileIStream>(type, path);
+    return fileIStream(type, path);
 }
 
 void FsBasedDriver::remove_impl(const TileId tileId, TileFile type)
@@ -280,7 +281,7 @@ fs::path FsBasedDriver::readPath(const fs::path &dir, const fs::path &name)
     return root_ / dir / name;
 }
 
-std::pair<fs::path, FileOStream::OnClose>
+std::pair<fs::path, OnClose>
 FsBasedDriver::writePath(const fs::path &dir, const fs::path &name)
 {
     DirCache *dirCache(&dirCache_);

@@ -47,6 +47,20 @@ FileStat FileStat::stat(const boost::filesystem::path &path)
     return { st.st_size, st.st_mtime, "application/octet-stream" };
 }
 
+FileStat FileStat::stat(int fd)
+{
+    struct ::stat st;
+    if (::fstat(fd, &st) == -1) {
+        std::system_error e
+            (errno, std::system_category()
+             , utility::formatError("Cannot stat fd %d.", fd));
+        LOG(err1) << e.what();
+        throw e;
+    }
+
+    return { st.st_size, st.st_mtime, "application/octet-stream" };
+}
+
 const char* contentType(File type)
 {
     if (type == File::config) {

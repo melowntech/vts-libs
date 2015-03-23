@@ -13,6 +13,7 @@
 #include <boost/noncopyable.hpp>
 #include <boost/crc.hpp>
 #include <boost/uuid/nil_generator.hpp>
+#include <boost/iostreams/categories.hpp>
 
 #include "dbglog/dbglog.hpp"
 
@@ -993,8 +994,7 @@ struct ContentTypeHolder
 };
 
 class Tilar::Sink::Stream
-    : private boost::iostreams::stream_buffer<Tilar::Sink>
-    , private ContentTypeHolder
+    : private ContentTypeHolder
     , public tilestorage::OStream
 {
 public:
@@ -1030,8 +1030,7 @@ private:
 };
 
 class Tilar::Source::Stream
-    : private boost::iostreams::stream_buffer<Tilar::Source>
-    , private ContentTypeHolder
+    : private ContentTypeHolder
     , public tilestorage::IStream
 {
 public:

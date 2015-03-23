@@ -78,7 +78,7 @@ private:
 
     fs::path readPath(const fs::path &dir, const fs::path &name) const;
 
-    std::pair<fs::path, FileOStream::OnClose>
+    std::pair<fs::path, OnClose>
     writePath(const fs::path &dir, const fs::path &name);
 
     fs::path removePath(const fs::path &dir, const fs::path &name);

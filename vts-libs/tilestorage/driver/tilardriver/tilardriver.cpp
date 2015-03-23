@@ -10,6 +10,8 @@
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
+#include "dbglog/dbglog.hpp"
+
 #include "utility/streams.hpp"
 #include "utility/path.hpp"
 
@@ -193,14 +195,14 @@ OStream::pointer TilarDriver::output_impl(File type)
         // no transaction -> plain file
         const auto path(root_ / name);
         LOG(info1) << "Saving to " << path << ".";
-        return std::make_shared<FileOStream>(type, path);
+        return fileOStream(type, path);
     }
 
     const auto path(tmp_ / name);
     LOG(info1) << "Saving to " << path << ".";
 
     const auto tmpPath(utility::addExtension(path, ".tmp"));
-    return std::make_shared<FileOStream>
+    return fileOStream
         (type, tmpPath, [this, path, tmpPath, name](bool success)
     {
         if (!success) {
@@ -236,7 +238,7 @@ IStream::pointer TilarDriver::input_impl(File type) const
     }
 
     LOG(info1) << "Loading from " << path << ".";
-    return std::make_shared<FileIStream>(type, path);
+    return fileIStream(type, path);
 }
 
 OStream::pointer TilarDriver::output_impl(const TileId tileId, TileFile type)

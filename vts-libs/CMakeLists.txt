@@ -28,7 +28,7 @@ set(vadstena-tileset-core_SOURCES
 
   tilestorage/driver.hpp tilestorage/driver/driver.cpp
   tilestorage/streams.hpp tilestorage/streams.cpp
-  tilestorage/driver/fstreams.hpp
+  tilestorage/driver/fstreams.hpp tilestorage/driver/fstreams.cpp
   tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp
   tilestorage/driver/flat.hpp
   tilestorage/driver/hash-crc.hpp tilestorage/driver/hash-crc.cpp
