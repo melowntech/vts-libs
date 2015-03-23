@@ -1120,12 +1120,19 @@ void TileSet::Detail::clone(const Detail &src)
         copyFile(sd.input(type), dd.output(type));
     }
 
+    const utility::Progress::ratio_t reportRatio(1, 100);
+    const auto name(str(boost::format("Cloning <%s>")
+                        % src.properties.id));
+    utility::Progress progress(src.tileIndex.count()
+                               + src.metaIndex.count());
+
     // copy tiles
     traverseTiles(src.tileIndex, [&](const TileId &tileId)
     {
         for (auto type : { TileFile::mesh, TileFile::atlas }) {
             copyFile(sd.input(tileId, type), dd.output(tileId, type));
         }
+        (++progress).report(reportRatio, name);
     });
 
     // copy metatiles
@@ -1133,6 +1140,7 @@ void TileSet::Detail::clone(const Detail &src)
     {
         copyFile(sd.input(metaId, TileFile::meta)
                  , dd.output(metaId, TileFile::meta));
+        (++progress).report(reportRatio, name);
     });
 
     flush();
