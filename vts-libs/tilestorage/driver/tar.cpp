@@ -33,7 +33,7 @@ struct TarDevice {
 
     TarDevice(const std::string &path
               , const utility::tar::Reader::Filedes &fd)
-        : path_(path), fd_(fd.fd, fd.start, fd.end)
+        : path_(path), fd_(fd.fd, fd.start, fd.end, true)
         , pos_(fd.start)
     {}
 

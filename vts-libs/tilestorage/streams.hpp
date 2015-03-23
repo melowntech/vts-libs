@@ -31,13 +31,22 @@ struct FileStat {
     static FileStat stat(int fd);
 };
 
+/** Read only file descriptor.
+ *  Can be returned by IStream to access data directly.
+ *
+ *  If shared is true then file position cannot be changed because there can be
+ *  more streams sharing the same file descriptor -- pread must be used instead
+ *  of read and seek is forbidden.
+ */
 struct ReadOnlyFd {
     int fd;
     std::size_t start;
     std::size_t end;
+    bool shared;
 
-    ReadOnlyFd(int fd, std::size_t start, std::size_t end)
-        : fd(fd), start(start), end(end)
+    ReadOnlyFd(int fd, std::size_t start, std::size_t end
+               , bool shared = false)
+        : fd(fd), start(start), end(end), shared(shared)
     {}
 };
 

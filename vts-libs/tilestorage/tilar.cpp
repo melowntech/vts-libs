@@ -973,7 +973,8 @@ public:
     FileStat stat() const { return device_->stat(); }
 
     ReadOnlyFd readOnlyfd() {
-        return { device_->fd.get(), device_->start, device_->end };
+        return { device_->fd.get(), device_->start, device_->end
+                , true };
     }
 
     class Stream;
