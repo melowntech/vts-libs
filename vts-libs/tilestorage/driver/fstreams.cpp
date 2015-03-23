@@ -19,13 +19,13 @@ namespace vadstena { namespace tilestorage {
 
 namespace detail {
 
+const std::streamsize IOBufferSize = 1 << 16;
+
 class FileOStream
     : public tilestorage::OStream
 {
 public:
     typedef std::function<void(bool)> OnClose;
-
-    static const std::streamsize IOBufferSize = 1 << 16;
 
     template <typename Type>
     FileOStream(Type type, const boost::filesystem::path &path
@@ -92,8 +92,6 @@ class FileIStream
     : public tilestorage::IStream
 {
 public:
-    static const std::streamsize IOBufferSize = 1 << 16;
-
     template <typename Type>
     FileIStream(Type type, const boost::filesystem::path &path)
         : IStream(type), path_(path), stream_(&buffer_)

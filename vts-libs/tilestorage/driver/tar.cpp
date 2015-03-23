@@ -1,4 +1,6 @@
-#include <sstream>
+#include <system_error>
+
+#include <unistd.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
@@ -6,6 +8,7 @@
 
 #include "utility/path.hpp"
 #include "utility/magic.hpp"
+#include "utility/raise.hpp"
 
 #include "./tar.hpp"
 #include "../io.hpp"
@@ -21,19 +24,66 @@ namespace {
 const std::string ConfigName("mapConfig.json");
 const std::string TileIndexName("index.bin");
 
-class StringIStream : public IStream {
-public:
-    template <typename Type>
-    StringIStream(Type type, const std::string &path
-                  , const utility::tar::Reader::Data &data
-                  , std::time_t time)
-        : IStream(type)
-        , path_(path), s_(std::string(data.data(), data.size()))
-        , stat_{ data.size(), time }
+std::streamsize IOBufferSize(1 << 16);
+
+struct TarDevice {
+    typedef char char_type;
+    struct category : boost::iostreams::device_tag
+                    , boost::iostreams::input_seekable {};
+
+    TarDevice(const std::string &path
+              , const utility::tar::Reader::Filedes &fd)
+        : path_(path), fd_(fd.fd, fd.start, fd.end)
+        , pos_(fd.start)
     {}
 
+    std::streampos seek(boost::iostreams::stream_offset off
+                        , std::ios_base::seekdir way);
+
+    std::streamsize read(char *data, std::streamsize size
+                         , boost::iostreams::stream_offset pos)
+    {
+        // read data from given position
+        auto bytes(read_impl(data, size, pos + fd_.start));
+        // update position after read block
+        pos_ = fd_.start + pos + bytes;
+        return bytes;
+    }
+
+    std::streamsize read(char *data, std::streamsize size) {
+        auto bytes(read_impl(data, size, pos_));
+        pos_ += bytes;
+        return bytes;
+    }
+
+    ReadOnlyFd fd() { return fd_; }
+
+private:
+    std::streamsize read_impl(char *data, std::streamsize size
+                              , boost::iostreams::stream_offset pos);
+
+    fs::path path_;
+    ReadOnlyFd fd_;
+    boost::iostreams::stream_offset pos_;
+};
+
+class TarIStream : public IStream {
+public:
+    template <typename Type>
+    TarIStream(Type type, const std::string &path
+               , const utility::tar::Reader::Filedes &fd
+               , std::time_t time)
+        : IStream(type)
+        , path_(path)
+        , stat_{ fd.end - fd.start, time }
+        , buffer_(path, fd), stream_(&buffer_)
+    {
+        buf_.reset(new char[IOBufferSize]);
+        buffer_.pubsetbuf(buf_.get(), IOBufferSize);
+    }
+
     virtual std::istream& get() UTILITY_OVERRIDE {
-        return s_;
+        return stream_;
     }
 
     virtual void close() UTILITY_OVERRIDE {}
@@ -44,19 +94,87 @@ public:
 
     virtual FileStat stat_impl() const UTILITY_OVERRIDE { return stat_; }
 
+    virtual boost::optional<ReadOnlyFd> fd() UTILITY_OVERRIDE
+    {
+        return buffer_->fd();
+    }
+
+    virtual std::size_t read(char *buf, std::size_t size
+                             , std::istream::pos_type off)
+        UTILITY_OVERRIDE
+    {
+        return buffer_->read(buf, size, off);
+    }
+
 private:
     fs::path path_;
-    std::istringstream s_;
     FileStat stat_;
+
+    std::unique_ptr<char[]> buf_;
+    boost::iostreams::stream_buffer<TarDevice> buffer_;
+    std::istream stream_;
 };
+
+std::streampos TarDevice::seek(boost::iostreams::stream_offset off
+                               , std::ios_base::seekdir way)
+{
+    std::int64_t newPos(0);
+
+    switch (way) {
+    case std::ios_base::beg:
+        newPos = fd_.start + off;
+        break;
+
+    case std::ios_base::end:
+        newPos = fd_.end + off;
+        break;
+
+    case std::ios_base::cur:
+        newPos = pos_ + off;
+        break;
+
+    default: // shut up compiler!
+        break;
+    };
+
+    if (newPos < std::int64_t(fd_.start)) {
+        pos_ = fd_.start;
+    } else if (newPos > std::int64_t(fd_.end)) {
+        pos_ = fd_.end;
+    } else {
+        pos_ = newPos;
+    }
+
+    return (pos_ - fd_.start);
+}
+
+std::streamsize TarDevice::read_impl(char *data, std::streamsize size
+                                     , boost::iostreams::stream_offset pos)
+{
+    // trim if out of range
+    auto end(fd_.end);
+    if (size > (end - pos)) { size = end - pos; }
+
+    if (!size) { return size; }
+
+    auto bytes(::pread(fd_.fd, data, size, pos));
+    if (-1 == bytes) {
+        std::system_error e
+            (errno, std::system_category()
+             , utility::formatError
+             ("Unable to read from tilar file %s.", path_));
+        throw e;
+    }
+    return bytes;
+}
 
 template <typename Type>
 IStream::pointer readFile(utility::tar::Reader &reader
                           , const TarDriver::Record &record
                           , Type type)
 {
-    return std::make_shared<StringIStream>
-        (type, record.path, reader.readData(record.block, record.size)
+    return std::make_shared<TarIStream>
+        (type, record.path, reader.filedes(record.block, record.size)
          , record.time);
 }
 
