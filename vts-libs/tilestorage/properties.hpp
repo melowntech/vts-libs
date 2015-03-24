@@ -77,9 +77,11 @@ struct StaticProperties {
 
     StaticProperties() : baseTileSize() {}
 
-    bool merge(const StaticProperties &other, MaskType mask = Mask::all);
+    template <typename> struct Setter;
+    struct Wrapper;
 
-    struct Setter;
+    bool merge(const StaticProperties &other, MaskType mask = Mask::all);
+    bool merge(const StaticProperties::Wrapper &other);
 };
 
 /** Tile set properties that can be set anytime.
@@ -108,12 +110,13 @@ struct SettableProperties {
         , textureQuality(85)
         , texelSize(0.1){}
 
-    bool merge(const SettableProperties &other
-               , MaskType mask = Mask::all);
+    static MaskType all() { return Mask::all; }
 
-    static MaskType all() { return ~(MaskType(0)); }
+    template <typename> struct Setter;
+    struct Wrapper;
 
-    struct Setter;
+    bool merge(const SettableProperties &other, MaskType mask = Mask::all);
+    bool merge(const SettableProperties::Wrapper &other);
 };
 
 /** All tile set properties.
@@ -130,6 +133,12 @@ struct Properties
     std::string metaTemplate;     //!< meta tile file template
 
     Properties() : foatSize() {}
+
+    StaticProperties& staticProperties() { return *this; }
+    const StaticProperties& staticProperties() const { return *this; }
+
+    SettableProperties& settableProperties() { return *this; }
+    const SettableProperties& settableProperties() const { return *this; }
 };
 
 struct CreateProperties {
@@ -160,49 +169,90 @@ public:
     MaskType mask;
 };
 
+struct StaticProperties::Wrapper {
+    StaticProperties props;
+    MaskType mask;
+
+    Wrapper() : props(), mask() {}
+    Wrapper(const StaticProperties &props, MaskType mask)
+        : props(props), mask(mask)
+    {}
+};
+
+struct SettableProperties::Wrapper {
+    SettableProperties props;
+    MaskType mask;
+
+    Wrapper() : props(), mask() {}
+    Wrapper(const SettableProperties &props, MaskType mask)
+        : props(props), mask(mask)
+    {}
+};
+
+template <typename T, typename C>
+class SetterBase {
+public:
+    typedef T Properties;
+    typedef C Context;
+
+    SetterBase(Properties &p, typename Properties::MaskType &m
+               , Context *c)
+        : p_(p), m_(m), c_(c)
+    {}
+
+    Context& context() { return *c_; }
+
+protected:
+    Properties &p_;
+    typename Properties::MaskType &m_;
+    Context *c_;
+};
+
 #define TILESTORAGE_PROPERTIES_SETTER(NAME)                     \
         Setter& NAME(const decltype(Properties::NAME) &value) { \
-            p_.NAME = value;                                    \
-            m_ |= Properties::Mask::NAME;                       \
+            this->p_.NAME = value;                              \
+            this->m_ |= Properties::Mask::NAME;                 \
             return *this;                                       \
         }
 
-class StaticProperties::Setter {
-public:
-    typedef StaticProperties Properties;
-    Setter(Properties &p, Properties::MaskType &m)
-        : p_(p), m_(m)
-    {}
+#define TILESTORAGE_PROPERTIES_SETTER_INIT(PropertiesType)          \
+    template <typename Context>                                     \
+    class PropertiesType::Setter                                    \
+            : public SetterBase<PropertiesType, Context>            \
+    {                                                               \
+    public:                                                         \
+        typedef SetterBase<PropertiesType, Context> Super;          \
+        typedef typename Super::Properties Properties;              \
+        typedef typename Properties::MaskType MaskType;             \
+                                                                    \
+        Setter(Properties &p, MaskType &m, Context *c = nullptr)    \
+            : SetterBase<Properties, Context>(p, m, c)              \
+        {}                                                          \
+                                                                    \
+        Setter(typename Properties::Wrapper &w, Context *c = nullptr)   \
+            : SetterBase<Properties, Context>(w.props, w.mask, c)       \
+        {}
 
+#define TILESTORAGE_PROPERTIES_SETTER_FINI() };
+
+TILESTORAGE_PROPERTIES_SETTER_INIT(StaticProperties)
     TILESTORAGE_PROPERTIES_SETTER(id)
     TILESTORAGE_PROPERTIES_SETTER(metaLevels)
     TILESTORAGE_PROPERTIES_SETTER(baseTileSize)
     TILESTORAGE_PROPERTIES_SETTER(alignment)
     TILESTORAGE_PROPERTIES_SETTER(srs)
     TILESTORAGE_PROPERTIES_SETTER(driver)
+TILESTORAGE_PROPERTIES_SETTER_FINI()
 
-private:
-    Properties &p_;
-    Properties::MaskType &m_;
-};
-
-class SettableProperties::Setter {
-public:
-    typedef SettableProperties Properties;
-    Setter(Properties &p, Properties::MaskType &m)
-        : p_(p), m_(m)
-    {}
-
+TILESTORAGE_PROPERTIES_SETTER_INIT(SettableProperties)
     TILESTORAGE_PROPERTIES_SETTER(defaultPosition)
     TILESTORAGE_PROPERTIES_SETTER(defaultOrientation)
     TILESTORAGE_PROPERTIES_SETTER(textureQuality)
     TILESTORAGE_PROPERTIES_SETTER(texelSize)
+TILESTORAGE_PROPERTIES_SETTER_FINI()
 
-private:
-    Properties &p_;
-    Properties::MaskType &m_;
-};
-
+#undef TILESTORAGE_PROPERTIES_SETTER_INIT
+#undef TILESTORAGE_PROPERTIES_SETTER_FINI
 #undef TILESTORAGE_PROPERTIES_SETTER
 
 // inline stuff
@@ -236,6 +286,16 @@ inline bool StaticProperties::merge(const StaticProperties &other
     TILESTORAGE_PROPERTIES_MERGE(driver);
 
     return changed;
+}
+
+inline bool StaticProperties::merge(const StaticProperties::Wrapper &other)
+{
+    return merge(other.props, other.mask);
+}
+
+inline bool SettableProperties::merge(const SettableProperties::Wrapper &other)
+{
+    return merge(other.props, other.mask);
 }
 
 #undef TILESTORAGE_PROPERTIES_MERGE

@@ -24,7 +24,7 @@ struct TileSet::Detail {
     // properties
     Properties savedProperties;  // properties as are on disk
     Properties properties;       // current properties
-    bool propertiesChanged; // marks whether properties have been changed
+    bool propertiesChanged;      // marks whether properties have been changed
 
     TileIndex tileIndex;    // tile index that reflects state on the disk
     TileIndex metaIndex;    // metatile index that reflects state on the disk

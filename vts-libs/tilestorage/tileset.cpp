@@ -106,6 +106,35 @@ struct TileSet::Factory
 
         dst->detail().clone(src->detail(), extents, lodRange);
     }
+
+    static void clone(const TileSet::pointer &src
+                      , const TileSet::pointer &dst
+                      , const boost::optional<Extents> &extents
+                      , const boost::optional<LodRange> &lodRange
+                      , const StaticProperties::Wrapper &staticProperties
+                      , const SettableProperties::Wrapper &settableProperties)
+    {
+        {
+            auto &sdet(src->detail());
+            auto &ddet(dst->detail());
+
+            // copy in source properties
+            ddet.properties = sdet.properties;
+
+            // merge in requested changes
+            ddet.properties.staticProperties().merge(staticProperties);
+            ddet.properties.settableProperties().merge(settableProperties);
+
+            // mark as changed
+            ddet.propertiesChanged = true;
+        }
+
+        if (!extents && !lodRange) {
+            return clone(src, dst);
+        }
+
+        dst->detail().clone(src->detail(), extents, lodRange);
+    }
 };
 
 TileSet::pointer createTileSet(const Locator &locator
@@ -133,7 +162,8 @@ TileSet::pointer cloneTileSet(const Locator &locator
 {
     // merge existing properties with new properties
     CreateProperties properties(src->getProperties());
-    properties.staticProperties.merge(options.staticProperties, options.mask);
+    properties.staticProperties.merge(options.staticProperties);
+    properties.settableProperties.merge(options.settableProperties);
 
     // create tileset and clone
     auto dst(TileSet::Factory::create
@@ -153,7 +183,10 @@ TileSet::pointer cloneTileSet(const TileSet::pointer &dst
             << "Tile set <" << dst->getProperties().id
             << "> is not empty.";
     }
-    TileSet::Factory::clone(src, dst, options.extents, options.lodRange);
+
+    TileSet::Factory::clone(src, dst, options.extents, options.lodRange
+                            , options.staticProperties
+                            , options.settableProperties);
     return dst;
 }
 
@@ -435,20 +468,28 @@ TileSet::Detail::createVirtualMetaNode(const TileId &tileId)
     return *md;
 }
 
+void loadMetatileFromFile(const IStream::pointer &f, Metadata &metadata
+                           , long baseTileSize
+                           , const TileId &tileId
+                           , const MetaNodeNotify &notify = MetaNodeNotify())
+{
+    tilestorage::loadMetatile
+        (*f, baseTileSize, tileId, [&metadata]
+         (const TileId &tileId, const MetaNode &node, std::uint8_t)
+         {
+             metadata.insert(Metadata::value_type(tileId, node));
+         }
+         , notify);
+}
+
 void TileSet::Detail
 ::loadMetatileFromFile(Metadata &metadata, const TileId &tileId
                        , const MetaNodeNotify &notify)
     const
 {
     auto f(driver->input(tileId, TileFile::meta));
-    tilestorage::loadMetatile
-        (*f, properties.baseTileSize, tileId
-         , [&metadata]
-         (const TileId &tileId, const MetaNode &node, std::uint8_t)
-         {
-             metadata.insert(Metadata::value_type(tileId, node));
-         }
-         , notify);
+    tilestorage::loadMetatileFromFile
+        (f, metadata, properties.baseTileSize, tileId, notify);
     f->close();
 }
 
@@ -1121,7 +1162,7 @@ void TileSet::Detail::clone(const Detail &src)
     }
 
     const utility::Progress::ratio_t reportRatio(1, 100);
-    const auto name(str(boost::format("Cloning <%s>")
+    const auto name(str(boost::format("Cloning <%s> ")
                         % src.properties.id));
     utility::Progress progress(src.tileIndex.count()
                                + src.metaIndex.count());
@@ -1136,12 +1177,27 @@ void TileSet::Detail::clone(const Detail &src)
     });
 
     // copy metatiles
+    const auto canCopy(src.properties.metaLevels == properties.metaLevels);
     traverseTiles(src.metaIndex, [&](const TileId &metaId)
     {
-        copyFile(sd.input(metaId, TileFile::meta)
-                 , dd.output(metaId, TileFile::meta));
+        if (canCopy) {
+            // same meta levels -> just copy file
+            copyFile(sd.input(metaId, TileFile::meta)
+                     , dd.output(metaId, TileFile::meta));
+        } else {
+            // must load into memory, saved in flush
+            auto f(sd.input(metaId, TileFile::meta));
+            tilestorage::loadMetatileFromFile
+                  (f, metadata, properties.baseTileSize, metaId);
+            f->close();
+        }
         (++progress).report(reportRatio, name);
     });
+
+    if (!canCopy) {
+        // tell flush we have to dump metadata to storage
+        metadataChanged = true;
+    }
 
     flush();
 

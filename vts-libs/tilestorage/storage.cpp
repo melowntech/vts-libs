@@ -261,22 +261,30 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators
         if (kept.empty() && (update.size() == 1)) {
             LOG(info3)
                 << "Copying tile set <" << update.begin()->first
-                << "> to empty storage.";
-            // save properties
-            auto props(output->getProperties());
+                << "> as an output into the empty storage.";
+
+            // get current properties
+            auto thisProps(output->getProperties());
+            LOG(info4) << utility::dump(output->getProperties());
+
             // clone
             cloneTileSet(output, update.begin()->second
-                         , CreateMode::overwrite);
+                         , CloneOptions(CreateMode::overwrite).staticSetter()
 
-            // renew properties (only texture quality so far)
-            output->setProperties
-                (props, SettableProperties::Mask::textureQuality);
+                         // fill static properties to update
+                         .id(thisProps.id)
+                         .metaLevels(thisProps.metaLevels)
+                         .srs(thisProps.srs)
+                         .driver(thisProps.driver)
 
-            // renew metalevels, id, srs
-            auto a(output->advancedApi());
-            a.rename(props.id);
-            a.changeMetaLevels(props.metaLevels);
-            a.changeSrs(props.srs);
+                         .context().settableSetter()
+
+                         // fill settable properties to update
+                         .textureQuality(thisProps.textureQuality)
+
+                         // done
+                         .context()
+                         );
         } else {
             // merge in tile sets to the output tile set
             output->mergeIn(asList(kept), asList(update));
@@ -287,7 +295,8 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators
         // copy in tile sets to the storage
         for (const auto &ts : update) {
             LOG(info3)
-                << "Copying tile set <" << ts.first << "> into storage.";
+                << "Copying tile set <" << ts.first
+                << "> as an input into the storage.";
 
             // add to properties
             // TODO: what tileset type to use?

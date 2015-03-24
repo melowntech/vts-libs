@@ -92,18 +92,17 @@ TileSet::pointer openTileSet(const Locator &locator
  */
 struct CloneOptions {
     CloneOptions(CreateMode createMode = CreateMode::failIfExists)
-        : createMode(createMode), mask(0)
+        : createMode(createMode)
     {}
 
     CreateMode createMode;
     boost::optional<Extents> extents;
     boost::optional<LodRange> lodRange;
-    StaticProperties staticProperties;
-    StaticProperties::MaskType mask;
+    StaticProperties::Wrapper staticProperties;
+    SettableProperties::Wrapper settableProperties;
 
-    StaticProperties::Setter setter() {
-        return { staticProperties, mask };
-    }
+    StaticProperties::Setter<CloneOptions> staticSetter();
+    SettableProperties::Setter<CloneOptions> settableSetter();
 };
 
 /** Clones existing tile set to a new tile set.
@@ -166,6 +165,15 @@ TileSet::pointer cloneTileSet(const TileSet::pointer &dst
  */
 void pasteTileSets(const TileSet::pointer &dst
                    , const TileSet::list &src);
+
+inline StaticProperties::Setter<CloneOptions> CloneOptions::staticSetter() {
+    return { staticProperties, this };
+}
+
+inline SettableProperties::Setter<CloneOptions> CloneOptions::settableSetter()
+{
+    return { settableProperties, this };
+}
 
 } } // namespace vadstena::tilestorage
 
