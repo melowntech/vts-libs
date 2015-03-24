@@ -361,12 +361,14 @@ DriverProperties TilarDriver::properties_impl() const
     return dp;
 }
 
-std::string TilarDriver::detectType_impl(const std::string &location)
+std::string TilarDriver::detectType_impl(const std::string &location
+                                         , std::set<std::string> &context)
 {
     try {
         // try load config
-        return tilestorage::loadConfig
-            (fs::path(location) / filePath(File::config)).driver.type;
+        auto path(fs::path(location) / filePath(File::config));
+        if (!context.insert(path.string()).second) { return {}; }
+        return tilestorage::loadConfig(path).driver.type;
     } catch (const std::exception&) {}
     return {};
 }

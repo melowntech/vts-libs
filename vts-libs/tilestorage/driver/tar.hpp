@@ -44,7 +44,8 @@ public:
         {}
     };
 
-    static std::string detectType_impl(const std::string &location);
+    static std::string detectType_impl(const std::string &location
+                                       , std::set<std::string> &context);
 
 private:
     virtual IStream::pointer input_impl(File type) const UTILITY_OVERRIDE;

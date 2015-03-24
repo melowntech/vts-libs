@@ -75,11 +75,15 @@ Driver::pointer Driver::open(Locator locator, OpenMode mode)
     if (locator.type.empty()) {
         // no type specified -> try to locate config file and pull in options
         locator.type = detectType(locator.location);
+        LOG(info4) << "locator: <" << locator << ">";
     }
     if (locator.type.empty()) {
         // cannot detect -> try default driver
         locator.type = DefaultDriver;
+        LOG(info4) << "not detected";
     }
+
+    LOG(info4) << "using locator: <" << locator << ">";
 
     auto fregistry(driverRegistry.find(locator.type));
     if (fregistry == driverRegistry.end()) {
@@ -105,10 +109,9 @@ std::map<std::string, std::string> Driver::listSupportedDrivers()
 
 std::string Driver::detectType(const std::string &location)
 {
-    (void) location;
-
+    std::set<std::string> context;
     for (const auto &pair : driverRegistry) {
-        const auto type = pair.second->detectType(location);
+        const auto type = pair.second->detectType(location, context);
         if (!type.empty()) { return type; }
     }
 

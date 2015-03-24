@@ -368,13 +368,15 @@ fs::path FsBasedDriver::DirCache::path(const fs::path &dir)
     return root_ / dir;
 }
 
-std::string FsBasedDriver::detectType_impl(const std::string &location)
+std::string FsBasedDriver::detectType_impl(const std::string &location
+                                           , std::set<std::string> &context)
 {
     try {
         // try load config
-        return tilestorage::loadConfig
-            (fs::path(location) / filePath(File::config)).driver.type;
-    } catch (const std::exception&) {}
+        auto path(fs::path(location) / filePath(File::config));
+        if (!context.insert(path.string()).second) { return {}; }
+        return tilestorage::loadConfig(path).driver.type;
+    } catch (const std::exception &e) {}
     return {};
 }
 

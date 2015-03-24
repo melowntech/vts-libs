@@ -29,7 +29,8 @@ public:
 
     virtual ~FsBasedDriver();
 
-    static std::string detectType_impl(const std::string &location);
+    static std::string detectType_impl(const std::string &location
+                                       , std::set<std::string> &context);
 
 private:
     /** Implement in derived class.

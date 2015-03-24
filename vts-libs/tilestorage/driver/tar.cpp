@@ -343,9 +343,11 @@ FileStat TarDriver::stat_impl(const TileId tileId, TileFile type) const
     return { fsrc->second.size, fsrc->second.time };
 }
 
-std::string TarDriver::detectType_impl(const std::string &location)
+std::string TarDriver::detectType_impl(const std::string &location
+                                       , std::set<std::string> &context)
 {
     try {
+        if (!context.insert(location).second) { return {}; }
         if (utility::Magic().mime(location) == "application/x-tar") {
             return "tar";
         }

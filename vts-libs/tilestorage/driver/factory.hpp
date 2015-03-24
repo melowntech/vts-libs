@@ -33,10 +33,11 @@ namespace vadstena { namespace tilestorage {
             return DRIVER_CLASS::help;                                  \
         }                                                               \
                                                                         \
-        virtual std::string detectType(const std::string &location)     \
+        virtual std::string detectType(const std::string &location      \
+                                       , std::set<std::string> &context) \
             const UTILITY_OVERRIDE                                      \
         {                                                               \
-            return DRIVER_CLASS::detectType_impl(location);             \
+            return DRIVER_CLASS::detectType_impl(location, context);    \
         }                                                               \
                                                                         \
         static const char* staticType() UTILITY_OVERRIDE                \

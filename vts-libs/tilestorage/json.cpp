@@ -115,6 +115,11 @@ Properties parse1(const Json::Value &config)
     Json::get(properties.defaultOrientation(2), defaultOrientation[2]);
 
     Json::get(properties.textureQuality, config["textureQuality"]);
+
+    if (config.isMember("driver")) {
+        properties.driver = parseDriver(config["driver"]);
+    }
+
     return properties;
 }
 
@@ -156,6 +161,10 @@ Properties parse2(const Json::Value &config)
     Json::get(properties.defaultOrientation(2), defaultOrientation[2]);
 
     Json::get(properties.textureQuality, config["textureQuality"]);
+
+    if (config.isMember("driver")) {
+        properties.driver = parseDriver(config["driver"]);
+    }
 
     return properties;
 }

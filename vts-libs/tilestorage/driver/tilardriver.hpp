@@ -27,7 +27,8 @@ public:
 
     virtual ~TilarDriver();
 
-    static std::string detectType_impl(const std::string &location);
+    static std::string detectType_impl(const std::string &location
+                                       , std::set<std::string> &context);
 
     static const std::string help;
 

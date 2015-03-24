@@ -2,6 +2,7 @@
 #define vadstena_libs_tilestorage_driver_hpp_included_
 
 #include <map>
+#include <set>
 
 #include "utility/runnable.hpp"
 
@@ -166,7 +167,8 @@ public:
 
     /** Returns type of tileset at given location if location makes sense.
      */
-    virtual std::string detectType(const std::string &location)
+    virtual std::string detectType(const std::string &location
+                                   , std::set<std::string> &context)
         const = 0;
 
     const std::string type;
