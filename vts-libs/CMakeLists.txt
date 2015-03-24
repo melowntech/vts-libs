@@ -45,7 +45,7 @@ set(vadstena-tileset-core_SOURCES
   )
 
 define_module(LIBRARY vadstena-tileset-core DEPENDS
-  math utility dbglog jsoncpp)
+  math utility dbglog jsoncpp Boost_IOSTREAMS)
 add_library(vadstena-tileset-core STATIC ${vadstena-tileset-core_SOURCES})
 buildsys_library(vadstena-tileset-core)
 target_link_libraries(vadstena-tileset-core
