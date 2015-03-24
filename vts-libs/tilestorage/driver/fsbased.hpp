@@ -25,12 +25,13 @@ public:
 
     /** Opens storage.
      */
-    FsBasedDriver(const fs::path &root, OpenMode mode);
+    FsBasedDriver(const fs::path &root, OpenMode mode
+                  , const DetectionContext &context);
 
     virtual ~FsBasedDriver();
 
-    static std::string detectType_impl(const std::string &location
-                                       , std::set<std::string> &context);
+    static std::string detectType_impl(DetectionContext &context
+                                       , const std::string &location);
 
 private:
     /** Implement in derived class.
@@ -70,7 +71,8 @@ private:
 
     virtual void update_impl() UTILITY_OVERRIDE;
 
-    virtual void postOpenCheck() UTILITY_OVERRIDE;
+    virtual void postOpenCheck(const DetectionContext &context)
+        UTILITY_OVERRIDE;
 
     fs::path fileDir(File type, const fs::path &name) const;
 

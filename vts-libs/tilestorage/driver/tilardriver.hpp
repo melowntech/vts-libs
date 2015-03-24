@@ -23,12 +23,13 @@ public:
 
     /** Opens storage.
      */
-    TilarDriver(const fs::path &root, OpenMode mode);
+    TilarDriver(const fs::path &root, OpenMode mode
+                , const DetectionContext &context);
 
     virtual ~TilarDriver();
 
-    static std::string detectType_impl(const std::string &location
-                                       , std::set<std::string> &context);
+    static std::string detectType_impl(DetectionContext &context
+                                       , const std::string &location);
 
     static const std::string help;
 

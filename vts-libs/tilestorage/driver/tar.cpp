@@ -181,7 +181,7 @@ IStream::pointer readFile(utility::tar::Reader &reader
 } // namespace
 
 TarDriver::TarDriver(const boost::filesystem::path &root
-         , OpenMode mode)
+         , OpenMode mode, const DetectionContext&)
     : ReadOnlyDriver(mode == OpenMode::readOnly)
     , tarPath_(absolute(root)), reader_(tarPath_)
 {
@@ -343,11 +343,12 @@ FileStat TarDriver::stat_impl(const TileId tileId, TileFile type) const
     return { fsrc->second.size, fsrc->second.time };
 }
 
-std::string TarDriver::detectType_impl(const std::string &location
-                                       , std::set<std::string> &context)
+std::string TarDriver::detectType_impl(DetectionContext &context
+                                       , const std::string &location)
 {
+    // TODO: record mime type in the context and use cached value if found
+    (void) context;
     try {
-        if (!context.insert(location).second) { return {}; }
         if (utility::Magic().mime(location) == "application/x-tar") {
             return "tar";
         }

@@ -147,6 +147,17 @@ Options::Options(const Driver::CreateProperties &properties, bool)
     , tileMask(mask(binaryOrder))
 {}
 
+
+Driver::CreateProperties useConfig(const DetectionContext &context
+                                   , const fs::path &path)
+{
+    auto value(context.getValue(path.string()));
+    if (const auto *properties = boost::any_cast<const Properties>(&value)) {
+        return *properties;
+    }
+    return tilestorage::loadConfig(path);
+}
+
 } // namespace tilardriver
 
 TilarDriver::TilarDriver(const boost::filesystem::path &root
@@ -166,10 +177,10 @@ TilarDriver::TilarDriver(const boost::filesystem::path &root
 }
 
 TilarDriver::TilarDriver(const boost::filesystem::path &root
-                         , OpenMode mode)
+                         , OpenMode mode, const DetectionContext &context)
     : Driver(mode == OpenMode::readOnly)
     , root_(absolute(root)), tmp_(root_ / TransactionRoot)
-    , options_(tilestorage::loadConfig(root_ / filePath(File::config)))
+    , options_(tilardriver::useConfig(context, root_ / filePath(File::config)))
     , cache_(root_, options_, (mode == OpenMode::readOnly))
 {
 }
@@ -361,16 +372,11 @@ DriverProperties TilarDriver::properties_impl() const
     return dp;
 }
 
-std::string TilarDriver::detectType_impl(const std::string &location
-                                         , std::set<std::string> &context)
+std::string TilarDriver::detectType_impl(DetectionContext &context
+                                         , const std::string &location)
 {
-    try {
-        // try load config
-        auto path(fs::path(location) / filePath(File::config));
-        if (!context.insert(path.string()).second) { return {}; }
-        return tilestorage::loadConfig(path).driver.type;
-    } catch (const std::exception&) {}
-    return {};
+    return detectTypeFromMapConfig
+        (context, fs::path(location) / filePath(File::config));
 }
 
 const std::string TilarDriver::help

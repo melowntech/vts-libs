@@ -15,8 +15,9 @@ public:
 
     /** Opens storage.
      */
-    HashCrcDriver(const boost::filesystem::path &root, OpenMode mode)
-        : FsBasedDriver(root, mode)
+    HashCrcDriver(const boost::filesystem::path &root, OpenMode mode
+                  , const DetectionContext &context)
+        : FsBasedDriver(root, mode, context)
     {}
 
     virtual ~HashCrcDriver() {}

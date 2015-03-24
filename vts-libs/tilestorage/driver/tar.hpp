@@ -24,7 +24,8 @@ public:
 
     /** Opens storage.
      */
-    TarDriver(const fs::path &root, OpenMode mode);
+    TarDriver(const fs::path &root, OpenMode mode
+              , const DetectionContext &context);
 
     virtual ~TarDriver();
 
@@ -44,8 +45,8 @@ public:
         {}
     };
 
-    static std::string detectType_impl(const std::string &location
-                                       , std::set<std::string> &context);
+    static std::string detectType_impl(DetectionContext &context
+                                       , const std::string &location);
 
 private:
     virtual IStream::pointer input_impl(File type) const UTILITY_OVERRIDE;

@@ -71,7 +71,7 @@ FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
 }
 
 FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
-                       , OpenMode mode)
+                       , OpenMode mode, const DetectionContext&)
     : Driver(mode == OpenMode::readOnly)
     , root_(root), tmp_(root / TransactionRoot)
     , dirCache_(root_)
@@ -88,10 +88,13 @@ FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
     }
 }
 
-void FsBasedDriver::postOpenCheck()
+void FsBasedDriver::postOpenCheck(const DetectionContext &context)
 {
-    // try to load config
-    tilestorage::loadConfig(root_ / filePath(File::config));
+    auto path(root_ / filePath(File::config));
+    if (!context.seen(path.string())) {
+        // try to load config
+        tilestorage::loadConfig(path);
+    }
 }
 
 FsBasedDriver::~FsBasedDriver()
@@ -368,16 +371,11 @@ fs::path FsBasedDriver::DirCache::path(const fs::path &dir)
     return root_ / dir;
 }
 
-std::string FsBasedDriver::detectType_impl(const std::string &location
-                                           , std::set<std::string> &context)
+std::string FsBasedDriver::detectType_impl(DetectionContext &context
+                                           , const std::string &location)
 {
-    try {
-        // try load config
-        auto path(fs::path(location) / filePath(File::config));
-        if (!context.insert(path.string()).second) { return {}; }
-        return tilestorage::loadConfig(path).driver.type;
-    } catch (const std::exception &e) {}
-    return {};
+    return detectTypeFromMapConfig
+        (context, fs::path(location) / filePath(File::config));
 }
 
 const std::string FlatDriver::help

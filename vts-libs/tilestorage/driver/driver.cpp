@@ -7,8 +7,11 @@
 #include "./hash-crc.hpp"
 #include "./tar.hpp"
 #include "./tilardriver.hpp"
+#include "../config.hpp"
 
 namespace vadstena { namespace tilestorage {
+
+namespace fs = boost::filesystem;
 
 namespace {
 
@@ -72,9 +75,10 @@ Driver::pointer Driver::open(Locator locator, OpenMode mode)
 {
     registerDefaultDrivers();
 
+    DetectionContext context;
     if (locator.type.empty()) {
         // no type specified -> try to locate config file and pull in options
-        locator.type = detectType(locator.location);
+        locator.type = detectType(context, locator.location);
     }
     if (locator.type.empty()) {
         // cannot detect -> try default driver
@@ -87,8 +91,8 @@ Driver::pointer Driver::open(Locator locator, OpenMode mode)
             << "Invalid tile set type <" << locator.type << ">.";
     }
 
-    auto driver(fregistry->second->open(locator.location, mode));
-    driver->postOpenCheck();
+    auto driver(fregistry->second->open(locator.location, mode, context));
+    driver->postOpenCheck(context);
     return driver;
 }
 
@@ -103,11 +107,11 @@ std::map<std::string, std::string> Driver::listSupportedDrivers()
     return list;
 }
 
-std::string Driver::detectType(const std::string &location)
+std::string Driver::detectType(DetectionContext &context
+                               , const std::string &location)
 {
-    std::set<std::string> context;
     for (const auto &pair : driverRegistry) {
-        const auto type = pair.second->detectType(location, context);
+        const auto type = pair.second->detectType(context, location);
         if (!type.empty()) { return type; }
     }
 
@@ -118,6 +122,43 @@ void Driver::notRunning() const
 {
     LOGTHROW(warn2, Interrupted)
         << "Transaction has been interrupted.";
+}
+
+bool DetectionContext::seen(const std::string &token) const
+{
+    return map_.find(token) != map_.end();
+}
+
+bool DetectionContext::mark(const std::string &token)
+{
+    return map_.insert(Map::value_type(token, boost::any())).second;
+}
+
+bool DetectionContext::mark(const std::string &token, const boost::any value)
+{
+    return map_.insert(Map::value_type(token, value)).second;
+}
+
+boost::any DetectionContext::getValue(const std::string &token) const
+{
+    auto fmap(map_.find(token));
+    if (fmap != map_.end()) { return fmap->second; }
+    return {};
+}
+
+std::string Driver::detectTypeFromMapConfig(DetectionContext &context
+                                            , const fs::path &path)
+{
+    try {
+        // try load config
+        auto tmp(absolute(path));
+        if (context.seen(tmp.string())) { return {}; }
+        auto config(tilestorage::loadConfig(tmp));
+        context.mark(tmp.string(), config);
+        return config.driver.type;
+    } catch (const std::exception &e) {}
+    return {};
+
 }
 
 } } // namespace vadstena::tilestorage

@@ -22,10 +22,12 @@ namespace vadstena { namespace tilestorage {
         }                                                               \
                                                                         \
         virtual Driver::pointer open(const std::string location         \
-                                     , OpenMode mode)                   \
+                                     , OpenMode mode                    \
+                                     , const DetectionContext &context) \
             const UTILITY_OVERRIDE                                      \
         {                                                               \
-            return std::make_shared<DRIVER_CLASS>(location, mode);      \
+            return std::make_shared<DRIVER_CLASS>                       \
+                (location, mode, context);                             \
         }                                                               \
                                                                         \
         virtual std::string help() const UTILITY_OVERRIDE               \
@@ -33,11 +35,11 @@ namespace vadstena { namespace tilestorage {
             return DRIVER_CLASS::help;                                  \
         }                                                               \
                                                                         \
-        virtual std::string detectType(const std::string &location      \
-                                       , std::set<std::string> &context) \
+        virtual std::string detectType(DetectionContext &context        \
+                                       , const std::string &location)   \
             const UTILITY_OVERRIDE                                      \
         {                                                               \
-            return DRIVER_CLASS::detectType_impl(location, context);    \
+            return DRIVER_CLASS::detectType_impl(context, location); \
         }                                                               \
                                                                         \
         static const char* staticType() UTILITY_OVERRIDE                \
