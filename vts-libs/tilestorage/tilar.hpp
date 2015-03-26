@@ -110,13 +110,7 @@ public:
     static Tilar open(const boost::filesystem::path &path
                       , std::uint32_t indexOffset);
 
-    // these 3 functions cannot be defined here due to undefined Detail struct
-    Tilar(Tilar&&) noexcept;
-    Tilar& operator=(Tilar&&) noexcept;
     ~Tilar();
-
-    Tilar(const Tilar&) = delete;
-    Tilar& operator=(const Tilar&) = delete;
 
     /** Associates file type with content type.
      *  Must have same number of arguments as options.filesPerTile.
@@ -220,14 +214,32 @@ public:
      */
     void ignoreInterrupts(bool value);
 
+    /** Detaches open archive from the file (i.e. closes file).
+     *
+     *  Once file access is needed archive attaches itself to the file again.
+     */
+    void detach();
+
+    /** Archive status.
+     */
+    enum class State { pristine, changed, detaching, detached };
+
+    /** Returns curren archive accessor state.
+     */
+    State state() const;
+
+    /** Returns path to archive file.
+     */
+    boost::filesystem::path path() const;
+
 private:
     struct Detail;
 
     Tilar(const std::shared_ptr<Detail> &detail);
 
     std::shared_ptr<Detail> detail_;
-    Detail& detail() { return *detail_; }
-    const Detail& detail() const { return *detail_; }
+    inline Detail& detail() { return *detail_; }
+    inline const Detail& detail() const { return *detail_; }
 
     class Device; friend class Device;
     class Source; friend class Source;

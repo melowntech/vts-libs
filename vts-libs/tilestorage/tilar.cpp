@@ -24,6 +24,7 @@
 #include "./tilar.hpp"
 #include "./tilar-io.hpp"
 #include "./error.hpp"
+#include "./openfiles.hpp"
 
 namespace vadstena { namespace tilestorage {
 
@@ -81,13 +82,17 @@ void deserialize(const std::array<std::uint8_t, S> &in, int index
               , reinterpret_cast<std::uint8_t*>(&value));
 }
 
-int flags(Tilar::OpenMode openMode)
+inline int flags(bool readOnly)
 {
-    return ((openMode == Tilar::OpenMode::readOnly)
-            ? O_RDONLY : O_RDWR);
+    return (readOnly ? O_RDONLY : O_RDWR);
 }
 
-int flags(Tilar::CreateMode createMode)
+inline int flags(Tilar::OpenMode openMode)
+{
+    return flags(openMode == Tilar::OpenMode::readOnly);
+}
+
+inline int flags(Tilar::CreateMode createMode)
 {
     switch (createMode) {
     case Tilar::CreateMode::failIfExists:
@@ -351,9 +356,11 @@ public:
      */
     void load(const Filedes &fd, off_t pos, bool checkCrc = false);
 
-    /** Saves new index to the end of the file;
+    /** Saves new index to the end of the file and returns offset of the end of
+     *  file (i.e. new file size).
+     *  If end > 0 then it is used as location where to write
      */
-    void save(const Filedes &fd);
+    off_t save(const Filedes &fd, off_t end = 0);
 
     /** Clears every slot. Index is freshened.
      */
@@ -430,10 +437,10 @@ std::uint32_t ArchiveIndex::crc(std::uint32_t overhead) const
     return crc.checksum();
 }
 
-void ArchiveIndex::save(const Filedes &fd)
+off_t ArchiveIndex::save(const Filedes &fd, off_t end)
 {
     LOG(info1) << "Saving new archive index to file.";
-    auto offset(fileSize(fd));
+    auto offset((end > 0) ? seekFromStart(fd, end) : seekFromEnd(fd));
 
     // save header first
     std::array<std::uint8_t, index_constants::size> header;
@@ -453,7 +460,6 @@ void ArchiveIndex::save(const Filedes &fd)
     serialize(header, index_constants::index::timestamp, timestamp_);
     serialize(header, index_constants::index::crc32, crc(overhead));
 
-    seekFromEnd(fd);
     write(fd, header);
     write(fd, grid_);
 
@@ -461,6 +467,8 @@ void ArchiveIndex::save(const Filedes &fd)
     overhead_ = overhead;
     previous_ = loadedFrom_;
     loadedFrom_ = offset;
+
+    return offset + savedSize();
 }
 
 void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
@@ -582,10 +590,12 @@ struct Tilar::Detail
            , std::uint32_t indexOffset)
         : version(version), options(options), fd(std::move(srcFd))
         , readOnly(readOnly), index(options)
-        , checkpoint(fileSize(fd)), tx(0)
+        , checkpoint(fileSize(fd)), currentEnd(checkpoint), tx(0)
         , ignoreInterrupts(false)
         , indexOffset(indexOffset)
+        , shareCount_(0), pendingDetachment_(false)
     {
+        OpenFiles::inc();
         loadIndex();
     }
 
@@ -638,7 +648,7 @@ struct Tilar::Detail
             LOGTHROW(err2, PendingTransaction)
                 << "No pending transaction in archive " << fd.path() << ".";
         }
-        truncate(fd, tx);
+        truncate(getFd(), tx);
         tx = 0;
     }
 
@@ -651,11 +661,14 @@ struct Tilar::Detail
 
         // update index slot and forget transaction
         index.set(txIndex, tx, end);
+        currentEnd = end;
         tx = 0;
     }
 
-    bool changed() {
-        return (!readOnly && (index.changed() || fileSize(fd) != checkpoint));
+    void setCurrentEnd(off_t end) { currentEnd = end; }
+
+    bool changed() const {
+        return (!readOnly && (index.changed() || (currentEnd > checkpoint)));
     }
 
     FileStat stat(const FileIndex &fileIndex) const {
@@ -681,6 +694,30 @@ struct Tilar::Detail
         return value;
     }
 
+    void share() { ++shareCount_; }
+    void unshare() {
+        if (!--shareCount_ && pendingDetachment_) {
+            detachFile();
+        }
+    }
+
+    void detach();
+
+    Filedes& getFd();
+
+    State state() const {
+        if (!fd) {
+            return State::detached;
+        } else if (pendingDetachment_) {
+            return State::detaching;
+        } else if (changed()) {
+            return State::changed;
+        }
+        return State::pristine;
+    }
+
+    fs::path path() const { return fd.path(); }
+
     Version version;
     const Options options;
     Filedes fd;
@@ -692,6 +729,10 @@ struct Tilar::Detail
      */
     off_t checkpoint;
 
+    /** Current end of file.
+     */
+    off_t currentEnd;
+
     FileIndex txIndex;
     off_t tx;
 
@@ -699,6 +740,18 @@ struct Tilar::Detail
     std::uint32_t indexOffset;
 
     ContentTypes contentTypes;
+
+private:
+    /** Number of open streams.
+     */
+    std::atomic<int> shareCount_;
+
+    /** Pending detachment: file is detached once shareCount drops to zero.
+     */
+    bool pendingDetachment_;
+
+    void detachFile();
+    void attachFile();
 };
 
 void Tilar::Detail::commitChanges()
@@ -709,9 +762,8 @@ void Tilar::Detail::commitChanges()
     }
 
     if (changed()) {
-        // save index and remember new checkpoint
-        index.save(fd);
-        checkpoint = fileSize(fd);
+        // save index and remember new checkpoint/file end
+        checkpoint = currentEnd = index.save(getFd(), currentEnd);
         index.freshen();
     }
 }
@@ -724,9 +776,47 @@ void Tilar::Detail::discardChanges()
     }
 
     if (changed()) {
-        truncate(fd, checkpoint);
+        currentEnd = truncate(getFd(), checkpoint);
         loadIndex();
     }
+}
+
+void Tilar::Detail::detach()
+{
+    if (shareCount_) {
+        pendingDetachment_ = true;
+    }
+    detachFile();
+}
+
+void Tilar::Detail::detachFile()
+{
+    if (!fd) { return; }
+
+    fd.close();
+    OpenFiles::dec();
+    pendingDetachment_ = false;
+    LOG(info1) << "Detached tilar archive file " << fd.path() << ".";
+}
+
+void Tilar::Detail::attachFile()
+{
+    if (!fd) {
+        fd = openFile(fd.path(), flags(readOnly));
+        // TODO: check if file was not tampered with
+
+        OpenFiles::inc();
+        LOG(info1) << "Re-attached tilar archive file " << fd.path() << ".";
+    }
+}
+
+Filedes& Tilar::Detail::getFd()
+{
+    // TODO; make thread safe
+    if (!fd) {
+        attachFile();
+    }
+    return fd;
 }
 
 Tilar::Detail::~Detail()
@@ -736,25 +826,20 @@ Tilar::Detail::~Detail()
         LOG(warn2)
             << "File " << fd.path() << " was not flushed, discarding changes.";
         tx = 0;
-        discardChanges();
+        try {
+            discardChanges();
+        } catch (const std::exception &e) {
+            LOG(warn2) << "Failure when discarding changes: <"
+                       << e.what() << ">.";
+        }
     }
+
+    if (fd) { OpenFiles::dec(); }
 }
 
 Tilar::Tilar(const Tilar::Detail::pointer &detail)
     : detail_(detail)
 {}
-
-Tilar::Tilar(Tilar &&o) noexcept
-    : detail_(std::move(o.detail_))
-{}
-
-Tilar& Tilar::operator=(Tilar &&o) noexcept
-{
-    if (&o != this) {
-        detail_ = std::move(o.detail_);
-    }
-    return *this;
-}
 
 Tilar::~Tilar() {}
 
@@ -849,18 +934,20 @@ class Tilar::Device {
 public:
     typedef char char_type;
 
+    struct Append {};
+
     // write constructor
-    Device(const Tilar::Detail::pointer &owner, const FileIndex &index
-           , off_t start)
-        : owner(owner), fd(owner->fd), index(index)
-        , start(start), pos(start), end(0)
+    Device(const Tilar::Detail::pointer &owner, const FileIndex &index, Append)
+        : owner(owner), fd(owner->getFd()), index(index)
+        , start(seekFromEnd(fd)), pos(start), end(0)
     {
         owner->begin(index, start);
+        owner->share();
     }
 
     // read constructor
     Device(const Tilar::Detail::pointer &owner, const FileIndex &index)
-        : owner(owner), fd(owner->fd), index(index)
+        : owner(owner), fd(owner->getFd()), index(index)
         , start(0), pos(0), end(0)
     {
         const auto &slot(owner->index.get(index));
@@ -874,10 +961,15 @@ public:
         // update
         pos = start = slot.start;
         end = slot.end();
+
+        owner->share();
     }
 
     ~Device() {
-        if (end || (pos == start)) { return; }
+        if (end || (pos == start)) {
+            owner->unshare();
+            return;
+        }
         try {
             if (!std::uncaught_exception()) {
                 LOG(warn3) << "File write was not finished!";
@@ -885,6 +977,7 @@ public:
             LOG(warn1) << "Rolling back file.";
             owner->rollback();
         } catch (...) {}
+        owner->unshare();
     }
 
     void commit() {
@@ -899,10 +992,12 @@ public:
     std::string name() const {
         std::ostringstream os;
         os << fd.path().string()
-           << ':' << index.row
-           << ',' << index.col
-           << ',' << index.type;
+           << ':' << index.row << ',' << index.col << ',' << index.type;
         return os.str();
+    }
+
+    void written(off_t bytes) {
+        owner->setCurrentEnd(pos += bytes);
     }
 
     void rewind(off_t newPos) { pos = start + newPos; }
@@ -926,8 +1021,7 @@ public:
     typedef boost::iostreams::sink_tag category;
 
     Sink(const Tilar::Detail::pointer &owner, const FileIndex &index)
-        : device_(std::make_shared<Device>
-                  (owner, index, seekFromEnd(owner->fd)))
+        : device_(std::make_shared<Device>(owner, index, Device::Append{}))
     {}
 
     void commit() { device_->commit(); }
@@ -1075,10 +1169,9 @@ private:
 
 std::streamsize Tilar::Sink::write(const char *data, std::streamsize size)
 {
-    auto &pos(device_->pos);
     const auto &fd(device_->fd);
     for (;;) {
-        auto bytes(::pwrite(fd, data, size, pos));
+        auto bytes(::pwrite(fd, data, size, device_->pos));
         if (-1 == bytes) {
             if ((EINTR == errno) && device_->ignoreInterrupts()) {
                 continue;
@@ -1089,7 +1182,7 @@ std::streamsize Tilar::Sink::write(const char *data, std::streamsize size)
                  ("Unable to write to tilar file %s.", fd.path()));
             throw e;
         }
-        pos += bytes;
+        device_->written(bytes);
         return bytes;
     }
 }
@@ -1235,6 +1328,12 @@ Tilar& Tilar::setContentTypes(const ContentTypes &mapping)
     detail().setContentTypes(mapping);
     return *this;
 }
+
+void Tilar::detach() { return detail().detach(); }
+
+Tilar::State Tilar::state() const { return detail().state(); }
+
+fs::path Tilar::path() const { return detail().path(); }
 
 Tilar::Options::Options(unsigned int binaryOrder, unsigned int filesPerTile)
     : binaryOrder(binaryOrder), filesPerTile(filesPerTile)

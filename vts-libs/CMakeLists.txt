@@ -23,6 +23,7 @@ set(vadstena-tileset-core_SOURCES
   tilestorage/io.hpp
   tilestorage/json.hpp tilestorage/json.cpp
 
+  tilestorage/openfiles.hpp tilestorage/openfiles.cpp
   tilestorage/tilar.hpp tilestorage/tilar.cpp
   tilestorage/tilar-io.hpp
 

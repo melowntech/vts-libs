@@ -64,6 +64,9 @@ struct Index {
 
     bool operator<(const Index &index) const;
 
+    bool operator==(const Index &index) const;
+    bool operator!=(const Index &index) const { return !operator==(index); }
+
     Index(Lod lod = 0, long easting = 0, long northing = 0)
         : lod(lod), easting(easting), northing(northing)
     {}
@@ -124,6 +127,13 @@ inline bool Index::operator<(const Index &index) const
     else if (index.easting < easting) { return false; }
 
     return northing < index.northing;
+}
+
+inline bool Index::operator==(const Index &index) const
+{
+    return ((lod == index.lod)
+            && (easting == index.easting)
+            && (northing == index.northing));
 }
 
 inline Locator::Locator(const std::string &locator)
