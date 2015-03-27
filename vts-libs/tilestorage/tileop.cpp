@@ -48,27 +48,46 @@ std::string asFilename(const TileId &tileId, TileFile type)
 
 namespace {
 
-template <unsigned int minWidth, typename T>
-const char* parsePartImpl(const char *p, T &value)
+inline bool isDigit(char c) { return (c >= '0') && (c <= '9'); }
+
+inline char positive(char c) { return c - '0'; }
+inline char negative(char c) { return '0' - c; }
+
+template <unsigned int minWidth, char(*getter)(char), typename T>
+inline const char* parsePartImpl(const char *p, T &value)
 {
-    char *e;
-    value = std::strtol(p, &e, 10);
+    bool prefix = false;
+    char c(p[0]);
+    switch (c) {
+    case '-': case '+': return nullptr;
+    case '0': prefix = true;
+    }
+
+    value = 0;
+
+    const char *e(p);
+    while (isDigit(c)) {
+        value *= 10;
+        value += getter(c);
+        c = *++e;
+    }
+
     auto dist(e - p);
     if (dist < minWidth) { return nullptr; }
-    if ((p[0] == '0') && (dist > minWidth)) { return nullptr; }
-
+    if (prefix && (dist > minWidth)) { return nullptr; }
     return e;
 }
 
 template <unsigned int minWidth, typename T>
-const char* parsePart(const char *p, T &value)
+inline const char* parsePart(const char *p, T &value)
 {
     if (*p == '-') {
-        p = parsePartImpl<minWidth ? (minWidth - 1) : 1>(p + 1, value);
-        value = -value;
+        p = parsePartImpl<(minWidth > 1) ? (minWidth - 1) : 1, negative>
+            (p + 1, value);
+        if (!value) { return nullptr; }
         return p;
     }
-    return parsePartImpl<minWidth>(p, value);
+    return parsePartImpl<minWidth, positive>(p, value);
 }
 
 } // namespace
