@@ -12,6 +12,7 @@
 #include "../io.hpp"
 #include "../error.hpp"
 #include "../config.hpp"
+#include "../tileop.hpp"
 
 #include "../support.hpp"
 
@@ -44,11 +45,9 @@ namespace {
         throw "unknown tile file type";
     }
 
-    fs::path filePath(const TileId &tileId, TileFile type)
+    inline fs::path filePath(const TileId &tileId, TileFile type)
     {
-        return str(boost::format("%s-%07d-%07d.%s")
-                   % tileId.lod % tileId.easting % tileId.northing
-                   % extension(type));
+        return asFilename(tileId, type);
     }
 } // namespace
 

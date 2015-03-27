@@ -39,12 +39,39 @@ namespace {
     }
 }
 
-std::string filePath(const TileId &tileId, TileFile type)
+std::string asFilename(const TileId &tileId, TileFile type)
 {
     return str(boost::format("%s-%07d-%07d.%s")
                % tileId.lod % tileId.easting % tileId.northing
                % extension(type));
 }
+
+namespace {
+
+template <unsigned int minWidth, typename T>
+const char* parsePartImpl(const char *p, T &value)
+{
+    char *e;
+    value = std::strtol(p, &e, 10);
+    auto dist(e - p);
+    if (dist < minWidth) { return nullptr; }
+    if ((p[0] == '0') && (dist > minWidth)) { return nullptr; }
+
+    return e;
+}
+
+template <unsigned int minWidth, typename T>
+const char* parsePart(const char *p, T &value)
+{
+    if (*p == '-') {
+        p = parsePartImpl<minWidth ? (minWidth - 1) : 1>(p + 1, value);
+        value = -value;
+        return p;
+    }
+    return parsePartImpl<minWidth>(p, value);
+}
+
+} // namespace
 
 bool fromFilename(TileId &tileId, TileFile &type
                   , const std::string &str
@@ -53,19 +80,15 @@ bool fromFilename(TileId &tileId, TileFile &type
     if (str.size() <= offset) { return false; }
 
     const char *p(str.c_str() + offset);
-    char *e(nullptr);
 
-    tileId.lod = std::strtol(p, &e, 10);
-    if (*e != '-') { return false; }
-    p = e + 1;
+    if (!(p = parsePart<1>(p, tileId.lod))) { return false; }
+    if (*p++ != '-') { return false; }
 
-    tileId.easting = std::strtol(p, &e, 10);
-    if (*e != '-') { return false; }
-    p = e + 1;
+    if (!(p = parsePart<7>(p, tileId.easting))) { return false; }
+    if (*p++ != '-') { return false; }
 
-    tileId.northing = std::strtol(p, &e, 10);
-    if (*e != '.') { return false; }
-    p = e + 1;
+    if (!(p = parsePart<7>(p, tileId.northing))) { return false; }
+    if (*p++ != '.') { return false; }
 
     if (!*p) { return false; }
     auto pp(tileFile(p, type));
