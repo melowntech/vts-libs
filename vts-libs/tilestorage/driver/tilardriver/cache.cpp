@@ -112,11 +112,11 @@ struct Cache::Archives
     fs::path filePath(const Index &index) const;
 
     void commitChanges() {
-        for (auto &record : map) { record.tilar().commit(); }
+        finish([](Tilar &tilar) { tilar.commit(); });
     }
 
     void discardChanges() {
-        for (auto &record : map) { record.tilar().rollback(); }
+        finish([](Tilar &tilar) { tilar.rollback(); });
     }
 
 private:
@@ -130,6 +130,14 @@ private:
     template <typename Idx, typename Iterator>
     inline void infinity(Idx &idx, Iterator iterator) {
         idx.modify(iterator, [](Record &r) { r.infinity(); });
+    }
+
+    template <typename Op>
+    void finish(Op op) {
+        for (auto iidx(map.begin()); iidx != map.end(); ) {
+            op(iidx->tilar());
+            iidx = map.erase(iidx);
+        }
     }
 };
 
@@ -193,7 +201,7 @@ void Cache::Archives::houseKeeping(const Index *keep)
         << idx.size() << " files owned by this driver.";
 
     int toDrop(5);
-    for (auto iidx(idx.begin()), eidx(idx.end()); toDrop && (iidx != eidx); ) {
+    for (auto iidx(idx.begin()); toDrop && (iidx != idx.end()); ) {
         // skip keep file
         if (keep && (iidx->index == *keep)) {
             LOG(debug) << "File " << iidx->tilar().path()
