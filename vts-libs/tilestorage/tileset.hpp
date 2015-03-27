@@ -185,6 +185,20 @@ public:
      */
     LodRange lodRange() const;
 
+    /** Tileset statistics.
+     */
+    struct Statistics {
+        std::size_t tileCount;
+        std::size_t metatileCount;
+    };
+
+    /** Returns tileset statistics.
+     *
+     *  NB: tileset must be flushed, otherwise a TileSetNotFlushed exception is
+     *  thrown.
+     */
+    Statistics stat() const;
+
     // extended API; not to be used by general public :)
     class AdvancedApi; friend class AdvancedApi;
 

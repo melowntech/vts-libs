@@ -1605,9 +1605,24 @@ bool TileSet::compatible(const TileSet &other)
     return true;
 }
 
+TileSet::Statistics TileSet::Detail::stat() const
+{
+    if (metadataChanged) {
+        LOGTHROW(warn2, TileSetNotFlushed)
+            << "Tileset <" << properties.id << " is not flushed, "
+            << "unable to get proper statistics.";
+    }
+    return {
+        tileIndex.count()
+        , metaIndex.count()
+    };
+}
+
 Extents TileSet::extents() const {return detail().extents; }
 
 LodRange TileSet::lodRange() const {return detail().lodRange; }
+
+TileSet::Statistics TileSet::stat() const { return detail().stat(); }
 
 void pasteTileSets(const TileSet::pointer &dst
                    , const TileSet::list &src)

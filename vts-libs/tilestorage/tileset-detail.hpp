@@ -133,6 +133,8 @@ struct TileSet::Detail {
                          , const TileIndices *discrete = nullptr
                          , double cutoff = 2.0);
 
+    Statistics stat() const;
+
     Detail& other(const TileSet::pointer &otherSet) {
         return otherSet->detail();
     }
