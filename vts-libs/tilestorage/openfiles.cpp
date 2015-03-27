@@ -20,8 +20,6 @@ int getOpenFilesThreshold()
     } else {
         count = utility::maxOpenFiles() / 2;
     }
-    fprintf(stderr, "Using max open files treshold: %d.\n", count);
-    fflush(stderr);
     return count;
 }
 
