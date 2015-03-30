@@ -46,6 +46,7 @@ int fileType(TileFile type) {
 }
 
 typedef decltype(utility::usecFromEpoch()) Time;
+const Time MaxTime(std::numeric_limits<Time>::max());
 
 } // namespace
 
@@ -70,7 +71,9 @@ struct Cache::Archives
 
         void hit() { lastHit = utility::usecFromEpoch(); }
 
-        void infinity() { lastHit = ~(Time(0)); }
+        void infinity() { lastHit = MaxTime; }
+
+        bool isInInfinity() const { return lastHit == MaxTime; }
 
         Index index;
         Time lastHit;
@@ -210,18 +213,26 @@ void Cache::Archives::houseKeeping(const Index *keep)
             continue;
         }
 
+        // files in infinity -> this and all its friends are detached
+        if (iidx->isInInfinity()) { return; }
+
         auto &file(iidx->tilar());
 
         switch (file.state()) {
         case Tilar::State::detached:
+            // NB: this should be never seen
             LOG(debug)
                 << "File " << file.path() << '/' << iidx->lastHit
-                << " is already detached.";
+                << " is already detached. In fact, this log line "
+                << "should not be seen in the log at all.";
             return;
 
         case Tilar::State::detaching:
-            LOG(debug) << "File " << file.path() << '/' << iidx->lastHit
-                       << " is being detached.";
+            // NB: this should be never seen
+            LOG(debug)
+                << "File " << file.path() << '/' << iidx->lastHit
+                << " is being detached. In fact, this log line "
+                << "should not be seen in the log at all.";
             return;
 
         case Tilar::State::pristine:
