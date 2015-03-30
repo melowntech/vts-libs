@@ -18,9 +18,9 @@ namespace {
 
     const std::string OutputDir("output");
 
-    const std::string DefaultInputType("hash/crc");
+    const std::string DefaultInputType("tilar");
 
-    const std::string DefaultOutputType("hash/crc");
+    const std::string DefaultOutputType("tilar");
 
     const std::string ConfigName("index.json");
 
