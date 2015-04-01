@@ -66,7 +66,7 @@ private:
 
     virtual void drop_impl() UTILITY_OVERRIDE;
 
-    virtual void update_impl() UTILITY_OVERRIDE;
+    virtual bool externallyChanged_impl() const UTILITY_OVERRIDE;
 
     virtual DriverProperties properties_impl() const UTILITY_OVERRIDE;
 
@@ -80,6 +80,10 @@ private:
      */
     const fs::path tmp_;
 
+    /** Path to mapConfig
+     */
+    fs::path mapConfigPath_;
+
     tilardriver::Options options_;
 
     mutable tilardriver::Cache cache_;
@@ -90,6 +94,10 @@ private:
     };
 
     boost::optional<Tx> tx_;
+
+    /** Information about mapConfig when tileset was open in read-only mode.
+     */
+    FileStat openStat_;
 };
 
 } } // namespace vadstena::tilestorage

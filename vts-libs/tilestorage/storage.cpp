@@ -137,8 +137,6 @@ struct Storage::Detail {
     void removeTileSets(const std::vector<std::string> &ids
                         , utility::Runnable *runnable);
 
-    void update();
-
     TileSetDescriptor* findInput(const std::string &id);
 
     const fs::path &root;
@@ -463,21 +461,6 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids
     LOG(info3) << "Remove: done";
 }
 
-void Storage::Detail::update()
-{
-    for (const auto &input : properties.inputSets) {
-        LOG(info3) << "Updating input tile set <" << input.first << ">.";
-        openTileSet(rooted(root, input.second.locator), OpenMode::readWrite)
-            ->update();
-    }
-
-    LOG(info3) << "Updating output tile set.";
-    openTileSet(rooted(root, properties.outputSet.locator)
-                , OpenMode::readWrite)->update();
-
-    LOG(info3) << "Update: done";
-}
-
 // storage
 
 StorageProperties Storage::getProperties() const
@@ -516,11 +499,6 @@ void Storage::removeTileSets(const std::vector<std::string> &ids
                              , utility::Runnable *runnable)
 {
     return detail().removeTileSets(ids, runnable);
-}
-
-void Storage::update()
-{
-    return detail().update();
 }
 
 } } // namespace vadstena::tilestorage

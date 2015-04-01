@@ -69,7 +69,7 @@ private:
 
     virtual void drop_impl() UTILITY_OVERRIDE;
 
-    virtual void update_impl() UTILITY_OVERRIDE;
+    virtual bool externallyChanged_impl() const UTILITY_OVERRIDE;
 
     virtual void postOpenCheck(const DetectionContext &context)
         UTILITY_OVERRIDE;
@@ -136,6 +136,11 @@ private:
     /** Files in pending transaction.
      */
     boost::optional<Tx> tx_;
+
+    /** Information about mapConfig when tileset was open in read-only mode.
+     */
+    FileStat openStat_;
+    fs::path mapConfigPath_;
 };
 
 

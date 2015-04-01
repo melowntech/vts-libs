@@ -180,8 +180,10 @@ TilarDriver::TilarDriver(const boost::filesystem::path &root
                          , OpenMode mode, const DetectionContext &context)
     : Driver(mode == OpenMode::readOnly)
     , root_(absolute(root)), tmp_(root_ / TransactionRoot)
-    , options_(tilardriver::useConfig(context, root_ / filePath(File::config)))
+    , mapConfigPath_(root_ / filePath(File::config))
+    , options_(tilardriver::useConfig(context, mapConfigPath_))
     , cache_(root_, options_, (mode == OpenMode::readOnly))
+    , openStat_(FileStat::stat(mapConfigPath_))
 {
 }
 
@@ -354,11 +356,9 @@ void TilarDriver::drop_impl()
     remove_all(root_);
 }
 
-void TilarDriver::update_impl() {
-    if (tx_) {
-        LOGTHROW(err2, PendingTransaction)
-            << "Cannot update tile set inside an active transaction.";
-    }
+bool TilarDriver::externallyChanged_impl() const
+{
+    return openStat_.changed(FileStat::stat(mapConfigPath_));
 }
 
 DriverProperties TilarDriver::properties_impl() const

@@ -184,6 +184,7 @@ TarDriver::TarDriver(const boost::filesystem::path &root
          , OpenMode mode, const DetectionContext&)
     : ReadOnlyDriver(mode == OpenMode::readOnly)
     , tarPath_(absolute(root)), reader_(tarPath_)
+    , openStat_(FileStat::stat(tarPath_))
 {
     utility::tar::Block block;
     TileId tileId;
@@ -341,6 +342,11 @@ FileStat TarDriver::stat_impl(const TileId tileId, TileFile type) const
     }
 
     return { fsrc->second.size, fsrc->second.time };
+}
+
+bool TarDriver::externallyChanged_impl() const
+{
+    return openStat_.changed(FileStat::stat(tarPath_));
 }
 
 std::string TarDriver::detectType_impl(DetectionContext &context

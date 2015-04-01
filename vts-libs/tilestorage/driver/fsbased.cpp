@@ -89,11 +89,12 @@ FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
 
 void FsBasedDriver::postOpenCheck(const DetectionContext &context)
 {
-    auto path(root_ / filePath(File::config));
-    if (!context.seen(path.string())) {
+    mapConfigPath_ = root_ / filePath(File::config);
+    if (!context.seen(mapConfigPath_.string())) {
         // try to load config
-        tilestorage::loadConfig(path);
+        tilestorage::loadConfig(mapConfigPath_);
     }
+    openStat_ = FileStat::stat(mapConfigPath_);
 }
 
 FsBasedDriver::~FsBasedDriver()
@@ -256,17 +257,6 @@ void FsBasedDriver::drop_impl()
     remove_all(root_);
 }
 
-void FsBasedDriver::update_impl()
-{
-    if (tx_) {
-        LOGTHROW(err2, PendingTransaction)
-            << "Cannot update tile set inside an active transaction.";
-    }
-
-    // write extra files (i.e. browser)
-    writeExtraFiles();
-}
-
 fs::path FsBasedDriver::readPath(const fs::path &dir, const fs::path &name)
     const
 {
@@ -368,6 +358,11 @@ fs::path FsBasedDriver::DirCache::create(const fs::path &dir)
 fs::path FsBasedDriver::DirCache::path(const fs::path &dir)
 {
     return root_ / dir;
+}
+
+bool FsBasedDriver::externallyChanged_impl() const
+{
+    return openStat_.changed(FileStat::stat(mapConfigPath_));
 }
 
 std::string FsBasedDriver::detectType_impl(DetectionContext &context

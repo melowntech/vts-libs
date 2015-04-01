@@ -59,6 +59,8 @@ private:
     virtual FileStat stat_impl(const TileId tileId, TileFile type)
         const UTILITY_OVERRIDE;
 
+    virtual bool externallyChanged_impl() const UTILITY_OVERRIDE;
+
     virtual DriverProperties properties_impl() const UTILITY_OVERRIDE {
         return { Factory::staticType(), {} };
     }
@@ -76,6 +78,10 @@ private:
     FileMap metaMap_;
     Record indexFile_;
     Record configFile_;
+
+    /** Information about tar file when tileset was open in read-only mode.
+     */
+    FileStat openStat_;
 };
 
 } } // namespace vadstena::tilestorage

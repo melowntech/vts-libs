@@ -21,10 +21,12 @@ struct FileStat {
     std::time_t lastModified;
     const char *contentType;
 
-    FileStat(std::size_t size, std::time_t lastModified
+    FileStat(std::size_t size = 0, std::time_t lastModified = 0
              , const char *contentType = "application/octet-stream")
         : size(size), lastModified(lastModified), contentType(contentType)
     {}
+
+    bool changed(const FileStat &other) const;
 
     static FileStat stat(const boost::filesystem::path &path);
 
@@ -111,6 +113,11 @@ inline FileStat StreamBase::stat() const
     auto stat(stat_impl());
     stat.contentType = contentType_;
     return stat;
+}
+
+inline bool FileStat::changed(const FileStat &other) const
+{
+    return (size != other.size) || (lastModified != other.lastModified);
 }
 
 } } // namespace vadstena::tilestorage

@@ -105,9 +105,11 @@ public:
      */
     void drop();
 
-    /** Update driver stuff. Currenlty, only embedded browser is updated.
+    /** Tells whether config has been changed since tileset has been opened.
+     *  Usable especially to detect changes in long open session (i.e. in the
+     *  web server). Available only if opened in read-only mode.
      */
-    void update();
+    bool externallyChanged() const;
 
     DriverProperties properties() const;
 
@@ -160,7 +162,7 @@ private:
 
     virtual void drop_impl() = 0;
 
-    virtual void update_impl() = 0;
+    virtual bool externallyChanged_impl() const = 0;
 
     virtual DriverProperties properties_impl() const = 0;
 
@@ -294,9 +296,9 @@ inline void Driver::drop()
     return drop_impl();
 }
 
-inline void Driver::update()
+inline bool Driver::externallyChanged() const
 {
-    return update_impl();
+    return externallyChanged_impl();
 }
 
 inline DriverProperties Driver::properties() const

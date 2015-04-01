@@ -72,11 +72,6 @@ private:
         LOGTHROW(err2, ReadOnlyError)
             << "This driver supports read access only.";
     }
-
-    virtual void update_impl() UTILITY_OVERRIDE {
-        LOGTHROW(err2, ReadOnlyError)
-            << "This driver supports read access only.";
-    }
 };
 
 } } // namespace vadstena::tilestorage
