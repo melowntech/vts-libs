@@ -60,12 +60,9 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
       "'${BUILDSYS_CUSTOMER}'.")
     set(CUSTOMER_SOURCES customer/${BUILDSYS_CUSTOMER}.cpp)
 
-    if (EXISTS customer/${BUILDSYS_CUSTOMER}.fp)
-      # fingerprint:
-      include(licence/fingerprint.cmake)
-      fingerprint_to_cpp(CUSTOMER_SOURCES customer/${BUILDSYS_CUSTOMER}.fp)
-    endif()
-
+    # fingerprint:
+    include(${CMAKE_CURRENT_LIST_DIR}/licence/fingerprint.cmake)
+    fingerprint_to_cpp(CUSTOMER_SOURCES customer/${BUILDSYS_CUSTOMER}.fp)
   else()
     message(STATUS "Building vadstena-libs without any customization.")
     set(CUSTOMER_SOURCES customer/none.cpp)
