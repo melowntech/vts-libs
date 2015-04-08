@@ -621,20 +621,28 @@ struct Tilar::Detail
 
     void discardChanges();
 
-    void wannaWrite(const std::string &what) const {
+    template <typename ...Args>
+    void wannaWrite(const std::string &message, Args &&...args) const {
         if (readOnly) {
             LOGTHROW(err2, ReadOnlyError)
-                << "Cannot " << what << ": archive " << fd.path()
-                << " is read-only.";
+                << "Cannot "
+                << utility::formatError(message, std::forward<Args>(args)...)
+                << ": archive " << fd.path() << " is read-only.";
         }
-        LOG(debug) << fd.path() << ": " <<  what << ".";
+        LOG(debug)
+            << "Tilar archive " << fd.path() << ": "
+            << utility::formatError(message, std::forward<Args>(args)...)
+            << ".";
     }
 
     void begin(const FileIndex &index, off_t start) {
-        wannaWrite("start a transaction");
+        wannaWrite("start a transaction (index=%s, start=%s)"
+                   , index, start);
         if (tx) {
+            abort();
             LOGTHROW(err2, PendingTransaction)
-                << "Pending transaction in archive " << fd.path() << ".";
+                << "Cannot begin a transaction: pending "
+                "transaction in archive "  << fd.path() << ".";
         }
         this->index.check(index);
 
@@ -643,20 +651,22 @@ struct Tilar::Detail
     }
 
     void rollback() {
-        wannaWrite("rollback a transaction");
+        wannaWrite("rollback a transaction (tx=%d)", tx);
         if (!tx) {
             LOGTHROW(err2, PendingTransaction)
-                << "No pending transaction in archive " << fd.path() << ".";
+                << "Cannot rollback a transaction: no pending transaction "
+                "in archive " << fd.path() << ".";
         }
         truncate(getFd(), tx);
         tx = 0;
     }
 
     void commit(off_t end) {
-        wannaWrite("commit a transaction");
+        wannaWrite("commit a transaction (tx=%d)", tx);
         if (!tx) {
             LOGTHROW(err2, PendingTransaction)
-                << "No pending transaction in archive " << fd.path() << ".";
+                << "Cannot commit a transaction: no pending transaction "
+                "in archive " << fd.path() << ".";
         }
 
         // update index slot and forget transaction
@@ -758,7 +768,8 @@ void Tilar::Detail::commitChanges()
 {
     if (tx) {
         LOGTHROW(err2, PendingTransaction)
-            << "Pending transaction in archive " << fd.path() << ".";
+            << "Cannot commit changes: pending transaction in archive "
+            << fd.path() << ".";
     }
 
     if (changed()) {
@@ -772,7 +783,8 @@ void Tilar::Detail::discardChanges()
 {
     if (tx) {
         LOGTHROW(err2, PendingTransaction)
-            << "Pending transaction in archive " << fd.path() << ".";
+            << "Cannot discard changes: pending transaction in archive "
+            << fd.path() << ".";
     }
 
     if (changed()) {
@@ -966,10 +978,13 @@ public:
     }
 
     ~Device() {
-        if (end || (pos == start)) {
+        if (end || !pos) {
+            // read-only access or already commited
             owner->unshare();
             return;
         }
+
+        // uncommitted
         try {
             if (!std::uncaught_exception()) {
                 LOG(warn3) << "File write was not finished!";
@@ -981,11 +996,11 @@ public:
     }
 
     void commit() {
-        if (start != pos) {
+        if (pos) {
             // commit transaction
             owner->commit(pos);
-            // pretend there was nothing written
-            start = pos;
+            // mark as commited
+            pos = 0;
         }
     }
 
@@ -1098,6 +1113,7 @@ public:
         , OStream(contentType.c_str())
         , buffer_(owner, index), stream_(&buffer_)
     {
+        stream_.exceptions(std::ios::badbit | std::ios::failbit);
         buf_.reset(new char[IOBufferSize]);
         buffer_.pubsetbuf(buf_.get(), IOBufferSize);
     }
@@ -1134,6 +1150,7 @@ public:
         , IStream(contentType.c_str())
         , buffer_(owner, index), stream_(&buffer_)
     {
+        stream_.exceptions(std::ios::badbit | std::ios::failbit);
         buf_.reset(new char[IOBufferSize]);
         buffer_.pubsetbuf(buf_.get(), IOBufferSize);
     }

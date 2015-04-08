@@ -32,6 +32,7 @@ public:
                 , OnClose onClose)
         : OStream(type), path_(path), stream_(&buffer_), onClose_(onClose)
     {
+        stream_.exceptions(std::ios::badbit | std::ios::failbit);
         buf_.reset(new char[IOBufferSize]);
         buffer_.pubsetbuf(buf_.get(), IOBufferSize);
         open();
@@ -96,6 +97,7 @@ public:
     FileIStream(Type type, const boost::filesystem::path &path)
         : IStream(type), path_(path), stream_(&buffer_)
     {
+        stream_.exceptions(std::ios::badbit | std::ios::failbit);
         buf_.reset(new char[IOBufferSize]);
         buffer_.pubsetbuf(buf_.get(), IOBufferSize);
         open();

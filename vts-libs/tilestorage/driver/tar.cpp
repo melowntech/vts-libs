@@ -78,6 +78,7 @@ public:
         , stat_{ fd.end - fd.start, time }
         , buffer_(path, fd), stream_(&buffer_)
     {
+        stream_.exceptions(std::ios::badbit | std::ios::failbit);
         buf_.reset(new char[IOBufferSize]);
         buffer_.pubsetbuf(buf_.get(), IOBufferSize);
     }

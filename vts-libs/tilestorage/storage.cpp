@@ -315,6 +315,8 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators
             << "Operation being rolled back due to an error: <"
             << e.what() << ">.";
         output->rollback();
+        // rethrow exception to fail outside
+        throw;
     }
 
     // done
@@ -375,6 +377,8 @@ void Storage::Detail::rebuildOutput()
             << "Operation being rolled back due to an error: <"
             << e.what() << ">.";
         output->rollback();
+        // rethrow exception to fail outside
+        throw;
     }
 
     // done
@@ -444,6 +448,8 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids
             << "Operation being rolled back due to an error: <"
             << e.what() << ">.";
         output->rollback();
+        // rethrow exception to fail outside
+        throw;
     }
 
     // done

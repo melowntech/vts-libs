@@ -190,7 +190,9 @@ TilarDriver::TilarDriver(const boost::filesystem::path &root
 TilarDriver::~TilarDriver()
 {
     if (tx_) {
-        LOG(warn3) << "Active transaction on driver close; rolling back.";
+        LOG(warn3)
+            << "Active transaction on driver close (" << root_
+            << "); rolling back.";
         try {
             rollback_impl();
         } catch (const std::exception &e) {
