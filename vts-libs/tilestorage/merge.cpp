@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include <boost/format.hpp>
+#include <boost/filesystem.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -57,6 +58,9 @@ namespace vadstena { namespace tilestorage {
 
 namespace {
 
+const auto QBufferCvType = CV_16S;
+typedef signed short QBufferCType;
+
 double triangleArea(const math::Point3 &a, const math::Point3 &b,
                     const math::Point3 &c)
 {
@@ -97,39 +101,8 @@ void rasterizeTile(const Tile &tile, const math::Matrix4 &trafo,
             imgproc::processScanline(sl, 0, qbuffer.cols,
                 [&](int x, int y, float)
                     {
-                        qbuffer.at<int>(y, x) = index; 
+                        qbuffer.at<QBufferCType>(y, x) = index;
                     } );
-        }
-    }
-}
-
-//! "Draws" all faces of a tile into a zbuffer. Only pixels allowed by the
-//! qbuffer are modified.
-//!
-void rasterizeHeights(const Tile &tile, const math::Matrix4 &trafo,
-                      int index, const cv::Mat &qbuffer, cv::Mat &zbuffer)
-{
-    std::vector<imgproc::Scanline> scanlines;
-
-    for (const auto face : tile.mesh.facets)
-    {
-        cv::Point3f tri[3];
-        for (int i = 0; i < 3; i++) {
-            auto pt(transform(trafo, tile.mesh.vertices[face.v[i]]));
-            tri[i] = {float(pt(0)), float(pt(1)), float(pt(2))};
-        }
-
-        scanlines.clear();
-        imgproc::scanConvertTriangle(tri, 0, qbuffer.rows, scanlines);
-
-        for (const auto& sl : scanlines) {
-            imgproc::processScanline(sl, 0, qbuffer.cols,
-                [&](int x, int y, float z) {
-                   if (qbuffer.at<int>(y, x) == index) {
-                       float &height(zbuffer.at<float>(y, x));
-                       if (z > height) height = z;
-                   };
-                } );
         }
     }
 }
@@ -207,56 +180,16 @@ void clampMatPos(int &x, int &y, const cv::Mat &mat)
     else if (y >= mat.rows) y = mat.rows-1;
 }
 
-//! Dilates indices of a qbuffer to reduce areas with index -1 (fallback).
-//!
-template<typename MatType>
-void dilateIndices(cv::Mat &mat)
+template <int Steps, int Radius>
+void close(cv::Mat &mat)
 {
-    cv::Mat result(mat.size(), mat.type());
-    for (int y = 0; y < mat.rows; y++)
-    for (int x = 0; x < mat.cols; x++)
-    {
-        MatType maximum(-1);
-
-        for (int i = -3; i <= 3; i++) {
-            if (y+i < 0 || y+i >= mat.rows) continue;
-
-            for (int j = -3; j <= 3; j++) {
-                if (x+j < 0 || x+j >= mat.cols) continue;
-
-                MatType value = mat.at<MatType>(y+i, x+j);
-                maximum = std::max(value, maximum);
-            }
-        }
-        result.at<MatType>(y, x) = maximum;
-    }
-    result.copyTo(mat);
-}
-
-//! Inverse to dilateIndices.
-//!
-template<typename MatType>
-void erodeIndices(cv::Mat &mat)
-{
-    cv::Mat result(mat.size(), mat.type());
-    for (int y = 0; y < mat.rows; y++)
-    for (int x = 0; x < mat.cols; x++)
-    {
-        MatType minimum(mat.at<MatType>(y, x));
-
-        for (int i = -3; i <= 3; i++) {
-            if (y+i < 0 || y+i >= mat.rows) continue;
-
-            for (int j = -3; j <= 3; j++) {
-                if (x+j < 0 || x+j >= mat.cols) continue;
-
-                MatType value = mat.at<MatType>(y+i, x+j);
-                if (value < 0) minimum = -1;
-            }
-        }
-        result.at<MatType>(y, x) = minimum;
-    }
-    result.copyTo(mat);
+    auto element
+        (cv::getStructuringElement
+         (cv::MORPH_RECT, { 1 + 2 * Radius, 1 + 2 * Radius }));
+    cv::Mat tmp(mat.size(), mat.type());
+    cv::morphologyEx(mat, tmp, cv::MORPH_CLOSE, element
+                     , { -1, -1 }, Steps, cv::BORDER_REPLICATE);
+    swap(mat, tmp);
 }
 
 //! Returns true if at least one element in the area of the qbuffer
@@ -264,7 +197,7 @@ void erodeIndices(cv::Mat &mat)
 //!
 bool faceCovered(const Mesh &mesh, const Mesh::Facet &face,
                  const math::Matrix4 &trafo, int index,
-                 const cv::Mat/*<int>*/ &qbuffer)
+                 const cv::Mat/*<QBufferCType>*/ &qbuffer)
 {
     cv::Point3f tri[3];
     for (int i = 0; i < 3; i++) {
@@ -275,23 +208,25 @@ bool faceCovered(const Mesh &mesh, const Mesh::Facet &face,
     std::vector<imgproc::Scanline> scanlines;
     imgproc::scanConvertTriangle(tri, 0, qbuffer.rows, scanlines);
 
-    bool covered(false);
     for (const auto& sl : scanlines) {
-        imgproc::processScanline(sl, 0, qbuffer.cols,
-            [&](int x, int y, float)
-               { if (qbuffer.at<int>(y, x) == index) covered = true; } );
+        bool covered(false);
+        imgproc::processScanline(sl, 0, qbuffer.cols, [&](int x, int y, float)
+        {
+            if (qbuffer.at<QBufferCType>(y, x) == index) {
+                covered = true;
+            }
+        });
+        if (covered) { return true; }
     }
 
-    if (!covered) {
-        // do one more check in case the triangle is thinner than one pixel
-        for (int i = 0; i < 3; i++) {
-            int x(round(tri[i].x)), y(round(tri[i].y));
-            clampMatPos(x, y, qbuffer);
-            if (qbuffer.at<int>(y, x) == index) covered = true;
-        }
+    // do one more check in case the triangle is thinner than one pixel
+    for (int i = 0; i < 3; i++) {
+        int x(round(tri[i].x)), y(round(tri[i].y));
+        clampMatPos(x, y, qbuffer);
+        if (qbuffer.at<QBufferCType>(y, x) == index) { return true; }
     }
 
-    return covered;
+    return false;
 }
 
 //! Draws a face into a matrix. Used to mark useful areas of an atlas.
@@ -464,70 +399,75 @@ math::Matrix4 tileTransform( const long dstTileSize, const math::Point2 dst
     return trafo;
 }
 
-MergeInput::list sortMergeInput(const MergeInput::list & mergeInput, long tileSize){
-    MergeInput::list result;
-
-    struct TileSortInfo{
+MergeInput::list sortMergeInput(const MergeInput::list &mergeInput
+                                , long tileSize)
+{
+    /** Sorts via coarseness. Geometry-based coarsness is computed in lazy way.
+     */
+    struct TileSortInfo {
         std::size_t id;
-        double invGeometryCoarseness;
         double coarseness;
 
-        TileSortInfo( std::size_t id
-                   , double coarseness)
-            : id(id)
-            , invGeometryCoarseness(-1)
-            , coarseness(coarseness){};
+        TileSortInfo(std::size_t id, const Tile &tile, double tileSize)
+            : id(id), coarseness(tile.metanode.coarseness)
+            , tile_(&tile), tileSize_(tileSize)
+            , invGeometryCoarseness_(-1)
+        {}
 
-        TileSortInfo( std::size_t id
-                   , double invGeometryCoarseness, double coarseness)
-            : id(id)
-            , invGeometryCoarseness(invGeometryCoarseness)
-            , coarseness(coarseness){};
+        double invGeometryCoarseness() const {
+            if (invGeometryCoarseness_ < 0) {
+                invGeometryCoarseness_
+                    = tileInvGeometryCoarseness(*tile_, tileSize_);
+            }
+            return invGeometryCoarseness_;
+        }
+
+    private:
+        const Tile *tile_;
+        double tileSize_;
+        mutable double invGeometryCoarseness_;
     };
 
     std::vector<TileSortInfo> sortingInfos;
     bool sortinvGeometryCoarseness = false;
-    for (unsigned i = 0; i < mergeInput.size(); i++) {
-        if(mergeInput[i].tile().metanode.coarseness<0){
-            sortinvGeometryCoarseness=true;
+    for (unsigned i = 0; i < mergeInput.size(); ++i) {
+        if (mergeInput[i].tile().metanode.coarseness < 0){
+            sortinvGeometryCoarseness = true;
         }
-        sortingInfos.emplace_back(
-            i, tileInvGeometryCoarseness( mergeInput[i].tile(), tileSize )
-             , mergeInput[i].tile().metanode.coarseness);
+        sortingInfos.emplace_back(i, mergeInput[i].tile(), tileSize);
     }
 
     auto compareCoarseness
-        = [](const TileSortInfo &a, const TileSortInfo &b) -> bool
-                {
-                  //tiles with lower coarseness comes first
-                  if(a.coarseness > b.coarseness){
-                    return true;
-                  }
-                  else if(a.coarseness < b.coarseness){
-                    return false;
-                  }
-                  //fallback if coarsenesses aren't set or are equal
-                  if(a.invGeometryCoarseness < b.invGeometryCoarseness){
-                        return true;
-                  }
-                  return false;
-                };
+        ([](const TileSortInfo &a, const TileSortInfo &b) -> bool
+    {
+        // tiles with lower coarseness comes first
+        if (a.coarseness < b.coarseness) {
+            return true;
+        } else if (a.coarseness > b.coarseness) {
+            return false;
+        }
+
+        // fallback if coarsenesses aren't set or are equal
+        return (a.invGeometryCoarseness() > b.invGeometryCoarseness());
+    });
 
     auto compareinvGeometryCoarseness
-        = [](const TileSortInfo &a, const TileSortInfo &b) -> bool
-                {
-                  //tiles with highem geometry quality comes first
-                  return a.invGeometryCoarseness < b.invGeometryCoarseness;
-                };
+        ([](const TileSortInfo &a, const TileSortInfo &b) -> bool
+    {
+        // tiles with higher geometry quality come first
+        return (a.invGeometryCoarseness() > b.invGeometryCoarseness());
+    });
 
-    if(sortinvGeometryCoarseness){
-        std::sort(sortingInfos.begin(), sortingInfos.end(), compareinvGeometryCoarseness);
-    }
-    else{
-        std::sort(sortingInfos.begin(), sortingInfos.end(), compareCoarseness);
+    if (sortinvGeometryCoarseness){
+        std::sort(sortingInfos.begin(), sortingInfos.end()
+                  , compareinvGeometryCoarseness);
+    } else{
+        std::sort(sortingInfos.begin(), sortingInfos.end()
+                  , compareCoarseness);
     }
 
-    for(const auto & tq : sortingInfos){
+    MergeInput::list result;
+    for (const auto &tq : sortingInfos) {
         result.push_back(mergeInput[tq.id]);
     }
 
@@ -648,22 +588,32 @@ Atlas mergeAtlases( const std::vector<Atlas*> & atlases
     return atlas;
 }
 
-//! Returns true if 'qbuffer' is filled with the same value (returned in 'index')
-//!
-bool sameIndices(const cv::Mat &qbuffer, int& index)
+int sameIndices(const cv::Mat &qbuffer)
 {
-    index = qbuffer.at<int>(0, 0);
-    for (auto it = qbuffer.begin<int>(); it != qbuffer.end<int>(); ++it) {
-        if (*it != index) return false;
+    int index = -1;
+    for (auto it = qbuffer.begin<QBufferCType>();
+         it != qbuffer.end<QBufferCType>(); ++it)
+    {
+        const auto value(*it);
+        if (value < 0) { continue; }
+        if (value != index) {
+            if (index < 0) {
+                index = value;
+            } else {
+                return -1;
+            }
+        }
     }
-    return true;
+    return index;
 }
 
 //! Returns true if 'qbuffer' contains at least one element equal to 'index'.
 //!
 bool haveIndices(const cv::Mat &qbuffer, int index)
 {
-    for (auto it = qbuffer.begin<int>(); it != qbuffer.end<int>(); ++it) {
+    for (auto it = qbuffer.begin<QBufferCType>();
+         it != qbuffer.end<QBufferCType>(); ++it)
+    {
         if (*it == index) return true;
     }
     return false;
@@ -761,56 +711,45 @@ MergedTile merge( const TileId &tileId, long tileSize
                 , const MergeInput::list &ancestorTiles
                 , MergeInput::list &incidentTiles)
 {
-
-    (void) tileId;
     LOG(info2)<<"Merging tile "<<tileId<<" from "<<mergeInput.size()<<" sets";
 
     // sort tiles by quality
     auto sortedMergeInput = sortMergeInput(mergeInput, tileSize);
     // create qbuffer, rasterize meshes in increasing order of quality
     const int QBSize(512);
-    cv::Mat qbuffer(QBSize, QBSize, CV_32S, cv::Scalar(-1));
+    cv::Mat qbuffer(QBSize, QBSize, QBufferCvType, cv::Scalar(-1));
     math::Matrix4 trafo(tileToBuffer(tileSize, QBSize));
 
     std::set<const TileSet*> mergedTileSetMap;
     for (const auto &mi : sortedMergeInput) {
         mergedTileSetMap.insert(&mi.tileSet());
-    }  
-    
+    }
+
     incidentTiles.clear();
     //clip and repack ancestor tiles
-    for(const auto &fb : ancestorTiles){
-        if(mergedTileSetMap.find(&fb.tileSet()) == mergedTileSetMap.end()){
+    for (const auto &fb : ancestorTiles){
+        if (mergedTileSetMap.find(&fb.tileSet()) == mergedTileSetMap.end()) {
             MergeInput mi = clipQuad(fb, quad, tileSize);
-            if(mi.tile().mesh.facets.size()>0){            
-                incidentTiles.push_back(clipQuad(fb, quad, tileSize));
+            if (!mi.tile().mesh.facets.empty()) {
+                incidentTiles.push_back(mi);
             }
         }
     }
-    for (const auto &mi : sortedMergeInput) {
-        incidentTiles.push_back(mi);
-    }
+    incidentTiles.insert(incidentTiles.end(), sortedMergeInput.begin()
+                         , sortedMergeInput.end());
 
-    for(uint i=0; i<incidentTiles.size(); ++i) {
+    for (uint i = 0; i<incidentTiles.size(); ++i) {
         rasterizeTile(incidentTiles[i].tile(), trafo, i, qbuffer);
     }
 
-    // close small holes in the meshes so that the acestor tiles doesn't show through
-    // unneccessarily
-    const int closeSteps(2);
-    for (int i = 0; i < closeSteps; i++) {
-        dilateIndices<int>(qbuffer);
-    }
-    for (int i = 0; i < closeSteps; i++) {
-        erodeIndices<int>(qbuffer);
-    }
+    // close small areas of bad stuff with good stuff
+    close<1, 6>(qbuffer);
 
-    int index;
-    if ( sameIndices(qbuffer, index) && index >= 0) {
+    int index(sameIndices(qbuffer));
+    if (index > -1) {
         return { incidentTiles[index].tile(), incidentTiles[index].tileSet() };
     }
 
-    vadstena::Lod refineLod = -1;
     std::vector<Atlas*> usedAtlases;
     ClipTriangle::list mergedFaces;
     const int hms(MetaNode::HMSize);
@@ -821,17 +760,18 @@ MergedTile merge( const TileId &tileId, long tileSize
     // result tile
     MergedTile result;
 
-    for(int i=incidentTiles.size(); i>=0; --i) {
+    for(int i=incidentTiles.size() - 1; i>=0; --i) {
         if(haveIndices(qbuffer,i)){
 
             const Tile &tile(incidentTiles[i].tile());
             cv::Size asize(tile.atlas.size());
 
-            //refine mesh if necessary
             geometry::Obj mesh = tile.mesh;
 
-            if (refineLod >= 0) {
-                auto cmesh = *geometry::asMesh(mesh); 
+            //refine mesh if necessary
+            if (incidentTiles[i].srcFaceCount() > tile.mesh.facets.size()) {
+                // tile has been clipped -> refine
+                auto cmesh = *geometry::asMesh(mesh);
                 auto rmesh(geometry::refine( cmesh
                                        , incidentTiles[i].srcFaceCount()));
                 mesh = geometry::asObj(rmesh);
@@ -851,17 +791,13 @@ MergedTile merge( const TileId &tileId, long tileSize
                 }
             }
 
-            //if the merged tile was from the current lod all the other merged 
-            //tiles must be refined
-            refineLod = std::max(incidentTiles[i].tileId().lod, refineLod);
-
             //update metadata
             minGsd = std::min(tile.metanode.gsd, minGsd);
             for (int c = 0; c < hms; c++)
             for (int r = 0; r < hms; r++)
             {
-                int what = qbuffer.at<int>( c * (QBSize-1) / hms
-                                          , r * (QBSize-1) / hms);
+                int what = qbuffer.at<QBufferCType>( c * (QBSize-1) / hms
+                                                     , r * (QBSize-1) / hms);
                 if(what==i || hmask.at<int>(c,r)==0){
                     hmask.at<int>(c,r)=1;
                     heightmap[c][r] = tile.metanode.heightmap[c][r];
@@ -894,7 +830,11 @@ MergedTile merge( const TileId &tileId, long tileSize
 
 boost::optional<double> MergedTile::pixelSize() const
 {
-    if (singleSource()) { return metanode.pixelSize[0][0]; }
+    // pixel size is valid only when tile is from single source and has valid
+    // pixelsize
+    if (singleSource() && metanode.exists()) {
+        return metanode.pixelSize[0][0];
+    }
     return boost::none;
 }
 

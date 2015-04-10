@@ -46,12 +46,12 @@ double pixelSize(const geometry::Obj &mesh, const math::Size2 &atlasSize)
                                mesh.texcoords[face.t[2]]);
     }
     uvArea *= atlasSize.width * atlasSize.height;
-    
+
     // no texturing -> invalid tile
     if (!uvArea) {
         return detail::invalidPixelSize;
     }
-    
+
     return sqrt(xyzArea / uvArea);
 }
 

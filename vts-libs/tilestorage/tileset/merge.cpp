@@ -360,7 +360,7 @@ Tile Merger::generateTile(const TileId &tileId
     }
 
     // optimization
-    if (quadrant < 0) {
+    if (parentIncidentTiles.empty()) {
         // no parent data
         if (tiles.empty()) {
             // no data -> remove tile and return empty tile
@@ -374,6 +374,7 @@ Tile Merger::generateTile(const TileId &tileId
             tile.metanode
                 = self.setTile(tileId, tile.mesh, tile.atlas, &tile.metanode
                                , tile.metanode.pixelSize[0][0]);
+            incidentTiles = tiles;
             return tile;
         }
 
@@ -424,8 +425,12 @@ void Merger::mergeSubtree(const Index &index
             if (auto t = self.getTile(self.parent(tileId), std::nothrow)) {
                 // no parent was generated and we have sucessfully loaded parent
                 // tile from existing content as a fallback tile!
+
+                // TODO: since this is merge result its information can be
+                // outdated
                 MergeInput::list loadedParentTiles;
-                loadedParentTiles.push_back(MergeInput(t.get(),nullptr,tileId));
+                loadedParentTiles.push_back
+                    (MergeInput(t.get(), nullptr, tileId));
 
                 quadrant = child(index);
                 tile = generateTile(tileId, loadedParentTiles
@@ -455,15 +460,9 @@ void Merger::mergeSubtree(const Index &index
     }
 
     // OK, process children
-
-    // if tile doesn't exist generated quadrants are not valid -> not included
-    // in merge operation
-    quadrant = valid(tile) ? 0 : MERGE_NO_FALLBACK_TILE;
+    quadrant = 0;
     for (const auto &child : children(index)) {
-        mergeSubtree(child, incidentTiles, quadrant, g);
-        if (quadrant != MERGE_NO_FALLBACK_TILE) {
-            ++quadrant;
-        }
+        mergeSubtree(child, incidentTiles, quadrant++, g);
     }
 }
 
