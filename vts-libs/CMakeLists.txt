@@ -118,6 +118,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     viewquality.hpp viewquality.cpp
     orthopreview.hpp orthopreview.cpp
 
+    meshrasterize.hpp meshrasterize.cpp
     coverage-map.hpp coverage-map.cpp
 
     shapefile.hpp shapefile.cpp
