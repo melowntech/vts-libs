@@ -440,22 +440,22 @@ MergeInput::list sortMergeInput(const MergeInput::list &mergeInput
     auto compareCoarseness
         ([](const TileSortInfo &a, const TileSortInfo &b) -> bool
     {
-        // tiles with lower coarseness comes first
-        if (a.coarseness < b.coarseness) {
+        // tiles with lower coarseness comes last
+        if (a.coarseness > b.coarseness) {
             return true;
-        } else if (a.coarseness > b.coarseness) {
+        } else if (a.coarseness < b.coarseness) {
             return false;
         }
 
         // fallback if coarsenesses aren't set or are equal
-        return (a.invGeometryCoarseness() > b.invGeometryCoarseness());
+        return (a.invGeometryCoarseness() < b.invGeometryCoarseness());
     });
 
     auto compareinvGeometryCoarseness
         ([](const TileSortInfo &a, const TileSortInfo &b) -> bool
     {
-        // tiles with higher geometry quality come first
-        return (a.invGeometryCoarseness() > b.invGeometryCoarseness());
+        // tiles with higher geometry quality comes last
+        return (a.invGeometryCoarseness() < b.invGeometryCoarseness());
     });
 
     if (sortinvGeometryCoarseness){
