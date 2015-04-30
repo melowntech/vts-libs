@@ -1058,6 +1058,18 @@ Tile TileSet::getTile(const TileId &tileId) const
     return detail().getTile(tileId);
 }
 
+MetaNode TileSet::getMetadata(const TileId &tileId) const
+{
+    detail().checkValidity();
+    auto md(detail().findMetaNode(tileId));
+    if (!md || !md->exists()) {
+        LOGTHROW(err2, NoSuchTile)
+            << "There is no tile at " << tileId << ".";
+    }
+
+    return *md;
+}
+
 void TileSet::setTile(const TileId &tileId, const Mesh &mesh
                       , const Atlas &atlas, const TileMetadata *metadata
                       , const boost::optional<double> &pixelSize)

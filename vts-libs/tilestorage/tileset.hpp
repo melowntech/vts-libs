@@ -79,6 +79,13 @@ public:
      */
     void setMetadata(const TileId &tileId, const TileMetadata &metadata);
 
+    /** Returns metadata of existing tile.
+     * \param tileId idetifier of tile read
+     * \return tile's metadata
+     * \throw Error if tile doesn't exist
+     */
+    MetaNode getMetadata(const TileId &tileId) const;
+
     /** Remove tile. Tile can be non-existent.
      * \param tileId idetifier of tile write
      */
