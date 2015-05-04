@@ -16,10 +16,14 @@ const int CURRENT_JSON_FORMAT_VERSION(3);
 DriverProperties parseDriver(const Json::Value &driver)
 {
     DriverProperties dp;
-    Json::get(dp.type, driver["type"]);
+    Json::get(dp.type, driver, "type");
     if (!driver.isMember("options")) { return dp; }
 
-    const auto options(driver["options"]);
+    const auto &options(driver["options"]);
+    if (!options.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of driver[options] is not an object.";
+    }
     for (const auto &member : options.getMemberNames()) {
         DriverProperties::Options::value_type vt(member, {});
         const auto &v(options[member]);
@@ -70,7 +74,7 @@ Json::Value buildDriver(const DriverProperties &dp)
         } else if (ti == typeid(bool)) {
             v = Json::Value(boost::any_cast<bool>(vt.second));
         } else {
-            LOGTHROW(err2, std::runtime_error)
+            LOGTHROW(err1, std::runtime_error)
                 << "Driver properties: unable to serialize C++ type "
                 "with type_info::name <" << ti.name() << ">.";
         }
@@ -82,39 +86,36 @@ Json::Value buildDriver(const DriverProperties &dp)
 Properties parse1(const Json::Value &config)
 {
     Properties properties;
-    Json::get(properties.id, config["id"]);
+    Json::get(properties.id, config, "id");
 
-    const auto &foat(config["foat"]);
-    Json::get(properties.foat.lod, foat[0]);
-    Json::get(properties.foat.easting, foat[1]);
-    Json::get(properties.foat.northing, foat[2]);
-    Json::get(properties.foatSize, foat[3]);
+    Json::get(properties.foat.lod, config, "foat", 0);
+    Json::get(properties.foat.easting, config, "foat", 1);
+    Json::get(properties.foat.northing, config, "foat", 2);
+    Json::get(properties.foatSize, config, "foat", 3);
 
-    const auto &meta(config["meta"]);
-    Json::get(properties.metaLevels.lod, meta[0]);
-    Json::get(properties.metaLevels.delta, meta[1]);
+    Json::get(properties.metaLevels.lod, config, "meta", 0);
+    Json::get(properties.metaLevels.delta, config, "meta", 1);
 
-    Json::get(properties.baseTileSize, config["baseTileSize"]);
+    Json::get(properties.baseTileSize, config, "baseTileSize");
 
-    const auto &alignment(config["alignment"]);
-    Json::get(properties.alignment(0), alignment[0]);
-    Json::get(properties.alignment(1), alignment[1]);
+    for (int i(0); i < 2; ++i) {
+        Json::get(properties.alignment(i), config, "alignment", i);
+    }
 
-    Json::get(properties.meshTemplate, config["meshTemplate"]);
-    Json::get(properties.textureTemplate, config["textureTemplate"]);
-    Json::get(properties.metaTemplate, config["metaTemplate"]);
+    Json::get(properties.meshTemplate, config, "meshTemplate");
+    Json::get(properties.textureTemplate, config, "textureTemplate");
+    Json::get(properties.metaTemplate, config, "metaTemplate");
 
-    const auto &defaultPosition(config["defaultPosition"]);
-    Json::get(properties.defaultPosition(0), defaultPosition[0]);
-    Json::get(properties.defaultPosition(1), defaultPosition[1]);
-    Json::get(properties.defaultPosition(2), defaultPosition[2]);
+    for (int i(0); i < 3; ++i) {
+        Json::get(properties.defaultPosition(i), config, "defaultPosition", i);
+    }
 
-    const auto &defaultOrientation(config["defaultOrientation"]);
-    Json::get(properties.defaultOrientation(0), defaultOrientation[0]);
-    Json::get(properties.defaultOrientation(1), defaultOrientation[1]);
-    Json::get(properties.defaultOrientation(2), defaultOrientation[2]);
+    for (int i(0); i < 3; ++i) {
+        Json::get(properties.defaultOrientation(i)
+                  , config, "defaultOrientation", i);
+    }
 
-    Json::get(properties.textureQuality, config["textureQuality"]);
+    Json::get(properties.textureQuality, config, "textureQuality");
 
     if (config.isMember("driver")) {
         properties.driver = parseDriver(config["driver"]);
@@ -125,93 +126,18 @@ Properties parse1(const Json::Value &config)
 
 Properties parse2(const Json::Value &config)
 {
-    Properties properties;
-    Json::get(properties.id, config["id"]);
+    auto properties(parse1(config));
 
-    const auto &foat(config["foat"]);
-    Json::get(properties.foat.lod, foat[0]);
-    Json::get(properties.foat.easting, foat[1]);
-    Json::get(properties.foat.northing, foat[2]);
-    Json::get(properties.foatSize, foat[3]);
-
-    const auto &meta(config["meta"]);
-    Json::get(properties.metaLevels.lod, meta[0]);
-    Json::get(properties.metaLevels.delta, meta[1]);
-
-    Json::get(properties.baseTileSize, config["baseTileSize"]);
-
-    const auto &alignment(config["alignment"]);
-    Json::get(properties.alignment(0), alignment[0]);
-    Json::get(properties.alignment(1), alignment[1]);
-
-    Json::get(properties.srs, config["srs"]);
-
-    Json::get(properties.meshTemplate, config["meshTemplate"]);
-    Json::get(properties.textureTemplate, config["textureTemplate"]);
-    Json::get(properties.metaTemplate, config["metaTemplate"]);
-
-    const auto &defaultPosition(config["defaultPosition"]);
-    Json::get(properties.defaultPosition(0), defaultPosition[0]);
-    Json::get(properties.defaultPosition(1), defaultPosition[1]);
-    Json::get(properties.defaultPosition(2), defaultPosition[2]);
-
-    const auto &defaultOrientation(config["defaultOrientation"]);
-    Json::get(properties.defaultOrientation(0), defaultOrientation[0]);
-    Json::get(properties.defaultOrientation(1), defaultOrientation[1]);
-    Json::get(properties.defaultOrientation(2), defaultOrientation[2]);
-
-    Json::get(properties.textureQuality, config["textureQuality"]);
-
-    if (config.isMember("driver")) {
-        properties.driver = parseDriver(config["driver"]);
-    }
+    Json::get(properties.srs, config, "srs");
 
     return properties;
 }
 
 Properties parse3(const Json::Value &config)
 {
-    Properties properties;
-    Json::get(properties.id, config["id"]);
+    auto properties(parse2(config));
 
-    const auto &foat(config["foat"]);
-    Json::get(properties.foat.lod, foat[0]);
-    Json::get(properties.foat.easting, foat[1]);
-    Json::get(properties.foat.northing, foat[2]);
-    Json::get(properties.foatSize, foat[3]);
-
-    const auto &meta(config["meta"]);
-    Json::get(properties.metaLevels.lod, meta[0]);
-    Json::get(properties.metaLevels.delta, meta[1]);
-
-    Json::get(properties.baseTileSize, config["baseTileSize"]);
-
-    const auto &alignment(config["alignment"]);
-    Json::get(properties.alignment(0), alignment[0]);
-    Json::get(properties.alignment(1), alignment[1]);
-
-    Json::get(properties.srs, config["srs"]);
-
-    Json::get(properties.meshTemplate, config["meshTemplate"]);
-    Json::get(properties.textureTemplate, config["textureTemplate"]);
-    Json::get(properties.metaTemplate, config["metaTemplate"]);
-
-    const auto &defaultPosition(config["defaultPosition"]);
-    Json::get(properties.defaultPosition(0), defaultPosition[0]);
-    Json::get(properties.defaultPosition(1), defaultPosition[1]);
-    Json::get(properties.defaultPosition(2), defaultPosition[2]);
-
-    const auto &defaultOrientation(config["defaultOrientation"]);
-    Json::get(properties.defaultOrientation(0), defaultOrientation[0]);
-    Json::get(properties.defaultOrientation(1), defaultOrientation[1]);
-    Json::get(properties.defaultOrientation(2), defaultOrientation[2]);
-
-    Json::get(properties.textureQuality, config["textureQuality"]);
-    Json::get(properties.texelSize, config["texelSize"]);
-
-    if (config.isMember("driver")) {
-        properties.driver = parseDriver(config["driver"]);
-    }
+    Json::get(properties.texelSize, config, "texelSize");
 
     return properties;
 }
@@ -221,7 +147,8 @@ Properties parse3(const Json::Value &config)
 void parse(Properties &properties, const Json::Value &config)
 {
     try {
-        auto version(Json::as<int>(config["version"]));
+        int version(0);
+        Json::get(version, config, "version");
 
         switch (version) {
         case 1:
@@ -237,14 +164,14 @@ void parse(Properties &properties, const Json::Value &config)
             return;
         }
 
-        LOGTHROW(err2, FormatError)
-            << "Invalid tile set config format: unsupported version"
+        LOGTHROW(err1, FormatError)
+            << "Invalid tileset config format: unsupported version "
             << version << ".";
 
     } catch (const Json::Error &e) {
-        LOGTHROW(err2, FormatError)
-            << "Invalid tile set config format (" << e.what()
-            << "); Unable to work with this storage.";
+        LOGTHROW(err1, FormatError)
+            << "Invalid tileset config format (" << e.what()
+            << "); Unable to work with this tileset.";
     }
 }
 
@@ -313,8 +240,8 @@ Json::Value buildTileSetDescriptor(const TileSetDescriptor &desc)
 TileSetDescriptor parseTileSetDescriptor(const Json::Value &tileSet)
 {
     TileSetDescriptor desc;
-    Json::get(desc.locator.type, tileSet["type"]);
-    Json::get(desc.locator.location, tileSet["location"]);
+    Json::get(desc.locator.type, tileSet, "type");
+    Json::get(desc.locator.location, tileSet, "location");
 
     return desc;
 }
@@ -340,7 +267,8 @@ StorageProperties parse1(const Json::Value &config)
 void parse(StorageProperties &properties, const Json::Value &config)
 {
     try {
-        auto version(Json::as<int>(config["version"]));
+        int version(0);
+        Json::get(version, config, "version");
 
         switch (version) {
         case 1:
@@ -348,12 +276,12 @@ void parse(StorageProperties &properties, const Json::Value &config)
             return;
         }
 
-        LOGTHROW(err2, FormatError)
-            << "Invalid storage config format: unsupported version"
+        LOGTHROW(err1, FormatError)
+            << "Invalid storage config format: unsupported version "
             << version << ".";
 
     } catch (const Json::Error &e) {
-        LOGTHROW(err2, FormatError)
+        LOGTHROW(err1, FormatError)
             << "Invalid storage config format (" << e.what()
             << "); Unable to work with this storage.";
     }
