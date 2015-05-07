@@ -688,6 +688,11 @@ void TileSet::Detail::flush()
     // force metadata save
     if (metadataChanged) {
         saveMetadata();
+
+        // metadata were changed but we have to ensure that config file's last
+        // modification timestamp changes to tell outer world (e.g. libhttp)
+        // that something has been changed
+        propertiesChanged = true;
     }
 
     // force config save
