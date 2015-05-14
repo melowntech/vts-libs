@@ -19,6 +19,7 @@
 #include <stdexcept>
 #include <string>
 #include <array>
+#include <functional>
 
 #include <boost/filesystem/path.hpp>
 
@@ -96,8 +97,14 @@ struct CloneOptions {
     {}
 
     CreateMode createMode;
-    boost::optional<Extents> extents;
-    boost::optional<LodRange> lodRange;
+
+    /** Filtering function: if defined only tiles for which filter returns true
+     *  are cloned into the output
+     */
+    typedef std::function<bool(Lod, const Extents&)> Filter;
+
+    Filter filter;
+
     StaticProperties::Wrapper staticProperties;
     SettableProperties::Wrapper settableProperties;
 

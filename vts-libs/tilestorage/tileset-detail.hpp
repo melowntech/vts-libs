@@ -113,8 +113,7 @@ struct TileSet::Detail {
 
     void clone(const Detail &src);
 
-    void clone(const Detail &src, const boost::optional<Extents> &extents
-               , const boost::optional<LodRange> &lodRange);
+    void clone(const Detail &src, const CloneOptions::Filter &filter);
 
     void setFoat(const TileId &tileId);
 

@@ -97,20 +97,18 @@ struct TileSet::Factory
 
     static void clone(const TileSet::pointer &src
                       , const TileSet::pointer &dst
-                      , const boost::optional<Extents> &extents
-                      , const boost::optional<LodRange> &lodRange)
+                      , const CloneOptions::Filter &filter)
     {
-        if (!extents && !lodRange) {
+        if (!filter) {
             return clone(src, dst);
         }
 
-        dst->detail().clone(src->detail(), extents, lodRange);
+        dst->detail().clone(src->detail(), filter);
     }
 
     static void clone(const TileSet::pointer &src
                       , const TileSet::pointer &dst
-                      , const boost::optional<Extents> &extents
-                      , const boost::optional<LodRange> &lodRange
+                      , const CloneOptions::Filter &filter
                       , const StaticProperties::Wrapper &staticProperties
                       , const SettableProperties::Wrapper &settableProperties)
     {
@@ -129,11 +127,11 @@ struct TileSet::Factory
             ddet.propertiesChanged = true;
         }
 
-        if (!extents && !lodRange) {
+        if (!filter) {
             return clone(src, dst);
         }
 
-        dst->detail().clone(src->detail(), extents, lodRange);
+        dst->detail().clone(src->detail(), filter);
     }
 };
 
@@ -168,7 +166,7 @@ TileSet::pointer cloneTileSet(const Locator &locator
     // create tileset and clone
     auto dst(TileSet::Factory::create
              (locator, properties, options.createMode, true));
-    TileSet::Factory::clone(src, dst, options.extents, options.lodRange);
+    TileSet::Factory::clone(src, dst, options.filter);
     return dst;
 }
 
@@ -184,7 +182,7 @@ TileSet::pointer cloneTileSet(const TileSet::pointer &dst
             << "> is not empty.";
     }
 
-    TileSet::Factory::clone(src, dst, options.extents, options.lodRange
+    TileSet::Factory::clone(src, dst, options.filter
                             , options.staticProperties
                             , options.settableProperties);
     return dst;
@@ -1226,8 +1224,7 @@ void TileSet::Detail::clone(const Detail &src)
 }
 
 void TileSet::Detail::clone(const Detail &src
-                            , const boost::optional<Extents> &extents
-                            , const boost::optional<LodRange> &lodRange)
+                            , const CloneOptions::Filter &filter)
 {
     // update properties
     properties.driver = driver->properties();
@@ -1248,11 +1245,7 @@ void TileSet::Detail::clone(const Detail &src
                         % src.properties.id % properties.id));
     traverseTiles(src.tileIndex, [&](const TileId &tileId)
     {
-        if (lodRange && !in(*lodRange, tileId.lod)) {
-            (++progress).report(reportRatio, name);
-            return;
-        }
-        if (extents && !overlaps(*extents, tileExtents(properties, tileId))) {
+        if (!filter(tileId.lod, tileExtents(properties, tileId))) {
             (++progress).report(reportRatio, name);
             return;
         }
