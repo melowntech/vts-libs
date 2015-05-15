@@ -166,7 +166,7 @@ TileSet::pointer cloneTileSet(const Locator &locator
     // create tileset and clone
     auto dst(TileSet::Factory::create
              (locator, properties, options.createMode, true));
-    TileSet::Factory::clone(src, dst, options.filter);
+    TileSet::Factory::clone(src, dst, options.getFilter(*src));
     return dst;
 }
 
@@ -182,7 +182,7 @@ TileSet::pointer cloneTileSet(const TileSet::pointer &dst
             << "> is not empty.";
     }
 
-    TileSet::Factory::clone(src, dst, options.filter
+    TileSet::Factory::clone(src, dst, options.getFilter(*src)
                             , options.staticProperties
                             , options.settableProperties);
     return dst;
@@ -1643,6 +1643,13 @@ void pasteTileSets(const TileSet::pointer &dst
         // just flush
         dst->flush();
     }
+}
+
+CloneOptions::Filter CloneOptions::getFilter(TileSet &tileSet) const
+{
+    if (filter) { return filter; }
+    if (filterFactory) { return filterFactory(tileSet); }
+    return {};
 }
 
 } } // namespace vadstena::tilestorage
