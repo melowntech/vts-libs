@@ -107,6 +107,8 @@ struct TileSet::Detail {
 
     void rollback();
 
+    void watch(utility::Runnable *runnable);
+
     void fixDefaultPosition(const list &tileSets);
 
     TileId parent(const TileId &tileId) const;

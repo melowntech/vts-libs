@@ -121,7 +121,7 @@ std::string Driver::detectType(DetectionContext &context
 void Driver::notRunning() const
 {
     LOGTHROW(warn2, Interrupted)
-        << "Transaction has been interrupted.";
+        << "Operation has been interrupted.";
 }
 
 bool DetectionContext::seen(const std::string &token) const

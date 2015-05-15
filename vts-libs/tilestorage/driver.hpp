@@ -93,10 +93,16 @@ public:
 
     void wannaWrite(const std::string &what) const;
 
+    /** Starts a transaction. Calls watch with pased runnable.
+     */
     void begin(utility::Runnable *runnable = nullptr);
 
+    /** Commits a transaction. Stops watching runnable.
+     */
     void commit();
 
+    /** Rollback a transaction. Stops watching runnable.
+     */
     void rollback();
 
     void flush();
@@ -112,6 +118,12 @@ public:
     bool externallyChanged() const;
 
     DriverProperties properties() const;
+
+    /** Sets runnable that is observed during access operations.
+     *  If stopped runnable is encountered operation throws Interrupted.
+     *  Pass nullptr to stop watching runnable.
+     */
+    void watch(utility::Runnable *runnable);
 
     class Factory;
 
@@ -271,19 +283,24 @@ inline Driver::Resources Driver::resources() const
 inline void Driver::begin(utility::Runnable *runnable)
 {
     begin_impl();
-    runnable_ = runnable;
+    watch(runnable);
 }
 
 inline void Driver::commit()
 {
     commit_impl();
-    runnable_ = nullptr;
+    watch(nullptr);
 }
 
 inline void Driver::rollback()
 {
     rollback_impl();
-    runnable_ = nullptr;
+    watch(nullptr);
+}
+
+inline void Driver::watch(utility::Runnable *runnable)
+{
+    runnable_ = runnable;
 }
 
 inline void Driver::flush()

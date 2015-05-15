@@ -133,6 +133,10 @@ public:
      */
     void rollback();
 
+    /** Starts watching runnable without entering a transaction.
+     */
+    void watch(utility::Runnable *runnable);
+
     /** Check for pending transaction.
      */
     bool inTx() const;

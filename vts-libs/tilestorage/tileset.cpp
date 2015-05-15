@@ -1033,6 +1033,11 @@ void TileSet::Detail::rollback()
     tx = false;
 }
 
+void TileSet::Detail::watch(utility::Runnable *runnable)
+{
+    driver->watch(runnable);
+}
+
 // tileSet itself
 
 TileSet::TileSet(const Driver::pointer &driver)
@@ -1153,6 +1158,12 @@ void TileSet::rollback()
 {
     detail().checkValidity();
     detail().rollback();
+}
+
+void TileSet::watch(utility::Runnable *runnable)
+{
+    detail().checkValidity();
+    detail().watch(runnable);
 }
 
 bool TileSet::inTx() const
@@ -1628,21 +1639,33 @@ LodRange TileSet::lodRange() const {return detail().lodRange; }
 TileSet::Statistics TileSet::stat() const { return detail().stat(); }
 
 void pasteTileSets(const TileSet::pointer &dst
-                   , const TileSet::list &src)
+                   , const TileSet::list &src
+                   , utility::Runnable *runnable)
 {
-    // paste tiles
-    dst->paste(src);
+    try {
+        // paste tiles
+        dst->watch(runnable);
+        dst->paste(src);
 
-    // creates and immediately commits a transaction -> generates metadata in tx
-    // that is flushed and commited
-    if (!dst->inTx()) {
-        // no pending transaction -> create one :)
-        dst->begin();
-        dst->commit();
-    } else {
-        // just flush
-        dst->flush();
+        // creates and immediately commits a transaction -> generates metadata
+        // in tx that is flushed and commited
+        if (!dst->inTx()) {
+            // no pending transaction -> create one :)
+            dst->begin(runnable);
+            dst->commit();
+        } else {
+            // just flush
+            dst->flush();
+        }
+    } catch (const std::exception &e) {
+        LOG(warn3)
+            << "Operation being rolled back due to an error: <"
+            << e.what() << ">.";
+        if (dst->inTx()) {
+            dst->rollback();
+        }
     }
+
 }
 
 CloneOptions::Filter CloneOptions::getFilter(TileSet &tileSet) const

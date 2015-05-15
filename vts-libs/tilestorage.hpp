@@ -25,6 +25,8 @@
 
 #include <opencv2/core/core.hpp>
 
+#include "utility/runnable.hpp"
+
 #include "math/geometry.hpp"
 #include "geometry/parse-obj.hpp"
 
@@ -177,9 +179,11 @@ TileSet::pointer cloneTileSet(const TileSet::pointer &dst
  *
  * \param dst destination tile set
  * \param src source tile sets
+ * \param runnable optional runnable; can signal termination to the algorithm
  */
 void pasteTileSets(const TileSet::pointer &dst
-                   , const TileSet::list &src);
+                   , const TileSet::list &src
+                   , utility::Runnable *runnable = nullptr);
 
 inline StaticProperties::Setter<CloneOptions> CloneOptions::staticSetter() {
     return { staticProperties, this };
