@@ -108,6 +108,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     clog.hpp clog.cpp
     deferredlogger.hpp deferredlogger.cpp
     encryptor.hpp encryptor.cpp
+    keepalive.hpp keepalive.cpp
 
     cameralist.hpp cameralist.cpp
     facetexcoords.hpp facetexcoords.cpp
