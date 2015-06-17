@@ -81,6 +81,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     half)
 
   set(vadstena-libs_SOURCES
+    definitions.hpp imagetypes.hpp
     db.hpp db.cpp
     file.hpp
     entities.hpp entities.cpp
