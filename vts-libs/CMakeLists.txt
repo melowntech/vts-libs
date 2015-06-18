@@ -96,6 +96,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tiling.hpp tiling.cpp
     copyfile.hpp copyfile.cpp
     colorconfig.hpp colorconfig.cpp
+    colortrans.hpp
     entities.hpp
     pc.hpp pc.cpp
     uvpack.hpp uvpack.cpp
