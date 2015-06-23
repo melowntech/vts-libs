@@ -44,7 +44,8 @@ FileStat FileStat::stat(const boost::filesystem::path &path)
         throw e;
     }
 
-    return { st.st_size, st.st_mtime, "application/octet-stream" };
+    return { std::size_t(st.st_size), st.st_mtime
+            , "application/octet-stream" };
 }
 
 FileStat FileStat::stat(int fd)
@@ -58,7 +59,8 @@ FileStat FileStat::stat(int fd)
         throw e;
     }
 
-    return { st.st_size, st.st_mtime, "application/octet-stream" };
+    return { std::size_t(st.st_size), st.st_mtime
+            , "application/octet-stream" };
 }
 
 const char* contentType(File type)

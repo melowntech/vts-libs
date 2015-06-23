@@ -154,7 +154,9 @@ std::streamsize TarDevice::read_impl(char *data, std::streamsize size
 {
     // trim if out of range
     auto end(fd_.end);
-    if (size > (end - pos)) { size = end - pos; }
+    if (size > std::streamsize(end - pos)) {
+        size = end - pos;
+    }
 
     if (!size) { return size; }
 

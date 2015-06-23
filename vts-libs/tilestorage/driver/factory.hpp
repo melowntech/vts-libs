@@ -42,7 +42,7 @@ namespace vadstena { namespace tilestorage {
             return DRIVER_CLASS::detectType_impl(context, location); \
         }                                                               \
                                                                         \
-        static const char* staticType() UTILITY_OVERRIDE                \
+        static const char* staticType()                                 \
         {                                                               \
             return DRIVER_TYPE;                                         \
         }                                                               \

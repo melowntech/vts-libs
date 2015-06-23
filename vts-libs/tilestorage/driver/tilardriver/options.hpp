@@ -44,7 +44,7 @@ struct Options {
 
     /** Tilar options derived from the above for tiles.
      */
-    Tilar::Options tilar(int filesPerTile) const;
+    Tilar::Options tilar(unsigned int filesPerTile) const;
 
     Options(const Driver::CreateProperties &properties);
     Options(const Driver::CreateProperties &properties, bool);
@@ -62,7 +62,7 @@ struct Options {
 
 // inlines
 
-inline Tilar::Options Options::tilar(int filesPerTile) const
+inline Tilar::Options Options::tilar(unsigned int filesPerTile) const
 {
     return { binaryOrder, filesPerTile, uuid };
 }

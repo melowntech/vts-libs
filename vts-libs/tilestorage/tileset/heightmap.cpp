@@ -602,7 +602,7 @@ private:
     cv::Mat raster_;
     cv::Mat mask_;
 
-    const Filter &filter_;
+    const Filter filter_;
 
     Node::list updated_;
 

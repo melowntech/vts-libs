@@ -564,7 +564,7 @@ Tilar::Entry::list ArchiveIndex::list() const
 
 Tilar::Info ArchiveIndex::info() const
 {
-    return { loadedFrom_, previous_, overhead_, timestamp_ };
+    return { loadedFrom_, previous_, overhead_, std::time_t(timestamp_) };
 }
 
 FileStat ArchiveIndex::stat(const FileIndex &index) const
@@ -606,7 +606,8 @@ struct Tilar::Detail
             index.load(fd, checkpoint - indexOffset, true);
         } else if (checkpoint > off_t(header_constants::size)) {
             // more bytes than header
-            if (checkpoint < (index.savedSize() + header_constants::size)) {
+            if (checkpoint < off_t(index.savedSize() + header_constants::size))
+            {
                 LOGTHROW(err1, InvalidSignature)
                     << "File " << fd.path() << " is too short.";
             }
@@ -1082,8 +1083,8 @@ public:
     FileStat stat() const { return device_->stat(); }
 
     ReadOnlyFd readOnlyfd() {
-        return { device_->fd.get(), device_->start, device_->end
-                , true };
+        return { device_->fd.get(), std::size_t(device_->start)
+                , std::size_t(device_->end), true };
     }
 
     class Stream;

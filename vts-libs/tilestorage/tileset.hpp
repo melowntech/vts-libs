@@ -109,7 +109,8 @@ public:
      * \return all new tile set properties after change
      */
     Properties setProperties(const SettableProperties &properties
-                             , SettableProperties::MaskType mask = ~0ul);
+                             , SettableProperties::MaskType mask
+                             = ~SettableProperties::MaskType(0));
 
     /** Flush all pending changes to backing store (e.g. filesystem).
      *
