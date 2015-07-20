@@ -75,7 +75,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
 
   define_module(LIBRARY vadstena-libs DEPENDS
     vadstena-tileset-core
-    service cvision optics math geo utility dbglog jsoncpp
+    service cvision optics math geo geometry utility dbglog jsoncpp
     Boost_FILESYSTEM Boost_REGEX
     OpenCV LIBSHP CRYPTO++ MYSQL++
     half)
