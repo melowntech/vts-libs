@@ -12,24 +12,11 @@ bool operator==(const TileId &lhs, const TileId &rhs);
 
 bool operator!=(const TileId &lhs, const TileId &rhs);
 
-long tileSize(long baseTileSize, Lod lod);
-
-long tileSize(const Properties &properties, Lod lod);
-
-Extents tileExtents(long baseTileSize, const TileId &tile);
-
-Extents tileExtents(const Properties &properties, const TileId &tile);
-
 TileId fromAlignment(const Properties &properties, const TileId &tileId);
 
 TileId parent(const Properties &properties, const TileId &tileId);
 
-TileId parent(const Alignment &alignment, long baseTileSize
-              , const TileId &tileId);
-
-TileIdChildren children(long baseTileSize, const TileId &tileId);
-
-IndexChildren children(const Index &index);
+TileIdChildren children(const TileId &tileId);
 
 bool isMetatile(const LodLevels &levels, const TileId &tile);
 
@@ -37,9 +24,9 @@ Lod deltaDown(const LodLevels &levels, Lod lod);
 
 /** Check whether super tile is above (or exactly the same tile) as tile.
  */
-bool above(long baseTileSize, const TileId &tile, const TileId &super);
+bool above(const TileId &tile, const TileId &super);
 
-int child(const Index &index);
+int child(const TileId &tileId);
 
 bool in(const LodRange &range, const TileId &tileId);
 
@@ -47,119 +34,36 @@ bool in(const LodRange &range, const TileId &tileId);
  */
 std::pair<double, double> area(const Tile &tile);
 
-/** Calculates tileIndex of given tile in tiles from alignment.
- */
-Index tileIndex(const Alignment &alignment, long baseTileSize
-                , const TileId &tileId);
-
 std::string asFilename(const TileId &tileId, TileFile type);
 
 bool fromFilename(TileId &tileId, TileFile &type
                   , const std::string &str
                   , std::string::size_type offset = 0);
 
-void misaligned(const Alignment &alignment, long baseTileSize
-                , const TileId &tileId);
-
 // inline stuff
 
-inline long tileSize(long baseTileSize, Lod lod)
+inline TileId parent(const TileId &tileId)
 {
-    return (lod >= 0) ? (baseTileSize >> lod) : (baseTileSize << -lod);
+    return TileId(tileId.lod - 1, tileId.x >> 1, tileId.y >> 1);
 }
 
-inline long tileSize(const Properties &properties, Lod lod)
+inline TileIdChildren children(const TileId &tileId)
 {
-    return (properties.baseTileSize >> lod);
-}
-
-inline Extents tileExtents(const Properties &properties, const TileId &tile)
-{
-    auto ts(tileSize(properties, tile.lod));
-    return { tile.easting, tile.northing
-            , tile.easting + ts, tile.northing + ts };
-}
-
-inline Extents tileExtents(long baseTileSize, const TileId &tile)
-{
-    auto ts(tileSize(baseTileSize, tile.lod));
-    return { tile.easting, tile.northing
-            , tile.easting + ts, tile.northing + ts };
-}
-
-inline TileId fromAlignment(const Properties &properties, const TileId &tileId)
-{
-    return { tileId.lod, tileId.easting - properties.alignment(0)
-            , tileId.northing - properties.alignment(1) };
-}
-
-inline Index tileIndex(const Alignment &alignment, long baseTileSize
-                       , const TileId &tileId)
-{
-    auto ts(tileSize(baseTileSize, tileId.lod));
-    auto e(std::ldiv(tileId.easting - alignment(0), ts));
-    if (e.rem) { misaligned(alignment, baseTileSize, tileId); }
-    auto n(std::ldiv(tileId.northing - alignment(1), ts));
-    if (n.rem) { misaligned(alignment, baseTileSize, tileId); }
-    return { tileId.lod, e.quot, n.quot };
-}
-
-inline TileId parent(const Properties &properties, const TileId &tileId)
-{
-    return parent(properties.alignment, properties.baseTileSize, tileId);
-}
-
-inline TileId parent(const Alignment &alignment, long baseTileSize
-                     , const TileId &tileId)
-{
-    auto ts(tileSize(baseTileSize, tileId.lod));
-    Point2l tiled((tileId.easting - alignment(0)) / ts
-                  , (tileId.northing - alignment(1)) / ts);
-
-    constexpr auto mask(~(static_cast<decltype(tileId.easting)>(1)));
-
-    return {
-        Lod(tileId.lod - 1)
-        , alignment(0) + (tiled(0) & mask) * ts
-        , alignment(1) + (tiled(1) & mask) * ts
-    };
-}
-
-inline TileIdChildren children(long baseTileSize, const TileId &tileId)
-{
-    Lod lod(tileId.lod + 1);
-    auto ts(tileSize(baseTileSize, lod));
+    TileId base(tileId.lod + 1, tileId.x << 1, tileId.y << 1);
 
     return {{
-        { lod, tileId.easting, tileId.northing }               // lower-left
-        , { lod, tileId.easting + ts, tileId.northing }        // lower-right
-        , { lod, tileId.easting, tileId.northing + ts }        // upper-left
-        , { lod, tileId.easting + ts, tileId.northing +  ts }  // upper-right
-    }};
-}
-
-inline IndexChildren children(const Index &index)
-{
-    Index base(index.lod + 1, index.easting << 1, index.northing << 1);
-
-    return {{
-        base                                                   // lower-left
-        , { base.lod, base.easting + 1, base.northing }        // lower-right
-        , { base.lod, base.easting, base.northing + 1 }        // upper-left
-        , { base.lod, base.easting + 1, base.northing + 1 }    // upper-right
+        base                                      // lower-left
+        , { base.lod, base.x + 1, base.y }        // lower-right
+        , { base.lod, base.x, base.y + 1 }        // upper-left
+        , { base.lod, base.x + 1, base.y + 1 }    // upper-right
     }};
 }
 
 inline bool operator==(const TileId &lhs, const TileId &rhs)
 {
     return ((lhs.lod == rhs.lod)
-            && (lhs.easting == rhs.easting)
-            && (lhs.northing == rhs.northing));
-}
-
-inline bool operator!=(const TileId &lhs, const TileId &rhs)
-{
-    return !(lhs == rhs);
+            && (lhs.x == rhs.x)
+            && (lhs.y == rhs.y));
 }
 
 inline bool isMetatile(const LodLevels &levels, const TileId &tile)
@@ -176,23 +80,17 @@ inline Lod deltaDown(const LodLevels &levels, Lod lod)
     return res;
 }
 
-inline bool above(long baseTileSize, const TileId &tile, const TileId &super)
+inline bool above(const TileId &tile, const TileId &super)
 {
-    // tile cannot be above super tile
-    if (tile.lod < super.lod) { return false; }
-
-    auto te(tileExtents(baseTileSize, tile));
-    auto se(tileExtents(baseTileSize, super));
-
-    return ((te.ll(0) >= se.ll(0))
-            && (te.ll(1) >= se.ll(1))
-            && (te.ur(0) <= se.ur(0))
-            && (te.ur(1) <= se.ur(1)));
+    (void) tile;
+    (void) super;
+    // FIXME: implement me
+    return false;
 }
 
-inline int child(const Index &index)
+inline int child(const TileId &tileId)
 {
-    return (index.easting & 1l) + ((index.northing & 1l) << 1);
+    return (tileId.x & 1l) + ((tileId.y & 1l) << 1);
 }
 
 inline bool in(const LodRange &range, const TileId &tileId)

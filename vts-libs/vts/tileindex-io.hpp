@@ -3,10 +3,6 @@
 
 #include <iostream>
 
-#include <boost/spirit/include/qi.hpp>
-#include <boost/spirit/include/qi_match.hpp>
-#include <boost/spirit/include/qi_match_auto.hpp>
-
 #include "./tileindex.hpp"
 
 namespace vadstena { namespace vts {
@@ -18,7 +14,6 @@ operator<<(std::basic_ostream<CharT, Traits> &os
 {
     os << "TileIndex:"
        << "\n    lods: " << i.lodRange()
-       << "\n    extents: " << i.extents()
        << "\n";
 
     return os;

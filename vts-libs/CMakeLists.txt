@@ -209,16 +209,13 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
 
     vts.hpp
     vts/types.hpp
-    vts/storage.hpp vts/storage.cpp
     vts/tileset.hpp vts/tileset.cpp
     vts/po.hpp
     vts/tileindex.hpp vts/tileindex.cpp
     vts/metatile.hpp vts/metatile.cpp
 
-    vts/merge.hpp vts/merge.cpp
     vts/tileset/merge.cpp
     vts/tileset/dump.hpp
-    vts/tileset/heightmap.cpp
 
     licence/fingerprint.hpp licence/fingerprint.cpp
 

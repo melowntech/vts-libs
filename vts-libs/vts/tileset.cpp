@@ -194,11 +194,11 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
     , tx(false)
 {
     loadConfig();
-    // load tile index only if foat is valid
-    if (properties.foatSize) {
+    // load tile index only if there are any tiles
+    if (properties.hasData) {
         loadTileIndex();
     } else {
-        tileIndex = { properties.baseTileSize };
+        tileIndex = {};
     }
 }
 
@@ -231,16 +231,13 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     // force save of properties
     p.driver = driver->properties();
 
-    // leave foat and foat size to be zero
-    // leave default position
-
     // set templates
-    p.meshTemplate = "{lod}-{easting}-{northing}.bin";
-    p.textureTemplate = "{lod}-{easting}-{northing}.jpg";
-    p.metaTemplate = "{lod}-{easting}-{northing}.meta";
+    p.meshTemplate = "{lod}-{x}-{y}.bin";
+    p.textureTemplate = "{lod}-{x}-{y}.jpg";
+    p.metaTemplate = "{lod}-{x}-{y}.meta";
 
     // tile index must be properly initialized
-    tileIndex = { p.baseTileSize };
+    tileIndex = {};
 
     saveConfig();
 }
@@ -255,20 +252,6 @@ TileSet::Detail::~Detail()
             << "Tile set <" << properties.id
             << "> is not flushed on destruction: data could be unusable.";
     }
-}
-
-void TileSet::Detail::setFoat(const TileId &tileId)
-{
-    properties.foat = tileId;
-    properties.foatSize = tileSize(properties, tileId.lod);
-    propertiesChanged = true;
-}
-
-void TileSet::Detail::resetFoat()
-{
-    properties.foat = {};
-    properties.foatSize = 0;
-    propertiesChanged = true;
 }
 
 void TileSet::Detail::loadConfig()
@@ -309,23 +292,16 @@ void TileSet::Detail::saveMetadata()
 {
     driver->wannaWrite("save metadata");
 
-    // purge out nonexistent leaves from metadata tree (recalculates extents)
-    purgeMetadata();
-
     // create tile index
-    TileIndex ti(properties.alignment, properties.baseTileSize
-                 , extents, lodRange);
+    TileIndex ti(lodRange);
     LOG(info1) << "New tile index:\n" << ti;
 
     // create metatile index
-    TileIndex mi(properties.alignment, properties.baseTileSize
-                 , extents, {properties.foat.lod, lodRange.max});
+    TileIndex mi({0, lodRange.max});
     LOG(info1) << "New metatile index:\n" << mi;
 
     // well, dump metatiles now
     saveMetatiles(ti, mi);
-
-    dropRemovedMetatiles(metaIndex, mi);
 
     // save index
     try {
@@ -343,10 +319,9 @@ void TileSet::Detail::saveMetadata()
     metaIndex = mi;
 
     if (metadata.empty()) {
-        // no tile, we should invalidate foat
-        resetFoat();
-        LOG(info1) << "Tile set <" << properties.id << ">: New foat is "
-                   << properties.foat << ".";
+        // no tile, we should invalidate tileset
+        properties.hasData = false;
+        propertiesChanged = true;
     }
 
     // saved => no change
@@ -356,8 +331,8 @@ void TileSet::Detail::saveMetadata()
 void TileSet::Detail::loadTileIndex()
 {
     try {
-        tileIndex = { properties.baseTileSize };
-        metaIndex = { properties.baseTileSize };
+        tileIndex = {};
+        metaIndex = {};
         auto f(driver->input(File::tileIndex));
         tileIndex.load(*f);
         metaIndex.load(*f);
@@ -369,7 +344,6 @@ void TileSet::Detail::loadTileIndex()
 
     // new extents
     lodRange = tileIndex.lodRange();
-    extents = tileIndex.extents();
     LOG(info2) << "Loaded tile index: " << tileIndex;
 }
 
@@ -410,16 +384,11 @@ MetaNode TileSet::Detail::setMetaNode(const TileId &tileId
     auto newNode(*findMetaNode(tileId));
 
     // update extents/lod-range
-    if (math::empty(extents)) {
-        // invalid extents, add first tile!
-        extents = tileExtents(properties, tileId);
+    if (lodRange.empty()) {
         // initial lod range
         lodRange.min = lodRange.max = tileId.lod;
     } else {
         // add tile
-
-        // update extents
-        extents = unite(extents, tileExtents(properties, tileId));
 
         // update lod range
         if (tileId.lod < lodRange.min) {
@@ -429,17 +398,8 @@ MetaNode TileSet::Detail::setMetaNode(const TileId &tileId
         }
     }
 
-    // remember old foat
-    auto oldFoat(properties.foat);
-
     // layout updated -> update zboxes up the tree
     updateTree(tileId, newNode);
-
-    // if added tile was outside of old foat we have to generate tree from old
-    // foat to new foat (which was generated above)
-    if (!above(properties.baseTileSize, tileId, oldFoat)) {
-        updateTree(oldFoat);
-    }
 
     metadataChanged = true;
 
@@ -467,12 +427,11 @@ TileSet::Detail::createVirtualMetaNode(const TileId &tileId)
 }
 
 void loadMetatileFromFile(const IStream::pointer &f, Metadata &metadata
-                           , long baseTileSize
                            , const TileId &tileId
                            , const MetaNodeNotify &notify = MetaNodeNotify())
 {
     vts::loadMetatile
-        (*f, baseTileSize, tileId, [&metadata]
+        (*f, tileId, [&metadata]
          (const TileId &tileId, const MetaNode &node, std::uint8_t)
          {
              metadata.insert(Metadata::value_type(tileId, node));
@@ -487,7 +446,7 @@ void TileSet::Detail
 {
     auto f(driver->input(tileId, TileFile::meta));
     vts::loadMetatileFromFile
-        (f, metadata, properties.baseTileSize, tileId, notify);
+        (f, metadata, tileId, notify);
     f->close();
 }
 
@@ -513,23 +472,16 @@ MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId)
     }
 
     // sanity check
-    if (!savedProperties.foatSize) {
+    if (savedProperties.hasData) {
         // no data on disk
         return nullptr;
     }
 
-    if (!above(savedProperties.baseTileSize, tileId, savedProperties.foat)) {
-        // foat is not above tile -> cannot be present on disk
-        return nullptr;
-    }
-
     auto metaId(tileId);
-    while ((metaId != savedProperties.foat)
+    while (metaId.lod
            && !isMetatile(savedProperties.metaLevels, metaId))
     {
-        metaId = vts::parent(savedProperties.alignment
-                                     , savedProperties.baseTileSize
-                                     , metaId);
+        metaId = vts::parent(metaId);
     }
 
     if (!metaIndex.exists(metaId)) {
@@ -576,13 +528,7 @@ void TileSet::Detail::setMetadata(const TileId &tileId
 
 void TileSet::Detail::check(const TileId &tileId) const
 {
-    auto ts(tileSize(properties, tileId.lod));
-
-    auto aligned(fromAlignment(properties, tileId));
-    if ((aligned.easting % ts) || (aligned.northing % ts)) {
-        LOGTHROW(err2, NoSuchTile)
-            << "Misaligned tile at " << tileId << " cannot exist.";
-    }
+    (void) tileId;
 }
 
 void TileSet::Detail::checkTx(const std::string &action) const
@@ -604,7 +550,7 @@ void TileSet::Detail::updateTreeMetadata(const TileId &tileId
                                  , MetaNode &metanode)
 {
     // process all 4 children
-    for (const auto &childId : children(properties.baseTileSize, tileId)) {
+    for (const auto &childId : children(tileId)) {
         if (auto *node = findMetaNode(childId)) {
             metanode.gsd = std::min(metanode.gsd, node->gsd);
         }
@@ -631,7 +577,7 @@ void TileSet::Detail::updateTree(const TileId &tileId
     bool minGsdSet = false;
 
     // process all 4 children
-    for (const auto &childId : children(properties.baseTileSize, tileId)) {
+    for (const auto &childId : children(tileId)) {
         if (auto *node = findMetaNode(childId)) {
             metanode.zmin = std::min(metanode.zmin, node->zmin);
             metanode.zmax = std::max(metanode.zmax, node->zmax);
@@ -640,18 +586,12 @@ void TileSet::Detail::updateTree(const TileId &tileId
         }
     }
 
-    if(minGsdSet){
+    if (minGsdSet) {
         metanode.gsd = minGsd;
     }
-    // this tile is (current) foat -> no parent can ever exist (until real tile
-    // is added)
-    if (isFoat(tileId)) {
-        // we reached foat tile => way up
-        if (tileId != properties.foat) {
-            setFoat(tileId);
-            LOG(info2) << "Tile set <" << properties.id
-                       << ">: New foat is " << properties.foat << ".";
-        }
+
+    if (!tileId.lod) {
+        // reached root
         return;
     }
 
@@ -663,19 +603,6 @@ void TileSet::Detail::updateTree(const TileId &tileId
         // parent
         updateTree(parentId, createVirtualMetaNode(parentId));
     }
-}
-
-bool TileSet::Detail::isFoat(const TileId &tileId) const
-{
-    if (extents.ll(0) < tileId.easting) { return false; }
-    if (extents.ll(1) < tileId.northing) { return false; }
-
-    auto ts(tileSize(properties.baseTileSize, tileId.lod));
-
-    if (extents.ur(0) > (tileId.easting + ts)) { return false; }
-    if (extents.ur(1) > (tileId.northing + ts)) { return false; }
-
-    return true;
 }
 
 void TileSet::Detail::flush()
@@ -703,137 +630,10 @@ void TileSet::Detail::flush()
     LOG(info3) << "Tile set <" << properties.id << ">: flushed.";
 }
 
-
-void TileSet::Detail::removeOverFoat()
-{
-    // this is purgeMetadata helper function
-    for (;;) {
-        const auto tileId(properties.foat);
-
-        const auto *node(findMetaNode(tileId));
-        if (!node || node->exists()) {
-            // there is no such node (eh?) or it has valid tile
-            return;
-        }
-
-        boost::optional<TileId> foatChild;
-        // process children
-        for (auto childId : children(properties.baseTileSize, tileId)) {
-            if (findMetaNode(childId)) {
-                if (foatChild) {
-                    // more than one child -> cannot trim foat
-                    return;
-                }
-                // we have foat child!
-                foatChild = childId;
-            }
-        }
-
-        if (!foatChild) {
-            // current foat has more children -> done
-            return;
-        }
-
-        // single foat child -> we can remove foat
-        driver->remove(tileId, TileFile::meta);
-        metadata.erase(tileId);
-        metadataChanged = true;
-
-        // remember new foat
-        setFoat(*foatChild);
-        LOG(info2) << "Decreased foat to " << properties.foat;
-
-        // try next level
-    }
-}
-
-void TileSet::Detail::purgeMetadata()
-{
-    struct Crawler {
-        Crawler(TileSet::Detail &detail, Extents &extents
-                , LodRange &lodRange)
-            : detail(detail), extents(extents), lodRange(lodRange)
-        {}
-
-        /** Processes given tile and returns whether tile was kept in the tree
-         */
-        bool purge(const TileId &tileId) {
-            const auto *node(detail.findMetaNode(tileId));
-            if (!node) { return false; }
-
-            LOG(info1) << "(purge): " << tileId;
-
-            int hasChild(0);
-            // process children
-            for (auto childId
-                     : children(detail.properties.baseTileSize, tileId))
-            {
-                hasChild += purge(childId);
-            }
-
-            if (!hasChild && !node->exists()) {
-                // no children and no content -> kill
-                detail.driver->remove(tileId, TileFile::meta);
-                detail.metadata.erase(tileId);
-                detail.metadataChanged = true;
-                return false;
-            } else if (node->exists()) {
-                // update extents
-                extents = unite(extents, tileExtents
-                                (detail.properties.baseTileSize, tileId));
-
-                if (lodRange.empty()) {
-                    lodRange.min = lodRange.max = tileId.lod;
-                } else if (tileId.lod < lodRange.min) {
-                    lodRange.min = tileId.lod;
-                } else if (tileId.lod > lodRange.max) {
-                    lodRange.max = tileId.lod;
-                }
-            }
-
-            // keep this node
-            return true;
-        }
-
-        TileSet::Detail &detail;
-        Extents &extents;
-        LodRange &lodRange;
-    };
-
-    Extents newExtents(math::InvalidExtents{});
-    LodRange newLodRange(0, -1);
-
-    if (!Crawler(*this, newExtents, newLodRange).purge(properties.foat)) {
-        // FOAT has been removed! Empty storage!
-        resetFoat();
-        LOG(info2) << "Tile set <" << properties.id << ">: New foat is "
-                   << properties.foat << ".";
-        return;
-    }
-
-    // update extents
-    if ((extents.ll != newExtents.ll) || (extents.ur != newExtents.ur)) {
-        LOG(info3) << "Changing extents from " << extents
-                   << " to " << newExtents << ".";
-        extents = newExtents;
-    }
-
-    if ((lodRange.min != newLodRange.min)
-        || (lodRange.max != newLodRange.max))
-    {
-        LOG(info3) << "Changing lod range from " << lodRange
-                   << " to " << newLodRange << ".";
-        lodRange = newLodRange;
-    }
-
-    // remove over FOAT
-    removeOverFoat();
-}
-
 void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)
     const
 {
-    if (!properties.foatSize) {
+    if (properties.hasData) {
         // no data
         return;
     }
@@ -866,9 +666,8 @@ void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)
         }
     };
 
-    vts::saveMetatile(properties.baseTileSize, properties.foat
-                              , properties.metaLevels
-                              , Saver(*this, tileIndex, metaIndex));
+    vts::saveMetatile({}, properties.metaLevels
+                      , Saver(*this, tileIndex, metaIndex));
 }
 
 Tile TileSet::Detail::getTile(const TileId &tileId) const
@@ -1018,14 +817,14 @@ void TileSet::Detail::rollback()
     loadConfig();
 
     // destroy tile index
-    tileIndex = { savedProperties.baseTileSize };
+    tileIndex = {};
     metadata = {};
     loadedMetatiles = {};
     metadataChanged = false;
     propertiesChanged = false;
 
-    if (savedProperties.foatSize) {
-        // load tile index only if foat is valid
+    if (savedProperties.hasData) {
+        // load tile index only if there are any tiles
         loadTileIndex();
     }
 
@@ -1175,8 +974,7 @@ void TileSet::Detail::clone(const Detail &src)
 {
     // update properties
     properties.driver = driver->properties();
-    properties.foat = src.properties.foat;
-    properties.foatSize = src.properties.foatSize;
+    properties.hasData = src.properties.hasData;
     propertiesChanged = true;
 
     const auto &sd(*src.driver);
@@ -1213,8 +1011,7 @@ void TileSet::Detail::clone(const Detail &src)
         } else {
             // must load into memory, saved in flush
             auto f(sd.input(metaId, TileFile::meta));
-            vts::loadMetatileFromFile
-                  (f, metadata, properties.baseTileSize, metaId);
+            vts::loadMetatileFromFile(f, metadata, metaId);
             f->close();
         }
         (++progress).report(reportRatio, name);
@@ -1228,8 +1025,8 @@ void TileSet::Detail::clone(const Detail &src)
     flush();
 
     // load index if we have anything
-    if (savedProperties.foatSize) {
-        // load tile index only if foat is valid
+    if (savedProperties.hasData) {
+        // load tile index only if there are any tiles
         loadTileIndex();
     }
 }
@@ -1256,7 +1053,7 @@ void TileSet::Detail::clone(const Detail &src
                         % src.properties.id % properties.id));
     traverseTiles(src.tileIndex, [&](const TileId &tileId)
     {
-        if (!filter(tileId.lod, tileExtents(properties, tileId))) {
+        if (!filter(tileId.lod, {})) {
             (++progress).report(reportRatio, name);
             return;
         }
@@ -1282,37 +1079,16 @@ void TileSet::Detail::clone(const Detail &src
 
     // reload in new stuff
     loadConfig();
-    if (savedProperties.foatSize) {
-        // load tile index only if foat is valid
+    if (savedProperties.hasData) {
+        // load tile index only if there are any tiles
         loadTileIndex();
     }
 }
 
-void TileSet::Detail::dropRemovedMetatiles(const TileIndex &before
-                                           , const TileIndex &after)
-{
-    // calculate difference between original and new state
-    auto remove(difference(properties.alignment, before, after));
-
-    {
-        const auto *dumpRoot(getDumpDir());
-        LOG(info1) << "dumpRoot: " << dumpRoot;
-        dumpTileIndex(dumpRoot, "rm-before", before);
-        dumpTileIndex(dumpRoot, "rm-after", after);
-        dumpTileIndex(dumpRoot, "rm-remove", remove);
-    }
-
-    // copy metatiles
-    traverseTiles(remove, [&](const TileId &metaId)
-    {
-        driver->remove(metaId, TileFile::meta);
-    });
-}
-
 bool TileSet::empty() const
 {
-    // no foat -> no tile
-    return !detail().properties.foatSize;
+    // has tiles?
+    return !detail().properties.hasData;
 }
 
 void TileSet::drop()
@@ -1395,14 +1171,14 @@ void TileSet::AdvancedApi::regenerateTileIndex()
     auto &detail(tileSet_->detail());
     detail.checkValidity();
 
-    if (!detail.savedProperties.foatSize) {
+    if (!detail.savedProperties.hasData) {
         // TODO: save empty index if nothing there
         return;
     }
 
     Metadata metadata;
 
-    std::queue<TileId> subtrees({ detail.savedProperties.foat });
+    std::queue<TileId> subtrees({0, 0, 0});
 
     while (!subtrees.empty()) {
         detail.loadMetatileFromFile
@@ -1496,7 +1272,7 @@ void TileSet::AdvancedApi::removeOutOfLodRange( const TileId &tileId
 
     if(auto *node = detail.findMetaNode(tileId)){
         (void ) node;
-        for (const auto &childId : children(detail.properties.baseTileSize, tileId)) {
+        for (const auto &childId : children(tileId)) {
             removeOutOfLodRange(childId, lodRange);
         }
         //if leaf node and outside of the extents, remove tile
@@ -1511,38 +1287,10 @@ void TileSet::AdvancedApi::removeOutOfLodRange( const LodRange & lodRange )
 {
     auto &detail(tileSet_->detail());
 
-    removeOutOfLodRange( detail.properties.foat, lodRange );
+    removeOutOfLodRange({}, lodRange);
 
     detail.metadataChanged = true;
 }
-
-void TileSet::AdvancedApi::removeOutOfExtents( const TileId &tileId
-                                             , const math::Extents2 & extents )
-{
-    auto &detail(tileSet_->detail());
-
-    if(auto *node = detail.findMetaNode(tileId)){
-        (void ) node;
-        for (const auto &childId : children(detail.properties.baseTileSize, tileId)) {
-            removeOutOfExtents(childId, extents);
-        }
-        //if leaf node and outside of the extents, remove tile
-        if(!math::overlaps(tileExtents(detail.properties.baseTileSize, tileId), extents )){
-            LOG(info2)<< "Removing tile "<<tileId;
-            tileSet_->removeTile(tileId);
-        }
-    }
-}
-
-void TileSet::AdvancedApi::removeOutOfExtents( const math::Extents2 & extents )
-{
-    auto &detail(tileSet_->detail());
-
-    removeOutOfExtents( detail.properties.foat, extents );
-
-    detail.metadataChanged = true;
-}
-
 
 void TileSet::AdvancedApi::forceMetadata( const TileId tileId
                                         , const TileMetadata &metadata
@@ -1560,7 +1308,7 @@ void TileSet::AdvancedApi::forceMetadata( const TileId tileId
             node->coarseness = metadata.coarseness;
         }
 
-        for (const auto &childId : children(detail.properties.baseTileSize, tileId)) {
+        for (const auto &childId : children(tileId)) {
             forceMetadata(childId, metadata, mask);
         }
     };
@@ -1572,7 +1320,7 @@ void TileSet::AdvancedApi::forceMetadata( const TileMetadata &metadata
     (void) mask;
     auto &detail(tileSet_->detail());
 
-    forceMetadata( detail.properties.foat, metadata, mask );
+    forceMetadata({}, metadata, mask);
 
     detail.metadataChanged = true;
 }
@@ -1592,30 +1340,6 @@ bool TileSet::compatible(const TileSet &other)
          return false;
     }
 
-    if (oProps.baseTileSize != props.baseTileSize) {
-        LOG(warn2)
-            << "Tile set <" << props.id
-            << ">: set <" << oProps.id
-            << "> has incompatible base tile size.";
-        return false;
-    }
-
-    if (oProps.alignment == props.alignment) {
-        // same alignment -> fine
-        return true;
-    }
-
-    // different alignment: we have to check min-lod alignment compatibility
-    auto ts(tileSize(oProps, oDetail.lodRange.min));
-
-    auto diff(props.alignment - oProps.alignment);
-    if ((diff(0) % ts) || (diff(1) % ts)) {
-        LOG(warn2)
-            << "Tile set <" << props.id
-            << ">: set <" << oProps.id
-            << "> has incompatible alignment.";
-        return false;
-    }
     return true;
 }
 
@@ -1631,8 +1355,6 @@ TileSet::Statistics TileSet::Detail::stat() const
         , metaIndex.count()
     };
 }
-
-Extents TileSet::extents() const {return detail().extents; }
 
 LodRange TileSet::lodRange() const {return detail().lodRange; }
 

@@ -189,10 +189,6 @@ public:
      */
     void paste(const list &update);
 
-    /** Returns extents covered by tiles.
-     */
-    Extents extents() const;
-
     /** Returns lod range covered by tiles.
      */
     LodRange lodRange() const;

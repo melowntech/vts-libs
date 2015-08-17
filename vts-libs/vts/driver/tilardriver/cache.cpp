@@ -156,7 +156,7 @@ Cache::Archives::Archives(const fs::path &root, const std::string &extension
 fs::path Cache::Archives::filePath(const Index &index) const
 {
     const auto filename(str(boost::format("%s-%07d-%07d.%s")
-                            % index.lod % index.easting % index.northing
+                            % index.lod % index.x % index.y
                             % extension));
     const auto parent(root / dir(filename));
     create_directories(parent);

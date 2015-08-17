@@ -30,35 +30,8 @@
 #include "./vts/error.hpp"
 #include "./vts/types.hpp"
 #include "./vts/tileset.hpp"
-#include "./vts/storage.hpp"
 
 namespace vadstena { namespace vts {
-
-/** Creates new storage.
- *
- * \param root storage root
- * \param properties properties to initialize output tile set with
- * \param mode what to do when storage already exists:
- *                 * failIfExists: storage must not exists prior this call
- *                 * overwrite: new storage is created
- * \return interface to new storage
- * \throws Error if storage cannot be created
- */
-Storage::pointer createStorage(const boost::filesystem::path &root
-                               , const StorageCreateProperties &properties
-                               , CreateMode mode = CreateMode::failIfExists);
-
-/** Opens existing storage.
- *
- * \param root storage root
- * \param mode what operations are allowed on storage:
- *                 * readOnly: only getters are allowed
- *                 * readWrite: both getters and setters are allowed
- * \return interface to new storage
- * \throws Error if storage cannot be opened
- */
-Storage::pointer openStorage(const boost::filesystem::path &root
-                             , OpenMode mode = OpenMode::readOnly);
 
 /** Creates new tile set.
  *

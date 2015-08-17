@@ -50,8 +50,8 @@ template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits> &os, const TileId &tid)
 {
-    return os << '(' << tid.lod << ", " << tid.easting
-              << ", " << tid.northing << ')';
+    return os << '(' << tid.lod << ", " << tid.x
+              << ", " << tid.y << ')';
 }
 
 template<typename CharT, typename Traits>
@@ -61,8 +61,8 @@ dump(std::basic_ostream<CharT, Traits> &os
      , const std::string &prefix = std::string())
 {
     os << prefix << "lod = " << tid.lod << '\n'
-       << prefix << "easting = " << tid.easting << '\n'
-       << prefix << "northing = " << tid.northing << '\n'
+       << prefix << "x = " << tid.x << '\n'
+       << prefix << "y = " << tid.y << '\n'
         ;
 
     return os;
@@ -91,8 +91,8 @@ dump(std::basic_ostream<CharT, Traits> &os
      , const AsPosition &p
      , const std::string &prefix = std::string())
 {
-    os << prefix << "easting = " << p.p(0) << '\n'
-       << prefix << "northing = " << p.p(1) << '\n'
+    os << prefix << "x = " << p.p(0) << '\n'
+       << prefix << "y = " << p.p(1) << '\n'
        << prefix << "altitude = " << p.p(2) << '\n'
         ;
 
@@ -157,9 +157,6 @@ dump(std::basic_ostream<CharT, Traits> &os
 {
     os << prefix << "id = " << p.id << '\n';
     dump(os, p.metaLevels, prefix + "metaLevels.");
-    os << prefix << "baseTileSize = " << p.baseTileSize << '\n'
-       << prefix << "alignment = " << p.alignment(0) << ','
-       << p.alignment(1) << '\n';
     os << prefix << "srs = " << p.srs << '\n';
     dump(os, p.driver, prefix);
     return os;
@@ -190,8 +187,7 @@ dump(std::basic_ostream<CharT, Traits> &os
 {
     dump(os, static_cast<const StaticProperties&>(p), prefix);
 
-    dump(os, p.foat, prefix + "foat.");
-    os << prefix << "foat.size = " << p.foatSize << '\n'
+    os << prefix << "hasData = " << p.hasData << '\n'
        << prefix << "meshTemplate = " << p.meshTemplate << '\n'
        << prefix << "textureTemplate = " << p.textureTemplate << '\n'
        << prefix << "metaTemplate = " << p.metaTemplate << '\n'
@@ -200,14 +196,6 @@ dump(std::basic_ostream<CharT, Traits> &os
     dump(os, static_cast<const SettableProperties&>(p), prefix);
 
     return os;
-}
-
-template<typename CharT, typename Traits>
-inline std::basic_ostream<CharT, Traits>&
-operator<<(std::basic_ostream<CharT, Traits> &os, const Index &tid)
-{
-    return os << '(' << tid.lod << ", " << tid.easting
-              << ", " << tid.northing << ')';
 }
 
 UTILITY_GENERATE_ENUM_IO(TileFile,

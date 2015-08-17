@@ -43,14 +43,6 @@ struct StaticProperties {
      */
     LodLevels metaLevels;
 
-    /** Tile size at LOD=0.
-     */
-    long baseTileSize;
-
-    /** Tile alignment. No tile exists that contains this point inside.
-     */
-    Alignment alignment;
-
     /** Spatial reference system of map.
      */
     std::string srs;
@@ -64,18 +56,16 @@ struct StaticProperties {
     struct Mask { enum {             // mask bitfields
         id = 0x001
         , metaLevels = 0x002
-        , baseTileSize = 0x004
-        , alignment = 0x008
         , srs = 0x010
         , driver = 0x020
         // IF YOU WANT TO NEW ITEM DO NOT COLIDE WITH SettableProperties
         // AND UPDATE ALL:
-        , all = (id | metaLevels | baseTileSize | alignment | srs | driver)
+        , all = (id | metaLevels | srs | driver)
     }; };
 
     typedef int MaskType;
 
-    StaticProperties() : baseTileSize() {}
+    StaticProperties() {}
 
     template <typename> struct Setter;
     struct Wrapper;
@@ -87,7 +77,7 @@ struct StaticProperties {
 /** Tile set properties that can be set anytime.
  */
 struct SettableProperties {
-    math::Point3 defaultPosition;    // easting, northing, altitude
+    math::Point3 defaultPosition;    // x, y, altitude
     math::Point3 defaultOrientation; // yaw, pitch, roll
     short textureQuality;            // JPEG quality
     float texelSize;                 // texelSize
@@ -125,14 +115,13 @@ struct Properties
     : StaticProperties
     , SettableProperties
 {
-    TileId foat;    //!< Identifier of Father-of-All-Tiles metatile
-    long foatSize;  //!< Size of FOAT in meters.
+    bool hasData;                 //!< true if any tile is present
 
     std::string meshTemplate;     //!< mesh file template
     std::string textureTemplate;  //!< texture file template
     std::string metaTemplate;     //!< meta tile file template
 
-    Properties() : foatSize() {}
+    Properties() : hasData(false) {}
 
     StaticProperties& staticProperties() { return *this; }
     const StaticProperties& staticProperties() const { return *this; }
@@ -238,8 +227,6 @@ protected:
 TILESTORAGE_PROPERTIES_SETTER_INIT(StaticProperties)
     TILESTORAGE_PROPERTIES_SETTER(id)
     TILESTORAGE_PROPERTIES_SETTER(metaLevels)
-    TILESTORAGE_PROPERTIES_SETTER(baseTileSize)
-    TILESTORAGE_PROPERTIES_SETTER(alignment)
     TILESTORAGE_PROPERTIES_SETTER(srs)
     TILESTORAGE_PROPERTIES_SETTER(driver)
 TILESTORAGE_PROPERTIES_SETTER_FINI()
@@ -280,8 +267,6 @@ inline bool StaticProperties::merge(const StaticProperties &other
 
     TILESTORAGE_PROPERTIES_MERGE(id);
     TILESTORAGE_PROPERTIES_MERGE(metaLevels);
-    TILESTORAGE_PROPERTIES_MERGE(baseTileSize);
-    TILESTORAGE_PROPERTIES_MERGE(alignment);
     TILESTORAGE_PROPERTIES_MERGE(srs);
     TILESTORAGE_PROPERTIES_MERGE(driver);
 

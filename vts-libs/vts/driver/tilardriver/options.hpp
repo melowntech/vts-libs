@@ -73,10 +73,10 @@ inline Options::Index Options::index(const TileId &tileId, int type) const
     auto i(tileIndex(alignment, baseTileSize, tileId));
     return {
         vts::Index(i.lod
-                           , i.easting >> binaryOrder
-                           , i.northing >> binaryOrder)
-        , Tilar::FileIndex(i.easting & tileMask
-                           , i.northing & tileMask
+                           , i.x >> binaryOrder
+                           , i.y >> binaryOrder)
+        , Tilar::FileIndex(i.x & tileMask
+                           , i.y & tileMask
                            , type)
     };
 }

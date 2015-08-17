@@ -266,7 +266,7 @@ const unsigned METATILE_IO_VERSION = METATILE_IO_VERSION_GDS_AND_COARSENESS;
 //const unsigned METATILE_IO_VERSION = METATILE_IO_VERSION_SCALED_HEIGHTFIELD;
 //const unsigned METATILE_IO_VERSION = METATILE_IO_VERSION_ABSOLUTE_HEIGHTFIELD;
 
-void loadMetatileTree(long baseTileSize, const TileId &tileId
+void loadMetatileTree(const TileId &tileId
                       , const MetaNodeLoader &loader
                       , const MetaNodeNotify &notify
                       , std::istream &f
@@ -285,11 +285,10 @@ void loadMetatileTree(long baseTileSize, const TileId &tileId
 
     std::uint8_t gmask(1);
     std::uint8_t lmask(1 << 4);
-    for (const auto &childId : children(baseTileSize, tileId)) {
+    for (const auto &childId : children(tileId)) {
         if (childFlags & lmask) {
             // node exists and is inside this metatile
-            loadMetatileTree(baseTileSize, childId, loader, notify
-                             , f, version);
+            loadMetatileTree(childId, loader, notify, f, version);
         } else if ((childFlags & gmask) && notify) {
             // node exists but lives inside other metatile
             notify(childId);
@@ -302,7 +301,7 @@ void loadMetatileTree(long baseTileSize, const TileId &tileId
 
 } // namespace
 
-void loadMetatile(std::istream &f, long baseTileSize, const TileId &tileId
+void loadMetatile(std::istream &f, const TileId &tileId
                   , const MetaNodeLoader &loader, const MetaNodeNotify &notify)
 {
     using utility::binaryio::read;
@@ -321,7 +320,7 @@ void loadMetatile(std::istream &f, long baseTileSize, const TileId &tileId
         }
     }
 
-    loadMetatileTree(baseTileSize, tileId, loader, notify, f, version);
+    loadMetatileTree(tileId, loader, notify, f, version);
 }
 
 namespace {
@@ -339,11 +338,10 @@ struct MetatileDef {
 
 class Saver {
 public:
-    Saver(long baseTileSize, const LodLevels &metaLevels
+    Saver(const LodLevels &metaLevels
           , const unsigned int version
           , const MetaNodeSaver &saver)
-        : baseTileSize(baseTileSize), metaLevels(metaLevels)
-        , version(version), saver(saver)
+        : metaLevels(metaLevels), version(version), saver(saver)
     {}
 
     void operator()(const TileId &foat);
@@ -353,7 +351,6 @@ private:
 
     void saveMetatileTree(std::ostream &f, const MetatileDef &tile);
 
-    long baseTileSize;
     LodLevels metaLevels;
     const unsigned int version;
     const MetaNodeSaver &saver;
@@ -391,7 +388,7 @@ void Saver::saveMetatileTree(std::ostream &f, const MetatileDef &tile)
 
     std::uint8_t childFlags(0);
     std::uint8_t mask(1);
-    auto childrenIds(children(baseTileSize, tile.id));
+    auto childrenIds(children(tile.id));
 
     for (const auto &childId : childrenIds) {
         LOG(debug) << "processing child: " << childId;
@@ -439,11 +436,11 @@ void Saver::saveMetatile(const MetatileDef &tile)
 
 } // namespace
 
-void saveMetatile(long baseTileSize, const TileId &foat
+void saveMetatile(const TileId &foat
                   , const LodLevels &metaLevels
                   , const MetaNodeSaver &saver)
 {
-    Saver(baseTileSize, metaLevels, METATILE_IO_VERSION, saver)(foat);
+    Saver(metaLevels, METATILE_IO_VERSION, saver)(foat);
 }
 
 } } // namespace vadstena::vts

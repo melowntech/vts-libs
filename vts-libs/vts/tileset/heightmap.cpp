@@ -142,8 +142,8 @@ public:
 
 private:
     struct LocalTile {
-        long easting;
-        long northing;
+        long x;
+        long y;
 
         /** presence flags of all 8 neighbours
          */
@@ -151,8 +151,8 @@ private:
 
         typedef std::vector<LocalTile> list;
 
-        LocalTile(long easting, long northing, Vicinity vicinity)
-            : easting(easting), northing(northing), vicinity(vicinity)
+        LocalTile(long x, long y, Vicinity vicinity)
+            : x(x), y(y), vicinity(vicinity)
         {}
     };
 
@@ -167,16 +167,16 @@ Frontier::Tile::list Frontier::tiles()
     std::sort(tiles_.begin(), tiles_.end()
               , [](const LocalTile &l, const LocalTile &r) -> bool
     {
-        if (l.northing < r.northing) { return true; }
-        else if (r.northing < l.northing) { return false; }
-        return l.easting < r.easting;
+        if (l.y < r.y) { return true; }
+        else if (r.y < l.y) { return false; }
+        return l.x < r.x;
     });
 
     const LocalTile *prev(nullptr);
     Tile::list tiles;
     for (const auto &tile : tiles_) {
-        if (prev && (prev->easting == tile.easting)
-           && (prev->northing == tile.northing))
+        if (prev && (prev->x == tile.x)
+           && (prev->y == tile.y))
         {
             // same position as previous tile, merge vicinity
             tiles.back().vicinity.merge(tile.vicinity);
@@ -185,8 +185,8 @@ Frontier::Tile::list Frontier::tiles()
 
         // new tile
         tiles.emplace_back
-            (TileId(origin_.lod, origin_.easting + tile.easting * tileSize_
-                    , origin_.northing + tile.northing * tileSize_)
+            (TileId(origin_.lod, origin_.x + tile.x * tileSize_
+                    , origin_.y + tile.y * tileSize_)
              , tile.vicinity);
         prev = &tile;
     }
@@ -202,7 +202,7 @@ void Frontier::debug(const char *dumpDir, const Size2l &size) const
     cv::Mat flags(size.height, size.width, CV_8UC1);
     flags = cv::Scalar(0x00);
     for (const auto &tile : tiles_) {
-        auto &current(flags.at<unsigned char>(tile.northing, tile.easting));
+        auto &current(flags.at<unsigned char>(tile.y, tile.x));
         int value(current + 0x40);
         current = (value > 0xff) ? 0xff : value;
     }
@@ -391,11 +391,12 @@ Frontier::Tile::list createFrontier(const char *dumpDir
             continue;
         }
 
-        rois.emplace_back
-            (ti->fromReference(properties.alignment
-                               , lod, localRois.back().ll)
-             , ti->fromReference(properties.alignment
-                                 , lod, localRois.back().ur));
+        // FIXME
+        // rois.emplace_back
+        //     (ti->fromReference(properties.alignment
+        //                        , lod, localRois.back().ll)
+        //      , ti->fromReference(properties.alignment
+        //                          , lod, localRois.back().ur));
 
         // update common origin
         roi = unite(roi, rois.back());
@@ -502,17 +503,17 @@ public:
 
         TileId id(center.lod);
 
-        // set northing to the bottom tile
-        id.northing = (center.northing - tileSize_ * margin_);
+        // set y to the bottom tile
+        id.y = (center.y - tileSize_ * margin_);
 
         // process all tiles
         for (int j(0), y(0); j < size_.height;
-             ++j, y += step_, id.northing += tileSize_)
+             ++j, y += step_, id.y += tileSize_)
         {
-            // set easting to the left tile
-            id.easting = (center.easting - tileSize_ * margin_);
+            // set x to the left tile
+            id.x = (center.x - tileSize_ * margin_);
             for (int i(0), x(0); i < size_.width;
-                 ++i, x += step_, id.easting += tileSize_)
+                 ++i, x += step_, id.x += tileSize_)
             {
                 const auto *node(ts_.findMetaNode(id));
                 if (!node) { continue; }

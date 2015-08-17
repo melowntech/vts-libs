@@ -87,7 +87,7 @@ typedef std::function<void(const TileId &tileId, const MetaNode &node
 
 typedef std::function<void(const TileId &tileId)> MetaNodeNotify;
 
-void loadMetatile(std::istream &f, long baseTileSize, const TileId &tileId
+void loadMetatile(std::istream &f, const TileId &tileId
                   , const MetaNodeLoader &loader
                   , const MetaNodeNotify &notify = MetaNodeNotify());
 
@@ -103,7 +103,7 @@ struct MetaNodeSaver
 
 typedef std::function<MetaNode*(const TileId &tileId)> MetaNodeGetter;
 
-void saveMetatile(long baseTileSize, const TileId &foat
+void saveMetatile(const TileId &foat
                   , const LodLevels &metaLevels
                   , const MetaNodeSaver &saver);
 

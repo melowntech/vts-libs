@@ -45,30 +45,15 @@ struct Locator {
  */
 struct TileId {
     Lod lod;
-    long easting;
-    long northing;
+    long x;
+    long y;
 
     bool operator<(const TileId &tid) const;
+    bool operator==(const TileId &tid) const;
+    bool operator!=(const TileId &tid) const { return !operator==(tid); }
 
-    TileId(Lod lod = 0, long easting = 0, long northing = 0)
-        : lod(lod), easting(easting), northing(northing)
-    {}
-};
-
-/** Tile index in TileIndex.
- */
-struct Index {
-    Lod lod;
-    long easting;
-    long northing;
-
-    bool operator<(const Index &index) const;
-
-    bool operator==(const Index &index) const;
-    bool operator!=(const Index &index) const { return !operator==(index); }
-
-    Index(Lod lod = 0, long easting = 0, long northing = 0)
-        : lod(lod), easting(easting), northing(northing)
+    TileId(Lod lod = 0, long x = 0, long y = 0)
+        : lod(lod), x(x), y(y)
     {}
 };
 
@@ -82,7 +67,6 @@ typedef Point2l Alignment;
 typedef math::Extents2_<long> Extents;
 
 typedef std::array<TileId, 4> TileIdChildren;
-typedef std::array<Index, 4> IndexChildren;
 
 /** Lod levels.
  */
@@ -112,28 +96,17 @@ inline bool TileId::operator<(const TileId &tileId) const
     if (lod < tileId.lod) { return true; }
     else if (tileId.lod < lod) { return false; }
 
-    if (easting < tileId.easting) { return true; }
-    else if (tileId.easting < easting) { return false; }
+    if (x < tileId.x) { return true; }
+    else if (tileId.x < x) { return false; }
 
-    return northing < tileId.northing;
+    return y < tileId.y;
 }
 
-inline bool Index::operator<(const Index &index) const
+inline bool TileId::operator==(const TileId &tid) const
 {
-    if (lod < index.lod) { return true; }
-    else if (index.lod < lod) { return false; }
-
-    if (easting < index.easting) { return true; }
-    else if (index.easting < easting) { return false; }
-
-    return northing < index.northing;
-}
-
-inline bool Index::operator==(const Index &index) const
-{
-    return ((lod == index.lod)
-            && (easting == index.easting)
-            && (northing == index.northing));
+    return ((lod == tid.lod)
+            && (x == tid.x)
+            && (y == tid.y));
 }
 
 inline Locator::Locator(const std::string &locator)
@@ -170,9 +143,9 @@ inline bool operator!=(const LodLevels &l, const LodLevels &r)
     return !operator==(l, r);
 }
 
-inline Point2l point(const Index &index)
+inline Point2l point(const TileId &tid)
 {
-    return { index.easting, index.northing };
+    return { tid.x, tid.y };
 }
 
 } } // namespace vadstena::vts

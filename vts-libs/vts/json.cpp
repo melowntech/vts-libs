@@ -88,10 +88,7 @@ Properties parse1(const Json::Value &config)
     Properties properties;
     Json::get(properties.id, config, "id");
 
-    Json::get(properties.foat.lod, config, "foat", 0);
-    Json::get(properties.foat.easting, config, "foat", 1);
-    Json::get(properties.foat.northing, config, "foat", 2);
-    Json::get(properties.foatSize, config, "foat", 3);
+    Json::get(properties.hasData, config, "hasData");
 
     Json::get(properties.metaLevels.lod, config, "meta", 0);
     Json::get(properties.metaLevels.delta, config, "meta", 1);
@@ -182,11 +179,7 @@ void build(Json::Value &config, const Properties &properties)
 
     config["id"] = properties.id;
 
-    auto &foat(config["foat"] = Json::Value(Json::arrayValue));
-    foat.append(Json::Int64(properties.foat.lod));
-    foat.append(Json::Int64(properties.foat.easting));
-    foat.append(Json::Int64(properties.foat.northing));
-    foat.append(Json::UInt64(properties.foatSize));
+    config["hasData"].hasData = Json::Boolean(properties.hasData);
 
     auto &meta(config["meta"] = Json::Value(Json::arrayValue));
     meta.append(Json::Int64(properties.metaLevels.lod));

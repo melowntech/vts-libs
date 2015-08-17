@@ -29,7 +29,6 @@ struct TileSet::Detail {
     TileIndex tileIndex;    // tile index that reflects state on the disk
     TileIndex metaIndex;    // metatile index that reflects state on the disk
 
-    Extents extents;              // extents covered by tiles
     LodRange lodRange;            // covered lod range
     mutable Metadata metadata;    // all metadata as in-memory structure
     mutable TileIdSet loadedMetatiles; // marks that given tiles are loaded
@@ -81,8 +80,6 @@ struct TileSet::Detail {
 
     MetaNode& createVirtualMetaNode(const TileId &tileId);
 
-    bool isFoat(const TileId &tileId) const;
-
     void updateTreeMetadata(const TileId &tileId);
 
     void updateTreeMetadata(const TileId &tileId, MetaNode &metanode);
@@ -94,10 +91,6 @@ struct TileSet::Detail {
     void flush();
 
     void purgeMetadata();
-
-    void removeOverFoat();
-
-    void dropRemovedMetatiles(const TileIndex &before, const TileIndex &after);
 
     void saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex) const;
 
@@ -116,10 +109,6 @@ struct TileSet::Detail {
     void clone(const Detail &src);
 
     void clone(const Detail &src, const CloneOptions::Filter &filter);
-
-    void setFoat(const TileId &tileId);
-
-    void resetFoat();
 
     /** Filters heightfield in area affected by bordering tiles of continuous
      *  area and bordering tiles of discrete tiles.
@@ -150,9 +139,7 @@ struct TileSet::Detail {
 
 inline TileId TileSet::Detail::parent(const TileId &tileId) const
 {
-    return vts::parent(properties.alignment
-                               , properties.baseTileSize
-                               , tileId);
+    return vts::parent(tileId);
 }
 
 inline void TileSet::Detail::checkValidity() const
