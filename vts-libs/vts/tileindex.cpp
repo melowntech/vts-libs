@@ -29,7 +29,7 @@ TileIndex::TileIndex(const TileIndex &other)
 {
 }
 
-TileIndex::TileIndex(const TileIndex &other, ShallowCopy)
+TileIndex::TileIndex(const TileIndex &other, DeepCopy)
     : origin_(other.origin_)
     , minLod_(other.minLod_)
 {

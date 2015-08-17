@@ -24,8 +24,8 @@ public:
 
     TileIndex(const TileIndex &other);
 
-    struct ShallowCopy {};
-    TileIndex(const TileIndex &other, ShallowCopy);
+    struct DeepCopy {};
+    TileIndex(const TileIndex &other, DeepCopy);
 
     typedef std::vector<RasterMask> Masks;
 
