@@ -54,6 +54,62 @@ target_link_libraries(vadstena-tileset-core
   ${MODULE_LIBRARIES})
 buildsys_target_compile_definitions(vadstena-tileset-core ${MODULE_DEFINITIONS})
 
+# Create vadstena-vts-browser library with browser files
+file_to_cpp(vadstena-libs_vts_BROWSER_SOURCES
+  vadstena::vts::browser::index_html
+  vts/browser/index.html)
+file_to_cpp(vadstena-libs_vts_BROWSER_SOURCES
+  vadstena::vts::browser::index_offline_html
+  vts/browser/index-offline.html)
+file_to_cpp(vadstena-libs_vts_BROWSER_SOURCES
+  vadstena::vts::browser::skydome_jpg
+  vts/browser/skydome.jpg)
+
+add_library(vadstena-vts-browser STATIC
+  ${vadstena-libs_vts_BROWSER_SOURCES}
+  vts/support.hpp vts/support.cpp
+  )
+buildsys_library(vadstena-vts-browser)
+
+set(vadstena-vts-core_SOURCES
+  vts/basetypes.hpp
+  vts/properties.hpp
+  vts/tileop.hpp vts/tileop.cpp
+  vts/error.hpp
+  vts/io.hpp
+  vts/json.hpp vts/json.cpp
+
+  vts/openfiles.hpp vts/openfiles.cpp
+  vts/tilar.hpp vts/tilar.cpp
+  vts/tilar-io.hpp
+
+  vts/driver.hpp vts/driver/driver.cpp
+  vts/streams.hpp vts/streams.cpp
+  vts/driver/fstreams.hpp vts/driver/fstreams.cpp
+  vts/driver/fsbased.hpp vts/driver/fsbased.cpp
+  vts/driver/flat.hpp
+  vts/driver/hash-crc.hpp vts/driver/hash-crc.cpp
+  vts/driver/ro-base.hpp
+  vts/driver/tar.hpp vts/driver/tar.cpp
+
+  vts/driver/tilardriver.hpp
+  vts/driver/tilardriver/tilardriver.cpp
+  vts/driver/tilardriver/options.hpp
+  vts/driver/tilardriver/cache.hpp
+  vts/driver/tilardriver/cache.cpp
+
+  vts/config.hpp vts/config.cpp
+  )
+
+define_module(LIBRARY vadstena-vts-core DEPENDS
+  math utility dbglog jsoncpp Boost_IOSTREAMS)
+add_library(vadstena-vts-core STATIC ${vadstena-vts-core_SOURCES})
+buildsys_library(vadstena-vts-core)
+target_link_libraries(vadstena-vts-core
+  vadstena-vts-browser
+  ${MODULE_LIBRARIES})
+buildsys_target_compile_definitions(vadstena-vts-core ${MODULE_DEFINITIONS})
+
 if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
   if (BUILDSYS_CUSTOMER_BUILD)
     message(STATUS "Building vadstena-libs customized for customer "
@@ -150,6 +206,19 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/tileset/merge.cpp
     tilestorage/tileset/dump.hpp
     tilestorage/tileset/heightmap.cpp
+
+    vts.hpp
+    vts/types.hpp
+    vts/storage.hpp vts/storage.cpp
+    vts/tileset.hpp vts/tileset.cpp
+    vts/po.hpp
+    vts/tileindex.hpp vts/tileindex.cpp
+    vts/metatile.hpp vts/metatile.cpp
+
+    vts/merge.hpp vts/merge.cpp
+    vts/tileset/merge.cpp
+    vts/tileset/dump.hpp
+    vts/tileset/heightmap.cpp
 
     licence/fingerprint.hpp licence/fingerprint.cpp
 
