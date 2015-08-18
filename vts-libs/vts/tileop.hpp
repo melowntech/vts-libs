@@ -47,11 +47,12 @@ inline TileIdChildren children(const TileId &tileId)
 {
     TileId base(tileId.lod + 1, tileId.x << 1, tileId.y << 1);
 
+    // children must be from lower-left due to adapter
     return {{
-        base                                      // upper-left
-        , { base.lod, base.x + 1, base.y }        // upper-right
-        , { base.lod, base.x, base.y + 1 }        // lower-left
-        , { base.lod, base.x + 1, base.y + 1 }    // lower-right
+        { base.lod, base.x, base.y + 1 }        // lower-left
+        , { base.lod, base.x + 1, base.y + 1 }  // lower-right
+        , base                                  // upper-left
+        , { base.lod, base.x + 1, base.y }      // upper-right
     }};
 }
 
