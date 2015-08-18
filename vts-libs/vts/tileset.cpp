@@ -123,6 +123,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
 TileSet::Detail::Detail(const Driver::pointer &driver
                         , const CreateProperties &properties)
     : driver(driver), propertiesChanged(false)
+    , lodRange(LodRange::emptyRange())
     , metadataChanged(false)
     , tx(false)
 {
@@ -1074,34 +1075,6 @@ void TileSet::AdvancedApi::rename(const std::string &newId)
 
     // propetries has been changed
     detail.propertiesChanged = true;
-}
-
-
-void TileSet::AdvancedApi::removeOutOfLodRange( const TileId &tileId
-                                             , const LodRange & lodRange )
-{
-    auto &detail(tileSet_->detail());
-
-    if(auto *node = detail.findMetaNode(tileId)){
-        (void ) node;
-        for (const auto &childId : children(tileId)) {
-            removeOutOfLodRange(childId, lodRange);
-        }
-        //if leaf node and outside of the extents, remove tile
-        if(tileId.lod < lodRange.min || tileId.lod > lodRange.max){
-            LOG(info2)<< "Removing tile "<<tileId;
-            tileSet_->removeTile(tileId);
-        }
-    }
-}
-
-void TileSet::AdvancedApi::removeOutOfLodRange( const LodRange & lodRange )
-{
-    auto &detail(tileSet_->detail());
-
-    removeOutOfLodRange({}, lodRange);
-
-    detail.metadataChanged = true;
 }
 
 void TileSet::AdvancedApi::forceMetadata( const TileId tileId

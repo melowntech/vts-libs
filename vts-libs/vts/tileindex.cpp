@@ -58,6 +58,8 @@ TileIndex::TileIndex(LodRange lodRange
     for (auto lod : lodRange) {
         masks_.emplace_back(tiling, RasterMask::EMPTY);
 
+        LOG(info4) << lod << ": " << tiling;
+
         // double tile count at next lod
         tiling.width <<= 1;
         tiling.height <<= 1;
@@ -67,6 +69,8 @@ TileIndex::TileIndex(LodRange lodRange
             fill(lod, *other);
         };
     }
+
+    LOG(info4) << "Created TileIndex(" << this->lodRange() << ")";
 }
 
 void TileIndex::fill(Lod lod, const TileIndex &other)
@@ -182,8 +186,7 @@ void TileIndex::save(const fs::path &path) const
 
 namespace {
 
-double initialPixelSize(const RasterMask &mask
-                                       , const long maxArea)
+double pixelSize(const RasterMask &mask, const long maxArea)
 {
     const auto dims(mask.dims());
     long a(long(dims.width) * long(dims.height));
@@ -209,18 +212,16 @@ void dumpAsImages(const fs::path &path, const TileIndex &ti
     auto lod(ti.lodRange().max);
     const auto &masks(ti.masks());
 
-    auto pixelSize(initialPixelSize(masks.back(), maxArea));
     for (auto imasks(masks.rbegin()), emasks(masks.rend());
          imasks != emasks; ++imasks)
     {
         LOG(info1) << "Dumping lod " << lod;
         // rasterize and dump
         auto file(path / str(boost::format("%02d.png") % lod));
-        cv::Mat mat(asCvMat(*imasks, pixelSize));
+        cv::Mat mat(asCvMat(*imasks, pixelSize(*imasks, maxArea)));
         imwrite(file.string().c_str(), mat);
 
         // next level
-        pixelSize *= 2;
         --lod;
     }
 }
