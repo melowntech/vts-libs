@@ -282,12 +282,12 @@ MetaNode TileSet::Detail::setMetaNode(const TileId &tileId
 {
     // this ensures that we have old metanode in memory
     auto old(findMetaNode(tileId));
-    
+
     // update existing node
     if (old) {
         *old = metanode;
     }
-    
+
     // invalid node = node removal -> no metadata update
     if (!valid(metanode)) {
         return metanode;
@@ -297,7 +297,7 @@ MetaNode TileSet::Detail::setMetaNode(const TileId &tileId
     if (!old) {
         metadata.insert(Metadata::value_type(tileId, metanode));
     }
-    
+
     // now there surely is one
     auto newNode(*findMetaNode(tileId));
 

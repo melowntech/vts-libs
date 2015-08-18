@@ -31,7 +31,7 @@ namespace {
 
     const std::string KeyUUID("uuid");
 
-    const std::string ConfigName("mapConfig.json");
+    const std::string ConfigName("config.json");
     const std::string TileIndexName("index.bin");
     const std::string TransactionRoot("tx");
 

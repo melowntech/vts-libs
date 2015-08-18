@@ -47,6 +47,10 @@ struct StaticProperties {
      */
     std::string srs;
 
+    /** Extents of LOD=0.
+     */
+    math::Extents2 extents;
+
     /** Driver properties.
      */
     DriverProperties driver;
@@ -56,11 +60,12 @@ struct StaticProperties {
     struct Mask { enum {             // mask bitfields
         id = 0x001
         , metaLevels = 0x002
+        , extents = 0x004
         , srs = 0x010
         , driver = 0x020
         // IF YOU WANT TO NEW ITEM DO NOT COLIDE WITH SettableProperties
         // AND UPDATE ALL:
-        , all = (id | metaLevels | srs | driver)
+        , all = (id | metaLevels | extents | srs | driver)
     }; };
 
     typedef int MaskType;
@@ -227,6 +232,7 @@ protected:
 TILESTORAGE_PROPERTIES_SETTER_INIT(StaticProperties)
     TILESTORAGE_PROPERTIES_SETTER(id)
     TILESTORAGE_PROPERTIES_SETTER(metaLevels)
+    TILESTORAGE_PROPERTIES_SETTER(extents)
     TILESTORAGE_PROPERTIES_SETTER(srs)
     TILESTORAGE_PROPERTIES_SETTER(driver)
 TILESTORAGE_PROPERTIES_SETTER_FINI()
@@ -267,6 +273,7 @@ inline bool StaticProperties::merge(const StaticProperties &other
 
     TILESTORAGE_PROPERTIES_MERGE(id);
     TILESTORAGE_PROPERTIES_MERGE(metaLevels);
+    TILESTORAGE_PROPERTIES_MERGE(extents);
     TILESTORAGE_PROPERTIES_MERGE(srs);
     TILESTORAGE_PROPERTIES_MERGE(driver);
 

@@ -11,7 +11,7 @@ namespace vadstena { namespace vts {
 
 namespace detail { namespace tileset {
 
-const int CURRENT_JSON_FORMAT_VERSION(3);
+const int CURRENT_JSON_FORMAT_VERSION(1024);
 
 DriverProperties parseDriver(const Json::Value &driver)
 {
@@ -83,7 +83,7 @@ Json::Value buildDriver(const DriverProperties &dp)
     return driver;
 }
 
-Properties parse1(const Json::Value &config)
+Properties parse1024(const Json::Value &config)
 {
     Properties properties;
     Json::get(properties.id, config, "id");
@@ -112,21 +112,12 @@ Properties parse1(const Json::Value &config)
         properties.driver = parseDriver(config["driver"]);
     }
 
-    return properties;
-}
-
-Properties parse2(const Json::Value &config)
-{
-    auto properties(parse1(config));
-
     Json::get(properties.srs, config, "srs");
 
-    return properties;
-}
-
-Properties parse3(const Json::Value &config)
-{
-    auto properties(parse2(config));
+    Json::get(properties.extents.ll(0), config, "extents", 0);
+    Json::get(properties.extents.ll(1), config, "extents", 1);
+    Json::get(properties.extents.ur(0), config, "extents", 2);
+    Json::get(properties.extents.ur(1), config, "extents", 3);
 
     Json::get(properties.texelSize, config, "texelSize");
 
@@ -142,16 +133,8 @@ void parse(Properties &properties, const Json::Value &config)
         Json::get(version, config, "version");
 
         switch (version) {
-        case 1:
-            properties = detail::tileset::parse1(config);
-            return;
-
-        case 2:
-            properties = detail::tileset::parse2(config);
-            return;
-
-        case 3:
-            properties = detail::tileset::parse3(config);
+        case 1024:
+            properties = detail::tileset::parse1024(config);
             return;
         }
 
@@ -180,6 +163,12 @@ void build(Json::Value &config, const Properties &properties)
     meta.append(Json::UInt64(properties.metaLevels.delta));
 
     config["srs"] = properties.srs;
+
+    auto &extents(config["extents"] = Json::Value(Json::arrayValue));
+    extents.append(properties.extents.ll(0));
+    extents.append(properties.extents.ll(1));
+    extents.append(properties.extents.ur(0));
+    extents.append(properties.extents.ur(1));
 
     config["meshTemplate"] = properties.meshTemplate;
     config["textureTemplate"] = properties.textureTemplate;

@@ -48,6 +48,9 @@ TileIndex::TileIndex(LodRange lodRange
         lodRange = unite(lodRange, other->lodRange());
     }
 
+    // set minimum LOD
+    minLod_ = lodRange.min;
+
     // tiling for lowest lod
     math::Size2i tiling(1 << lodRange.min, 1 << lodRange.min);
 
@@ -124,7 +127,7 @@ void TileIndex::load(std::istream &f)
     read(f, o);
     origin_(1) = o;
 
-    int16_t minLod, size;
+    int16_t minLod(0), size(0);
     read(f, minLod);
     read(f, size);
     minLod_ = minLod;
