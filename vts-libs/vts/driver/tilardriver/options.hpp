@@ -16,14 +16,6 @@
 namespace vadstena { namespace vts { namespace tilardriver {
 
 struct Options {
-    /** Tile size at LOD=0.
-     */
-    long baseTileSize;
-
-    /** Tile alignment. No tile exists that contains this point inside.
-     */
-    Alignment alignment;
-
     /** Binary order of magnitude of data stored in the individial tile
      *  archives (each archive has square grid of
      *  (2^binaryOrder_)*(2^binaryOrder_) tiles.
@@ -50,7 +42,7 @@ struct Options {
     Options(const Driver::CreateProperties &properties, bool);
 
     struct Index {
-        vts::Index archive;
+        vts::TileId archive;
         Tilar::FileIndex file;
     };
 
@@ -67,17 +59,11 @@ inline Tilar::Options Options::tilar(unsigned int filesPerTile) const
     return { binaryOrder, filesPerTile, uuid };
 }
 
-inline Options::Index Options::index(const TileId &tileId, int type) const
+inline Options::Index Options::index(const TileId &i, int type) const
 {
-    // index of tile from alignment
-    auto i(tileIndex(alignment, baseTileSize, tileId));
     return {
-        vts::Index(i.lod
-                           , i.x >> binaryOrder
-                           , i.y >> binaryOrder)
-        , Tilar::FileIndex(i.x & tileMask
-                           , i.y & tileMask
-                           , type)
+        vts::TileId(i.lod, i.x >> binaryOrder, i.y >> binaryOrder)
+       , Tilar::FileIndex(i.x & tileMask, i.y & tileMask, type)
     };
 }
 

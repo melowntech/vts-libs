@@ -16,31 +16,6 @@
 
 namespace vadstena { namespace vts {
 
-class DetectionContext : boost::noncopyable
-{
-public:
-    /** Returns true if context has notion about given token.
-     */
-    bool seen(const std::string &token) const;
-
-    /** Marks token if not seen already. Returns true if marked.
-     */
-    bool mark(const std::string &token);
-
-    /** Marks token if not seen already. Returns true if marked.
-     *  Given value is associated with token.
-     */
-    bool mark(const std::string &token, const boost::any value);
-
-    /** Returns value associated with given token.
-     */
-    boost::any getValue(const std::string &token) const;
-
-private:
-    typedef std::map<std::string, boost::any> Map;
-    Map map_;
-};
-
 class Driver : boost::noncopyable {
 public:
     typedef std::shared_ptr<Driver> pointer;
@@ -127,22 +102,8 @@ public:
 
     class Factory;
 
-    template <typename DriverClass> static void registerDriver();
-
-    static Driver::pointer create(Locator locator
-                                  , CreateMode mode
-                                  , const CreateProperties &properties);
-
-    static Driver::pointer open(Locator locator, OpenMode mode);
-
-    static std::map<std::string, std::string> listSupportedDrivers();
-
 protected:
     Driver(bool readOnly) : readOnly_(readOnly), runnable_() {}
-
-    static std::string
-    detectTypeFromMapConfig(DetectionContext &context
-                            , const boost::filesystem::path &path);
 
 private:
     virtual OStream::pointer output_impl(const File type) = 0;
@@ -180,11 +141,6 @@ private:
 
     static void registerDriver(const std::shared_ptr<Factory> &factory);
 
-    static std::string detectType(DetectionContext &context
-                                  , const std::string &location);
-
-    virtual void postOpenCheck(const DetectionContext&) {}
-
     void checkRunning() const;
 
     void notRunning() const;
@@ -196,40 +152,7 @@ private:
     utility::Runnable *runnable_;
 };
 
-class Driver::Factory {
-public:
-    typedef std::shared_ptr<Factory> pointer;
-    Factory(const std::string &type) : type(type) {}
-
-    virtual ~Factory() {}
-
-    virtual Driver::pointer
-    create(const std::string location, CreateMode mode
-           , const Driver::CreateProperties &properties)
-        const = 0;
-
-    virtual Driver::pointer open(const std::string location
-                                 , OpenMode mode
-                                 , const DetectionContext &context) const = 0;
-
-    virtual std::string help() const = 0;
-
-    /** Returns type of tileset at given location if location makes sense.
-     */
-    virtual std::string detectType(DetectionContext &context
-                                   , const std::string &location)
-        const = 0;
-
-    const std::string type;
-};
-
 // inline stuff
-
-template <typename DriverClass>
-void Driver::registerDriver()
-{
-    registerDriver(std::make_shared<typename DriverClass::Factory>());
-}
 
 inline OStream::pointer Driver::output(File type)
 {

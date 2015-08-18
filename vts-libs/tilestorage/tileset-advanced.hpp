@@ -45,6 +45,8 @@ public:
      */
     FileStat stat(const TileId tileId, TileFile type) const;
 
+    MetaNode* findMetaNode(const TileId &tileId) const;
+
     /** Change metalevels. Metatiles and tile/meta indices are regenerated.
      */
     void changeMetaLevels(const LodLevels &metaLevels);
@@ -105,6 +107,8 @@ public:
     /** Traverse metatiles. Calls op(TileId) for each existing metatile.
      */
     template <typename Op> void traverseMetas(const Op &op) const;
+
+    std::size_t tileCount() const { return tileIndex().count(); }
 
 private:
     /** Returns tile index.

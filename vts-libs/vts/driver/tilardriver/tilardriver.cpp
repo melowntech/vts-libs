@@ -125,9 +125,7 @@ long mask(int order)
 }
 
 Options::Options(const Driver::CreateProperties &properties)
-    : baseTileSize(properties->baseTileSize)
-    , alignment(properties->alignment)
-    , binaryOrder(getOption<decltype(binaryOrder)>
+    : binaryOrder(getOption<decltype(binaryOrder)>
                  (properties->driver.options, KeyBinaryOrder))
     , uuid(getOption<boost::uuids::uuid>
            (properties->driver.options, KeyUUID))
@@ -135,9 +133,7 @@ Options::Options(const Driver::CreateProperties &properties)
 {}
 
 Options::Options(const Driver::CreateProperties &properties, bool)
-    : baseTileSize(properties->baseTileSize)
-    , alignment(properties->alignment)
-    , binaryOrder(getOption<decltype(binaryOrder)>
+    : binaryOrder(getOption<decltype(binaryOrder)>
                  (properties->driver.options, KeyBinaryOrder
                   , DefaultBinaryOrder))
     , uuid(properties.cloned
@@ -146,17 +142,6 @@ Options::Options(const Driver::CreateProperties &properties, bool)
            (properties->driver.options, KeyUUID, generateUuid()))
     , tileMask(mask(binaryOrder))
 {}
-
-
-Driver::CreateProperties useConfig(const DetectionContext &context
-                                   , const fs::path &path)
-{
-    auto value(context.getValue(path.string()));
-    if (const auto *properties = boost::any_cast<const Properties>(&value)) {
-        return *properties;
-    }
-    return vts::loadConfig(path);
-}
 
 } // namespace tilardriver
 
@@ -177,11 +162,11 @@ TilarDriver::TilarDriver(const boost::filesystem::path &root
 }
 
 TilarDriver::TilarDriver(const boost::filesystem::path &root
-                         , OpenMode mode, const DetectionContext &context)
+                         , OpenMode mode)
     : Driver(mode == OpenMode::readOnly)
     , root_(absolute(root)), tmp_(root_ / TransactionRoot)
     , mapConfigPath_(root_ / filePath(File::config))
-    , options_(tilardriver::useConfig(context, mapConfigPath_))
+    , options_(vts::loadConfig(mapConfigPath_))
     , cache_(root_, options_, (mode == OpenMode::readOnly))
     , openStat_(FileStat::stat(mapConfigPath_))
 {
@@ -366,19 +351,12 @@ bool TilarDriver::externallyChanged_impl() const
 DriverProperties TilarDriver::properties_impl() const
 {
     DriverProperties dp;
-    dp.type = Factory::staticType();
+    dp.type = "tilar";
     dp.options[KeyBinaryOrder]
         = boost::any(std::uint64_t(options_.binaryOrder));
     dp.options[KeyUUID]
         = boost::any(to_string(options_.uuid));
     return dp;
-}
-
-std::string TilarDriver::detectType_impl(DetectionContext &context
-                                         , const std::string &location)
-{
-    return detectTypeFromMapConfig
-        (context, fs::path(location) / filePath(File::config));
 }
 
 const std::string TilarDriver::help

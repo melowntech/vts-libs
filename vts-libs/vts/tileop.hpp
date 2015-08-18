@@ -8,10 +8,6 @@
 
 namespace vadstena { namespace vts {
 
-bool operator==(const TileId &lhs, const TileId &rhs);
-
-bool operator!=(const TileId &lhs, const TileId &rhs);
-
 TileId fromAlignment(const Properties &properties, const TileId &tileId);
 
 TileId parent(const Properties &properties, const TileId &tileId);
@@ -57,13 +53,6 @@ inline TileIdChildren children(const TileId &tileId)
         , { base.lod, base.x, base.y + 1 }        // upper-left
         , { base.lod, base.x + 1, base.y + 1 }    // upper-right
     }};
-}
-
-inline bool operator==(const TileId &lhs, const TileId &rhs)
-{
-    return ((lhs.lod == rhs.lod)
-            && (lhs.x == rhs.x)
-            && (lhs.y == rhs.y));
 }
 
 inline bool isMetatile(const LodLevels &levels, const TileId &tile)

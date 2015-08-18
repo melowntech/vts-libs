@@ -10,7 +10,7 @@
 #include "./tileindex.hpp"
 #include "./io.hpp"
 #include "./tileop.hpp"
-#include "./driver/flat.hpp"
+#include "./driver.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -105,10 +105,6 @@ struct TileSet::Detail {
     void fixDefaultPosition(const list &tileSets);
 
     TileId parent(const TileId &tileId) const;
-
-    void clone(const Detail &src);
-
-    void clone(const Detail &src, const CloneOptions::Filter &filter);
 
     /** Filters heightfield in area affected by bordering tiles of continuous
      *  area and bordering tiles of discrete tiles.

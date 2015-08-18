@@ -9,7 +9,7 @@ namespace vadstena { namespace vts {
 
 const char* getDumpDir();
 
-void dumpTileIndex(const char *root, const fs::path &name
+void dumpTileIndex(const char *root, const boost::filesystem::path &name
                    , const TileIndex &index);
 
 

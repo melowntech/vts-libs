@@ -4,36 +4,29 @@
 #include <set>
 #include <map>
 
+#include "utility/gccversion.hpp"
+
 #include "./tilardriver/options.hpp"
 #include "./tilardriver/cache.hpp"
-#include "./factory.hpp"
 #include "../streams.hpp"
 
 namespace vadstena { namespace vts {
-
-namespace fs = boost::filesystem;
 
 class TilarDriver : public Driver {
 public:
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.
      */
-    TilarDriver(const fs::path &root, CreateMode mode
+    TilarDriver(const boost::filesystem::path &root, CreateMode mode
                 , const CreateProperties &properties);
 
     /** Opens storage.
      */
-    TilarDriver(const fs::path &root, OpenMode mode
-                , const DetectionContext &context);
+    TilarDriver(const boost::filesystem::path &root, OpenMode mode);
 
     virtual ~TilarDriver();
 
-    static std::string detectType_impl(DetectionContext &context
-                                       , const std::string &location);
-
     static const std::string help;
-
-    VADSTENA_TILESTORAGE_DRIVER_FACTORY("tilar", TilarDriver);
 
 private:
     virtual OStream::pointer output_impl(File type) UTILITY_OVERRIDE;
@@ -74,22 +67,22 @@ private:
 
     /** Backing root.
      */
-    const fs::path root_;
+    const boost::filesystem::path root_;
 
     /** temporary files backing root.
      */
-    const fs::path tmp_;
+    const boost::filesystem::path tmp_;
 
     /** Path to mapConfig
      */
-    fs::path mapConfigPath_;
+    boost::filesystem::path mapConfigPath_;
 
     tilardriver::Options options_;
 
     mutable tilardriver::Cache cache_;
 
     struct Tx {
-        typedef std::set<fs::path> Files;
+        typedef std::set<boost::filesystem::path> Files;
         Files files;
     };
 

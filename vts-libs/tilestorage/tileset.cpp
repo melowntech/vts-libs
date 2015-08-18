@@ -1387,6 +1387,13 @@ FileStat TileSet::AdvancedApi::stat(const TileId tileId, TileFile type)
     return detail.driver->stat(tileId, type);
 }
 
+MetaNode* TileSet::AdvancedApi::findMetaNode(const TileId &tileId) const
+{
+    const auto &detail(tileSet_->detail());
+    detail.checkValidity();
+    return detail.findMetaNode(tileId);
+}
+
 void TileSet::AdvancedApi::regenerateTileIndex()
 {
     // FIXME: not implemented so far

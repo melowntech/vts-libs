@@ -86,11 +86,6 @@ set(vadstena-vts-core_SOURCES
   vts/driver.hpp vts/driver/driver.cpp
   vts/streams.hpp vts/streams.cpp
   vts/driver/fstreams.hpp vts/driver/fstreams.cpp
-  vts/driver/fsbased.hpp vts/driver/fsbased.cpp
-  vts/driver/flat.hpp
-  vts/driver/hash-crc.hpp vts/driver/hash-crc.cpp
-  vts/driver/ro-base.hpp
-  vts/driver/tar.hpp vts/driver/tar.cpp
 
   vts/driver/tilardriver.hpp
   vts/driver/tilardriver/tilardriver.cpp
@@ -131,6 +126,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
 
   define_module(LIBRARY vadstena-libs DEPENDS
     vadstena-tileset-core
+    vadstena-vts-core
     service cvision optics math geo geometry utility dbglog jsoncpp
     Boost_FILESYSTEM Boost_REGEX
     OpenCV LIBSHP CRYPTO++ MYSQL++

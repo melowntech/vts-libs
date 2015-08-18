@@ -93,12 +93,6 @@ Properties parse1(const Json::Value &config)
     Json::get(properties.metaLevels.lod, config, "meta", 0);
     Json::get(properties.metaLevels.delta, config, "meta", 1);
 
-    Json::get(properties.baseTileSize, config, "baseTileSize");
-
-    for (int i(0); i < 2; ++i) {
-        Json::get(properties.alignment(i), config, "alignment", i);
-    }
-
     Json::get(properties.meshTemplate, config, "meshTemplate");
     Json::get(properties.textureTemplate, config, "textureTemplate");
     Json::get(properties.metaTemplate, config, "metaTemplate");
@@ -179,18 +173,11 @@ void build(Json::Value &config, const Properties &properties)
 
     config["id"] = properties.id;
 
-    config["hasData"].hasData = Json::Boolean(properties.hasData);
+    config["hasData"] = properties.hasData;
 
     auto &meta(config["meta"] = Json::Value(Json::arrayValue));
     meta.append(Json::Int64(properties.metaLevels.lod));
     meta.append(Json::UInt64(properties.metaLevels.delta));
-
-    config["baseTileSize"] = Json::UInt64(properties.baseTileSize);
-
-    auto &alignment
-        (config["alignment"] = Json::Value(Json::arrayValue));
-    alignment.append(Json::Int64(properties.alignment(0)));
-    alignment.append(Json::Int64(properties.alignment(1)));
 
     config["srs"] = properties.srs;
 
@@ -214,85 +201,6 @@ void build(Json::Value &config, const Properties &properties)
     config["texelSize"] = Json::Value(properties.texelSize);
 
     config["driver"] = detail::tileset::buildDriver(properties.driver);
-}
-
-namespace detail { namespace storage {
-
-const int CURRENT_JSON_FORMAT_VERSION(1);
-
-Json::Value buildTileSetDescriptor(const TileSetDescriptor &desc)
-{
-    Json::Value set(Json::objectValue);
-
-    set["type"] = desc.locator.type;
-    set["location"] = desc.locator.location;
-
-    return set;
-}
-
-TileSetDescriptor parseTileSetDescriptor(const Json::Value &tileSet)
-{
-    TileSetDescriptor desc;
-    Json::get(desc.locator.type, tileSet, "type");
-    Json::get(desc.locator.location, tileSet, "location");
-
-    return desc;
-}
-
-StorageProperties parse1(const Json::Value &config)
-{
-    StorageProperties p;
-    p.outputSet = parseTileSetDescriptor
-        (Json::check(config["output"], Json::objectValue));
-
-    const auto &input(Json::check(config["input"], Json::objectValue));
-    for (auto iinput(input.begin()), einput(input.end()); iinput != einput;
-         ++iinput)
-    {
-        p.inputSets[iinput.memberName()] = parseTileSetDescriptor(*iinput);
-    }
-
-    return p;
-}
-
-} }  // namespace detail::storage
-
-void parse(StorageProperties &properties, const Json::Value &config)
-{
-    try {
-        int version(0);
-        Json::get(version, config, "version");
-
-        switch (version) {
-        case 1:
-            properties = detail::storage::parse1(config);
-            return;
-        }
-
-        LOGTHROW(err1, FormatError)
-            << "Invalid storage config format: unsupported version "
-            << version << ".";
-
-    } catch (const Json::Error &e) {
-        LOGTHROW(err1, FormatError)
-            << "Invalid storage config format (" << e.what()
-            << "); Unable to work with this storage.";
-    }
-}
-
-void build(Json::Value &config, const StorageProperties &properties)
-{
-    config["version"]
-        = Json::Int64(detail::storage::CURRENT_JSON_FORMAT_VERSION);
-
-    config["output"]
-        = detail::storage::buildTileSetDescriptor(properties.outputSet);
-
-    auto &input(config["input"] = Json::Value(Json::objectValue));
-    for (const auto &inputSet : properties.inputSets) {
-        input[inputSet.first]
-            = detail::storage::buildTileSetDescriptor(inputSet.second);
-    }
 }
 
 } } // namespace vadstena::vts

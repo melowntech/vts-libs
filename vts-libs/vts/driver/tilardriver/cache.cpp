@@ -53,7 +53,7 @@ const Time MaxTime(std::numeric_limits<Time>::max());
 struct Cache::Archives
 {
     struct Record {
-        Record(Index index, Tilar &&tilar)
+        Record(TileId index, Tilar &&tilar)
             : index(index), lastHit(utility::usecFromEpoch())
             , tilar_(std::move(tilar))
         {}
@@ -75,7 +75,7 @@ struct Cache::Archives
 
         bool isInInfinity() const { return lastHit == MaxTime; }
 
-        Index index;
+        TileId index;
         Time lastHit;
 
     private:
@@ -110,9 +110,9 @@ struct Cache::Archives
              , bool readOnly, int filesPerTile, const Options &options
              , const Tilar::ContentTypes &contentTypes);
 
-    Tilar& open(const Index &archive);
+    Tilar& open(const TileId &archive);
 
-    fs::path filePath(const Index &index) const;
+    fs::path filePath(const TileId &index) const;
 
     void commitChanges() {
         finish([](Tilar &tilar) { tilar.commit(); });
@@ -123,7 +123,7 @@ struct Cache::Archives
     }
 
 private:
-    void houseKeeping(const Index *keep = nullptr);
+    void houseKeeping(const TileId *keep = nullptr);
 
     template <typename Idx, typename Iterator>
     inline void hit(Idx &idx, Iterator iterator) {
@@ -153,7 +153,7 @@ Cache::Archives::Archives(const fs::path &root, const std::string &extension
     , readOnly(readOnly), contentTypes(contentTypes)
 {}
 
-fs::path Cache::Archives::filePath(const Index &index) const
+fs::path Cache::Archives::filePath(const TileId &index) const
 {
     const auto filename(str(boost::format("%s-%07d-%07d.%s")
                             % index.lod % index.x % index.y
@@ -192,7 +192,7 @@ Tilar tilar(const fs::path &path, const Tilar::Options &options
 
 Cache::~Cache() {}
 
-void Cache::Archives::houseKeeping(const Index *keep)
+void Cache::Archives::houseKeeping(const TileId *keep)
 {
     if (!OpenFiles::critical()) { return; }
 
@@ -269,7 +269,7 @@ void Cache::Archives::houseKeeping(const Index *keep)
     }
 }
 
-Tilar& Cache::Archives::open(const Index &archive)
+Tilar& Cache::Archives::open(const TileId &archive)
 {
     auto fmap(map.find(archive));
     if (fmap != map.end()) {

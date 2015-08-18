@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <memory>
 #include <queue>
 
 #include <boost/format.hpp>
@@ -9,6 +10,7 @@
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
 #include "utility/progress.hpp"
+#include "utility/gccversion.hpp"
 
 #include "geo/srsdef.hpp"
 
@@ -24,8 +26,11 @@
 #include "./metatile.hpp"
 #include "./merge.hpp"
 #include "./tileset/dump.hpp"
+#include "./driver/tilardriver.hpp"
 
 namespace vadstena { namespace vts {
+
+namespace fs = boost::filesystem;
 
 namespace {
 
@@ -73,119 +78,32 @@ void saveMesh(const OStream::pointer &os, const Mesh &mesh)
 
 struct TileSet::Factory
 {
-    static TileSet::pointer create(const Locator &locator
+    static TileSet::pointer create(const fs::path &path
                                    , const CreateProperties &properties
-                                   , CreateMode mode
-                                   , bool cloned = false)
+                                   , CreateMode mode)
     {
-        auto driver(Driver::create
-                    (locator, mode, { properties.staticProperties, cloned }));
+        auto driver(std::make_shared<TilarDriver>
+                    (path, mode, properties.staticProperties));
         return TileSet::pointer(new TileSet(driver, properties));
     }
 
-    static TileSet::pointer open(const Locator &locator, OpenMode mode)
+    static TileSet::pointer open(const fs::path &path, OpenMode mode)
     {
-        auto driver(Driver::open(locator, mode));
+        auto driver(std::make_shared<TilarDriver>(path, mode));
         return TileSet::pointer(new TileSet(driver));
-    }
-
-    static void clone(const TileSet::pointer &src
-                      , const TileSet::pointer &dst)
-    {
-        dst->detail().clone(src->detail());
-    }
-
-    static void clone(const TileSet::pointer &src
-                      , const TileSet::pointer &dst
-                      , const CloneOptions::Filter &filter)
-    {
-        if (!filter) {
-            return clone(src, dst);
-        }
-
-        dst->detail().clone(src->detail(), filter);
-    }
-
-    static void clone(const TileSet::pointer &src
-                      , const TileSet::pointer &dst
-                      , const CloneOptions::Filter &filter
-                      , const StaticProperties::Wrapper &staticProperties
-                      , const SettableProperties::Wrapper &settableProperties)
-    {
-        {
-            auto &sdet(src->detail());
-            auto &ddet(dst->detail());
-
-            // copy in source properties
-            ddet.properties = sdet.properties;
-
-            // merge in requested changes
-            ddet.properties.staticProperties().merge(staticProperties);
-            ddet.properties.settableProperties().merge(settableProperties);
-
-            // mark as changed
-            ddet.propertiesChanged = true;
-        }
-
-        if (!filter) {
-            return clone(src, dst);
-        }
-
-        dst->detail().clone(src->detail(), filter);
     }
 };
 
-TileSet::pointer createTileSet(const Locator &locator
+TileSet::pointer createTileSet(const fs::path &path
                                , const CreateProperties &properties
                                , CreateMode mode)
 {
-    return TileSet::Factory::create(locator, properties, mode);
+    return TileSet::Factory::create(path, properties, mode);
 }
 
-TileSet::pointer openTileSet(const Locator &locator, OpenMode mode)
+TileSet::pointer openTileSet(const fs::path &path, OpenMode mode)
 {
-    return TileSet::Factory::open(locator, mode);
-}
-
-TileSet::pointer cloneTileSet(const Locator &locator, const Locator &srcLocator
-                              , const CloneOptions &options)
-{
-    return cloneTileSet(locator, openTileSet(srcLocator, OpenMode::readOnly)
-                        , options);
-}
-
-TileSet::pointer cloneTileSet(const Locator &locator
-                              , const TileSet::pointer &src
-                              , const CloneOptions &options)
-{
-    // merge existing properties with new properties
-    CreateProperties properties(src->getProperties());
-    properties.staticProperties.merge(options.staticProperties);
-    properties.settableProperties.merge(options.settableProperties);
-
-    // create tileset and clone
-    auto dst(TileSet::Factory::create
-             (locator, properties, options.createMode, true));
-    TileSet::Factory::clone(src, dst, options.getFilter(*src));
-    return dst;
-}
-
-TileSet::pointer cloneTileSet(const TileSet::pointer &dst
-                              , const TileSet::pointer &src
-                              , const CloneOptions &options)
-{
-    // make sure dst is flushed
-    dst->flush();
-    if (!dst->empty() && (options.createMode != CreateMode::overwrite)) {
-        LOGTHROW(err2, TileSetNotEmpty)
-            << "Tile set <" << dst->getProperties().id
-            << "> is not empty.";
-    }
-
-    TileSet::Factory::clone(src, dst, options.getFilter(*src)
-                            , options.staticProperties
-                            , options.settableProperties);
-    return dst;
+    return TileSet::Factory::open(path, mode);
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver)
@@ -970,121 +888,6 @@ bool TileSet::inTx() const
     return detail().tx;
 }
 
-void TileSet::Detail::clone(const Detail &src)
-{
-    // update properties
-    properties.driver = driver->properties();
-    properties.hasData = src.properties.hasData;
-    propertiesChanged = true;
-
-    const auto &sd(*src.driver);
-    auto &dd(*driver);
-
-    // copy single files
-    for (auto type : { File::tileIndex  }) {
-        copyFile(sd.input(type), dd.output(type));
-    }
-
-    const utility::Progress::ratio_t reportRatio(1, 100);
-    const auto name(str(boost::format("Cloning <%s> ")
-                        % src.properties.id));
-    utility::Progress progress(src.tileIndex.count()
-                               + src.metaIndex.count());
-
-    // copy tiles
-    traverseTiles(src.tileIndex, [&](const TileId &tileId)
-    {
-        for (auto type : { TileFile::mesh, TileFile::atlas }) {
-            copyFile(sd.input(tileId, type), dd.output(tileId, type));
-        }
-        (++progress).report(reportRatio, name);
-    });
-
-    // copy metatiles
-    const auto canCopy(src.properties.metaLevels == properties.metaLevels);
-    traverseTiles(src.metaIndex, [&](const TileId &metaId)
-    {
-        if (canCopy) {
-            // same meta levels -> just copy file
-            copyFile(sd.input(metaId, TileFile::meta)
-                     , dd.output(metaId, TileFile::meta));
-        } else {
-            // must load into memory, saved in flush
-            auto f(sd.input(metaId, TileFile::meta));
-            vts::loadMetatileFromFile(f, metadata, metaId);
-            f->close();
-        }
-        (++progress).report(reportRatio, name);
-    });
-
-    if (!canCopy) {
-        // tell flush we have to dump metadata to storage
-        metadataChanged = true;
-    }
-
-    flush();
-
-    // load index if we have anything
-    if (savedProperties.hasData) {
-        // load tile index only if there are any tiles
-        loadTileIndex();
-    }
-}
-
-void TileSet::Detail::clone(const Detail &src
-                            , const CloneOptions::Filter &filter)
-{
-    // update properties
-    properties.driver = driver->properties();
-    propertiesChanged = true;
-
-    const auto &sd(*src.driver);
-    auto &dd(*driver);
-
-    // copy single files
-    for (auto type : { File::config }) {
-        copyFile(sd.input(type), dd.output(type));
-    }
-
-    // copy tiles
-    const utility::Progress::ratio_t reportRatio(1, 100);
-    utility::Progress progress(src.tileIndex.count());
-    const auto name(str(boost::format("Cloning <%s> into <%s> ")
-                        % src.properties.id % properties.id));
-    traverseTiles(src.tileIndex, [&](const TileId &tileId)
-    {
-        if (!filter(tileId.lod, {})) {
-            (++progress).report(reportRatio, name);
-            return;
-        }
-
-        const auto *metanode(src.findMetaNode(tileId));
-        if (!metanode) {
-            LOG(warn2)
-                << "Cannot find metanode for tile " << tileId << "; "
-                << "skipping.";
-            return;
-        }
-
-        // copy mesh and atlas
-        for (auto type : { TileFile::mesh, TileFile::atlas }) {
-            copyFile(sd.input(tileId, type), dd.output(tileId, type));
-        }
-
-        setMetaNode(tileId, *metanode);
-        (++progress).report(reportRatio, name);
-    });
-
-    flush();
-
-    // reload in new stuff
-    loadConfig();
-    if (savedProperties.hasData) {
-        // load tile index only if there are any tiles
-        loadTileIndex();
-    }
-}
-
 bool TileSet::empty() const
 {
     // has tiles?
@@ -1161,6 +964,15 @@ FileStat TileSet::AdvancedApi::stat(const TileId tileId, TileFile type)
     const auto &detail(tileSet_->detail());
     detail.checkValidity();
     return detail.driver->stat(tileId, type);
+}
+
+
+MetaNode TileSet::AdvancedApi::setMetaNode(const TileId &tileId
+                                           , const MetaNode& metanode)
+{
+    auto &detail(tileSet_->detail());
+    detail.checkValidity();
+    return detail.setMetaNode(tileId, metanode);
 }
 
 void TileSet::AdvancedApi::regenerateTileIndex()
@@ -1359,42 +1171,5 @@ TileSet::Statistics TileSet::Detail::stat() const
 LodRange TileSet::lodRange() const {return detail().lodRange; }
 
 TileSet::Statistics TileSet::stat() const { return detail().stat(); }
-
-void pasteTileSets(const TileSet::pointer &dst
-                   , const TileSet::list &src
-                   , utility::Runnable *runnable)
-{
-    try {
-        // paste tiles
-        dst->watch(runnable);
-        dst->paste(src);
-
-        // creates and immediately commits a transaction -> generates metadata
-        // in tx that is flushed and commited
-        if (!dst->inTx()) {
-            // no pending transaction -> create one :)
-            dst->begin(runnable);
-            dst->commit();
-        } else {
-            // just flush
-            dst->flush();
-        }
-    } catch (const std::exception &e) {
-        LOG(warn3)
-            << "Operation being rolled back due to an error: <"
-            << e.what() << ">.";
-        if (dst->inTx()) {
-            dst->rollback();
-        }
-    }
-
-}
-
-CloneOptions::Filter CloneOptions::getFilter(TileSet &tileSet) const
-{
-    if (filter) { return filter; }
-    if (filterFactory) { return filterFactory(tileSet); }
-    return {};
-}
 
 } } // namespace vadstena::vts

@@ -45,6 +45,8 @@ public:
      */
     FileStat stat(const TileId tileId, TileFile type) const;
 
+    MetaNode setMetaNode(const TileId &tileId, const MetaNode& metanode);
+
     /** Change metalevels. Metatiles and tile/meta indices are regenerated.
      */
     void changeMetaLevels(const LodLevels &metaLevels);
