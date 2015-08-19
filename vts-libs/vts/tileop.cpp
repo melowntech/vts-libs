@@ -103,10 +103,10 @@ bool fromFilename(TileId &tileId, TileFile &type
     if (!(p = parsePart<1>(p, tileId.lod))) { return false; }
     if (*p++ != '-') { return false; }
 
-    if (!(p = parsePart<7>(p, tileId.x))) { return false; }
+    if (!(p = parsePart<1>(p, tileId.x))) { return false; }
     if (*p++ != '-') { return false; }
 
-    if (!(p = parsePart<7>(p, tileId.y))) { return false; }
+    if (!(p = parsePart<1>(p, tileId.y))) { return false; }
     if (*p++ != '.') { return false; }
 
     if (!*p) { return false; }

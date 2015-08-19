@@ -15,7 +15,7 @@
 
 #include "../storage/support.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vadstena { namespace vts {
 
 extern const storage::SupportFile::Files supportFiles;
 
