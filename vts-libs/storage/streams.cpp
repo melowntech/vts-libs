@@ -11,7 +11,7 @@
 
 #include "./streams.hpp"
 
-namespace vadstena { namespace vts {
+namespace vadstena { namespace storage {
 
 void copyFile(const IStream::pointer &in
               , const OStream::pointer &out)
@@ -79,5 +79,5 @@ const char* contentType(TileFile type)
     return "application/octet-stream";
 }
 
-} } // namespace vadstena::vts
+} } // namespace vadstena::storage
 

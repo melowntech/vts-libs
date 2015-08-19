@@ -13,7 +13,10 @@
 #include <boost/noncopyable.hpp>
 #include <boost/crc.hpp>
 #include <boost/uuid/nil_generator.hpp>
+
+#include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/categories.hpp>
+#include <boost/iostreams/positioning.hpp>
 
 #include "dbglog/dbglog.hpp"
 
@@ -26,7 +29,7 @@
 #include "./error.hpp"
 #include "./openfiles.hpp"
 
-namespace vadstena { namespace vts {
+namespace vadstena { namespace storage {
 
 namespace fs = boost::filesystem;
 using utility::Filedes;
@@ -1106,7 +1109,7 @@ struct ContentTypeHolder
 
 class Tilar::Sink::Stream
     : private ContentTypeHolder
-    , public vts::OStream
+    , public storage::OStream
 {
 public:
     Stream(const Tilar::Detail::pointer &owner, const FileIndex &index)
@@ -1143,7 +1146,7 @@ private:
 
 class Tilar::Source::Stream
     : private ContentTypeHolder
-    , public vts::IStream
+    , public storage::IStream
 {
 public:
     Stream(const Tilar::Detail::pointer &owner, const FileIndex &index)
@@ -1365,4 +1368,4 @@ bool Tilar::Options::operator==(const Options &o) const
             && (uuid == o.uuid));
 }
 
-} } // namespace vadstena::vts
+} } // namespace vadstena::storage

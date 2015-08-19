@@ -27,7 +27,7 @@
 
 #include "./ids.hpp"
 
-#include "./vts/error.hpp"
+#include "./storage/error.hpp"
 #include "./vts/types.hpp"
 #include "./vts/tileset.hpp"
 

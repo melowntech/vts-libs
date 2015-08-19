@@ -8,12 +8,15 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/uuid/uuid.hpp>
 
+#include "../../../storage/tilar.hpp"
+
 #include "../../properties.hpp"
 #include "../../driver.hpp"
-#include "../../tilar.hpp"
 #include "../../tileop.hpp"
 
 namespace vadstena { namespace vts { namespace tilardriver {
+
+using storage::Tilar;
 
 struct Options {
     /** Binary order of magnitude of data stored in the individial tile

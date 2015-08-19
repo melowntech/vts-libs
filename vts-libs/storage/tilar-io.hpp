@@ -1,12 +1,12 @@
 /**
- * \file vts/tilar.hpp
+ * \file storage/tilar.hpp
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  *
  * Tile Archive handler.
  */
 
-#ifndef vadstena_libs_vts_tilar_io_hpp_included_
-#define vadstena_libs_vts_tilar_io_hpp_included_
+#ifndef vadstena_libs_storage_tilar_io_hpp_included_
+#define vadstena_libs_storage_tilar_io_hpp_included_
 
 #include "utility/enum-io.hpp"
 #include "utility/time.hpp"
@@ -14,7 +14,7 @@
 #include <iostream>
 #include <boost/uuid/uuid_io.hpp>
 
-namespace vadstena { namespace vts {
+namespace vadstena { namespace storage {
 
 UTILITY_GENERATE_ENUM_IO(Tilar::CreateMode,
                          ((truncate))
@@ -65,6 +65,6 @@ dump(std::basic_ostream<CharT, Traits> &os
     return os;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vadstena::storage
 
-#endif // vadstena_libs_vts_tilar_io_hpp_included_
+#endif // vadstena_libs_storage_tilar_io_hpp_included_

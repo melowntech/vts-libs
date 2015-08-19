@@ -141,7 +141,7 @@ inline TileId TileSet::Detail::parent(const TileId &tileId) const
 inline void TileSet::Detail::checkValidity() const
 {
     if (!driver) {
-        LOGTHROW(err2, NoSuchTileSet)
+        LOGTHROW(err2, storage::NoSuchTileSet)
             << "Tile set <" << properties.id << "> was removed.";
     }
 }

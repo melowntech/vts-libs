@@ -9,10 +9,16 @@
 #ifndef vadstena_libs_vts_tileset_advanced_hpp_included_
 #define vadstena_libs_vts_tileset_advanced_hpp_included_
 
+#include "../storage/streams.hpp"
 #include "./tileset.hpp"
-#include "./streams.hpp"
 
 namespace vadstena { namespace vts {
+
+using storage::IStream;
+using storage::OStream;
+using storage::FileStat;
+using storage::File;
+using storage::TileFile;
 
 /** TileSet advanced interface.
  */

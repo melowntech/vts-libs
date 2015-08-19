@@ -1,11 +1,11 @@
-#ifndef vadstena_libs_vts_driver_openfiles_hpp_included_
-#define vadstena_libs_vts_driver_openfiles_hpp_included_
+#ifndef vadstena_libs_storage_openfiles_hpp_included_
+#define vadstena_libs_storage_openfiles_hpp_included_
 
 #include <atomic>
 
 #include <boost/noncopyable.hpp>
 
-namespace vadstena { namespace vts {
+namespace vadstena { namespace storage {
 
 class OpenFiles : boost::noncopyable
 {
@@ -23,6 +23,6 @@ private:
     static int threshold_;
 };
 
-} } // namespace vadstena::vts
+} } // namespace vadstena::storage
 
-#endif // vadstena_libs_vts_driver_openfiles_hpp_included_
+#endif // vadstena_libs_storage_openfiles_hpp_included_

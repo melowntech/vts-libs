@@ -2,7 +2,7 @@
 
 #include "./config.hpp"
 #include "./json.hpp"
-#include "./error.hpp"
+#include "../storage/error.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -12,7 +12,7 @@ Properties loadConfig(std::istream &in)
     Json::Value config;
     Json::Reader reader;
     if (!reader.parse(in, config)) {
-        LOGTHROW(err2, FormatError)
+        LOGTHROW(err2, storage::FormatError)
             << "Unable to parse config: "
             << reader.getFormattedErrorMessages() << ".";
     }
@@ -38,7 +38,7 @@ Properties loadConfig(const boost::filesystem::path &path)
     try {
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
-        LOGTHROW(err1, NoSuchTileSet)
+        LOGTHROW(err1, storage::NoSuchTileSet)
             << "Unable to load config file " << path << ".";
     }
     auto p(loadConfig(f));

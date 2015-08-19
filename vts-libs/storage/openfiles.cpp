@@ -6,7 +6,7 @@
 
 #include "./openfiles.hpp"
 
-namespace vadstena { namespace vts {
+namespace vadstena { namespace storage {
 
 namespace {
 
@@ -28,4 +28,4 @@ int getOpenFilesThreshold()
 std::atomic<int> OpenFiles::count_(0);
 int OpenFiles::threshold_(getOpenFilesThreshold());
 
-} } // namespace vadstena::vts
+} } // namespace vadstena::torage

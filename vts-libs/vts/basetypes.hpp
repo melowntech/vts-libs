@@ -66,7 +66,7 @@ typedef Point2l Alignment;
 
 typedef math::Extents2_<long> Extents;
 
-typedef std::array<TileId, 4> TileIdChildren;
+typedef std::array<TileId, 4> Children;
 
 /** Lod levels.
  */

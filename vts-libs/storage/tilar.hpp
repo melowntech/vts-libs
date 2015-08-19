@@ -1,12 +1,12 @@
 /**
- * \file vts/tilar.hpp
+ * \file storage/tilar.hpp
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  *
  * Tile Archive handler.
  */
 
-#ifndef vadstena_libs_vts_tilar_hpp_included_
-#define vadstena_libs_vts_tilar_hpp_included_
+#ifndef vadstena_libs_storage_tilar_hpp_included_
+#define vadstena_libs_storage_tilar_hpp_included_
 
 #include <memory>
 #include <cstdint>
@@ -18,10 +18,9 @@
 #include "../ids.hpp"
 #include "../range.hpp"
 
-#include "./basetypes.hpp"
 #include "./streams.hpp"
 
-namespace vadstena { namespace vts {
+namespace vadstena { namespace storage {
 
 /** Tilar interface.
  */
@@ -254,6 +253,6 @@ inline Tilar Tilar::open(const boost::filesystem::path &path
     return tilar;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vadstena::storage
 
-#endif // vadstena_libs_vts_tilar_hpp_included_
+#endif // vadstena_libs_storage_tilar_hpp_included_

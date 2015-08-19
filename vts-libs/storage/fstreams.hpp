@@ -1,14 +1,14 @@
-#ifndef vadstena_libs_vts_driver_fstreams_hpp_included_
-#define vadstena_libs_vts_driver_fstreams_hpp_included_
+#ifndef vadstena_libs_storage_driver_fstreams_hpp_included_
+#define vadstena_libs_storage_driver_fstreams_hpp_included_
 
 #include <functional>
 
 #include <boost/filesystem.hpp>
 
-#include "../streams.hpp"
-#include "../error.hpp"
+#include "./streams.hpp"
+#include "./error.hpp"
 
-namespace vadstena { namespace vts {
+namespace vadstena { namespace storage {
 
 typedef std::function<void(bool)> OnClose;
 
@@ -29,6 +29,6 @@ IStream::pointer fileIStream(File type
 IStream::pointer fileIStream(TileFile type
                              , const boost::filesystem::path &path);
 
-} } // namespace vadstena::vts
+} } // namespace vadstena::storage
 
-#endif // vadstena_libs_vts_driver_fstreams_hpp_included_
+#endif // vadstena_libs_storage_driver_fstreams_hpp_included_

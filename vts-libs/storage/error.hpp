@@ -1,17 +1,17 @@
 /**
- * \file vts/error.hpp
+ * \file storage/error.hpp
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  *
  * Tile storage error types.
  */
 
-#ifndef vadstena_libs_vts_error_hpp_included_
-#define vadstena_libs_vts_error_hpp_included_
+#ifndef vadstena_libs_storage_error_hpp_included_
+#define vadstena_libs_storage_error_hpp_included_
 
 #include <stdexcept>
 #include <string>
 
-namespace vadstena { namespace vts {
+namespace vadstena { namespace storage {
 
 struct Error : std::runtime_error {
     Error(const std::string &message) : std::runtime_error(message) {}
@@ -69,6 +69,6 @@ struct TileSetNotFlushed : Error {
     TileSetNotFlushed(const std::string &message) : Error(message) {}
 };
 
-} } // namespace vadstena::vts
+} } // namespace vadstena::storage
 
-#endif // vadstena_libs_vts_error_hpp_included_
+#endif // vadstena_libs_storage_error_hpp_included_

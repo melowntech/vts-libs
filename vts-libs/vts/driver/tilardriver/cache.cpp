@@ -12,9 +12,9 @@
 
 #include "utility/time.hpp"
 
-#include "./cache.hpp"
+#include "../../../storage/openfiles.hpp"
 #include "../../io.hpp"
-#include "../../openfiles.hpp"
+#include "./cache.hpp"
 
 namespace vadstena { namespace vts { namespace tilardriver {
 
@@ -194,13 +194,13 @@ Cache::~Cache() {}
 
 void Cache::Archives::houseKeeping(const TileId *keep)
 {
-    if (!OpenFiles::critical()) { return; }
+    if (!storage::OpenFiles::critical()) { return; }
 
     auto &idx(map.get<LastHitIdx>());
 
     LOG(info1)
         << "Critical number of open files reached (current count is "
-        << OpenFiles::count() << ") trying to drop some of "
+        << storage::OpenFiles::count() << ") trying to drop some of "
         << idx.size() << " files owned by this driver.";
 
     int toDrop(5);
@@ -324,7 +324,7 @@ FileStat Cache::stat(const TileId tileId, TileFile type)
     return getArchives(type).open(index.archive).stat(index.file);
 }
 
-Driver::Resources Cache::resources()
+storage::Resources Cache::resources()
 {
     return { tiles_->map.size() + metatiles_->map.size(), 0 };
 }

@@ -129,12 +129,12 @@ TileSet::Detail::Detail(const Driver::pointer &driver
 {
     const auto &sp(properties.staticProperties);
     if (sp.id.empty()) {
-        LOGTHROW(err2, FormatError)
+        LOGTHROW(err2, storage::FormatError)
             << "Cannot create tile set without valid id.";
     }
 
     if (sp.metaLevels.delta <= 0) {
-        LOGTHROW(err2, FormatError)
+        LOGTHROW(err2, storage::FormatError)
             << "Tile set must have positive metaLevels.delta.";
     }
 
@@ -184,7 +184,7 @@ void TileSet::Detail::loadConfig()
         // set
         savedProperties = properties = p;
     } catch (const std::exception &e) {
-        LOGTHROW(err2, Error)
+        LOGTHROW(err2, storage::Error)
             << "Unable to read config: <" << e.what() << ">.";
     }
 }
@@ -198,7 +198,7 @@ void TileSet::Detail::saveConfig()
         vts::saveConfig(*f, properties);
         f->close();
     } catch (const std::exception &e) {
-        LOGTHROW(err2, Error)
+        LOGTHROW(err2, storage::Error)
             << "Unable to write config: <" << e.what() << ">.";
     }
 
@@ -229,7 +229,7 @@ void TileSet::Detail::saveMetadata()
         mi.save(*f);
         f->close();
     } catch (const std::exception &e) {
-        LOGTHROW(err2, Error)
+        LOGTHROW(err2, storage::Error)
             << "Unable to write tile index: " << e.what() << ".";
     }
 
@@ -257,7 +257,7 @@ void TileSet::Detail::loadTileIndex()
         metaIndex.load(*f);
         f->close();
     } catch (const std::exception &e) {
-        LOGTHROW(err2, Error)
+        LOGTHROW(err2, storage::Error)
             << "Unable to read tile index: " << e.what() << ".";
     }
 
@@ -435,7 +435,7 @@ void TileSet::Detail::setMetadata(const TileId &tileId
     // this ensures that we have old metanode in memory
     auto metanode(findMetaNode(tileId));
     if (!metanode) {
-        LOGTHROW(err2, NoSuchTile)
+        LOGTHROW(err2, storage::NoSuchTile)
             << "There is no tile at " << tileId << ".";
     }
 
@@ -453,7 +453,7 @@ void TileSet::Detail::check(const TileId &tileId) const
 void TileSet::Detail::checkTx(const std::string &action) const
 {
     if (!tx) {
-        LOGTHROW(err2, PendingTransaction)
+        LOGTHROW(err2, storage::PendingTransaction)
             << "Cannot " << action << ": no transaction open.";
     }
 }
@@ -595,7 +595,7 @@ Tile TileSet::Detail::getTile(const TileId &tileId) const
 
     auto md(findMetaNode(tileId));
     if (!md || !md->exists()) {
-        LOGTHROW(err2, NoSuchTile)
+        LOGTHROW(err2, storage::NoSuchTile)
             << "There is no tile at " << tileId << ".";
     }
 
@@ -688,7 +688,7 @@ void TileSet::Detail::begin(utility::Runnable *runnable)
 
     driver->wannaWrite("begin transaction");
     if (tx) {
-        LOGTHROW(err2, PendingTransaction)
+        LOGTHROW(err2, storage::PendingTransaction)
             << "Transaction already in progress.";
     }
 
@@ -704,7 +704,7 @@ void TileSet::Detail::commit()
     driver->wannaWrite("commit transaction");
 
     if (!tx) {
-        LOGTHROW(err2, PendingTransaction)
+        LOGTHROW(err2, storage::PendingTransaction)
             << "There is no active transaction to commit.";
     }
 
@@ -723,7 +723,7 @@ void TileSet::Detail::rollback()
     LOG(info3)
         << "Tile set <" << properties.id << ">: Rolling back transaction.";
     if (!tx) {
-        LOGTHROW(err2, PendingTransaction)
+        LOGTHROW(err2, storage::PendingTransaction)
             << "There is no active transaction to roll back.";
 
     }
@@ -789,7 +789,7 @@ MetaNode TileSet::getMetadata(const TileId &tileId) const
     detail().checkValidity();
     auto md(detail().findMetaNode(tileId));
     if (!md || !md->exists()) {
-        LOGTHROW(err2, NoSuchTile)
+        LOGTHROW(err2, storage::NoSuchTile)
             << "There is no tile at " << tileId << ".";
     }
 
@@ -1131,7 +1131,7 @@ bool TileSet::compatible(const TileSet &other)
 TileSet::Statistics TileSet::Detail::stat() const
 {
     if (metadataChanged) {
-        LOGTHROW(warn2, TileSetNotFlushed)
+        LOGTHROW(warn2, storage::TileSetNotFlushed)
             << "Tileset <" << properties.id << " is not flushed, "
             << "unable to get proper statistics.";
     }

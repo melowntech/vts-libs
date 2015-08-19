@@ -8,9 +8,10 @@
 
 #include "imgproc/rastermask/cvmat.hpp"
 
+#include "../storage/error.hpp"
+
 #include "./tileindex.hpp"
 #include "./tileop.hpp"
-#include "./error.hpp"
 #include "./io.hpp"
 #include "./tileindex-io.hpp"
 
@@ -58,8 +59,6 @@ TileIndex::TileIndex(LodRange lodRange
     for (auto lod : lodRange) {
         masks_.emplace_back(tiling, RasterMask::EMPTY);
 
-        LOG(info4) << lod << ": " << tiling;
-
         // double tile count at next lod
         tiling.width <<= 1;
         tiling.height <<= 1;
@@ -69,8 +68,6 @@ TileIndex::TileIndex(LodRange lodRange
             fill(lod, *other);
         };
     }
-
-    LOG(info4) << "Created TileIndex(" << this->lodRange() << ")";
 }
 
 void TileIndex::fill(Lod lod, const TileIndex &other)
@@ -118,7 +115,7 @@ void TileIndex::load(std::istream &f)
     read(f, magic);
 
     if (std::memcmp(magic, TILE_INDEX_IO_MAGIC, sizeof(TILE_INDEX_IO_MAGIC))) {
-        LOGTHROW(err2, Error)
+        LOGTHROW(err2, storage::Error)
             << "TileIndex has wrong magic.";
     }
 
@@ -131,7 +128,7 @@ void TileIndex::load(std::istream &f)
     read(f, o);
     origin_(1) = o;
 
-    int16_t minLod(0), size(0);
+    int16_t minLod, size;
     read(f, minLod);
     read(f, size);
     minLod_ = minLod;

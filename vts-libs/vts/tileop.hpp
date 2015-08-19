@@ -2,17 +2,21 @@
 #define vadstena_libs_vts_tileop_hpp_included_
 
 #include "../entities.hpp"
+#include "../storage/filetypes.hpp"
+
 #include "./basetypes.hpp"
-#include "./filetypes.hpp"
 #include "./properties.hpp"
 
 namespace vadstena { namespace vts {
+
+using storage::TileFile;
+using storage::File;
 
 TileId fromAlignment(const Properties &properties, const TileId &tileId);
 
 TileId parent(const Properties &properties, const TileId &tileId);
 
-TileIdChildren children(const TileId &tileId);
+Children children(const TileId &tileId);
 
 bool isMetatile(const LodLevels &levels, const TileId &tile);
 
@@ -43,7 +47,7 @@ inline TileId parent(const TileId &tileId)
     return TileId(tileId.lod - 1, tileId.x >> 1, tileId.y >> 1);
 }
 
-inline TileIdChildren children(const TileId &tileId)
+inline Children children(const TileId &tileId)
 {
     TileId base(tileId.lod + 1, tileId.x << 1, tileId.y << 1);
 
@@ -68,14 +72,6 @@ inline Lod deltaDown(const LodLevels &levels, Lod lod)
         ++res;
     }
     return res;
-}
-
-inline bool above(const TileId &tile, const TileId &super)
-{
-    (void) tile;
-    (void) super;
-    // FIXME: implement me
-    return false;
 }
 
 inline int child(const TileId &tileId)

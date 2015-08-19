@@ -8,11 +8,10 @@
 #include <boost/spirit/include/qi_match.hpp>
 #include <boost/spirit/include/qi_match_auto.hpp>
 
-#include "utility/enum-io.hpp"
-
 #include "./basetypes.hpp"
-#include "./filetypes.hpp"
 #include "./properties.hpp"
+
+#include "../storage/io.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -197,17 +196,6 @@ dump(std::basic_ostream<CharT, Traits> &os
 
     return os;
 }
-
-UTILITY_GENERATE_ENUM_IO(TileFile,
-                         ((meta))
-                         ((mesh))
-                         ((atlas))
-                         )
-
-UTILITY_GENERATE_ENUM_IO(File,
-                         ((config))
-                         ((tileIndex))
-                         )
 
 } } // namespace vadstena::vts
 

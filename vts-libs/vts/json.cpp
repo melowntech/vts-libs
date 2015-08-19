@@ -5,7 +5,7 @@
 #include "jsoncpp/as.hpp"
 
 #include "./json.hpp"
-#include "./error.hpp"
+#include "../storage/error.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -138,12 +138,12 @@ void parse(Properties &properties, const Json::Value &config)
             return;
         }
 
-        LOGTHROW(err1, FormatError)
+        LOGTHROW(err1, storage::FormatError)
             << "Invalid tileset config format: unsupported version "
             << version << ".";
 
     } catch (const Json::Error &e) {
-        LOGTHROW(err1, FormatError)
+        LOGTHROW(err1, storage::FormatError)
             << "Invalid tileset config format (" << e.what()
             << "); Unable to work with this tileset.";
     }

@@ -15,11 +15,11 @@
 #include "utility/streams.hpp"
 #include "utility/path.hpp"
 
-#include "../tilardriver.hpp"
+#include "../../../storage/error.hpp"
+#include "../../../storage/fstreams.hpp"
 #include "../../io.hpp"
-#include "../../error.hpp"
 #include "../../config.hpp"
-#include "../fstreams.hpp"
+#include "../tilardriver.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -155,7 +155,7 @@ TilarDriver::TilarDriver(const boost::filesystem::path &root
     if (!create_directories(root_)) {
         // directory already exists -> fail if mode says so
         if (mode == CreateMode::failIfExists) {
-            LOGTHROW(err2, TileSetAlreadyExists)
+            LOGTHROW(err2, storage::TileSetAlreadyExists)
                 << "Tile set at " << root_ << " already exists.";
         }
     }
@@ -266,7 +266,7 @@ FileStat TilarDriver::stat_impl(const TileId tileId, TileFile type) const
     return cache_.stat(tileId, type);
 }
 
-Driver::Resources TilarDriver::resources_impl() const
+storage::Resources TilarDriver::resources_impl() const
 {
     return cache_.resources();
 }
@@ -279,7 +279,7 @@ void TilarDriver::remove_impl(const TileId tileId, TileFile type)
 void TilarDriver::begin_impl()
 {
     if (tx_) {
-        LOGTHROW(err2, PendingTransaction)
+        LOGTHROW(err2, storage::PendingTransaction)
             << "Pending transaction.";
     }
 
@@ -295,7 +295,7 @@ void TilarDriver::begin_impl()
 void TilarDriver::commit_impl()
 {
     if (!tx_) {
-        LOGTHROW(err2, PendingTransaction)
+        LOGTHROW(err2, storage::PendingTransaction)
             << "No pending transaction.";
     }
 
@@ -315,7 +315,7 @@ void TilarDriver::commit_impl()
 void TilarDriver::rollback_impl()
 {
     if (!tx_) {
-        LOGTHROW(err2, PendingTransaction)
+        LOGTHROW(err2, storage::PendingTransaction)
             << "No pending transaction.";
     }
 
@@ -335,7 +335,7 @@ void TilarDriver::flush_impl()
 void TilarDriver::drop_impl()
 {
     if (tx_) {
-        LOGTHROW(err2, PendingTransaction)
+        LOGTHROW(err2, storage::PendingTransaction)
             << "Cannot drop tile set inside an active transaction.";
     }
 

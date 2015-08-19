@@ -1,3 +1,23 @@
+# common storage stuff
+set(vadstena-libs-storage_SOURCES
+  storage/error.hpp
+  storage/openfiles.hpp storage/openfiles.cpp
+  storage/filetypes.hpp
+  storage/streams.hpp storage/streams.cpp
+  storage/fstreams.hpp storage/fstreams.cpp
+
+  storage/tilar.hpp storage/tilar.cpp
+  storage/tilar-io.hpp
+  )
+
+define_module(LIBRARY vadstena-libs-storage DEPENDS
+  math utility dbglog jsoncpp Boost_IOSTREAMS)
+add_library(vadstena-libs-storage STATIC ${vadstena-libs-storage_SOURCES})
+buildsys_library(vadstena-libs-storage)
+target_link_libraries(vadstena-libs-storage
+  ${MODULE_LIBRARIES})
+buildsys_target_compile_definitions(vadstena-libs-storage ${MODULE_DEFINITIONS})
+
 # Create vadstena-tileset-browser library with browser files
 file_to_cpp(vadstena-libs_BROWSER_SOURCES
   vadstena::tilestorage::browser::index_html
@@ -46,7 +66,7 @@ set(vadstena-tileset-core_SOURCES
   )
 
 define_module(LIBRARY vadstena-tileset-core DEPENDS
-  math utility dbglog jsoncpp Boost_IOSTREAMS)
+  vadstena-libs-storage math utility dbglog jsoncpp Boost_IOSTREAMS)
 add_library(vadstena-tileset-core STATIC ${vadstena-tileset-core_SOURCES})
 buildsys_library(vadstena-tileset-core)
 target_link_libraries(vadstena-tileset-core
@@ -75,17 +95,10 @@ set(vadstena-vts-core_SOURCES
   vts/basetypes.hpp
   vts/properties.hpp
   vts/tileop.hpp vts/tileop.cpp
-  vts/error.hpp
   vts/io.hpp
   vts/json.hpp vts/json.cpp
 
-  vts/openfiles.hpp vts/openfiles.cpp
-  vts/tilar.hpp vts/tilar.cpp
-  vts/tilar-io.hpp
-
   vts/driver.hpp vts/driver/driver.cpp
-  vts/streams.hpp vts/streams.cpp
-  vts/driver/fstreams.hpp vts/driver/fstreams.cpp
 
   vts/driver/tilardriver.hpp
   vts/driver/tilardriver/tilardriver.cpp
@@ -97,7 +110,7 @@ set(vadstena-vts-core_SOURCES
   )
 
 define_module(LIBRARY vadstena-vts-core DEPENDS
-  math utility dbglog jsoncpp Boost_IOSTREAMS)
+  vadstena-libs-storage math utility dbglog jsoncpp Boost_IOSTREAMS)
 add_library(vadstena-vts-core STATIC ${vadstena-vts-core_SOURCES})
 buildsys_library(vadstena-vts-core)
 target_link_libraries(vadstena-vts-core

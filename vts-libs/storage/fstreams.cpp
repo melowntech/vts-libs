@@ -10,19 +10,19 @@
 #include "utility/gccversion.hpp"
 #include "utility/streams.hpp"
 
-#include "../streams.hpp"
-#include "../error.hpp"
+#include "./streams.hpp"
+#include "./error.hpp"
 
 #include "./fstreams.hpp"
 
-namespace vadstena { namespace vts {
+namespace vadstena { namespace storage {
 
 namespace detail {
 
 const std::streamsize IOBufferSize = 1 << 16;
 
 class FileOStream
-    : public vts::OStream
+    : public storage::OStream
 {
 public:
     typedef std::function<void(bool)> OnClose;
@@ -90,7 +90,7 @@ private:
 };
 
 class FileIStream
-    : public vts::IStream
+    : public storage::IStream
 {
 public:
     template <typename Type>
@@ -191,4 +191,4 @@ IStream::pointer fileIStream(TileFile type
     return std::make_shared<detail::FileIStream>(type, path);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vadstena::storage
