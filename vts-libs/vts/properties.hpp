@@ -114,6 +114,51 @@ struct SettableProperties {
     bool merge(const SettableProperties::Wrapper &other);
 };
 
+struct StaticProperties::Wrapper {
+    StaticProperties props;
+    MaskType mask;
+
+    Wrapper() : props(), mask() {}
+    Wrapper(const StaticProperties &props, MaskType mask)
+        : props(props), mask(mask)
+    {}
+
+    operator StaticProperties&() { return props; }
+    operator const StaticProperties&() const { return props; }
+};
+
+struct SettableProperties::Wrapper {
+    SettableProperties props;
+    MaskType mask;
+
+    Wrapper() : props(), mask() {}
+    Wrapper(const SettableProperties &props, MaskType mask)
+        : props(props), mask(mask)
+    {}
+
+    operator SettableProperties&() { return props; }
+    operator const SettableProperties&() const { return props; }
+};
+
+template <typename T, typename C>
+class SetterBase {
+public:
+    typedef T Properties;
+    typedef C Context;
+
+    SetterBase(Properties &p, typename Properties::MaskType &m
+               , Context *c)
+        : p_(p), m_(m), c_(c)
+    {}
+
+    Context& context() { return *c_; }
+
+protected:
+    Properties &p_;
+    typename Properties::MaskType &m_;
+    Context *c_;
+};
+
 /** All tile set properties.
  */
 struct Properties
@@ -139,67 +184,13 @@ struct CreateProperties {
 public:
     typedef int MaskType;
 
-    CreateProperties() : mask(StaticProperties::Mask::all) {}
+    CreateProperties() {}
 
-    CreateProperties(const StaticProperties &cp)
-        : staticProperties(cp), mask(StaticProperties::Mask::all)
-    {}
+    StaticProperties::Wrapper staticProperties;
+    SettableProperties::Wrapper settableProperties;
 
-    CreateProperties(const StaticProperties &cp
-                     , const SettableProperties &sp
-                     , MaskType mask = (StaticProperties::Mask::all
-                                        | SettableProperties::Mask::all))
-        : staticProperties(cp), settableProperties(sp), mask(mask)
-    {}
-
-    CreateProperties(const Properties &p
-                     , MaskType mask = (StaticProperties::Mask::all
-                                        | SettableProperties::Mask::all))
-        : staticProperties(p), settableProperties(p), mask(mask)
-    {}
-
-    StaticProperties staticProperties;
-    SettableProperties settableProperties;
-    MaskType mask;
-};
-
-struct StaticProperties::Wrapper {
-    StaticProperties props;
-    MaskType mask;
-
-    Wrapper() : props(), mask() {}
-    Wrapper(const StaticProperties &props, MaskType mask)
-        : props(props), mask(mask)
-    {}
-};
-
-struct SettableProperties::Wrapper {
-    SettableProperties props;
-    MaskType mask;
-
-    Wrapper() : props(), mask() {}
-    Wrapper(const SettableProperties &props, MaskType mask)
-        : props(props), mask(mask)
-    {}
-};
-
-template <typename T, typename C>
-class SetterBase {
-public:
-    typedef T Properties;
-    typedef C Context;
-
-    SetterBase(Properties &p, typename Properties::MaskType &m
-               , Context *c)
-        : p_(p), m_(m), c_(c)
-    {}
-
-    Context& context() { return *c_; }
-
-protected:
-    Properties &p_;
-    typename Properties::MaskType &m_;
-    Context *c_;
+    StaticProperties::Setter<CreateProperties> staticSetter();
+    SettableProperties::Setter<CreateProperties> settableSetter();
 };
 
 #define TILESTORAGE_PROPERTIES_SETTER(NAME)                     \
@@ -280,6 +271,8 @@ inline bool StaticProperties::merge(const StaticProperties &other
     return changed;
 }
 
+#undef TILESTORAGE_PROPERTIES_MERGE
+
 inline bool StaticProperties::merge(const StaticProperties::Wrapper &other)
 {
     return merge(other.props, other.mask);
@@ -290,7 +283,17 @@ inline bool SettableProperties::merge(const SettableProperties::Wrapper &other)
     return merge(other.props, other.mask);
 }
 
-#undef TILESTORAGE_PROPERTIES_MERGE
+inline StaticProperties::Setter<CreateProperties>
+CreateProperties::staticSetter()
+{
+    return { staticProperties, this };
+}
+
+inline SettableProperties::Setter<CreateProperties>
+CreateProperties::settableSetter()
+{
+    return { settableProperties, this };
+}
 
 } } // namespace vadstena::vts
 

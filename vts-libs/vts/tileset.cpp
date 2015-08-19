@@ -83,7 +83,7 @@ struct TileSet::Factory
                                    , CreateMode mode)
     {
         auto driver(std::make_shared<TilarDriver>
-                    (path, mode, properties.staticProperties));
+                    (path, mode, properties.staticProperties.props));
         return TileSet::pointer(new TileSet(driver, properties));
     }
 
@@ -127,7 +127,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     , metadataChanged(false)
     , tx(false)
 {
-    const auto &sp(properties.staticProperties);
+    const auto &sp(properties.staticProperties.props);
     if (sp.id.empty()) {
         LOGTHROW(err2, storage::FormatError)
             << "Cannot create tile set without valid id.";
@@ -143,9 +143,9 @@ TileSet::Detail::Detail(const Driver::pointer &driver
 
     // initialize create properties
     static_cast<StaticProperties&>(p)
-        .merge(properties.staticProperties, properties.mask);
+        .merge(properties.staticProperties);
     static_cast<SettableProperties&>(p)
-        .merge(properties.settableProperties, properties.mask);
+        .merge(properties.settableProperties);
 
     // force save of properties
     p.driver = driver->properties();
