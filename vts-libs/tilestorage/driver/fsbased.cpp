@@ -114,7 +114,7 @@ FsBasedDriver::~FsBasedDriver()
 void FsBasedDriver::writeExtraFiles()
 {
     // write convenience browser
-    for (const auto &file : SupportFile::files) {
+    for (const auto &file : supportFiles) {
         utility::write(root_ / file.first, file.second.data
                        , file.second.size);
     }

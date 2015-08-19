@@ -8,6 +8,8 @@ set(vadstena-libs-storage_SOURCES
 
   storage/tilar.hpp storage/tilar.cpp
   storage/tilar-io.hpp
+
+  storage/support.hpp
   )
 
 define_module(LIBRARY vadstena-libs-storage DEPENDS

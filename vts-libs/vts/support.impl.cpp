@@ -1,7 +1,7 @@
 // NB: do not include manually
 // included from support.cpp and support.pic.cpp
 
-const SupportFile::Files SupportFile::files =
+const storage::SupportFile::Files supportFiles =
 {
     { "index.html"
       , {

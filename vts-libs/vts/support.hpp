@@ -13,17 +13,11 @@
 #include <string>
 #include <map>
 
-namespace vadstena { namespace vts {
+#include "../storage/support.hpp"
 
-struct SupportFile {
-    const unsigned char *data;
-    std::size_t size;
-    std::time_t lastModified;
-    const char *contentType;
+namespace vadstena { namespace tilestorage {
 
-    typedef std::map<std::string, SupportFile> Files;
-    static const Files files;
-};
+extern const storage::SupportFile::Files supportFiles;
 
 } } // namespace vadstena::vts
 
