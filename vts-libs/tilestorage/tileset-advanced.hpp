@@ -10,9 +10,15 @@
 #define vadstena_libs_tilestorage_tileset_advanced_hpp_included_
 
 #include "./tileset.hpp"
-#include "./streams.hpp"
+#include "../storage/streams.hpp"
 
 namespace vadstena { namespace tilestorage {
+
+using storage::IStream;
+using storage::OStream;
+using storage::FileStat;
+using storage::File;
+using storage::TileFile;
 
 /** TileSet advanced interface.
  */

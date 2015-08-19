@@ -2,7 +2,7 @@
 
 #include "../io.hpp"
 #include "../driver.hpp"
-#include "../error.hpp"
+#include "../../storage/error.hpp"
 #include "./flat.hpp"
 #include "./hash-crc.hpp"
 #include "./tar.hpp"
@@ -40,7 +40,7 @@ void registerDefaultDrivers()
 void Driver::wannaWrite(const std::string &what) const
 {
     if (readOnly_) {
-        LOGTHROW(err2, ReadOnlyError)
+        LOGTHROW(err2, storage::ReadOnlyError)
             << "Cannot " << what << ": storage is read-only.";
     }
 }
@@ -65,7 +65,7 @@ Driver::pointer Driver::create(Locator locator, CreateMode mode
 
     auto fregistry(driverRegistry.find(locator.type));
     if (fregistry == driverRegistry.end()) {
-        LOGTHROW(err2, NoSuchTileSet)
+        LOGTHROW(err2, storage::NoSuchTileSet)
             << "Invalid tile set type <" << locator.type << ">.";
     }
     return fregistry->second->create(locator.location, mode, properties);
@@ -87,7 +87,7 @@ Driver::pointer Driver::open(Locator locator, OpenMode mode)
 
     auto fregistry(driverRegistry.find(locator.type));
     if (fregistry == driverRegistry.end()) {
-        LOGTHROW(err2, NoSuchTileSet)
+        LOGTHROW(err2, storage::NoSuchTileSet)
             << "Invalid tile set type <" << locator.type << ">.";
     }
 
@@ -120,7 +120,7 @@ std::string Driver::detectType(DetectionContext &context
 
 void Driver::notRunning() const
 {
-    LOGTHROW(warn2, Interrupted)
+    LOGTHROW(warn2, storage::Interrupted)
         << "Operation has been interrupted.";
 }
 

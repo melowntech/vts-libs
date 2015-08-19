@@ -11,7 +11,8 @@
 #include "utility/enum-io.hpp"
 
 #include "./basetypes.hpp"
-#include "./filetypes.hpp"
+#include "../storage/filetypes.hpp"
+#include "../storage/io.hpp"
 #include "./properties.hpp"
 
 namespace vadstena { namespace tilestorage {
@@ -209,17 +210,6 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const Index &tid)
     return os << '(' << tid.lod << ", " << tid.easting
               << ", " << tid.northing << ')';
 }
-
-UTILITY_GENERATE_ENUM_IO(TileFile,
-                         ((meta))
-                         ((mesh))
-                         ((atlas))
-                         )
-
-UTILITY_GENERATE_ENUM_IO(File,
-                         ((config))
-                         ((tileIndex))
-                         )
 
 } } // namespace vadstena::tilestorage
 

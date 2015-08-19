@@ -2,7 +2,7 @@
 #define vadstena_libs_tilestorage_driver_ro_base_hpp_included_
 
 #include "../driver.hpp"
-#include "../error.hpp"
+#include "../../storage/error.hpp"
 
 #include "dbglog/dbglog.hpp"
 
@@ -17,7 +17,7 @@ public:
     ReadOnlyDriver(CreateMode, const CreateProperties&)
         : Driver(true)
     {
-        LOGTHROW(err2, ReadOnlyError)
+        LOGTHROW(err2, storage::ReadOnlyError)
             << "This driver supports read access only.";
     }
 
@@ -27,21 +27,21 @@ public:
         : Driver(readOnly)
     {
         if (!readOnly) {
-            LOGTHROW(err2, ReadOnlyError)
+            LOGTHROW(err2, storage::ReadOnlyError)
                 << "This driver supports read access only.";
         }
     }
 
 private:
     virtual OStream::pointer output_impl(File) UTILITY_OVERRIDE {
-        LOGTHROW(err2, ReadOnlyError)
+        LOGTHROW(err2, storage::ReadOnlyError)
             << "This driver supports read access only.";
         return {};
     }
 
     virtual OStream::pointer
     output_impl(const TileId, TileFile) UTILITY_OVERRIDE {
-        LOGTHROW(err2, ReadOnlyError)
+        LOGTHROW(err2, storage::ReadOnlyError)
             << "This driver supports read access only.";
         return {};
     }
@@ -49,27 +49,27 @@ private:
     virtual void remove_impl(const TileId, TileFile)
         UTILITY_OVERRIDE
     {
-        LOGTHROW(err2, ReadOnlyError)
+        LOGTHROW(err2, storage::ReadOnlyError)
             << "This driver supports read access only.";
     }
 
     virtual void begin_impl() UTILITY_OVERRIDE {
-        LOGTHROW(err2, ReadOnlyError)
+        LOGTHROW(err2, storage::ReadOnlyError)
             << "This driver supports read access only.";
     }
 
     virtual void commit_impl() UTILITY_OVERRIDE {
-        LOGTHROW(err2, ReadOnlyError)
+        LOGTHROW(err2, storage::ReadOnlyError)
             << "This driver supports read access only.";
     }
 
     virtual void rollback_impl() UTILITY_OVERRIDE {
-        LOGTHROW(err2, ReadOnlyError)
+        LOGTHROW(err2, storage::ReadOnlyError)
             << "This driver supports read access only.";
     }
 
     virtual void drop_impl() UTILITY_OVERRIDE {
-        LOGTHROW(err2, ReadOnlyError)
+        LOGTHROW(err2, storage::ReadOnlyError)
             << "This driver supports read access only.";
     }
 };

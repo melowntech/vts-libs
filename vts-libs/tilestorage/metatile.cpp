@@ -12,7 +12,7 @@
 #include "math/math.hpp"
 #include "half/half.hpp"
 
-#include "./error.hpp"
+#include "../storage/error.hpp"
 #include "./tileop.hpp"
 #include "./io.hpp"
 #include "./types.hpp"
@@ -312,11 +312,11 @@ void loadMetatile(std::istream &f, long baseTileSize, const TileId &tileId
 
         read(f, magic);
         if (std::memcmp(magic, METATILE_IO_MAGIC, sizeof(METATILE_IO_MAGIC))) {
-            LOGTHROW(err1, FormatError) << "Bad metatile data magic.";
+            LOGTHROW(err1, storage::FormatError) << "Bad metatile data magic.";
         }
         read(f, version);
         if (version > METATILE_IO_VERSION) {
-            LOGTHROW(err1, FormatError)
+            LOGTHROW(err1, storage::FormatError)
                 << "Unsupported metatile format (" << version << ").";
         }
     }
@@ -378,7 +378,7 @@ void Saver::saveMetatileTree(std::ostream &f, const MetatileDef &tile)
 
     const auto *node(saver.getNode(tile.id));
     if (!node) {
-        LOGTHROW(err2, Error)
+        LOGTHROW(err2, storage::Error)
             << "Can't find metanode for tile " << tile.id;
     }
 

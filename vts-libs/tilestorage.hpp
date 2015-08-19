@@ -32,7 +32,7 @@
 
 #include "./ids.hpp"
 
-#include "./tilestorage/error.hpp"
+#include "./storage/error.hpp"
 #include "./tilestorage/types.hpp"
 #include "./tilestorage/tileset.hpp"
 #include "./tilestorage/storage.hpp"

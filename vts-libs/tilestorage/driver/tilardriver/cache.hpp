@@ -9,7 +9,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/uuid/uuid.hpp>
 
-#include "../../tilar.hpp"
+#include "../../../storage/tilar.hpp"
 #include "../../basetypes.hpp"
 
 #include "./options.hpp"
@@ -36,7 +36,7 @@ public:
 
     FileStat stat(const TileId tileId, TileFile type);
 
-    Driver::Resources resources();
+    Resources resources();
 
     void flush();
     void commit();

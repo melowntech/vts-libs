@@ -39,17 +39,10 @@ set(vadstena-tileset-core_SOURCES
   tilestorage/basetypes.hpp
   tilestorage/properties.hpp
   tilestorage/tileop.hpp tilestorage/tileop.cpp
-  tilestorage/error.hpp
   tilestorage/io.hpp
   tilestorage/json.hpp tilestorage/json.cpp
 
-  tilestorage/openfiles.hpp tilestorage/openfiles.cpp
-  tilestorage/tilar.hpp tilestorage/tilar.cpp
-  tilestorage/tilar-io.hpp
-
   tilestorage/driver.hpp tilestorage/driver/driver.cpp
-  tilestorage/streams.hpp tilestorage/streams.cpp
-  tilestorage/driver/fstreams.hpp tilestorage/driver/fstreams.cpp
   tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp
   tilestorage/driver/flat.hpp
   tilestorage/driver/hash-crc.hpp tilestorage/driver/hash-crc.cpp

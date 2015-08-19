@@ -14,9 +14,11 @@
 
 #include "./cache.hpp"
 #include "../../io.hpp"
-#include "../../openfiles.hpp"
+#include "../../../storage/openfiles.hpp"
 
 namespace vadstena { namespace tilestorage { namespace tilardriver {
+
+using storage::OpenFiles;
 
 namespace {
 
@@ -324,7 +326,7 @@ FileStat Cache::stat(const TileId tileId, TileFile type)
     return getArchives(type).open(index.archive).stat(index.file);
 }
 
-Driver::Resources Cache::resources()
+Resources Cache::resources()
 {
     return { tiles_->map.size() + metatiles_->map.size(), 0 };
 }

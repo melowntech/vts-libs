@@ -3,10 +3,12 @@
 
 #include "../entities.hpp"
 #include "./basetypes.hpp"
-#include "./filetypes.hpp"
+#include "../storage/filetypes.hpp"
 #include "./properties.hpp"
 
 namespace vadstena { namespace tilestorage {
+
+using storage::TileFile;
 
 bool operator==(const TileId &lhs, const TileId &rhs);
 

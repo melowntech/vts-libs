@@ -4,7 +4,7 @@
 #include "./tileset.hpp"
 #include "../tilestorage.hpp"
 #include "./tileset-advanced.hpp"
-#include "./error.hpp"
+#include "../storage/error.hpp"
 #include "./json.hpp"
 #include "./io.hpp"
 #include "./driver.hpp"
@@ -39,7 +39,7 @@ namespace {
             Json::StyledStreamWriter().write(f, config);
             f.close();
         } catch (const std::exception &e) {
-            LOGTHROW(err2, Error)
+            LOGTHROW(err2, storage::Error)
                 << "Unable to write " << path << " config: "
                 << e.what() << ".";
         }
@@ -71,7 +71,7 @@ struct Storage::Factory {
         if (!create_directories(root)) {
             // directory already exists -> fail if mode says so
             if (mode == CreateMode::failIfExists) {
-                LOGTHROW(err2, StorageAlreadyExists)
+                LOGTHROW(err2, storage::StorageAlreadyExists)
                     << "Storage at " << root << " already exists.";
             }
         }
@@ -156,13 +156,13 @@ void Storage::Detail::loadConfig()
         f.open(path.string());
         Json::Reader reader;
         if (!reader.parse(f, config)) {
-            LOGTHROW(err2, FormatError)
+            LOGTHROW(err2, storage::FormatError)
                 << "Unable to parse " << path << " config: "
                 << reader.getFormattedErrorMessages() << ".";
         }
         f.close();
     } catch (const std::exception &e) {
-        LOGTHROW(err2, Error)
+        LOGTHROW(err2, storage::Error)
             << "Unable to read " << path << " config: "
             << e.what() << ".";
     }
@@ -226,13 +226,13 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators
         const auto tsp(tileSet->getProperties());
 
         if (findInput(tsp.id)) {
-            LOGTHROW(err2, TileSetAlreadyExists)
+            LOGTHROW(err2, storage::TileSetAlreadyExists)
                 << "This storage already contains input tile set <"
                 << tsp.id << ">.";
         }
 
         if (!output->compatible(*tileSet)) {
-            LOGTHROW(err2, IncompatibleTileSet)
+            LOGTHROW(err2, storage::IncompatibleTileSet)
                 << "Tile set <" << tsp.id
                 << "> is incompatible with this storage.";
         }
@@ -396,7 +396,7 @@ void Storage::Detail::removeTileSets(const std::vector<std::string> &ids
     for (const auto &id : ids) {
         auto *desc(findInput(id));
         if (!desc) {
-            LOGTHROW(err2, NoSuchTileSet)
+            LOGTHROW(err2, storage::NoSuchTileSet)
                 << "This storage doesn't contain input tile set <"
                 << id << ">.";
         }

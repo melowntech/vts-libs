@@ -7,7 +7,7 @@
 #include "./tilardriver/options.hpp"
 #include "./tilardriver/cache.hpp"
 #include "./factory.hpp"
-#include "../streams.hpp"
+#include "../../storage/streams.hpp"
 
 namespace vadstena { namespace tilestorage {
 

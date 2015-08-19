@@ -10,11 +10,19 @@
 
 #include "utility/runnable.hpp"
 
+#include "../storage/streams.hpp"
+#include "../storage/resources.hpp"
 #include "./basetypes.hpp"
 #include "./properties.hpp"
-#include "./streams.hpp"
 
 namespace vadstena { namespace tilestorage {
+
+using storage::IStream;
+using storage::OStream;
+using storage::FileStat;
+using storage::File;
+using storage::TileFile;
+using storage::Resources;
 
 class DetectionContext : boost::noncopyable
 {
@@ -55,20 +63,6 @@ public:
 
         StaticProperties* operator->() { return &properties; }
         const StaticProperties* operator->() const { return &properties; }
-    };
-
-    struct Resources {
-        std::size_t openFiles;
-        std::size_t memory;
-
-        Resources(std::size_t openFiles = 0, std::size_t memory = 0)
-            : openFiles(openFiles), memory(memory)
-        {}
-
-        Resources& operator+=(Resources &o);
-        Resources& operator-=(Resources &o);
-        bool operator<(const Resources &o) const;
-        bool operator>(const Resources &o) const;
     };
 
     virtual ~Driver() {};
@@ -275,7 +269,7 @@ inline FileStat Driver::stat(const TileId tileId, TileFile type) const
     return stat;
 }
 
-inline Driver::Resources Driver::resources() const
+inline Resources Driver::resources() const
 {
     return resources_impl();
 }
@@ -327,49 +321,6 @@ inline void Driver::checkRunning() const
 {
     if (!runnable_ || *runnable_) { return; }
     notRunning();
-}
-
-inline Driver::Resources& Driver::Resources::operator+=(Resources &o)
-{
-    openFiles += o.openFiles;
-    memory += o.memory;
-    return *this;
-}
-
-inline Driver::Resources& Driver::Resources::operator-=(Resources &o)
-{
-    openFiles -= o.openFiles;
-    memory -= o.memory;
-    return *this;
-}
-
-inline bool Driver::Resources::operator<(const Resources &o) const
-{
-    if (openFiles < o.openFiles) {
-        return true;
-    } else if (o.openFiles < openFiles) {
-        return false;
-    }
-    return memory < o.memory;
-}
-
-inline bool Driver::Resources::operator>(const Resources &o) const
-{
-    if (openFiles > o.openFiles) {
-        return true;
-    } else if (o.openFiles > openFiles) {
-        return false;
-    }
-    return memory > o.memory;
-}
-
-template<typename CharT, typename Traits>
-inline std::basic_ostream<CharT, Traits>&
-operator<<(std::basic_ostream<CharT, Traits> &os
-           , const Driver::Resources &r)
-{
-    return os << "{openFiles=" << r.openFiles
-              << ", memory=" << r.memory << '}';
 }
 
 } } // namespace vadstena::tilestorage

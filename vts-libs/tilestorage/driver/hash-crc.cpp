@@ -3,7 +3,7 @@
 #include <boost/crc.hpp>
 #include <boost/format.hpp>
 
-#include "../error.hpp"
+#include "../../storage/error.hpp"
 #include "./hash-crc.hpp"
 
 namespace vadstena { namespace tilestorage {

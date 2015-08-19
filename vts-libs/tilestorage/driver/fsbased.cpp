@@ -10,7 +10,7 @@
 #include "./fsbased.hpp"
 #include "./flat.hpp"
 #include "../io.hpp"
-#include "../error.hpp"
+#include "../../storage/error.hpp"
 #include "../config.hpp"
 #include "../tileop.hpp"
 
@@ -60,7 +60,7 @@ FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
     if (!create_directories(root_)) {
         // directory already exists -> fail if mode says so
         if (mode == CreateMode::failIfExists) {
-            LOGTHROW(err2, TileSetAlreadyExists)
+            LOGTHROW(err2, storage::TileSetAlreadyExists)
                 << "Tile set at " << root_ << " already exists.";
         }
     }
@@ -76,12 +76,12 @@ FsBasedDriver::FsBasedDriver(const boost::filesystem::path &root
     , dirCache_(root_)
 {
     if (!exists(root_)) {
-        LOGTHROW(err2, NoSuchTileSet)
+        LOGTHROW(err2, storage::NoSuchTileSet)
             << "No tile set can be found at " << root_ << ".";
     }
 
     if (!is_directory(root_)) {
-        LOGTHROW(err2, NoSuchTileSet)
+        LOGTHROW(err2, storage::NoSuchTileSet)
             << "No tile set can be found at " << root_
             << ": not a directory.";
     }
@@ -188,7 +188,7 @@ FileStat FsBasedDriver::stat_impl(const TileId tileId, TileFile type) const
 void FsBasedDriver::begin_impl()
 {
     if (tx_) {
-        LOGTHROW(err2, PendingTransaction)
+        LOGTHROW(err2, storage::PendingTransaction)
             << "Transaction already in progress";
     }
 
@@ -204,7 +204,7 @@ void FsBasedDriver::begin_impl()
 void FsBasedDriver::commit_impl()
 {
     if (!tx_) {
-        LOGTHROW(err2, PendingTransaction)
+        LOGTHROW(err2, storage::PendingTransaction)
             << "No transaction in progress";
     }
 
@@ -235,7 +235,7 @@ void FsBasedDriver::commit_impl()
 void FsBasedDriver::rollback_impl()
 {
     if (!tx_) {
-        LOGTHROW(err2, PendingTransaction)
+        LOGTHROW(err2, storage::PendingTransaction)
             << "No transaction in progress";
     }
 
@@ -249,7 +249,7 @@ void FsBasedDriver::rollback_impl()
 void FsBasedDriver::drop_impl()
 {
     if (tx_) {
-        LOGTHROW(err2, PendingTransaction)
+        LOGTHROW(err2, storage::PendingTransaction)
             << "Cannot drop tile set inside an active transaction.";
     }
 
@@ -273,7 +273,7 @@ fs::path FsBasedDriver::readPath(const fs::path &dir, const fs::path &name)
     return root_ / dir / name;
 }
 
-std::pair<fs::path, OnClose>
+std::pair<fs::path, storage::OnClose>
 FsBasedDriver::writePath(const fs::path &dir, const fs::path &name)
 {
     DirCache *dirCache(&dirCache_);

@@ -10,10 +10,12 @@
 
 #include "../../properties.hpp"
 #include "../../driver.hpp"
-#include "../../tilar.hpp"
+#include "../../../storage/tilar.hpp"
 #include "../../tileop.hpp"
 
 namespace vadstena { namespace tilestorage { namespace tilardriver {
+
+using storage::Tilar;
 
 struct Options {
     /** Tile size at LOD=0.

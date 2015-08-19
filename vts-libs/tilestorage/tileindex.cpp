@@ -10,7 +10,7 @@
 
 #include "./tileindex.hpp"
 #include "./tileop.hpp"
-#include "./error.hpp"
+#include "../storage/error.hpp"
 #include "./io.hpp"
 #include "./tileindex-io.hpp"
 
@@ -265,7 +265,7 @@ void TileIndex::load(std::istream &f)
     read(f, magic);
 
     if (std::memcmp(magic, TILE_INDEX_IO_MAGIC, sizeof(TILE_INDEX_IO_MAGIC))) {
-        LOGTHROW(err2, Error)
+        LOGTHROW(err2, storage::Error)
             << "TileIndex has wrong magic.";
     }
 

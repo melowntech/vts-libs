@@ -12,7 +12,7 @@
 
 #include "./tar.hpp"
 #include "../io.hpp"
-#include "../error.hpp"
+#include "../../storage/error.hpp"
 #include "../tileop.hpp"
 
 namespace vadstena { namespace tilestorage {
@@ -56,14 +56,14 @@ struct TarDevice {
         return bytes;
     }
 
-    ReadOnlyFd fd() { return fd_; }
+    storage::ReadOnlyFd fd() { return fd_; }
 
 private:
     std::streamsize read_impl(char *data, std::streamsize size
                               , boost::iostreams::stream_offset pos);
 
     fs::path path_;
-    ReadOnlyFd fd_;
+    storage::ReadOnlyFd fd_;
     boost::iostreams::stream_offset pos_;
 };
 
@@ -95,7 +95,7 @@ public:
 
     virtual FileStat stat_impl() const UTILITY_OVERRIDE { return stat_; }
 
-    virtual boost::optional<ReadOnlyFd> fd() UTILITY_OVERRIDE
+    virtual boost::optional<storage::ReadOnlyFd> fd() UTILITY_OVERRIDE
     {
         return buffer_->fd();
     }
@@ -285,7 +285,7 @@ IStream::pointer TarDriver::input_impl(const TileId tileId, TileFile type)
 
     auto fsrc(src->find(tileId));
     if (fsrc == src->end()) {
-        LOGTHROW(err1, NoSuchFile)
+        LOGTHROW(err1, storage::NoSuchFile)
             << "No data for " << tileId << " " << desc << ".";
     }
     return readFile(reader_, fsrc->second, type);
@@ -309,7 +309,7 @@ FileStat TarDriver::stat_impl(File type) const
     }
 
     if (!r->size) {
-        LOGTHROW(err1, NoSuchFile)
+        LOGTHROW(err1, storage::NoSuchFile)
             << "No data for " << desc << ".";
     }
 
@@ -340,7 +340,7 @@ FileStat TarDriver::stat_impl(const TileId tileId, TileFile type) const
 
     auto fsrc(src->find(tileId));
     if (fsrc == src->end()) {
-        LOGTHROW(err1, NoSuchFile)
+        LOGTHROW(err1, storage::NoSuchFile)
             << "No data for " << tileId << " " << desc << ".";
     }
 
