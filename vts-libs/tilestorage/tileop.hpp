@@ -1,6 +1,8 @@
 #ifndef vadstena_libs_tilestorage_tileop_hpp_included_
 #define vadstena_libs_tilestorage_tileop_hpp_included_
 
+#include <boost/optional.hpp>
+
 #include "../entities.hpp"
 #include "./basetypes.hpp"
 #include "../storage/filetypes.hpp"
@@ -62,6 +64,9 @@ bool fromFilename(TileId &tileId, TileFile &type
 
 void misaligned(const Alignment &alignment, long baseTileSize
                 , const TileId &tileId);
+
+TileId findMetatile(const Properties &properties, TileId tileId
+                    , bool useFoat = true);
 
 // inline stuff
 
@@ -200,6 +205,20 @@ inline int child(const Index &index)
 inline bool in(const LodRange &range, const TileId &tileId)
 {
     return (tileId.lod >= range.min) && (tileId.lod <= range.max);
+}
+
+inline TileId findMetatile(const Properties &properties, TileId tileId
+                           , bool useFoat)
+{
+    // topmost tile is either foat or 0-0-0
+    TileId top((useFoat) ? (properties.foat) : TileId());
+
+    while ((tileId != top) && !isMetatile(properties.metaLevels, tileId)) {
+        tileId = tilestorage::parent(properties.alignment
+                                     , properties.baseTileSize
+                                     , tileId);
+    }
+    return tileId;
 }
 
 } } // namespace vadstena::tilestorage

@@ -24,6 +24,7 @@
 #include "./tileset-detail.hpp"
 #include "./tileset-advanced.hpp"
 #include "./metatile.hpp"
+#include "./metatileop.hpp"
 #include "./merge.hpp"
 #include "./tileset/dump.hpp"
 #include "./driver/tilardriver.hpp"
@@ -396,12 +397,7 @@ MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId)
         return nullptr;
     }
 
-    auto metaId(tileId);
-    while (metaId.lod
-           && !isMetatile(savedProperties.metaLevels, metaId))
-    {
-        metaId = vts::parent(metaId);
-    }
+    auto metaId(findMetatile(savedProperties.metaLevels, tileId));
 
     if (!metaIndex.exists(metaId)) {
         return nullptr;
@@ -643,7 +639,7 @@ MetaNode TileSet::Detail::setTile(const TileId &tileId, const Mesh &mesh
     }
 
     // calculate dependent metadata
-    metanode.calcParams(mesh, { atlas.cols, atlas.rows }, pixelSize);
+    calcParams(metanode, mesh, { atlas.cols, atlas.rows }, pixelSize);
 
     if (metanode.exists()) {
         // save data only if valid

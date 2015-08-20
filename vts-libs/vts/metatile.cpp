@@ -16,94 +16,11 @@
 
 #include "./tileop.hpp"
 #include "./io.hpp"
-#include "./types.hpp"
 #include "./metatile.hpp"
 
 namespace half = half_float::detail;
 
 namespace vadstena { namespace vts {
-
-namespace detail {
-
-double triangleArea(const math::Point3 &a, const math::Point3 &b,
-                    const math::Point3 &c)
-{
-    return norm_2(math::crossProduct(b - a, c - a)) * 0.5;
-}
-
-double pixelSize(const geometry::Obj &mesh, const math::Size2 &atlasSize)
-{
-    if (mesh.facets.empty()) return detail::invalidPixelSize;
-
-    // calculate the total area of the faces in both the XYZ and UV spaces
-    double xyzArea(0), uvArea(0);
-    for (const auto &face : mesh.facets)
-    {
-        xyzArea += triangleArea(mesh.vertices[face.v[0]],
-                                mesh.vertices[face.v[1]],
-                                mesh.vertices[face.v[2]]);
-        uvArea += triangleArea(mesh.texcoords[face.t[0]],
-                               mesh.texcoords[face.t[1]],
-                               mesh.texcoords[face.t[2]]);
-    }
-    uvArea *= atlasSize.width * atlasSize.height;
-
-    // no texturing -> invalid tile
-    if (!uvArea) {
-        return detail::invalidPixelSize;
-    }
-
-    return sqrt(xyzArea / uvArea);
-}
-
-} // namespace detail
-
-std::pair<double, double> area(const Tile &tile)
-{
-    if (tile.mesh.facets.empty()) {
-        return { 0.0, 0.0 };
-    }
-
-    // calculate the total area of the faces in both the XYZ and UV spaces
-    double xyzArea(0), uvArea(0);
-    for (const auto &face : tile.mesh.facets)
-    {
-        xyzArea += detail::triangleArea(tile.mesh.vertices[face.v[0]],
-                                        tile.mesh.vertices[face.v[1]],
-                                        tile.mesh.vertices[face.v[2]]);
-        uvArea += detail::triangleArea(tile.mesh.texcoords[face.t[0]],
-                                       tile.mesh.texcoords[face.t[1]],
-                                       tile.mesh.texcoords[face.t[2]]);
-    }
-    uvArea *= tile.atlas.cols * tile.atlas.rows;
-
-    return { xyzArea, uvArea };
-}
-
-void MetaNode::calcParams(const geometry::Obj &mesh
-                          , const math::Size2 &atlasSize
-                          , const boost::optional<double> &forcePixelSize)
-{
-    if (mesh.facets.empty()) return;
-
-    // calculate Z range
-    zmin = INFINITY; zmax = -INFINITY;
-    for (const auto &vertex : mesh.vertices)
-    {
-        if (vertex(2) < zmin) zmin = vertex(2);
-        if (vertex(2) > zmax) zmax = vertex(2);
-    }
-
-    // calculate pixel size from atlas or used forced value
-    double ps(forcePixelSize
-              ? *forcePixelSize
-              : detail::pixelSize(mesh, atlasSize));
-    
-    // calculate texture resolution
-    pixelSize[0][0] = pixelSize[0][1] = ps;
-    pixelSize[1][0] = pixelSize[1][1] = ps;
-}
-
 
 namespace {
     constexpr unsigned int METATILE_IO_VERSION_ABSOLUTE_HEIGHTFIELD = 1;
@@ -380,7 +297,7 @@ void Saver::saveMetatileTree(std::ostream &f, const MetatileDef &tile)
             << "Can't find metanode for tile " << tile.id;
     }
 
-    LOG(info1) << "Dumping " << tile.id << ", " << tile.end
+    LOG(debug) << "Dumping " << tile.id << ", " << tile.end
                << ", bottom: " << bottom
                << ", meta mode:\n" << utility::dump(*node, "    ");
 

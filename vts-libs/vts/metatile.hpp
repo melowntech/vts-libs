@@ -8,7 +8,6 @@
 #include <boost/optional.hpp>
 
 #include "./basetypes.hpp"
-#include "./typesfwd.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -59,9 +58,6 @@ struct MetaNode : TileMetadata
     {
         invalidate();
     }
-
-    void calcParams(const geometry::Obj &mesh, const math::Size2 &atlasSize
-                    , const boost::optional<double> &pixelSize = boost::none);
 
     /** Make node invalid (i.e. having no real data).
      */

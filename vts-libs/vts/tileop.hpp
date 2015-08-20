@@ -14,7 +14,7 @@ using storage::File;
 
 TileId fromAlignment(const Properties &properties, const TileId &tileId);
 
-TileId parent(const Properties &properties, const TileId &tileId);
+TileId parent(const TileId &tileId);
 
 Children children(const TileId &tileId);
 
@@ -39,6 +39,8 @@ std::string asFilename(const TileId &tileId, TileFile type);
 bool fromFilename(TileId &tileId, TileFile &type
                   , const std::string &str
                   , std::string::size_type offset = 0);
+
+TileId findMetatile(const LodLevels &metaLevels, TileId tileId);
 
 // inline stuff
 
@@ -82,6 +84,14 @@ inline int child(const TileId &tileId)
 inline bool in(const LodRange &range, const TileId &tileId)
 {
     return (tileId.lod >= range.min) && (tileId.lod <= range.max);
+}
+
+inline TileId findMetatile(const LodLevels &metaLevels, TileId tileId)
+{
+    while ((tileId.lod > 0) && !isMetatile(metaLevels, tileId)) {
+        tileId = parent(tileId);
+    }
+    return tileId;
 }
 
 } } // namespace vadstena::vts

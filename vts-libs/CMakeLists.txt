@@ -13,7 +13,7 @@ set(vadstena-libs-storage_SOURCES
   )
 
 define_module(LIBRARY vadstena-libs-storage DEPENDS
-  math utility dbglog jsoncpp Boost_IOSTREAMS)
+  math utility dbglog half jsoncpp Boost_IOSTREAMS)
 add_library(vadstena-libs-storage STATIC ${vadstena-libs-storage_SOURCES})
 buildsys_library(vadstena-libs-storage)
 target_link_libraries(vadstena-libs-storage
@@ -43,6 +43,7 @@ set(vadstena-tileset-core_SOURCES
   tilestorage/tileop.hpp tilestorage/tileop.cpp
   tilestorage/io.hpp
   tilestorage/json.hpp tilestorage/json.cpp
+  tilestorage/metatile.hpp tilestorage/metatile.cpp
 
   tilestorage/driver.hpp tilestorage/driver/driver.cpp
   tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp
@@ -92,6 +93,7 @@ set(vadstena-vts-core_SOURCES
   vts/tileop.hpp vts/tileop.cpp
   vts/io.hpp
   vts/json.hpp vts/json.cpp
+  vts/metatile.hpp vts/metatile.cpp
 
   vts/driver.hpp vts/driver/driver.cpp
 
@@ -105,7 +107,7 @@ set(vadstena-vts-core_SOURCES
   )
 
 define_module(LIBRARY vadstena-vts-core DEPENDS
-  vadstena-libs-storage math utility dbglog jsoncpp Boost_IOSTREAMS)
+  vadstena-libs-storage math utility dbglog jsoncpp half Boost_IOSTREAMS)
 add_library(vadstena-vts-core STATIC ${vadstena-vts-core_SOURCES})
 buildsys_library(vadstena-vts-core)
 target_link_libraries(vadstena-vts-core
@@ -137,8 +139,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     vadstena-vts-core
     service cvision optics math geo geometry utility dbglog jsoncpp
     Boost_FILESYSTEM Boost_REGEX
-    OpenCV LIBSHP CRYPTO++ MYSQL++
-    half)
+    OpenCV LIBSHP CRYPTO++ MYSQL++)
 
   set(vadstena-libs_SOURCES
     definitions.hpp imagetypes.hpp
@@ -204,7 +205,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/tileset.hpp tilestorage/tileset.cpp
     tilestorage/po.hpp
     tilestorage/tileindex.hpp tilestorage/tileindex.cpp
-    tilestorage/metatile.hpp tilestorage/metatile.cpp
 
     tilestorage/merge.hpp tilestorage/merge.cpp
     tilestorage/tileset/merge.cpp
@@ -216,7 +216,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     vts/tileset.hpp vts/tileset.cpp
     vts/po.hpp
     vts/tileindex.hpp vts/tileindex.cpp
-    vts/metatile.hpp vts/metatile.cpp
 
     vts/tileset/merge.cpp
     vts/tileset/dump.hpp

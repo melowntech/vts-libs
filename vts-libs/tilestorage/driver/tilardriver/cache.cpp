@@ -112,9 +112,9 @@ struct Cache::Archives
              , bool readOnly, int filesPerTile, const Options &options
              , const Tilar::ContentTypes &contentTypes);
 
-    Tilar& open(const Index &archive);
+    Tilar& open(const Index &archive, bool readOnly);
 
-    fs::path filePath(const Index &index) const;
+    fs::path filePath(const Index &index, bool readOnly) const;
 
     void commitChanges() {
         finish([](Tilar &tilar) { tilar.commit(); });
@@ -155,13 +155,13 @@ Cache::Archives::Archives(const fs::path &root, const std::string &extension
     , readOnly(readOnly), contentTypes(contentTypes)
 {}
 
-fs::path Cache::Archives::filePath(const Index &index) const
+fs::path Cache::Archives::filePath(const Index &index, bool readOnly) const
 {
     const auto filename(str(boost::format("%s-%07d-%07d.%s")
                             % index.lod % index.easting % index.northing
                             % extension));
     const auto parent(root / dir(filename));
-    create_directories(parent);
+    if (!readOnly) { create_directories(parent); }
     return parent / filename;
 }
 
@@ -271,7 +271,7 @@ void Cache::Archives::houseKeeping(const Index *keep)
     }
 }
 
-Tilar& Cache::Archives::open(const Index &archive)
+Tilar& Cache::Archives::open(const Index &archive, bool readOnly)
 {
     auto fmap(map.find(archive));
     if (fmap != map.end()) {
@@ -284,7 +284,7 @@ Tilar& Cache::Archives::open(const Index &archive)
     // housekeeping before open
     houseKeeping();
 
-    auto path(filePath(archive));
+    auto path(filePath(archive, readOnly));
     auto file(tilar(path, options, readOnly));
     file.setContentTypes(contentTypes);
 
@@ -295,20 +295,20 @@ Tilar& Cache::Archives::open(const Index &archive)
 IStream::pointer Cache::input(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
-    return getArchives(type).open(index.archive).input(index.file);
+    return getArchives(type).open(index.archive, true).input(index.file);
 }
 
 OStream::pointer Cache::output(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
-    return getArchives(type).open(index.archive).output(index.file);
+    return getArchives(type).open(index.archive, false).output(index.file);
 }
 
 void Cache::remove(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
     try {
-        return getArchives(type).open(index.archive).remove(index.file);
+        return getArchives(type).open(index.archive, true).remove(index.file);
     } catch (const std::exception &e) {
         // ignore, this fails when the file cannot be opened
     }
@@ -317,13 +317,13 @@ void Cache::remove(const TileId tileId, TileFile type)
 std::size_t Cache::size(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
-    return getArchives(type).open(index.archive).size(index.file);
+    return getArchives(type).open(index.archive, true).size(index.file);
 }
 
 FileStat Cache::stat(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
-    return getArchives(type).open(index.archive).stat(index.file);
+    return getArchives(type).open(index.archive, true).stat(index.file);
 }
 
 Resources Cache::resources()
