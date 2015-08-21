@@ -205,6 +205,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/tileset.hpp tilestorage/tileset.cpp
     tilestorage/po.hpp
     tilestorage/tileindex.hpp tilestorage/tileindex.cpp
+    tilestorage/metatileop.hpp tilestorage/metatileop.cpp
 
     tilestorage/merge.hpp tilestorage/merge.cpp
     tilestorage/tileset/merge.cpp
@@ -216,6 +217,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     vts/tileset.hpp vts/tileset.cpp
     vts/po.hpp
     vts/tileindex.hpp vts/tileindex.cpp
+    vts/metatileop.hpp vts/metatileop.cpp
 
     vts/tileset/merge.cpp
     vts/tileset/dump.hpp
