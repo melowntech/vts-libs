@@ -75,6 +75,7 @@ struct LodLevels {
     Lod delta;    //!< lod step
 
     LodLevels() : lod(), delta() {}
+    LodLevels(Lod lod, Lod delta) : lod(lod), delta(delta) {}
 };
 
 /** Open mode
