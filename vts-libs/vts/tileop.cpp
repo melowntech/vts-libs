@@ -124,4 +124,37 @@ void misaligned(const Alignment &alignment, long baseTileSize
         << ")/" << baseTileSize << ".";
 }
 
+math::Size2f tileSize(const Properties &prop, Lod lod)
+{
+    auto ts(size(prop.extents));
+    ts.width /= (1 << lod);
+    ts.height /= (1 << lod);
+    return ts;
+}
+
+TileId fromLl(const Properties &prop, Lod lod, const math::Point2 &ll)
+{
+    auto ts(tileSize(prop, lod));
+    math::Point2 diff(ll - ul(prop.extents));
+    return { lod, long(std::round(diff(0) / ts.width))
+            , long(-1.0 - std::round(diff(1) / ts.height)) };
+}
+
+math::Extents2 aligned(const Properties &prop, Lod lod
+                       , const math::Extents2 &in)
+{
+    auto ts(tileSize(prop, lod));
+
+    auto llId(fromLl(prop, lod, in.ll));
+    auto urId(fromLl(prop, lod, in.ur));
+
+    auto origin(ul(prop.extents));
+    ++urId.x;
+    --urId.y;
+    return { math::Point2(origin(0) + ts.width * llId.x
+                          , origin(1) - ts.height * (llId.y - 1))
+            , math::Point2(origin(0) + ts.width * urId.x
+                           , origin(1) - ts.height * (urId.y - 1)) };
+}
+
 } } // namespace vadstena::vts

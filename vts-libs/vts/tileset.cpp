@@ -242,6 +242,9 @@ void TileSet::Detail::saveMetadata()
         // no tile, we should invalidate tileset
         properties.hasData = false;
         propertiesChanged = true;
+    } else {
+        properties.hasData = true;
+        propertiesChanged = true;
     }
 
     // saved => no change

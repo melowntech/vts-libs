@@ -42,6 +42,13 @@ bool fromFilename(TileId &tileId, TileFile &type
 
 TileId findMetatile(const LodLevels &metaLevels, TileId tileId);
 
+math::Size2f tileSize(const Properties &prop, Lod lod);
+
+TileId fromLl(const Properties &prop, Lod lod, const math::Point2 &ll);
+
+math::Extents2 aligned(const Properties &prop, Lod lod
+                       , const math::Extents2 &in);
+
 // inline stuff
 
 inline TileId parent(const TileId &tileId)

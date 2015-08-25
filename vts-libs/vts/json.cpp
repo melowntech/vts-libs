@@ -121,6 +121,8 @@ Properties parse1024(const Json::Value &config)
 
     Json::get(properties.texelSize, config, "texelSize");
 
+    Json::get(properties.verticalAdjustment, config, "verticalAdjustment");
+
     return properties;
 }
 
@@ -190,6 +192,8 @@ void build(Json::Value &config, const Properties &properties)
     config["texelSize"] = Json::Value(properties.texelSize);
 
     config["driver"] = detail::tileset::buildDriver(properties.driver);
+
+    config["verticalAdjustment"] = Json::Value(properties.verticalAdjustment);
 }
 
 } } // namespace vadstena::vts
