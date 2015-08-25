@@ -152,9 +152,9 @@ math::Extents2 aligned(const Properties &prop, Lod lod
     ++urId.x;
     --urId.y;
     return { math::Point2(origin(0) + ts.width * llId.x
-                          , origin(1) - ts.height * (llId.y - 1))
+                          , origin(1) - ts.height * (llId.y + 1))
             , math::Point2(origin(0) + ts.width * urId.x
-                           , origin(1) - ts.height * (urId.y - 1)) };
+                           , origin(1) - ts.height * (urId.y + 1)) };
 }
 
 } } // namespace vadstena::vts
