@@ -16,28 +16,28 @@ namespace vadstena { namespace vts {
 
 namespace {
 
-void parse(ReferenceFrame::map &rfs, const Json::Value &content)
+void parse(ReferenceFrame::dict &rfs, const Json::Value &content)
 {
     (void) rfs;
     (void) content;
     // TODO: implement me
 }
 
-void build(Json::Value &content, const ReferenceFrame::map &rfs)
+void build(Json::Value &content, const ReferenceFrame::dict &rfs)
 {
     (void) rfs;
     (void) content;
     // TODO: implement me
 }
 
-void parse(Srs::map &srs, const Json::Value &content)
+void parse(Srs::dict &srs, const Json::Value &content)
 {
     (void) srs;
     (void) content;
     // TODO: implement me
 }
 
-void build(Json::Value &content, const Srs::map &srs)
+void build(Json::Value &content, const Srs::dict &srs)
 {
     (void) srs;
     (void) content;
@@ -46,7 +46,7 @@ void build(Json::Value &content, const Srs::map &srs)
 
 } // namesapce
 
-ReferenceFrame::map loadReferenceFrames(std::istream &in)
+ReferenceFrame::dict loadReferenceFrames(std::istream &in)
 {
     // load json
     Json::Value content;
@@ -57,12 +57,12 @@ ReferenceFrame::map loadReferenceFrames(std::istream &in)
             << reader.getFormattedErrorMessages() << ".";
     }
 
-    ReferenceFrame::map rfs;
+    ReferenceFrame::dict rfs;
     parse(rfs, content);
     return rfs;
 }
 
-ReferenceFrame::map loadReferenceFrames(const boost::filesystem::path &path)
+ReferenceFrame::dict loadReferenceFrames(const boost::filesystem::path &path)
 {
     LOG(info1) << "Loading reference frame config from " << path  << ".";
     std::ifstream f;
@@ -70,7 +70,7 @@ ReferenceFrame::map loadReferenceFrames(const boost::filesystem::path &path)
     try {
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
-        LOGTHROW(err1, storage::NoSuchTileSet)
+        LOGTHROW(err1, storage::IOError)
             << "Unable to load reference frame config file " << path << ".";
     }
     auto rfs(loadReferenceFrames(f));
@@ -79,7 +79,7 @@ ReferenceFrame::map loadReferenceFrames(const boost::filesystem::path &path)
 }
 
 void saveReferenceFrames(std::ostream &out
-                         , const ReferenceFrame::map &rfs)
+                         , const ReferenceFrame::dict &rfs)
 {
     Json::Value content;
     build(content, rfs);
@@ -88,7 +88,7 @@ void saveReferenceFrames(std::ostream &out
 }
 
 void saveReferenceFrames(const boost::filesystem::path &path
-                         , const ReferenceFrame::map &rfs)
+                         , const ReferenceFrame::dict &rfs)
 {
     LOG(info1) << "Saving reference frame config file to " << path  << ".";
     std::ofstream f;
@@ -96,14 +96,14 @@ void saveReferenceFrames(const boost::filesystem::path &path
         f.exceptions(std::ios::badbit | std::ios::failbit);
         f.open(path.string(), std::ios_base::out);
     } catch (const std::exception &e) {
-        LOGTHROW(err1, storage::NoSuchTileSet)
+        LOGTHROW(err1, storage::IOError)
             << "Unable to save reference frame config file " << path << ".";
     }
     saveReferenceFrames(f, rfs);
     f.close();
 }
 
-Srs::map loadSrs(std::istream &in)
+Srs::dict loadSrs(std::istream &in)
 {
     // load json
     Json::Value content;
@@ -114,12 +114,12 @@ Srs::map loadSrs(std::istream &in)
             << reader.getFormattedErrorMessages() << ".";
     }
 
-    Srs::map srs;
+    Srs::dict srs;
     parse(srs, content);
     return srs;
 }
 
-Srs::map loadSrs(const boost::filesystem::path &path)
+Srs::dict loadSrs(const boost::filesystem::path &path)
 {
     LOG(info1) << "Loading srs config from " << path  << ".";
     std::ifstream f;
@@ -127,7 +127,7 @@ Srs::map loadSrs(const boost::filesystem::path &path)
     try {
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
-        LOGTHROW(err1, storage::NoSuchTileSet)
+        LOGTHROW(err1, storage::IOError)
             << "Unable to load srs config file " << path << ".";
     }
     auto srs(loadSrs(f));
@@ -135,7 +135,7 @@ Srs::map loadSrs(const boost::filesystem::path &path)
     return srs;
 }
 
-void saveSrs(std::ostream &out, const Srs::map &srs)
+void saveSrs(std::ostream &out, const Srs::dict &srs)
 {
     Json::Value content;
     build(content, srs);
@@ -144,7 +144,7 @@ void saveSrs(std::ostream &out, const Srs::map &srs)
 }
 
 void saveSrs(const boost::filesystem::path &path
-             , const Srs::map &srs)
+             , const Srs::dict &srs)
 {
     LOG(info1) << "Saving srs config file to " << path  << ".";
     std::ofstream f;
@@ -152,7 +152,7 @@ void saveSrs(const boost::filesystem::path &path
         f.exceptions(std::ios::badbit | std::ios::failbit);
         f.open(path.string(), std::ios_base::out);
     } catch (const std::exception &e) {
-        LOGTHROW(err1, storage::NoSuchTileSet)
+        LOGTHROW(err1, storage::IOError)
             << "Unable to save srs config file " << path << ".";
     }
     saveSrs(f, srs);

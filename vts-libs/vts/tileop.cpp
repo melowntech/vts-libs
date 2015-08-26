@@ -157,4 +157,16 @@ math::Extents2 aligned(const Properties &prop, Lod lod
                            , origin(1) - ts.height * (urId.y + 1)) };
 }
 
+math::Extents2 extents(const Properties &prop, const TileId &tileId)
+{
+    auto ts(tileSize(prop, tileId.lod));
+
+    auto origin(ul(prop.extents));
+    return { math::Point2(origin(0) + tileId.x * ts.width
+                          , origin(1) - (1 + tileId.y) * ts.height)
+            , math::Point2(origin(0) + (tileId.x + 1) * ts.width
+                           , origin(1) - tileId.y * ts.height)
+            };
+}
+
 } } // namespace vadstena::vts

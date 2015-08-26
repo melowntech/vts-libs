@@ -9,6 +9,9 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <new>
+
+#include "dbglog/dbglog.hpp"
 
 #include "utility/enum-io.hpp"
 
@@ -16,10 +19,27 @@
 
 #include "geo/srsdef.hpp"
 
+#include "../storage/error.hpp"
 #include "../range.hpp"
 #include "../ids.hpp"
 
 namespace vadstena { namespace vts {
+
+template <typename T>
+class Dictionary
+{
+public:
+    Dictionary() {}
+
+    void set(const std::string &id, const T &value);
+    const T* get(const std::string &id, std::nothrow_t) const;
+    const T& get(const std::string &id) const;
+    bool has(const std::string &id) const;
+
+private:
+    typedef std::map<std::string, T> map;
+    map map_;
+};
 
 enum class Partitioning { bisection, manual };
 enum class VerticalDatum { orthometric, ellipsoidal };
@@ -49,7 +69,7 @@ struct Srs {
     boost::optional<VerticalDatum> vdatum;
     boost::optional<geo::SrsDefinition> srsDefEllps;
 
-    typedef std::map<std::string, Srs> map;
+    typedef Dictionary<Srs> dict;
 
     Srs() : srsModifiers() {}
 };
@@ -97,18 +117,18 @@ struct ReferenceFrame {
     // parameters -- generic container?
     unsigned int metaBinaryOrder;
 
-    typedef std::map<std::string, ReferenceFrame> map;
+    typedef Dictionary<ReferenceFrame> dict;
 };
 
-ReferenceFrame::map loadReferenceFrames(const boost::filesystem::path &path);
+ReferenceFrame::dict loadReferenceFrames(const boost::filesystem::path &path);
 
 void saveReferenceFrames(const boost::filesystem::path &path
-                         , const ReferenceFrame::map &rfs);
+                         , const ReferenceFrame::dict &rfs);
 
-Srs::map loadSrs(const boost::filesystem::path &path);
+Srs::dict loadSrs(const boost::filesystem::path &path);
 
 void saveSrs(const boost::filesystem::path &path
-             , const Srs::map &srs);
+             , const Srs::dict &srs);
 
 // enum IO stuff
 
@@ -140,6 +160,37 @@ ReferenceFrame::Division::Node::Id::operator<(const Id &id) const
     else if (id.x < x) { return false; }
 
     return y < id.y;
+}
+
+template <typename T>
+void Dictionary<T>::set(const std::string &id, const T &value)
+{
+    map_.insert(map::value_type(id, value));
+}
+
+template <typename T>
+const T* Dictionary<T>::get(const std::string &id, std::nothrow_t) const
+{
+    auto fmap(map_.find(id));
+    if (fmap == map_.end()) { return nullptr; }
+    return &fmap->second;
+}
+
+template <typename T>
+const T& Dictionary<T>::get(const std::string &id) const
+{
+    const auto *value(get(id, std::nothrow));
+    if (!value) {
+        LOGTHROW(err1, storage::KeyError)
+            << "No such key " << id << " in this dictionary.";
+    }
+    return *value;
+}
+
+template <typename T>
+bool Dictionary<T>::has(const std::string &id) const
+{
+    return (map_.find(id) != map_.end());
 }
 
 } } // namespace vadstena::vts

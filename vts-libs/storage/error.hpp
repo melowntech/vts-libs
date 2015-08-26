@@ -69,6 +69,14 @@ struct TileSetNotFlushed : Error {
     TileSetNotFlushed(const std::string &message) : Error(message) {}
 };
 
+struct KeyError : Error {
+    KeyError(const std::string &message) : Error(message) {}
+};
+
+struct IOError : Error {
+    IOError(const std::string &message) : Error(message) {}
+};
+
 } } // namespace vadstena::storage
 
 #endif // vadstena_libs_storage_error_hpp_included_
