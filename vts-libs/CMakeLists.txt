@@ -104,6 +104,8 @@ set(vadstena-vts-core_SOURCES
   vts/driver/tilardriver/cache.cpp
 
   vts/config.hpp vts/config.cpp
+
+  vts/referenceframe.hpp vts/referenceframe.cpp
   )
 
 define_module(LIBRARY vadstena-vts-core DEPENDS
