@@ -109,7 +109,7 @@ set(vadstena-vts-core_SOURCES
   )
 
 define_module(LIBRARY vadstena-vts-core DEPENDS
-  vadstena-libs-storage math utility dbglog jsoncpp half Boost_IOSTREAMS)
+  vadstena-libs-storage geo math utility dbglog jsoncpp half Boost_IOSTREAMS)
 add_library(vadstena-vts-core STATIC ${vadstena-vts-core_SOURCES})
 buildsys_library(vadstena-vts-core)
 target_link_libraries(vadstena-vts-core
