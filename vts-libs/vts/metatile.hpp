@@ -112,8 +112,8 @@ dump(std::basic_ostream<CharT, Traits> &os
      , const TileMetadata &m
      , const std::string &prefix = std::string())
 {
-    os << prefix << "gsd: " << m.gsd;
-    os << prefix << "\ncoarseness: " << m.coarseness << "\n";
+    os << prefix << "gsd: " << m.gsd << "\n";
+    os << prefix << "coarseness: " << m.coarseness << "\n";
     for (int j(0); j < TileMetadata::HMSize; ++j) {
         os << prefix << "heightmap[" << j << "]: ";
         for (int i(0); i < TileMetadata::HMSize; ++i) {
