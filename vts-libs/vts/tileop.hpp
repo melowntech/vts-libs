@@ -47,7 +47,7 @@ math::Size2f tileSize(const Properties &prop, Lod lod);
 TileId fromLl(const Properties &prop, Lod lod, const math::Point2 &ll);
 
 math::Extents2 aligned(const Properties &prop, Lod lod
-                       , const math::Extents2 &in);
+                       , math::Extents2 in);
 
 math::Extents2 extents(const Properties &prop, const TileId &tileId);
 

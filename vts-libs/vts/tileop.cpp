@@ -4,6 +4,7 @@
 #include <boost/format.hpp>
 
 #include "dbglog/dbglog.hpp"
+#include "math/math.hpp"
 
 #include "./tileop.hpp"
 #include "./io.hpp"
@@ -115,15 +116,6 @@ bool fromFilename(TileId &tileId, TileFile &type
     return !*pp;
 }
 
-void misaligned(const Alignment &alignment, long baseTileSize
-                , const TileId &tileId)
-{
-    LOGTHROW(err1, std::domain_error)
-        << "Encountered misaligned tile " << tileId
-        << " to the grid (" << alignment(0) << ", " << alignment(1)
-        << ")/" << baseTileSize << ".";
-}
-
 math::Size2f tileSize(const Properties &prop, Lod lod)
 {
     auto ts(size(prop.extents));
@@ -141,20 +133,61 @@ TileId fromLl(const Properties &prop, Lod lod, const math::Point2 &ll)
 }
 
 math::Extents2 aligned(const Properties &prop, Lod lod
-                       , const math::Extents2 &in)
+                       , math::Extents2 in)
 {
+    if (in.ll(0) < prop.extents.ll(0)) { in.ll(0) = prop.extents.ll(0); }
+    if (in.ll(1) < prop.extents.ll(1)) { in.ll(1) = prop.extents.ll(1); }
+
+    if (in.ur(0) > prop.extents.ur(0)) { in.ur(0) = prop.extents.ur(0); }
+    if (in.ur(1) > prop.extents.ur(1)) { in.ur(1) = prop.extents.ur(1); }
+
     auto ts(tileSize(prop, lod));
+    auto orig(ul(prop.extents));
+    math::Point2 llDiff(in.ll - orig);
+    math::Point2 urDiff(in.ur - orig);
 
-    auto llId(fromLl(prop, lod, in.ll));
-    auto urId(fromLl(prop, lod, in.ur));
+    // LOG(info4) << llDiff << ", " << urDiff;
 
-    auto origin(ul(prop.extents));
-    ++urId.x;
-    --urId.y;
-    return { math::Point2(origin(0) + ts.width * llId.x
-                          , origin(1) - ts.height * (llId.y + 1))
-            , math::Point2(origin(0) + ts.width * urId.x
-                           , origin(1) - ts.height * (urId.y + 1)) };
+    math::Point2 llId(llDiff(0) / ts.width, -1.0 - llDiff(1) / ts.height);
+    math::Point2 urId(urDiff(0) / ts.width, -1.0 - urDiff(1) / ts.height);
+
+    auto fix([](double &x, bool up) -> void {
+            if (math::isInteger(x, 1e-15)) {
+                // close enough to be an integer
+                x = std::round(x);
+            }
+            // too far away, floor/ceil
+            if (up) {
+                if (x < 0) {
+                    x = std::floor(x);
+                } else {
+                    x = std::ceil(x);
+                }
+            } else {
+                if (x < 0) {
+                    x = std::ceil(x);
+                } else {
+                    x = std::floor(x);
+                }
+            }
+        });
+
+    // LOG(info4) << llId << ", " << urId;
+
+    // fix ids
+    fix(llId(0), false); fix(llId(1), false);
+    fix(urId(0), true); fix(urId(1), true);
+
+    // LOG(info4) << llId << ", " << urId;
+
+    math::Extents2 out
+        (math::Point2(orig(0) + llId(0) * ts.width
+                      , orig(1) - (llId(1) + 1.0) * ts.height)
+         , math::Point2(orig(0) + urId(0) * ts.width
+                        , orig(1) - (urId(1) + 1.0) * ts.height));
+
+    // LOG(info4) << std::fixed << "out: " << out;
+    return out;
 }
 
 math::Extents2 extents(const Properties &prop, const TileId &tileId)
