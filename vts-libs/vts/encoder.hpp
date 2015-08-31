@@ -1,7 +1,8 @@
 #ifndef vadstena_libs_vts_encoder_hpp_included_
 #define vadstena_libs_vts_encoder_hpp_included_
 
-#include <boost/noncopyable.hpp>
+#include <memory>
+
 #include <boost/optional.hpp>
 
 #include "geo/srsdef.hpp"
@@ -10,30 +11,8 @@
 
 namespace vadstena { namespace vts {
 
-class Encoder : boost::noncopyable {
+class Encoder {
 public:
-    struct Constraints {
-        boost::optional<LodRange> lodRange;
-        boost::optional<math::Extents2> extents;
-
-        Constraints& setLodRange(const boost::optional<LodRange> &value) {
-            lodRange = value;
-            return *this;
-        }
-
-        Constraints& setExtents(const boost::optional<math::Extents2> &value) {
-            extents = value;
-            return *this;
-        }
-
-        enum {
-            useLodRange = 0x01
-            , useExtents = 0x02
-
-            , all = (useLodRange | useExtents)
-        };
-    };
-
     Encoder(const boost::filesystem::path &path
             , const CreateProperties &properties, CreateMode mode);
 
@@ -43,15 +22,12 @@ public:
      */
     void run();
 
-    TileSet& tileSet() { return *tileSet_; }
+    struct Constraints;
 
 protected:
-    Properties properties() const { return properties_; }
-    geo::SrsDefinition srs() const { return srs_; }
-
-    void setConstraints(const Constraints &constraints) {
-        constraints_ = constraints;
-    }
+    Properties properties() const;
+    geo::SrsDefinition srs() const;
+    void setConstraints(const Constraints &constraints);
 
     /** Returned by getTile when metadata are set.
      */
@@ -71,16 +47,46 @@ private:
                                , TileMetadata &metadata) = 0;
 
 
+    /** Generates mesh, atlas and optionally metadata for given tile.
+     */
     virtual void finish(TileSet &tileSet) = 0;
 
     void process(const TileId &tileId, int useConstraints);
 
-    TileSet::pointer tileSet_;
-    Properties properties_;
-    geo::SrsDefinition srs_;
-
-    Constraints constraints_;
+    struct Detail;
+    friend struct Detail;
+    std::shared_ptr<Detail> detail_;
 };
+
+struct Encoder::Constraints {
+    boost::optional<LodRange> lodRange;
+    boost::optional<math::Extents2> extents;
+
+    enum {
+        useLodRange = 0x01
+        , useExtents = 0x02
+
+        , all = (useLodRange | useExtents)
+    };
+
+    Constraints& setLodRange(const boost::optional<LodRange> &value);
+
+    Constraints& setExtents(const boost::optional<math::Extents2> &value);
+};
+
+inline Encoder::Constraints&
+Encoder::Constraints::setLodRange(const boost::optional<LodRange> &value)
+{
+    lodRange = value;
+    return *this;
+}
+
+inline Encoder::Constraints&
+Encoder::Constraints::setExtents(const boost::optional<math::Extents2> &value)
+{
+    extents = value;
+    return *this;
+}
 
 } } // namespace vadstena::vts
 

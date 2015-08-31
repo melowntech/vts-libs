@@ -10,27 +10,37 @@
 
 namespace vadstena { namespace vts {
 
-Encoder::Encoder(const boost::filesystem::path &path
-                 , const CreateProperties &properties, CreateMode mode)
-    : tileSet_(createTileSet(path, properties, mode))
-    , properties_(tileSet_->getProperties())
-    , srs_(properties_.srs)
-{}
+struct Encoder::Detail {
+    Detail(Encoder *owner, const boost::filesystem::path &path
+           , const CreateProperties &properties, CreateMode mode)
+        : owner(owner), tileSet(createTileSet(path, properties, mode))
+        , properties(tileSet->getProperties()), srs(this->properties.srs)
+    {}
 
-void Encoder::run()
-{
-    UTILITY_OMP(parallel)
-    UTILITY_OMP(single)
-    process(TileId(), Constraints::all);
+    void run()
+    {
+        UTILITY_OMP(parallel)
+        UTILITY_OMP(single)
+        process(TileId(), Constraints::all);
 
-    // let the caller finish the tileset
-    finish(*tileSet_);
+        // let the caller finish the tileset
+        owner->finish(*tileSet);
 
-    // flush result
-    tileSet_->flush();
-}
+        // flush result
+        tileSet->flush();
+    }
 
-void Encoder::process(const TileId &tileId, int useConstraints)
+    void process(const TileId &tileId, int useConstraints);
+
+    Encoder *owner;
+    TileSet::pointer tileSet;
+    Properties properties;
+    geo::SrsDefinition srs;
+
+    Constraints constraints;
+};
+
+void Encoder::Detail::process(const TileId &tileId, int useConstraints)
 {
     struct TIDGuard {
         TIDGuard(const std::string &id)
@@ -46,13 +56,13 @@ void Encoder::process(const TileId &tileId, int useConstraints)
     bool processTile(true);
 
     if ((useConstraints & Constraints::useLodRange)
-        && constraints_.lodRange) {
-        if (tileId.lod < constraints_.lodRange->min) {
+        && constraints.lodRange) {
+        if (tileId.lod < constraints.lodRange->min) {
             // no data yet -> go directly down
             // * equivalent to TileResult::noDataYet
             processTile = false;
         }
-        if (tileId.lod > constraints_.lodRange->max) {
+        if (tileId.lod > constraints.lodRange->max) {
             // nothing can live down here -> done
             // * equivalent to TileResult::noData
             return;
@@ -62,13 +72,13 @@ void Encoder::process(const TileId &tileId, int useConstraints)
     TIDGuard tg(str(boost::format("tile:%d-%d-%d")
                     % tileId.lod % tileId.x % tileId.y));
 
-    const auto tileExtents(extents(properties_, tileId));
+    const auto tileExtents(extents(properties, tileId));
     LOG(info2) << "Processing tile " << tileId
                << " (extents: " << std::fixed << tileExtents << ").";
 
     if ((useConstraints & Constraints::useExtents)
-        && constraints_.extents) {
-        if (!overlaps(*constraints_.extents, tileExtents)) {
+        && constraints.extents) {
+        if (!overlaps(*constraints.extents, tileExtents)) {
             // nothing can live out here -> done
             // * equivalent to TileResult::noData
             return;
@@ -80,14 +90,15 @@ void Encoder::process(const TileId &tileId, int useConstraints)
         Atlas atlas;
         TileMetadata metadata;
 
-        switch (auto res = getTile(tileId, tileExtents, mesh, atlas, metadata))
+        switch (auto res = owner->getTile
+                (tileId, tileExtents, mesh, atlas, metadata))
         {
         case TileResult::data:
         case TileResult::dataWithMetadata:
             UTILITY_OMP(critical)
-            tileSet_->setTile(tileId, mesh, atlas
-                              , ((res == TileResult::dataWithMetadata)
-                                 ? &metadata : nullptr));
+            tileSet->setTile(tileId, mesh, atlas
+                             , ((res == TileResult::dataWithMetadata)
+                                ? &metadata : nullptr));
 
             // we hit a valid tile -> do not apply extents for children
             useConstraints &= ~Constraints::useExtents;
@@ -108,6 +119,31 @@ void Encoder::process(const TileId &tileId, int useConstraints)
         UTILITY_OMP(task)
         process(child, useConstraints);
     }
+}
+
+Encoder::Encoder(const boost::filesystem::path &path
+                 , const CreateProperties &properties, CreateMode mode)
+    : detail_(std::make_shared<Detail>(this, path, properties, mode))
+{}
+
+Properties Encoder::properties() const
+{
+    return detail_->properties;
+}
+
+geo::SrsDefinition Encoder::srs() const
+{
+    return detail_->srs;
+}
+
+void Encoder::setConstraints(const Constraints &constraints)
+{
+    detail_->constraints = constraints;
+}
+
+void Encoder::run()
+{
+    detail_->run();
 }
 
 } } // namespace vadstena::vts
