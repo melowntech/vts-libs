@@ -18,3 +18,5 @@ vadstena_tool(storage vts-dumpindex ${vts-dumpindex_SOURCES})
 vadstena_tool(storage vts-dump-metatile dump-metatile.cpp)
 
 vadstena_tool(storage vts-loadreferenceframes loadreferenceframes.cpp)
+
+vadstena_tool(storage vts-meshinfo meshinfo.cpp)
