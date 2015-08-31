@@ -44,6 +44,10 @@ TileId findMetatile(const LodLevels &metaLevels, TileId tileId);
 
 math::Size2f tileSize(const Properties &prop, Lod lod);
 
+math::Size2f tileSize(const math::Extents2 &rootExtents, Lod lod);
+
+std::size_t tileCount(Lod lod);
+
 TileId fromLl(const Properties &prop, Lod lod, const math::Point2 &ll);
 
 math::Extents2 aligned(const Properties &prop, Lod lod
@@ -103,6 +107,17 @@ inline TileId findMetatile(const LodLevels &metaLevels, TileId tileId)
     return tileId;
 }
 
+
+inline math::Size2f tileSize(const Properties &prop, Lod lod)
+{
+    return tileSize(prop.extents, lod);
+}
+
+inline std::size_t tileCount(Lod lod)
+{
+    return std::size_t(1) << lod;
+}
+
 } } // namespace vadstena::vts
 
-#endif // vadstena_libs_vts_hpp_included_
+#endif // vadstena_libs_vts_tileop_hpp_included_

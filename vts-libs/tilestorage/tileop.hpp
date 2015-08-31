@@ -223,4 +223,4 @@ inline TileId findMetatile(const Properties &properties, TileId tileId
 
 } } // namespace vadstena::tilestorage
 
-#endif // vadstena_libs_tilestorage_hpp_included_
+#endif // vadstena_libs_tilestorage_tileop_hpp_included_

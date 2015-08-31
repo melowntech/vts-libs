@@ -224,6 +224,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     vts/tileset/merge.cpp
     vts/tileset/dump.hpp
 
+    vts/encoder.hpp vts/encoder.cpp
+
     licence/fingerprint.hpp licence/fingerprint.cpp
 
     ${PUBLIC_KEY_SOURCES}

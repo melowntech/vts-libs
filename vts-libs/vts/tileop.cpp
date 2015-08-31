@@ -116,9 +116,9 @@ bool fromFilename(TileId &tileId, TileFile &type
     return !*pp;
 }
 
-math::Size2f tileSize(const Properties &prop, Lod lod)
+math::Size2f tileSize(const math::Extents2 &rootExtents, Lod lod)
 {
-    auto ts(size(prop.extents));
+    auto ts(size(rootExtents));
     ts.width /= (1 << lod);
     ts.height /= (1 << lod);
     return ts;
