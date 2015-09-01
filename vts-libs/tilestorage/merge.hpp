@@ -24,7 +24,7 @@ struct MergedTile : public Tile {
     /** Tile data originates from single tile if true.
      */
     bool singleSource() const { return sources.size() == 1; }
-    
+
     /** Tile data originates from multiple tiles if true.
      */
     bool multiSource() const { return sources.size() > 1; }

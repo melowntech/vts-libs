@@ -24,7 +24,7 @@ struct MergedTile : public Tile {
     /** Tile data originates from single tile if true.
      */
     bool singleSource() const { return sources.size() == 1; }
-    
+
     /** Tile data originates from multiple tiles if true.
      */
     bool multiSource() const { return sources.size() > 1; }
@@ -86,7 +86,7 @@ private:
  *         with current tile (clipped)
  * \return merged tile
  */
-MergedTile merge( const TileId &tileId, long tileSize
+MergedTile merge( const TileId &tileId, const math::Size2f &tileSize
                 , const MergeInput::list &mergeInput
                 , int quad
                 , const MergeInput::list &ancestorTiles
@@ -94,4 +94,4 @@ MergedTile merge( const TileId &tileId, long tileSize
 
 } } // namespace vadstena::vts
 
-#endif // vadstena_libs_vts_merge_hpp_included_
+#endif // vadstena_libs_tilestorage_vts_hpp_included_

@@ -217,12 +217,13 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     vts.hpp
     vts/types.hpp
     vts/tileset.hpp vts/tileset.cpp
-    vts/po.hpp
     vts/tileindex.hpp vts/tileindex.cpp
     vts/metatileop.hpp vts/metatileop.cpp
 
     vts/tileset/merge.cpp
     vts/tileset/dump.hpp
+
+    vts/merge.hpp vts/merge.cpp
 
     vts/encoder.hpp vts/encoder.cpp
 

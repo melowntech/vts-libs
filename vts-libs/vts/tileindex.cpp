@@ -24,15 +24,13 @@ namespace {
 }
 
 TileIndex::TileIndex(const TileIndex &other)
-    : origin_(other.origin_)
-    , minLod_(other.minLod_)
+    : minLod_(other.minLod_)
     , masks_(other.masks_)
 {
 }
 
-TileIndex::TileIndex(const TileIndex &other, DeepCopy)
-    : origin_(other.origin_)
-    , minLod_(other.minLod_)
+TileIndex::TileIndex(const TileIndex &other, ShallowCopy)
+    : minLod_(other.minLod_)
 {
     masks_.reserve(other.masks_.size());
     for (const auto &mask : other.masks_) {
@@ -79,31 +77,51 @@ void TileIndex::fill(Lod lod, const TileIndex &other)
     auto *newMask(mask(lod));
     if (!newMask) { return; }
 
-    math::Size2 diff((other.origin_(0) - origin_(0))
-                     , (other.origin_(1) - origin_(1)));
-
-    auto nsize(newMask->dims());
-    auto size(oldMask->dims());
-
-    if (!(diff.width || diff.height) && (nsize == size)) {
-        // same-sized masks at same position -> just merge
-        newMask->merge(*oldMask);
-        return;
-    }
-
-    for (int j(0); j < size.height; ++j) {
-        for (int i(0); i < size.width; ++i) {
-            if (oldMask->get(i, j)) {
-                newMask->set(diff.width + i, diff.height + j);
-            }
-        }
-    }
+    newMask->merge(*oldMask);
 }
 
 void TileIndex::fill(const TileIndex &other)
 {
     for (auto lod : lodRange()) {
         fill(lod, other);
+    }
+}
+
+void TileIndex::intersect(Lod lod, const TileIndex &other)
+{
+    // find old and new masks
+    const auto *oldMask(other.mask(lod));
+    if (!oldMask) { return; }
+
+    auto *newMask(mask(lod));
+    if (!newMask) { return; }
+
+    newMask->intersect(*oldMask);
+}
+
+void TileIndex::intersect(const TileIndex &other)
+{
+    for (auto lod : lodRange()) {
+        intersect(lod, other);
+    }
+}
+
+void TileIndex::subtract(Lod lod, const TileIndex &other)
+{
+    // find old and new masks
+    const auto *oldMask(other.mask(lod));
+    if (!oldMask) { return; }
+
+    auto *newMask(mask(lod));
+    if (!newMask) { return; }
+
+    newMask->subtract(*oldMask);
+}
+
+void TileIndex::subtract(const TileIndex &other)
+{
+    for (auto lod : lodRange()) {
+        subtract(lod, other);
     }
 }
 
@@ -124,9 +142,7 @@ void TileIndex::load(std::istream &f)
 
     int64_t o;
     read(f, o);
-    origin_(0) = o;
     read(f, o);
-    origin_(1) = o;
 
     int16_t minLod, size;
     read(f, minLod);
@@ -158,8 +174,8 @@ void TileIndex::save(std::ostream &f) const
     write(f, TILE_INDEX_IO_MAGIC); // 7 bytes
     write(f, uint8_t(0)); // reserved
 
-    write(f, int64_t(origin_(0)));
-    write(f, int64_t(origin_(1)));
+    write(f, int64_t(0));
+    write(f, int64_t(1));
 
     write(f, int16_t(minLod_));
     write(f, int16_t(masks_.size()));
@@ -238,6 +254,188 @@ std::size_t TileIndex::count() const
         total += mask.count();
     }
     return total;
+}
+
+TileIndex& TileIndex::growUp()
+{
+    if (masks_.size() < 2) {
+        // nothing to grow
+        return *this;
+    }
+
+    // traverse masks bottom to top
+    auto lod(lodRange().max);
+    auto cmasks(masks_.rbegin());
+
+    for (auto imasks(cmasks + 1), emasks(masks_.rend());
+         imasks != emasks; ++imasks, ++cmasks, --lod)
+    {
+        LOG(debug) << "gu: " << lod << " -> " << (lod - 1);
+
+        auto &child(*cmasks);
+        auto &mask(*imasks);
+
+        // coarsen
+        child.coarsen(2);
+        mask.merge(child, false);
+    }
+
+    return *this;
+}
+
+TileIndex& TileIndex::growDown()
+{
+    if (masks_.size() < 2) {
+        // nothing to grow
+        return *this;
+    }
+
+    // traverse masks top to bottom
+    auto lod(lodRange().min);
+    auto pmasks(masks_.begin());
+
+    for (auto imasks(pmasks + 1), emasks(masks_.end());
+         imasks != emasks; ++imasks, ++pmasks, ++lod)
+    {
+        LOG(debug) << "gd: " << lod << " -> " << (lod + 1);
+        const auto &parent(*pmasks);
+        auto &mask(*imasks);
+        // merge in parent mask, ignore its size
+        mask.merge(parent, false);
+    }
+
+    return *this;
+}
+
+TileIndex& TileIndex::makeComplete()
+{
+    if (masks_.size() < 2) {
+        // nothing to grow
+        return *this;
+    }
+
+    // traverse masks bottom to top
+    auto lod(lodRange().max);
+    auto cmasks(masks_.rbegin());
+
+    for (auto imasks(cmasks + 1), emasks(masks_.rend());
+         imasks != emasks; ++imasks, ++cmasks, --lod)
+    {
+        LOG(debug) << "gu: " << lod << " -> " << (lod - 1);
+
+        // make copy of child
+        RasterMask child(*cmasks);
+        auto &mask(*imasks);
+
+        // coarsen child (do not change child!)
+        child.coarsen(2);
+        // merge in coarsened child -> all parents are set
+        mask.merge(child, false);
+    }
+
+    return *this;
+}
+
+TileIndex& TileIndex::invert()
+{
+    // invert all masks
+    for (auto imasks(masks_.begin()), emasks(masks_.end());
+         imasks != emasks; ++imasks)
+    {
+        imasks->invert();
+    }
+
+    return *this;
+}
+
+TileIndex unite(const TileIndices &tis, const Bootstrap &bootstrap)
+{
+    LOG(info2) << "unite: " << tis.size() << " sets";
+
+    // empty tile set -> nothing
+    if (tis.empty()) {
+        // just use bootstrap
+        // TODO: check bootstrap validity
+        return TileIndex(bootstrap.lodRange());
+    }
+
+    auto lodRange(bootstrap.lodRange());
+    for (const auto *ti : tis) {
+        lodRange = unite(lodRange, ti->lodRange());
+    }
+
+    LOG(info1) << "unite: lodRange: " << lodRange;
+
+    // result tile index
+    TileIndex out(lodRange);
+
+    // fill in targets
+    for (const auto *ti : tis) {
+        out.fill(*ti);
+    }
+
+    // done
+    return out;
+}
+
+namespace {
+
+template <typename Op>
+TileIndex bitop(const TileIndex &l, const TileIndex &r
+                , const Bootstrap &bootstrap
+                , const Op &op, const char *opName)
+{
+    if (l.empty() && r.empty()) { return {}; }
+
+    auto baseTileSize(l.empty() ? r.baseTileSize() : l.baseTileSize());
+    if (!baseTileSize) { return {}; }
+
+    auto lodRange(unite(unite(bootstrap.lodRange()
+                              , l.lodRange()), r.lodRange()));
+    if (lodRange.empty()) { return {}; }
+
+    LOG(debug) << "(" << opName << ") l: " << l;
+    LOG(debug) << "(" << opName << ") r: " << r;
+
+    LOG(debug) << "(" << opName << ") lodRange: " << lodRange;
+
+    // result tile index (initialize with first tile index)
+    TileIndex out(lodRange, &l);
+
+    // inplace operation
+    op(out, r);
+
+    // done
+    return out;
+}
+
+} // namespace
+
+TileIndex unite(const TileIndex &l, const TileIndex &r
+                , const Bootstrap &bootstrap)
+{
+    return bitop(l, r, bootstrap
+                 , [](TileIndex &out, const TileIndex &in) {
+                     out.fill(in);
+                 }, "unite");
+}
+
+TileIndex intersect(const TileIndex &l, const TileIndex &r
+                    , const Bootstrap &bootstrap)
+{
+    return bitop(l, r, bootstrap
+                 , [](TileIndex &out, const TileIndex &in) {
+                     out.intersect(in);
+                 }, "intersect");
+}
+
+TileIndex difference(const TileIndex &l, const TileIndex &r
+                     , const Bootstrap &bootstrap)
+{
+    return bitop(l, r, bootstrap
+                 , [](TileIndex &out, const TileIndex &in) {
+                     out.subtract(in);
+                 }, "difference");
 }
 
 } } // namespace vadstena::vts

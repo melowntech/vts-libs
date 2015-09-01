@@ -69,10 +69,11 @@ double triangleArea(const math::Point3 &a, const math::Point3 &b,
 
 //! Returns a trasformation from tile local coordinates to qbuffer coordinates.
 //!
-math::Matrix4 tileToBuffer(long tileSize, int bufferSize)
+math::Matrix4 tileToBuffer(const math::Size2f &tileSize, int bufferSize)
 {
     math::Matrix4 trafo(ublas::identity_matrix<double>(4));
-    trafo(0,0) = trafo(1,1) = double(bufferSize) / tileSize;
+    trafo(0,0) = double(bufferSize) / tileSize.width;
+    trafo(1,1) = double(bufferSize) / tileSize.height;
     trafo(0,3) = trafo(1,3) = double(bufferSize) / 2;
     return trafo;
 }
@@ -110,7 +111,8 @@ void rasterizeTile(const Tile &tile, const math::Matrix4 &trafo,
 //! Calculates tile Inverse Geometry Coarseness, defined as the ratio of mesh area and area
 //! of the covered tile part
 //!
-double tileInvGeometryCoarseness(const Tile &tile, long tileSize)
+double tileInvGeometryCoarseness(const Tile &tile
+                                 , const math::Size2f &tileSize)
 {
     // calculate the total area of the faces in both the XYZ and UV spaces
     double xyzArea(0);
@@ -130,13 +132,14 @@ double tileInvGeometryCoarseness(const Tile &tile, long tileSize)
 
     //cut small border of the tile to get rid of the skirts
     double eps = 0.0001;
-    double halfsize = 0.5*tileSize - tileSize*eps;
+    math::Size2f halfsize(0.5*tileSize.width - tileSize.width*eps
+                          , 0.5*tileSize.height - tileSize.height*eps);
 
     va::ClipPlane planes[4];
-    planes[0] = {+1.,  0., 0., halfsize};
-    planes[1] = {-1.,  0., 0., halfsize};
-    planes[2] = { 0., +1., 0., halfsize};
-    planes[3] = { 0., -1., 0., halfsize};
+    planes[0] = {+1.,  0., 0., halfsize.width};
+    planes[1] = {-1.,  0., 0., halfsize.width};
+    planes[2] = { 0., +1., 0., halfsize.height};
+    planes[3] = { 0., -1., 0., halfsize.height};
 
     for (int i = 0; i < 4; i++) {
         triangles = va::clipTriangles(triangles, planes[i]);
@@ -151,7 +154,7 @@ double tileInvGeometryCoarseness(const Tile &tile, long tileSize)
             math::Point3(face.pos[2].x, face.pos[2].y, face.pos[2].z));
     }
 
-    const int cBSize(tileSize);
+    const int cBSize(512);
     cv::Mat cbuffer(cBSize, cBSize, CV_32S, cv::Scalar(0));
 
     math::Matrix4 trafo(tileToBuffer(tileSize, cBSize));
@@ -269,15 +272,15 @@ void findContours(const cv::Mat &mat,
 
 //! Clips faces to tile boundaries.
 //!
-void clipFaces(ClipTriangle::list &faces, long tileSize)
+void clipFaces(ClipTriangle::list &faces, const math::Size2f &tileSize)
 {
-    double ts2(double(tileSize)/2);
+    math::Size2f ts2(tileSize.width / 2.0, tileSize.height / 2.0);
 
     ClipPlane planes[4] = {
-        { 1.,  0., 0., ts2},
-        {-1.,  0., 0., ts2},
-        { 0.,  1., 0., ts2},
-        { 0., -1., 0., ts2}
+        { 1.,  0., 0., ts2.width},
+        {-1.,  0., 0., ts2.width},
+        { 0.,  1., 0., ts2.height},
+        { 0., -1., 0., ts2.height}
     };
 
     for (int i = 0; i < 4; i++) {
@@ -369,38 +372,40 @@ void copyRect(const UVRect &rect, const cv::Mat &src, cv::Mat &dst)
 //! Returns a trasformation of the (2x larger) fallback tile so that its given
 //! quadrant aligns with tile of size `tileSize`.
 //!
-math::Matrix4 quadrantTransform(long tileSize, int fallbackQuad)
+math::Matrix4 quadrantTransform(const math::Size2f &tileSize, int fallbackQuad)
 {
     math::Matrix4 trafo(ublas::identity_matrix<double>(4));
-    double shift(double(tileSize) / 2);
+    math::Size2f shift(tileSize.width / 2.0, tileSize.height / 2.0);
 
     switch (fallbackQuad) {
-    case 0: trafo(0,3) = +shift, trafo(1,3) = +shift; break;
-    case 1: trafo(0,3) = -shift, trafo(1,3) = +shift; break;
-    case 2: trafo(0,3) = +shift, trafo(1,3) = -shift; break;
-    case 3: trafo(0,3) = -shift, trafo(1,3) = -shift; break;
+    case 0: trafo(0,3) = +shift.width, trafo(1,3) = +shift.height; break;
+    case 1: trafo(0,3) = -shift.width, trafo(1,3) = +shift.height; break;
+    case 2: trafo(0,3) = +shift.width, trafo(1,3) = -shift.height; break;
+    case 3: trafo(0,3) = -shift.width, trafo(1,3) = -shift.height; break;
     }
     return trafo;
 }
 
-math::Matrix4 tileTransform( const long dstTileSize, const math::Point2 dst
-                           , const long srcTileSize, const math::Point2 src)
+math::Matrix4 tileTransform(const math::Size2f &dstTileSize
+                            , const math::Point2 dst
+                            , const math::Size2f &srcTileSize
+                            , const math::Point2 src)
 {
     math::Matrix4 trafo(ublas::identity_matrix<double>(4));
 
-    double shiftSrc(double(srcTileSize) / 2);
-    double shiftDst(double(dstTileSize) / 2);
+    math::Size2f shiftSrc(srcTileSize.width / 2.0, srcTileSize.height / 2.0);
+    math::Size2f shiftDst(dstTileSize.width / 2.0, dstTileSize.height / 2.0);
 
-    math::Point2 quadrantShift = src-dst;
+    math::Point2 quadrantShift(src - dst);
 
-    trafo(0,3) = shiftSrc+quadrantShift(0)-shiftDst;
-    trafo(1,3) = shiftSrc+quadrantShift(1)-shiftDst;
+    trafo(0,3) = shiftSrc.width+quadrantShift(0)-shiftDst.width;
+    trafo(1,3) = shiftSrc.height+quadrantShift(1)-shiftDst.height;
 
     return trafo;
 }
 
 MergeInput::list sortMergeInput(const MergeInput::list &mergeInput
-                                , long tileSize)
+                                , const math::Size2f &tileSize)
 {
     /** Sorts via coarseness. Geometry-based coarsness is computed in lazy way.
      */
@@ -408,7 +413,8 @@ MergeInput::list sortMergeInput(const MergeInput::list &mergeInput
         std::size_t id;
         double coarseness;
 
-        TileSortInfo(std::size_t id, const Tile &tile, double tileSize)
+        TileSortInfo(std::size_t id, const Tile &tile
+                     , const math::Size2f &tileSize)
             : id(id), coarseness(tile.metanode.coarseness)
             , tile_(&tile), tileSize_(tileSize)
             , invGeometryCoarseness_(-1)
@@ -424,7 +430,7 @@ MergeInput::list sortMergeInput(const MergeInput::list &mergeInput
 
     private:
         const Tile *tile_;
-        double tileSize_;
+        math::Size2f tileSize_;
         mutable double invGeometryCoarseness_;
     };
 
@@ -642,7 +648,8 @@ void getFallbackHeightmap(const Tile &fallback, int fallbackQuad,
 }
 
 MergeInput clipQuad( const MergeInput & mergeInput, int fallbackQuad
-                   , long tileSize){
+                     , const math::Size2f &tileSize)
+{
 
     math::Matrix4 shift = quadrantTransform(tileSize, fallbackQuad);
     const Tile &tile(mergeInput.tile());
@@ -705,7 +712,7 @@ MergeInput clipQuad( const MergeInput & mergeInput, int fallbackQuad
 //! 4. The isolated faces are converted into a standard mesh with vertices and
 //!    texture vertices that don't repeat.
 //!
-MergedTile merge( const TileId &tileId, long tileSize
+MergedTile merge( const TileId &tileId, const math::Size2f &tileSize
                 , const MergeInput::list &mergeInput
                 , int quad
                 , const MergeInput::list &ancestorTiles

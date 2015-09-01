@@ -24,8 +24,8 @@ public:
 
     TileIndex(const TileIndex &other);
 
-    struct DeepCopy {};
-    TileIndex(const TileIndex &other, DeepCopy);
+    struct ShallowCopy {};
+    TileIndex(const TileIndex &other, ShallowCopy);
 
     typedef std::vector<RasterMask> Masks;
 
@@ -40,6 +40,14 @@ public:
     void fill(Lod lod, const TileIndex &other);
 
     void fill(const TileIndex &other);
+
+    void intersect(Lod lod, const TileIndex &other);
+
+    void intersect(const TileIndex &other);
+
+    void subtract(Lod lod, const TileIndex &other);
+
+    void subtract(const TileIndex &other);
 
     void set(const TileId &tileId, bool value = true);
 
@@ -77,11 +85,27 @@ public:
     Point2l fromReference(const Point2l &reference, Lod lod
                           , const Point2l &point)  const;
 
+    /** Grow-up operator:
+     *  existing tile -> mark parent and its all 4 children as existing
+     */
+    TileIndex& growUp();
+
+    /** Grow-down operator:
+     *  existing tile -> mark all its 4 children as existing
+     */
+    TileIndex& growDown();
+
+    /** Makes every existing tile reachable from top level. In other words: if
+     *  tile exists, create all its parents up to the root.
+     */
+    TileIndex& makeComplete();
+
+    TileIndex& invert();
+
 private:
     RasterMask* mask(Lod lod);
 
     long baseTileSize_;
-    Point2l origin_;
     Lod minLod_;
     Masks masks_;
 };
@@ -92,6 +116,34 @@ typedef std::vector<const TileIndex*> TileIndices;
  */
 void dumpAsImages(const boost::filesystem::path &path, const TileIndex &ti
                   , const long maxArea = 1 << 26);
+
+class Bootstrap {
+public:
+    Bootstrap() : lodRange_(0, -1) {}
+    Bootstrap(const LodRange &lodRange) : lodRange_(lodRange) {}
+    Bootstrap(const TileIndex &ti) : lodRange_(ti.lodRange()) {}
+
+    const LodRange& lodRange() const { return lodRange_; }
+    Bootstrap& lodRange(const LodRange &lodRange) {
+        lodRange_ = lodRange;
+        return *this;
+    }
+
+private:
+    LodRange lodRange_;
+};
+
+TileIndex unite(const TileIndices &tis
+                , const Bootstrap &bootstrap = Bootstrap());
+
+TileIndex unite(const TileIndex &l, const TileIndex &r
+                , const Bootstrap &bootstrap = Bootstrap());
+
+TileIndex intersect(const TileIndex &l, const TileIndex &r
+                    , const Bootstrap &bootstrap = Bootstrap());
+
+TileIndex difference(const TileIndex &l, const TileIndex &r
+                     , const Bootstrap &bootstrap = Bootstrap());
 
 // inline stuff
 
@@ -149,8 +201,7 @@ inline bool TileIndex::exists(const TileId &tileId) const
 
 inline TileId TileIndex::tileId(Lod lod, long x, long y) const
 {
-    return { lod, origin_(0) + x
-            , origin_(1) + y };
+    return { lod, x, y };
 }
 
 inline void TileIndex::set(const TileId &tileId, bool value)
@@ -168,7 +219,7 @@ inline void traverse(const TileIndex &ti, const Op &op)
     auto lod(ti.minLod());
     for (const auto &mask : ti.masks()) {
         mask.forEach([&](long x, long y, bool) {
-                op(ti.tileId(lod, x, y));
+                op(TileId(lod, x, y));
             }, RasterMask::Filter::white);
         ++lod;
     }
