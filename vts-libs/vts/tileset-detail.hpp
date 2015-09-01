@@ -128,6 +128,10 @@ struct TileSet::Detail {
     const Detail& other(const TileSet::pointer &otherSet) const {
         return otherSet->detail();
     }
+
+    void clone(const Detail &src);
+
+    void clone(const Detail &src, const CloneOptions::Filter &filter);
 };
 
 

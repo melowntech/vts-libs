@@ -2,13 +2,7 @@
  * \file basertypes.hpp
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  *
- * TileStorage base types.
- *
- * NB: tile set is specified by simple URI: TYPE:LOCATION where:
- *     TYPE     is type of backing storage (i.e. access driver to use);
- *              defaults to "flat"
- *     LOCATION is type-specific location of storage (e.g. root directory for
- *              filesystem based backing)
+ * VTS base types.
  */
 
 #ifndef vadstena_libs_vts_basetypes_hpp_included_
@@ -22,26 +16,8 @@
 
 namespace vadstena { namespace vts {
 
-/** Tile set locator
- */
-struct Locator {
-    std::string type;     // tile set type (i.e. driver to use)
-    std::string location; // location of tile set
-
-    /** Parse locator from TYPE:LOCATION
-     */
-    Locator(const std::string &locator);
-
-    Locator(const std::string &type, const std::string &location)
-        : type(type), location(location)
-    {}
-
-    Locator() {}
-
-    std::string asString() const;
-};
-
-/** Tile identifier (index in 3D space): LOD + coordinates of lower left corner.
+/** Tile identifier (index in 3D space): LOD + tile index from upper-left corner
+ *  in tile grid.
  */
 struct TileId {
     Lod lod;
@@ -108,26 +84,6 @@ inline bool TileId::operator==(const TileId &tid) const
     return ((lod == tid.lod)
             && (x == tid.x)
             && (y == tid.y));
-}
-
-inline Locator::Locator(const std::string &locator)
-{
-    auto idx(locator.find(':'));
-    if (idx == std::string::npos) {
-        type = {};
-        location = locator;
-    } else {
-        type = locator.substr(0, idx);
-        location = locator.substr(idx + 1);
-    }
-}
-
-inline std::string Locator::asString() const
-{
-    std::string s(type);
-    s.push_back(':');
-    s.append(location);
-    return s;
 }
 
 inline bool operator==(const LodLevels &l, const LodLevels &r)

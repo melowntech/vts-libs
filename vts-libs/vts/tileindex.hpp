@@ -168,7 +168,7 @@ inline void traverse(const TileIndex &ti, const Op &op)
     auto lod(ti.minLod());
     for (const auto &mask : ti.masks()) {
         mask.forEach([&](long x, long y, bool) {
-                op(TileId(lod, x, y));
+                op(ti.tileId(lod, x, y));
             }, RasterMask::Filter::white);
         ++lod;
     }

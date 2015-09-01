@@ -51,7 +51,8 @@ void TileSet::paste(const list &update)
     }
 
     // filter heightmap in bordering tiles in all pasted tile sets
-    det.filterHeightmap(changed);
+    // TODO: implement me
+    // det.filterHeightmap(changed);
 }
 
 } } // namespace vadstena::vts

@@ -15,13 +15,6 @@
 
 namespace vadstena { namespace vts {
 
-template<typename CharT, typename Traits>
-inline std::basic_ostream<CharT, Traits>&
-operator<<(std::basic_ostream<CharT, Traits> &os, const Locator &l)
-{
-    return os << l.type << ':' << l.location;
-}
-
 // LodLevels
 
 template<typename CharT, typename Traits>

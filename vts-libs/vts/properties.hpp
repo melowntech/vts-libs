@@ -191,6 +191,12 @@ public:
 
     CreateProperties() {}
 
+    CreateProperties(const Properties &p
+                     , MaskType mask = (StaticProperties::Mask::all
+                                        | SettableProperties::Mask::all))
+        : staticProperties(p, mask), settableProperties(p, mask)
+    {}
+
     StaticProperties::Wrapper staticProperties;
     SettableProperties::Wrapper settableProperties;
 
