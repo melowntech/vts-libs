@@ -20,3 +20,16 @@ vadstena_tool(storage vts-dump-metatile dump-metatile.cpp)
 vadstena_tool(storage vts-loadreferenceframes loadreferenceframes.cpp)
 
 vadstena_tool(storage vts-meshinfo meshinfo.cpp)
+
+# ------------------------------------------------------------------------
+set(vts-storage_SOURCES
+  vts-storage.cpp
+  commands.hpp
+  fallback.cpp
+  create.cpp info.cpp add.cpp
+  tileset-info.cpp
+  tileset-paste.cpp
+  tileset-clone.cpp
+  )
+
+vadstena_tool(storage vts-storage ${vts-storage_SOURCES})
