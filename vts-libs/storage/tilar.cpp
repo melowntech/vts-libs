@@ -1340,7 +1340,9 @@ void Tilar::expect(const Options &options)
     if (options != detail().options) {
         LOGTHROW(err1, std::runtime_error)
             << "Expectation failed: file " << detail().fd.path()
-            << " has different configuration.";
+            << " has different configuration "
+            << "(expected: " << options << ", " << ", encountered: "
+            << detail().options << ").";
     }
 }
 

@@ -253,6 +253,16 @@ inline Tilar Tilar::open(const boost::filesystem::path &path
     return tilar;
 }
 
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const Tilar::Options &o)
+{
+    os << "{binaryOrder=" << o.binaryOrder
+       << ", filesPerTile=" << o.filesPerTile
+       << ", uuid=" << o.uuid << "}";
+    return os;
+}
+
 } } // namespace vadstena::storage
 
 #endif // vadstena_libs_storage_tilar_hpp_included_
