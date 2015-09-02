@@ -57,8 +57,6 @@ public:
 
     bool empty() const;
 
-    long baseTileSize() const { return baseTileSize_; }
-
     Lod minLod() const { return minLod_; }
 
     Lod maxLod() const;
@@ -105,7 +103,6 @@ public:
 private:
     RasterMask* mask(Lod lod);
 
-    long baseTileSize_;
     Lod minLod_;
     Masks masks_;
 };

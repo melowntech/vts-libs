@@ -226,6 +226,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     vts/storage.hpp vts/storage.cpp
 
     vts/merge.hpp vts/merge.cpp
+    vts/tileset/heightmap.cpp
 
     vts/encoder.hpp vts/encoder.cpp
 

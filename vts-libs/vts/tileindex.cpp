@@ -385,14 +385,15 @@ TileIndex bitop(const TileIndex &l, const TileIndex &r
                 , const Bootstrap &bootstrap
                 , const Op &op, const char *opName)
 {
+    LOG(debug) << "Performing " << opName << "(" << &l << ", " << &r << ").";
     if (l.empty() && r.empty()) { return {}; }
-
-    auto baseTileSize(l.empty() ? r.baseTileSize() : l.baseTileSize());
-    if (!baseTileSize) { return {}; }
 
     auto lodRange(unite(unite(bootstrap.lodRange()
                               , l.lodRange()), r.lodRange()));
-    if (lodRange.empty()) { return {}; }
+    if (lodRange.empty()) {
+        LOG(debug) << opName << ": empty LOD range; nothing to do.";
+        return {};
+    }
 
     LOG(debug) << "(" << opName << ") l: " << l;
     LOG(debug) << "(" << opName << ") r: " << r;

@@ -241,7 +241,7 @@ void TileSet::mergeIn(const list &kept, const list &update)
     for (long j(0); j < s.height; ++j) {
         for (long i(0); i < s.width; ++i) {
             LOG(info2) << "(merge-in) Processing subtree "
-                       << lod << "/(" << i << ", " << j << ").";
+                       << lod << "-" << i << "-" << j << ").";
             merger.mergeSubtree({lod, i, j});
         }
     }
@@ -390,7 +390,7 @@ void Merger::filterHeightmap()
     }
 
     // TODO: implement me
-    // self.filterHeightmap(continuous, &discrete);
+    self.filterHeightmap(continuous, &discrete);
 }
 
 } // namespace
@@ -403,6 +403,8 @@ void TileSet::Detail::fixDefaultPosition(const list &tileSets)
                              , maxHeight);
     }
 
+    properties.defaultPosition
+        = tileSets.front()->getProperties().defaultPosition;
     properties.defaultPosition(2) = maxHeight;
 }
 
@@ -449,8 +451,7 @@ void TileSet::paste(const list &update)
     }
 
     // filter heightmap in bordering tiles in all pasted tile sets
-    // TODO: implement me
-    // det.filterHeightmap(changed);
+    det.filterHeightmap(changed);
 }
 
 } } // namespace vadstena::vts

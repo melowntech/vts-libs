@@ -1202,6 +1202,14 @@ bool TileSet::compatible(const TileSet &other)
          return false;
     }
 
+    if (oProps.extents != props.extents) {
+        LOG(warn2)
+            << "Tile set <" << props.id
+            << ">: set <" << oProps.id
+            << "> has incompatible root extents.";
+        return false;
+    }
+
     return true;
 }
 

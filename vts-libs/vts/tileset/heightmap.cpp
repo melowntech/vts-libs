@@ -110,8 +110,8 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const Vicinity &v)
 class Frontier {
 public:
     Frontier() = default;
-    Frontier(const TileId &origin, long tileSize)
-        : origin_(origin), tileSize_(tileSize)
+    Frontier(const TileId &origin)
+        : origin_(origin)
     {}
 
     operator bool() const { return !tiles_.empty(); }
@@ -158,7 +158,6 @@ private:
 
     LocalTile::list tiles_;
     TileId origin_;
-    long tileSize_;
 };
 
 Frontier::Tile::list Frontier::tiles()
@@ -185,8 +184,8 @@ Frontier::Tile::list Frontier::tiles()
 
         // new tile
         tiles.emplace_back
-            (TileId(origin_.lod, origin_.x + tile.x * tileSize_
-                    , origin_.y + tile.y * tileSize_)
+            (TileId(origin_.lod, origin_.x + tile.x
+                    , origin_.y + tile.y)
              , tile.vicinity);
         prev = &tile;
     }
@@ -367,7 +366,6 @@ Extents coveredArea(const RasterMask *rmask, const RasterMask *supMask
 }
 
 Frontier::Tile::list createFrontier(const char *dumpDir
-                                    , const Properties &properties
                                     , Lod lod, const TileIndices &continuous
                                     , const TileIndices *discrete
                                     , int hwin, int margin)
@@ -391,12 +389,7 @@ Frontier::Tile::list createFrontier(const char *dumpDir
             continue;
         }
 
-        // FIXME
-        // rois.emplace_back
-        //     (ti->fromReference(properties.alignment
-        //                        , lod, localRois.back().ll)
-        //      , ti->fromReference(properties.alignment
-        //                          , lod, localRois.back().ur));
+        rois.push_back(localRois.back());
 
         // update common origin
         roi = unite(roi, rois.back());
@@ -404,12 +397,9 @@ Frontier::Tile::list createFrontier(const char *dumpDir
 
     if (empty(roi)) { return {}; }
 
-    LOG(info1) << "Frontier roi in tiles from alignment: " << roi;
+    LOG(info1) << "Frontier roi: " << roi;
 
-    const auto tSize(tileSize(properties, lod));
-    Frontier frontier({ lod, properties.alignment(0) + tSize * roi.ll(0)
-                        , properties.alignment(1) + tSize * roi.ll(1) }
-                      , tSize);
+    Frontier frontier({ lod, roi.ll(0), roi.ll(1) });
 
     cv::Mat inputDebug;
     if (dumpDir) {
@@ -472,9 +462,9 @@ public:
     typedef double channel_type;
     typedef cv::Vec<channel_type, 1> value_type;
 
-    Window(TileSet::Detail &ts, Lod lod, int margin, const Filter &filter)
+    Window(TileSet::Detail &ts, int margin, const Filter &filter)
         : step_(TileMetadata::HMSize - 1)
-        , ts_(ts), tileSize_(tileSize(ts.properties, lod))
+        , ts_(ts)
         , margin_(margin), size_(2 * margin_ + 1, 2 * margin_ + 1)
         , raster_(step_ * size_.height + 1
                   , step_ * size_.width + 1, CV_64FC1)
@@ -504,16 +494,16 @@ public:
         TileId id(center.lod);
 
         // set y to the bottom tile
-        id.y = (center.y - tileSize_ * margin_);
+        id.y = (center.y - margin_);
 
         // process all tiles
         for (int j(0), y(0); j < size_.height;
-             ++j, y += step_, id.y += tileSize_)
+             ++j, y += step_, id.y += 1)
         {
             // set x to the left tile
-            id.x = (center.x - tileSize_ * margin_);
+            id.x = (center.x - margin_);
             for (int i(0), x(0); i < size_.width;
-                 ++i, x += step_, id.x += tileSize_)
+                 ++i, x += step_, id.x += 1)
             {
                 const auto *node(ts_.findMetaNode(id));
                 if (!node) { continue; }
@@ -597,7 +587,6 @@ private:
 
     const int step_;
     TileSet::Detail &ts_;
-    const long tileSize_;
     const int margin_;
     const math::Size2 size_;
     cv::Mat raster_;
@@ -696,11 +685,11 @@ void filterHeightmapLod(const char *dumpDir, TileSet::Detail &ts, Lod lod
     auto margin(intHwin);
 
     // build frontier
-    auto frontier(createFrontier(dumpDir, ts.properties, lod, continuous
+    auto frontier(createFrontier(dumpDir, lod, continuous
                                  , discrete, intHwin, margin));
     if (frontier.empty()) { return; }
 
-    Window<Filter> window(ts, lod, intHwin, filter);
+    Window<Filter> window(ts, intHwin, filter);
 
     // process frontier
     for (const auto &tile : frontier) {
