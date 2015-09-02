@@ -196,4 +196,70 @@ void build(Json::Value &config, const Properties &properties)
     config["verticalAdjustment"] = Json::Value(properties.verticalAdjustment);
 }
 
+namespace detail { namespace storage {
+
+const int CURRENT_JSON_FORMAT_VERSION(1);
+
+void getPath(boost::filesystem::path &path, const Json::Value &config
+             , const char *name)
+{
+    std::string str;
+    Json::get(str, config, name);
+    path = str;
+}
+
+StorageProperties parse1(const Json::Value &config)
+{
+    StorageProperties p;
+    getPath(p.outputSet.path, config, "output");
+
+    const auto &input(Json::check(config["input"], Json::objectValue));
+    for (auto iinput(input.begin()), einput(input.end()); iinput != einput;
+         ++iinput)
+    {
+        p.inputSets[iinput.memberName()].path
+            = Json::as<std::string>(*iinput);
+    }
+
+    return p;
+}
+
+} } // namespace detail::storage
+
+void parse(StorageProperties &properties, const Json::Value &config)
+{
+    try {
+        int version(0);
+        Json::get(version, config, "version");
+
+        switch (version) {
+        case 1:
+            properties = detail::storage::parse1(config);
+            return;
+        }
+
+        LOGTHROW(err1, storage::FormatError)
+            << "Invalid storage config format: unsupported version "
+            << version << ".";
+
+    } catch (const Json::Error &e) {
+        LOGTHROW(err1, storage::FormatError)
+            << "Invalid storage config format (" << e.what()
+            << "); Unable to work with this storage.";
+    }
+}
+
+void build(Json::Value &config, const StorageProperties &properties)
+{
+    config["version"]
+        = Json::Int64(detail::storage::CURRENT_JSON_FORMAT_VERSION);
+
+    config["output"] = properties.outputSet.path.string();
+
+    auto &input(config["input"] = Json::Value(Json::objectValue));
+    for (const auto &inputSet : properties.inputSets) {
+        input[inputSet.first] = inputSet.second.path.string();
+    }
+}
+
 } } // namespace vadstena::vts

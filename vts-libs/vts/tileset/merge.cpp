@@ -403,21 +403,7 @@ void TileSet::Detail::fixDefaultPosition(const list &tileSets)
                              , maxHeight);
     }
 
-#if 0
-    if (!inside(extents, properties.defaultPosition)) {
-        if (tileSets.empty()) {
-            auto c(center(extents));
-            properties.defaultPosition(0) = c(0);
-            properties.defaultPosition(1) = c(1);
-            properties.defaultPosition(2) = maxHeight;
-            propertiesChanged = true;
-        } else {
-            properties.defaultPosition
-                = tileSets.front()->getProperties().defaultPosition;
-            properties.defaultPosition(2) = maxHeight;
-        }
-    }
-#endif
+    properties.defaultPosition(2) = maxHeight;
 }
 
 void TileSet::paste(const list &update)
