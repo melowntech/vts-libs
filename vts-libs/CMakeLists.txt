@@ -70,52 +70,52 @@ target_link_libraries(vadstena-tileset-core
   ${MODULE_LIBRARIES})
 buildsys_target_compile_definitions(vadstena-tileset-core ${MODULE_DEFINITIONS})
 
-# Create vadstena-vts-browser library with browser files
-file_to_cpp(vadstena-libs_vts_BROWSER_SOURCES
-  vadstena::vts::browser::index_html
-  vts/browser/index.html)
-file_to_cpp(vadstena-libs_vts_BROWSER_SOURCES
-  vadstena::vts::browser::index_offline_html
-  vts/browser/index-offline.html)
-file_to_cpp(vadstena-libs_vts_BROWSER_SOURCES
-  vadstena::vts::browser::skydome_jpg
-  vts/browser/skydome.jpg)
+# Create vadstena-vts0-browser library with browser files
+file_to_cpp(vadstena-libs_vts0_BROWSER_SOURCES
+  vadstena::vts0::browser::index_html
+  vts0/browser/index.html)
+file_to_cpp(vadstena-libs_vts0_BROWSER_SOURCES
+  vadstena::vts0::browser::index_offline_html
+  vts0/browser/index-offline.html)
+file_to_cpp(vadstena-libs_vts0_BROWSER_SOURCES
+  vadstena::vts0::browser::skydome_jpg
+  vts0/browser/skydome.jpg)
 
-add_library(vadstena-vts-browser STATIC
-  ${vadstena-libs_vts_BROWSER_SOURCES}
-  vts/support.hpp vts/support.cpp
+add_library(vadstena-vts0-browser STATIC
+  ${vadstena-libs_vts0_BROWSER_SOURCES}
+  vts0/support.hpp vts0/support.cpp
   )
-buildsys_library(vadstena-vts-browser)
+buildsys_library(vadstena-vts0-browser)
 
-set(vadstena-vts-core_SOURCES
-  vts/basetypes.hpp
-  vts/properties.hpp
-  vts/tileop.hpp vts/tileop.cpp
-  vts/io.hpp
-  vts/json.hpp vts/json.cpp
-  vts/metatile.hpp vts/metatile.cpp
+set(vadstena-vts0-core_SOURCES
+  vts0/basetypes.hpp
+  vts0/properties.hpp
+  vts0/tileop.hpp vts0/tileop.cpp
+  vts0/io.hpp
+  vts0/json.hpp vts0/json.cpp
+  vts0/metatile.hpp vts0/metatile.cpp
 
-  vts/driver.hpp vts/driver/driver.cpp
+  vts0/driver.hpp vts0/driver/driver.cpp
 
-  vts/driver/tilardriver.hpp
-  vts/driver/tilardriver/tilardriver.cpp
-  vts/driver/tilardriver/options.hpp
-  vts/driver/tilardriver/cache.hpp
-  vts/driver/tilardriver/cache.cpp
+  vts0/driver/tilardriver.hpp
+  vts0/driver/tilardriver/tilardriver.cpp
+  vts0/driver/tilardriver/options.hpp
+  vts0/driver/tilardriver/cache.hpp
+  vts0/driver/tilardriver/cache.cpp
 
-  vts/config.hpp vts/config.cpp
+  vts0/config.hpp vts0/config.cpp
 
-  vts/referenceframe.hpp vts/referenceframe.cpp
+  vts0/referenceframe.hpp vts0/referenceframe.cpp
   )
 
-define_module(LIBRARY vadstena-vts-core DEPENDS
+define_module(LIBRARY vadstena-vts0-core DEPENDS
   vadstena-libs-storage geo math utility dbglog jsoncpp half Boost_IOSTREAMS)
-add_library(vadstena-vts-core STATIC ${vadstena-vts-core_SOURCES})
-buildsys_library(vadstena-vts-core)
-target_link_libraries(vadstena-vts-core
-  vadstena-vts-browser
+add_library(vadstena-vts0-core STATIC ${vadstena-vts0-core_SOURCES})
+buildsys_library(vadstena-vts0-core)
+target_link_libraries(vadstena-vts0-core
+  vadstena-vts0-browser
   ${MODULE_LIBRARIES})
-buildsys_target_compile_definitions(vadstena-vts-core ${MODULE_DEFINITIONS})
+buildsys_target_compile_definitions(vadstena-vts0-core ${MODULE_DEFINITIONS})
 
 if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
   if (BUILDSYS_CUSTOMER_BUILD)
@@ -138,7 +138,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
 
   define_module(LIBRARY vadstena-libs DEPENDS
     vadstena-tileset-core
-    vadstena-vts-core
+    vadstena-vts0-core
     service cvision optics math geo geometry utility dbglog jsoncpp
     Boost_FILESYSTEM Boost_REGEX
     OpenCV LIBSHP CRYPTO++ MYSQL++)
@@ -214,21 +214,21 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     tilestorage/tileset/dump.hpp
     tilestorage/tileset/heightmap.cpp
 
-    vts.hpp
-    vts/types.hpp
-    vts/tileset.hpp vts/tileset.cpp
-    vts/tileindex.hpp vts/tileindex.cpp
-    vts/metatileop.hpp vts/metatileop.cpp
+    vts0.hpp
+    vts0/types.hpp
+    vts0/tileset.hpp vts0/tileset.cpp
+    vts0/tileindex.hpp vts0/tileindex.cpp
+    vts0/metatileop.hpp vts0/metatileop.cpp
 
-    vts/tileset/merge.cpp
-    vts/tileset/dump.hpp
+    vts0/tileset/merge.cpp
+    vts0/tileset/dump.hpp
 
-    vts/storage.hpp vts/storage.cpp
+    vts0/storage.hpp vts0/storage.cpp
 
-    vts/merge.hpp vts/merge.cpp
-    vts/tileset/heightmap.cpp
+    vts0/merge.hpp vts0/merge.cpp
+    vts0/tileset/heightmap.cpp
 
-    vts/encoder.hpp vts/encoder.cpp
+    vts0/encoder.hpp vts0/encoder.cpp
 
     licence/fingerprint.hpp licence/fingerprint.cpp
 
