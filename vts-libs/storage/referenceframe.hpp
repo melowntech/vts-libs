@@ -131,7 +131,12 @@ struct ReferenceFrame {
     typedef Dictionary<ReferenceFrame> dict;
 };
 
+ReferenceFrame::dict loadReferenceFrames(std::istream &in);
+
 ReferenceFrame::dict loadReferenceFrames(const boost::filesystem::path &path);
+
+void saveReferenceFrames(std::ostream &out
+                         , const ReferenceFrame::dict &rfs);
 
 void saveReferenceFrames(const boost::filesystem::path &path
                          , const ReferenceFrame::dict &rfs);

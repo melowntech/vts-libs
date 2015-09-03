@@ -200,6 +200,8 @@ void parse(ReferenceFrame::dict &rfs, const Json::Value &content)
 
 void build(Json::Value &content, const ReferenceFrame::dict &rfs)
 {
+    content = Json::arrayValue;
+
     (void) rfs;
     (void) content;
     // TODO: implement me
