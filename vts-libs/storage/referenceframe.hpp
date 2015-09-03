@@ -28,6 +28,8 @@ namespace vadstena { namespace storage {
 template <typename T>
 class Dictionary
 {
+private:
+    typedef std::map<std::string, T> map;
 public:
     Dictionary() {}
 
@@ -38,8 +40,11 @@ public:
 
     inline void add(const T &value) { set(value.id, value); }
 
+    typedef typename map::const_iterator const_iterator;
+    const_iterator begin() const { return map_.begin(); }
+    const_iterator end() const { return map_.end(); }
+
 private:
-    typedef std::map<std::string, T> map;
     map map_;
 };
 
@@ -127,6 +132,7 @@ struct ReferenceFrame {
 
     // parameters -- generic container?
     unsigned int metaBinaryOrder;
+    unsigned int navDelta;
 
     typedef Dictionary<ReferenceFrame> dict;
 };
@@ -141,7 +147,11 @@ void saveReferenceFrames(std::ostream &out
 void saveReferenceFrames(const boost::filesystem::path &path
                          , const ReferenceFrame::dict &rfs);
 
+Srs::dict loadSrs(std::istream &in);
+
 Srs::dict loadSrs(const boost::filesystem::path &path);
+
+void saveSrs(std::ostream &out, const Srs::dict &srs);
 
 void saveSrs(const boost::filesystem::path &path
              , const Srs::dict &srs);

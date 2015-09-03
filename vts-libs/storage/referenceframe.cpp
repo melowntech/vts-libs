@@ -19,6 +19,8 @@ namespace vadstena { namespace storage {
 
 namespace {
 
+constexpr int DEFAULT_RF_VERSION(1);
+
 namespace v1 {
 
 void parse(ReferenceFrame::Model &model, const Json::Value &content)
@@ -164,6 +166,14 @@ void parse(ReferenceFrame &rf, const Json::Value &content)
             << "Type of referenceframe[division] is not an object.";
     }
     parse(rf.division, division);
+
+    const auto &parameters(content["parameters"]);
+    if (!parameters.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of referenceframe[parameters] is not an object.";
+    }
+    Json::get(rf.metaBinaryOrder, parameters, "metaBinaryOrder");
+    Json::get(rf.navDelta, parameters, "navDelta");
 }
 
 } // namespace v1
@@ -198,27 +208,219 @@ void parse(ReferenceFrame::dict &rfs, const Json::Value &content)
     }
 }
 
+void build(Json::Value &content, const ReferenceFrame::Model &model)
+{
+    content = Json::objectValue;
+    content["physicalSrs"] = model.physicalSrs;
+    content["navigationSrs"] = model.navigationSrs;
+    content["publicSrs"] = model.publicSrs;
+}
+
+void build(Json::Value &content, const math::Extents3 &extents)
+{
+    content = Json::objectValue;
+
+    auto &ll(content["ll"] = Json::arrayValue);
+    ll.append(extents.ll(0));
+    ll.append(extents.ll(1));
+    ll.append(extents.ll(2));
+
+    auto &ur(content["ur"] = Json::arrayValue);
+    ur.append(extents.ur(0));
+    ur.append(extents.ur(1));
+    ur.append(extents.ur(2));
+}
+
+void build(Json::Value &content, const math::Extents2 &extents)
+{
+    content = Json::objectValue;
+
+    auto &ll(content["ll"] = Json::arrayValue);
+    ll.append(extents.ll(0));
+    ll.append(extents.ll(1));
+
+    auto &ur(content["ur"] = Json::arrayValue);
+    ur.append(extents.ur(0));
+    ur.append(extents.ur(1));
+}
+
+void build(Json::Value &content, const ReferenceFrame::Division::Node::Id &id)
+{
+    content = Json::objectValue;
+    content["lod"] = id.lod;
+    auto &position(content["position"] = Json::arrayValue);
+    position.append(id.x);
+    position.append(id.y);
+}
+
+void build(Json::Value &content
+           , const ReferenceFrame::Division::Node::Partitioning &partitioning)
+{
+    switch (partitioning.mode) {
+    case PartitioningMode::none:
+    case PartitioningMode::bisection:
+        content = boost::lexical_cast<std::string>(partitioning.mode);
+        return;
+
+    default: break;
+    }
+
+    // manual
+    content = Json::objectValue;
+
+    if (partitioning.n00) { build(content["00"], *partitioning.n00); }
+    if (partitioning.n01) { build(content["01"], *partitioning.n01); }
+    if (partitioning.n10) { build(content["10"], *partitioning.n10); }
+    if (partitioning.n11) { build(content["11"], *partitioning.n11); }
+}
+
+void build(Json::Value &content, const ReferenceFrame::Division::Node &node)
+{
+    content = Json::objectValue;
+
+    build(content["id"], node.id);
+    build(content["partitioning"], node.partitioning);
+
+    if (node.partitioning.mode != PartitioningMode::none) {
+        content["srs"] = node.srs;
+        build(content["extents"], node.extents);
+    }
+}
+
+void build(Json::Value &content, const ReferenceFrame::Division &division)
+{
+    content = Json::objectValue;
+
+    build(content["extents"], division.extents);
+    content["rootLod"] = division.rootLod;
+    content["arity"] = division.arity;
+
+    auto &nodes(content["nodes"]);
+    for (const auto &node : division.nodes) {
+        build(nodes.append(Json::nullValue), node.second);
+    }
+}
+
+void build(Json::Value &content, const ReferenceFrame &rf)
+{
+    content = Json::objectValue;
+    content["version"] = DEFAULT_RF_VERSION;
+
+    content["id"] = rf.id;
+    content["description"] = rf.description;
+    build(content["model"], rf.model);
+    build(content["division"], rf.division);
+
+    auto &parameters(content["parameters"] = Json::objectValue);
+    parameters["metaBinaryOrder"] = rf.metaBinaryOrder;
+    parameters["navDelta"] = rf.navDelta;
+}
+
 void build(Json::Value &content, const ReferenceFrame::dict &rfs)
 {
     content = Json::arrayValue;
 
-    (void) rfs;
-    (void) content;
-    // TODO: implement me
+    for (const auto &rf : rfs) {
+        build(content.append(Json::nullValue), rf.second);
+    }
+}
+
+void parse(Srs &srs, const Json::Value &content)
+{
+    Json::get(srs.comment, content, "comment");
+
+    // just mode
+    std::string s;
+    srs.type = boost::lexical_cast<Srs::Type>(Json::get(s, content, "type"));
+    srs.srsDef = { Json::get(s, content, "srsDef")
+                   , geo::SrsDefinition::Type::proj4};
+    if (content.isMember("srsDefEllps")) {
+        srs.srsDefEllps = { Json::get(s, content, "srsDefEllps")
+                            , geo::SrsDefinition::Type::proj4};
+    }
+
+    // parse modifiers
+    if (content.isMember("srsModifiers")) {
+        for (const auto &modifier
+                 : Json::check(content["srsModifiers"], Json::arrayValue))
+        {
+            s = Json::as<std::string>(modifier, "srsModifiers");
+            if (s == "adjustVertical") {
+                srs.srsModifiers |= Srs::Modifiers::adjustVertical;
+            } else {
+                LOGTHROW(err1, Json::Error)
+                    << "Invalid value " << s << " in srsModifiers.";
+            }
+        }
+    }
+
+    if (content.isMember("sphereoid")) {
+        const auto &sphereoid
+            (Json::check(content["sphereoid"], Json::objectValue));
+        srs.sphereoid = Sphereoid();
+        Json::get(srs.sphereoid->a, sphereoid, "a");
+        Json::get(srs.sphereoid->b, sphereoid, "b");
+    }
+
+    if (content.isMember("vdatum")) {
+        srs.vdatum = boost::lexical_cast<VerticalDatum>
+            (Json::get(s, content, "vdatum"));
+    }
 }
 
 void parse(Srs::dict &srs, const Json::Value &content)
 {
-    (void) srs;
-    (void) content;
-    // TODO: implement me
+    for (const auto &id : Json::check(content, Json::objectValue)
+             .getMemberNames())
+    {
+        try {
+            Srs s;
+            parse(s, Json::check(content[id], Json::objectValue));
+            srs.set(id, s);
+        } catch (const Json::Error &e) {
+            LOGTHROW(err1, storage::FormatError)
+                << "Invalid srs file format (" << e.what()
+                << ").";
+        }
+    }
+}
+
+void build(Json::Value &content, const Srs &srs)
+{
+    content = Json::objectValue;
+    content["comment"] = srs.comment;
+    content["type"] = boost::lexical_cast<std::string>(srs.type);
+    content["srsDef"] = srs.srsDef.as(geo::SrsDefinition::Type::proj4).srs;
+    if (srs.srsDefEllps) {
+        content["srsDefEllps"]
+            = srs.srsDefEllps->as(geo::SrsDefinition::Type::proj4).srs;
+    }
+
+    if (srs.sphereoid) {
+        auto &sphereoid(content["sphereoid"] = Json::objectValue);
+        sphereoid["a"] = srs.sphereoid->a;
+        sphereoid["b"] = srs.sphereoid->b;
+    }
+
+    if (srs.vdatum) {
+        content["vdatum"] = boost::lexical_cast<std::string>(*srs.vdatum);
+    }
+
+    if (srs.srsModifiers) {
+        auto &srsModifiers(content["srsModifiers"] =  Json::arrayValue);
+        if (srs.srsModifiers & Srs::Modifiers::adjustVertical) {
+            srsModifiers.append("adjustVertical");
+        }
+    }
 }
 
 void build(Json::Value &content, const Srs::dict &srs)
 {
-    (void) srs;
-    (void) content;
-    // TODO: implement me
+    content = Json::objectValue;
+
+    for (const auto &s : srs) {
+        build(content[s.first], s.second);
+    }
 }
 
 } // namesapce
