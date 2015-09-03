@@ -1,10 +1,10 @@
 /**
- * \file vts/referenceframe.hpp
+ * \file storage/referenceframe.hpp
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_vts0_referenceframe_hpp_included_
-#define vadstena_libs_vts0_referenceframe_hpp_included_
+#ifndef vadstena_libs_storage_referenceframe_hpp_included_
+#define vadstena_libs_storage_referenceframe_hpp_included_
 
 #include <map>
 #include <string>
@@ -23,7 +23,7 @@
 #include "../range.hpp"
 #include "../ids.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vadstena { namespace storage {
 
 template <typename T>
 class Dictionary
@@ -36,12 +36,14 @@ public:
     const T& get(const std::string &id) const;
     bool has(const std::string &id) const;
 
+    inline void add(const T &value) { set(value.id, value); }
+
 private:
     typedef std::map<std::string, T> map;
     map map_;
 };
 
-enum class Partitioning { bisection, manual };
+enum class PartitioningMode { bisection, manual, none };
 enum class VerticalDatum { orthometric, ellipsoidal };
 
 struct Sphereoid {
@@ -95,6 +97,15 @@ struct ReferenceFrame {
                 bool operator<(const Id &tid) const;
             };
 
+            struct Partitioning {
+                PartitioningMode mode;
+
+                boost::optional<math::Extents2> n00;
+                boost::optional<math::Extents2> n01;
+                boost::optional<math::Extents2> n10;
+                boost::optional<math::Extents2> n11;
+            };
+
             Id id;
             std::string srs;
             math::Extents2 extents;
@@ -103,8 +114,7 @@ struct ReferenceFrame {
             typedef std::map<Id, Node> map;
         };
 
-        math::Extents2 extents;
-        Range<double> heightRange;
+        math::Extents3 extents;
         unsigned int rootLod;
         unsigned int arity;
         Node::map nodes;
@@ -112,6 +122,7 @@ struct ReferenceFrame {
 
     std::string id;
     std::string description;
+    Model model;
     Division division;
 
     // parameters -- generic container?
@@ -137,9 +148,10 @@ UTILITY_GENERATE_ENUM_IO(VerticalDatum,
     ((ellipsoidal))
 )
 
-UTILITY_GENERATE_ENUM_IO(Partitioning,
+UTILITY_GENERATE_ENUM_IO(PartitioningMode,
     ((bisection))
     ((manual))
+    ((none))
 )
 
 UTILITY_GENERATE_ENUM_IO(Srs::Type,
@@ -165,7 +177,7 @@ ReferenceFrame::Division::Node::Id::operator<(const Id &id) const
 template <typename T>
 void Dictionary<T>::set(const std::string &id, const T &value)
 {
-    map_.insert(map::value_type(id, value));
+    map_.insert(typename map::value_type(id, value));
 }
 
 template <typename T>
@@ -193,6 +205,14 @@ bool Dictionary<T>::has(const std::string &id) const
     return (map_.find(id) != map_.end());
 }
 
-} } // namespace vadstena::vts0
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os
+           , const ReferenceFrame::Division::Node::Id &node)
+{
+    return os << node.lod << '-' << node.x << '-' << node.y;
+}
 
-#endif // vadstena_libs_vts0_referenceframe_hpp_included_
+} } // namespace vadstena::storage
+
+#endif // vadstena_libs_storage_referenceframe_hpp_included_

@@ -10,6 +10,8 @@ set(vadstena-libs-storage_SOURCES
   storage/tilar-io.hpp
 
   storage/support.hpp
+
+  storage/referenceframe.hpp storage/referenceframe.cpp
   )
 
 define_module(LIBRARY vadstena-libs-storage DEPENDS
@@ -104,8 +106,6 @@ set(vadstena-vts0-core_SOURCES
   vts0/driver/tilardriver/cache.cpp
 
   vts0/config.hpp vts0/config.cpp
-
-  vts0/referenceframe.hpp vts0/referenceframe.cpp
   )
 
 define_module(LIBRARY vadstena-vts0-core DEPENDS
