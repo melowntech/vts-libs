@@ -123,6 +123,9 @@ struct ReferenceFrame {
         unsigned int rootLod;
         unsigned int arity;
         Node::map nodes;
+
+        const Node& find(const Node::Id &id) const;
+        const Node* find(const Node::Id &id, std::nothrow_t) const;
     };
 
     std::string id;
@@ -135,6 +138,12 @@ struct ReferenceFrame {
     unsigned int navDelta;
 
     typedef Dictionary<ReferenceFrame> dict;
+
+    /** For vts0 only:
+     */
+    math::Extents2 rootExtents() const;
+    math::Size2f tileSize(Lod lod) const;
+    std::string rootSrs() const;
 };
 
 ReferenceFrame::dict loadReferenceFrames(std::istream &in);

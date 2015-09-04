@@ -538,4 +538,41 @@ void saveSrs(const boost::filesystem::path &path
     f.close();
 }
 
+const ReferenceFrame::Division::Node*
+ReferenceFrame::Division::find(const Node::Id &id, std::nothrow_t) const
+{
+    auto fnodes(nodes.find(id));
+    if (fnodes == nodes.end()) { return nullptr; }
+    return &fnodes->second;
+}
+
+const ReferenceFrame::Division::Node&
+ReferenceFrame::Division::find(const Node::Id &id) const
+{
+    const auto *node(find(id, std::nothrow));
+    if (!node) {
+        LOGTHROW(err1, storage::KeyError)
+            << "No node <" << id << ">in division tree.";
+    }
+    return *node;
+}
+
+math::Extents2 ReferenceFrame::rootExtents() const
+{
+    return division.find({}).extents;
+}
+
+math::Size2f ReferenceFrame::tileSize(Lod lod) const
+{
+    auto ts(size(rootExtents()));
+    ts.width /= (1 << lod);
+    ts.height /= (1 << lod);
+    return ts;
+}
+
+std::string ReferenceFrame::rootSrs() const
+{
+    return division.find({}).srs;
+}
+
 } } // namespace vadstena::storage
