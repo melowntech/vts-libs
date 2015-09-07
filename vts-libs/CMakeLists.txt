@@ -117,6 +117,20 @@ target_link_libraries(vadstena-vts0-core
   ${MODULE_LIBRARIES})
 buildsys_target_compile_definitions(vadstena-vts0-core ${MODULE_DEFINITIONS})
 
+# VTS core library
+
+set(vadstena-vts-core_SOURCES
+  vts/mesh.hpp vts/mesh.cpp
+  )
+
+define_module(LIBRARY vadstena-vts-core DEPENDS
+  vadstena-libs-storage geo math utility dbglog jsoncpp half Boost_IOSTREAMS)
+add_library(vadstena-vts-core STATIC ${vadstena-vts-core_SOURCES})
+buildsys_library(vadstena-vts-core)
+target_link_libraries(vadstena-vts-core
+  ${MODULE_LIBRARIES})
+buildsys_target_compile_definitions(vadstena-vts-core ${MODULE_DEFINITIONS})
+
 if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
   if (BUILDSYS_CUSTOMER_BUILD)
     message(STATUS "Building vadstena-libs customized for customer "
@@ -139,6 +153,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
   define_module(LIBRARY vadstena-libs DEPENDS
     vadstena-tileset-core
     vadstena-vts0-core
+    vadstena-vts-core
     service cvision optics math geo geometry utility dbglog jsoncpp
     Boost_FILESYSTEM Boost_REGEX
     OpenCV LIBSHP CRYPTO++ MYSQL++)

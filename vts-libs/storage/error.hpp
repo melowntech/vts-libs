@@ -17,6 +17,14 @@ struct Error : std::runtime_error {
     Error(const std::string &message) : std::runtime_error(message) {}
 };
 
+struct BadFileFormat : std::runtime_error {
+    BadFileFormat(const std::string &message) : std::runtime_error(message) {}
+};
+
+struct VersionError : std::runtime_error {
+    VersionError(const std::string &message) : std::runtime_error(message) {}
+};
+
 struct NoSuchTileSet : Error {
     NoSuchTileSet(const std::string &message) : Error(message) {}
 };
