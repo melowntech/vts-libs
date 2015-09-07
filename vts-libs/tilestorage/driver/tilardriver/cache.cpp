@@ -295,20 +295,23 @@ Tilar& Cache::Archives::open(const Index &archive, bool readOnly)
 IStream::pointer Cache::input(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
-    return getArchives(type).open(index.archive, true).input(index.file);
+    return getArchives(type).open(index.archive, readOnly_)
+        .input(index.file);
 }
 
 OStream::pointer Cache::output(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
-    return getArchives(type).open(index.archive, false).output(index.file);
+    return getArchives(type).open(index.archive, readOnly_)
+        .output(index.file);
 }
 
 void Cache::remove(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
     try {
-        return getArchives(type).open(index.archive, true).remove(index.file);
+        return getArchives(type).open(index.archive, readOnly_)
+            .remove(index.file);
     } catch (const std::exception &e) {
         // ignore, this fails when the file cannot be opened
     }
