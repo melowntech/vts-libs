@@ -23,6 +23,7 @@
 #include "../storage/lod.hpp"
 #include "../storage/range.hpp"
 
+#include "./properties.hpp"
 #include "./basetypes.hpp"
 #include "./mesh.hpp"
 #include "./metatile.hpp"
@@ -94,6 +95,8 @@ public:
     struct Detail;
 
 private:
+    TileSet(const std::shared_ptr<Driver> &driver
+            , const CreateProperties &properties);
     TileSet(const std::shared_ptr<Driver> &driver);
 
     std::unique_ptr<Detail> detail_;

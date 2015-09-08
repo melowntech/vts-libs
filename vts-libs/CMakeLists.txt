@@ -122,6 +122,7 @@ buildsys_target_compile_definitions(vadstena-vts0-core ${MODULE_DEFINITIONS})
 # VTS core library
 
 set(vadstena-vts-core_SOURCES
+  vts.hpp
   vts/mesh.hpp vts/mesh.cpp
   vts/metatile.hpp vts/metatile.cpp
   vts/atlas.hpp
