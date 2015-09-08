@@ -20,7 +20,7 @@ namespace {
     const char MAGIC[2] = { 'M', 'E' };
     const std::uint16_t VERSION = 1;
 
-    struct SubMeshFlags {
+    struct SubMeshFlag {
         enum : std::uint8_t {
             internalTexture = 0x1
             , externalTexture = 0x2
@@ -28,7 +28,7 @@ namespace {
             , referencesExternalTexture = 0x8
         };
     };
-}
+} // namespace
 
 void saveMesh(std::ostream &out, const Mesh &mesh)
 {
@@ -62,16 +62,16 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
         // build and write flags
         std::uint8_t flags(0);
         if (!sm.tc.empty()) {
-            flags |= SubMeshFlags::internalTexture;
+            flags |= SubMeshFlag::internalTexture;
         }
         if (!sm.etc.empty()) {
-            flags |= SubMeshFlags::externalTexture;
+            flags |= SubMeshFlag::externalTexture;
         }
         if (!sm.vertexUndulation.empty()) {
-            flags |= SubMeshFlags::perVertexUndulation;
+            flags |= SubMeshFlag::perVertexUndulation;
         }
         if (sm.textureLayer) {
-            flags |= SubMeshFlags::referencesExternalTexture;
+            flags |= SubMeshFlag::referencesExternalTexture;
         }
         bin::write(out, flags);
 
@@ -94,20 +94,20 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
             saveVertexComponent(vertex(1), bbox.ll(1), bbsize(1));
             saveVertexComponent(vertex(2), bbox.ll(2), bbsize(2));
 
-            if (flags & SubMeshFlags::externalTexture) {
+            if (flags & SubMeshFlag::externalTexture) {
                 saveTexCoord((*ietc)(0));
                 saveTexCoord((*ietc)(1));
                 ++ietc;
             }
 
-            if (flags & SubMeshFlags::perVertexUndulation) {
+            if (flags & SubMeshFlag::perVertexUndulation) {
                 bin::write(out, half::float2half<std::round_to_nearest>
                            (*ivertexUndulation++));
             }
         }
 
         // save (internal) texture coordinates
-        if (flags & SubMeshFlags::internalTexture) {
+        if (flags & SubMeshFlag::internalTexture) {
             bin::write(out, std::uint16_t(sm.tc.size()));
             for (const auto &tc : sm.tc) {
                 saveTexCoord(tc(0));
@@ -125,7 +125,7 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
             bin::write(out, face(2));
 
             // save (optional) texture coordinate indices
-            if (flags & SubMeshFlags::internalTexture) {
+            if (flags & SubMeshFlag::internalTexture) {
                 bin::write(out, (*ifacesTc)(0));
                 bin::write(out, (*ifacesTc)(1));
                 bin::write(out, (*ifacesTc)(2));
@@ -190,7 +190,7 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
         bin::read(in, flags);
 
         // load (external) texture layer information
-        if (flags & SubMeshFlags::referencesExternalTexture) {
+        if (flags & SubMeshFlag::referencesExternalTexture) {
             sm.textureLayer = 0.0;
             bin::read(in, *sm.textureLayer);
         }
@@ -205,11 +205,11 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
         bin::read(in, vertexCount);
         sm.vertices.resize(vertexCount);
 
-        if (flags & SubMeshFlags::externalTexture) {
+        if (flags & SubMeshFlag::externalTexture) {
             sm.etc.resize(vertexCount);
         }
 
-        if (flags & SubMeshFlags::perVertexUndulation) {
+        if (flags & SubMeshFlag::perVertexUndulation) {
             sm.vertexUndulation.resize(vertexCount);
         }
 
@@ -221,13 +221,13 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
             vertex(1) = loadVertexComponent(bbox.ll(1), bbsize(1));
             vertex(2) = loadVertexComponent(bbox.ll(2), bbsize(2));
 
-            if (flags & SubMeshFlags::externalTexture) {
+            if (flags & SubMeshFlag::externalTexture) {
                 (*ietc)(0) = loadTexCoord();
                 (*ietc)(1) = loadTexCoord();
                 ++ietc;
             }
 
-            if (flags & SubMeshFlags::perVertexUndulation) {
+            if (flags & SubMeshFlag::perVertexUndulation) {
                 std::uint16_t v;
                 bin::read(in, v);
                 *ivertexUndulation++ = half::half2float(v);
@@ -235,7 +235,7 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
         }
 
         // load (internal) texture coordinates
-        if (flags & SubMeshFlags::internalTexture) {
+        if (flags & SubMeshFlag::internalTexture) {
             std::uint16_t tcCount;
             bin::read(in, tcCount);
             sm.tc.resize(tcCount);
@@ -250,7 +250,7 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
         bin::read(in, faceCount);
         sm.faces.resize(faceCount);
 
-        if (flags & SubMeshFlags::internalTexture) {
+        if (flags & SubMeshFlag::internalTexture) {
             sm.facesTc.resize(faceCount);
         }
         auto ifacesTc(sm.facesTc.begin());
@@ -261,7 +261,7 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
             bin::read(in, face(2));
 
             // load (optional) texture coordinate indices
-            if (flags & SubMeshFlags::internalTexture) {
+            if (flags & SubMeshFlag::internalTexture) {
                 bin::read(in, (*ifacesTc)(0));
                 bin::read(in, (*ifacesTc)(1));
                 bin::read(in, (*ifacesTc)(2));
