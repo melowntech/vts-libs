@@ -92,6 +92,7 @@ struct MetaNode {
     MetaNode() : textureArea(), heightRange(), flags_() {}
 
     std::uint8_t flags() const { return flags_; }
+    void flags(std::uint8_t flags) { flags_ = flags; }
 
 private:
     bool check(std::uint8_t flag) const { return flags_ & flag; }
@@ -120,14 +121,17 @@ public:
 
     const MetaNode& get(const TileId &tileId) const;
 
+    void save(std::ostream &out) const;
+
+    void load(std::istream &in
+              , const boost::filesystem::path &path = "unknown");
+
 private:
     size_type index(const TileId &tileId) const;
 
     math::Point2_<size_type> gridIndex(const TileId &tileId) const;
 
     size_type index(const math::Point2_<size_type> &gi) const;
-
-    void save(std::ostream &out) const;
 
     /** Calculates serialized node size.
      */
@@ -148,13 +152,9 @@ private:
     math::Extents2_<size_type> valid_;
 };
 
-void saveMetaTile(std::ostream &out, const MetaTile &meta);
 void saveMetaTile(const boost::filesystem::path &path
                   , const MetaTile &meta);
 
-MetaTile loadMetaTile(std::istream &in, std::uint8_t binaryOrder
-                      , const boost::filesystem::path &path
-                      = "unknown");
 MetaTile loadMetaTile(const boost::filesystem::path &path
                       , std::uint8_t binaryOrder);
 
