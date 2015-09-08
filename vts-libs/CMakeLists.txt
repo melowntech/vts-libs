@@ -122,6 +122,11 @@ buildsys_target_compile_definitions(vadstena-vts0-core ${MODULE_DEFINITIONS})
 set(vadstena-vts-core_SOURCES
   vts/mesh.hpp vts/mesh.cpp
   vts/metatile.hpp vts/metatile.cpp
+  vts/atlas.hpp
+
+  vts/tileset.hpp vts/tileset.cpp
+  vts/tileset/detail.hpp
+  vts/tileset/driver.hpp
   )
 
 define_module(LIBRARY vadstena-vts-core DEPENDS
