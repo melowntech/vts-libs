@@ -1,5 +1,7 @@
 # common storage stuff
 set(vadstena-libs-storage_SOURCES
+  storage/lod.hpp storage/range.hpp
+
   storage/error.hpp
   storage/openfiles.hpp storage/openfiles.cpp
   storage/filetypes.hpp

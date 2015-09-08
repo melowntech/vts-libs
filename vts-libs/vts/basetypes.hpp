@@ -5,26 +5,28 @@
 
 #include "math/geometry_core.hpp"
 
-#include "../ids.hpp"
-#include "../range.hpp"
+#include "../storage/lod.hpp"
+#include "../storage/range.hpp"
 
 namespace vadstena { namespace vts {
 
-typedef Range<Lod> LodRange;
+using storage::Lod;
+using storage::Range;
+using storage::LodRange;
 
 /** Tile identifier (index in 3D space): LOD + tile index from upper-left corner
  *  in tile grid.
  */
 struct TileId {
     Lod lod;
-    long x;
-    long y;
+    unsigned int x;
+    unsigned int y;
 
     bool operator<(const TileId &tid) const;
     bool operator==(const TileId &tid) const;
     bool operator!=(const TileId &tid) const { return !operator==(tid); }
 
-    TileId(Lod lod = 0, long x = 0, long y = 0)
+    TileId(Lod lod = 0, unsigned int x = 0, unsigned int y = 0)
         : lod(lod), x(x), y(y)
     {}
 };

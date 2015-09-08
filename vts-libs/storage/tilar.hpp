@@ -15,9 +15,8 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/uuid/uuid.hpp>
 
-#include "../ids.hpp"
-#include "../range.hpp"
-
+#include "./range.hpp"
+#include "./lod.hpp"
 #include "./streams.hpp"
 
 namespace vadstena { namespace storage {

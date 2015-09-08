@@ -20,8 +20,8 @@
 
 #include "utility/runnable.hpp"
 
-#include "../ids.hpp"
-#include "../range.hpp"
+#include "../storage/lod.hpp"
+#include "../storage/range.hpp"
 
 #include "./basetypes.hpp"
 #include "./mesh.hpp"

@@ -19,9 +19,8 @@
 
 #include "geo/srsdef.hpp"
 
-#include "../storage/error.hpp"
-#include "../range.hpp"
-#include "../ids.hpp"
+#include "./error.hpp"
+#include "./lod.hpp"
 
 namespace vadstena { namespace storage {
 
