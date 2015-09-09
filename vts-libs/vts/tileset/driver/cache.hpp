@@ -45,6 +45,8 @@ public:
 
     void flush();
 
+    bool readOnly() const { return readOnly_; }
+
 private:
     struct Archives;
 

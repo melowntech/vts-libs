@@ -152,4 +152,12 @@ bool Driver::externallyChanged() const
     return openStat_.changed(FileStat::stat(configPath_));
 }
 
+void Driver::wannaWrite(const std::string &what) const
+{
+    if (cache_.readOnly()) {
+        LOGTHROW(err2, storage::ReadOnlyError)
+            << "Cannot " << what << ": storage is read-only.";
+    }
+}
+
 } } // namespace vadstena::vts

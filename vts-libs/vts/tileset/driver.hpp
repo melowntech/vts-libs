@@ -56,6 +56,8 @@ public:
 
     driver::Options options() const { return options_; }
 
+    void wannaWrite(const std::string &what) const;
+
 private:
     /** Backing root.
      */
