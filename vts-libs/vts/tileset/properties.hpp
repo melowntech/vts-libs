@@ -11,7 +11,10 @@
 #include <boost/optional.hpp>
 #include <boost/any.hpp>
 
-#include "./basetypes.hpp"
+#include "../../storage/credits.hpp"
+#include "../../storage/referenceframe.hpp"
+
+#include "../basetypes.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -23,54 +26,44 @@ struct StaticProperties {
      */
     std::string id;
 
+    /** Tileset's reference frame
+     */
     std::string referenceFrame;
+
+    /** Data version/revision. Should be increment anytime the data change.
+     *  Used in template URL's to push through caches.
+     */
+    unsigned int revision;
+
+    /** List of credits.
+     */
+    storage::CreditIds credits;
+
+    /** Position.
+     */
+    storage::Position position;
 
     /** Mask bitfields.
      */
     struct Mask { enum {             // mask bitfields
         id = 0x001
         , referenceFrame = 0x002
-        // IF YOU WANT TO NEW ITEM DO NOT COLIDE WITH SettableProperties
-        // AND UPDATE ALL:
-        , all = (id | referenceFrame)
+        , revision = 0x004
+        , credits = 0x008
+        , position = 0x010
+
+        , all = (id | referenceFrame | revision | credits | position)
     }; };
 
     typedef int MaskType;
 
-    StaticProperties() {}
+    StaticProperties() : revision(0) {}
 
     template <typename> struct Setter;
     struct Wrapper;
 
     bool merge(const StaticProperties &other, MaskType mask = Mask::all);
     bool merge(const StaticProperties::Wrapper &other);
-};
-
-/** Tile set properties that can be set anytime.
- */
-struct SettableProperties {
-    short textureQuality;            // JPEG quality
-
-    struct Mask { enum {             // mask bitfields
-        textureQuality = 0x004
-        // IF YOU WANT TO NEW ITEM DO NOT COLIDE WITH SettableProperties
-        // AND UPDATE ALL:
-        , all = (textureQuality)
-    }; };
-
-    typedef int MaskType;
-
-    SettableProperties()
-        : textureQuality(85)
-    {}
-
-    static MaskType all() { return Mask::all; }
-
-    template <typename> struct Setter;
-    struct Wrapper;
-
-    bool merge(const SettableProperties &other, MaskType mask = Mask::all);
-    bool merge(const SettableProperties::Wrapper &other);
 };
 
 struct StaticProperties::Wrapper {
@@ -84,19 +77,6 @@ struct StaticProperties::Wrapper {
 
     operator StaticProperties&() { return props; }
     operator const StaticProperties&() const { return props; }
-};
-
-struct SettableProperties::Wrapper {
-    SettableProperties props;
-    MaskType mask;
-
-    Wrapper() : props(), mask() {}
-    Wrapper(const SettableProperties &props, MaskType mask)
-        : props(props), mask(mask)
-    {}
-
-    operator SettableProperties&() { return props; }
-    operator const SettableProperties&() const { return props; }
 };
 
 template <typename T, typename C>
@@ -116,40 +96,6 @@ protected:
     Properties &p_;
     typename Properties::MaskType &m_;
     Context *c_;
-};
-
-/** All tile set properties.
- */
-struct Properties
-    : StaticProperties
-    , SettableProperties
-{
-    Properties()  {}
-
-    StaticProperties& staticProperties() { return *this; }
-    const StaticProperties& staticProperties() const { return *this; }
-
-    SettableProperties& settableProperties() { return *this; }
-    const SettableProperties& settableProperties() const { return *this; }
-};
-
-struct CreateProperties {
-public:
-    typedef int MaskType;
-
-    CreateProperties() {}
-
-    CreateProperties(const Properties &p
-                     , MaskType mask = (StaticProperties::Mask::all
-                                        | SettableProperties::Mask::all))
-        : staticProperties(p, mask), settableProperties(p, mask)
-    {}
-
-    StaticProperties::Wrapper staticProperties;
-    SettableProperties::Wrapper settableProperties;
-
-    StaticProperties::Setter<CreateProperties> staticSetter();
-    SettableProperties::Setter<CreateProperties> settableSetter();
 };
 
 #define TILESTORAGE_PROPERTIES_SETTER(NAME)                     \
@@ -182,10 +128,9 @@ public:
 TILESTORAGE_PROPERTIES_SETTER_INIT(StaticProperties)
     TILESTORAGE_PROPERTIES_SETTER(id)
     TILESTORAGE_PROPERTIES_SETTER(referenceFrame)
-TILESTORAGE_PROPERTIES_SETTER_FINI()
-
-TILESTORAGE_PROPERTIES_SETTER_INIT(SettableProperties)
-    TILESTORAGE_PROPERTIES_SETTER(textureQuality)
+    TILESTORAGE_PROPERTIES_SETTER(revision)
+    TILESTORAGE_PROPERTIES_SETTER(credits)
+    TILESTORAGE_PROPERTIES_SETTER(position)
 TILESTORAGE_PROPERTIES_SETTER_FINI()
 
 #undef TILESTORAGE_PROPERTIES_SETTER_INIT
@@ -197,16 +142,6 @@ TILESTORAGE_PROPERTIES_SETTER_FINI()
 #define TILESTORAGE_PROPERTIES_MERGE(WHAT)                          \
     if (mask & Mask::WHAT) { WHAT = other.WHAT; changed = true; }
 
-inline bool SettableProperties::merge(const SettableProperties &other
-                                      , MaskType mask)
-{
-    bool changed(false);
-
-    TILESTORAGE_PROPERTIES_MERGE(textureQuality);
-
-    return changed;
-}
-
 inline bool StaticProperties::merge(const StaticProperties &other
                                     , MaskType mask)
 {
@@ -214,6 +149,9 @@ inline bool StaticProperties::merge(const StaticProperties &other
 
     TILESTORAGE_PROPERTIES_MERGE(id);
     TILESTORAGE_PROPERTIES_MERGE(referenceFrame)
+    TILESTORAGE_PROPERTIES_MERGE(revision)
+    TILESTORAGE_PROPERTIES_MERGE(credits)
+    TILESTORAGE_PROPERTIES_MERGE(position)
 
     return changed;
 }
@@ -223,23 +161,6 @@ inline bool StaticProperties::merge(const StaticProperties &other
 inline bool StaticProperties::merge(const StaticProperties::Wrapper &other)
 {
     return merge(other.props, other.mask);
-}
-
-inline bool SettableProperties::merge(const SettableProperties::Wrapper &other)
-{
-    return merge(other.props, other.mask);
-}
-
-inline StaticProperties::Setter<CreateProperties>
-CreateProperties::staticSetter()
-{
-    return { staticProperties, this };
-}
-
-inline SettableProperties::Setter<CreateProperties>
-CreateProperties::settableSetter()
-{
-    return { settableProperties, this };
 }
 
 } } // namespace vadstena::vts

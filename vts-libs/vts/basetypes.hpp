@@ -33,13 +33,6 @@ struct TileId {
 
 typedef std::array<TileId, 4> Children;
 
-/** Open mode
- */
-enum class OpenMode {
-    readOnly     //!< only getters are allowed
-    , readWrite  //!< both getters and setters are allowed
-};
-
 enum class CreateMode {
     failIfExists //!< creation fails if tile set/storage already exists
     , overwrite  //!< existing tile set/storage is replace with new one

@@ -9,15 +9,36 @@
 #define vadstena_libs_vts_tileset_detail_hpp_included_
 
 #include "../tileset.hpp"
+#include "./driver.hpp"
 
 namespace vadstena { namespace vts {
 
+struct TileSet::Properties : StaticProperties {
+    // add stuff here
+
+    Properties() {}
+};
+
 /** Driver that implements physical aspects of tile set.
  */
-class TileSet::Detail
+struct TileSet::Detail
 {
-public:
-private:
+    bool readOnly;
+
+    Driver::pointer driver;
+
+    Properties savedProperties;  // properties as are on disk
+    Properties properties;       // current properties
+    bool propertiesChanged;      // marks whether properties have been changed
+
+    bool metadataChanged;
+
+    Detail(const Driver::pointer &driver);
+    Detail(const Driver::pointer &driver, const StaticProperties &properties);
+
+    void loadConfig();
+
+    void saveConfig();
 };
 
 } } // namespace vadstena::vts

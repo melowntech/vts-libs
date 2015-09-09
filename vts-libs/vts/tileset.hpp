@@ -23,11 +23,11 @@
 #include "../storage/lod.hpp"
 #include "../storage/range.hpp"
 
-#include "./properties.hpp"
 #include "./basetypes.hpp"
 #include "./mesh.hpp"
 #include "./metatile.hpp"
 #include "./atlas.hpp"
+#include "./tileset/properties.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -40,6 +40,11 @@ class Driver;
 class TileSet {
 public:
     ~TileSet();
+
+    /** Get tile set propeties.
+     * \return tile set properties
+     */
+    StaticProperties getProperties() const;
 
     Mesh mesh(const TileId &tileId) const;
     void mesh(const TileId &tileId, const Mesh &mesh) const;
@@ -96,7 +101,7 @@ public:
 
 private:
     TileSet(const std::shared_ptr<Driver> &driver
-            , const CreateProperties &properties);
+            , const StaticProperties &properties);
     TileSet(const std::shared_ptr<Driver> &driver);
 
     std::unique_ptr<Detail> detail_;
@@ -109,6 +114,8 @@ public:
     class Factory; friend class Factory;
 
     struct Accessor; friend class Accessor;
+
+    struct Properties;
 };
 
 } } // namespace vadstena::vts

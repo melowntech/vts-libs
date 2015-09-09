@@ -20,24 +20,22 @@ namespace bin = utility::binaryio;
 namespace vadstena { namespace vts {
 
 namespace {
-    const char MAGIC[2] = { 'M', 'E' };
+    const char MAGIC[2] = { 'M', 'T' };
     const std::uint16_t VERSION = 1;
 
     const std::size_t MIN_GEOM_BITS(2);
 
-    struct NodeFlag {
-        enum : std::uint8_t {
-            geometryPresent = 0x01
-            , navtilePresent = 0x02
-            , internalTexturePresent = 0x04
-            , coarsenessControl = 0x08
+    struct NodeFlag { enum : std::uint8_t {
+        geometryPresent = 0x01
+        , navtilePresent = 0x02
+        , internalTexturePresent = 0x04
+        , coarsenessControl = 0x08
 
-            , ulChild = 0x10
-            , urChild = 0x20
-            , llChild = 0x40
-            , lrChild = 0x80
-        };
-    };
+        , ulChild = 0x10
+        , urChild = 0x20
+        , llChild = 0x40
+        , lrChild = 0x80
+    }; };
 } // namespace
 
 math::Point2_<MetaTile::size_type> MetaTile::gridIndex(const TileId &tileId)

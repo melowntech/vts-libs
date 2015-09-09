@@ -19,7 +19,6 @@ UTILITY_GENERATE_ENUM_IO(File,
                          ((tileIndex))
                          )
 
-
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits> &os

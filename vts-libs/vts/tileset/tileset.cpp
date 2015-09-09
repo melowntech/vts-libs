@@ -1,10 +1,15 @@
-#include "./tileset.hpp"
-#include "./tileset/detail.hpp"
-#include "./tileset/driver.hpp"
+#include "../tileset.hpp"
+#include "./detail.hpp"
+#include "./driver.hpp"
 
 namespace fs = boost::filesystem;
 
 namespace vadstena { namespace vts {
+
+StaticProperties TileSet::getProperties() const
+{
+    return {};
+}
 
 TileSet::TileSet(const std::shared_ptr<Driver> &driver)
 {
@@ -12,7 +17,7 @@ TileSet::TileSet(const std::shared_ptr<Driver> &driver)
 }
 
 TileSet::TileSet(const std::shared_ptr<Driver> &driver
-                 , const CreateProperties &properties)
+                 , const StaticProperties &properties)
 {
     (void) driver;
     (void) properties;
@@ -108,7 +113,7 @@ LodRange TileSet::lodRange() const
 struct TileSet::Factory
 {
     static TileSet create(const fs::path &path
-                          , const CreateProperties &properties
+                          , const StaticProperties &properties
                           , CreateMode mode)
     {
         (void) path; (void) mode;
@@ -116,24 +121,53 @@ struct TileSet::Factory
         return TileSet(driver, properties);
     }
 
-    static TileSet open(const fs::path &path, OpenMode mode)
+    static TileSet open(const fs::path &path)
     {
-        (void) path; (void) mode;
+        (void) path;
         std::shared_ptr<Driver> driver;
         return TileSet(driver);
     }
 };
 
 TileSet createTileSet(const boost::filesystem::path &path
-                      , const CreateProperties &properties
+                      , const StaticProperties &properties
                       , CreateMode mode)
 {
     return TileSet::Factory::create(path, properties, mode);
 }
 
-TileSet openTileSet(const boost::filesystem::path &path, OpenMode mode)
+TileSet openTileSet(const boost::filesystem::path &path)
 {
-    return TileSet::Factory::open(path, mode);
+    return TileSet::Factory::open(path);
+}
+
+TileSet::Detail::Detail(const Driver::pointer &driver)
+    : readOnly(true), driver(driver), propertiesChanged(false)
+    , metadataChanged(false)
+{
+    loadConfig();
+    // load tile index only if there are any tiles
+    // if (properties.hasData) {
+    //     loadTileIndex();
+    // } else {
+    //     tileIndex = {};
+    // }
+}
+
+TileSet::Detail::Detail(const Driver::pointer &driver
+                        , const StaticProperties &properties)
+    : readOnly(false), driver(driver), propertiesChanged(false)
+    , metadataChanged(false)
+{
+    (void) properties;
+}
+
+void TileSet::Detail::loadConfig()
+{
+}
+
+void TileSet::Detail::saveConfig()
+{
 }
 
 } } // namespace vadstena::vts

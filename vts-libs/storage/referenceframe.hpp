@@ -145,6 +145,16 @@ struct ReferenceFrame {
     std::string rootSrs() const;
 };
 
+struct Position {
+    enum class Type { fixed, floating };
+
+    Type type;
+    math::Point3 position;
+    math::Point3 orientation;
+    double viewHeight;
+    double verticalFov;
+};
+
 ReferenceFrame::dict loadReferenceFrames(std::istream &in);
 
 ReferenceFrame::dict loadReferenceFrames(const boost::filesystem::path &path);
@@ -181,6 +191,11 @@ UTILITY_GENERATE_ENUM_IO(Srs::Type,
     ((geographic))
     ((projected))
     ((cartesian))
+)
+
+UTILITY_GENERATE_ENUM_IO(Position::Type,
+    ((fixed))
+    ((floating)("float"))
 )
 
 // inlines

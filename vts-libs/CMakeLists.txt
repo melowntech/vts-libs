@@ -127,9 +127,16 @@ set(vadstena-vts-core_SOURCES
   vts/metatile.hpp vts/metatile.cpp
   vts/atlas.hpp
 
-  vts/tileset.hpp vts/tileset.cpp
+  vts/tileset.hpp
+  vts/tileset/properties.hpp
+  vts/tileset/tileset.cpp
   vts/tileset/detail.hpp
+  vts/tileset/config.hpp vts/tileset/config.cpp
+
   vts/tileset/driver.hpp
+  vts/tileset/driver/driver.cpp
+  vts/tileset/driver/options.hpp
+  vts/tileset/driver/cache.hpp vts/tileset/driver/cache.cpp
   )
 
 define_module(LIBRARY vadstena-vts-core DEPENDS

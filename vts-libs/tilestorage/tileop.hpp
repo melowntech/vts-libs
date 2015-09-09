@@ -72,7 +72,7 @@ TileId findMetatile(const Properties &properties, TileId tileId
 
 inline long tileSize(long baseTileSize, Lod lod)
 {
-    return (lod >= 0) ? (baseTileSize >> lod) : (baseTileSize << -lod);
+    return (baseTileSize >> lod);
 }
 
 inline long tileSize(const Properties &properties, Lod lod)

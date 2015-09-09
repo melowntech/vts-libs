@@ -20,14 +20,12 @@ namespace {
     const char MAGIC[2] = { 'M', 'E' };
     const std::uint16_t VERSION = 1;
 
-    struct SubMeshFlag {
-        enum : std::uint8_t {
-            internalTexture = 0x1
-            , externalTexture = 0x2
-            , perVertexUndulation = 0x4
-            , referencesExternalTexture = 0x8
-        };
-    };
+    struct SubMeshFlag { enum : std::uint8_t {
+        internalTexture = 0x1
+        , externalTexture = 0x2
+        , perVertexUndulation = 0x4
+        , referencesExternalTexture = 0x8
+    }; };
 } // namespace
 
 void saveMesh(std::ostream &out, const Mesh &mesh)
