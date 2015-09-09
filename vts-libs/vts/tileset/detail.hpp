@@ -20,6 +20,10 @@ struct TileSet::Properties : StaticProperties {
     Properties() {}
 };
 
+typedef std::map<TileId, MetaNode*> MetaNodes;
+
+typedef std::map<TileId, MetaTile> MetaTiles;
+
 /** Driver that implements physical aspects of tile set.
  */
 struct TileSet::Detail
@@ -34,6 +38,9 @@ struct TileSet::Detail
 
     bool metadataChanged;
 
+    MetaNodes metaNodes;
+    MetaTiles metaTiles;
+
     Detail(const Driver::pointer &driver);
     Detail(const Driver::pointer &driver, const StaticProperties &properties);
 
@@ -44,6 +51,10 @@ struct TileSet::Detail
     void watch(utility::Runnable *runnable);
 
     void checkValidity() const;
+
+    MetaNode* findMetaNode(const TileId &tileId);
+
+    MetaNode* loadMetatile(const TileId &tileId) const;
 };
 
 inline void TileSet::Detail::checkValidity() const

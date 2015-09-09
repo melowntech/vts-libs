@@ -38,6 +38,9 @@ void TileSet::setMesh(const TileId &tileId, const Mesh &mesh)
 {
     (void) tileId;
     (void) mesh;
+
+    auto *node(detail().findMetaNode(tileId));
+    (void) node;
 }
 
 void TileSet::getAtlas(const TileId &tileId, Atlas &atlas)
@@ -200,6 +203,59 @@ void TileSet::Detail::saveConfig()
 void TileSet::Detail::watch(utility::Runnable *runnable)
 {
     driver->watch(runnable);
+}
+
+MetaNode* TileSet::Detail::findMetaNode(const TileId &tileId)
+{
+    auto fmetaNodes(metaNodes.find(tileId));
+    if (fmetaNodes == metaNodes.end()) {
+        // not found in memory -> load from disk
+        return loadMetatile(tileId);
+    }
+
+    return fmetaNodes->second;
+}
+
+MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId) const
+{
+    (void) tileId;
+
+#if 0
+    // no tile (or metatile) cannot be in an lod below lowest level in the tile
+    // set)
+
+    // use lodRange from tile index
+    if (tileId.lod > lodRange.max) {
+        return nullptr;
+    }
+
+    auto metaId(findMetatile(savedProperties, tileId));
+
+    if (!metaIndex.exists(metaId)) {
+        return nullptr;
+    }
+
+    if (loadedMetatiles.find(metaId) != loadedMetatiles.end()) {
+        // this metatile already loaded
+        return nullptr;
+    }
+
+    LOG(info1) << "(" << properties.id << "): Found metatile "
+               << metaId << " for tile " << tileId << ".";
+
+    loadMetatileFromFile(metadata, metaId);
+    loadedMetatiles.insert(metaId);
+
+    // now, we can execute lookup again
+    auto fmetadata(metadata.find(tileId));
+    if (fmetadata != metadata.end()) {
+        LOG(info1) << "(" << properties.id << "): Meta node for "
+            "tile " << tileId << " loaded from disk.";
+        return &fmetadata->second;
+    }
+#endif
+
+    return nullptr;
 }
 
 } } // namespace vadstena::vts
