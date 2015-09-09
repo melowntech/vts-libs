@@ -36,10 +36,12 @@ struct TileSet::Detail
     Properties properties;       // current properties
     bool propertiesChanged;      // marks whether properties have been changed
 
-    bool metadataChanged;
+    storage::ReferenceFrame referenceFrame;
 
     MetaNodes metaNodes;
     MetaTiles metaTiles;
+
+    bool metadataChanged;
 
     Detail(const Driver::pointer &driver);
     Detail(const Driver::pointer &driver, const StaticProperties &properties);

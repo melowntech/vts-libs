@@ -575,4 +575,37 @@ std::string ReferenceFrame::rootSrs() const
     return division.find({}).srs;
 }
 
+namespace registry {
+    Srs::dict srs;
+    ReferenceFrame::dict referenceFrames;
+}
+
+const Srs* Registry::srs(const std::string &id, std::nothrow_t)
+{
+    return registry::srs.get(id, std::nothrow);
+}
+
+const Srs& Registry::srs(const std::string &id)
+{
+    return registry::srs.get(id);
+}
+
+const ReferenceFrame*
+Registry::referenceFrame(const std::string &id, std::nothrow_t)
+{
+    return registry::referenceFrames.get(id, std::nothrow);
+}
+
+const ReferenceFrame& Registry::referenceFrame(const std::string &id)
+{
+    return registry::referenceFrames.get(id);
+}
+
+void Registry::init(const boost::filesystem::path &confRoot)
+{
+    registry::srs = loadSrs(confRoot / "srs.json");
+    registry::referenceFrames
+        = loadReferenceFrames(confRoot / "referenceframes.json.json");
+}
+
 } } // namespace vadstena::storage

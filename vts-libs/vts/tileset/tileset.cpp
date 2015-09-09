@@ -136,6 +136,8 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
     , metadataChanged(false)
 {
     loadConfig();
+    referenceFrame = storage::Registry::referenceFrame
+        (properties.referenceFrame);
 
     // TODO: load tile index
 }
@@ -143,16 +145,13 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
 TileSet::Detail::Detail(const Driver::pointer &driver
                         , const StaticProperties &properties)
     : readOnly(false), driver(driver), propertiesChanged(false)
+    , referenceFrame(storage::Registry::referenceFrame
+                     (properties.referenceFrame))
     , metadataChanged(false)
 {
     if (properties.id.empty()) {
         LOGTHROW(err2, storage::FormatError)
             << "Cannot create tile set without valid id.";
-    }
-
-    if (properties.referenceFrame.empty()) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Cannot create tile set without valid reference frame.";
     }
 
     // build initial properties

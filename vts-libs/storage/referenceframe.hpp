@@ -198,6 +198,18 @@ UTILITY_GENERATE_ENUM_IO(Position::Type,
     ((floating)("float"))
 )
 
+struct Registry {
+    static const Srs* srs(const std::string &id, std::nothrow_t);
+    static const Srs& srs(const std::string &id);
+
+    static const ReferenceFrame*
+    referenceFrame(const std::string &id, std::nothrow_t);
+    static const ReferenceFrame&
+    referenceFrame(const std::string &id);
+
+    static void init(const boost::filesystem::path &confRoot);
+};
+
 // inlines
 
 inline bool
