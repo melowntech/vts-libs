@@ -1,23 +1,29 @@
 #ifndef vadstena_libs_vts_atlas_hpp
 #define vadstena_libs_vts_atlas_hpp
 
-#include <opencv2/core/core.hpp>
+#include <cstdlib>
+#include <iostream>
 
 namespace vadstena { namespace vts {
 
 class Atlas {
 public:
-    typedef cv::Mat Image;
+    Atlas(std::size_t count) : count_(count) {}
 
-    Atlas() {}
+    virtual ~Atlas() {}
 
-    void addImage(std::size_t index, const Image &image);
+    std::size_t count() const { return count_; }
 
-    const Image& getImage(std::size_t index) const;
+    virtual void serialize(std::ostream &out, std::size_t index) const = 0;
 
-private:
-    typedef std::vector<Image> Images;
-    Images images;
+    virtual void deserialize(std::istream &in, std::size_t index) = 0;
+
+    void serialize(std::ostream &out) const;
+
+    void deserialize(std::istream &in);
+
+protected:
+    std::size_t count_;
 };
 
 } } // namespace vadstena::vts

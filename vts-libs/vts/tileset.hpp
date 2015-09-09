@@ -46,14 +46,14 @@ public:
      */
     StaticProperties getProperties() const;
 
-    Mesh mesh(const TileId &tileId) const;
-    void mesh(const TileId &tileId, const Mesh &mesh) const;
+    Mesh getMesh(const TileId &tileId) const;
+    void setMesh(const TileId &tileId, const Mesh &mesh);
 
-    Atlas atlas(const TileId &tileId) const;
-    void atlas(const TileId &tileId, const Atlas &atlas) const;
+    void getAtlas(const TileId &tileId, Atlas &atlas);
+    void setAtlas(const TileId &tileId, const Atlas &atlas) const;
 
-    MetaNode metaNode(const TileId &tileId) const;
-    void metaNode(const TileId &tileId, const MetaNode node) const;
+    MetaNode getMetaNode(const TileId &tileId) const;
+    void setMetaNode(const TileId &tileId, const MetaNode node);
 
     bool exists(const TileId &tileId) const;
 

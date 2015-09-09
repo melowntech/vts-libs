@@ -125,7 +125,7 @@ set(vadstena-vts-core_SOURCES
   vts.hpp
   vts/mesh.hpp vts/mesh.cpp
   vts/metatile.hpp vts/metatile.cpp
-  vts/atlas.hpp
+  vts/atlas.hpp vts/atlas.cpp
 
   vts/tileset.hpp
   vts/tileset/properties.hpp

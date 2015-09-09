@@ -28,37 +28,35 @@ TileSet::~TileSet()
 {
 }
 
-Mesh TileSet::mesh(const TileId &tileId) const
+Mesh TileSet::getMesh(const TileId &tileId) const
 {
     (void) tileId;
     return {};
 }
 
-void TileSet::mesh(const TileId &tileId, const Mesh &mesh) const
+void TileSet::setMesh(const TileId &tileId, const Mesh &mesh)
 {
     (void) tileId;
     (void) mesh;
 }
 
-Atlas TileSet::atlas(const TileId &tileId) const
+void TileSet::getAtlas(const TileId &tileId, Atlas &atlas)
+{
+    (void) tileId; (void) atlas;
+}
+
+void TileSet::setAtlas(const TileId &tileId, const Atlas &atlas) const
+{
+    (void) tileId; (void) atlas;
+}
+
+MetaNode TileSet::getMetaNode(const TileId &tileId) const
 {
     (void) tileId;
     return {};
 }
 
-void TileSet::atlas(const TileId &tileId, const Atlas &atlas) const
-{
-    (void) tileId;
-    (void) atlas;
-}
-
-MetaNode TileSet::metaNode(const TileId &tileId) const
-{
-    (void) tileId;
-    return {};
-}
-
-void TileSet::metaNode(const TileId &tileId, const MetaNode node) const
+void TileSet::setMetaNode(const TileId &tileId, const MetaNode node)
 {
     (void) tileId;
     (void) node;
