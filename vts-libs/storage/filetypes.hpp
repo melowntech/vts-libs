@@ -3,7 +3,7 @@
 
 namespace vadstena { namespace storage {
 
-enum class TileFile { meta, mesh, atlas };
+enum class TileFile { meta, mesh, atlas, navtile };
 
 enum class File { config, tileIndex };
 

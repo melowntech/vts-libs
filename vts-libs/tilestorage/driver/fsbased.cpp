@@ -41,6 +41,7 @@ namespace {
         case TileFile::meta: return "meta";
         case TileFile::mesh: return "bin";
         case TileFile::atlas: return "jpg";
+        default: throw "Unexpected TileFile value. Go fix your program.";
         }
         throw "unknown tile file type";
     }

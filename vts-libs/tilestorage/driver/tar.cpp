@@ -223,6 +223,9 @@ TarDriver::TarDriver(const boost::filesystem::path &root
                         atlasMap_.insert(FileMap::value_type(tileId, record));
                         break;
 
+                    default:
+                        throw "Unexpected TileFile value. "
+                            "Go fix your program.";
                     }
                 }
             }
@@ -281,6 +284,8 @@ IStream::pointer TarDriver::input_impl(const TileId tileId, TileFile type)
         src = &atlasMap_;
         desc = "atlas";
         break;
+
+    default: throw "Unexpected TileFile value. Go fix your program.";
     }
 
     auto fsrc(src->find(tileId));
@@ -336,6 +341,8 @@ FileStat TarDriver::stat_impl(const TileId tileId, TileFile type) const
         src = &atlasMap_;
         desc = "atlas";
         break;
+
+    default: throw "Unexpected TileFile value. Go fix your program.";
     }
 
     auto fsrc(src->find(tileId));

@@ -96,6 +96,8 @@ Driver::~Driver()
 
 OStream::pointer Driver::output(File type)
 {
+    checkRunning();
+
     const auto name(filePath(type));
     // no transaction -> plain file
     const auto path(root_ / name);
@@ -105,6 +107,8 @@ OStream::pointer Driver::output(File type)
 
 IStream::pointer Driver::input(File type) const
 {
+    checkRunning();
+
     const auto name(filePath(type));
 
     auto path(root_ / name);
@@ -114,6 +118,8 @@ IStream::pointer Driver::input(File type) const
 
 OStream::pointer Driver::output(const TileId tileId, TileFile type)
 {
+    checkRunning();
+
     return cache_.output(tileId, type);
 }
 
@@ -125,6 +131,8 @@ IStream::pointer Driver::input(const TileId tileId, TileFile type)
 
 FileStat Driver::stat(File type) const
 {
+    checkRunning();
+
     const auto name(filePath(type));
     const auto path(root_ / name);
     LOG(info1) << "Statting " << path << ".";
@@ -133,6 +141,8 @@ FileStat Driver::stat(File type) const
 
 FileStat Driver::stat(const TileId tileId, TileFile type) const
 {
+    checkRunning();
+
     return cache_.stat(tileId, type);
 }
 
@@ -158,6 +168,18 @@ void Driver::wannaWrite(const std::string &what) const
         LOGTHROW(err2, storage::ReadOnlyError)
             << "Cannot " << what << ": storage is read-only.";
     }
+}
+
+void Driver::drop()
+{
+    // remove whole root directory
+    remove_all(root_);
+}
+
+void Driver::notRunning() const
+{
+    LOGTHROW(warn2, storage::Interrupted)
+        << "Operation has been interrupted.";
 }
 
 } } // namespace vadstena::vts

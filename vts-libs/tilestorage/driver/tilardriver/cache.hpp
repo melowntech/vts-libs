@@ -60,6 +60,7 @@ inline Cache::Archives& Cache::getArchives(TileFile type)
     switch (type) {
     case TileFile::meta: return *metatiles_;
     case TileFile::mesh: case TileFile::atlas: return *tiles_;
+    default: throw "Unexpected TileFile value. Go fix your program.";
     }
     throw;
 }

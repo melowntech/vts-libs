@@ -5,6 +5,8 @@
 #include <map>
 #include <memory>
 
+#include "utility/runnable.hpp"
+
 #include "../../storage/streams.hpp"
 #include "../../storage/resources.hpp"
 
@@ -58,7 +60,21 @@ public:
 
     void wannaWrite(const std::string &what) const;
 
+    /** Drop storage.
+     */
+    void drop();
+
+    /** Sets runnable that is observed during access operations.
+     *  If stopped runnable is encountered operation throws Interrupted.
+     *  Pass nullptr to stop watching runnable.
+     */
+    void watch(utility::Runnable *runnable);
+
 private:
+    void checkRunning() const;
+
+    void notRunning() const;
+
     /** Backing root.
      */
     const boost::filesystem::path root_;
@@ -74,7 +90,17 @@ private:
     /** Information about mapConfig when tileset was open in read-only mode.
      */
     FileStat openStat_;
+
+    /** Runnable associated with the driver.
+     */
+    utility::Runnable *runnable_;
 };
+
+inline void Driver::checkRunning() const
+{
+    if (!runnable_ || *runnable_) { return; }
+    notRunning();
+}
 
 } } // namespace vadstena::vts
 

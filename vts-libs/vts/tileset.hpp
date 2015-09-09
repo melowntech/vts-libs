@@ -59,28 +59,9 @@ public:
 
     void flush();
 
-    /** Starts new transaction. (R/W)
-     */
-    void begin(utility::Runnable *runnable = nullptr);
-
-    /** Commits pending transaction. Calls flush to ensure any changes are
-     *  propagated to the backing store.
-     *  Commit fails if there is no transaction in progress.
-     */
-    void commit();
-
-    /** Rolls back pending transaction.
-     *  Rollback fails if there is no transaction in progress.
-     */
-    void rollback();
-
     /** Starts watching runnable without entering a transaction.
      */
     void watch(utility::Runnable *runnable);
-
-    /** Check for pending transaction.
-     */
-    bool inTx() const;
 
     /** Is the tile set empty (i.e. has it no tile?)
      */

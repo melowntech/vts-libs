@@ -40,7 +40,19 @@ struct TileSet::Detail
     void loadConfig();
 
     void saveConfig();
+
+    void watch(utility::Runnable *runnable);
+
+    void checkValidity() const;
 };
+
+inline void TileSet::Detail::checkValidity() const
+{
+    if (!driver) {
+        LOGTHROW(err2, storage::NoSuchTileSet)
+            << "Tile set <" << properties.id << "> was removed.";
+    }
+}
 
 } } // namespace vadstena::vts
 

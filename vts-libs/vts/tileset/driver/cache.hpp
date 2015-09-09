@@ -58,6 +58,7 @@ private:
 
     std::unique_ptr<Archives> tiles_;
     std::unique_ptr<Archives> metatiles_;
+    std::unique_ptr<Archives> navtiles_;
 };
 
 inline Cache::Archives& Cache::getArchives(TileFile type)
@@ -65,6 +66,7 @@ inline Cache::Archives& Cache::getArchives(TileFile type)
     switch (type) {
     case TileFile::meta: return *metatiles_;
     case TileFile::mesh: case TileFile::atlas: return *tiles_;
+    case TileFile::navtile: return *navtiles_;
     }
     throw;
 }

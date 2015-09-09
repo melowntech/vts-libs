@@ -22,6 +22,7 @@ namespace {
 
 Tilar::ContentTypes tileContentTypes({ "", "image/jpeg" });
 Tilar::ContentTypes metatileContentTypes;
+Tilar::ContentTypes navtileContentTypes({ "", "image/jpeg" });
 
 std::uint32_t calculateHash(const std::string &data)
 {
@@ -41,6 +42,7 @@ int fileType(TileFile type) {
     case TileFile::meta: return 0;
     case TileFile::mesh: return 0;
     case TileFile::atlas: return 1;
+    case TileFile::navtile: return 0;
     }
     throw;
 }
@@ -162,12 +164,12 @@ fs::path Cache::Archives::filePath(const TileId &index) const
 Cache::Cache(const fs::path &root, const Options &options
              , bool readOnly)
     : root_(root), options_(options), readOnly_(readOnly)
-    , tiles_(new Archives
-             (root, "tiles", readOnly, 2, options
-              , tileContentTypes))
-    , metatiles_(new Archives
-                 (root, "metatiles", readOnly, 1, options
-                  , metatileContentTypes))
+    , tiles_(new Archives(root, "tiles", readOnly, 2, options
+                          , tileContentTypes))
+    , metatiles_(new Archives(root, "metatiles", readOnly, 1, options
+                              , metatileContentTypes))
+    , navtiles_(new Archives(root, "navtiles", readOnly, 1, options
+                             , navtileContentTypes))
 {}
 
 namespace {
@@ -312,7 +314,10 @@ FileStat Cache::stat(const TileId tileId, TileFile type)
 
 storage::Resources Cache::resources()
 {
-    return { tiles_->map.size() + metatiles_->map.size(), 0 };
+    return { (tiles_->map.size()
+              + metatiles_->map.size()
+              + navtiles_->map.size())
+            , 0 };
 }
 
 void Cache::flush()
@@ -320,6 +325,7 @@ void Cache::flush()
     if (readOnly_) { return; }
     tiles_->flush();
     metatiles_->flush();
+    navtiles_->flush();
 }
 
 } } } // namespace vadstena::vts::driver

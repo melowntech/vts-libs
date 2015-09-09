@@ -70,29 +70,15 @@ bool TileSet::exists(const TileId &tileId) const
 
 void TileSet::flush()
 {
-}
+    // TODO: write metadata to storage
 
-void TileSet::begin(utility::Runnable *runnable)
-{
-    (void) runnable;
-}
-
-void TileSet::commit()
-{
-}
-
-void TileSet::rollback()
-{
+    detail().driver->flush();
 }
 
 void TileSet::watch(utility::Runnable *runnable)
 {
-    (void) runnable;
-}
-
-bool TileSet::inTx() const
-{
-    return false;
+    detail().checkValidity();
+    detail().watch(runnable);
 }
 
 bool TileSet::empty() const
@@ -102,6 +88,9 @@ bool TileSet::empty() const
 
 void TileSet::drop()
 {
+    detail().driver->drop();
+    // make invalid!
+    detail().driver.reset();
 }
 
 LodRange TileSet::lodRange() const
@@ -206,6 +195,11 @@ void TileSet::Detail::saveConfig()
     // done; remember saved properties and go on
     savedProperties = properties;
     propertiesChanged = false;
+}
+
+void TileSet::Detail::watch(utility::Runnable *runnable)
+{
+    driver->watch(runnable);
 }
 
 } } // namespace vadstena::vts

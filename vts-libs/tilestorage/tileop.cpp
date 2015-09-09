@@ -20,8 +20,9 @@ namespace {
         case TileFile::meta: return MetaExt;
         case TileFile::mesh: return MeshExt;
         case TileFile::atlas: return AtlasExt;
+        default: throw "Unexpected TileFile value. Go fix your program.";
         }
-        throw "unknown tile file type";
+        throw;
     }
 
     const char* tileFile(const char *p, TileFile &type) {

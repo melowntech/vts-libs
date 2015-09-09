@@ -43,6 +43,7 @@ int fileType(TileFile type) {
     case TileFile::meta: return 0;
     case TileFile::mesh: return 0;
     case TileFile::atlas: return 1;
+    default: throw "Unexpected TileFile value. Go fix your program.";
     }
     throw;
 }
