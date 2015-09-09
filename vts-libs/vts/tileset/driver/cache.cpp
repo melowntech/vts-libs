@@ -145,7 +145,7 @@ Cache::Archives::Archives(const fs::path &root, const std::string &extension
                           , const Options &options
                           , const Tilar::ContentTypes &contentTypes)
     : root(root), extension(extension)
-    , options(options.binaryOrder, filesPerTile, options.uuid)
+    , options(options.tilar(filesPerTile))
     , readOnly(readOnly), contentTypes(contentTypes)
 {}
 

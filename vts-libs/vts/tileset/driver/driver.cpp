@@ -20,6 +20,7 @@
 #include "../../io.hpp"
 #include "../config.hpp"
 #include "../driver.hpp"
+#include "../detail.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -68,7 +69,7 @@ Driver::Driver(const boost::filesystem::path &root
                , CreateMode mode, const driver::Options &options)
     : root_(absolute(root))
     , configPath_(root_ / filePath(File::config))
-    , options_(options)
+    , options_(options.binaryOrder()) // we have to generate new UUID
     , cache_(root_, options_, false)
 {
     if (!create_directories(root_)) {
@@ -83,8 +84,7 @@ Driver::Driver(const boost::filesystem::path &root
 Driver::Driver(const boost::filesystem::path &root)
     : root_(absolute(root))
     , configPath_(root_ / filePath(File::config))
-      // TODO: lodd from config
-      // , options_(vts::loadConfig(configPath_))
+    , options_(vts::loadConfig(configPath_).driverOptions)
     , cache_(root_, options_, true)
     , openStat_(FileStat::stat(configPath_))
 {

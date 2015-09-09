@@ -14,7 +14,8 @@
 namespace vadstena { namespace vts {
 
 struct TileSet::Properties : StaticProperties {
-    // add stuff here
+    // driver options
+    driver::Options driverOptions;
 
     Properties() {}
 };

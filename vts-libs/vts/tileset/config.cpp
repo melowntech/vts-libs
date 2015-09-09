@@ -1,3 +1,6 @@
+#include <boost/uuid/string_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
+
 #include "dbglog/dbglog.hpp"
 #include "jsoncpp/as.hpp"
 
@@ -53,6 +56,18 @@ TileSet::Properties parse1(const Json::Value &config)
 
     parse(properties.position, config["position"]);
 
+
+    // load driver options
+    const auto &driver(config["driver"]);
+
+    int binaryOrder;
+    Json::get(binaryOrder, driver, "binaryOrder");
+    properties.driverOptions.binaryOrder(binaryOrder);
+
+    std::string uuid;
+    Json::get(uuid, driver, "uuid");
+    properties.driverOptions.uuid(boost::uuids::string_generator()(uuid));
+
     return properties;
 }
 
@@ -79,6 +94,10 @@ void build(Json::Value &config, const TileSet::Properties &properties)
     config["referenceFrame"] = properties.referenceFrame;
     config["revision"] = properties.revision;
     build(config["position"], properties.position);
+
+    auto &driver(config["driver"]);
+    driver["binaryOrder"] = properties.driverOptions.binaryOrder();
+    driver["uuid"] = to_string(properties.driverOptions.uuid());
 }
 
 } // namespace detail
