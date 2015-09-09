@@ -32,7 +32,7 @@ LodRange range(const TileSet::list &sets)
 {
     if (sets.empty()) {
         // empty set
-        return { 0, -1 };
+        return LodRange::emptyRange();
     }
 
     // initialize with invalid range

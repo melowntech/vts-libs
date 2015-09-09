@@ -40,7 +40,7 @@ struct Range
 
     bool operator!=(const Range &o) const { return !operator==(o); }
 
-    static Range emptyRange() { return { 0, -1 }; }
+    static Range emptyRange() { return { T(0), T(-1) }; }
 };
 
 typedef Range<Lod> LodRange;
