@@ -11,7 +11,7 @@ class OpenCvAtlas : public Atlas {
 public:
     OpenCvAtlas() {}
 
-    virtual std::size_t count() const;
+    virtual std::size_t count() const { return images_.size(); }
 
     virtual void serialize(const storage::OStream::pointer &os
                            , std::size_t index
