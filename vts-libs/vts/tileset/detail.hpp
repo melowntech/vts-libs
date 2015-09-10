@@ -23,13 +23,13 @@ struct TileSet::Properties : StaticProperties {
 
 struct TileNode {
     MetaNode *metanode;
-    bool waterproof;
+    bool watertight;
 
     typedef std::map<TileId, TileNode> map;
 
-    TileNode() : metanode(), waterproof() {}
-    TileNode(MetaNode *metanode, bool waterproof)
-        : metanode(metanode), waterproof(waterproof) {}
+    TileNode() : metanode(), watertight() {}
+    TileNode(MetaNode *metanode, bool watertight)
+        : metanode(metanode), watertight(watertight) {}
 };
 
 typedef std::map<TileId, MetaTile> MetaTiles;
@@ -54,7 +54,7 @@ struct TileSet::Detail
     bool metadataChanged;
 
     TileIndex tileIndex;
-    TileIndex waterproofIndex;
+    TileIndex watertightIndex;
     TileIndex metaIndex;
 
     LodRange lodRange;

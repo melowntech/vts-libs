@@ -32,11 +32,11 @@ Mesh TileSet::getMesh(const TileId &tileId) const
 }
 
 void TileSet::setMesh(const TileId &tileId, const Mesh &mesh
-                      , bool waterproof)
+                      , bool watertight)
 {
     (void) tileId;
     (void) mesh;
-    (void) waterproof;
+    (void) watertight;
 
     auto *node(detail().findNode(tileId));
     (void) node;
@@ -54,12 +54,12 @@ void TileSet::setAtlas(const TileId &tileId, const Atlas &atlas) const
 
 void TileSet::setMeshAndAtlas(const TileId &tileId, const Mesh &mesh
                               , Atlas &atlas
-                              , bool waterproof)
+                              , bool watertight)
 {
     (void) tileId;
     (void) mesh;
     (void) atlas;
-    (void) waterproof;
+    (void) watertight;
 
     auto *node(detail().findNode(tileId));
     (void) node;
@@ -241,7 +241,7 @@ void TileSet::Detail::loadTileIndex()
         metaIndex = {};
         auto f(driver->input(File::tileIndex));
         tileIndex.load(*f);
-        waterproofIndex.load(*f);
+        watertightIndex.load(*f);
         metaIndex.load(*f);
         f->close();
     } catch (const std::exception &e) {
@@ -259,7 +259,7 @@ void TileSet::Detail::saveTileIndex()
     try {
         auto f(driver->output(File::tileIndex));
         tileIndex.save(*f);
-        waterproofIndex.save(*f);
+        watertightIndex.save(*f);
         metaIndex.save(*f);
         f->close();
     } catch (const std::exception &e) {
@@ -311,7 +311,7 @@ TileNode* TileSet::Detail::loadMetatile(const TileId &tileId) const
 
     return &tileNodes.insert
         (TileNode::map::value_type
-         (tileId, TileNode(node, waterproofIndex.exists(tileId))))
+         (tileId, TileNode(node, watertightIndex.exists(tileId))))
         .first->second;
 }
 

@@ -266,6 +266,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     vts0/encoder.hpp vts0/encoder.cpp
 
     vts/opencv-atlas.hpp vts/opencv-atlas.cpp
+    vts/encoder.hpp vts/encoder.cpp
 
     licence/fingerprint.hpp licence/fingerprint.cpp
 
