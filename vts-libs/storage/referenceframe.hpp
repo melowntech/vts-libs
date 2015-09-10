@@ -153,6 +153,8 @@ struct Position {
     math::Point3 orientation;
     double viewHeight;
     double verticalFov;
+
+    Position() : type(Type::fixed), viewHeight(), verticalFov() {}
 };
 
 ReferenceFrame::dict loadReferenceFrames(std::istream &in);
@@ -207,6 +209,9 @@ struct Registry {
     static const ReferenceFrame&
     referenceFrame(const std::string &id);
 
+    static const Srs::dict srsList();
+    static const ReferenceFrame::dict referenceFrames();
+
     static void init(const boost::filesystem::path &confRoot);
 };
 
@@ -244,7 +249,7 @@ const T& Dictionary<T>::get(const std::string &id) const
     const auto *value(get(id, std::nothrow));
     if (!value) {
         LOGTHROW(err1, storage::KeyError)
-            << "No such key " << id << " in this dictionary.";
+            << "No such key <" << id << "> in this dictionary.";
     }
     return *value;
 }

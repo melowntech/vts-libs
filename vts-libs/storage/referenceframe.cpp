@@ -590,6 +590,11 @@ const Srs& Registry::srs(const std::string &id)
     return registry::srs.get(id);
 }
 
+const Srs::dict Registry::srsList()
+{
+    return registry::srs;
+}
+
 const ReferenceFrame*
 Registry::referenceFrame(const std::string &id, std::nothrow_t)
 {
@@ -601,11 +606,16 @@ const ReferenceFrame& Registry::referenceFrame(const std::string &id)
     return registry::referenceFrames.get(id);
 }
 
+const ReferenceFrame::dict Registry::referenceFrames()
+{
+    return registry::referenceFrames;
+}
+
 void Registry::init(const boost::filesystem::path &confRoot)
 {
     registry::srs = loadSrs(confRoot / "srs.json");
     registry::referenceFrames
-        = loadReferenceFrames(confRoot / "referenceframes.json.json");
+        = loadReferenceFrames(confRoot / "referenceframes.json");
 }
 
 } } // namespace vadstena::storage

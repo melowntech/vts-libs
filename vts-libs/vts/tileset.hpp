@@ -47,10 +47,14 @@ public:
     StaticProperties getProperties() const;
 
     Mesh getMesh(const TileId &tileId) const;
-    void setMesh(const TileId &tileId, const Mesh &mesh);
+    void setMesh(const TileId &tileId, const Mesh &mesh
+                 , bool waterproof = true);
 
     void getAtlas(const TileId &tileId, Atlas &atlas);
     void setAtlas(const TileId &tileId, const Atlas &atlas) const;
+
+    void setMeshAndAtlas(const TileId &tileId, const Mesh &mesh, Atlas &atlas
+                         , bool waterproof = true);
 
     MetaNode getMetaNode(const TileId &tileId) const;
     void setMetaNode(const TileId &tileId, const MetaNode node);
@@ -85,7 +89,8 @@ private:
             , const StaticProperties &properties);
     TileSet(const std::shared_ptr<Driver> &driver);
 
-    std::unique_ptr<Detail> detail_;
+    struct DetailDeleter { void operator()(Detail*); };
+    std::unique_ptr<Detail, DetailDeleter> detail_;
     Detail& detail() { return *detail_; }
     const Detail& detail() const { return *detail_; }
 

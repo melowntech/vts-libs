@@ -29,8 +29,8 @@ namespace fs = boost::filesystem;
 namespace {
     const std::uint8_t DefaultBinaryOrder(5);
 
-    const std::string ConfigName("config.json");
-    const std::string TileIndexName("index.bin");
+    const std::string ConfigName("tileset.conf");
+    const std::string TileIndexName("tileset.index");
 
     const std::string filePath(File type)
     {
@@ -78,6 +78,11 @@ Driver::Driver(const boost::filesystem::path &root
             LOGTHROW(err2, storage::TileSetAlreadyExists)
                 << "Tile set at " << root_ << " already exists.";
         }
+
+        // OK, we can overwrite; cache contents of old config (if any)
+        try {
+            oldConfig_ = utility::read(root_ / filePath(File::config));
+        } catch (...) {}
     }
 }
 
@@ -98,9 +103,7 @@ OStream::pointer Driver::output(File type)
 {
     checkRunning();
 
-    const auto name(filePath(type));
-    // no transaction -> plain file
-    const auto path(root_ / name);
+    const auto path(root_ / filePath(type));
     LOG(info1) << "Saving to " << path << ".";
     return fileOStream(type, path);
 }
@@ -109,9 +112,7 @@ IStream::pointer Driver::input(File type) const
 {
     checkRunning();
 
-    const auto name(filePath(type));
-
-    auto path(root_ / name);
+    auto path(root_ / filePath(type));
     LOG(info1) << "Loading from " << path << ".";
     return fileIStream(type, path);
 }

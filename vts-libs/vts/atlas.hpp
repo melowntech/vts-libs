@@ -2,28 +2,25 @@
 #define vadstena_libs_vts_atlas_hpp
 
 #include <cstdlib>
-#include <iostream>
+
+#include "../storage/streams.hpp"
 
 namespace vadstena { namespace vts {
 
 class Atlas {
 public:
-    Atlas(std::size_t count) : count_(count) {}
+    Atlas() {}
 
     virtual ~Atlas() {}
 
-    std::size_t count() const { return count_; }
+    virtual std::size_t count() const = 0;
 
-    virtual void serialize(std::ostream &out, std::size_t index) const = 0;
+    virtual void serialize(const storage::OStream::pointer &os
+                           , std::size_t index
+                           , int textureQuality) const = 0;
 
-    virtual void deserialize(std::istream &in, std::size_t index) = 0;
-
-    void serialize(std::ostream &out) const;
-
-    void deserialize(std::istream &in);
-
-protected:
-    std::size_t count_;
+    virtual void deserialize(const storage::IStream::pointer &is
+                             , std::size_t index) = 0;
 };
 
 } } // namespace vadstena::vts

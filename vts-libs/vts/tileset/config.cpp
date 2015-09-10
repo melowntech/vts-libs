@@ -93,6 +93,10 @@ void build(Json::Value &config, const TileSet::Properties &properties)
     config["id"] = properties.id;
     config["referenceFrame"] = properties.referenceFrame;
     config["revision"] = properties.revision;
+
+    auto &credits(config["credits"] = Json::arrayValue);
+    for (auto cid : properties.credits) { credits.append(cid); }
+
     build(config["position"], properties.position);
 
     auto &driver(config["driver"]);

@@ -127,10 +127,14 @@ set(vadstena-vts-core_SOURCES
   vts/metatile.hpp vts/metatile.cpp
   vts/atlas.hpp vts/atlas.cpp
 
+  vts/maskfwd.hpp
+  vts/tileindex.hpp vts/tileindex.cpp vts/tileindex-io.hpp
+  vts/tileop.hpp vts/tileop.cpp
+
   vts/tileset.hpp
+  vts/tileset/detail.hpp
   vts/tileset/properties.hpp
   vts/tileset/tileset.cpp
-  vts/tileset/detail.hpp
   vts/tileset/config.hpp vts/tileset/config.cpp
 
   vts/tileset/driver.hpp
@@ -260,6 +264,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     vts0/tileset/heightmap.cpp
 
     vts0/encoder.hpp vts0/encoder.cpp
+
+    vts/opencv-atlas.hpp vts/opencv-atlas.cpp
 
     licence/fingerprint.hpp licence/fingerprint.cpp
 

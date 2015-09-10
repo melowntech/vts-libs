@@ -70,6 +70,12 @@ public:
      */
     void watch(utility::Runnable *runnable);
 
+    /** Gets old config file content and removes any notion about it.
+     */
+    boost::optional<std::string> oldConfig() {
+        auto c(oldConfig_); oldConfig_= boost::none; return c;
+    }
+
 private:
     void checkRunning() const;
 
@@ -94,7 +100,16 @@ private:
     /** Runnable associated with the driver.
      */
     utility::Runnable *runnable_;
+
+    /** Content of old config file.
+     */
+    boost::optional<std::string> oldConfig_;
 };
+
+inline void Driver::watch(utility::Runnable *runnable)
+{
+    runnable_ = runnable;
+}
 
 inline void Driver::checkRunning() const
 {

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <iosfwd>
 #include <vector>
+#include <new>
 
 #include <boost/filesystem/path.hpp>
 
@@ -119,7 +120,8 @@ public:
 
     void set(const TileId &tileId, const MetaNode &node);
 
-    const MetaNode& get(const TileId &tileId) const;
+    MetaNode* get(const TileId &tileId, std::nothrow_t);
+    MetaNode& get(const TileId &tileId);
 
     void save(std::ostream &out) const;
 
@@ -128,6 +130,12 @@ public:
 
 private:
     size_type index(const TileId &tileId) const;
+
+    boost::optional<size_type>
+    index(const TileId &tileId, std::nothrow_t) const;
+
+    boost::optional<math::Point2_<size_type> >
+    gridIndex(const TileId &tileId, std::nothrow_t) const;
 
     math::Point2_<size_type> gridIndex(const TileId &tileId) const;
 
@@ -158,6 +166,10 @@ void saveMetaTile(const boost::filesystem::path &path
 MetaTile loadMetaTile(const boost::filesystem::path &path
                       , std::uint8_t binaryOrder);
 
+MetaTile loadMetaTile(std::istream &in
+                      , std::uint8_t binaryOrder
+                      , const boost::filesystem::path &path = "unknown");
+
 
 // inlines
 
@@ -167,12 +179,29 @@ inline MetaTile::size_type MetaTile::index(const math::Point2_<size_type> &gi)
     return gi(1) * size_ + gi(0);
 }
 
+inline boost::optional<MetaTile::size_type>
+MetaTile::index(const TileId &tileId, std::nothrow_t) const
+{
+    if (auto gi = gridIndex(tileId, std::nothrow)) {
+        return index(*gi);
+    }
+    return boost::none;
+}
+
 inline MetaTile::size_type MetaTile::index(const TileId &tileId) const
 {
     return index(gridIndex(tileId));
 }
 
-inline const MetaNode& MetaTile::get(const TileId &tileId) const
+inline MetaNode* MetaTile::get(const TileId &tileId, std::nothrow_t)
+{
+    if (auto i = index(tileId, std::nothrow)) {
+        return &grid_[*i];
+    }
+    return nullptr;
+}
+
+inline MetaNode& MetaTile::get(const TileId &tileId)
 {
     return grid_[index(tileId)];
 }

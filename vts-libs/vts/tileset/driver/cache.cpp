@@ -188,7 +188,7 @@ Tilar tilar(const fs::path &path, const Tilar::Options &options
 
 } // namespace
 
-Cache::~Cache() {}
+Cache::~Cache() = default;
 
 void Cache::Archives::houseKeeping(const TileId *keep)
 {

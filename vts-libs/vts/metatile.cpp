@@ -38,6 +38,24 @@ namespace {
     }; };
 } // namespace
 
+boost::optional<math::Point2_<MetaTile::size_type> >
+MetaTile::gridIndex(const TileId &tileId, std::nothrow_t) const
+{
+    if ((origin_.lod != tileId.lod)
+        || (origin_.x > tileId.x)
+        || (origin_.y > tileId.y))
+    {
+        return boost::none;
+    }
+
+    size_type x(tileId.x - origin_.x);
+    size_type y(tileId.y - origin_.y);
+    if ((x >= size_) || (y >= size_)) {
+        return boost::none;
+    }
+    return { x, y };
+}
+
 math::Point2_<MetaTile::size_type> MetaTile::gridIndex(const TileId &tileId)
     const
 {
@@ -365,11 +383,19 @@ void MetaTile::load(std::istream &in, const fs::path &path)
 
 }
 
+MetaTile loadMetaTile(std::istream &in
+                      , std::uint8_t binaryOrder
+                      , const boost::filesystem::path &path)
+{
+    MetaTile meta({}, binaryOrder);
+    meta.load(in, path);
+    return meta;
+}
+
 MetaTile loadMetaTile(const fs::path &path, std::uint8_t binaryOrder)
 {
     utility::ifstreambuf f(path.string());
-    MetaTile meta({}, binaryOrder);
-    meta.load(f, path);
+    auto meta(loadMetaTile(f, binaryOrder, path));
     f.close();
     return meta;
 }

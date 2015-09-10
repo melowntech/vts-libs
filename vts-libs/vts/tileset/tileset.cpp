@@ -1,4 +1,6 @@
+#include "../../vts.hpp"
 #include "../tileset.hpp"
+#include "../tileindex-io.hpp"
 #include "./detail.hpp"
 #include "./driver.hpp"
 #include "./config.hpp"
@@ -13,18 +15,13 @@ StaticProperties TileSet::getProperties() const
 }
 
 TileSet::TileSet(const std::shared_ptr<Driver> &driver)
+    : detail_(new Detail(driver))
 {
-    (void) driver;
 }
 
 TileSet::TileSet(const std::shared_ptr<Driver> &driver
                  , const StaticProperties &properties)
-{
-    (void) driver;
-    (void) properties;
-}
-
-TileSet::~TileSet()
+    : detail_(new Detail(driver, properties))
 {
 }
 
@@ -34,12 +31,14 @@ Mesh TileSet::getMesh(const TileId &tileId) const
     return {};
 }
 
-void TileSet::setMesh(const TileId &tileId, const Mesh &mesh)
+void TileSet::setMesh(const TileId &tileId, const Mesh &mesh
+                      , bool waterproof)
 {
     (void) tileId;
     (void) mesh;
+    (void) waterproof;
 
-    auto *node(detail().findMetaNode(tileId));
+    auto *node(detail().findNode(tileId));
     (void) node;
 }
 
@@ -51,6 +50,19 @@ void TileSet::getAtlas(const TileId &tileId, Atlas &atlas)
 void TileSet::setAtlas(const TileId &tileId, const Atlas &atlas) const
 {
     (void) tileId; (void) atlas;
+}
+
+void TileSet::setMeshAndAtlas(const TileId &tileId, const Mesh &mesh
+                              , Atlas &atlas
+                              , bool waterproof)
+{
+    (void) tileId;
+    (void) mesh;
+    (void) atlas;
+    (void) waterproof;
+
+    auto *node(detail().findNode(tileId));
+    (void) node;
 }
 
 MetaNode TileSet::getMetaNode(const TileId &tileId) const
@@ -139,7 +151,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
     referenceFrame = storage::Registry::referenceFrame
         (properties.referenceFrame);
 
-    // TODO: load tile index
+    loadTileIndex();
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver
@@ -148,6 +160,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     , referenceFrame(storage::Registry::referenceFrame
                      (properties.referenceFrame))
     , metadataChanged(false)
+    , lodRange(LodRange::emptyRange())
 {
     if (properties.id.empty()) {
         LOGTHROW(err2, storage::FormatError)
@@ -157,13 +170,35 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     // build initial properties
     static_cast<StaticProperties&>(this->properties) = properties;
     this->properties.driverOptions = driver->options();
+
+    if (auto oldConfig = driver->oldConfig()) {
+        try {
+            // try to old config and grab old revision
+            std::istringstream is(*oldConfig);
+            const auto p(vts::loadConfig(is));
+            this->properties.revision = p.revision + 1;
+        } catch (...) {}
+    }
     savedProperties = this->properties;
 
-    // tile index must be properly initialized
-    // tileIndex = {};
-
+    // save config and (empty) tile indices
     saveConfig();
+    saveTileIndex();
 }
+
+TileSet::Detail::~Detail()
+{
+    // no exception thrown and not flushed? warn user!
+    if (!std::uncaught_exception()
+        && (metadataChanged || propertiesChanged))
+    {
+        LOG(warn3)
+            << "Tile set <" << properties.id
+            << "> is not flushed on destruction: data could be unusable.";
+    }
+}
+
+TileSet::~TileSet() = default;
 
 void TileSet::Detail::loadConfig()
 {
@@ -199,62 +234,85 @@ void TileSet::Detail::saveConfig()
     propertiesChanged = false;
 }
 
+void TileSet::Detail::loadTileIndex()
+{
+    try {
+        tileIndex = {};
+        metaIndex = {};
+        auto f(driver->input(File::tileIndex));
+        tileIndex.load(*f);
+        waterproofIndex.load(*f);
+        metaIndex.load(*f);
+        f->close();
+    } catch (const std::exception &e) {
+        LOGTHROW(err2, storage::Error)
+            << "Unable to read tile index: " << e.what() << ".";
+    }
+
+    // new extents
+    lodRange = tileIndex.lodRange();
+    LOG(info2) << "Loaded tile index: " << tileIndex;
+}
+
+void TileSet::Detail::saveTileIndex()
+{
+    try {
+        auto f(driver->output(File::tileIndex));
+        tileIndex.save(*f);
+        waterproofIndex.save(*f);
+        metaIndex.save(*f);
+        f->close();
+    } catch (const std::exception &e) {
+        LOGTHROW(err2, storage::Error)
+            << "Unable to read tile index: " << e.what() << ".";
+    }
+}
+
 void TileSet::Detail::watch(utility::Runnable *runnable)
 {
     driver->watch(runnable);
 }
 
-MetaNode* TileSet::Detail::findMetaNode(const TileId &tileId)
+TileNode* TileSet::Detail::findNode(const TileId &tileId)
 {
-    auto fmetaNodes(metaNodes.find(tileId));
-    if (fmetaNodes == metaNodes.end()) {
+    auto ftileNodes(tileNodes.find(tileId));
+    if (ftileNodes == tileNodes.end()) {
         // not found in memory -> load from disk
         return loadMetatile(tileId);
     }
 
-    return fmetaNodes->second;
+    return &ftileNodes->second;
 }
 
-MetaNode* TileSet::Detail::loadMetatile(const TileId &tileId) const
+TileNode* TileSet::Detail::loadMetatile(const TileId &tileId) const
 {
-    (void) tileId;
-
-#if 0
-    // no tile (or metatile) cannot be in an lod below lowest level in the tile
-    // set)
-
     // use lodRange from tile index
-    if (tileId.lod > lodRange.max) {
-        return nullptr;
+    if (tileId.lod > lodRange.max) { return nullptr; }
+
+    TileId mid(metaId(tileId));
+
+    // does this metatile exist?
+    if (!metaIndex.exists(mid)) { return nullptr; }
+
+    // try to find metatile
+    auto fmetaTiles(metaTiles.find(mid));
+
+    // load metatile if not found
+    if (fmetaTiles == metaTiles.end()) {
+        auto f(driver->input(mid, TileFile::meta));
+        fmetaTiles = metaTiles.insert
+            (MetaTiles::value_type
+             (mid, loadMetaTile(*f, metaOrder()))).first;
     }
 
-    auto metaId(findMetatile(savedProperties, tileId));
+    // now, find node in the metatile
+    auto *node(fmetaTiles->second.get(tileId, std::nothrow));
+    if (!node) { return nullptr; }
 
-    if (!metaIndex.exists(metaId)) {
-        return nullptr;
-    }
-
-    if (loadedMetatiles.find(metaId) != loadedMetatiles.end()) {
-        // this metatile already loaded
-        return nullptr;
-    }
-
-    LOG(info1) << "(" << properties.id << "): Found metatile "
-               << metaId << " for tile " << tileId << ".";
-
-    loadMetatileFromFile(metadata, metaId);
-    loadedMetatiles.insert(metaId);
-
-    // now, we can execute lookup again
-    auto fmetadata(metadata.find(tileId));
-    if (fmetadata != metadata.end()) {
-        LOG(info1) << "(" << properties.id << "): Meta node for "
-            "tile " << tileId << " loaded from disk.";
-        return &fmetadata->second;
-    }
-#endif
-
-    return nullptr;
+    return &tileNodes.insert
+        (TileNode::map::value_type
+         (tileId, TileNode(node, waterproofIndex.exists(tileId))))
+        .first->second;
 }
 
 } } // namespace vadstena::vts
