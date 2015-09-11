@@ -86,7 +86,7 @@ struct MetaNode {
 
     hfloat textureArea;
 
-    Range<std::uint16_t> heightRange;
+    Range<std::int16_t> heightRange;
 
     storage::CreditIds credits;
 

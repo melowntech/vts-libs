@@ -14,7 +14,7 @@ namespace vadstena { namespace vts {
 class NavTile {
 public:
     typedef std::shared_ptr<NavTile> pointer;
-    typedef storage::Range<double> HeightRange;
+    typedef storage::Range<std::int16_t> HeightRange;
 
     static const math::Size2i size() { return math::Size2i(256, 256); };
 

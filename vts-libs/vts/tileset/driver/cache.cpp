@@ -22,7 +22,7 @@ namespace {
 
 Tilar::ContentTypes tileContentTypes({ "", "image/jpeg" });
 Tilar::ContentTypes metatileContentTypes;
-Tilar::ContentTypes navtileContentTypes({ "", "image/jpeg" });
+Tilar::ContentTypes navtileContentTypes({ "image/jpeg" });
 
 std::uint32_t calculateHash(const std::string &data)
 {

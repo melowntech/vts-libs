@@ -67,8 +67,9 @@ void NavTile::deserialize(const HeightRange &heightRange
                    , data_.begin<double>()
                    , [&](std::uint8_t value) -> double
     {
-        return ((heightRange.min * (255 - value) + heightRange.max * value)
-                / 255);
+        return ((double(heightRange.min) * (255.0 - value)
+                 + double(heightRange.max) * value)
+                / 255.0);
     });
 }
 
@@ -93,7 +94,10 @@ void NavTile::set(const Data &data)
     data_ = data.clone();
 
     // get min/max
-    cv::minMaxLoc(data_, &heightRange_.min, &heightRange_.max);
+    storage::Range<double> range;
+    cv::minMaxLoc(data_, &range.min, &range.max);
+    heightRange_.min = std::int16_t(std::floor(range.min));
+    heightRange_.max = std::int16_t(std::ceil(range.max));
 }
 
 } } } // namespace vadstena::vts::opencv

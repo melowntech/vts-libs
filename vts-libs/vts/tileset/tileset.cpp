@@ -1,6 +1,7 @@
 #include "../../vts.hpp"
 #include "../tileset.hpp"
 #include "../tileindex-io.hpp"
+#include "../io.hpp"
 #include "./detail.hpp"
 #include "./driver.hpp"
 #include "./config.hpp"
@@ -39,6 +40,7 @@ void TileSet::setMesh(const TileId &tileId, const Mesh &mesh
     (void) watertight;
 
     auto *node(detail().findNode(tileId));
+    LOG(info4) << "Found meta node: " << node;
     (void) node;
 }
 
@@ -54,11 +56,7 @@ void TileSet::setAtlas(const TileId &tileId, const Atlas &atlas)
 
 void TileSet::setTile(const TileId &tileId, const Tile &tile)
 {
-    (void) tileId;
-    (void) tile;
-
-    auto *node(detail().findNode(tileId));
-    (void) node;
+    detail().setTile(tileId, tile);
 }
 
 MetaNode TileSet::getMetaNode(const TileId &tileId) const
@@ -314,6 +312,59 @@ TileNode* TileSet::Detail::loadMetatile(const TileId &tileId) const
 storage::ReferenceFrame TileSet::referenceFrame() const
 {
     return detail().referenceFrame;
+}
+
+
+void TileSet::Detail::save(const OStream::pointer &os, const Mesh &mesh)
+{
+    (void) os;
+    (void) mesh;
+    os->close();
+}
+
+void TileSet::Detail::save(const OStream::pointer &os, const Atlas &atlas)
+{
+    (void) os;
+    (void) atlas;
+    os->close();
+}
+
+void TileSet::Detail::save(const OStream::pointer &os, const NavTile &navtile)
+{
+    // TODO: implement multi-file stream
+    (void) os;
+    (void) navtile;
+    os->close();
+}
+
+void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile)
+{
+    driver->wannaWrite("set tile");
+
+    LOG(info1) << "Setting content of tile " << tileId << ".";
+
+    MetaNode metanode;
+
+    if (tile.navtile) {
+        metanode.navtile(true);
+        metanode.heightRange = tile.navtile->heightRange();
+    }
+
+    // TODO: calculate other metadata (normalized bounding box)
+
+    // auto *node(detail().findNode(tileId));
+
+    // if (!node) {
+    //     // pass
+    // }
+
+    save(driver->output(tileId, TileFile::mesh), tile.mesh);
+    if (tile.atlas) {
+        save(driver->output(tileId, TileFile::atlas), *tile.atlas);
+    }
+    if (tile.navtile) {
+        save(driver->output(tileId, TileFile::navtile), *tile.navtile);
+    }
 }
 
 } } // namespace vadstena::vts

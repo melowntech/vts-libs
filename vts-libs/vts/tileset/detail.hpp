@@ -78,8 +78,14 @@ struct TileSet::Detail
     void loadTileIndex();
     void saveTileIndex();
 
+    void setTile(const TileId &tileId, const Tile &tile);
+
     std::uint8_t metaOrder() const;
     TileId metaId(TileId tileId) const;
+
+    void save(const OStream::pointer &os, const Mesh &mesh);
+    void save(const OStream::pointer &os, const Atlas &atlas);
+    void save(const OStream::pointer &os, const NavTile &navtile);
 };
 
 inline void TileSet::DetailDeleter::operator()(Detail *d) { delete d; }

@@ -264,8 +264,8 @@ void MetaTile::save(std::ostream &out) const
                 break;
             }
 
-            bin::write(out, std::uint16_t(node.heightRange.min));
-            bin::write(out, std::uint16_t(node.heightRange.max));
+            bin::write(out, std::int16_t(node.heightRange.min));
+            bin::write(out, std::int16_t(node.heightRange.max));
         }
     }
 }
@@ -297,6 +297,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
 
     std::uint8_t u8;
     std::uint16_t u16;
+    std::int16_t i16;
     std::uint32_t u32;
 
     // tile id information
@@ -376,8 +377,8 @@ void MetaTile::load(std::istream &in, const fs::path &path)
                 break;
             }
 
-            bin::read(in, u16); node.heightRange.min = u16;
-            bin::read(in, u16); node.heightRange.max = u16;
+            bin::read(in, i16); node.heightRange.min = u16;
+            bin::read(in, i16); node.heightRange.max = u16;
         }
     }
 
