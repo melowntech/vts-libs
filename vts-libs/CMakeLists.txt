@@ -126,6 +126,8 @@ set(vadstena-vts-core_SOURCES
   vts/mesh.hpp vts/mesh.cpp
   vts/metatile.hpp vts/metatile.cpp
   vts/atlas.hpp vts/atlas.cpp
+  vts/navtile.hpp vts/navtile.cpp
+  vts/encoder.hpp vts/encoder.cpp
 
   vts/maskfwd.hpp
   vts/tileindex.hpp vts/tileindex.cpp vts/tileindex-io.hpp
@@ -265,8 +267,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
 
     vts0/encoder.hpp vts0/encoder.cpp
 
-    vts/opencv-atlas.hpp vts/opencv-atlas.cpp
-    vts/encoder.hpp vts/encoder.cpp
+    vts/opencv/atlas.hpp vts/opencv/atlas.cpp
+    vts/opencv/navtile.hpp vts/opencv/navtile.cpp
 
     licence/fingerprint.hpp licence/fingerprint.cpp
 

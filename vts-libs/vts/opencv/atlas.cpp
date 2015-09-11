@@ -2,24 +2,23 @@
 
 #include "utility/binaryio.hpp"
 
-#include "./opencv-atlas.hpp"
+#include "./atlas.hpp"
 
-namespace vadstena { namespace vts {
+namespace vadstena { namespace vts { namespace opencv {
 
-void OpenCvAtlas::serialize(const storage::OStream::pointer &os
-                            , std::size_t index
-                            , int textureQuality) const
+void Atlas::serialize(const storage::OStream::pointer &os
+                            , std::size_t index) const
 {
     using utility::binaryio::write;
     std::vector<unsigned char> buf;
     cv::imencode(".jpg", images_[index], buf
-                 , { cv::IMWRITE_JPEG_QUALITY, textureQuality });
+                 , { cv::IMWRITE_JPEG_QUALITY, quality_ });
 
     write(os->get(), buf.data(), buf.size());
     os->close();
 }
 
-void OpenCvAtlas::deserialize(const storage::IStream::pointer &is
+void Atlas::deserialize(const storage::IStream::pointer &is
                               , std::size_t index)
 {
     using utility::binaryio::read;
@@ -35,7 +34,7 @@ void OpenCvAtlas::deserialize(const storage::IStream::pointer &is
     set(index, image);
 }
 
-void OpenCvAtlas::set(std::size_t index, const Image &image)
+void Atlas::set(std::size_t index, const Image &image)
 {
     if (images_.size() <= index) {
         images_.resize(index + 1);
@@ -43,4 +42,4 @@ void OpenCvAtlas::set(std::size_t index, const Image &image)
     images_[index] = image;
 }
 
-} } // namespace vadstena::vts
+} } } // namespace vadstena::vts::opencv

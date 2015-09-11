@@ -8,7 +8,7 @@
 #include "geo/srsdef.hpp"
 
 #include "./tileset.hpp"
-#include "./opencv-atlas.hpp"
+#include "./atlas.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -30,21 +30,25 @@ protected:
     geo::SrsDefinition srs() const;
     void setConstraints(const Constraints &constraints);
 
-    /** Returned by getTile when metadata are set.
-     */
-    enum TileResult {
-        noDataYet
-        , noData
-        , data
+
+    struct TileResult {
+        enum class Result {
+            noDataYet
+            , noData
+            , data
+        };
+
+        Result result;
+        Tile tile;
+
+        TileResult(Result result = Result::noData) : result(result) {}
     };
 
 private:
-    /** Generates mesh, atlas and optionally metadata for given tile.
+    /** Generates mesh, atlas and navtile for given tile.
      */
     virtual TileResult generate(const TileId &tileId
-                                , const math::Extents2 &tileExtents
-                                , Mesh &mesh, OpenCvAtlas &atlas
-                                , bool &watertight) = 0;
+                                , const math::Extents2 &tileExtents) = 0;
 
 
     /** Generates mesh, atlas and optionally metadata for given tile.

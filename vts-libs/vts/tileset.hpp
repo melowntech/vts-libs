@@ -24,6 +24,7 @@
 #include "../storage/range.hpp"
 
 #include "./basetypes.hpp"
+#include "./types.hpp"
 #include "./mesh.hpp"
 #include "./metatile.hpp"
 #include "./atlas.hpp"
@@ -50,11 +51,10 @@ public:
     void setMesh(const TileId &tileId, const Mesh &mesh
                  , bool waterproof = true);
 
-    void getAtlas(const TileId &tileId, Atlas &atlas);
-    void setAtlas(const TileId &tileId, const Atlas &atlas) const;
+    void getAtlas(const TileId &tileId, Atlas &atlas) const;
+    void setAtlas(const TileId &tileId, const Atlas &atlas);
 
-    void setMeshAndAtlas(const TileId &tileId, const Mesh &mesh, Atlas &atlas
-                         , bool waterproof = true);
+    void setTile(const TileId &tileId, const Tile &tile);
 
     MetaNode getMetaNode(const TileId &tileId) const;
     void setMetaNode(const TileId &tileId, const MetaNode node);

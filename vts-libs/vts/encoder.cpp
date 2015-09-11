@@ -88,28 +88,21 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints)
     }
 
     if (processTile) {
-        Mesh mesh;
-        OpenCvAtlas atlas;
-        bool watertight(true);
-
-        switch (auto res = owner->generate
-                (tileId, tileExtents, mesh, atlas, watertight))
-        {
-        case TileResult::data:
+        auto tile(owner->generate(tileId, tileExtents));
+        switch (tile.result) {
+        case TileResult::Result::data:
             UTILITY_OMP(critical)
-            tileSet.setMeshAndAtlas(tileId, mesh, atlas);
-
-            (void) res;
+            tileSet.setTile(tileId, tile.tile);
 
             // we hit a valid tile -> do not apply extents for children
             useConstraints &= ~Constraints::useExtents;
             break;
 
-        case TileResult::noDataYet:
+        case TileResult::Result::noDataYet:
             // fine, something could be down there
             return;
 
-        case TileResult::noData:
+        case TileResult::Result::noData:
             // no data and nothing will ever be there
             return;
         }

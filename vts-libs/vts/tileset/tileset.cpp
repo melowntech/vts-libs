@@ -42,24 +42,20 @@ void TileSet::setMesh(const TileId &tileId, const Mesh &mesh
     (void) node;
 }
 
-void TileSet::getAtlas(const TileId &tileId, Atlas &atlas)
+void TileSet::getAtlas(const TileId &tileId, Atlas &atlas) const
 {
     (void) tileId; (void) atlas;
 }
 
-void TileSet::setAtlas(const TileId &tileId, const Atlas &atlas) const
+void TileSet::setAtlas(const TileId &tileId, const Atlas &atlas)
 {
     (void) tileId; (void) atlas;
 }
 
-void TileSet::setMeshAndAtlas(const TileId &tileId, const Mesh &mesh
-                              , Atlas &atlas
-                              , bool watertight)
+void TileSet::setTile(const TileId &tileId, const Tile &tile)
 {
     (void) tileId;
-    (void) mesh;
-    (void) atlas;
-    (void) watertight;
+    (void) tile;
 
     auto *node(detail().findNode(tileId));
     (void) node;
