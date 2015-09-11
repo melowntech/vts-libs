@@ -63,7 +63,8 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints
     bool processTile(true);
 
     if ((useConstraints & Constraints::useLodRange)
-        && constraints.lodRange) {
+        && constraints.lodRange)
+    {
         if (tileId.lod < constraints.lodRange->min) {
             // no data yet -> go directly down
             // * equivalent to TileResult::noDataYet
@@ -77,7 +78,7 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints
     }
 
     TIDGuard tg(str(boost::format("tile:%d-%d-%d")
-                    % tileId.lod % tileId.x % tileId.y));
+                    % (unsigned int)(tileId.lod) % tileId.x % tileId.y));
 
     // determine tile extents
     auto tc(tileCount(lodFromNode));

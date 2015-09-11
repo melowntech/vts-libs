@@ -16,7 +16,7 @@ template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits> &os, const TileId &tid)
 {
-    return os << '(' << tid.lod << ", " << tid.x
+    return os << '(' << (unsigned int)(tid.lod) << ", " << tid.x
               << ", " << tid.y << ')';
 }
 
@@ -26,7 +26,7 @@ dump(std::basic_ostream<CharT, Traits> &os
      , const TileId &tid
      , const std::string &prefix = std::string())
 {
-    os << prefix << "lod = " << tid.lod << '\n'
+    os << prefix << "lod = " << (unsigned int)(tid.lod) << '\n'
        << prefix << "x = " << tid.x << '\n'
        << prefix << "y = " << tid.y << '\n'
         ;

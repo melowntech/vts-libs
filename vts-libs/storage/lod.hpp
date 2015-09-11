@@ -5,7 +5,8 @@
 
 namespace vadstena { namespace storage {
 
-typedef std::uint8_t Lod;
+// not using std::uint8_t because it is interpreted as char
+typedef std::uint16_t Lod;
 
 } } // namespace vadstena::storage
 
