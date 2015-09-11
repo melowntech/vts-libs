@@ -317,13 +317,13 @@ storage::ReferenceFrame TileSet::referenceFrame() const
 
 void TileSet::Detail::save(const OStream::pointer &os, const Mesh &mesh)
 {
-    (void) os;
-    (void) mesh;
+    saveMesh(*os, mesh);
     os->close();
 }
 
 void TileSet::Detail::save(const OStream::pointer &os, const Atlas &atlas)
 {
+    // TODO: implement multi-file stream
     (void) os;
     (void) atlas;
     os->close();
@@ -331,9 +331,7 @@ void TileSet::Detail::save(const OStream::pointer &os, const Atlas &atlas)
 
 void TileSet::Detail::save(const OStream::pointer &os, const NavTile &navtile)
 {
-    // TODO: implement multi-file stream
-    (void) os;
-    (void) navtile;
+    navtile.serialize(os);
     os->close();
 }
 

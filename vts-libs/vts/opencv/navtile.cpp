@@ -16,15 +16,16 @@ void NavTile::serialize(const storage::OStream::pointer &os) const
 {
     // convert data to image
     auto ts(NavTile::size());
-    cv::Mat image(ts.height, ts.width, CV_64FC1);
+    cv::Mat image(ts.height, ts.width, CV_8UC1);
 
+    auto size(heightRange_.size());
     std::transform(data_.begin<double>(), data_.end<double>()
                    , image.begin<std::uint8_t>()
                    , [&](double value) -> std::uint8_t
     {
         return std::uint8_t
             (std::round((255 * (value - heightRange_.min))
-                        / heightRange_.size()));
+                        / size));
     });
 
     // serialize image
