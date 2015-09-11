@@ -311,4 +311,9 @@ TileNode* TileSet::Detail::loadMetatile(const TileId &tileId) const
         .first->second;
 }
 
+storage::ReferenceFrame TileSet::referenceFrame() const
+{
+    return detail().referenceFrame;
+}
+
 } } // namespace vadstena::vts

@@ -125,6 +125,8 @@ struct ReferenceFrame {
 
         const Node& find(const Node::Id &id) const;
         const Node* find(const Node::Id &id, std::nothrow_t) const;
+
+        const Node& root() const { return find({}); }
     };
 
     std::string id;
@@ -137,6 +139,18 @@ struct ReferenceFrame {
     unsigned int navDelta;
 
     typedef Dictionary<ReferenceFrame> dict;
+
+    const Division::Node& root() const { return division.root(); }
+
+    const Division::Node& find(const Division::Node::Id &id) const {
+        return division.find(id);
+    }
+
+    const Division::Node* find(const Division::Node::Id &id, std::nothrow_t)
+        const
+    {
+        return division.find(id, std::nothrow);
+    }
 
     /** For vts0 only:
      */

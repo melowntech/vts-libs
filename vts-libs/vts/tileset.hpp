@@ -79,6 +79,10 @@ public:
      */
     LodRange lodRange() const;
 
+    /** Referce frame in charge.
+     */
+    storage::ReferenceFrame referenceFrame() const;
+
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the tileset's guts!
      */

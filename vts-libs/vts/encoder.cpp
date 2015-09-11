@@ -15,6 +15,7 @@ struct Encoder::Detail {
            , const StaticProperties &properties, CreateMode mode)
         : owner(owner), tileSet(createTileSet(path, properties, mode))
         , properties(tileSet.getProperties())
+        , referenceFrame(tileSet.referenceFrame())
           // TODO: srs
     {}
 
@@ -22,7 +23,7 @@ struct Encoder::Detail {
     {
         UTILITY_OMP(parallel)
         UTILITY_OMP(single)
-        process(TileId(), Constraints::all);
+        process(TileId(), Constraints::all, &referenceFrame.root(), 0);
 
         // let the caller finish the tileset
         owner->finish(tileSet);
@@ -31,17 +32,22 @@ struct Encoder::Detail {
         tileSet.flush();
     }
 
-    void process(const TileId &tileId, int useConstraints);
+    typedef storage::ReferenceFrame::Division::Node Node;
+
+    void process(const TileId &tileId, int useConstraints
+                 , const Node *node, Lod lodFromNode);
 
     Encoder *owner;
     TileSet tileSet;
     StaticProperties properties;
+    storage::ReferenceFrame referenceFrame;
     geo::SrsDefinition srs;
 
     Constraints constraints;
 };
 
-void Encoder::Detail::process(const TileId &tileId, int useConstraints)
+void Encoder::Detail::process(const TileId &tileId, int useConstraints
+                              , const Node *node, Lod lodFromNode)
 {
     struct TIDGuard {
         TIDGuard(const std::string &id)
@@ -73,14 +79,23 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints)
     TIDGuard tg(str(boost::format("tile:%d-%d-%d")
                     % tileId.lod % tileId.x % tileId.y));
 
-    // const auto tileExtents(extents(properties, tileId));
-    math::Extents2 tileExtents;
-    LOG(info2) << "Processing tile " << tileId
-               << " (extents: " << std::fixed << tileExtents << ").";
+    // determine tile extents
+    auto tc(tileCount(lodFromNode));
+    auto rs(size(node->extents));
+    math::Size2f ts(rs.width / tc, rs.height / tc);
+    math::Extents2 divisionExtents
+        (node->extents.ll(0) + tileId.x * ts.width
+         , node->extents.ur(1) - (tileId.y + 1) * ts.height
+         , node->extents.ll(0) + (tileId.x + 1) * ts.width
+         , node->extents.ur(1) - tileId.y * ts.height);
+
+    LOG(info2)
+        << "Processing tile " << tileId << " (division extents: "
+        << std::fixed << divisionExtents << ").";
 
     if ((useConstraints & Constraints::useExtents)
         && constraints.extents) {
-        if (!overlaps(*constraints.extents, tileExtents)) {
+        if (!overlaps(*constraints.extents, divisionExtents)) {
             // nothing can live out here -> done
             // * equivalent to TileResult::noData
             return;
@@ -88,7 +103,7 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints)
     }
 
     if (processTile) {
-        auto tile(owner->generate(tileId, tileExtents));
+        auto tile(owner->generate(tileId, *node, divisionExtents));
         switch (tile.result) {
         case TileResult::Result::data:
             UTILITY_OMP(critical)
@@ -110,8 +125,15 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints)
 
     // we can proces children -> go down
     for (auto child : children(tileId)) {
+        // find node for this child
+        // TODO: use manual/bisection information
+        const auto *childNode
+            (referenceFrame.find({child.lod, child.x, child.y}, std::nothrow));
+
         UTILITY_OMP(task)
-        process(child, useConstraints);
+        process(child, useConstraints
+                , (childNode ? childNode : node)
+                , (childNode ? 0 : lodFromNode + 1));
     }
 }
 
@@ -125,9 +147,9 @@ StaticProperties Encoder::properties() const
     return detail_->properties;
 }
 
-geo::SrsDefinition Encoder::srs() const
+const storage::ReferenceFrame& Encoder::referenceFrame() const
 {
-    return detail_->srs;
+    return detail_->referenceFrame;
 }
 
 void Encoder::setConstraints(const Constraints &constraints)

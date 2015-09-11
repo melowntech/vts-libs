@@ -27,9 +27,8 @@ public:
 
 protected:
     StaticProperties properties() const;
-    geo::SrsDefinition srs() const;
+    const storage::ReferenceFrame& referenceFrame() const;
     void setConstraints(const Constraints &constraints);
-
 
     struct TileResult {
         enum class Result {
@@ -47,8 +46,10 @@ protected:
 private:
     /** Generates mesh, atlas and navtile for given tile.
      */
-    virtual TileResult generate(const TileId &tileId
-                                , const math::Extents2 &tileExtents) = 0;
+    virtual TileResult
+    generate(const TileId &tileId
+             , const storage::ReferenceFrame::Division::Node &node
+             , const math::Extents2 &divisionExtents) = 0;
 
 
     /** Generates mesh, atlas and optionally metadata for given tile.

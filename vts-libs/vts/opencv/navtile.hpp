@@ -13,15 +13,17 @@ public:
 
     virtual void serialize(const storage::OStream::pointer &os) const;
 
-    virtual void deserialize(const storage::IStream::pointer &is);
+    virtual void deserialize(const HeightRange &heightRange
+                             , const storage::IStream::pointer &is);
 
-    typedef cv::Mat Image;
+    typedef cv::Mat Data;
 
-    Image& image() { return image_; }
-    const Image& image() const { return image_; }
+    const Data& data() const { return data_; }
+
+    void set(const Data &data);
 
 private:
-    Image image_;
+    Data data_;
 };
 
 } } } // namespace vadstena::vts::opencv
