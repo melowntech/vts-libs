@@ -11,10 +11,10 @@ class NavTile : public vts::NavTile {
 public:
     NavTile() {}
 
-    virtual void serialize(const storage::OStream::pointer &os) const;
+    virtual void serialize(std::ostream &os) const;
 
-    virtual void deserialize(const HeightRange &heightRange
-                             , const storage::IStream::pointer &is);
+    virtual void deserialize(const HeightRange &heightRange, std::istream &is
+                             , const boost::filesystem::path &path);
 
     typedef cv::Mat Data;
 

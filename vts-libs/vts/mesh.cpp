@@ -28,6 +28,63 @@ namespace {
     }; };
 } // namespace
 
+math::Extents3 extents(const SubMesh &submesh)
+{
+    return computeExtents(submesh.vertices);
+}
+
+math::Extents3 extents(const Mesh &mesh)
+{
+    math::Extents3 e(math::InvalidExtents{});
+    for (const auto &sm : mesh.submeshes) {
+        e = unite(e, extents(sm));
+    }
+    return e;
+}
+
+namespace detail {
+
+double triangleArea(const math::Point3 &a, const math::Point3 &b,
+                    const math::Point3 &c)
+{
+    return norm_2(math::crossProduct(b - a, c - a)) / 2.0;
+}
+
+}
+
+std::pair<double, double> area(const SubMesh &sm)
+{
+    if (sm.faces.empty()) { return { 0.0, 0.0 }; }
+
+    // calculate the total area of the faces in both the XYZ and UV spaces
+    double xyzArea(0);
+    for (const auto &face : sm.faces) {
+        xyzArea += detail::triangleArea(sm.vertices[face[0]]
+                                        , sm.vertices[face[1]]
+                                        , sm.vertices[face[2]]);
+    }
+
+    double uvArea(0);
+    for (const auto &face : sm.facesTc) {
+        uvArea += detail::triangleArea(sm.tc[face[0]]
+                                       , sm.tc[face[1]]
+                                       , sm.tc[face[2]]);
+    }
+
+    return { xyzArea, uvArea };
+}
+
+MeshArea area(const Mesh &mesh)
+{
+    MeshArea out;
+    for (const auto &sm : mesh.submeshes) {
+        auto a(area(sm));
+        out.mesh += a.first;
+        out.texture.push_back(a.second);
+    }
+    return out;
+}
+
 void saveMesh(std::ostream &out, const Mesh &mesh)
 {
     // helper functions
@@ -54,7 +111,7 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
 
     // write submeshes
     for (const auto &sm : mesh.submeshes) {
-        auto bbox(computeExtents(sm.vertices));
+        auto bbox(extents(sm));
         math::Point3d bbsize(bbox.ur - bbox.ll);
 
         // build and write flags

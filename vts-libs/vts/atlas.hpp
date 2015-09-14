@@ -25,6 +25,10 @@ public:
     void deserialize(std::istream &is
                      , const boost::filesystem::path &path = "unknown");
 
+    /** Returns area of all given texture image.
+     */
+    virtual std::size_t area(std::size_t index) const = 0;
+
 protected:
     struct Entry {
         std::size_t start;

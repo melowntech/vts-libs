@@ -16,6 +16,7 @@
 
 namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;
+namespace half = half_float::detail;
 
 namespace vadstena { namespace vts {
 
@@ -256,7 +257,12 @@ void MetaTile::save(std::ostream &out) const
 
             switch (node.cc()) {
             case MetaNode::CoarsenessControl::texelSize:
-                bin::write(out, std::uint16_t(node.meshArea));
+                bin::write(out, half::float2half<std::round_to_nearest>
+                           (node.meshArea));
+                if (node.internalTexture()) {
+                    bin::write(out, half::float2half<std::round_to_nearest>
+                               (node.textureArea));
+                }
                 break;
 
             case MetaNode::CoarsenessControl::displaySize:
@@ -369,7 +375,12 @@ void MetaTile::load(std::istream &in, const fs::path &path)
 
             switch (node.cc()) {
             case MetaNode::CoarsenessControl::texelSize:
-                bin::read(in, u16); node.meshArea = u16;
+                bin::read(in, u16);
+                node.meshArea = half::half2float(u16);
+                if (node.internalTexture()) {
+                    bin::read(in, u16);
+                    node.textureArea = half::half2float(u16);
+                }
                 break;
 
             case MetaNode::CoarsenessControl::displaySize:
@@ -399,6 +410,13 @@ MetaTile loadMetaTile(const fs::path &path, std::uint8_t binaryOrder)
     auto meta(loadMetaTile(f, binaryOrder, path));
     f.close();
     return meta;
+}
+
+void MetaNode::update(const MetaNode &other)
+{
+    auto cf(childFlags());
+    *this = other;
+    childFlags(cf);
 }
 
 } } // namespace vadstena::vts

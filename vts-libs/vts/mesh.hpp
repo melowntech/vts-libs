@@ -57,6 +57,26 @@ struct Mesh {
     Mesh() : meanUndulation() {}
 };
 
+math::Extents3 extents(const SubMesh &submesh);
+math::Extents3 extents(const Mesh &mesh);
+
+/** Returns mesh and texture area for given submesh as pair of double
+ *  first = mesh area
+ *  second = texture area (normalized)
+ */
+std::pair<double, double> area(const SubMesh &submesh);
+
+/** Returns mesh and texture area for given mesh.
+ */
+struct MeshArea {
+    double mesh;
+    std::vector<double> texture;
+
+    MeshArea() : mesh() {}
+};
+
+MeshArea area(const Mesh &mesh);
+
 void saveMesh(std::ostream &out, const Mesh &mesh);
 void saveMesh(const boost::filesystem::path &path, const Mesh &mesh);
 

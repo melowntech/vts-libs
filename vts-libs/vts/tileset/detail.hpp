@@ -71,9 +71,8 @@ struct TileSet::Detail
 
     void checkValidity() const;
 
-    TileNode* findNode(const TileId &tileId);
-
-    TileNode* loadMetatile(const TileId &tileId) const;
+    MetaTile* findMetaTile(const TileId &tileId, bool addNew = false) const;
+    TileNode* findNode(const TileId &tileId, bool addNew = false) const;
 
     void loadTileIndex();
     void saveTileIndex();
@@ -82,10 +81,15 @@ struct TileSet::Detail
 
     std::uint8_t metaOrder() const;
     TileId metaId(TileId tileId) const;
+    TileId originFromMetaId(TileId tileId) const;
 
-    void save(const OStream::pointer &os, const Mesh &mesh);
-    void save(const OStream::pointer &os, const Atlas &atlas);
-    void save(const OStream::pointer &os, const NavTile &navtile);
+    void save(const OStream::pointer &os, const Mesh &mesh) const;
+    void save(const OStream::pointer &os, const Atlas &atlas) const;
+    void save(const OStream::pointer &os, const NavTile &navtile) const;
+
+    MetaTile* addNewMetaTile(const TileId &tileId) const;
+
+    TileNode* updateNode(TileId tileId, const MetaNode &metanode);
 };
 
 inline void TileSet::DetailDeleter::operator()(Detail *d) { delete d; }
@@ -106,6 +110,13 @@ inline TileId TileSet::Detail::metaId(TileId tileId) const
 {
     tileId.x >>= referenceFrame.metaBinaryOrder;
     tileId.y >>= referenceFrame.metaBinaryOrder;
+    return tileId;
+}
+
+inline TileId TileSet::Detail::originFromMetaId(TileId tileId) const
+{
+    tileId.x <<= referenceFrame.metaBinaryOrder;
+    tileId.y <<= referenceFrame.metaBinaryOrder;
     return tileId;
 }
 

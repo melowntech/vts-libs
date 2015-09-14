@@ -12,7 +12,7 @@
 
 namespace vadstena { namespace vts { namespace opencv {
 
-void NavTile::serialize(const storage::OStream::pointer &os) const
+void NavTile::serialize(std::ostream &os) const
 {
     // convert data to image
     auto ts(NavTile::size());
@@ -34,33 +34,34 @@ void NavTile::serialize(const storage::OStream::pointer &os) const
     cv::imencode(".jpg", image, buf
                  , { cv::IMWRITE_JPEG_QUALITY, 75 });
 
-    write(os->get(), buf.data(), buf.size());
+    write(os, buf.data(), buf.size());
 }
 
 void NavTile::deserialize(const HeightRange &heightRange
-                          , const storage::IStream::pointer &is)
+                          , std::istream &is
+                          , const boost::filesystem::path &path)
 {
     heightRange_ = heightRange;
 
     using utility::binaryio::read;
-    auto& s(is->get());
-    auto size(s.seekg(0, std::ios_base::end).tellg());
-    s.seekg(0);
+    auto size(is.seekg(0, std::ios_base::end).tellg());
+    is.seekg(0);
     std::vector<unsigned char> buf;
     buf.resize(size);
-    read(s, buf.data(), buf.size());
+    read(is, buf.data(), buf.size());
 
     auto image(cv::imdecode(buf, CV_LOAD_IMAGE_GRAYSCALE));
     if (!image.data) {
         LOGTHROW(err1, storage::FormatError)
-            << "Cannot deserialize navtile.";
+            << "Cannot deserialize navtile from file " << path << ".";
     }
 
     // check sizes
     auto ts(NavTile::size());
     if ((image.rows != ts.height) || (image.cols != ts.width)) {
         LOGTHROW(err1, storage::FormatError)
-            << "Navigational tile has different dimensions than " << ts << ".";
+            << "Navtile in file " << path
+            << "has different dimensions than " << ts << ".";
     }
 
     data_.create(ts.height, ts.width, CV_64FC1);

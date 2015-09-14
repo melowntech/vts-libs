@@ -190,6 +190,9 @@ void saveSrs(std::ostream &out, const Srs::dict &srs);
 void saveSrs(const boost::filesystem::path &path
              , const Srs::dict &srs);
 
+math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
+                                 , const math::Extents3 &extents);
+
 // enum IO stuff
 
 UTILITY_GENERATE_ENUM_IO(VerticalDatum,
@@ -280,6 +283,20 @@ operator<<(std::basic_ostream<CharT, Traits> &os
            , const ReferenceFrame::Division::Node::Id &node)
 {
     return os << node.lod << '-' << node.x << '-' << node.y;
+}
+
+inline math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
+                                        , const math::Extents3 &extents)
+{
+    const auto &fe(referenceFrame.division.extents);
+    const auto s(size(fe));
+
+    return { (extents.ll(0) - fe.ll(0)) / s.width
+            , (extents.ll(1) - fe.ll(1)) / s.height
+            , (extents.ll(2) - fe.ll(2)) / s.depth
+            , (extents.ur(0) - fe.ll(0)) / s.width
+            , (extents.ur(1) - fe.ll(1)) / s.height
+            , (extents.ur(2) - fe.ll(2)) / s.depth };
 }
 
 } } // namespace vadstena::storage

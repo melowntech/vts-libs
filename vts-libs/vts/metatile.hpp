@@ -34,6 +34,8 @@ struct MetaNode {
             , urChild = 0x20
             , llChild = 0x40
             , lrChild = 0x80
+
+            , allChildren = (ulChild | urChild | llChild | lrChild)
         };
     };
 
@@ -81,10 +83,10 @@ struct MetaNode {
 
     union {
         std::uint16_t displaySize;
-        hfloat meshArea;
+        float meshArea;
     };
 
-    hfloat textureArea;
+    float textureArea;
 
     Range<std::int16_t> heightRange;
 
@@ -94,6 +96,13 @@ struct MetaNode {
 
     std::uint8_t flags() const { return flags_; }
     void flags(std::uint8_t flags) { flags_ = flags; }
+
+    std::uint8_t childFlags() const { return flags_ & Flag::allChildren; }
+    void childFlags(std::uint8_t flags) {
+        flags_ = (flags_ & ~Flag::allChildren) | (flags & Flag::allChildren);
+    }
+
+    void update(const MetaNode &other);
 
 private:
     bool check(std::uint8_t flag) const { return flags_ & flag; }
@@ -116,6 +125,7 @@ public:
     MetaTile(const TileId &origin, std::uint8_t binaryOrder)
         : origin_(origin), binaryOrder_(binaryOrder)
         , size_(1 << binaryOrder)
+        , grid_(size_ * size_, {})
     {}
 
     void set(const TileId &tileId, const MetaNode &node);

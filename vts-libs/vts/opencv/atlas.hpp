@@ -26,6 +26,8 @@ private:
 
     virtual void deserialize_impl(std::istream &is, const Table &table);
 
+    virtual std::size_t area(std::size_t index) const;
+
     int quality_;
     typedef std::vector<Image> Images;
     Images images_;

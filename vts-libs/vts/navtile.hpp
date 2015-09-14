@@ -3,10 +3,12 @@
 
 #include <cstdlib>
 #include <memory>
+#include <istream>
+
+#include <boost/filesystem/path.hpp>
 
 #include "math/geometry_core.hpp"
 
-#include "../storage/streams.hpp"
 #include "../storage/range.hpp"
 
 namespace vadstena { namespace vts {
@@ -22,10 +24,12 @@ public:
 
     virtual ~NavTile() {}
 
-    virtual void serialize(const storage::OStream::pointer &os) const = 0;
+    virtual void serialize(std::ostream &os) const = 0;
 
     virtual void deserialize(const HeightRange &heightRange
-                             , const storage::IStream::pointer &is) = 0;
+                             , std::istream &is
+                             , const boost::filesystem::path &path
+                             = "unknown") = 0;
 
     HeightRange heightRange() const { return heightRange_; }
 

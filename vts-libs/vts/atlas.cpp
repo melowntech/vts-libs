@@ -18,9 +18,6 @@ namespace {
 
 void Atlas::serialize(std::ostream &os) const
 {
-    bin::write(os, MAGIC);
-    bin::write(os, VERSION);
-
     auto table(serialize_impl(os));
 
     // writa table
@@ -28,15 +25,24 @@ void Atlas::serialize(std::ostream &os) const
         bin::write(os, std::uint32_t(entry.start));
         bin::write(os, std::uint32_t(entry.size));
     }
+
+    // write tail
+    bin::write(os, MAGIC);
+    bin::write(os, VERSION);
     bin::write(os, std::uint16_t(table.size()));
 }
 
 void Atlas::deserialize(std::istream &is
                         , const boost::filesystem::path &path)
 {
+    // read tail
     char magic[sizeof(MAGIC)];
     std::uint16_t version;
+    std::uint16_t size;
 
+    const auto tailSize(sizeof(magic) + sizeof(version) + sizeof(size));
+
+    is.seekg(tailSize, std::ios_base::end);
     bin::read(is, magic);
     bin::read(is, version);
 
@@ -51,14 +57,11 @@ void Atlas::deserialize(std::istream &is
     }
 
     // read count first
-    std::uint16_t size;
-    std::uint32_t u32;
-
-    is.seekg(sizeof(size), std::ios_base::end);
     bin::read(is, size);
 
     // seek to table start
-    is.seekg(sizeof(size) - size * 2 * sizeof(u32), std::ios_base::end);
+    std::uint32_t u32;
+    is.seekg(tailSize + size * 2 * sizeof(u32), std::ios_base::end);
 
     // read table
     Table table;

@@ -267,46 +267,64 @@ void TileSet::Detail::watch(utility::Runnable *runnable)
     driver->watch(runnable);
 }
 
-TileNode* TileSet::Detail::findNode(const TileId &tileId)
+TileNode* TileSet::Detail::findNode(const TileId &tileId, bool addNew)
+    const
 {
     auto ftileNodes(tileNodes.find(tileId));
     if (ftileNodes == tileNodes.end()) {
         // not found in memory -> load from disk
-        return loadMetatile(tileId);
+        auto *meta(findMetaTile(tileId, addNew));
+        if (!meta) { return nullptr; }
+
+        // now, find node in the metatile
+        auto *node(meta->get(tileId, std::nothrow));
+        if (!node) { return nullptr; }
+
+        LOG(info1) << "Creating metanode " << tileId << ".";
+        // add node to the tree
+        return &tileNodes.insert
+            (TileNode::map::value_type
+             (tileId, TileNode(node, watertightIndex.exists(tileId))))
+            .first->second;
     }
 
     return &ftileNodes->second;
 }
 
-TileNode* TileSet::Detail::loadMetatile(const TileId &tileId) const
+MetaTile* TileSet::Detail::addNewMetaTile(const TileId &tileId) const
 {
-    // use lodRange from tile index
-    if (tileId.lod > lodRange.max) { return nullptr; }
+    auto mid(metaId(tileId));
+    auto tid(originFromMetaId(mid));
+    LOG(info1) << "Creating metatile " << mid << " with origin " << tid << ".";
+    return &metaTiles.insert
+        (MetaTiles::value_type
+         (mid, MetaTile(tid,  metaOrder()))).first->second;
+}
 
+MetaTile* TileSet::Detail::findMetaTile(const TileId &tileId, bool addNew)
+    const
+{
     TileId mid(metaId(tileId));
-
-    // does this metatile exist?
-    if (!metaIndex.exists(mid)) { return nullptr; }
 
     // try to find metatile
     auto fmetaTiles(metaTiles.find(mid));
 
     // load metatile if not found
     if (fmetaTiles == metaTiles.end()) {
+        // does this metatile exist in the index?
+        if (!metaIndex.exists(mid)) {
+            if (addNew) { return addNewMetaTile(tileId); }
+            return nullptr;
+        }
+
+        // it should be on the disk!
         auto f(driver->input(mid, TileFile::meta));
         fmetaTiles = metaTiles.insert
             (MetaTiles::value_type
              (mid, loadMetaTile(*f, metaOrder()))).first;
     }
 
-    // now, find node in the metatile
-    auto *node(fmetaTiles->second.get(tileId, std::nothrow));
-    if (!node) { return nullptr; }
-
-    return &tileNodes.insert
-        (TileNode::map::value_type
-         (tileId, TileNode(node, watertightIndex.exists(tileId))))
-        .first->second;
+    return &fmetaTiles->second;
 }
 
 storage::ReferenceFrame TileSet::referenceFrame() const
@@ -315,22 +333,44 @@ storage::ReferenceFrame TileSet::referenceFrame() const
 }
 
 
-void TileSet::Detail::save(const OStream::pointer &os, const Mesh &mesh)
+void TileSet::Detail::save(const OStream::pointer &os, const Mesh &mesh) const
 {
     saveMesh(*os, mesh);
     os->close();
 }
 
 void TileSet::Detail::save(const OStream::pointer &os, const Atlas &atlas)
+    const
 {
     atlas.serialize(os->get());
     os->close();
 }
 
 void TileSet::Detail::save(const OStream::pointer &os, const NavTile &navtile)
+    const
 {
-    navtile.serialize(os);
+    navtile.serialize(os->get());
     os->close();
+}
+
+TileNode* TileSet::Detail::updateNode(TileId tileId
+                                      , const MetaNode &metanode)
+{
+    // get node (create if necessary)
+    auto *node(findNode(tileId, true));
+
+    // update node value
+    node->metanode->update(metanode);
+
+    // go up the tree
+    while (tileId.lod) {
+        tileId = parent(tileId);
+        node = findNode(tileId, true);
+
+        // TODO: update child flags
+    }
+
+    return node;
 }
 
 void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile)
@@ -341,19 +381,39 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile)
 
     MetaNode metanode;
 
+    // set various flags and metadata
+    // geometry
+    metanode.geometry(true);
+    metanode.extents = normalizedExtents(referenceFrame, extents(tile.mesh));
+
+    auto ma(area(tile.mesh));
+    metanode.cc(MetaNode::CoarsenessControl::texelSize);
+    metanode.meshArea = std::sqrt(ma.mesh);
+
+    // internal texture
+    if (tile.atlas) {
+        metanode.internalTexture(true);
+        // calculate texture area
+
+        double total(0.0);
+        std::size_t index(0);
+        for (double ta : ma.texture) {
+            total += ta * tile.atlas->area(index++);
+        }
+
+        metanode.textureArea = std::sqrt(total);
+    }
+
+    // navtile
     if (tile.navtile) {
         metanode.navtile(true);
         metanode.heightRange = tile.navtile->heightRange();
     }
 
-    // TODO: calculate other metadata (normalized bounding box)
+    // store node
+    updateNode(tileId, metanode);
 
-    // auto *node(detail().findNode(tileId));
-
-    // if (!node) {
-    //     // pass
-    // }
-
+    // save data
     save(driver->output(tileId, TileFile::mesh), tile.mesh);
     if (tile.atlas) {
         save(driver->output(tileId, TileFile::atlas), *tile.atlas);
