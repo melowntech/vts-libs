@@ -323,9 +323,7 @@ void TileSet::Detail::save(const OStream::pointer &os, const Mesh &mesh)
 
 void TileSet::Detail::save(const OStream::pointer &os, const Atlas &atlas)
 {
-    // TODO: implement multi-file stream
-    (void) os;
-    (void) atlas;
+    atlas.serialize(os->get());
     os->close();
 }
 

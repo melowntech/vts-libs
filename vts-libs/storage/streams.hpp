@@ -65,11 +65,14 @@ public:
     virtual void close() = 0;
     virtual std::string name() const = 0;
 
-private:
+protected:
     const char *contentType_;
 };
 
-class OStream : public StreamBase {
+class OStream
+    : public StreamBase
+    , public std::enable_shared_from_this<OStream>
+{
 public:
     typedef std::shared_ptr<OStream> pointer;
 
@@ -81,7 +84,10 @@ public:
     operator std::ostream&() { return get(); }
 };
 
-class IStream : public StreamBase {
+class IStream
+    : public StreamBase
+    , public std::enable_shared_from_this<IStream>
+{
 public:
     typedef std::shared_ptr<IStream> pointer;
 

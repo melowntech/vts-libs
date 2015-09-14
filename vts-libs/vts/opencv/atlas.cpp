@@ -6,32 +6,40 @@
 
 namespace vadstena { namespace vts { namespace opencv {
 
-void Atlas::serialize(const storage::OStream::pointer &os
-                            , std::size_t index) const
+Atlas::Table Atlas::serialize_impl(std::ostream &os) const
 {
-    using utility::binaryio::write;
-    std::vector<unsigned char> buf;
-    cv::imencode(".jpg", images_[index], buf
-                 , { cv::IMWRITE_JPEG_QUALITY, quality_ });
+    Table table;
+    std::size_t pos(0);
 
-    write(os->get(), buf.data(), buf.size());
-    os->close();
+    for (const auto &image : images_) {
+        using utility::binaryio::write;
+        std::vector<unsigned char> buf;
+        cv::imencode(".jpg", image, buf
+                     , { cv::IMWRITE_JPEG_QUALITY, quality_ });
+
+        write(os, buf.data(), buf.size());
+        table.emplace_back(pos, buf.size());
+        pos += buf.size();
+    }
+
+    return table;
 }
 
-void Atlas::deserialize(const storage::IStream::pointer &is
-                              , std::size_t index)
+void Atlas::deserialize_impl(std::istream &is, const Table &table)
 {
-    using utility::binaryio::read;
-    auto& s(is->get());
-    auto size(s.seekg(0, std::ios_base::end).tellg());
-    s.seekg(0);
-    std::vector<unsigned char> buf;
-    buf.resize(size);
-    read(s, buf.data(), buf.size());
+    Images images;
+    for (const auto &entry : table) {
+        using utility::binaryio::read;
 
-    auto image(cv::imdecode(buf, CV_LOAD_IMAGE_COLOR));
-    is->close();
-    set(index, image);
+        is.seekg(entry.start);
+        std::vector<unsigned char> buf;
+        buf.resize(entry.size);
+        read(is, buf.data(), buf.size());
+
+        auto image(cv::imdecode(buf, CV_LOAD_IMAGE_COLOR));
+        images.push_back(image);
+    }
+    images_.swap(images);
 }
 
 void Atlas::set(std::size_t index, const Image &image)

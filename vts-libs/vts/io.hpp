@@ -14,10 +14,9 @@ namespace vadstena { namespace vts {
 
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
-operator<<(std::basic_ostream<CharT, Traits> &os, const TileId &tid)
+operator<<(std::basic_ostream<CharT, Traits> &os, const TileId &id)
 {
-    return os << '(' << (unsigned int)(tid.lod) << ", " << tid.x
-              << ", " << tid.y << ')';
+    return os << id.lod << '-' << id.x << '-' << id.y;
 }
 
 template<typename CharT, typename Traits>

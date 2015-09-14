@@ -90,8 +90,8 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints
          , node->extents.ll(0) + (tileId.x + 1) * ts.width
          , node->extents.ur(1) - tileId.y * ts.height);
 
-    LOG(info2)
-        << "Processing tile " << tileId << " (division extents: "
+    LOG(info3)
+        << "Processing " << tileId << " (extents: "
         << std::fixed << divisionExtents << ").";
 
     if ((useConstraints & Constraints::useExtents)

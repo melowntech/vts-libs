@@ -11,13 +11,7 @@ class Atlas : public vts::Atlas {
 public:
     Atlas(int quality) : quality_(quality) {}
 
-    virtual std::size_t count() const { return images_.size(); }
-
-    virtual void serialize(const storage::OStream::pointer &os
-                           , std::size_t index) const;
-
-    virtual void deserialize(const storage::IStream::pointer &is
-                             , std::size_t index);
+    virtual std::size_t size() const { return images_.size(); }
 
     typedef cv::Mat Image;
 
@@ -25,9 +19,16 @@ public:
 
     void set(std::size_t index, const Image &image);
 
+    Image get(std::size_t index) { return images_[index]; }
+
 private:
+    virtual Table serialize_impl(std::ostream &os) const;
+
+    virtual void deserialize_impl(std::istream &is, const Table &table);
+
     int quality_;
-    std::vector<Image> images_;
+    typedef std::vector<Image> Images;
+    Images images_;
 };
 
 } } } // namespace vadstena::vts::opencv
