@@ -28,53 +28,38 @@ TileSet::TileSet(const std::shared_ptr<Driver> &driver
 
 Mesh TileSet::getMesh(const TileId &tileId) const
 {
-    (void) tileId;
-    return {};
-}
-
-void TileSet::setMesh(const TileId &tileId, const Mesh &mesh
-                      , bool watertight)
-{
-    (void) tileId;
-    (void) mesh;
-    (void) watertight;
-
-    auto *node(detail().findNode(tileId));
-    LOG(info4) << "Found meta node: " << node;
-    (void) node;
+    return detail().getMesh(tileId);
 }
 
 void TileSet::getAtlas(const TileId &tileId, Atlas &atlas) const
 {
-    (void) tileId; (void) atlas;
+    detail().getAtlas(tileId, atlas);
 }
 
-void TileSet::setAtlas(const TileId &tileId, const Atlas &atlas)
+void TileSet::getNavTile(const TileId &tileId, NavTile &navtile) const
 {
-    (void) tileId; (void) atlas;
+    detail().getNavTile(tileId, navtile);
 }
 
 void TileSet::setTile(const TileId &tileId, const Tile &tile)
 {
-    detail().setTile(tileId, tile);
+    detail().setTile(tileId, tile.mesh, tile.watertight, tile.atlas.get()
+                     , tile.navtile.get());
 }
 
 MetaNode TileSet::getMetaNode(const TileId &tileId) const
 {
-    (void) tileId;
-    return {};
-}
-
-void TileSet::setMetaNode(const TileId &tileId, const MetaNode node)
-{
-    (void) tileId;
-    (void) node;
+    auto *node(detail().findNode(tileId));
+    if (!node) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "There is no tile at " << tileId << ".";
+    }
+    return *node->metanode;
 }
 
 bool TileSet::exists(const TileId &tileId) const
 {
-    (void) tileId;
-    return false;
+    return detail().exists(tileId);
 }
 
 void TileSet::flush()
@@ -177,7 +162,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
 
     // save config and (empty) tile indices
     saveConfig();
-    saveTileIndex();
+    saveTileIndex({}, {}, {});
 }
 
 TileSet::Detail::~Detail()
@@ -248,18 +233,24 @@ void TileSet::Detail::loadTileIndex()
     LOG(info2) << "Loaded tile index: " << tileIndex;
 }
 
-void TileSet::Detail::saveTileIndex()
+void TileSet::Detail::saveTileIndex(const TileIndex &nTileIndex
+                                    , const TileIndex &nWatertightIndex
+                                    , const TileIndex &nMetaIndex)
 {
     try {
         auto f(driver->output(File::tileIndex));
-        tileIndex.save(*f);
-        watertightIndex.save(*f);
-        metaIndex.save(*f);
+        nTileIndex.save(*f);
+        nWatertightIndex.save(*f);
+        nMetaIndex.save(*f);
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
             << "Unable to read tile index: " << e.what() << ".";
     }
+
+    tileIndex = nTileIndex;
+    watertightIndex = nWatertightIndex;
+    metaIndex = nMetaIndex;
 }
 
 void TileSet::Detail::watch(utility::Runnable *runnable)
@@ -277,14 +268,19 @@ TileNode* TileSet::Detail::findNode(const TileId &tileId, bool addNew)
         if (!meta) { return nullptr; }
 
         // now, find node in the metatile
-        auto *node(meta->get(tileId, std::nothrow));
-        if (!node) { return nullptr; }
+        const MetaNode *node(nullptr);
+        if (!addNew) {
+            node = meta->get(tileId, std::nothrow);
+            if (!node) { return nullptr; }
+        } else {
+            // add new node
+            node = meta->set(tileId, {});
+        }
 
-        LOG(info1) << "Creating metanode " << tileId << ".";
         // add node to the tree
         return &tileNodes.insert
             (TileNode::map::value_type
-             (tileId, TileNode(node, watertightIndex.exists(tileId))))
+             (tileId, TileNode(meta, node, watertightIndex.exists(tileId))))
             .first->second;
     }
 
@@ -353,27 +349,55 @@ void TileSet::Detail::save(const OStream::pointer &os, const NavTile &navtile)
     os->close();
 }
 
+void TileSet::Detail::load(const IStream::pointer &os, Mesh &mesh) const
+{
+    mesh = loadMesh(*os, os->name());
+}
+
+void TileSet::Detail::load(const IStream::pointer &os, Atlas &atlas) const
+{
+    atlas.deserialize(os->get(), os->name());
+}
+
+void TileSet::Detail::load(const NavTile::HeightRange &heightRange
+                           , const IStream::pointer &os
+                           , NavTile &navtile)
+    const
+{
+    navtile.deserialize(heightRange, os->get(), os->name());
+}
+
 TileNode* TileSet::Detail::updateNode(TileId tileId
-                                      , const MetaNode &metanode)
+                                      , const MetaNode &metanode
+                                      , bool watertight)
 {
     // get node (create if necessary)
     auto *node(findNode(tileId, true));
 
     // update node value
-    node->metanode->update(metanode);
+    node->update(tileId, metanode, watertight);
 
     // go up the tree
     while (tileId.lod) {
-        tileId = parent(tileId);
-        node = findNode(tileId, true);
+        auto parentId(parent(tileId));
+        auto *parentNode = findNode(parentId, true);
 
-        // TODO: update child flags
+        auto mn(*parentNode->metanode);
+        parentNode->set(parentId, mn.setChildFromId(tileId)
+                        .mergeExtents(*node->metanode));
+
+        // next round
+        tileId = parentId;
+        node = parentNode;
     }
 
     return node;
 }
 
-void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile)
+void TileSet::Detail::setTile(const TileId &tileId
+                              , const Mesh &mesh, bool watertight
+                              , const Atlas *atlas
+                              , const NavTile *navtile)
 {
     driver->wannaWrite("set tile");
 
@@ -384,43 +408,108 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile)
     // set various flags and metadata
     // geometry
     metanode.geometry(true);
-    metanode.extents = normalizedExtents(referenceFrame, extents(tile.mesh));
+    metanode.extents = normalizedExtents(referenceFrame, extents(mesh));
 
-    auto ma(area(tile.mesh));
+    auto ma(area(mesh));
     metanode.cc(MetaNode::CoarsenessControl::texelSize);
     metanode.meshArea = std::sqrt(ma.mesh);
 
     // internal texture
-    if (tile.atlas) {
-        metanode.internalTexture(true);
-        // calculate texture area
+    metanode.internalTexture(true);
 
-        double total(0.0);
+    // calculate texture area
+    double textureArea(0.0);
+    {
         std::size_t index(0);
+        auto isubmeshes(mesh.submeshes.begin());
         for (double ta : ma.texture) {
-            total += ta * tile.atlas->area(index++);
+            if (atlas) {
+                textureArea += ta * atlas->area(index++);
+            } else if (isubmeshes->textureLayer) {
+                // TODO: use value of to get size of texture textureLayer
+                auto ts(storage::Registry::boundLayer
+                        (*isubmeshes->textureLayer).tileSize);
+                textureArea += ta * area(ts);
+            }
         }
-
-        metanode.textureArea = std::sqrt(total);
+        ++isubmeshes;
     }
+    metanode.textureArea = std::sqrt(textureArea);
 
     // navtile
-    if (tile.navtile) {
+    if (navtile) {
         metanode.navtile(true);
-        metanode.heightRange = tile.navtile->heightRange();
+        metanode.heightRange = navtile->heightRange();
     }
 
     // store node
-    updateNode(tileId, metanode);
+    updateNode(tileId, metanode, watertight);
 
     // save data
-    save(driver->output(tileId, TileFile::mesh), tile.mesh);
-    if (tile.atlas) {
-        save(driver->output(tileId, TileFile::atlas), *tile.atlas);
+    save(driver->output(tileId, TileFile::mesh), mesh);
+    if (atlas) {
+        save(driver->output(tileId, TileFile::atlas), *atlas);
     }
-    if (tile.navtile) {
-        save(driver->output(tileId, TileFile::navtile), *tile.navtile);
+
+    if (navtile) {
+        save(driver->output(tileId, TileFile::navtile), *navtile);
     }
+}
+
+Mesh TileSet::Detail::getMesh(const TileId &tileId) const
+{
+    auto *node(findNode(tileId));
+    if (!node) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "There is no tile at " << tileId << ".";
+    }
+
+    Mesh mesh;
+    load(driver->input(tileId, TileFile::mesh), mesh);
+    return mesh;
+}
+
+void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas) const
+{
+    auto *node(findNode(tileId));
+    if (!node) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "There is no tile at " << tileId << ".";
+    }
+
+    if (!node->metanode->internalTexture()) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "Tile " << tileId << " has no atlas.";
+    }
+
+    load(driver->input(tileId, TileFile::atlas), atlas);
+}
+
+void TileSet::Detail::getNavTile(const TileId &tileId, NavTile &navtile) const
+{
+    auto *node(findNode(tileId));
+    if (!node) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "There is no tile at " << tileId << ".";
+    }
+
+    if (!node->metanode->navtile()) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "Tile " << tileId << " has no navtile.";
+    }
+
+    load(node->metanode->heightRange
+         , driver->input(tileId, TileFile::navtile)
+         , navtile);
+}
+
+bool TileSet::Detail::exists(const TileId &tileId) const
+{
+    // first try index
+    if (tileIndex.exists(tileId)) { return true; }
+
+    // then check for in-memory data
+    return (tileNodes.find(tileId) != tileNodes.end());
 }
 
 } } // namespace vadstena::vts

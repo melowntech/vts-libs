@@ -21,21 +21,24 @@
 
 #include "./error.hpp"
 #include "./lod.hpp"
+#include "./range.hpp"
 
 namespace vadstena { namespace storage {
 
-template <typename T>
+template <typename T, typename Key = std::string>
 class Dictionary
 {
 private:
-    typedef std::map<std::string, T> map;
+    typedef Key key_type;
+    typedef std::map<Key, T> map;
+
 public:
     Dictionary() {}
 
-    void set(const std::string &id, const T &value);
-    const T* get(const std::string &id, std::nothrow_t) const;
-    const T& get(const std::string &id) const;
-    bool has(const std::string &id) const;
+    void set(const key_type &id, const T &value);
+    const T* get(const key_type &id, std::nothrow_t) const;
+    const T& get(const key_type &id) const;
+    bool has(const key_type &id) const;
 
     inline void add(const T &value) { set(value.id, value); }
 
@@ -171,6 +174,24 @@ struct Position {
     Position() : type(Type::fixed), viewHeight(), verticalFov() {}
 };
 
+struct BoundLayer {
+    enum Type { raster, vector };
+
+    typedef std::uint16_t NumericId;
+
+    std::string id;
+    NumericId numericId;
+    Type type;
+    std::string url;
+    math::Size2 tileSize;
+    LodRange lodRange;
+    TileRange tileRange;
+    std::vector<std::string> credits;
+
+    typedef Dictionary<BoundLayer> dict;
+    typedef Dictionary<BoundLayer, BoundLayer::NumericId> ndict;
+};
+
 ReferenceFrame::dict loadReferenceFrames(std::istream &in);
 
 ReferenceFrame::dict loadReferenceFrames(const boost::filesystem::path &path);
@@ -189,6 +210,16 @@ void saveSrs(std::ostream &out, const Srs::dict &srs);
 
 void saveSrs(const boost::filesystem::path &path
              , const Srs::dict &srs);
+
+BoundLayer::dict loadBoundLayers(std::istream &in);
+
+BoundLayer::dict loadBoundLayers(const boost::filesystem::path &path);
+
+void saveBoundLayers(std::ostream &out, const BoundLayer::dict &srs);
+
+void saveBoundLayers(const boost::filesystem::path &path
+                     , const BoundLayer::dict &srs);
+
 
 math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
                                  , const math::Extents3 &extents);
@@ -217,6 +248,13 @@ UTILITY_GENERATE_ENUM_IO(Position::Type,
     ((floating)("float"))
 )
 
+UTILITY_GENERATE_ENUM_IO(BoundLayer::Type,
+    ((raster))
+    ((vector))
+)
+
+// registry
+
 struct Registry {
     static const Srs* srs(const std::string &id, std::nothrow_t);
     static const Srs& srs(const std::string &id);
@@ -226,8 +264,17 @@ struct Registry {
     static const ReferenceFrame&
     referenceFrame(const std::string &id);
 
+    static const BoundLayer*
+    boundLayer(const std::string &id, std::nothrow_t);
+    static const BoundLayer& boundLayer(const std::string &id);
+    static const BoundLayer*
+    boundLayer(BoundLayer::NumericId id, std::nothrow_t);
+    static const BoundLayer& boundLayer(BoundLayer::NumericId id);
+
     static const Srs::dict srsList();
     static const ReferenceFrame::dict referenceFrames();
+    static const BoundLayer::dict boundLayers();
+    static const BoundLayer::ndict boundLayers(int);
 
     static void init(const boost::filesystem::path &confRoot);
 };
@@ -246,22 +293,22 @@ ReferenceFrame::Division::Node::Id::operator<(const Id &id) const
     return y < id.y;
 }
 
-template <typename T>
-void Dictionary<T>::set(const std::string &id, const T &value)
+template <typename T, typename Key>
+void Dictionary<T, Key>::set(const key_type &id, const T &value)
 {
     map_.insert(typename map::value_type(id, value));
 }
 
-template <typename T>
-const T* Dictionary<T>::get(const std::string &id, std::nothrow_t) const
+template <typename T, typename Key>
+const T* Dictionary<T, Key>::get(const key_type &id, std::nothrow_t) const
 {
     auto fmap(map_.find(id));
     if (fmap == map_.end()) { return nullptr; }
     return &fmap->second;
 }
 
-template <typename T>
-const T& Dictionary<T>::get(const std::string &id) const
+template <typename T, typename Key>
+const T& Dictionary<T, Key>::get(const key_type &id) const
 {
     const auto *value(get(id, std::nothrow));
     if (!value) {
@@ -271,8 +318,8 @@ const T& Dictionary<T>::get(const std::string &id) const
     return *value;
 }
 
-template <typename T>
-bool Dictionary<T>::has(const std::string &id) const
+template <typename T, typename Key>
+bool Dictionary<T, Key>::has(const key_type &id) const
 {
     return (map_.find(id) != map_.end());
 }
@@ -288,6 +335,9 @@ operator<<(std::basic_ostream<CharT, Traits> &os
 inline math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
                                         , const math::Extents3 &extents)
 {
+    // return zero extents if input not valid
+    if (!valid(extents)) { return {}; }
+
     const auto &fe(referenceFrame.division.extents);
     const auto s(size(fe));
 

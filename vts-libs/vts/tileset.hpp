@@ -48,16 +48,16 @@ public:
     StaticProperties getProperties() const;
 
     Mesh getMesh(const TileId &tileId) const;
-    void setMesh(const TileId &tileId, const Mesh &mesh
-                 , bool waterproof = true);
 
     void getAtlas(const TileId &tileId, Atlas &atlas) const;
-    void setAtlas(const TileId &tileId, const Atlas &atlas);
 
     void setTile(const TileId &tileId, const Tile &tile);
 
+    void setNavTile(const TileId &tileId, const NavTile &navtile);
+
+    void getNavTile(const TileId &tileId, NavTile &navtile) const;
+
     MetaNode getMetaNode(const TileId &tileId) const;
-    void setMetaNode(const TileId &tileId, const MetaNode node);
 
     bool exists(const TileId &tileId) const;
 

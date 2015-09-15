@@ -16,7 +16,8 @@ struct Encoder::Detail {
         : owner(owner), tileSet(createTileSet(path, properties, mode))
         , properties(tileSet.getProperties())
         , referenceFrame(tileSet.referenceFrame())
-          // TODO: srs
+        , physicalSrs(storage::Registry::srs
+                      (referenceFrame.model.physicalSrs).srsDef)
     {}
 
     void run()
@@ -41,7 +42,7 @@ struct Encoder::Detail {
     TileSet tileSet;
     StaticProperties properties;
     storage::ReferenceFrame referenceFrame;
-    geo::SrsDefinition srs;
+    geo::SrsDefinition physicalSrs;
 
     Constraints constraints;
 };
@@ -151,6 +152,11 @@ StaticProperties Encoder::properties() const
 const storage::ReferenceFrame& Encoder::referenceFrame() const
 {
     return detail_->referenceFrame;
+}
+
+const geo::SrsDefinition& Encoder::physicalSrs() const
+{
+    return detail_->physicalSrs;
 }
 
 void Encoder::setConstraints(const Constraints &constraints)

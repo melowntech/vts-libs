@@ -29,6 +29,7 @@ protected:
     StaticProperties properties() const;
     const storage::ReferenceFrame& referenceFrame() const;
     void setConstraints(const Constraints &constraints);
+    const geo::SrsDefinition& physicalSrs() const;
 
     struct TileResult {
         enum class Result {

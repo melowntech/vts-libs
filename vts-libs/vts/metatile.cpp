@@ -13,6 +13,7 @@
 
 #include "./metatile.hpp"
 #include "./io.hpp"
+#include "./tileop.hpp"
 
 namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;
@@ -79,7 +80,7 @@ math::Point2_<MetaTile::size_type> MetaTile::gridIndex(const TileId &tileId)
     return { x, y };
 }
 
-void MetaTile::set(const TileId &tileId, const MetaNode &node)
+const MetaNode* MetaTile::set(const TileId &tileId, const MetaNode &node)
 {
     auto gi(gridIndex(tileId));
 
@@ -89,8 +90,11 @@ void MetaTile::set(const TileId &tileId, const MetaNode &node)
     valid_.ur(0) = std::max(valid_.ll(0), gi(0) + 1);
     valid_.ur(1) = std::max(valid_.ll(1), gi(1) + 1);
 
-    update(valid_, gi);
-    grid_[index(gi)] = node;
+    math::update(valid_, gi);
+
+    auto *n(&grid_[index(gi)]);
+    *n = node;
+    return n;
 }
 
 namespace {
@@ -417,6 +421,34 @@ void MetaNode::update(const MetaNode &other)
     auto cf(childFlags());
     *this = other;
     childFlags(cf);
+}
+
+void MetaTile::update(const TileId &tileId, const MetaNode &mn)
+{
+    grid_[index(tileId)].update(mn);
+}
+
+MetaNode& MetaNode::setChildFromId(const TileId &tileId, bool value)
+{
+    return set(Flag::ulChild << child(tileId), value);
+}
+
+MetaNode& MetaNode::mergeExtents(const MetaNode &other)
+{
+    if (other.extents.ll == other.extents.ur) {
+        // nothing to do
+        return *this;
+    }
+
+    if (extents.ll == extents.ur) {
+        // use other's extents
+        extents = other.extents;
+        return *this;
+    }
+
+    // merge
+    extents = unite(extents, other.extents);
+    return *this;
 }
 
 } } // namespace vadstena::vts

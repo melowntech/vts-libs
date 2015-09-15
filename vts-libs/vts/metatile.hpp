@@ -40,16 +40,20 @@ struct MetaNode {
     };
 
     bool geometry() const { return check(Flag::geometryPresent); }
-    void geometry(bool value) { set(Flag::geometryPresent, value); }
+    MetaNode& geometry(bool value) {
+        return set(Flag::geometryPresent, value);
+    }
 
     bool navtile() const { return check(Flag::navtilePresent); }
-    void navtile(bool value) { set(Flag::navtilePresent, value); }
+    MetaNode& navtile(bool value) {
+        return set(Flag::navtilePresent, value);
+    }
 
     bool internalTexture() const {
         return check(Flag::internalTexturePresent);
     }
-    void internalTexture(bool value) {
-        set(Flag::internalTexturePresent, value);
+    MetaNode& internalTexture(bool value) {
+        return set(Flag::internalTexturePresent, value);
     }
 
     enum class CoarsenessControl { displaySize, texelSize };
@@ -60,22 +64,22 @@ struct MetaNode {
                 : CoarsenessControl::displaySize);
     }
 
-    void cc(CoarsenessControl value) {
-        set(Flag::coarsenessControl
+    MetaNode& cc(CoarsenessControl value) {
+        return set(Flag::coarsenessControl
             , (value == CoarsenessControl::displaySize));
     }
 
     bool ulChild() const { return check(Flag::ulChild); }
-    void ulChild(bool value) { return set(Flag::ulChild, value); }
+    MetaNode&  ulChild(bool value) { return set(Flag::ulChild, value); }
 
     bool urChild() const { return check(Flag::urChild); }
-    void urChild(bool value) { return set(Flag::urChild, value); }
+    MetaNode&  urChild(bool value) { return set(Flag::urChild, value); }
 
     bool llChild() const { return check(Flag::llChild); }
-    void llChild(bool value) { return set(Flag::llChild, value); }
+    MetaNode&  llChild(bool value) { return set(Flag::llChild, value); }
 
     bool lrlChild() const { return check(Flag::lrChild); }
-    void lrChild(bool value) { return set(Flag::lrChild, value); }
+    MetaNode&  lrChild(bool value) { return set(Flag::lrChild, value); }
 
     /** Normalized extents in range 0.0-1.0.
      */
@@ -104,15 +108,22 @@ struct MetaNode {
 
     void update(const MetaNode &other);
 
+    /** Sets/unsets child flag based on LSB of tileId.
+     */
+    MetaNode& setChildFromId(const TileId &tileId, bool value = true);
+
+    MetaNode& mergeExtents(const MetaNode &other);
+
 private:
     bool check(std::uint8_t flag) const { return flags_ & flag; }
 
-    void set(std::uint8_t flag, bool value) {
+    MetaNode& set(std::uint8_t flag, bool value) {
         if (value) {
             flags_ |= flag;
         } else {
             flags_ &= ~flag;
         }
+        return *this;
     }
 
     std::uint8_t flags_;
@@ -128,10 +139,12 @@ public:
         , grid_(size_ * size_, {})
     {}
 
-    void set(const TileId &tileId, const MetaNode &node);
+    const MetaNode* set(const TileId &tileId, const MetaNode &node);
 
-    MetaNode* get(const TileId &tileId, std::nothrow_t);
-    MetaNode& get(const TileId &tileId);
+    const MetaNode* get(const TileId &tileId, std::nothrow_t) const;
+    const MetaNode& get(const TileId &tileId) const;
+
+    void update(const TileId &tileId, const MetaNode &mn);
 
     void save(std::ostream &out) const;
 
@@ -203,7 +216,8 @@ inline MetaTile::size_type MetaTile::index(const TileId &tileId) const
     return index(gridIndex(tileId));
 }
 
-inline MetaNode* MetaTile::get(const TileId &tileId, std::nothrow_t)
+inline const MetaNode* MetaTile::get(const TileId &tileId, std::nothrow_t)
+    const
 {
     if (auto i = index(tileId, std::nothrow)) {
         return &grid_[*i];
@@ -211,7 +225,8 @@ inline MetaNode* MetaTile::get(const TileId &tileId, std::nothrow_t)
     return nullptr;
 }
 
-inline MetaNode& MetaTile::get(const TileId &tileId)
+inline const MetaNode& MetaTile::get(const TileId &tileId)
+    const
 {
     return grid_[index(tileId)];
 }

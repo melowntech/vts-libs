@@ -423,6 +423,101 @@ void build(Json::Value &content, const Srs::dict &srs)
     }
 }
 
+void parse(BoundLayer &bl, const Json::Value &content)
+{
+    Json::get(bl.numericId, content, "id");
+
+    std::string s;
+    bl.type = boost::lexical_cast<BoundLayer::Type>
+        (Json::get(s, content, "type"));
+
+    Json::get(bl.url, content, "url");
+    Json::get(bl.tileSize.width, content, "tileSize", 0);
+    Json::get(bl.tileSize.height, content, "tileSize", 1);
+    Json::get(bl.lodRange.min, content, "lodRange", 0);
+    Json::get(bl.lodRange.max, content, "lodRange", 1);
+
+    const auto &tileRange(content["tileRange"]);
+    if (!tileRange.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of boundLayer[tileRange] is not a list.";
+    }
+    if (tileRange.size() != 2) {
+        LOGTHROW(err1, Json::Error)
+            << "boundLayer[tileRange] must have two elements.";
+    }
+    Json::get(bl.tileRange.x.min, tileRange[0], 0, "tileRange[0]");
+    Json::get(bl.tileRange.y.min, tileRange[0], 1, "tileRange[0]");
+    Json::get(bl.tileRange.x.max, tileRange[1], 0, "tileRange[1]");
+    Json::get(bl.tileRange.y.max, tileRange[1], 1, "tileRange[1]");
+
+    const auto &credits(content["credits"]);
+    if (!credits.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of boundLayer[credits] is not a list.";
+    }
+
+    for (const auto &element : credits) {
+        bl.credits.push_back(element.asString());
+    }
+}
+
+void parse(BoundLayer::dict &bls, const Json::Value &content)
+{
+    for (const auto &id : Json::check(content, Json::objectValue)
+             .getMemberNames())
+    {
+        try {
+            BoundLayer bl;
+            bl.id = id;
+            parse(bl, Json::check(content[id], Json::objectValue));
+            bls.set(id, bl);
+        } catch (const Json::Error &e) {
+            LOGTHROW(err1, storage::FormatError)
+                << "Invalid srs file format (" << e.what()
+                << ").";
+        }
+    }
+}
+
+void build(Json::Value &content, const BoundLayer &bl)
+{
+    content = Json::objectValue;
+    content["id"] = bl.numericId;
+    content["type"] = boost::lexical_cast<std::string>(bl.type);
+    content["url"] = bl.url;
+
+    auto &tileSize(content["tileSize"] = Json::arrayValue);
+    tileSize.append(bl.tileSize.width);
+    tileSize.append(bl.tileSize.height);
+
+    auto &lodRange(content["lodRange"] = Json::arrayValue);
+    lodRange.append(bl.lodRange.min);
+    lodRange.append(bl.lodRange.max);
+
+    auto &tileRange(content["tileRange"] = Json::arrayValue);
+    auto &tileRangeMin(tileRange.append(Json::arrayValue));
+    tileRangeMin.append(bl.tileRange.x.min);
+    tileRangeMin.append(bl.tileRange.y.min);
+    auto &tileRangeMax(tileRange.append(Json::arrayValue));
+    tileRangeMax.append(bl.tileRange.x.max);
+    tileRangeMax.append(bl.tileRange.y.max);
+
+    auto &credits(content["credits"] = Json::arrayValue);
+    for (const auto &credit : bl.credits) {
+        credits.append(credit);
+    };
+}
+
+void build(Json::Value &content, const BoundLayer::dict &bls)
+{
+    content = Json::objectValue;
+
+    for (const auto &bl : bls) {
+        build(content[bl.first], bl.second);
+    }
+}
+
 } // namesapce
 
 ReferenceFrame::dict loadReferenceFrames(std::istream &in)
@@ -538,6 +633,62 @@ void saveSrs(const boost::filesystem::path &path
     f.close();
 }
 
+BoundLayer::dict loadBoundLayers(std::istream &in)
+{
+    // load json
+    Json::Value content;
+    Json::Reader reader;
+    if (!reader.parse(in, content)) {
+        LOGTHROW(err2, storage::FormatError)
+            << "Unable to parse bound layer file: "
+            << reader.getFormattedErrorMessages() << ".";
+    }
+
+    BoundLayer::dict boundLayers;
+    parse(boundLayers, content);
+    return boundLayers;
+}
+
+BoundLayer::dict loadBoundLayers(const boost::filesystem::path &path)
+{
+    LOG(info1) << "Loading bound layer file from " << path  << ".";
+    std::ifstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    try {
+        f.open(path.string(), std::ios_base::in);
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::IOError)
+            << "Unable to load bound layer file file " << path << ".";
+    }
+    auto boundLayers(loadBoundLayers(f));
+    f.close();
+    return boundLayers;
+}
+
+void saveBoundLayers(std::ostream &out, const BoundLayer::dict &boundLayers)
+{
+    Json::Value content;
+    build(content, boundLayers);
+    out.precision(15);
+    Json::StyledStreamWriter().write(out, content);
+}
+
+void saveBoundLayers(const boost::filesystem::path &path
+                     , const BoundLayer::dict &boundLayers)
+{
+    LOG(info1) << "Saving boundLayers file file to " << path  << ".";
+    std::ofstream f;
+    try {
+        f.exceptions(std::ios::badbit | std::ios::failbit);
+        f.open(path.string(), std::ios_base::out);
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::IOError)
+            << "Unable to save boundLayers file file " << path << ".";
+    }
+    saveBoundLayers(f, boundLayers);
+    f.close();
+}
+
 const ReferenceFrame::Division::Node*
 ReferenceFrame::Division::find(const Node::Id &id, std::nothrow_t) const
 {
@@ -578,6 +729,8 @@ std::string ReferenceFrame::rootSrs() const
 namespace registry {
     Srs::dict srs;
     ReferenceFrame::dict referenceFrames;
+    BoundLayer::dict boundLayers;
+    BoundLayer::ndict nBoundLayers;
 }
 
 const Srs* Registry::srs(const std::string &id, std::nothrow_t)
@@ -611,11 +764,49 @@ const ReferenceFrame::dict Registry::referenceFrames()
     return registry::referenceFrames;
 }
 
+const BoundLayer*
+Registry::boundLayer(const std::string &id, std::nothrow_t)
+{
+    return registry::boundLayers.get(id, std::nothrow);
+}
+
+const BoundLayer& Registry::boundLayer(const std::string &id)
+{
+    return registry::boundLayers.get(id);
+}
+
+const BoundLayer*
+Registry::boundLayer(BoundLayer::NumericId id, std::nothrow_t)
+{
+    return registry::nBoundLayers.get(id, std::nothrow);
+}
+
+const BoundLayer& Registry::boundLayer(BoundLayer::NumericId id)
+{
+    return registry::nBoundLayers.get(id);
+}
+
+const BoundLayer::dict Registry::boundLayers()
+{
+    return registry::boundLayers;
+}
+
+const BoundLayer::ndict Registry::boundLayers(int)
+{
+    return registry::nBoundLayers;
+}
+
 void Registry::init(const boost::filesystem::path &confRoot)
 {
     registry::srs = loadSrs(confRoot / "srs.json");
     registry::referenceFrames
         = loadReferenceFrames(confRoot / "referenceframes.json");
+    registry::boundLayers
+        = loadBoundLayers(confRoot / "boundlayers.json");
+
+    for (auto const &bl : registry::boundLayers) {
+        registry::nBoundLayers.set(bl.second.numericId, bl.second);
+    }
 }
 
 } } // namespace vadstena::storage
