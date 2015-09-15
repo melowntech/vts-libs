@@ -24,21 +24,17 @@ struct TileSet::Properties : StaticProperties {
 struct TileNode {
     MetaTile *metatile;
     const MetaNode *metanode;
-    bool watertight;
 
     typedef std::map<TileId, TileNode> map;
 
-    TileNode() : metanode(), watertight() {}
-    TileNode(MetaTile *metatile, const MetaNode *metanode
-             , bool watertight)
-        : metatile(metatile), metanode(metanode), watertight(watertight)
+    TileNode() : metanode() {}
+    TileNode(MetaTile *metatile, const MetaNode *metanode)
+        : metatile(metatile), metanode(metanode)
     {}
 
-    void update(const TileId &tileId, const MetaNode &mn
-                , bool watertight)
+    void update(const TileId &tileId, const MetaNode &mn)
     {
         metatile->update(tileId, mn);
-        this->watertight = watertight;
     }
 
     void set(const TileId &tileId, const MetaNode &mn)
@@ -59,14 +55,12 @@ struct TileSet::Detail
 
     Properties savedProperties;  // properties as are on disk
     Properties properties;       // current properties
-    bool propertiesChanged;      // marks whether properties have been changed
+    bool changed;                // marks whether tileset has been changed
 
     storage::ReferenceFrame referenceFrame;
 
     mutable TileNode::map tileNodes;
     mutable MetaTiles metaTiles;
-
-    bool metadataChanged;
 
     TileIndex tileIndex;
     TileIndex watertightIndex;
@@ -90,9 +84,7 @@ struct TileSet::Detail
     TileNode* findNode(const TileId &tileId, bool addNew = false) const;
 
     void loadTileIndex();
-    void saveTileIndex(const TileIndex &nTileIndex
-                       , const TileIndex &nWatertightIndex
-                       , const TileIndex &nMetaIndex);
+    void saveTileIndex();
 
     void setTile(const TileId &tileId, const Mesh &mesh, bool watertight
                  , const Atlas *atlas, const NavTile *navtile);
@@ -119,6 +111,9 @@ struct TileSet::Detail
     Mesh getMesh(const TileId &tileId) const;
     void getAtlas(const TileId &tileId, Atlas &atlas) const;
     void getNavTile(const TileId &tileId, NavTile &navtile) const;
+
+    void flush();
+    void saveMetadata();
 };
 
 inline void TileSet::DetailDeleter::operator()(Detail *d) { delete d; }

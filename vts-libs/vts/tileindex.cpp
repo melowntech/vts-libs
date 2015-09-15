@@ -247,6 +247,39 @@ void TileIndex::clear(Lod lod)
     *m = RasterMask(m->dims(), RasterMask::InitMode::EMPTY);
 }
 
+RasterMask* TileIndex::mask(Lod lod)
+{
+    // first lod? just add
+    if (masks_.empty()) {
+        minLod_ = lod;
+        masks_.emplace_back(math::Size2i(1 << lod, 1 << lod)
+                            , RasterMask::EMPTY);
+
+    } else if (lod < minLod_) {
+        // LOD too low
+        // generate all mask up to given LOD
+        Masks masks;
+        for (Lod l(lod); l < minLod_; ++l) {
+            masks.emplace_back(math::Size2i(1 << l, 1 << l)
+                               , RasterMask::EMPTY);
+        }
+        // prepend all generated masks befor existing
+        masks_.insert(masks_.begin(), masks.begin(), masks.end());
+        minLod_ = lod;
+
+    } else if (lod >= (minLod_ + int(masks_.size()))) {
+        // LOD too high
+        // generate all mask up to given LOD
+        for (Lod l(minLod_ + masks_.size() - 1); l <= lod; ++l) {
+            masks_.emplace_back(math::Size2i(1 << l, 1 << l)
+                                , RasterMask::EMPTY);
+        }
+    }
+
+    // get mask
+    return &masks_[lod - minLod_];
+}
+
 std::size_t TileIndex::count() const
 {
     std::size_t total(0);

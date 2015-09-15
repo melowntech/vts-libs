@@ -64,9 +64,7 @@ bool TileSet::exists(const TileId &tileId) const
 
 void TileSet::flush()
 {
-    // TODO: write metadata to storage
-
-    detail().driver->flush();
+    detail().flush();
 }
 
 void TileSet::watch(utility::Runnable *runnable)
@@ -123,8 +121,7 @@ TileSet openTileSet(const boost::filesystem::path &path)
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver)
-    : readOnly(true), driver(driver), propertiesChanged(false)
-    , metadataChanged(false)
+    : readOnly(true), driver(driver), changed(false)
 {
     loadConfig();
     referenceFrame = storage::Registry::referenceFrame
@@ -135,10 +132,9 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
 
 TileSet::Detail::Detail(const Driver::pointer &driver
                         , const StaticProperties &properties)
-    : readOnly(false), driver(driver), propertiesChanged(false)
+    : readOnly(false), driver(driver), changed(false)
     , referenceFrame(storage::Registry::referenceFrame
                      (properties.referenceFrame))
-    , metadataChanged(false)
     , lodRange(LodRange::emptyRange())
 {
     if (properties.id.empty()) {
@@ -162,15 +158,12 @@ TileSet::Detail::Detail(const Driver::pointer &driver
 
     // save config and (empty) tile indices
     saveConfig();
-    saveTileIndex({}, {}, {});
 }
 
 TileSet::Detail::~Detail()
 {
     // no exception thrown and not flushed? warn user!
-    if (!std::uncaught_exception()
-        && (metadataChanged || propertiesChanged))
-    {
+    if (!std::uncaught_exception() && changed) {
         LOG(warn3)
             << "Tile set <" << properties.id
             << "> is not flushed on destruction: data could be unusable.";
@@ -210,13 +203,13 @@ void TileSet::Detail::saveConfig()
 
     // done; remember saved properties and go on
     savedProperties = properties;
-    propertiesChanged = false;
 }
 
 void TileSet::Detail::loadTileIndex()
 {
     try {
         tileIndex = {};
+        watertightIndex = {};
         metaIndex = {};
         auto f(driver->input(File::tileIndex));
         tileIndex.load(*f);
@@ -233,24 +226,21 @@ void TileSet::Detail::loadTileIndex()
     LOG(info2) << "Loaded tile index: " << tileIndex;
 }
 
-void TileSet::Detail::saveTileIndex(const TileIndex &nTileIndex
-                                    , const TileIndex &nWatertightIndex
-                                    , const TileIndex &nMetaIndex)
+void TileSet::Detail::saveTileIndex()
 {
+    LOG(info4) << "tileIndex.count(): " << tileIndex.count();
+    LOG(info4) << "watertightIndex.count(): " << watertightIndex.count();
+    LOG(info4) << "metaIndex.count(): " << metaIndex.count();
     try {
         auto f(driver->output(File::tileIndex));
-        nTileIndex.save(*f);
-        nWatertightIndex.save(*f);
-        nMetaIndex.save(*f);
+        tileIndex.save(*f);
+        watertightIndex.save(*f);
+        metaIndex.save(*f);
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
             << "Unable to read tile index: " << e.what() << ".";
     }
-
-    tileIndex = nTileIndex;
-    watertightIndex = nWatertightIndex;
-    metaIndex = nMetaIndex;
 }
 
 void TileSet::Detail::watch(utility::Runnable *runnable)
@@ -280,7 +270,7 @@ TileNode* TileSet::Detail::findNode(const TileId &tileId, bool addNew)
         // add node to the tree
         return &tileNodes.insert
             (TileNode::map::value_type
-             (tileId, TileNode(meta, node, watertightIndex.exists(tileId))))
+             (tileId, TileNode(meta, node)))
             .first->second;
     }
 
@@ -375,7 +365,9 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     auto *node(findNode(tileId, true));
 
     // update node value
-    node->update(tileId, metanode, watertight);
+    node->update(tileId, metanode);
+
+    watertightIndex.set(tileId, watertight);
 
     // go up the tree
     while (tileId.lod) {
@@ -510,6 +502,45 @@ bool TileSet::Detail::exists(const TileId &tileId) const
 
     // then check for in-memory data
     return (tileNodes.find(tileId) != tileNodes.end());
+}
+
+void TileSet::Detail::saveMetadata()
+{
+    driver->wannaWrite("save metadata");
+
+    tileIndex = {};
+    metaIndex = {};
+
+    for (const auto &item : metaTiles) {
+        const auto &meta(item.second);
+        auto tileId(meta.origin());
+
+        {
+            // save metatile to file
+            auto f(driver->output(tileId, TileFile::meta));
+            meta.save(*f);
+            f->close();
+        }
+
+        meta.for_each([&](const TileId &tileId, const MetaNode &node)
+        {
+            // mark node only if real
+            if (node.real()) { tileIndex.set(tileId); }
+        });
+
+        // mark metatile
+        metaIndex.set(tileId);
+    }
+
+    saveTileIndex();
+}
+
+void TileSet::Detail::flush()
+{
+    saveMetadata();
+
+    // flush driver
+    driver->flush();
 }
 
 } } // namespace vadstena::vts

@@ -170,17 +170,6 @@ inline const RasterMask* TileIndex::mask(Lod lod) const
     return &masks_[idx];
 }
 
-inline RasterMask* TileIndex::mask(Lod lod)
-{
-    auto idx(lod - minLod_);
-    if ((idx < 0) || (idx >= int(masks_.size()))) {
-        return nullptr;
-    }
-
-    // get mask
-    return &masks_[idx];
-}
-
 inline math::Size2i TileIndex::rasterSize(Lod lod) const
 {
     const auto *m(mask(lod));

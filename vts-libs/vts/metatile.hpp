@@ -36,8 +36,13 @@ struct MetaNode {
             , lrChild = 0x80
 
             , allChildren = (ulChild | urChild | llChild | lrChild)
+
+            , real = (geometryPresent | navtilePresent
+                      | internalTexturePresent)
         };
     };
+
+    bool real() const { return check(Flag::real); }
 
     bool geometry() const { return check(Flag::geometryPresent); }
     MetaNode& geometry(bool value) {
@@ -151,6 +156,12 @@ public:
     void load(std::istream &in
               , const boost::filesystem::path &path = "unknown");
 
+    const TileId& origin() const { return origin_; }
+
+    /** Runs given function for every real tile.
+     */
+    template <typename F> void for_each(F f) const;
+
 private:
     size_type index(const TileId &tileId) const;
 
@@ -229,6 +240,17 @@ inline const MetaNode& MetaTile::get(const TileId &tileId)
     const
 {
     return grid_[index(tileId)];
+}
+
+template <typename F>
+inline void MetaTile::for_each(F f) const
+{
+    for (auto j(valid_.ll(1)); j < valid_.ur(1); ++j) {
+        for (auto i(valid_.ll(0)); i < valid_.ur(0); ++i) {
+            const auto &node(grid_[j * size_ + i]);
+            f(TileId(origin_.lod, origin_.x + i, origin_.y + j), node);
+        }
+    }
 }
 
 } } // namespace vadstena::vts
