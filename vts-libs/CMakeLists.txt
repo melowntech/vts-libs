@@ -130,6 +130,7 @@ set(vadstena-vts-core_SOURCES
   vts/encoder.hpp vts/encoder.cpp
 
   vts/maskfwd.hpp
+  vts/qtree.hpp vts/qtree.cpp
   vts/tileindex.hpp vts/tileindex.cpp vts/tileindex-io.hpp
   vts/tileop.hpp vts/tileop.cpp
 

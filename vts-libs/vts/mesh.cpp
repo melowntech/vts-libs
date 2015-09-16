@@ -50,6 +50,12 @@ double triangleArea(const math::Point3 &a, const math::Point3 &b,
     return norm_2(math::crossProduct(b - a, c - a)) / 2.0;
 }
 
+double triangleArea(const math::Point2 &a, const math::Point2 &b,
+                    const math::Point2 &c)
+{
+    return math::crossProduct(math::Point2(b - a), math::Point2(c - a)) / 2.0;
+}
+
 }
 
 std::pair<double, double> area(const SubMesh &sm)
@@ -166,7 +172,7 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
             bin::write(out, std::uint16_t(sm.tc.size()));
             for (const auto &tc : sm.tc) {
                 saveTexCoord(tc(0));
-                saveTexCoord(tc(2));
+                saveTexCoord(tc(1));
             }
         }
 

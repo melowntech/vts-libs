@@ -209,12 +209,8 @@ void TileSet::Detail::loadTileIndex()
 {
     try {
         tileIndex = {};
-        watertightIndex = {};
-        metaIndex = {};
         auto f(driver->input(File::tileIndex));
         tileIndex.load(*f);
-        watertightIndex.load(*f);
-        metaIndex.load(*f);
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
@@ -228,14 +224,9 @@ void TileSet::Detail::loadTileIndex()
 
 void TileSet::Detail::saveTileIndex()
 {
-    LOG(info4) << "tileIndex.count(): " << tileIndex.count();
-    LOG(info4) << "watertightIndex.count(): " << watertightIndex.count();
-    LOG(info4) << "metaIndex.count(): " << metaIndex.count();
     try {
         auto f(driver->output(File::tileIndex));
         tileIndex.save(*f);
-        watertightIndex.save(*f);
-        metaIndex.save(*f);
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
@@ -280,11 +271,10 @@ TileNode* TileSet::Detail::findNode(const TileId &tileId, bool addNew)
 MetaTile* TileSet::Detail::addNewMetaTile(const TileId &tileId) const
 {
     auto mid(metaId(tileId));
-    auto tid(originFromMetaId(mid));
-    LOG(info1) << "Creating metatile " << mid << " with origin " << tid << ".";
+    LOG(info1) << "Creating metatile " << mid << ".";
     return &metaTiles.insert
         (MetaTiles::value_type
-         (mid, MetaTile(tid,  metaOrder()))).first->second;
+         (mid, MetaTile(mid,  metaOrder()))).first->second;
 }
 
 MetaTile* TileSet::Detail::findMetaTile(const TileId &tileId, bool addNew)
@@ -298,7 +288,7 @@ MetaTile* TileSet::Detail::findMetaTile(const TileId &tileId, bool addNew)
     // load metatile if not found
     if (fmetaTiles == metaTiles.end()) {
         // does this metatile exist in the index?
-        if (!metaIndex.exists(mid)) {
+        if (!tileIndex.checkMask(mid, TileFlag::meta)) {
             if (addNew) { return addNewMetaTile(tileId); }
             return nullptr;
         }
@@ -367,7 +357,7 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     // update node value
     node->update(tileId, metanode);
 
-    watertightIndex.set(tileId, watertight);
+    tileIndex.setMask(tileId, TileFlag::watertight, watertight);
 
     // go up the tree
     while (tileId.lod) {
@@ -508,9 +498,6 @@ void TileSet::Detail::saveMetadata()
 {
     driver->wannaWrite("save metadata");
 
-    tileIndex = {};
-    metaIndex = {};
-
     for (const auto &item : metaTiles) {
         const auto &meta(item.second);
         auto tileId(meta.origin());
@@ -525,11 +512,14 @@ void TileSet::Detail::saveMetadata()
         meta.for_each([&](const TileId &tileId, const MetaNode &node)
         {
             // mark node only if real
-            if (node.real()) { tileIndex.set(tileId); }
+            if (node.real()) {
+                // TODO: convert node info into mask
+                tileIndex.setMask(tileId, 1);
+            }
         });
 
         // mark metatile
-        metaIndex.set(tileId);
+        tileIndex.setMask(tileId, TileFlag::meta);
     }
 
     saveTileIndex();

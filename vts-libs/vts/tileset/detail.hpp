@@ -62,9 +62,17 @@ struct TileSet::Detail
     mutable TileNode::map tileNodes;
     mutable MetaTiles metaTiles;
 
+    struct TileFlag {
+        enum : std::uint8_t {
+            mesh = 0x01
+            , watertight = 0x02
+            , atlas = 0x04
+            , navtile = 0x08
+            , meta = 0x10
+        };
+    };
+
     TileIndex tileIndex;
-    TileIndex watertightIndex;
-    TileIndex metaIndex;
 
     LodRange lodRange;
 
@@ -132,15 +140,8 @@ inline std::uint8_t TileSet::Detail::metaOrder() const
 
 inline TileId TileSet::Detail::metaId(TileId tileId) const
 {
-    tileId.x >>= referenceFrame.metaBinaryOrder;
-    tileId.y >>= referenceFrame.metaBinaryOrder;
-    return tileId;
-}
-
-inline TileId TileSet::Detail::originFromMetaId(TileId tileId) const
-{
-    tileId.x <<= referenceFrame.metaBinaryOrder;
-    tileId.y <<= referenceFrame.metaBinaryOrder;
+    tileId.x &= ~((1 << referenceFrame.metaBinaryOrder) - 1);
+    tileId.y &= ~((1 << referenceFrame.metaBinaryOrder) - 1);
     return tileId;
 }
 
