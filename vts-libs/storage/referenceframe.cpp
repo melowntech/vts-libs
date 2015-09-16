@@ -518,6 +518,58 @@ void build(Json::Value &content, const BoundLayer::dict &bls)
     }
 }
 
+void parse(Credit &c, const Json::Value &content)
+{
+    Json::get(c.numericId, content, "id");
+
+    Json::get(c.notice, content, "notice");
+    if (content.isMember("url")) {
+        c.url = std::string();
+        Json::get(*c.url, content, "url");
+    }
+    if (content.isMember("copyrighted")) {
+        get(c.copyrighted, content, "copyrighted");
+    } else {
+        c.copyrighted = false;
+    }
+}
+
+void parse(Credit::dict &credits, const Json::Value &content)
+{
+    for (const auto &id : Json::check(content, Json::objectValue)
+             .getMemberNames())
+    {
+        try {
+            Credit c;
+            c.id = id;
+            parse(c, Json::check(content[id], Json::objectValue));
+            credits.set(id, c);
+        } catch (const Json::Error &e) {
+            LOGTHROW(err1, storage::FormatError)
+                << "Invalid credits file format (" << e.what()
+                << ").";
+        }
+    }
+}
+
+void build(Json::Value &content, const Credit &c)
+{
+    content = Json::objectValue;
+    content["id"] = c.numericId;
+    content["notice"] = c.notice;
+    if (c.url) { content["url"] = *c.url; }
+    if (c.copyrighted) { content["url"] = c.copyrighted; }
+}
+
+void build(Json::Value &content, const Credit::dict &credits)
+{
+    content = Json::objectValue;
+
+    for (const auto &c : credits) {
+        build(content[c.first], c.second);
+    }
+}
+
 } // namesapce
 
 ReferenceFrame::dict loadReferenceFrames(std::istream &in)
@@ -640,7 +692,7 @@ BoundLayer::dict loadBoundLayers(std::istream &in)
     Json::Reader reader;
     if (!reader.parse(in, content)) {
         LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse bound layer file: "
+            << "Unable to parse bound layers file: "
             << reader.getFormattedErrorMessages() << ".";
     }
 
@@ -651,7 +703,7 @@ BoundLayer::dict loadBoundLayers(std::istream &in)
 
 BoundLayer::dict loadBoundLayers(const boost::filesystem::path &path)
 {
-    LOG(info1) << "Loading bound layer file from " << path  << ".";
+    LOG(info1) << "Loading bound layers file from " << path  << ".";
     std::ifstream f;
     f.exceptions(std::ios::badbit | std::ios::failbit);
     try {
@@ -676,16 +728,72 @@ void saveBoundLayers(std::ostream &out, const BoundLayer::dict &boundLayers)
 void saveBoundLayers(const boost::filesystem::path &path
                      , const BoundLayer::dict &boundLayers)
 {
-    LOG(info1) << "Saving boundLayers file file to " << path  << ".";
+    LOG(info1) << "Saving bound layers file file to " << path  << ".";
     std::ofstream f;
     try {
         f.exceptions(std::ios::badbit | std::ios::failbit);
         f.open(path.string(), std::ios_base::out);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to save boundLayers file file " << path << ".";
+            << "Unable to save bound Layers file file " << path << ".";
     }
     saveBoundLayers(f, boundLayers);
+    f.close();
+}
+
+Credit::dict loadCredits(std::istream &in)
+{
+    // load json
+    Json::Value content;
+    Json::Reader reader;
+    if (!reader.parse(in, content)) {
+        LOGTHROW(err2, storage::FormatError)
+            << "Unable to parse credits file: "
+            << reader.getFormattedErrorMessages() << ".";
+    }
+
+    Credit::dict credits;
+    parse(credits, content);
+    return credits;
+}
+
+Credit::dict loadCredits(const boost::filesystem::path &path)
+{
+    LOG(info1) << "Loading credits file from " << path  << ".";
+    std::ifstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    try {
+        f.open(path.string(), std::ios_base::in);
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::IOError)
+            << "Unable to load credits from file " << path << ".";
+    }
+    auto credits(loadCredits(f));
+    f.close();
+    return credits;
+}
+
+void saveCredits(std::ostream &out, const Credit::dict &credits)
+{
+    Json::Value content;
+    build(content, credits);
+    out.precision(15);
+    Json::StyledStreamWriter().write(out, content);
+}
+
+void saveCredits(const boost::filesystem::path &path
+                     , const Credit::dict &credits)
+{
+    LOG(info1) << "Saving credits to file " << path  << ".";
+    std::ofstream f;
+    try {
+        f.exceptions(std::ios::badbit | std::ios::failbit);
+        f.open(path.string(), std::ios_base::out);
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::IOError)
+            << "Unable to save credits to file " << path << ".";
+    }
+    saveCredits(f, credits);
     f.close();
 }
 
@@ -728,9 +836,14 @@ std::string ReferenceFrame::rootSrs() const
 
 namespace registry {
     Srs::dict srs;
+
     ReferenceFrame::dict referenceFrames;
+
     BoundLayer::dict boundLayers;
     BoundLayer::ndict nBoundLayers;
+
+    Credit::dict credits;
+    Credit::ndict nCredits;
 }
 
 const Srs* Registry::srs(const std::string &id, std::nothrow_t)
@@ -796,16 +909,52 @@ const BoundLayer::ndict Registry::boundLayers(int)
     return registry::nBoundLayers;
 }
 
+const Credit*
+Registry::credit(const std::string &id, std::nothrow_t)
+{
+    return registry::credits.get(id, std::nothrow);
+}
+
+const Credit& Registry::credit(const std::string &id)
+{
+    return registry::credits.get(id);
+}
+
+const Credit*
+Registry::credit(Credit::NumericId id, std::nothrow_t)
+{
+    return registry::nCredits.get(id, std::nothrow);
+}
+
+const Credit& Registry::credit(Credit::NumericId id)
+{
+    return registry::nCredits.get(id);
+}
+
+const Credit::dict Registry::credits()
+{
+    return registry::credits;
+}
+
+const Credit::ndict Registry::credits(int)
+{
+    return registry::nCredits;
+}
+
 void Registry::init(const boost::filesystem::path &confRoot)
 {
     registry::srs = loadSrs(confRoot / "srs.json");
     registry::referenceFrames
         = loadReferenceFrames(confRoot / "referenceframes.json");
-    registry::boundLayers
-        = loadBoundLayers(confRoot / "boundlayers.json");
 
+    registry::boundLayers = loadBoundLayers(confRoot / "boundlayers.json");
     for (auto const &bl : registry::boundLayers) {
         registry::nBoundLayers.set(bl.second.numericId, bl.second);
+    }
+
+    registry::credits = loadCredits(confRoot / "credits.json");
+    for (auto const &c : registry::credits) {
+        registry::nCredits.set(c.second.numericId, c.second);
     }
 }
 

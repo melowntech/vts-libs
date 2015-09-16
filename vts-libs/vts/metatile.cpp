@@ -358,7 +358,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
                     auto &node(grid_[j * size_ + i]);
 
                     if (bitmap.get(ii, jj)) {
-                        node.credits.push_back(creditId);
+                        node.credits.insert(creditId);
                     }
                 }
             }

@@ -22,6 +22,7 @@
 #include "./error.hpp"
 #include "./lod.hpp"
 #include "./range.hpp"
+#include "./credits.hpp"
 
 namespace vadstena { namespace storage {
 
@@ -188,9 +189,28 @@ struct BoundLayer {
     TileRange tileRange;
     std::vector<std::string> credits;
 
+    BoundLayer() : numericId() {}
+
     typedef Dictionary<BoundLayer> dict;
     typedef Dictionary<BoundLayer, BoundLayer::NumericId> ndict;
 };
+
+struct Credit {
+    typedef CreditId NumericId;
+
+    std::string id;
+    NumericId numericId;
+    std::string notice;
+    boost::optional<std::string> url;
+    bool copyrighted;
+
+    Credit() : numericId(), copyrighted(false) {}
+
+    typedef Dictionary<Credit> dict;
+    typedef Dictionary<Credit, Credit::NumericId> ndict;
+};
+
+// general I/O
 
 ReferenceFrame::dict loadReferenceFrames(std::istream &in);
 
@@ -215,11 +235,21 @@ BoundLayer::dict loadBoundLayers(std::istream &in);
 
 BoundLayer::dict loadBoundLayers(const boost::filesystem::path &path);
 
-void saveBoundLayers(std::ostream &out, const BoundLayer::dict &srs);
+void saveBoundLayers(std::ostream &out, const BoundLayer::dict &bls);
 
 void saveBoundLayers(const boost::filesystem::path &path
-                     , const BoundLayer::dict &srs);
+                     , const BoundLayer::dict &bls);
 
+Credit::dict loadCredits(std::istream &in);
+
+Credit::dict loadCredits(const boost::filesystem::path &path);
+
+void saveCredits(std::ostream &out, const Credit::dict &credits);
+
+void saveCredits(const boost::filesystem::path &path
+                 , const Credit::dict &credits);
+
+// extra sstuff
 
 math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
                                  , const math::Extents3 &extents);
@@ -258,11 +288,13 @@ UTILITY_GENERATE_ENUM_IO(BoundLayer::Type,
 struct Registry {
     static const Srs* srs(const std::string &id, std::nothrow_t);
     static const Srs& srs(const std::string &id);
+    static const Srs::dict srsList();
 
     static const ReferenceFrame*
     referenceFrame(const std::string &id, std::nothrow_t);
     static const ReferenceFrame&
     referenceFrame(const std::string &id);
+    static const ReferenceFrame::dict referenceFrames();
 
     static const BoundLayer*
     boundLayer(const std::string &id, std::nothrow_t);
@@ -270,11 +302,16 @@ struct Registry {
     static const BoundLayer*
     boundLayer(BoundLayer::NumericId id, std::nothrow_t);
     static const BoundLayer& boundLayer(BoundLayer::NumericId id);
-
-    static const Srs::dict srsList();
-    static const ReferenceFrame::dict referenceFrames();
     static const BoundLayer::dict boundLayers();
     static const BoundLayer::ndict boundLayers(int);
+
+    static const Credit*
+    credit(const std::string &id, std::nothrow_t);
+    static const Credit& credit(const std::string &id);
+    static const Credit* credit(Credit::NumericId id, std::nothrow_t);
+    static const Credit& credit(Credit::NumericId id);
+    static const Credit::dict credits();
+    static const Credit::ndict credits(int);
 
     static void init(const boost::filesystem::path &confRoot);
 };

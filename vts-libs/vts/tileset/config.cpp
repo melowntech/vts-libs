@@ -51,7 +51,7 @@ TileSet::Properties parse1(const Json::Value &config)
 
     for (const auto &element : credits) {
         Json::check(element, Json::intValue);
-        properties.credits.push_back(element.asInt());
+        properties.credits.insert(element.asInt());
     }
 
     parse(properties.position, config["position"]);

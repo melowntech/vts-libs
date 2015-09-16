@@ -527,6 +527,9 @@ void TileSet::Detail::saveMetadata()
 
 void TileSet::Detail::flush()
 {
+    driver->wannaWrite("flush");
+
+    saveConfig();
     saveMetadata();
 
     // flush driver
