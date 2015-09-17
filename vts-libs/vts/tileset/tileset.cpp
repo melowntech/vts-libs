@@ -154,7 +154,6 @@ TileSet::Detail::Detail(const Driver::pointer &driver
             this->properties.revision = p.revision + 1;
         } catch (...) {}
     }
-    savedProperties = this->properties;
 
     // save config and (empty) tile indices
     saveConfig();
@@ -181,7 +180,7 @@ void TileSet::Detail::loadConfig()
         f->close();
 
         // set
-        savedProperties = properties = p;
+        properties = p;
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
             << "Unable to read config: <" << e.what() << ">.";
@@ -200,9 +199,6 @@ void TileSet::Detail::saveConfig()
         LOGTHROW(err2, storage::Error)
             << "Unable to write config: <" << e.what() << ">.";
     }
-
-    // done; remember saved properties and go on
-    savedProperties = properties;
 }
 
 void TileSet::Detail::loadTileIndex()
@@ -548,6 +544,8 @@ MapConfig TileSet::mapConfig() const
     // TODO: load properties
     // TODO: load extra config
     // TODO: fill-in data from both configs and registry
+
+    mapConfig.referenceFrame = referenceFrame;
 
     return mapConfig;
 }

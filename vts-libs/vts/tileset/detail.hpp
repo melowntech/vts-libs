@@ -53,7 +53,6 @@ struct TileSet::Detail
 
     Driver::pointer driver;
 
-    Properties savedProperties;  // properties as are on disk
     Properties properties;       // current properties
     bool changed;                // marks whether tileset has been changed
 
