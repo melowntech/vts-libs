@@ -14,6 +14,7 @@
 
 #include "../storage/error.hpp"
 #include "./referenceframe.hpp"
+#include "./json.hpp"
 
 namespace vadstena { namespace registry {
 
@@ -832,6 +833,34 @@ math::Size2f ReferenceFrame::tileSize(Lod lod) const
 std::string ReferenceFrame::rootSrs() const
 {
     return division.find({}).srs;
+}
+
+Json::Value asJson(const ReferenceFrame &rf)
+{
+    Json::Value content;
+    build(content, rf);
+    return content;
+}
+
+Json::Value asJson(const Srs::dict &srs)
+{
+    Json::Value content;
+    build(content, srs);
+    return content;
+}
+
+Json::Value asJson(const Credit::dict &credits)
+{
+    Json::Value content;
+    build(content, credits);
+    return content;
+}
+
+Json::Value asJson(const BoundLayer::dict &boundLayers)
+{
+    Json::Value content;
+    build(content, boundLayers);
+    return content;
 }
 
 } } // namespace vadstena::registry

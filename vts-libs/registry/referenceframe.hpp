@@ -1,5 +1,5 @@
 /**
- * \file storage/referenceframe.hpp
+ * \file registry/referenceframe.hpp
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 

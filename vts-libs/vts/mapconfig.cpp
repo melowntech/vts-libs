@@ -1,3 +1,5 @@
+#include "../registry/json.hpp"
+
 #include "./mapconfig.hpp"
 
 namespace vadstena { namespace vts {
