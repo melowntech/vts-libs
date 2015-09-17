@@ -29,6 +29,7 @@
 #include "./metatile.hpp"
 #include "./atlas.hpp"
 #include "./tileset/properties.hpp"
+#include "./mapconfig.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -46,6 +47,10 @@ public:
      * \return tile set properties
      */
     StaticProperties getProperties() const;
+
+    /** Generates map configuration for this signle tile set.
+     */
+    MapConfig mapConfig() const;
 
     Mesh getMesh(const TileId &tileId) const;
 
@@ -81,7 +86,7 @@ public:
 
     /** Referce frame in charge.
      */
-    storage::ReferenceFrame referenceFrame() const;
+    registry::ReferenceFrame referenceFrame() const;
 
     /** Returns constant driver. Used in delivery system.
      */

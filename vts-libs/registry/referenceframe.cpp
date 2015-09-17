@@ -15,7 +15,7 @@
 #include "../storage/error.hpp"
 #include "./referenceframe.hpp"
 
-namespace vadstena { namespace storage {
+namespace vadstena { namespace registry {
 
 namespace {
 
@@ -558,7 +558,7 @@ void build(Json::Value &content, const Credit &c)
     content["id"] = c.numericId;
     content["notice"] = c.notice;
     if (c.url) { content["url"] = *c.url; }
-    if (c.copyrighted) { content["url"] = c.copyrighted; }
+    if (!c.copyrighted) { content["url"] = c.copyrighted; }
 }
 
 void build(Json::Value &content, const Credit::dict &credits)
@@ -834,128 +834,4 @@ std::string ReferenceFrame::rootSrs() const
     return division.find({}).srs;
 }
 
-namespace registry {
-    Srs::dict srs;
-
-    ReferenceFrame::dict referenceFrames;
-
-    BoundLayer::dict boundLayers;
-    BoundLayer::ndict nBoundLayers;
-
-    Credit::dict credits;
-    Credit::ndict nCredits;
-}
-
-const Srs* Registry::srs(const std::string &id, std::nothrow_t)
-{
-    return registry::srs.get(id, std::nothrow);
-}
-
-const Srs& Registry::srs(const std::string &id)
-{
-    return registry::srs.get(id);
-}
-
-const Srs::dict Registry::srsList()
-{
-    return registry::srs;
-}
-
-const ReferenceFrame*
-Registry::referenceFrame(const std::string &id, std::nothrow_t)
-{
-    return registry::referenceFrames.get(id, std::nothrow);
-}
-
-const ReferenceFrame& Registry::referenceFrame(const std::string &id)
-{
-    return registry::referenceFrames.get(id);
-}
-
-const ReferenceFrame::dict Registry::referenceFrames()
-{
-    return registry::referenceFrames;
-}
-
-const BoundLayer*
-Registry::boundLayer(const std::string &id, std::nothrow_t)
-{
-    return registry::boundLayers.get(id, std::nothrow);
-}
-
-const BoundLayer& Registry::boundLayer(const std::string &id)
-{
-    return registry::boundLayers.get(id);
-}
-
-const BoundLayer*
-Registry::boundLayer(BoundLayer::NumericId id, std::nothrow_t)
-{
-    return registry::nBoundLayers.get(id, std::nothrow);
-}
-
-const BoundLayer& Registry::boundLayer(BoundLayer::NumericId id)
-{
-    return registry::nBoundLayers.get(id);
-}
-
-const BoundLayer::dict Registry::boundLayers()
-{
-    return registry::boundLayers;
-}
-
-const BoundLayer::ndict Registry::boundLayers(int)
-{
-    return registry::nBoundLayers;
-}
-
-const Credit*
-Registry::credit(const std::string &id, std::nothrow_t)
-{
-    return registry::credits.get(id, std::nothrow);
-}
-
-const Credit& Registry::credit(const std::string &id)
-{
-    return registry::credits.get(id);
-}
-
-const Credit*
-Registry::credit(Credit::NumericId id, std::nothrow_t)
-{
-    return registry::nCredits.get(id, std::nothrow);
-}
-
-const Credit& Registry::credit(Credit::NumericId id)
-{
-    return registry::nCredits.get(id);
-}
-
-const Credit::dict Registry::credits()
-{
-    return registry::credits;
-}
-
-const Credit::ndict Registry::credits(int)
-{
-    return registry::nCredits;
-}
-
-void Registry::init(const boost::filesystem::path &confRoot)
-{
-    registry::srs = loadSrs(confRoot / "srs.json");
-    registry::referenceFrames
-        = loadReferenceFrames(confRoot / "referenceframes.json");
-
-    registry::boundLayers = loadBoundLayers(confRoot / "boundlayers.json");
-    for (auto const &bl : registry::boundLayers) {
-        registry::nBoundLayers.set(bl.second.numericId, bl.second);
-    }
-
-    registry::credits = loadCredits(confRoot / "credits.json");
-    for (auto const &c : registry::credits) {
-        registry::nCredits.set(c.second.numericId, c.second);
-    }
-}
-
-} } // namespace vadstena::storage
+} } // namespace vadstena::registry

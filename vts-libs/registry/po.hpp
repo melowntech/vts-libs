@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_storage_po_hpp_included_
-#define vadstena_libs_storage_po_hpp_included_
+#ifndef vadstena_libs_registry_po_hpp_included_
+#define vadstena_libs_registry_po_hpp_included_
 
 #include <string>
 #include <vector>
@@ -9,9 +9,9 @@
 
 #include "utility/buildsys.hpp"
 
-#include "./referenceframe.hpp"
+#include "../registry.hpp"
 
-namespace vadstena { namespace storage {
+namespace vadstena { namespace registry {
 
 void registryConfiguration
 (boost::program_options::options_description &od
@@ -31,6 +31,6 @@ void registryConfigure(const boost::program_options::variables_map &vars)
     Registry::init(vars["registry"].as<boost::filesystem::path>());
 }
 
-} } // namespace vadstena::storage
+} } // namespace vadstena::registry
 
-#endif // vadstena_libs_storage_po_hpp_included_
+#endif // vadstena_libs_registry_po_hpp_included_

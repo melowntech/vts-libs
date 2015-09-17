@@ -1,18 +1,13 @@
 /**
- * \file vts/properties.hpp
+ * \file vts/tileset/properties.hpp
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_vts_properties_hpp_included_
-#define vadstena_libs_vts_properties_hpp_included_
-
-#include <map>
-
-#include <boost/optional.hpp>
-#include <boost/any.hpp>
+#ifndef vadstena_libs_vts_tileset_properties_hpp_included_
+#define vadstena_libs_vts_tileset_properties_hpp_included_
 
 #include "../../storage/credits.hpp"
-#include "../../storage/referenceframe.hpp"
+#include "../../registry.hpp"
 
 #include "../basetypes.hpp"
 
@@ -41,7 +36,7 @@ struct StaticProperties {
 
     /** Position.
      */
-    storage::Position position;
+    registry::Position position;
 
     /** Mask bitfields.
      */
@@ -165,4 +160,4 @@ inline bool StaticProperties::merge(const StaticProperties::Wrapper &other)
 
 } } // namespace vadstena::vts
 
-#endif // vadstena_libs_vts_properties_hpp_included_
+#endif // vadstena_libs_vts_tileset_properties_hpp_included_

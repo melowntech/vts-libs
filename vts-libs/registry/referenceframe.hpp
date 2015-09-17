@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_storage_referenceframe_hpp_included_
-#define vadstena_libs_storage_referenceframe_hpp_included_
+#ifndef vadstena_libs_registry_referenceframe_hpp_included_
+#define vadstena_libs_registry_referenceframe_hpp_included_
 
 #include <map>
 #include <string>
@@ -19,12 +19,18 @@
 
 #include "geo/srsdef.hpp"
 
-#include "./error.hpp"
-#include "./lod.hpp"
-#include "./range.hpp"
-#include "./credits.hpp"
+#include "../storage/error.hpp"
+#include "../storage/lod.hpp"
+#include "../storage/range.hpp"
+#include "../storage/credits.hpp"
 
-namespace vadstena { namespace storage {
+namespace vadstena { namespace registry {
+
+using storage::Lod;
+using storage::LodRange;
+using storage::TileRange;
+using storage::CreditId;
+using storage::CreditIds;
 
 template <typename T, typename Key = std::string>
 class Dictionary
@@ -283,39 +289,6 @@ UTILITY_GENERATE_ENUM_IO(BoundLayer::Type,
     ((vector))
 )
 
-// registry
-
-struct Registry {
-    static const Srs* srs(const std::string &id, std::nothrow_t);
-    static const Srs& srs(const std::string &id);
-    static const Srs::dict srsList();
-
-    static const ReferenceFrame*
-    referenceFrame(const std::string &id, std::nothrow_t);
-    static const ReferenceFrame&
-    referenceFrame(const std::string &id);
-    static const ReferenceFrame::dict referenceFrames();
-
-    static const BoundLayer*
-    boundLayer(const std::string &id, std::nothrow_t);
-    static const BoundLayer& boundLayer(const std::string &id);
-    static const BoundLayer*
-    boundLayer(BoundLayer::NumericId id, std::nothrow_t);
-    static const BoundLayer& boundLayer(BoundLayer::NumericId id);
-    static const BoundLayer::dict boundLayers();
-    static const BoundLayer::ndict boundLayers(int);
-
-    static const Credit*
-    credit(const std::string &id, std::nothrow_t);
-    static const Credit& credit(const std::string &id);
-    static const Credit* credit(Credit::NumericId id, std::nothrow_t);
-    static const Credit& credit(Credit::NumericId id);
-    static const Credit::dict credits();
-    static const Credit::ndict credits(int);
-
-    static void init(const boost::filesystem::path &confRoot);
-};
-
 // inlines
 
 inline bool
@@ -386,6 +359,6 @@ inline math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
             , (extents.ur(2) - fe.ll(2)) / s.depth };
 }
 
-} } // namespace vadstena::storage
+} } // namespace vadstena::registry
 
-#endif // vadstena_libs_storage_referenceframe_hpp_included_
+#endif // vadstena_libs_registry_referenceframe_hpp_included_

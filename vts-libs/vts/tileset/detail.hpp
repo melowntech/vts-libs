@@ -57,7 +57,7 @@ struct TileSet::Detail
     Properties properties;       // current properties
     bool changed;                // marks whether tileset has been changed
 
-    storage::ReferenceFrame referenceFrame;
+    registry::ReferenceFrame referenceFrame;
 
     mutable TileNode::map tileNodes;
     mutable MetaTiles metaTiles;

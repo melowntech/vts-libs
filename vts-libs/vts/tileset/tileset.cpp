@@ -124,7 +124,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
     : readOnly(true), driver(driver), changed(false)
 {
     loadConfig();
-    referenceFrame = storage::Registry::referenceFrame
+    referenceFrame = registry::Registry::referenceFrame
         (properties.referenceFrame);
 
     loadTileIndex();
@@ -133,7 +133,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
 TileSet::Detail::Detail(const Driver::pointer &driver
                         , const StaticProperties &properties)
     : readOnly(false), driver(driver), changed(false)
-    , referenceFrame(storage::Registry::referenceFrame
+    , referenceFrame(registry::Registry::referenceFrame
                      (properties.referenceFrame))
     , lodRange(LodRange::emptyRange())
 {
@@ -303,7 +303,7 @@ MetaTile* TileSet::Detail::findMetaTile(const TileId &tileId, bool addNew)
     return &fmetaTiles->second;
 }
 
-storage::ReferenceFrame TileSet::referenceFrame() const
+registry::ReferenceFrame TileSet::referenceFrame() const
 {
     return detail().referenceFrame;
 }
@@ -409,7 +409,7 @@ void TileSet::Detail::setTile(const TileId &tileId
                 textureArea += ta * atlas->area(index++);
             } else if (isubmeshes->textureLayer) {
                 // TODO: use value of to get size of texture textureLayer
-                auto ts(storage::Registry::boundLayer
+                auto ts(registry::Registry::boundLayer
                         (*isubmeshes->textureLayer).tileSize);
                 textureArea += ta * area(ts);
             }
@@ -539,6 +539,17 @@ void TileSet::Detail::flush()
 const Driver& TileSet::driver() const
 {
     return *detail().driver;
+}
+
+MapConfig TileSet::mapConfig() const
+{
+    MapConfig mapConfig;
+
+    // TODO: load properties
+    // TODO: load extra config
+    // TODO: fill-in data from both configs and registry
+
+    return mapConfig;
 }
 
 } } // namespace vadstena::vts

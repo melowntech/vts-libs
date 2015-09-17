@@ -12,17 +12,29 @@ set(vadstena-libs-storage_SOURCES
   storage/tilar-io.hpp
 
   storage/support.hpp
-
-  storage/referenceframe.hpp storage/referenceframe.cpp
   )
 
 define_module(LIBRARY vadstena-libs-storage DEPENDS
-  math utility dbglog half jsoncpp Boost_IOSTREAMS)
+  math utility dbglog Boost_IOSTREAMS)
 add_library(vadstena-libs-storage STATIC ${vadstena-libs-storage_SOURCES})
 buildsys_library(vadstena-libs-storage)
 target_link_libraries(vadstena-libs-storage
   ${MODULE_LIBRARIES})
 buildsys_target_compile_definitions(vadstena-libs-storage ${MODULE_DEFINITIONS})
+
+# common storage stuff
+set(vadstena-libs-registry_SOURCES
+  registry.hpp registry/registry.cpp
+  registry/referenceframe.hpp registry/referenceframe.cpp
+)
+
+define_module(LIBRARY vadstena-libs-registry DEPENDS
+  vadstena-libs-storage half jsoncpp Boost_IOSTREAMS)
+add_library(vadstena-libs-registry STATIC ${vadstena-libs-registry_SOURCES})
+buildsys_library(vadstena-libs-registry)
+target_link_libraries(vadstena-libs-registry
+  ${MODULE_LIBRARIES})
+buildsys_target_compile_definitions(vadstena-libs-registry ${MODULE_DEFINITIONS})
 
 # Create vadstena-tileset-browser library with browser files
 file_to_cpp(vadstena-libs_BROWSER_SOURCES
@@ -111,7 +123,8 @@ set(vadstena-vts0-core_SOURCES
   )
 
 define_module(LIBRARY vadstena-vts0-core DEPENDS
-  vadstena-libs-storage geo math utility dbglog jsoncpp half Boost_IOSTREAMS)
+  vadstena-libs-registry vadstena-libs-storage
+  geo math utility dbglog jsoncpp half Boost_IOSTREAMS)
 add_library(vadstena-vts0-core STATIC ${vadstena-vts0-core_SOURCES})
 buildsys_library(vadstena-vts0-core)
 target_link_libraries(vadstena-vts0-core
@@ -144,10 +157,13 @@ set(vadstena-vts-core_SOURCES
   vts/tileset/driver/driver.cpp
   vts/tileset/driver/options.hpp
   vts/tileset/driver/cache.hpp vts/tileset/driver/cache.cpp
+
+  vts/mapconfig.hpp vts/mapconfig.cpp
   )
 
 define_module(LIBRARY vadstena-vts-core DEPENDS
-  vadstena-libs-storage geo math utility dbglog jsoncpp half Boost_IOSTREAMS)
+  vadstena-libs-registry vadstena-libs-storage
+  geo math utility dbglog jsoncpp half Boost_IOSTREAMS)
 add_library(vadstena-vts-core STATIC ${vadstena-vts-core_SOURCES})
 buildsys_library(vadstena-vts-core)
 target_link_libraries(vadstena-vts-core
@@ -174,6 +190,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     detail/fingeprint-manipulator)
 
   define_module(LIBRARY vadstena-libs DEPENDS
+    vadstena-libs-storage
+    vadstena-libs-registry
     vadstena-tileset-core
     vadstena-vts0-core
     vadstena-vts-core

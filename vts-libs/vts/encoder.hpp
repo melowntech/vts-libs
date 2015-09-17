@@ -27,7 +27,7 @@ public:
 
 protected:
     StaticProperties properties() const;
-    const storage::ReferenceFrame& referenceFrame() const;
+    const registry::ReferenceFrame& referenceFrame() const;
     void setConstraints(const Constraints &constraints);
     const geo::SrsDefinition& physicalSrs() const;
 
@@ -49,7 +49,7 @@ private:
      */
     virtual TileResult
     generate(const TileId &tileId
-             , const storage::ReferenceFrame::Division::Node &node
+             , const registry::ReferenceFrame::Division::Node &node
              , const math::Extents2 &divisionExtents) = 0;
 
 

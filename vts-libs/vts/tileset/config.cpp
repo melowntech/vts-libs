@@ -14,14 +14,14 @@ namespace detail {
 
 const int CURRENT_JSON_FORMAT_VERSION(1);
 
-void parse(storage::Position &p, const Json::Value &value)
+void parse(registry::Position &p, const Json::Value &value)
 {
     if (!value.isArray()) {
         LOGTHROW(err1, Json::Error)
             << "Type of position is not a list.";
     }
 
-    p.type = boost::lexical_cast<storage::Position::Type>
+    p.type = boost::lexical_cast<registry::Position::Type>
         (Json::as<std::string>(value[0]));
     p.position(0) = Json::as<double>(value[1]);
     p.position(1) = Json::as<double>(value[2]);
@@ -71,7 +71,7 @@ TileSet::Properties parse1(const Json::Value &config)
     return properties;
 }
 
-void build(Json::Value &value, const storage::Position &p)
+void build(Json::Value &value, const registry::Position &p)
 {
     value = Json::arrayValue;
     value.append(boost::lexical_cast<std::string>(p.type));
