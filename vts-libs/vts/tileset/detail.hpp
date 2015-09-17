@@ -121,6 +121,8 @@ struct TileSet::Detail
 
     void flush();
     void saveMetadata();
+
+    MapConfig mapConfig() const;
 };
 
 inline void TileSet::DetailDeleter::operator()(Detail *d) { delete d; }

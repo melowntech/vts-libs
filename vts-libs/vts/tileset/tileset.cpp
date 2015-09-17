@@ -539,6 +539,11 @@ const Driver& TileSet::driver() const
 
 MapConfig TileSet::mapConfig() const
 {
+    return detail().mapConfig();
+}
+
+MapConfig TileSet::Detail::mapConfig() const
+{
     MapConfig mapConfig;
 
     // TODO: load properties
