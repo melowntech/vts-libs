@@ -83,6 +83,10 @@ public:
      */
     storage::ReferenceFrame referenceFrame() const;
 
+    /** Returns constant driver. Used in delivery system.
+     */
+    const Driver& driver() const;
+
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the tileset's guts!
      */

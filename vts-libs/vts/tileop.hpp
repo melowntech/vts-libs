@@ -29,7 +29,7 @@ std::pair<double, double> area(const Tile &tile);
 
 std::string asFilename(const TileId &tileId, TileFile type);
 
-bool fromFilename(TileId &tileId, TileFile &type
+bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileIndex
                   , const std::string &str
                   , std::string::size_type offset = 0);
 

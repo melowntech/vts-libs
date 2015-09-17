@@ -29,7 +29,6 @@ public:
      */
     virtual std::size_t area(std::size_t index) const = 0;
 
-protected:
     struct Entry {
         std::size_t start;
         std::size_t size;
@@ -40,6 +39,11 @@ protected:
     };
 
     typedef std::vector<Entry> Table;
+
+    /** Helper function to read table contents from file.
+     */
+    static Table readTable(std::istream &is
+                           , const boost::filesystem::path &path = "unknown");
 
 private:
     virtual Table serialize_impl(std::ostream &os) const = 0;

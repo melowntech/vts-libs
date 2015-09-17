@@ -1,6 +1,8 @@
 #ifndef vadstena_libs_storage_resources_hpp_included_
 #define vadstena_libs_storage_resources_hpp_included_
 
+#include <cstddef>
+
 namespace vadstena { namespace storage {
 
 struct Resources {

@@ -32,8 +32,8 @@ void Atlas::serialize(std::ostream &os) const
     bin::write(os, std::uint16_t(table.size()));
 }
 
-void Atlas::deserialize(std::istream &is
-                        , const boost::filesystem::path &path)
+Atlas::Table Atlas::readTable(std::istream &is
+                              , const boost::filesystem::path &path)
 {
     // read tail
     char magic[sizeof(MAGIC)];
@@ -42,7 +42,7 @@ void Atlas::deserialize(std::istream &is
 
     const auto tailSize(sizeof(magic) + sizeof(version) + sizeof(size));
 
-    is.seekg(tailSize, std::ios_base::end);
+    is.seekg(-tailSize, std::ios_base::end);
     bin::read(is, magic);
     bin::read(is, version);
 
@@ -59,9 +59,10 @@ void Atlas::deserialize(std::istream &is
     // read count first
     bin::read(is, size);
 
+    LOG(info4) << "at: " << is.tellg();
     // seek to table start
     std::uint32_t u32;
-    is.seekg(tailSize + size * 2 * sizeof(u32), std::ios_base::end);
+    is.seekg(-(tailSize + size * 2 * sizeof(u32)), std::ios_base::end);
 
     // read table
     Table table;
@@ -72,7 +73,13 @@ void Atlas::deserialize(std::istream &is
         bin::read(is, u32); entry.size = u32;
     }
 
-    deserialize_impl(is, table);
+    return table;
+}
+
+void Atlas::deserialize(std::istream &is
+                        , const boost::filesystem::path &path)
+{
+    deserialize_impl(is, readTable(is, path));
 }
 
 } } // namespace vadstena::vts

@@ -219,7 +219,7 @@ void TileSet::Detail::loadTileIndex()
 
     // new extents
     lodRange = tileIndex.lodRange();
-    LOG(info2) << "Loaded tile index: " << tileIndex;
+    LOG(debug) << "Loaded tile index: " << tileIndex;
 }
 
 void TileSet::Detail::saveTileIndex()
@@ -534,6 +534,11 @@ void TileSet::Detail::flush()
 
     // flush driver
     driver->flush();
+}
+
+const Driver& TileSet::driver() const
+{
+    return *detail().driver;
 }
 
 } } // namespace vadstena::vts
