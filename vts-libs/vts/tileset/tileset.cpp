@@ -546,11 +546,12 @@ MapConfig TileSet::Detail::mapConfig() const
 {
     MapConfig mapConfig;
 
-    // TODO: load properties
     // TODO: load extra config
     // TODO: fill-in data from both configs and registry
 
     mapConfig.referenceFrame = referenceFrame;
+    mapConfig.srs = registry::listSrs(referenceFrame);
+    mapConfig.credits = registry::asDict(properties.credits);
 
     return mapConfig;
 }

@@ -181,26 +181,6 @@ struct Position {
     Position() : type(Type::fixed), viewHeight(), verticalFov() {}
 };
 
-struct BoundLayer {
-    enum Type { raster, vector };
-
-    typedef std::uint16_t NumericId;
-
-    std::string id;
-    NumericId numericId;
-    Type type;
-    std::string url;
-    math::Size2 tileSize;
-    LodRange lodRange;
-    TileRange tileRange;
-    std::vector<std::string> credits;
-
-    BoundLayer() : numericId() {}
-
-    typedef Dictionary<BoundLayer> dict;
-    typedef Dictionary<BoundLayer, BoundLayer::NumericId> ndict;
-};
-
 struct Credit {
     typedef CreditId NumericId;
 
@@ -214,6 +194,28 @@ struct Credit {
 
     typedef Dictionary<Credit> dict;
     typedef Dictionary<Credit, Credit::NumericId> ndict;
+};
+
+typedef std::set<std::string> Credits;
+
+struct BoundLayer {
+    enum Type { raster, vector };
+
+    typedef std::uint16_t NumericId;
+
+    std::string id;
+    NumericId numericId;
+    Type type;
+    std::string url;
+    math::Size2 tileSize;
+    LodRange lodRange;
+    TileRange tileRange;
+    Credits credits;
+
+    BoundLayer() : numericId() {}
+
+    typedef Dictionary<BoundLayer> dict;
+    typedef Dictionary<BoundLayer, BoundLayer::NumericId> ndict;
 };
 
 // general I/O
@@ -358,6 +360,10 @@ inline math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
             , (extents.ur(1) - fe.ll(1)) / s.height
             , (extents.ur(2) - fe.ll(2)) / s.depth };
 }
+
+Srs::dict listSrs(const ReferenceFrame &referenceFrame);
+
+Credit::dict asDict(const Credits &credits);
 
 } } // namespace vadstena::registry
 

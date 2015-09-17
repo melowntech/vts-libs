@@ -15,6 +15,7 @@
 #include "../storage/error.hpp"
 #include "./referenceframe.hpp"
 #include "./json.hpp"
+#include "../registry.hpp"
 
 namespace vadstena { namespace registry {
 
@@ -459,7 +460,7 @@ void parse(BoundLayer &bl, const Json::Value &content)
     }
 
     for (const auto &element : credits) {
-        bl.credits.push_back(element.asString());
+        bl.credits.insert(element.asString());
     }
 }
 
@@ -861,6 +862,35 @@ Json::Value asJson(const BoundLayer::dict &boundLayers)
     Json::Value content;
     build(content, boundLayers);
     return content;
+}
+
+Srs::dict listSrs(const ReferenceFrame &referenceFrame)
+{
+    Srs::dict srs;
+
+    auto add([&](const std::string &id)
+    {
+        srs.set(id, Registry::srs(id));
+    });
+
+    add(referenceFrame.model.physicalSrs);
+    add(referenceFrame.model.navigationSrs);
+    add(referenceFrame.model.publicSrs);
+
+    for (const auto &node : referenceFrame.division.nodes) {
+        add(node.second.srs);
+    }
+
+    return srs;
+}
+
+Credit::dict asDict(const Credits &credits)
+{
+    Credit::dict c;
+    for (const auto &id : credits) {
+        c.add(Registry::credit(id));
+    };
+    return c;
 }
 
 } } // namespace vadstena::registry

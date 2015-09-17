@@ -30,9 +30,9 @@ struct StaticProperties {
      */
     unsigned int revision;
 
-    /** List of credits.
+    /** Set of credits.
      */
-    storage::CreditIds credits;
+    registry::Credits credits;
 
     /** Position.
      */
