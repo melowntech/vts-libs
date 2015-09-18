@@ -7,12 +7,15 @@
 
 #include "../storage/lod.hpp"
 #include "../storage/range.hpp"
+#include "../registry.hpp"
 
 namespace vadstena { namespace vts {
 
 using storage::Lod;
 using storage::Range;
 using storage::LodRange;
+
+using registry::TileRange;
 
 /** Tile identifier (index in 3D space): LOD + tile index from upper-left corner
  *  in tile grid.

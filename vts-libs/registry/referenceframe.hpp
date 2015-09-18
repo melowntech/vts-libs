@@ -35,6 +35,8 @@ using storage::CreditIds;
 typedef std::set<std::string> StringIdSet;
 typedef std::set<int> IdSet;
 
+typedef math::Extents2_<unsigned int> TileRange;
+
 template <typename T, typename Key = std::string>
 class Dictionary
 {
@@ -210,7 +212,7 @@ struct BoundLayer {
     std::string url;
     math::Size2 tileSize;
     LodRange lodRange;
-    math::Extents2i tileRange;
+    TileRange tileRange;
     StringIdSet credits;
 
     BoundLayer() : numericId() {}

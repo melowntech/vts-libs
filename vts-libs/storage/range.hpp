@@ -40,7 +40,7 @@ struct Range
 
     bool operator!=(const Range &o) const { return !operator==(o); }
 
-    static Range emptyRange() { return { T(0), T(-1) }; }
+    static Range emptyRange() { return { T(1), T(0) }; }
 };
 
 typedef Range<Lod> LodRange;
@@ -59,6 +59,13 @@ inline Range<T> unite(const Range<T> &l, const Range<T> &r)
     return { std::min(l.min, r.min), std::max(l.max, r.max) };
 }
 
+template<typename T>
+inline void update(Range<T> &r, const T &v)
+{
+    if (r.empty()) { r = { v }; }
+    if (v < r.min) { r.min = v; }
+    if (v > r.max) { r.max = v; }
+}
 
 template<typename T>
 inline bool in(const T &value, const Range<T> &range)

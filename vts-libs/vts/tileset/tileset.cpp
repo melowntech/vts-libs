@@ -532,12 +532,27 @@ void TileSet::Detail::saveMetadata()
     saveTileIndex();
 }
 
+void update(TileSet::Properties &properties, const TileIndex &tileIndex)
+{
+    auto stat(tileIndex.statMask(TileSet::Detail::TileFlag::mesh
+                                 | TileSet::Detail::TileFlag::atlas));
+    properties.lodRange = stat.lodRange;
+    if (properties.lodRange.empty()) {
+        properties.tileRange = TileRange(math::InvalidExtents{});
+    } else {
+        properties.tileRange = stat.tileRanges.front();
+    }
+}
+
 void TileSet::Detail::flush()
 {
     driver->wannaWrite("flush");
 
-    saveConfig();
     saveMetadata();
+
+    // update and save config
+    update(properties, tileIndex);
+    saveConfig();
 
     // flush driver
     driver->flush();
@@ -569,12 +584,18 @@ MapConfig TileSet::Detail::mapConfig() const
     mapConfig.surfaces.emplace_back();
     auto &surface(mapConfig.surfaces.back());
     surface.id = properties.id;
-    surface.metaBinaryOrder = referenceFrame.metaBinaryOrder;
 
     // local path
     surface.root = fs::path();
 
-    // TODO: lod and tile range
+    if (!properties.lodRange.empty()) {
+        surface.lodRange = properties.lodRange;
+    }
+
+    if (valid(properties.tileRange)) {
+        surface.tileRange = properties.tileRange;
+    }
+
     return mapConfig;
 }
 

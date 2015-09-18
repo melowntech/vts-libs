@@ -17,12 +17,11 @@ namespace vadstena { namespace vts {
 
 struct Surface {
     std::string id;
-    unsigned int metaBinaryOrder;
     boost::filesystem::path root;
     storage::LodRange lodRange;
-    math::Extents2i tileRange;
+    registry::TileRange tileRange;
 
-    Surface() : metaBinaryOrder(5) {}
+    Surface() {}
 
     typedef std::vector<Surface> list;
 };

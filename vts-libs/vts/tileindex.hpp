@@ -87,6 +87,19 @@ public:
 
     void setMask(const TileId &tileId, QTree::value_type mask, bool on = true);
 
+    struct Stat {
+        storage::LodRange lodRange;
+        std::vector<TileRange> tileRanges;
+
+        Stat()
+            : lodRange(LodRange::emptyRange())
+        {}
+    };
+
+    /** Get statistics for all tiles with given mask.
+     */
+    Stat statMask(QTree::value_type mask) const;
+
 private:
     QTree* tree(Lod lod, bool create = false);
 

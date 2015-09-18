@@ -18,6 +18,14 @@ struct TileSet::Properties : StaticProperties {
     // driver options
     driver::Options driverOptions;
 
+    /** Range of lods where are tiles with mesh and/or atlas.
+     */
+    storage::LodRange lodRange;
+
+    /** Extents (inclusive) of tiles with mesh and/or atlas at lodRange.min
+     */
+    TileRange tileRange;
+
     Properties() {}
 };
 

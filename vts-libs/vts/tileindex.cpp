@@ -209,4 +209,41 @@ void TileIndex::setMask(const TileId &tileId, QTree::value_type mask
     });
 }
 
+TileIndex::Stat TileIndex::statMask(QTree::value_type mask) const
+{
+    Stat stat;
+
+    auto lod(minLod_);
+    for (const auto &tree : trees_) {
+        stat.tileRanges.emplace_back(math::InvalidExtents{});
+        auto &tileRange(stat.tileRanges.back());
+
+        tree.forEachQuad([&](unsigned int x, unsigned int y, unsigned int size
+                             , QTree::value_type value)
+        {
+            if (!(value & mask)) { return; }
+
+            // remember lod
+            storage::update(stat.lodRange, lod);
+
+            // update tile range
+            math::update(tileRange, x, y);
+            math::update(tileRange, x + size - 1, y + size - 1);
+        });
+        ++lod;
+    }
+
+    if (stat.lodRange.empty()) {
+        // nothing, drop whole tileRanges
+        stat.tileRanges.clear();
+    } else {
+        // remove difference between minLod_ and stat.lodRange.min (if any)
+        stat.tileRanges.erase
+            (stat.tileRanges.begin()
+             , stat.tileRanges.begin() + (stat.lodRange.min - minLod_));
+    }
+
+    return stat;
+}
+
 } } // namespace vadstena::vts

@@ -10,7 +10,7 @@ Json::Value asJson(const Surface &surface)
     Json::Value s(Json::objectValue);
 
     s["id"] = surface.id;
-    s["metaBinaryOrder"] = surface.metaBinaryOrder;
+
     auto &lodRange(s["lodRange"] = Json::arrayValue);
     lodRange.append(surface.lodRange.min);
     lodRange.append(surface.lodRange.max);

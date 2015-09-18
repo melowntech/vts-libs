@@ -75,6 +75,14 @@ TileSet::Properties parse1(const Json::Value &config)
     Json::get(uuid, driver, "uuid");
     properties.driverOptions.uuid(boost::uuids::string_generator()(uuid));
 
+    Json::get(properties.lodRange.min, config, "lodRange", 0);
+    Json::get(properties.lodRange.max, config, "lodRange", 1);
+
+    Json::get(properties.tileRange.ll(0), config, "tileRange", 0);
+    Json::get(properties.tileRange.ll(1), config, "tileRange", 1);
+    Json::get(properties.tileRange.ur(0), config, "tileRange", 2);
+    Json::get(properties.tileRange.ur(1), config, "tileRange", 3);
+
     return properties;
 }
 
@@ -111,6 +119,16 @@ void build(Json::Value &config, const TileSet::Properties &properties)
     auto &driver(config["driver"]);
     driver["binaryOrder"] = properties.driverOptions.binaryOrder();
     driver["uuid"] = to_string(properties.driverOptions.uuid());
+
+    auto &lodRange(config["lodRange"] = Json::arrayValue);
+    lodRange.append(properties.lodRange.min);
+    lodRange.append(properties.lodRange.max);
+
+    auto &tileRange(config["tileRange"] = Json::arrayValue);
+    tileRange.append(properties.tileRange.ll(0));
+    tileRange.append(properties.tileRange.ll(1));
+    tileRange.append(properties.tileRange.ur(0));
+    tileRange.append(properties.tileRange.ur(1));
 }
 
 } // namespace detail
