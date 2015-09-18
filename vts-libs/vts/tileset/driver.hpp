@@ -76,6 +76,8 @@ public:
         auto c(oldConfig_); oldConfig_= boost::none; return c;
     }
 
+    const boost::filesystem::path& root() const { return root_; }
+
 private:
     void checkRunning() const;
 

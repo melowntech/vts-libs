@@ -62,6 +62,16 @@ std::string asFilename(const TileId &tileId, TileFile type)
                % extension(type));
 }
 
+std::string fileTemplate(TileFile type)
+{
+    const std::string ext(extension(type));
+    if (type == TileFile::atlas) {
+        return str(boost::format("{lod}-{x}-{y}-{sub}.%s") % ext);
+    }
+
+    return str(boost::format("{lod}-{x}-{y}.%s") % ext);
+}
+
 namespace {
 
 inline bool isDigit(char c) { return (c >= '0') && (c <= '9'); }

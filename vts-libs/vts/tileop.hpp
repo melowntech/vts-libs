@@ -33,6 +33,8 @@ bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileIndex
                   , const std::string &str
                   , std::string::size_type offset = 0);
 
+std::string fileTemplate(TileFile type);
+
 std::size_t tileCount(Lod lod);
 
 // inline stuff

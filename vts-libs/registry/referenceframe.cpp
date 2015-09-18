@@ -448,10 +448,10 @@ void parse(BoundLayer &bl, const Json::Value &content)
         LOGTHROW(err1, Json::Error)
             << "boundLayer[tileRange] must have two elements.";
     }
-    Json::get(bl.tileRange.x.min, tileRange[0], 0, "tileRange[0]");
-    Json::get(bl.tileRange.y.min, tileRange[0], 1, "tileRange[0]");
-    Json::get(bl.tileRange.x.max, tileRange[1], 0, "tileRange[1]");
-    Json::get(bl.tileRange.y.max, tileRange[1], 1, "tileRange[1]");
+    Json::get(bl.tileRange.ll(0), tileRange[0], 0, "tileRange[0][0]");
+    Json::get(bl.tileRange.ll(1), tileRange[0], 1, "tileRange[0][1]");
+    Json::get(bl.tileRange.ur(0), tileRange[1], 0, "tileRange[1][0]");
+    Json::get(bl.tileRange.ur(1), tileRange[1], 1, "tileRange[1][1]");
 
     const auto &credits(content["credits"]);
     if (!credits.isArray()) {
@@ -499,11 +499,11 @@ void build(Json::Value &content, const BoundLayer &bl)
 
     auto &tileRange(content["tileRange"] = Json::arrayValue);
     auto &tileRangeMin(tileRange.append(Json::arrayValue));
-    tileRangeMin.append(bl.tileRange.x.min);
-    tileRangeMin.append(bl.tileRange.y.min);
+    tileRangeMin.append(bl.tileRange.ll(0));
+    tileRangeMin.append(bl.tileRange.ll(1));
     auto &tileRangeMax(tileRange.append(Json::arrayValue));
-    tileRangeMax.append(bl.tileRange.x.max);
-    tileRangeMax.append(bl.tileRange.y.max);
+    tileRangeMax.append(bl.tileRange.ur(0));
+    tileRangeMax.append(bl.tileRange.ur(1));
 
     auto &credits(content["credits"] = Json::arrayValue);
     for (const auto &credit : bl.credits) {
@@ -884,13 +884,40 @@ Srs::dict listSrs(const ReferenceFrame &referenceFrame)
     return srs;
 }
 
-Credit::dict asDict(const Credits &credits)
+Credit::dict creditsAsDict(const StringIdSet &credits)
 {
     Credit::dict c;
     for (const auto &id : credits) {
         c.add(Registry::credit(id));
     };
     return c;
+}
+
+Credit::dict creditsAsDict(const IdSet &credits)
+{
+    Credit::dict c;
+    for (const auto &id : credits) {
+        c.add(Registry::credit(id));
+    };
+    return c;
+}
+
+BoundLayer::dict boundLayersAsDict(const StringIdSet &boundLayers)
+{
+    BoundLayer::dict b;
+    for (const auto &id : boundLayers) {
+        b.add(Registry::boundLayer(id));
+    };
+    return b;
+}
+
+BoundLayer::dict boundLayersAsDict(const IdSet &boundLayers)
+{
+    BoundLayer::dict b;
+    for (const auto &id : boundLayers) {
+        b.add(Registry::boundLayer(id));
+    };
+    return b;
 }
 
 } } // namespace vadstena::registry

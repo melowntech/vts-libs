@@ -55,6 +55,15 @@ struct Mesh {
     SubMesh::list submeshes;
 
     Mesh() : meanUndulation() {}
+
+    typedef SubMesh::list::iterator iterator;
+    typedef SubMesh::list::const_iterator const_iterator;
+    iterator begin() { return submeshes.begin(); }
+    iterator end() { return submeshes.end(); }
+    const_iterator begin() const { return submeshes.begin(); }
+    const_iterator end() const { return submeshes.end(); }
+    const_iterator cbegin() { return submeshes.begin(); }
+    const_iterator cend() { return submeshes.end(); }
 };
 
 math::Extents3 extents(const SubMesh &submesh);

@@ -1,3 +1,5 @@
+#include "utility/buildsys.hpp"
+
 #include "../registry.hpp"
 
 namespace vadstena { namespace registry {
@@ -124,6 +126,11 @@ void Registry::init(const boost::filesystem::path &confRoot)
     for (auto const &c : detail::credits) {
         detail::nCredits.set(c.second.numericId, c.second);
     }
+}
+
+boost::filesystem::path defaultPath()
+{
+    return utility::buildsys::installPath("etc/vadstena-registry");
 }
 
 } } // namespace vadstena::registry

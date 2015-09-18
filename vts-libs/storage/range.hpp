@@ -45,17 +45,6 @@ struct Range
 
 typedef Range<Lod> LodRange;
 
-struct TileRange {
-    typedef Range<int> IndexRange;
-    IndexRange x;
-    IndexRange y;
-
-    TileRange(const IndexRange &x = IndexRange()
-              , const IndexRange &y = IndexRange())
-        : x(x), y(y)
-    {}
-};
-
 template<typename T>
 inline Range<T> range(const T min, const T max)
 {

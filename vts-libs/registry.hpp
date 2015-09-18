@@ -41,6 +41,8 @@ struct Registry {
     static void init(const boost::filesystem::path &confRoot);
 };
 
+boost::filesystem::path defaultPath();
+
 } } // namespace vadstena::registry
 
 #endif // vadstena_libs_registry_hpp_included_

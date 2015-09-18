@@ -35,6 +35,22 @@ void parse(registry::Position &p, const Json::Value &value)
     p.verticalFov = Json::as<double>(value[8]);
 }
 
+void parseIdSet(registry::IdSet &ids, const Json::Value &object
+                , const char *name)
+{
+    const Json::Value &value(object[name]);
+
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of " << name << " is not a list.";
+    }
+
+    for (const auto &element : value) {
+        Json::check(element, Json::intValue);
+        ids.insert(element.asInt());
+    }
+}
+
 TileSet::Properties parse1(const Json::Value &config)
 {
     TileSet::Properties properties;
@@ -43,19 +59,10 @@ TileSet::Properties parse1(const Json::Value &config)
     Json::get(properties.referenceFrame, config, "referenceFrame");
     Json::get(properties.revision, config, "revision");
 
-    const auto &credits(config["credits"]);
-    if (!credits.isArray()) {
-        LOGTHROW(err1, Json::Error)
-            << "Type of credits is not a list.";
-    }
-
-    for (const auto &element : credits) {
-        Json::check(element, Json::stringValue);
-        properties.credits.insert(element.asString());
-    }
+    parseIdSet(properties.credits, config, "credits");
+    parseIdSet(properties.boundLayers, config, "boundLayers");
 
     parse(properties.position, config["position"]);
-
 
     // load driver options
     const auto &driver(config["driver"]);
@@ -96,6 +103,8 @@ void build(Json::Value &config, const TileSet::Properties &properties)
 
     auto &credits(config["credits"] = Json::arrayValue);
     for (auto cid : properties.credits) { credits.append(cid); }
+    auto &boundLayers(config["boundLayers"] = Json::arrayValue);
+    for (auto cid : properties.boundLayers) { boundLayers.append(cid); }
 
     build(config["position"], properties.position);
 

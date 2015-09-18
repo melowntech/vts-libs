@@ -15,12 +15,11 @@ namespace vadstena { namespace registry {
 
 void registryConfiguration
 (boost::program_options::options_description &od
- , const std::string &defaultPath)
+ , const boost::filesystem::path &defaultPath)
 {
     od.add_options()
         ("registry", boost::program_options::value<boost::filesystem::path>()
-         ->required()->default_value
-         (utility::buildsys::installPath(defaultPath))
+         ->required()->default_value(defaultPath)
          , "Path to registry directory, i.e. where reference "
          "frames etc are to be found.")
         ;

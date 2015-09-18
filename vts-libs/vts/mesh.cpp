@@ -36,7 +36,7 @@ math::Extents3 extents(const SubMesh &submesh)
 math::Extents3 extents(const Mesh &mesh)
 {
     math::Extents3 e(math::InvalidExtents{});
-    for (const auto &sm : mesh.submeshes) {
+    for (const auto &sm : mesh) {
         e = unite(e, extents(sm));
     }
     return e;
@@ -83,7 +83,7 @@ std::pair<double, double> area(const SubMesh &sm)
 MeshArea area(const Mesh &mesh)
 {
     MeshArea out;
-    for (const auto &sm : mesh.submeshes) {
+    for (const auto &sm : mesh) {
         auto a(area(sm));
         out.mesh += a.first;
         out.texture.push_back(a.second);
@@ -116,7 +116,7 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
     bin::write(out, std::uint16_t(mesh.submeshes.size()));
 
     // write submeshes
-    for (const auto &sm : mesh.submeshes) {
+    for (const auto &sm : mesh) {
         auto bbox(extents(sm));
         math::Point3d bbsize(bbox.ur - bbox.ll);
 
@@ -246,7 +246,7 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
 
     // make room for sub-meshes and load them all
     mesh.submeshes.resize(subMeshCount);
-    for (auto &sm : mesh.submeshes) {
+    for (auto &sm : mesh) {
         std::uint8_t flags;
         bin::read(in, flags);
 

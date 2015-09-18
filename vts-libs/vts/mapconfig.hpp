@@ -8,10 +8,24 @@
 
 #include <iostream>
 
+#include <boost/filesystem/path.hpp>
+
 #include "../registry.hpp"
 #include "./tileset/properties.hpp"
 
 namespace vadstena { namespace vts {
+
+struct Surface {
+    std::string id;
+    unsigned int metaBinaryOrder;
+    boost::filesystem::path root;
+    storage::LodRange lodRange;
+    math::Extents2i tileRange;
+
+    Surface() : metaBinaryOrder(5) {}
+
+    typedef std::vector<Surface> list;
+};
 
 struct MapConfig {
     registry::Srs::dict srs;
@@ -19,6 +33,8 @@ struct MapConfig {
     registry::Credit::dict credits;
     registry::BoundLayer::dict boundLayers;
     registry::Position position;
+
+    Surface::list surfaces;
 };
 
 /** Save map config into stream.

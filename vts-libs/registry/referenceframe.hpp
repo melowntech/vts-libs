@@ -6,6 +6,7 @@
 #ifndef vadstena_libs_registry_referenceframe_hpp_included_
 #define vadstena_libs_registry_referenceframe_hpp_included_
 
+#include <set>
 #include <map>
 #include <string>
 #include <vector>
@@ -28,9 +29,11 @@ namespace vadstena { namespace registry {
 
 using storage::Lod;
 using storage::LodRange;
-using storage::TileRange;
 using storage::CreditId;
 using storage::CreditIds;
+
+typedef std::set<std::string> StringIdSet;
+typedef std::set<int> IdSet;
 
 template <typename T, typename Key = std::string>
 class Dictionary
@@ -196,8 +199,6 @@ struct Credit {
     typedef Dictionary<Credit, Credit::NumericId> ndict;
 };
 
-typedef std::set<std::string> Credits;
-
 struct BoundLayer {
     enum Type { raster, vector };
 
@@ -209,8 +210,8 @@ struct BoundLayer {
     std::string url;
     math::Size2 tileSize;
     LodRange lodRange;
-    TileRange tileRange;
-    Credits credits;
+    math::Extents2i tileRange;
+    StringIdSet credits;
 
     BoundLayer() : numericId() {}
 
@@ -363,7 +364,11 @@ inline math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
 
 Srs::dict listSrs(const ReferenceFrame &referenceFrame);
 
-Credit::dict asDict(const Credits &credits);
+Credit::dict creditsAsDict(const StringIdSet &credits);
+Credit::dict creditsAsDict(const IdSet &credits);
+
+BoundLayer::dict boundLayersAsDict(const StringIdSet &boundLayers);
+BoundLayer::dict boundLayersAsDict(const IdSet &boundLayers);
 
 } } // namespace vadstena::registry
 

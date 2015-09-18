@@ -372,6 +372,13 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     return node;
 }
 
+void accumulateBoundLayers(registry::IdSet &ids, const Mesh &mesh)
+{
+    for (const auto &sm : mesh) {
+        if (sm.textureLayer) { ids.insert(*sm.textureLayer); }
+    }
+}
+
 void TileSet::Detail::setTile(const TileId &tileId
                               , const Mesh &mesh, bool watertight
                               , const Atlas *atlas
@@ -388,6 +395,10 @@ void TileSet::Detail::setTile(const TileId &tileId
     metanode.geometry(true);
     metanode.extents = normalizedExtents(referenceFrame, extents(mesh));
 
+    // get external textures info configuration
+    accumulateBoundLayers(properties.boundLayers, mesh);
+
+    // mesh and texture area stuff
     auto ma(area(mesh));
     metanode.cc(MetaNode::CoarsenessControl::texelSize);
     metanode.meshArea = std::sqrt(ma.mesh);
@@ -551,8 +562,19 @@ MapConfig TileSet::Detail::mapConfig() const
 
     mapConfig.referenceFrame = referenceFrame;
     mapConfig.srs = registry::listSrs(referenceFrame);
-    mapConfig.credits = registry::asDict(properties.credits);
+    mapConfig.credits = registry::creditsAsDict(properties.credits);
+    mapConfig.boundLayers
+        = registry::boundLayersAsDict(properties.boundLayers);
 
+    mapConfig.surfaces.emplace_back();
+    auto &surface(mapConfig.surfaces.back());
+    surface.id = properties.id;
+    surface.metaBinaryOrder = referenceFrame.metaBinaryOrder;
+
+    // local path
+    surface.root = fs::path();
+
+    // TODO: lod and tile range
     return mapConfig;
 }
 
