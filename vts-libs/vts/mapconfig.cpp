@@ -5,6 +5,10 @@
 
 namespace vadstena { namespace vts {
 
+namespace {
+    const int VERSION = 1;
+} // namespace
+
 Json::Value asJson(const Surface &surface)
 {
     Json::Value s(Json::objectValue);
@@ -48,12 +52,24 @@ Json::Value asJson(const Surface::list &surfaces)
 void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
 {
     Json::Value content;
+    content["version"] = VERSION;
+
     content["srses"] = registry::asJson(mapConfig.srs);
     content["referenceFrame"] = registry::asJson(mapConfig.referenceFrame);
     content["credits"] = registry::asJson(mapConfig.credits);
     content["boundLayers"] = registry::asJson(mapConfig.boundLayers);
 
     content["surfaces"] = asJson(mapConfig.surfaces);
+
+    // not implemented (so far)
+    content["freeLayers"] = Json::objectValue;
+    content["glue"] = Json::arrayValue;
+    content["rois"] = Json::arrayValue;
+    content["iews"] = Json::arrayValue;
+    content["namedViews"] = Json::arrayValue;
+
+    // dunno what to put here...
+    content["params"] = Json::objectValue;
 
     os.precision(15);
     Json::StyledStreamWriter().write(os, content);
