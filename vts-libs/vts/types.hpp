@@ -13,7 +13,7 @@
 namespace vadstena { namespace vts {
 
 struct Tile {
-    Mesh mesh;
+    Mesh::pointer mesh;
     bool watertight;
     Atlas::pointer atlas;
     NavTile::pointer navtile;

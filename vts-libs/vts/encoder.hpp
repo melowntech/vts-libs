@@ -29,7 +29,7 @@ protected:
     StaticProperties properties() const;
     const registry::ReferenceFrame& referenceFrame() const;
     void setConstraints(const Constraints &constraints);
-    const geo::SrsDefinition& physicalSrs() const;
+    const registry::Srs& physicalSrs() const;
 
     struct TileResult {
         enum class Result {

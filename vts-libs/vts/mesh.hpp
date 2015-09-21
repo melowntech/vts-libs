@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <iosfwd>
 #include <vector>
+#include <memory>
 
 #include <boost/filesystem/path.hpp>
 
@@ -51,6 +52,8 @@ struct SubMesh {
 };
 
 struct Mesh {
+    typedef std::shared_ptr<Mesh> pointer;
+
     double meanUndulation;
     SubMesh::list submeshes;
 

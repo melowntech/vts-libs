@@ -17,14 +17,15 @@ struct Encoder::Detail {
         , properties(tileSet.getProperties())
         , referenceFrame(tileSet.referenceFrame())
         , physicalSrs(registry::Registry::srs
-                      (referenceFrame.model.physicalSrs).srsDef)
+                      (referenceFrame.model.physicalSrs))
     {}
 
     void run()
     {
         UTILITY_OMP(parallel)
         UTILITY_OMP(single)
-        process(TileId(), Constraints::all, &referenceFrame.root(), 0);
+        process(TileId(referenceFrame.division.rootLod, 0, 0)
+                , Constraints::all, &referenceFrame.root(), 0);
 
         // let the caller finish the tileset
         owner->finish(tileSet);
@@ -42,7 +43,7 @@ struct Encoder::Detail {
     TileSet tileSet;
     StaticProperties properties;
     registry::ReferenceFrame referenceFrame;
-    geo::SrsDefinition physicalSrs;
+    registry::Srs physicalSrs;
 
     Constraints constraints;
 };
@@ -91,10 +92,6 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints
          , node->extents.ll(0) + (tileId.x + 1) * ts.width
          , node->extents.ur(1) - tileId.y * ts.height);
 
-    LOG(info3)
-        << "Processing " << tileId << " (extents: "
-        << std::fixed << divisionExtents << ").";
-
     if ((useConstraints & Constraints::useExtents)
         && constraints.extents) {
         if (!overlaps(*constraints.extents, divisionExtents)) {
@@ -105,14 +102,21 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints
     }
 
     if (processTile) {
+        LOG(info3)
+            << "Generating " << tileId << " (extents: "
+            << std::fixed << divisionExtents << ").";
+
         auto tile(owner->generate(tileId, *node, divisionExtents));
         switch (tile.result) {
         case TileResult::Result::data:
             UTILITY_OMP(critical)
             tileSet.setTile(tileId, tile.tile);
 
-            // we hit a valid tile -> do not apply extents for children
-            useConstraints &= ~Constraints::useExtents;
+            // we hit a tile with mesh -> do not apply extents constraints for
+            // children
+            if (tile.tile.mesh) {
+                useConstraints &= ~Constraints::useExtents;
+            }
             break;
 
         case TileResult::Result::noDataYet:
@@ -123,6 +127,10 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints
             // no data and nothing will ever be there
             return;
         }
+    } else {
+        LOG(info3)
+            << "Processing " << tileId << " (extents: "
+            << std::fixed << divisionExtents << ").";
     }
 
     // we can proces children -> go down
@@ -154,7 +162,7 @@ const registry::ReferenceFrame& Encoder::referenceFrame() const
     return detail_->referenceFrame;
 }
 
-const geo::SrsDefinition& Encoder::physicalSrs() const
+const registry::Srs& Encoder::physicalSrs() const
 {
     return detail_->physicalSrs;
 }

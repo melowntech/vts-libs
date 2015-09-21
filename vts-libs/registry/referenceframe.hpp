@@ -93,6 +93,10 @@ struct Srs {
     typedef Dictionary<Srs> dict;
 
     Srs() : srsModifiers() {}
+
+    bool adjustVertical() const {
+        return srsModifiers & Modifiers::adjustVertical;
+    }
 };
 
 struct ReferenceFrame {

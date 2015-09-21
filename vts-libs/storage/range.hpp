@@ -1,6 +1,8 @@
 #ifndef vadstena_libs_storage_range_hpp_included_
 #define vadstena_libs_storage_range_hpp_included_
 
+#include <limits>
+
 #include <boost/iterator/counting_iterator.hpp>
 #include <boost/iterator/reverse_iterator.hpp>
 #include <boost/range/iterator_range.hpp>
@@ -16,6 +18,7 @@ namespace vadstena { namespace storage {
 template<typename T>
 struct Range
 {
+    typedef T value_type;
     T min, max;
 
     Range() : min(), max() {}
@@ -65,6 +68,40 @@ inline void update(Range<T> &r, const T &v)
     if (r.empty()) { r = { v }; }
     if (v < r.min) { r.min = v; }
     if (v > r.max) { r.max = v; }
+}
+
+/** Grow range up/down by given value.
+ */
+template<typename T>
+inline Range<T> operator+(const Range<T> &r, int value)
+{
+    // empty range has undefined min and max -> cannot grow
+    if (r.empty()) { return r; }
+    if (!value) { return r; }
+
+    if (value < 0) {
+        auto min(std::numeric_limits<T>::min());
+        if ((min - value) > r.min) {
+            // underflow -> set to type's minimum
+            return { min, r.max };
+        }
+        return { T(r.min + value), r.max };
+    }
+
+    auto max(std::numeric_limits<T>::max());
+    if ((max - value) > r.max) {
+        // overflow -> set to type's minimum
+        return { r.min, max };
+    }
+    return { r.min, T(r.max + value) };
+}
+
+/** Grow range up/down by given value.
+ */
+template<typename T>
+inline Range<T> operator-(const Range<T> &r, int value)
+{
+    return operator+(r, -value);
 }
 
 template<typename T>

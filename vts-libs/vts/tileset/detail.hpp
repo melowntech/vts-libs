@@ -101,7 +101,7 @@ struct TileSet::Detail
     void loadTileIndex();
     void saveTileIndex();
 
-    void setTile(const TileId &tileId, const Mesh &mesh, bool watertight
+    void setTile(const TileId &tileId, const Mesh *mesh, bool watertight
                  , const Atlas *atlas, const NavTile *navtile);
 
     std::uint8_t metaOrder() const;

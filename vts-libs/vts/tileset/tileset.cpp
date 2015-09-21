@@ -43,7 +43,7 @@ void TileSet::getNavTile(const TileId &tileId, NavTile &navtile) const
 
 void TileSet::setTile(const TileId &tileId, const Tile &tile)
 {
-    detail().setTile(tileId, tile.mesh, tile.watertight, tile.atlas.get()
+    detail().setTile(tileId, tile.mesh.get(), tile.watertight, tile.atlas.get()
                      , tile.navtile.get());
 }
 
@@ -380,7 +380,7 @@ void accumulateBoundLayers(registry::IdSet &ids, const Mesh &mesh)
 }
 
 void TileSet::Detail::setTile(const TileId &tileId
-                              , const Mesh &mesh, bool watertight
+                              , const Mesh *mesh, bool watertight
                               , const Atlas *atlas
                               , const NavTile *navtile)
 {
@@ -391,39 +391,41 @@ void TileSet::Detail::setTile(const TileId &tileId
     MetaNode metanode;
 
     // set various flags and metadata
-    // geometry
-    metanode.geometry(true);
-    metanode.extents = normalizedExtents(referenceFrame, extents(mesh));
+    if (mesh) {
+        // geometry
+        metanode.geometry(true);
+        metanode.extents = normalizedExtents(referenceFrame, extents(*mesh));
 
-    // get external textures info configuration
-    accumulateBoundLayers(properties.boundLayers, mesh);
+        // get external textures info configuration
+        accumulateBoundLayers(properties.boundLayers, *mesh);
 
-    // mesh and texture area stuff
-    auto ma(area(mesh));
-    metanode.cc(MetaNode::CoarsenessControl::texelSize);
-    metanode.meshArea = std::sqrt(ma.mesh);
+        // mesh and texture area stuff
+        auto ma(area(*mesh));
+        metanode.cc(MetaNode::CoarsenessControl::texelSize);
+        metanode.meshArea = std::sqrt(ma.mesh);
 
-    // internal texture
-    metanode.internalTexture(true);
+        // internal texture
+        metanode.internalTexture(true);
 
-    // calculate texture area
-    double textureArea(0.0);
-    {
-        std::size_t index(0);
-        auto isubmeshes(mesh.submeshes.begin());
-        for (double ta : ma.texture) {
-            if (atlas) {
-                textureArea += ta * atlas->area(index++);
-            } else if (isubmeshes->textureLayer) {
-                // TODO: use value of to get size of texture textureLayer
-                auto ts(registry::Registry::boundLayer
-                        (*isubmeshes->textureLayer).tileSize);
-                textureArea += ta * area(ts);
+        // calculate texture area
+        double textureArea(0.0);
+        {
+            std::size_t index(0);
+            auto isubmeshes(mesh->submeshes.begin());
+            for (double ta : ma.texture) {
+                if (atlas) {
+                    textureArea += ta * atlas->area(index++);
+                } else if (isubmeshes->textureLayer) {
+                    // TODO: use value of to get size of texture textureLayer
+                    auto ts(registry::Registry::boundLayer
+                            (*isubmeshes->textureLayer).tileSize);
+                    textureArea += ta * area(ts);
+                }
             }
+            ++isubmeshes;
         }
-        ++isubmeshes;
+        metanode.textureArea = std::sqrt(textureArea);
     }
-    metanode.textureArea = std::sqrt(textureArea);
 
     // navtile
     if (navtile) {
@@ -435,7 +437,9 @@ void TileSet::Detail::setTile(const TileId &tileId
     updateNode(tileId, metanode, watertight);
 
     // save data
-    save(driver->output(tileId, TileFile::mesh), mesh);
+    if (mesh) {
+        save(driver->output(tileId, TileFile::mesh), *mesh);
+    }
     if (atlas) {
         save(driver->output(tileId, TileFile::atlas), *atlas);
     }
