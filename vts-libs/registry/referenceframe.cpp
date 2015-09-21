@@ -121,6 +121,11 @@ void parse(ReferenceFrame::Division::Node &node, const Json::Value &content)
         }
         parse(node.extents, extents);
     }
+
+    if (content.isMember("boundLayerLod")) {
+        node.boundLayerLod = 0;
+        Json::get(*node.boundLayerLod, content, "boundLayerLod");
+    }
 }
 
 void parse(ReferenceFrame::Division &division, const Json::Value &content)
@@ -286,6 +291,10 @@ void build(Json::Value &content, const ReferenceFrame::Division::Node &node)
     if (node.partitioning.mode != PartitioningMode::none) {
         content["srs"] = node.srs;
         build(content["extents"], node.extents);
+    }
+
+    if (node.boundLayerLod) {
+        content["boundLayerLod"] = *node.boundLayerLod;
     }
 }
 

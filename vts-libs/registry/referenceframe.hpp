@@ -133,6 +133,7 @@ struct ReferenceFrame {
             std::string srs;
             math::Extents2 extents;
             Partitioning partitioning;
+            boost::optional<Lod> boundLayerLod;
 
             typedef std::map<Id, Node> map;
         };
