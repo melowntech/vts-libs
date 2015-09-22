@@ -136,6 +136,7 @@ buildsys_target_compile_definitions(vadstena-vts0-core ${MODULE_DEFINITIONS})
 
 set(vadstena-vts-core_SOURCES
   vts.hpp
+  vts/multifile.hpp vts/multifile.cpp
   vts/mesh.hpp vts/mesh.cpp
   vts/metatile.hpp vts/metatile.cpp
   vts/atlas.hpp vts/atlas.cpp
@@ -163,7 +164,7 @@ set(vadstena-vts-core_SOURCES
 
 define_module(LIBRARY vadstena-vts-core DEPENDS
   vadstena-libs-registry vadstena-libs-storage
-  geo math utility dbglog jsoncpp half Boost_IOSTREAMS)
+  geo imgproc math utility dbglog jsoncpp half Boost_IOSTREAMS)
 add_library(vadstena-vts-core STATIC ${vadstena-vts-core_SOURCES})
 buildsys_library(vadstena-vts-core)
 target_link_libraries(vadstena-vts-core

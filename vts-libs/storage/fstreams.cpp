@@ -103,11 +103,8 @@ public:
         open();
     }
 
-    virtual ~FileIStream() {
-        if (!std::uncaught_exception() && buffer_.is_open()) {
-            LOG(warn3) << "File was not closed!";
-        }
-    }
+    // file doesn't need to be closed
+    virtual ~FileIStream() {}
 
     virtual std::istream& get() UTILITY_OVERRIDE { return stream_; }
 

@@ -9,6 +9,9 @@
 #include <boost/filesystem/path.hpp>
 
 #include "math/geometry_core.hpp"
+#include "imgproc/rastermask/quadtree.hpp"
+
+#include "./multifile.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -53,11 +56,20 @@ struct SubMesh {
 
 struct Mesh {
     typedef std::shared_ptr<Mesh> pointer;
+    typedef imgproc::quadtree::RasterMask CoverageMask;
 
     double meanUndulation;
     SubMesh::list submeshes;
+    CoverageMask coverageMask;
 
-    Mesh() : meanUndulation() {}
+    static const math::Size2i coverageSize() {
+        return math::Size2i(256, 256);
+    };
+
+    Mesh()
+        : meanUndulation()
+        , coverageMask(coverageSize(), CoverageMask::InitMode::FULL)
+    {}
 
     typedef SubMesh::list::iterator iterator;
     typedef SubMesh::list::const_iterator const_iterator;
@@ -68,6 +80,14 @@ struct Mesh {
     const_iterator cbegin() { return submeshes.begin(); }
     const_iterator cend() { return submeshes.end(); }
 };
+
+inline bool watertight(const Mesh &mesh) { return mesh.coverageMask.full(); }
+inline bool watertight(const Mesh *mesh) {
+    return mesh ? watertight(*mesh) : false;
+}
+inline bool watertight(const Mesh::pointer &mesh) {
+    return watertight(mesh.get());
+}
 
 math::Extents3 extents(const SubMesh &submesh);
 math::Extents3 extents(const Mesh &mesh);
@@ -95,6 +115,10 @@ void saveMesh(const boost::filesystem::path &path, const Mesh &mesh);
 Mesh loadMesh(std::istream &in, const boost::filesystem::path &path
               = "unknown");
 Mesh loadMesh(const boost::filesystem::path &path);
+
+multifile::Table readMeshTable(std::istream &is
+                               , const boost::filesystem::path &path
+                               = "unknown");
 
 } } // namespace vadstena::vts
 

@@ -14,11 +14,10 @@ namespace vadstena { namespace vts {
 
 struct Tile {
     Mesh::pointer mesh;
-    bool watertight;
     Atlas::pointer atlas;
     NavTile::pointer navtile;
 
-    Tile() : watertight(true) {}
+    Tile() {}
 };
 
 } } // namespace vadstena::vts

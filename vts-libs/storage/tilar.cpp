@@ -955,7 +955,7 @@ public:
     // write constructor
     Device(const Tilar::Detail::pointer &owner, const FileIndex &index, Append)
         : owner(owner), fd(owner->getFd()), index(index)
-        , start(seekFromEnd(fd)), pos(start), end(0)
+        , start(seekFromEnd(fd)), pos(start), end(0), writeEnd(0)
     {
         owner->begin(index, start);
         owner->share();
@@ -964,7 +964,7 @@ public:
     // read constructor
     Device(const Tilar::Detail::pointer &owner, const FileIndex &index)
         : owner(owner), fd(owner->getFd()), index(index)
-        , start(0), pos(0), end(0)
+        , start(0), pos(0), end(0), writeEnd(0)
     {
         const auto &slot(owner->index.get(index));
         if (!slot.valid()) {
@@ -1017,6 +1017,9 @@ public:
 
     void written(off_t bytes) {
         owner->setCurrentEnd(pos += bytes);
+
+        // move write end if beyond current
+        if (pos > writeEnd) { writeEnd = pos; }
     }
 
     void rewind(off_t newPos) { pos = start + newPos; }
@@ -1032,12 +1035,14 @@ public:
     off_t start;
     off_t pos;
     off_t end;
+    off_t writeEnd;
 };
 
 class Tilar::Sink {
 public:
     typedef char char_type;
-    typedef boost::iostreams::sink_tag category;
+    struct category : boost::iostreams::device_tag
+                    , boost::iostreams::output_seekable {};
 
     Sink(const Tilar::Detail::pointer &owner, const FileIndex &index)
         : device_(std::make_shared<Device>(owner, index, Device::Append{}))
@@ -1047,6 +1052,9 @@ public:
     std::string name() const { return device_->name(); }
 
     std::streamsize write(const char *s, std::streamsize n);
+
+    std::streampos seek(boost::iostreams::stream_offset off
+                        , std::ios_base::seekdir way);
 
     FileStat stat() const { return device_->stat(); }
 
@@ -1208,6 +1216,56 @@ std::streamsize Tilar::Sink::write(const char *data, std::streamsize size)
     }
 }
 
+std::streampos Tilar::Sink::seek(boost::iostreams::stream_offset off
+                                 , std::ios_base::seekdir way)
+{
+    if (!off) {
+        // optimization
+        switch (way) {
+        case std::ios_base::beg:
+            return 0;
+
+        case std::ios_base::end:
+            return (device_->start - device_->writeEnd);
+
+        case std::ios_base::cur:
+            return device_->pos - device_->start;
+
+        default: // shut up compiler!
+            break;
+        };
+    }
+
+    std::int64_t newPos(0);
+
+    switch (way) {
+    case std::ios_base::beg:
+        newPos = device_->start + off;
+        break;
+
+    case std::ios_base::end:
+        newPos = device_->writeEnd + off;
+        break;
+
+    case std::ios_base::cur:
+        newPos = device_->pos + off;
+        break;
+
+    default: // shut up compiler!
+        break;
+    };
+
+    if (newPos < std::int64_t(device_->start)) {
+        device_->pos = device_->start;
+    } else if (newPos > std::int64_t(device_->writeEnd)) {
+        device_->pos = device_->writeEnd;
+    } else {
+        device_->pos = newPos;
+    }
+
+    return (device_->pos - device_->start);
+}
+
 std::streamsize
 Tilar::Source::read_impl(char *data, std::streamsize size
                          , boost::iostreams::stream_offset pos)
@@ -1287,11 +1345,13 @@ void Tilar::rollback()
 
 OStream::pointer Tilar::output(const FileIndex &index)
 {
+    LOG(debug) << "output(" << detail().fd.path() << ", " << index << ")";
     return std::make_shared<Sink::Stream>(detail_, index);
 }
 
 IStream::pointer Tilar::input(const FileIndex &index)
 {
+    LOG(debug) << "input(" << detail().fd.path() << ", " << index << ")";
     return std::make_shared<Source::Stream>(detail_, index);
 }
 

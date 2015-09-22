@@ -22,9 +22,10 @@ public:
     Image get(std::size_t index) { return images_[index]; }
 
 private:
-    virtual Table serialize_impl(std::ostream &os) const;
+    virtual multifile::Table serialize_impl(std::ostream &os) const;
 
-    virtual void deserialize_impl(std::istream &is, const Table &table);
+    virtual void deserialize_impl(std::istream &is
+                                  , const multifile::Table &table);
 
     virtual std::size_t area(std::size_t index) const;
 

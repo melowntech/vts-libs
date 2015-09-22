@@ -6,10 +6,10 @@
 
 namespace vadstena { namespace vts { namespace opencv {
 
-Atlas::Table Atlas::serialize_impl(std::ostream &os) const
+multifile::Table Atlas::serialize_impl(std::ostream &os) const
 {
-    Table table;
-    std::size_t pos(0);
+    multifile::Table table;
+    auto pos(os.tellp());
 
     for (const auto &image : images_) {
         using utility::binaryio::write;
@@ -18,14 +18,14 @@ Atlas::Table Atlas::serialize_impl(std::ostream &os) const
                      , { cv::IMWRITE_JPEG_QUALITY, quality_ });
 
         write(os, buf.data(), buf.size());
-        table.emplace_back(pos, buf.size());
+        table.entries.emplace_back(pos, buf.size());
         pos += buf.size();
     }
 
     return table;
 }
 
-void Atlas::deserialize_impl(std::istream &is, const Table &table)
+void Atlas::deserialize_impl(std::istream &is, const multifile::Table &table)
 {
     Images images;
     for (const auto &entry : table) {

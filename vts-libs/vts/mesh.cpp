@@ -8,6 +8,7 @@
 #include "../storage/error.hpp"
 
 #include "./mesh.hpp"
+#include "./multifile.hpp"
 
 namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;
@@ -19,6 +20,9 @@ namespace vadstena { namespace vts {
 namespace {
     const char MAGIC[2] = { 'M', 'E' };
     const std::uint16_t VERSION = 1;
+
+    const std::string MF_MAGIC("ME");
+    const std::uint16_t MF_VERSION = 1;
 
     struct SubMeshFlag { enum : std::uint8_t {
         internalTexture = 0x1
@@ -91,7 +95,9 @@ MeshArea area(const Mesh &mesh)
     return out;
 }
 
-void saveMesh(std::ostream &out, const Mesh &mesh)
+namespace {
+
+void saveMeshProper(std::ostream &out, const Mesh &mesh)
 {
     // helper functions
     auto saveVertexComponent([&out](double v, double o, double s) -> void
@@ -196,6 +202,25 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
     }
 }
 
+} // namespace
+
+void saveMesh(std::ostream &out, const Mesh &mesh)
+{
+    multifile::Table table(MF_VERSION, MF_MAGIC);
+
+    auto p(out.tellp());
+    saveMeshProper(out, mesh);
+    auto pp(out.tellp());
+    table.entries.emplace_back(p, pp);
+    p = pp;
+
+    mesh.coverageMask.dump(out);
+    pp = out.tellp();
+    table.entries.emplace_back(p, pp);
+
+    multifile::writeTable(table, out);
+}
+
 void saveMesh(const fs::path &path, const Mesh &mesh)
 {
     utility::ofstreambuf f(path.string());
@@ -203,7 +228,9 @@ void saveMesh(const fs::path &path, const Mesh &mesh)
     f.close();
 }
 
-Mesh loadMesh(std::istream &in, const fs::path &path)
+namespace {
+
+void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
 {
     // helper functions
     auto loadVertexComponent([&in](double o, double s) -> double
@@ -236,8 +263,6 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
             << "File " << path
             << " has unsupported version (" << version << ").";
     }
-
-    Mesh mesh;
 
     bin::read(in, mesh.meanUndulation);
 
@@ -330,6 +355,30 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
             }
         }
     }
+}
+
+} // namespace
+
+multifile::Table readMeshTable(std::istream &is
+                               , const boost::filesystem::path &path)
+
+{
+    return multifile::readTable(is, MF_MAGIC, path)
+        .versionAtMost(MF_VERSION, path)
+        .checkEntryCount(2, path);
+}
+
+Mesh loadMesh(std::istream &in, const fs::path &path)
+{
+    const auto table(readMeshTable(in, path));
+
+    Mesh mesh;
+
+    in.seekg(table.entries[0].start);
+    loadMeshProper(in, path, mesh);
+
+    in.seekg(table.entries[1].start);
+    mesh.coverageMask.load(in);
 
     return mesh;
 }

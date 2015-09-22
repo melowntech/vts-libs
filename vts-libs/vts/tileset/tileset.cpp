@@ -43,7 +43,7 @@ void TileSet::getNavTile(const TileId &tileId, NavTile &navtile) const
 
 void TileSet::setTile(const TileId &tileId, const Tile &tile)
 {
-    detail().setTile(tileId, tile.mesh.get(), tile.watertight, tile.atlas.get()
+    detail().setTile(tileId, tile.mesh.get(), tile.atlas.get()
                      , tile.navtile.get());
 }
 
@@ -380,7 +380,7 @@ void accumulateBoundLayers(registry::IdSet &ids, const Mesh &mesh)
 }
 
 void TileSet::Detail::setTile(const TileId &tileId
-                              , const Mesh *mesh, bool watertight
+                              , const Mesh *mesh
                               , const Atlas *atlas
                               , const NavTile *navtile)
 {
@@ -434,7 +434,7 @@ void TileSet::Detail::setTile(const TileId &tileId
     }
 
     // store node
-    updateNode(tileId, metanode, watertight);
+    updateNode(tileId, metanode, watertight(mesh));
 
     // save data
     if (mesh) {
