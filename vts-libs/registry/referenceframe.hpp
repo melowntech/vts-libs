@@ -25,6 +25,8 @@
 #include "../storage/range.hpp"
 #include "../storage/credits.hpp"
 
+#include "./dict.hpp"
+
 namespace vadstena { namespace registry {
 
 using storage::Lod;
@@ -36,31 +38,6 @@ typedef std::set<std::string> StringIdSet;
 typedef std::set<int> IdSet;
 
 typedef math::Extents2_<unsigned int> TileRange;
-
-template <typename T, typename Key = std::string>
-class Dictionary
-{
-private:
-    typedef Key key_type;
-    typedef std::map<Key, T> map;
-
-public:
-    Dictionary() {}
-
-    void set(const key_type &id, const T &value);
-    const T* get(const key_type &id, std::nothrow_t) const;
-    const T& get(const key_type &id) const;
-    bool has(const key_type &id) const;
-
-    inline void add(const T &value) { set(value.id, value); }
-
-    typedef typename map::const_iterator const_iterator;
-    const_iterator begin() const { return map_.begin(); }
-    const_iterator end() const { return map_.end(); }
-
-private:
-    map map_;
-};
 
 enum class PartitioningMode { bisection, manual, none };
 enum class VerticalDatum { orthometric, ellipsoidal };
@@ -90,6 +67,7 @@ struct Srs {
     boost::optional<VerticalDatum> vdatum;
     boost::optional<geo::SrsDefinition> srsDefEllps;
 
+    static constexpr char typeName[] = "spatial reference system";
     typedef Dictionary<Srs> dict;
 
     Srs() : srsModifiers() {}
@@ -158,6 +136,7 @@ struct ReferenceFrame {
     unsigned int metaBinaryOrder;
     unsigned int navDelta;
 
+    static constexpr char typeName[] = "reference frame";
     typedef Dictionary<ReferenceFrame> dict;
 
     const Division::Node& root() const { return division.root(); }
@@ -202,6 +181,8 @@ struct Credit {
 
     Credit() : numericId(), copyrighted(false) {}
 
+    static constexpr char typeName[] = "credit";
+
     typedef Dictionary<Credit> dict;
     typedef Dictionary<Credit, Credit::NumericId> ndict;
 };
@@ -221,6 +202,8 @@ struct BoundLayer {
     StringIdSet credits;
 
     BoundLayer() : numericId() {}
+
+    static constexpr char typeName[] = "bound layer";
 
     typedef Dictionary<BoundLayer> dict;
     typedef Dictionary<BoundLayer, BoundLayer::NumericId> ndict;
@@ -311,37 +294,6 @@ ReferenceFrame::Division::Node::Id::operator<(const Id &id) const
     else if (id.x < x) { return false; }
 
     return y < id.y;
-}
-
-template <typename T, typename Key>
-void Dictionary<T, Key>::set(const key_type &id, const T &value)
-{
-    map_.insert(typename map::value_type(id, value));
-}
-
-template <typename T, typename Key>
-const T* Dictionary<T, Key>::get(const key_type &id, std::nothrow_t) const
-{
-    auto fmap(map_.find(id));
-    if (fmap == map_.end()) { return nullptr; }
-    return &fmap->second;
-}
-
-template <typename T, typename Key>
-const T& Dictionary<T, Key>::get(const key_type &id) const
-{
-    const auto *value(get(id, std::nothrow));
-    if (!value) {
-        LOGTHROW(err1, storage::KeyError)
-            << "No such key <" << id << "> in this dictionary.";
-    }
-    return *value;
-}
-
-template <typename T, typename Key>
-bool Dictionary<T, Key>::has(const key_type &id) const
-{
-    return (map_.find(id) != map_.end());
 }
 
 template<typename CharT, typename Traits>

@@ -65,7 +65,7 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     content["freeLayers"] = Json::objectValue;
     content["glue"] = Json::arrayValue;
     content["rois"] = Json::arrayValue;
-    content["iews"] = Json::arrayValue;
+    content["views"] = Json::arrayValue;
     content["namedViews"] = Json::arrayValue;
 
     // dunno what to put here...

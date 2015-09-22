@@ -19,6 +19,11 @@
 
 namespace vadstena { namespace registry {
 
+constexpr char Srs::typeName[];
+constexpr char ReferenceFrame::typeName[];
+constexpr char Credit::typeName[];
+constexpr char BoundLayer::typeName[];
+
 namespace {
 
 constexpr int DEFAULT_RF_VERSION(1);
