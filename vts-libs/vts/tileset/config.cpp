@@ -51,6 +51,22 @@ void parseIdSet(registry::IdSet &ids, const Json::Value &object
     }
 }
 
+void parseIdSet(registry::StringIdSet &ids, const Json::Value &object
+                , const char *name)
+{
+    const Json::Value &value(object[name]);
+
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of " << name << " is not a list.";
+    }
+
+    for (const auto &element : value) {
+        Json::check(element, Json::stringValue);
+        ids.insert(element.asString());
+    }
+}
+
 TileSet::Properties parse1(const Json::Value &config)
 {
     TileSet::Properties properties;
@@ -198,6 +214,83 @@ void saveConfig(const boost::filesystem::path &path
     f.open(path.string(), std::ios_base::out);
     saveConfig(f, properties);
     f.close();
+}
+
+namespace detail_extra {
+
+ExtraProperties parse1(const Json::Value &config)
+{
+    ExtraProperties ep;
+
+    if (config.isMember("position")) {
+        ep.position = boost::in_place();
+        detail::parse(*ep.position, config["position"]);
+    }
+
+    if (config.isMember("textureLayer")) {
+        ep.textureLayer = boost::in_place();
+        Json::get(*ep.textureLayer, config, "textureLayer");
+    }
+
+    if (config.isMember("extraCredits")) {
+        detail::parseIdSet(ep.extraCredits, config, "extraCredits");
+    }
+
+    if (config.isMember("extraBoundLayers")) {
+        detail::parseIdSet(ep.extraBoundLayers, config, "extraBoundLayers");
+    }
+
+    return ep;
+}
+
+} // namespace detail_extra
+
+ExtraProperties loadExtraConfig(std::istream &in)
+{
+    // load json
+    Json::Value config;
+    Json::Reader reader;
+    if (!reader.parse(in, config)) {
+        LOGTHROW(err2, storage::FormatError)
+            << "Unable to parse extra config: "
+            << reader.getFormattedErrorMessages() << ".";
+    }
+
+    try {
+        int version(0);
+        Json::get(version, config, "version");
+
+        switch (version) {
+        case 1:
+            return detail_extra::parse1(config);
+        }
+
+        LOGTHROW(err1, storage::FormatError)
+            << "Invalid extra config format: unsupported version "
+            << version << ".";
+
+    } catch (const Json::Error &e) {
+        LOGTHROW(err1, storage::FormatError)
+            << "Invalid extra config format (" << e.what()
+            << "); Unable to work with this config.";
+    }
+    throw;
+}
+
+ExtraProperties loadExtraConfig(const boost::filesystem::path &path)
+{
+    LOG(info1) << "Loading extra config from " << path  << ".";
+    std::ifstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    try {
+        f.open(path.string(), std::ios_base::in);
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::NoSuchTileSet)
+            << "Unable to load extra config file " << path << ".";
+    }
+    auto p(loadExtraConfig(f));
+    f.close();
+    return p;
 }
 
 } } // namespace vadstena::vts

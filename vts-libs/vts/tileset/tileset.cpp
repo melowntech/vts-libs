@@ -572,12 +572,21 @@ MapConfig TileSet::mapConfig() const
     return detail().mapConfig();
 }
 
+ExtraProperties TileSet::Detail::loadExtraConfig() const
+{
+    IStream::pointer is;
+    try {
+        is = driver->input(File::extraConfig);
+    } catch (std::exception) {
+        return {};
+    }
+
+    return vts::loadExtraConfig(*is);
+}
+
 MapConfig TileSet::Detail::mapConfig() const
 {
     MapConfig mapConfig;
-
-    // TODO: load extra config
-    // TODO: fill-in data from both configs and registry
 
     mapConfig.referenceFrame = referenceFrame;
     mapConfig.srs = registry::listSrs(referenceFrame);
@@ -599,6 +608,15 @@ MapConfig TileSet::Detail::mapConfig() const
     if (valid(properties.tileRange)) {
         surface.tileRange = properties.tileRange;
     }
+
+    // apply extra config
+    auto ec(loadExtraConfig());
+    mapConfig.credits.update
+        (registry::creditsAsDict(ec.extraCredits));
+    mapConfig.boundLayers.update
+       (registry::boundLayersAsDict(ec.extraBoundLayers));
+
+    surface.textureLayer = ec.textureLayer;
 
     return mapConfig;
 }

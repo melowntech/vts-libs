@@ -30,13 +30,16 @@ namespace {
     const std::uint8_t DefaultBinaryOrder(5);
 
     const std::string ConfigName("tileset.conf");
+    const std::string ExtraConfigName("extra.conf");
     const std::string TileIndexName("tileset.index");
 
     const std::string filePath(File type)
     {
         switch (type) {
         case File::config: return ConfigName;
+        case File::extraConfig: return ExtraConfigName;
         case File::tileIndex: return TileIndexName;
+        default: break;
         }
         throw "unknown file type";
     }

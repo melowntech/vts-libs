@@ -253,6 +253,8 @@ IStream::pointer TarDriver::input_impl(File type) const
         desc = "tile index";
         r = &indexFile_;
         break;
+
+    default: break;
     }
 
     if (!r->size) {
@@ -311,6 +313,8 @@ FileStat TarDriver::stat_impl(File type) const
         desc = "tile index";
         r = &indexFile_;
         break;
+
+    default: break;
     }
 
     if (!r->size) {

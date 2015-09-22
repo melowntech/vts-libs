@@ -23,6 +23,10 @@ TileSet::Properties loadConfig(const boost::filesystem::path &path);
 void saveConfig(const boost::filesystem::path &path
                 , const TileSet::Properties &properties);
 
+ExtraProperties loadExtraConfig(std::istream &in);
+
+ExtraProperties loadExtraConfig(const boost::filesystem::path &path);
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_tileset_config_hpp_included_

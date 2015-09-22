@@ -9,7 +9,8 @@ namespace {
     const int VERSION = 1;
 } // namespace
 
-Json::Value asJson(const Surface &surface)
+Json::Value asJson(const Surface &surface
+                   , registry::BoundLayer::dict &boundLayers)
 {
     Json::Value s(Json::objectValue);
 
@@ -37,14 +38,21 @@ Json::Value asJson(const Surface &surface)
     s["navUrl"]
         = (surface.root / fileTemplate(storage::TileFile::navtile)).string();
 
+    if (surface.textureLayer) {
+        s["textureLayer"] = *surface.textureLayer;
+        boundLayers.add
+            (registry::Registry::boundLayer(*surface.textureLayer));
+    }
+
     return s;
 }
 
-Json::Value asJson(const Surface::list &surfaces)
+Json::Value asJson(const Surface::list &surfaces
+                   , registry::BoundLayer::dict &boundLayers)
 {
     Json::Value s(Json::arrayValue);
     for (const auto &surface : surfaces) {
-        s.append(asJson(surface));
+        s.append(asJson(surface, boundLayers));
     }
     return s;
 }
@@ -56,10 +64,13 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
 
     content["srses"] = registry::asJson(mapConfig.srs);
     content["referenceFrame"] = registry::asJson(mapConfig.referenceFrame);
-    content["credits"] = registry::asJson(mapConfig.credits);
-    content["boundLayers"] = registry::asJson(mapConfig.boundLayers);
 
-    content["surfaces"] = asJson(mapConfig.surfaces);
+    auto boundLayers(mapConfig.boundLayers);
+
+    // get credits, append all from bound layers
+    auto credits(mapConfig.credits);
+
+    content["surfaces"] = asJson(mapConfig.surfaces, boundLayers);
 
     // not implemented (so far)
     content["freeLayers"] = Json::objectValue;
@@ -70,6 +81,13 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
 
     // dunno what to put here...
     content["params"] = Json::objectValue;
+
+    for (const auto &bl : boundLayers) {
+        credits.update(registry::creditsAsDict(bl.second.credits));
+    }
+
+    content["credits"] = registry::asJson(credits);
+    content["boundLayers"] = registry::asJson(boundLayers);
 
     os.precision(15);
     Json::StyledStreamWriter().write(os, content);

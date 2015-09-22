@@ -20,6 +20,7 @@ struct Surface {
     boost::filesystem::path root;
     storage::LodRange lodRange;
     registry::TileRange tileRange;
+    boost::optional<std::string> textureLayer;
 
     Surface() {}
 

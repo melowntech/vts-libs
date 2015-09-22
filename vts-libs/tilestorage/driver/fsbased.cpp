@@ -31,6 +31,7 @@ namespace {
         switch (type) {
         case File::config: return ConfigName;
         case File::tileIndex: return TileIndexName;
+        default: break;
         }
         throw "unknown file type";
     }

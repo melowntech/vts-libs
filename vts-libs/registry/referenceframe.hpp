@@ -52,11 +52,9 @@ struct Sphereoid {
 struct Srs {
     enum class Type { geographic, projected, cartesian };
 
-    struct Modifiers {
-        enum {
-            adjustVertical = 0x01
-        };
-    };
+    struct Modifiers { enum {
+        adjustVertical = 0x01
+    }; };
 
     std::string comment;
     Type type;

@@ -45,6 +45,28 @@ struct StaticProperties {
     StaticProperties() : revision(0) {}
 };
 
+struct ExtraProperties {
+    /** Override position.
+     */
+    boost::optional<registry::Position> position;
+
+    /** Texture layer to add (automatically added to bound layers).
+     */
+    boost::optional<std::string> textureLayer;
+
+    /** Extra bound layers added to output extra bound layers in map config.
+     */
+    registry::StringIdSet extraBoundLayers;
+
+    /** Extra credits added to output extra credits in map config.
+     */
+    registry::StringIdSet extraCredits;
+
+    // TODO: view, freeLayers, namedViews, roi
+
+    ExtraProperties() {}
+};
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_tileset_properties_hpp_included_

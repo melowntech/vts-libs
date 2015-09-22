@@ -34,6 +34,8 @@ public:
     const_iterator begin() const { return map_.begin(); }
     const_iterator end() const { return map_.end(); }
 
+    void update(const Dictionary &other);
+
 private:
     map map_;
 };
@@ -67,6 +69,12 @@ template <typename T, typename Key>
 bool Dictionary<T, Key>::has(const key_type &id) const
 {
     return (map_.find(id) != map_.end());
+}
+
+template <typename T, typename Key>
+void Dictionary<T, Key>::update(const Dictionary &other)
+{
+    for (const auto &item : other) { map_.insert(item); }
 }
 
 } } // namespace vadstena::registry
