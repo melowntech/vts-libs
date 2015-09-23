@@ -114,11 +114,11 @@ public:
      */
     template <typename Op> void traverseMetas(const Op &op) const;
 
-private:
     /** Returns tile index.
      */
     const TileIndex& tileIndex() const;
 
+private:
     /** Returns metatile index.
      */
     const TileIndex& metaIndex() const;

@@ -336,6 +336,24 @@ TileIndex& TileIndex::makeComplete()
     return *this;
 }
 
+TileIndex& TileIndex::makeFull()
+{
+    // nothing to grow
+    if (masks_.empty()) { return *this; }
+    auto i(masks_.begin());
+    math::Size2i tiling(1, 1);
+    for (Lod l(0); l < minLod_; ++l, ++i) {
+        i = masks_.insert(i, RasterMask(tiling, RasterMask::EMPTY));
+
+        // double tile count at next lod
+        tiling.width <<= 1;
+        tiling.height <<= 1;
+    }
+
+    minLod_ = 0;
+    return *this;
+}
+
 TileIndex& TileIndex::invert()
 {
     // invert all masks

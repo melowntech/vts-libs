@@ -102,13 +102,17 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints
     }
 
     if (processTile) {
-        LOG(info3)
-            << "Generating " << tileId << " (extents: "
+        LOG(info2)
+            << "Trying to generate " << tileId << " (extents: "
             << std::fixed << divisionExtents << ").";
 
         auto tile(owner->generate(tileId, *node, divisionExtents));
         switch (tile.result) {
         case TileResult::Result::data:
+            LOG(info3)
+                << "Generated " << tileId << " (extents: "
+                << std::fixed << divisionExtents << ").";
+
             UTILITY_OMP(critical)
             tileSet.setTile(tileId, tile.tile);
 
@@ -121,7 +125,7 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints
 
         case TileResult::Result::noDataYet:
             // fine, something could be down there
-            return;
+            break;
 
         case TileResult::Result::noData:
             // no data and nothing will ever be there
@@ -129,7 +133,7 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints
         }
     } else {
         LOG(info3)
-            << "Processing " << tileId << " (extents: "
+            << "Falling through " << tileId << " (extents: "
             << std::fixed << divisionExtents << ").";
     }
 

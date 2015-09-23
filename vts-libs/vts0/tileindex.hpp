@@ -100,6 +100,10 @@ public:
 
     TileIndex& invert();
 
+    /** Add LODs from root to first existing LOD.
+     */
+    TileIndex& makeFull();
+
 private:
     RasterMask* mask(Lod lod);
 

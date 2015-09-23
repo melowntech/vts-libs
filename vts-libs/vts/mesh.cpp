@@ -211,12 +211,12 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
     auto p(out.tellp());
     saveMeshProper(out, mesh);
     auto pp(out.tellp());
-    table.entries.emplace_back(p, pp);
+    table.entries.emplace_back(p, pp - p);
     p = pp;
 
     mesh.coverageMask.dump(out);
     pp = out.tellp();
-    table.entries.emplace_back(p, pp);
+    table.entries.emplace_back(p, pp - p);
 
     multifile::writeTable(table, out);
 }
