@@ -78,6 +78,10 @@ public:
 
     const boost::filesystem::path& root() const { return root_; }
 
+    /** Returns time of last modification. Recorded at read-only open.
+     */
+    std::time_t lastModified() const { return lastModified_; }
+
 private:
     void checkRunning() const;
 
@@ -87,17 +91,29 @@ private:
      */
     const boost::filesystem::path root_;
 
-    /** Path to mapConfig
+    /** Path to config
      */
     boost::filesystem::path configPath_;
+
+    /** Path to extra-config
+     */
+    boost::filesystem::path extraConfigPath_;
 
     driver::Options options_;
 
     mutable driver::Cache cache_;
 
-    /** Information about mapConfig when tileset was open in read-only mode.
+    /** Information about root when tileset was open in read-only mode.
      */
-    FileStat openStat_;
+    FileStat rootStat_;
+
+    /** Information about config when tileset was open in read-only mode.
+     */
+    FileStat configStat_;
+
+    /** Information about extra-config when tileset was open in read-only mode.
+     */
+    FileStat extraConfigStat_;
 
     /** Runnable associated with the driver.
      */
@@ -106,6 +122,10 @@ private:
     /** Content of old config file.
      */
     boost::optional<std::string> oldConfig_;
+
+    /** Time of last modification (recorded at read-only open)
+     */
+    std::time_t lastModified_;
 };
 
 inline void Driver::watch(utility::Runnable *runnable)

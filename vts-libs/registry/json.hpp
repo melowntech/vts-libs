@@ -16,6 +16,7 @@ Json::Value asJson(const ReferenceFrame &rf);
 Json::Value asJson(const Srs::dict &srs);
 Json::Value asJson(const Credit::dict &credits);
 Json::Value asJson(const BoundLayer::dict &boundLayers);
+Json::Value asJson(const Position &position);
 
 } } // namespace vadstena::registry
 

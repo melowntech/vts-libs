@@ -878,6 +878,21 @@ Json::Value asJson(const BoundLayer::dict &boundLayers)
     return content;
 }
 
+Json::Value asJson(const Position &position)
+{
+    Json::Value value(Json::arrayValue);
+    value.append(boost::lexical_cast<std::string>(position.type));
+    value.append(position.position(0));
+    value.append(position.position(1));
+    value.append(position.position(2));
+    value.append(position.orientation(0));
+    value.append(position.orientation(1));
+    value.append(position.orientation(2));
+    value.append(position.viewHeight);
+    value.append(position.verticalFov);
+    return value;
+}
+
 Srs::dict listSrs(const ReferenceFrame &referenceFrame)
 {
     Srs::dict srs;

@@ -4,6 +4,7 @@
 #include <ctime>
 #include <iostream>
 #include <memory>
+#include <new>
 
 #include <boost/noncopyable.hpp>
 #include <boost/optional.hpp>
@@ -29,8 +30,11 @@ struct FileStat {
     bool changed(const FileStat &other) const;
 
     static FileStat stat(const boost::filesystem::path &path);
+    static FileStat stat(const boost::filesystem::path &path
+                         , std::nothrow_t);
 
     static FileStat stat(int fd);
+    static FileStat stat(int fd, std::nothrow_t);
 };
 
 /** Read only file descriptor.

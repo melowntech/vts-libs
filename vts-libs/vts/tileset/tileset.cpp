@@ -618,6 +618,8 @@ MapConfig TileSet::Detail::mapConfig() const
 
     surface.textureLayer = ec.textureLayer;
 
+    mapConfig.position = ec.position ? *ec.position : properties.position;
+
     return mapConfig;
 }
 

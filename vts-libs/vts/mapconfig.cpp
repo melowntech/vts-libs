@@ -9,6 +9,8 @@ namespace {
     const int VERSION = 1;
 } // namespace
 
+const char* MapConfig::contentType("application/json");
+
 Json::Value asJson(const Surface &surface
                    , registry::BoundLayer::dict &boundLayers)
 {
@@ -71,6 +73,8 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     auto credits(mapConfig.credits);
 
     content["surfaces"] = asJson(mapConfig.surfaces, boundLayers);
+
+    content["position"] = registry::asJson(mapConfig.position);
 
     // not implemented (so far)
     content["freeLayers"] = Json::objectValue;

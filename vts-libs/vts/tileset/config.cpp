@@ -7,6 +7,7 @@
 #include "./config.hpp"
 #include "./detail.hpp"
 #include "../../storage/error.hpp"
+#include "../../registry/json.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -102,20 +103,6 @@ TileSet::Properties parse1(const Json::Value &config)
     return properties;
 }
 
-void build(Json::Value &value, const registry::Position &p)
-{
-    value = Json::arrayValue;
-    value.append(boost::lexical_cast<std::string>(p.type));
-    value.append(p.position(0));
-    value.append(p.position(1));
-    value.append(p.position(2));
-    value.append(p.orientation(0));
-    value.append(p.orientation(1));
-    value.append(p.orientation(2));
-    value.append(p.viewHeight);
-    value.append(p.verticalFov);
-}
-
 void build(Json::Value &config, const TileSet::Properties &properties)
 {
     config["version"]
@@ -130,7 +117,7 @@ void build(Json::Value &config, const TileSet::Properties &properties)
     auto &boundLayers(config["boundLayers"] = Json::arrayValue);
     for (auto cid : properties.boundLayers) { boundLayers.append(cid); }
 
-    build(config["position"], properties.position);
+    config["position"] = registry::asJson(properties.position);
 
     auto &driver(config["driver"]);
     driver["binaryOrder"] = properties.driverOptions.binaryOrder();

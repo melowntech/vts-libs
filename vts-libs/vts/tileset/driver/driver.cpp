@@ -72,8 +72,10 @@ Driver::Driver(const boost::filesystem::path &root
                , CreateMode mode, const driver::Options &options)
     : root_(absolute(root))
     , configPath_(root_ / filePath(File::config))
+    , extraConfigPath_(root_ / filePath(File::extraConfig))
     , options_(options.binaryOrder()) // we have to generate new UUID
     , cache_(root_, options_, false)
+    , lastModified_()
 {
     if (!create_directories(root_)) {
         // directory already exists -> fail if mode says so
@@ -92,9 +94,14 @@ Driver::Driver(const boost::filesystem::path &root
 Driver::Driver(const boost::filesystem::path &root)
     : root_(absolute(root))
     , configPath_(root_ / filePath(File::config))
+    , extraConfigPath_(root_ / filePath(File::extraConfig))
     , options_(vts::loadConfig(configPath_).driverOptions)
     , cache_(root_, options_, true)
-    , openStat_(FileStat::stat(configPath_))
+    , rootStat_(FileStat::stat(root_))
+    , configStat_(FileStat::stat(configPath_))
+    , extraConfigStat_(FileStat::stat(extraConfigPath_, std::nothrow))
+    , lastModified_(std::max({ rootStat_.lastModified, configStat_.lastModified
+                    , extraConfigStat_.lastModified }))
 {
 }
 
@@ -163,7 +170,10 @@ void Driver::flush()
 
 bool Driver::externallyChanged() const
 {
-    return openStat_.changed(FileStat::stat(configPath_));
+    return (rootStat_.changed(FileStat::stat(root_))
+            || configStat_.changed(FileStat::stat(configPath_))
+            || extraConfigStat_.changed(FileStat::stat
+                                        (extraConfigPath_, std::nothrow)));
 }
 
 void Driver::wannaWrite(const std::string &what) const

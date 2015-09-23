@@ -35,6 +35,8 @@ struct MapConfig {
     registry::Position position;
 
     Surface::list surfaces;
+
+    static const char *contentType;
 };
 
 /** Save map config into stream.
