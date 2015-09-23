@@ -2,6 +2,7 @@
 #include <string>
 #include <iostream>
 #include <algorithm>
+#include <iterator>
 
 #include <jpeglib.h>
 
@@ -277,7 +278,7 @@ private:
     math::Point2 origin_;
 };
 
-vts::Mesh::pointer createMesh(const vts0::Mesh &gm
+vts::Mesh::pointer createMesh(const vts0::Mesh &m
                               , const geo::SrsDefinition &srcSrs
                               , const vr::Srs &dstSrs
                               , const math::Extents2 &divisionExtents
@@ -292,7 +293,7 @@ vts::Mesh::pointer createMesh(const vts0::Mesh &gm
     // copy vertices
     geo::CsConvertor conv(srcSrs, dstSrs.srsDef);
     TextureNormalizer tn(divisionExtents);
-    for (const auto &v : gm.vertices) {
+    for (const auto &v : m.vertices) {
         // convert v from division SRS to physical SRS (can be no-op)
         sm.vertices.push_back(conv(v));
 
@@ -305,14 +306,14 @@ vts::Mesh::pointer createMesh(const vts0::Mesh &gm
     }
 
     // copy texture coordinates
-    std::transform(gm.texcoords.begin(), gm.texcoords.end()
+    std::transform(m.texcoords.begin(), m.texcoords.end()
                    , std::back_inserter(sm.tc)
                    , [&](const math::Point3 &p)
     {
         return math::Point2(p(0), p(1));
     });
 
-    for (const auto &f : gm.facets) {
+    for (const auto &f : m.facets) {
         sm.faces.emplace_back(f.v[0], f.v[1], f.v[2]);
         sm.facesTc.emplace_back(f.t[0], f.t[1], f.t[2]);
     }
