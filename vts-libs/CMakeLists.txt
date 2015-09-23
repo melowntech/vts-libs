@@ -132,7 +132,24 @@ target_link_libraries(vadstena-vts0-core
   ${MODULE_LIBRARIES})
 buildsys_target_compile_definitions(vadstena-vts0-core ${MODULE_DEFINITIONS})
 
-# VTS core library
+# VTS browser + core library
+
+# Create vadstena-vts-browser library with browser files
+file_to_cpp(vadstena-libs_vts_BROWSER_SOURCES
+  vadstena::vts::browser::index_html
+  vts/browser/index.html)
+file_to_cpp(vadstena-libs_vts_BROWSER_SOURCES
+  vadstena::vts::browser::index_offline_html
+  vts/browser/index-offline.html)
+file_to_cpp(vadstena-libs_vts_BROWSER_SOURCES
+  vadstena::vts::browser::skydome_jpg
+  vts/browser/skydome.jpg)
+
+add_library(vadstena-vts-browser STATIC
+  ${vadstena-libs_vts_BROWSER_SOURCES}
+  vts/support.hpp vts/support.cpp
+  )
+buildsys_library(vadstena-vts-browser)
 
 set(vadstena-vts-core_SOURCES
   vts.hpp
@@ -168,6 +185,7 @@ define_module(LIBRARY vadstena-vts-core DEPENDS
 add_library(vadstena-vts-core STATIC ${vadstena-vts-core_SOURCES})
 buildsys_library(vadstena-vts-core)
 target_link_libraries(vadstena-vts-core
+  vadstena-vts-browser
   ${MODULE_LIBRARIES})
 buildsys_target_compile_definitions(vadstena-vts-core ${MODULE_DEFINITIONS})
 
