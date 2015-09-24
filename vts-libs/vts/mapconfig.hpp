@@ -33,10 +33,13 @@ struct MapConfig {
     registry::Credit::dict credits;
     registry::BoundLayer::dict boundLayers;
     registry::Position position;
+    bool textureAtlasReady;
 
     Surface::list surfaces;
 
     static const char *contentType;
+
+    MapConfig() : textureAtlasReady(false) {}
 };
 
 /** Save map config into stream.

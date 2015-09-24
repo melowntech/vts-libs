@@ -180,6 +180,7 @@ buildGeomExtents(Lod lod, const math::Extents3 &extents)
 void parseGeomExtents(Lod lod, const math::Extents3 &extents
                       , std::vector<std::uint8_t> &block)
 {
+    // TODO: implement me
     (void) lod;
     (void) extents;
     (void) block;

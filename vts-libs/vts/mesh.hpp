@@ -62,7 +62,7 @@ struct Mesh {
     SubMesh::list submeshes;
     CoverageMask coverageMask;
 
-    static const math::Size2i coverageSize() {
+    static math::Size2i coverageSize() {
         return math::Size2i(256, 256);
     };
 

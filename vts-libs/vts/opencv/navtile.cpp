@@ -32,7 +32,7 @@ void NavTile::serialize(std::ostream &os) const
     using utility::binaryio::write;
     std::vector<unsigned char> buf;
     cv::imencode(".jpg", image, buf
-                 , { cv::IMWRITE_JPEG_QUALITY, 75 });
+                 , { cv::IMWRITE_JPEG_QUALITY, 92 });
 
     write(os, buf.data(), buf.size());
 }
@@ -75,7 +75,7 @@ void NavTile::deserialize(const HeightRange &heightRange
     });
 }
 
-void NavTile::set(const Data &data)
+void NavTile::data(const Data &data)
 {
     // check size
     auto ts(NavTile::size());
@@ -100,6 +100,14 @@ void NavTile::set(const Data &data)
     cv::minMaxLoc(data_, &range.min, &range.max);
     heightRange_.min = std::int16_t(std::floor(range.min));
     heightRange_.max = std::int16_t(std::ceil(range.max));
+}
+
+NavTile::Data NavTile::createData(boost::optional<double> value)
+{
+    auto ts(NavTile::size());
+    Data data(ts.height, ts.width, CV_64FC1);
+    if (value) { data = cv::Scalar(*value); }
+    return data;
 }
 
 } } } // namespace vadstena::vts::opencv

@@ -4,6 +4,7 @@
 #include <memory>
 
 #include <boost/optional.hpp>
+#include <boost/noncopyable.hpp>
 
 #include "geo/srsdef.hpp"
 
@@ -12,18 +13,56 @@
 
 namespace vadstena { namespace vts {
 
-class Encoder {
+class Encoder : boost::noncopyable {
 public:
     Encoder(const boost::filesystem::path &path
             , const StaticProperties &properties, CreateMode mode);
 
     virtual ~Encoder() {}
 
-    /** Start encoding process from root tile.
+    /** Starts encoding process from root tile.
+     *
+     *  Traverses tile tree in depth-first manner.  For each tile a call to
+     *  generate() member function is made.
+     *
+     *  Subtree traversal is stopped when generate() returns (result ==
+     *  noData).  Constraints are applied during traversal to filter out tiles
+     *  that doesn't need to or cannot be generated.
      */
     void run();
 
+    /** Tree traversal algorithm constraints. See bellow.
+     */
     struct Constraints;
+
+    /** Type returned by generate(). Tile data + operation result.
+     */
+    struct TileResult {
+        enum class Result {
+            /** No data in this tile but there can be some data in the lower
+             *  levels of the tree.
+             */
+            noDataYet
+
+            /** No data here and nothing down there.
+             */
+            , noData
+
+            /** Valid tile data.
+             */
+            , data
+        };
+
+        /** Result of generate() operation.
+         */
+        Result result;
+
+        /** Tile data. Valid only when (result == data).
+         */
+        Tile tile;
+
+        TileResult(Result result = Result::noData) : result(result) {}
+    };
 
 protected:
     StaticProperties properties() const;
@@ -31,21 +70,23 @@ protected:
     void setConstraints(const Constraints &constraints);
     const registry::Srs& physicalSrs() const;
 
-    struct TileResult {
-        enum class Result {
-            noDataYet
-            , noData
-            , data
-        };
-
-        Result result;
-        Tile tile;
-
-        TileResult(Result result = Result::noData) : result(result) {}
-    };
-
 private:
-    /** Generates mesh, atlas and navtile for given tile.
+    /** Called from run to generate mesh, atlas and navtile for every tile in
+     *  the tree that satisfies constraints.
+     *
+     *  Thread safety info: this function iscalled in parallel via OpenMP when
+     *  OpenMP support is compiled in. Therefore you have to wrap thread-unsafe
+     *  operation in an OpenMP critical block, preferably using our UTILITY_OMP
+     *  helper macro that takes into account whether OpenMP is compiled in or
+     *  not.
+     *
+     *  Example:
+     *      UTILITY_OMP(critical)
+     *      {
+     *          something;
+     *          thread;
+     *          unsafe;
+     *      }
      */
     virtual TileResult
     generate(const TileId &tileId
@@ -53,31 +94,37 @@ private:
              , const math::Extents2 &divisionExtents) = 0;
 
 
-    /** Generates mesh, atlas and optionally metadata for given tile.
+    /** Called from run after whole tree is processed.
      */
     virtual void finish(TileSet &tileSet) = 0;
 
-    void process(const TileId &tileId, int useConstraints);
-
+    // internals (pimpl)
     struct Detail;
     friend struct Detail;
     std::shared_ptr<Detail> detail_;
 };
 
+/** Tree traversal constraints.
+ */
 struct Encoder::Constraints {
+    /** Generate will be called only for tiles having LOD in given range.
+     */
     boost::optional<LodRange> lodRange;
+
+    /** Generate will be called only for tiles overlapping with given extents.
+     */
     boost::optional<math::Extents2> extents;
 
-    enum {
-        useLodRange = 0x01
-        , useExtents = 0x02
-
-        , all = (useLodRange | useExtents)
-    };
+    /** Given extents are used to filter tiles until first valid tile is
+     *  generated in given subtree if true. On by default.
+     */
+    bool useExtentsForFirstHit;
 
     Constraints& setLodRange(const boost::optional<LodRange> &value);
 
     Constraints& setExtents(const boost::optional<math::Extents2> &value);
+
+    Constraints() : useExtentsForFirstHit(true) {}
 };
 
 inline Encoder::Constraints&

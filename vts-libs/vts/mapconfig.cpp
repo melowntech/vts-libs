@@ -93,6 +93,8 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     content["credits"] = registry::asJson(credits);
     content["boundLayers"] = registry::asJson(boundLayers);
 
+    content["textureAtlasReady"] = mapConfig.textureAtlasReady;
+
     os.precision(15);
     Json::StyledStreamWriter().write(os, content);
 }

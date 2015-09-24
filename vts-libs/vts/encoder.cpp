@@ -10,6 +10,35 @@
 
 namespace vadstena { namespace vts {
 
+namespace {
+    struct ConstraintsFlag {
+        typedef std::uint32_t type;
+        enum : type {
+            useLodRange = 0x01
+            , useExtents = 0x02
+            , clearExtentsOnHit = 0x04
+
+            , all = (useLodRange | useExtents)
+        };
+
+        static type build(const Encoder::Constraints &c) {
+            type flags(0);
+
+            if (c.lodRange) { flags |= useLodRange; }
+            if (c.extents) { flags |= useExtents; }
+            if (c.useExtentsForFirstHit) { flags |= clearExtentsOnHit; }
+
+            return flags;
+        }
+
+        static void clearExtents(type &flags, bool value) {
+            if (value && (flags & clearExtentsOnHit)) {
+                flags &= ~useExtents;
+            }
+        }
+    };
+} // namespace
+
 struct Encoder::Detail {
     Detail(Encoder *owner, const boost::filesystem::path &path
            , const StaticProperties &properties, CreateMode mode)
@@ -25,7 +54,8 @@ struct Encoder::Detail {
         UTILITY_OMP(parallel)
         UTILITY_OMP(single)
         process(TileId(referenceFrame.division.rootLod, 0, 0)
-                , Constraints::all, &referenceFrame.root(), 0);
+                , ConstraintsFlag::build(constraints)
+                , &referenceFrame.root(), 0);
 
         // let the caller finish the tileset
         owner->finish(tileSet);
@@ -36,7 +66,7 @@ struct Encoder::Detail {
 
     typedef registry::ReferenceFrame::Division::Node Node;
 
-    void process(const TileId &tileId, int useConstraints
+    void process(const TileId &tileId, ConstraintsFlag::type useConstraints
                  , const Node *node, Lod lodFromNode);
 
     Encoder *owner;
@@ -48,7 +78,8 @@ struct Encoder::Detail {
     Constraints constraints;
 };
 
-void Encoder::Detail::process(const TileId &tileId, int useConstraints
+void Encoder::Detail::process(const TileId &tileId
+                              , ConstraintsFlag::type useConstraints
                               , const Node *node, Lod lodFromNode)
 {
     struct TIDGuard {
@@ -64,9 +95,7 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints
 
     bool processTile(true);
 
-    if ((useConstraints & Constraints::useLodRange)
-        && constraints.lodRange)
-    {
+    if (useConstraints & ConstraintsFlag::useLodRange) {
         if (tileId.lod < constraints.lodRange->min) {
             // no data yet -> go directly down
             // * equivalent to TileResult::noDataYet
@@ -92,8 +121,7 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints
          , node->extents.ll(0) + (tileId.x + 1) * ts.width
          , node->extents.ur(1) - tileId.y * ts.height);
 
-    if ((useConstraints & Constraints::useExtents)
-        && constraints.extents) {
+    if (useConstraints & ConstraintsFlag::useExtents) {
         if (!overlaps(*constraints.extents, divisionExtents)) {
             // nothing can live out here -> done
             // * equivalent to TileResult::noData
@@ -117,10 +145,9 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints
             tileSet.setTile(tileId, tile.tile);
 
             // we hit a tile with mesh -> do not apply extents constraints for
-            // children
-            if (tile.tile.mesh) {
-                useConstraints &= ~Constraints::useExtents;
-            }
+            // children if set
+            ConstraintsFlag::clearExtents
+                (useConstraints, bool(tile.tile.mesh));
             break;
 
         case TileResult::Result::noDataYet:
