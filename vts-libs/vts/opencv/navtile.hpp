@@ -22,6 +22,8 @@ public:
     virtual void deserialize(const HeightRange &heightRange, std::istream &is
                              , const boost::filesystem::path &path);
 
+    virtual HeightRange heightRange() const;
+
     void data(const Data &d);
     const Data& data() const { return data_; }
     Data& data() { return data_; }

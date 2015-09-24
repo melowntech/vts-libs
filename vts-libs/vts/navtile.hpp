@@ -31,10 +31,7 @@ public:
                              , const boost::filesystem::path &path
                              = "unknown") = 0;
 
-    HeightRange heightRange() const { return heightRange_; }
-
-protected:
-    HeightRange heightRange_;
+    virtual HeightRange heightRange() const = 0;
 };
 
 } } // namespace vadstena::vts
