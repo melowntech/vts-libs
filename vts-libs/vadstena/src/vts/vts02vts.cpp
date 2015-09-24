@@ -338,11 +338,9 @@ inline math::Matrix4 geo2grid(const math::Extents2& extents
 
 /** Rasterizes mesh to generate mesh mask and mesh heightmap.
  */
-NavTile::Data rasterizeMesh(const vts::TileId &tileId
-                            , const math::Extents2 &extents
-                            , const vts0::Mesh &mesh
-                            , vts::Mesh::CoverageMask &cm
-                            , bool generated)
+void rasterizeMesh(const vts::TileId &tileId, const math::Extents2 &extents
+                   , const vts0::Mesh &mesh, vts::Mesh::CoverageMask &cm
+                   , NavTile::pointer &navtile)
 {
     (void) tileId;
 
@@ -425,85 +423,82 @@ NavTile::Data rasterizeMesh(const vts::TileId &tileId
         }
     }
 
-    if (!generated) {
-        // TODO: pixel-grow data in heights using masktto have nice data in
-        // navtile
+    if (navtile) { return; }
+    navtile.reset(new NavTile);
 
-        // get kernel from low-pass filter
-        auto kernel(math::LowPassFilter_t(radius, radius).getKernel());
+    // TODO: pixel-grow data in heights using masktto have nice data in
+    // navtile
 
-        // temporary buffer for horizontal filtering
-        cv::Mat buffer(rasterSize.height, cms.width, CV_64FC1);
+    // get kernel from low-pass filter
+    auto kernel(math::LowPassFilter_t(radius, radius).getKernel());
 
-        // horizontal filtering
-        // for every row in output
-        for (int j(0); j < buffer.rows; ++j) {
-            // and for every column in buffer
-            for (int i(0); i < buffer.cols; ++i) {
-                // and for every item in kernel
+    // temporary buffer for horizontal filtering
+    cv::Mat buffer(rasterSize.height, cms.width, CV_64FC1);
 
-                // calculate convolution
-                int x(2 * i);
-                double sum(0), weight(0);
-                for (const auto f : kernel) {
-                    // if unmasked -> take into account
-                    if (mask.at<unsigned char>(j, x)) {
-                        sum += f * heights.at<double>(j, x);
-                        weight += f;
-                    }
-                    ++x;
+    // horizontal filtering
+    // for every row in output
+    for (int j(0); j < buffer.rows; ++j) {
+        // and for every column in buffer
+        for (int i(0); i < buffer.cols; ++i) {
+            // and for every item in kernel
+
+            // calculate convolution
+            int x(2 * i);
+            double sum(0), weight(0);
+            for (const auto f : kernel) {
+                // if unmasked -> take into account
+                if (mask.at<unsigned char>(j, x)) {
+                    sum += f * heights.at<double>(j, x);
+                    weight += f;
                 }
+                ++x;
+            }
 
-                // write filtered value
+            // write filtered value
+            if (weight) {
                 buffer.at<double>(j, i) = sum / weight;
             }
         }
+    }
 
-        // output heightmap
-        auto hm(NavTile::createData());
+    // output heightmap
+    auto &hm(navtile->data());
 
-        // vertical filtering
-        // and for every column in output
-        for (int i(0); i < hm.cols; ++i) {
-            // and for every row in output
-            for (int j(0); j < hm.rows; ++j) {
-                // and for every item in kernel
+    // vertical filtering
+    // and for every column in output
+    for (int i(0); i < hm.cols; ++i) {
+        // and for every row in output
+        for (int j(0); j < hm.rows; ++j) {
+            // and for every item in kernel
 
-                // calculate convolution
-                int y(2 * j);
-                double sum(0), weight(0);
-                for (const auto f : kernel) {
-                    // if unmasked -> take into account
-                    if (mask.at<unsigned char>(y, 2 * i + radius)) {
-                        sum += f * buffer.at<double>(y, i);
-                        weight += f;
-                    }
-                    ++y;
+            // calculate convolution
+            int y(2 * j);
+            double sum(0), weight(0);
+            for (const auto f : kernel) {
+                // if unmasked -> take into account
+                if (mask.at<unsigned char>(y, 2 * i + radius)) {
+                    sum += f * buffer.at<double>(y, i);
+                    weight += f;
                 }
+                ++y;
+            }
 
-                // write filtered value
+            // write filtered value
+            if (weight) {
                 hm.at<double>(j, i) = sum / weight;
             }
         }
-
-        // return new data
-        return hm;
     }
-
-    // return generated data
-    return {};
 }
 
-typedef std::tuple<vts::Mesh::pointer, vts::NavTile::pointer> MeshAndNavtile;
-
-MeshAndNavtile
+vts::Mesh::pointer
 createMeshAndNavtile(const vts::TileId &tileId, const vts0::Mesh &m
                      , const geo::SrsDefinition &srcSrs
                      , const vr::Srs &dstSrs
                      , const math::Extents2 &divisionExtents
                      , bool externalTextureCoordinates
                      , boost::optional<std::uint16_t> textureLayer
-                     , const NavTile::pointer &navtile)
+                     , NavTile::pointer &navtile)
 {
     // just one submesh
     auto mesh(std::make_shared<vts::Mesh>());
@@ -541,17 +536,10 @@ createMeshAndNavtile(const vts::TileId &tileId, const vts0::Mesh &m
     }
 
     // create mesh mask and navtile
-    NavTile::pointer nt;
-    {
-        auto ntData(rasterizeMesh(tileId, divisionExtents, m
-                                  , mesh->coverageMask, bool(navtile)));
-        if (ntData.data) {
-            nt = std::make_shared<NavTile>(ntData);
-        }
-    }
+    rasterizeMesh(tileId, divisionExtents, m, mesh->coverageMask, navtile);
 
     // done
-    return MeshAndNavtile(mesh, navtile ? navtile : nt);
+    return mesh;
 }
 
 void Encoder::hm2Navtile()
@@ -567,7 +555,7 @@ void Encoder::hm2Navtile()
 
         // get navtile and create if missing
         auto &nt(navtiles_[tileId]);
-        if (!nt) { nt = nt = std::make_shared<NavTile>(); }
+        if (!nt) { nt.reset(new NavTile); }
 
         // set pixel at proper index to value read from center of tile's
         // heightmap
@@ -633,10 +621,13 @@ Encoder::generate(const vts::TileId &tileId
     tile.atlas = std::make_shared<Atlas>(atlasStream);
 
     // convert mesh from old one
-    std::tie(tile.mesh, tile.navtile)
-        = createMeshAndNavtile(tileId, mesh, spatialDivisionSrs, physicalSrs()
-                               , divisionExtents, bool(node.boundLayerLod)
-                               , config_.textureLayer, navtile);
+    tile.mesh = createMeshAndNavtile(tileId, mesh, spatialDivisionSrs
+                                     , physicalSrs(), divisionExtents
+                                     , bool(node.boundLayerLod)
+                                     , config_.textureLayer, navtile);
+
+    // set navtile
+    tile.navtile = navtile;
 
     return result;
 }
