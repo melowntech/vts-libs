@@ -548,6 +548,21 @@ createMeshAndNavtile(const vts::TileId &tileId, const vts0::Mesh &m
 
 void Encoder::hm2Navtile()
 {
+    const auto lr(input_->lodRange());
+    const vs::LodRange gap(lr.max - 8 + 1, lr.min);
+
+    auto navtile([&](vts::TileId tileId) -> NavTile::pointer&
+    {
+        // get navtile and create if missing
+        auto &nt(navtiles_[tileId]);
+        if (!nt) {
+            nt = std::make_shared<NavTile>();
+            // clear mask
+            nt->coverageMask().reset(false);
+        }
+        return nt;
+    });
+
     aa_.traverseTiles([&](const vts0::TileId &vts0Id)
     {
         // cannot go above root :)
@@ -558,22 +573,44 @@ void Encoder::hm2Navtile()
         unsigned int y(vts0Id.y & 0xff);
 
         // get navtile and create if missing
-        auto &nt(navtiles_[tileId]);
-        if (!nt) {
-            nt = std::make_shared<NavTile>();
-            // clear mask
-            nt->coverageMask().reset(false);
-        }
+        auto &nt(navtile(tileId));
 
-        // set pixel at proper index to value read from center of tile's
-        // heightmap
-        nt->data().at<double>(y, x)
-            = input_->getMetadata(vts0Id)
-            .heightmap[vts0::TileMetadata::HMSize / 2]
-            [vts0::TileMetadata::HMSize / 2];
-
-        // set mask
+        // get value read from center of tile's heightmap
+        auto height(input_->getMetadata(vts0Id)
+                    .heightmap[vts0::TileMetadata::HMSize / 2]
+                    [vts0::TileMetadata::HMSize / 2]);
+        // get in navtile and mask
+        nt->data().at<double>(y, x) = height;
         nt->coverageMask().set(x, y);
+
+        if (gap.empty() || (vts0Id.lod != lr.max)) { return; }
+
+        // bottom of pyramid, we can generate tiles in the gap from this one
+        auto generateMask([](unsigned int bits)
+        {
+            return (((unsigned int)(1) << bits) - (unsigned int)(1));
+        });
+
+        int index(7);
+        for (auto l : gap) {
+            unsigned int count(generateMask(8 - index));
+            unsigned int mask(generateMask(index));
+
+            vts::TileId tileId(l, vts0Id.x >> index, vts0Id.y >> index);
+            unsigned int x((vts0Id.x & mask) << (8 - index));
+            unsigned int y((vts0Id.y & mask) << (8 - index));
+
+            // get navtile and create if missing
+            auto &nt(navtile(tileId));
+            for (unsigned int j(0); j <= count; ++j) {
+                for (unsigned int i(0); i <= count; ++i) {
+                    nt->data().at<double>(y + j, x + i) = height;
+                    nt->coverageMask().set(x + i, y + j);
+                }
+            }
+
+            --index;
+        }
     });
 }
 
