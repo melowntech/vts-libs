@@ -59,6 +59,27 @@ Json::Value asJson(const Surface::list &surfaces
     return s;
 }
 
+Json::Value asJson(const View &view
+                   , registry::BoundLayer::dict &boundLayers)
+{
+    Json::Value v(Json::objectValue);
+
+    auto &surfaces(v["surfaces"] = Json::arrayValue);
+    for (const auto &surface : view.surfaces) {
+        surfaces.append(surface);
+    }
+
+    auto &bls(v["boundLayers"] = Json::arrayValue);
+    for (const auto &bl : view.boundLayers) {
+        bls.append(bl);
+        boundLayers.add(registry::Registry::boundLayer(bl));
+    }
+
+    v["freeLayers"] = Json::arrayValue;
+
+    return v;
+}
+
 void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
 {
     Json::Value content;
@@ -80,7 +101,7 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     content["freeLayers"] = Json::objectValue;
     content["glue"] = Json::arrayValue;
     content["rois"] = Json::arrayValue;
-    content["views"] = Json::arrayValue;
+    content["view"] = asJson(mapConfig.view, boundLayers);
     content["namedViews"] = Json::arrayValue;
 
     // dunno what to put here...

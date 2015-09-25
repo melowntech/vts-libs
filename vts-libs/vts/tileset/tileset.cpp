@@ -620,6 +620,9 @@ MapConfig TileSet::Detail::mapConfig() const
 
     mapConfig.position = ec.position ? *ec.position : properties.position;
 
+    // just one view
+    mapConfig.view.surfaces.insert(surface.id);
+
     return mapConfig;
 }
 

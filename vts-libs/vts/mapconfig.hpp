@@ -27,6 +27,12 @@ struct Surface {
     typedef std::vector<Surface> list;
 };
 
+struct View {
+    registry::StringIdSet surfaces;
+    registry::StringIdSet boundLayers;
+    registry::StringIdSet freeLayers;
+};
+
 struct MapConfig {
     registry::Srs::dict srs;
     registry::ReferenceFrame referenceFrame;
@@ -36,6 +42,8 @@ struct MapConfig {
     bool textureAtlasReady;
 
     Surface::list surfaces;
+
+    View view;
 
     static const char *contentType;
 
