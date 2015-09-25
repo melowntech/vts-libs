@@ -21,8 +21,9 @@ struct Surface {
     storage::LodRange lodRange;
     registry::TileRange tileRange;
     boost::optional<std::string> textureLayer;
+    unsigned int revision;
 
-    Surface() {}
+    Surface() : revision(0) {}
 
     typedef std::vector<Surface> list;
 };

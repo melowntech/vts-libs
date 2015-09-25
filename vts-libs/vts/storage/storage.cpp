@@ -44,7 +44,8 @@ Storage::Detail::Detail(const boost::filesystem::path &root
                         , CreateMode mode)
     : root(root)
 {
-    (void) properties;
+    // fill in slice
+    static_cast<StorageProperties&>(this->properties) = properties;
 
     if (!create_directories(root)) {
         // directory already exists -> fail if mode says so

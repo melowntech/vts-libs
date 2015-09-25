@@ -62,9 +62,14 @@ std::string asFilename(const TileId &tileId, TileFile type)
                % extension(type));
 }
 
-std::string fileTemplate(TileFile type)
+std::string fileTemplate(TileFile type, boost::optional<unsigned int> revision)
 {
-    const std::string ext(extension(type));
+
+    std::string ext(extension(type));
+    if (revision) {
+        ext = str(boost::format("%s?%s") % ext % *revision);
+    }
+
     if (type == TileFile::atlas) {
         return str(boost::format("{lod}-{x}-{y}-{sub}.%s") % ext);
     }

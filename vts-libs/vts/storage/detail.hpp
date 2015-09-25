@@ -14,6 +14,10 @@
 
 namespace vadstena { namespace vts {
 
+struct Storage::Properties : StorageProperties {
+    Properties() {}
+};
+
 struct Storage::Detail
 {
     bool readOnly;
@@ -25,6 +29,8 @@ struct Storage::Detail
     ~Detail();
 
     boost::filesystem::path root;
+
+    Properties properties;
 };
 
 inline void Storage::DetailDeleter::operator()(Detail *d) { delete d; }

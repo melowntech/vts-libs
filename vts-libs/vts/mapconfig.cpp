@@ -32,13 +32,17 @@ Json::Value asJson(const Surface &surface
 
     // paths
     s["metaUrl"]
-        = (surface.root / fileTemplate(storage::TileFile::meta)).string();
+        = (surface.root / fileTemplate(storage::TileFile::meta
+                                       , surface.revision)).string();
     s["meshUrl"]
-        = (surface.root / fileTemplate(storage::TileFile::mesh)).string();
+        = (surface.root / fileTemplate(storage::TileFile::mesh
+                                       , surface.revision)).string();
     s["textureUrl"]
-        = (surface.root / fileTemplate(storage::TileFile::atlas)).string();
+        = (surface.root / fileTemplate(storage::TileFile::atlas
+                                       , surface.revision)).string();
     s["navUrl"]
-        = (surface.root / fileTemplate(storage::TileFile::navtile)).string();
+        = (surface.root / fileTemplate(storage::TileFile::navtile
+                                       , surface.revision)).string();
 
     if (surface.textureLayer) {
         s["textureLayer"] = *surface.textureLayer;

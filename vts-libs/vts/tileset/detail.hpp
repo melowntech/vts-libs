@@ -15,6 +15,11 @@
 namespace vadstena { namespace vts {
 
 struct TileSet::Properties : StaticProperties {
+    /** Data version/revision. Should be increment anytime the data change.
+     *  Used in template URL's to push through caches.
+     */
+    unsigned int revision;
+
     // driver options
     driver::Options driverOptions;
 
@@ -26,7 +31,7 @@ struct TileSet::Properties : StaticProperties {
      */
     TileRange tileRange;
 
-    Properties() {}
+    Properties() : revision(0) {}
 };
 
 struct TileNode {

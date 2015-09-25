@@ -25,11 +25,6 @@ struct StaticProperties {
      */
     std::string referenceFrame;
 
-    /** Data version/revision. Should be increment anytime the data change.
-     *  Used in template URL's to push through caches.
-     */
-    unsigned int revision;
-
     /** Set of credits.
      */
     registry::IdSet credits;
@@ -42,7 +37,7 @@ struct StaticProperties {
      */
     registry::Position position;
 
-    StaticProperties() : revision(0) {}
+    StaticProperties() {}
 };
 
 struct ExtraProperties {

@@ -597,6 +597,7 @@ MapConfig TileSet::Detail::mapConfig() const
     mapConfig.surfaces.emplace_back();
     auto &surface(mapConfig.surfaces.back());
     surface.id = properties.id;
+    surface.revision = properties.revision;
 
     // local path
     surface.root = fs::path();
