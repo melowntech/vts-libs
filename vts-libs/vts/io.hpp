@@ -2,11 +2,6 @@
 #define vadstena_libs_vts_io_hpp_included_
 
 #include <iostream>
-#include <typeinfo>
-
-#include <boost/spirit/include/qi.hpp>
-#include <boost/spirit/include/qi_match.hpp>
-#include <boost/spirit/include/qi_match_auto.hpp>
 
 #include "./basetypes.hpp"
 

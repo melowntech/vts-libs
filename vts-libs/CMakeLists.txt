@@ -176,6 +176,10 @@ set(vadstena-vts-core_SOURCES
   vts/tileset/driver/options.hpp
   vts/tileset/driver/cache.hpp vts/tileset/driver/cache.cpp
 
+  vts/storage.hpp
+  vts/storage/detail.hpp
+  vts/storage/storage.cpp
+
   vts/mapconfig.hpp vts/mapconfig.cpp
   )
 

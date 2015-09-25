@@ -5,6 +5,8 @@
 
 #include "math/geometry_core.hpp"
 
+#include "utility/enum-io.hpp"
+
 #include "../storage/lod.hpp"
 #include "../storage/range.hpp"
 #include "../registry.hpp"
@@ -36,6 +38,13 @@ struct TileId {
 
 typedef std::array<TileId, 4> Children;
 
+/** Open mode
+ */
+enum class OpenMode {
+    readOnly     //!< only getters are allowed
+    , readWrite  //!< both getters and setters are allowed
+};
+
 enum class CreateMode {
     failIfExists //!< creation fails if tile set/storage already exists
     , overwrite  //!< existing tile set/storage is replace with new one
@@ -60,6 +69,16 @@ inline bool TileId::operator==(const TileId &tid) const
             && (x == tid.x)
             && (y == tid.y));
 }
+
+UTILITY_GENERATE_ENUM_IO(OpenMode,
+    ((readOnly))
+    ((readWrite))
+)
+
+UTILITY_GENERATE_ENUM_IO(CreateMode,
+    ((failIfExists))
+    ((overwrite))
+)
 
 } } // namespace vadstena::vts
 
