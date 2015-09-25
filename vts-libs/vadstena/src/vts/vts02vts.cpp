@@ -258,7 +258,9 @@ private:
         return table;
     }
 
-    virtual void deserialize_impl(std::istream&, const vts::multifile::Table&)
+    virtual void deserialize_impl(std::istream&
+                                  , const boost::filesystem::path&
+                                  , const vts::multifile::Table&)
         UTILITY_OVERRIDE
     {
         LOGTHROW(err4, std::runtime_error)
