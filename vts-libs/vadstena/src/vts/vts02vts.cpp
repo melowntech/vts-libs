@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <iterator>
 
+#include <boost/algorithm/string/split.hpp>
+
 #include <jpeglib.h>
 
 #include <opencv2/highgui/highgui.hpp>
@@ -45,6 +47,7 @@ namespace vr = vadstena::registry;
 namespace vts0 = vadstena::vts0;
 namespace vts = vadstena::vts;
 namespace va = vadstena;
+namespace ba = boost::algorithm;
 namespace fs = boost::filesystem;
 namespace ublas = boost::numeric::ublas;
 
@@ -137,6 +140,9 @@ void Vts02Vts::configuration(po::options_description &cmdline
          , "String/numeric id of bound layer to be used as external texture "
          "in generated meshes. Turns on generation of external texture "
          "coordinates if set.")
+
+        ("credits", po::value<std::string>()->required()
+         , "Comma-separated list of string/numeric credit id.")
         ;
 
     registryConfiguration(cmdline);
@@ -170,6 +176,23 @@ void Vts02Vts::configure(const po::variables_map &vars)
                 (po::validation_error::invalid_option_value, "textureLayer");
         }
         config_.textureLayer = layer.numericId;
+    }
+
+    if (vars.count("credits")) {
+        std::vector<std::string> parts;
+        for (const auto &value
+                 : ba::split(parts, vars["credits"].as<std::string>()
+                             , ba::is_any_of(",")))
+        {
+            vr::Credit credit;
+            try {
+                credit = vr::Registry::credit(boost::lexical_cast<int>(value));
+            } catch (boost::bad_lexical_cast) {
+                credit = vr::Registry::credit(value);
+            }
+
+            properties_.credits.insert(credit.numericId);
+        }
     }
 }
 
