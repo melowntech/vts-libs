@@ -1,3 +1,7 @@
+#include "dbglog/dbglog.hpp"
+
+#include "../storage/error.hpp"
+
 #include "./navtile.hpp"
 
 namespace vadstena { namespace vts {
@@ -5,6 +9,15 @@ namespace vadstena { namespace vts {
 namespace {
     const std::string MAGIC("NT");
     const std::uint16_t VERSION = 1;
+
+    void checkMaskSize(const NavTile::CoverageMask &mask) {
+        if (mask.size() != NavTile::size()) {
+            LOGTHROW(err1, storage::FormatError)
+                << "Navigation coverage mask has different "
+                << "dimensions than" << NavTile::size() << ".";
+        }
+    }
+
 } // namespace
 
 multifile::Table NavTile::readTable(std::istream &is
@@ -17,6 +30,8 @@ multifile::Table NavTile::readTable(std::istream &is
 
 void NavTile::serialize(std::ostream &os) const
 {
+    checkMaskSize(coverageMask_);
+
     auto table(serialize_impl(os).set(VERSION, MAGIC));
 
     // write mask
@@ -36,6 +51,13 @@ void NavTile::deserialize(const HeightRange &heightRange, std::istream &is
     // read mask
     is.seekg(table.entries[1].start);
     coverageMask_.load(is);
+    checkMaskSize(coverageMask_);
+}
+
+void NavTile::coverageMask(const CoverageMask &mask)
+{
+    checkMaskSize(mask);
+    coverageMask_ = mask;
 }
 
 } } // namespace vadstena::vts

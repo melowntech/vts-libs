@@ -101,14 +101,14 @@ void NavTile::data(const Data &data)
     auto ts(NavTile::size());
     if ((data.rows != ts.height) || (data.cols != ts.width)) {
         LOGTHROW(err1, storage::FormatError)
-            << "Passed navigational data have different dimensions than "
+            << "Passed navigation data have different dimensions than "
             << ts << ".";
     }
 
     // check type
     if (data.type() != CV_64FC1) {
         LOGTHROW(err1, storage::FormatError)
-            << "Passed navigational data is not "
+            << "Passed navigation data are not "
             "a single channel double matrix.";
     }
 

@@ -32,6 +32,7 @@ public:
 
     CoverageMask& coverageMask() { return coverageMask_; }
     const CoverageMask& coverageMask() const { return coverageMask_; }
+    void coverageMask(const CoverageMask &mask);
 
     void serialize(std::ostream &os) const;
 
