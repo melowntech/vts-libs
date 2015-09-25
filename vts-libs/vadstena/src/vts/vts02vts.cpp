@@ -428,8 +428,10 @@ void rasterizeMesh(const vts::TileId &tileId, const math::Extents2 &extents
     if (navtile) { return; }
     navtile.reset(new NavTile);
 
-    // TODO: pixel-grow data in heights using masktto have nice data in
-    // navtile
+    // use same mask as mesh mask
+    navtile->coverageMask(cm);
+
+    // TODO: pixel-grow data in heights using mask to have nice data in navtile
 
     // get kernel from low-pass filter
     auto kernel(math::LowPassFilter_t(radius, radius).getKernel());
@@ -557,7 +559,11 @@ void Encoder::hm2Navtile()
 
         // get navtile and create if missing
         auto &nt(navtiles_[tileId]);
-        if (!nt) { nt.reset(new NavTile); }
+        if (!nt) {
+            nt.reset(new NavTile);
+            // clear mask
+            nt->coverageMask.reset(false);
+        }
 
         // set pixel at proper index to value read from center of tile's
         // heightmap
@@ -566,7 +572,8 @@ void Encoder::hm2Navtile()
             .heightmap[vts0::TileMetadata::HMSize / 2]
             [vts0::TileMetadata::HMSize / 2];
 
-        // TODO: set mask in nt
+        // set mask
+        nt->coverageMask.set(x, y);
     });
 }
 
