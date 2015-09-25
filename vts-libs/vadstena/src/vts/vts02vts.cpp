@@ -426,7 +426,7 @@ void rasterizeMesh(const vts::TileId &tileId, const math::Extents2 &extents
     }
 
     if (navtile) { return; }
-    navtile.reset(new NavTile);
+    navtile = std::make_shared<NavTile>();
 
     // use same mask as mesh mask
     navtile->coverageMask(cm);
@@ -560,9 +560,9 @@ void Encoder::hm2Navtile()
         // get navtile and create if missing
         auto &nt(navtiles_[tileId]);
         if (!nt) {
-            nt.reset(new NavTile);
+            nt = std::make_shared<NavTile>();
             // clear mask
-            nt->coverageMask.reset(false);
+            nt->coverageMask().reset(false);
         }
 
         // set pixel at proper index to value read from center of tile's
@@ -573,7 +573,7 @@ void Encoder::hm2Navtile()
             [vts0::TileMetadata::HMSize / 2];
 
         // set mask
-        nt->coverageMask.set(x, y);
+        nt->coverageMask().set(x, y);
     });
 }
 
