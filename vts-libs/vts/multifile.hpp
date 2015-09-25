@@ -19,6 +19,8 @@ struct Table {
         Entry(std::size_t start = 0, std::size_t size = 0)
             : start(start), size(size)
         {}
+
+        std::size_t end() const { return start + size; }
     };
 
     typedef std::vector<Entry> Entries;
@@ -42,6 +44,16 @@ struct Table {
 
     const Table& checkEntryCount(Entries::size_type count
                                  , const boost::filesystem::path &path) const;
+
+    std::size_t add(std::size_t start, std::size_t size) {
+        entries.emplace_back(start, size);
+        return entries.back().end();
+    }
+
+    std::size_t add(const Entry &entry) {
+        entries.push_back(entry);
+        return entry.end();
+    }
 
     typedef Entries::const_iterator const_iterator;
     typedef Entries::iterator iterator;

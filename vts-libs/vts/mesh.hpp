@@ -66,6 +66,8 @@ struct Mesh {
         return math::Size2i(256, 256);
     };
 
+    static constexpr unsigned int meshIndex() { return 0; }
+
     Mesh()
         : meanUndulation()
         , coverageMask(coverageSize(), CoverageMask::InitMode::FULL)

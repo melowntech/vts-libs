@@ -1,6 +1,10 @@
 #include <opencv2/highgui/highgui.hpp>
 
+#include "dbglog/dbglog.hpp"
+
 #include "utility/binaryio.hpp"
+
+#include "../../storage/error.hpp"
 
 #include "./atlas.hpp"
 
@@ -18,14 +22,15 @@ multifile::Table Atlas::serialize_impl(std::ostream &os) const
                      , { cv::IMWRITE_JPEG_QUALITY, quality_ });
 
         write(os, buf.data(), buf.size());
-        table.entries.emplace_back(pos, buf.size());
-        pos += buf.size();
+        pos = table.add(pos, buf.size());
     }
 
     return table;
 }
 
-void Atlas::deserialize_impl(std::istream &is, const multifile::Table &table)
+void Atlas::deserialize_impl(std::istream &is
+                             , const boost::filesystem::path &path
+                             , const multifile::Table &table)
 {
     Images images;
     for (const auto &entry : table) {
@@ -37,6 +42,11 @@ void Atlas::deserialize_impl(std::istream &is, const multifile::Table &table)
         read(is, buf.data(), buf.size());
 
         auto image(cv::imdecode(buf, CV_LOAD_IMAGE_COLOR));
+        if (!image.data) {
+            LOGTHROW(err1, storage::BadFileFormat)
+                << "Cannot decode image from block(" << entry.start
+                << ", " << entry.size << " in file " << path << ".";
+        }
         images.push_back(image);
     }
     images_.swap(images);

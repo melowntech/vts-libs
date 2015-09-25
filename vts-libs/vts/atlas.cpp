@@ -28,7 +28,7 @@ void Atlas::serialize(std::ostream &os) const
 void Atlas::deserialize(std::istream &is
                         , const boost::filesystem::path &path)
 {
-    deserialize_impl(is, readTable(is, path));
+    deserialize_impl(is, path, readTable(is, path));
 }
 
 } } // namespace vadstena::vts

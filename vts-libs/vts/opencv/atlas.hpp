@@ -25,6 +25,7 @@ private:
     virtual multifile::Table serialize_impl(std::ostream &os) const;
 
     virtual void deserialize_impl(std::istream &is
+                                  , const boost::filesystem::path &path
                                   , const multifile::Table &table);
 
     virtual std::size_t area(std::size_t index) const;

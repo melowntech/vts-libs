@@ -39,6 +39,7 @@ private:
     virtual multifile::Table serialize_impl(std::ostream &os) const = 0;
 
     virtual void deserialize_impl(std::istream &is
+                                  , const boost::filesystem::path &path
                                   , const multifile::Table &table) = 0;
 };
 

@@ -17,11 +17,6 @@ public:
     NavTile() : data_(createData()) {}
     NavTile(const Data &d) { data(d); }
 
-    virtual void serialize(std::ostream &os) const;
-
-    virtual void deserialize(const HeightRange &heightRange, std::istream &is
-                             , const boost::filesystem::path &path);
-
     virtual HeightRange heightRange() const;
 
     void data(const Data &d);
@@ -36,6 +31,13 @@ public:
     static Data createData(boost::optional<double> value = boost::none);
 
 private:
+    virtual multifile::Table serialize_impl(std::ostream &os) const;
+
+    virtual void deserialize_impl(const HeightRange &heightRange
+                                  , std::istream &is
+                                  , const boost::filesystem::path &path
+                                  , const multifile::Table &table);
+
     Data data_;
 };
 

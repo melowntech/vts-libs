@@ -12,7 +12,7 @@
 
 namespace vadstena { namespace vts { namespace opencv {
 
-void NavTile::serialize(std::ostream &os) const
+multifile::Table NavTile::serialize_impl(std::ostream &os) const
 {
     // convert data to image
     const auto ts(NavTile::size());
@@ -28,30 +28,42 @@ void NavTile::serialize(std::ostream &os) const
         return std::uint8_t(std::round((255 * (value - hr.min)) / size));
     });
 
+    // write
+    multifile::Table table;
+    auto pos(os.tellp());
+
     // serialize image
     using utility::binaryio::write;
     std::vector<unsigned char> buf;
+    // TODO: configurable quality?
     cv::imencode(".jpg", image, buf
                  , { cv::IMWRITE_JPEG_QUALITY, 92 });
 
     write(os, buf.data(), buf.size());
+    pos = table.add(pos, buf.size());
+
+    return table;
 }
 
-void NavTile::deserialize(const HeightRange &heightRange
-                          , std::istream &is
-                          , const boost::filesystem::path &path)
+void NavTile::deserialize_impl(const HeightRange &heightRange
+                               , std::istream &is
+                               , const boost::filesystem::path &path
+                               , const multifile::Table &table)
 {
     using utility::binaryio::read;
-    auto size(is.seekg(0, std::ios_base::end).tellg());
-    is.seekg(0);
+
+    const auto &entry(table[imageIndex()]);
+
+    is.seekg(entry.start);
     std::vector<unsigned char> buf;
-    buf.resize(size);
+    buf.resize(entry.size);
     read(is, buf.data(), buf.size());
 
     auto image(cv::imdecode(buf, CV_LOAD_IMAGE_GRAYSCALE));
     if (!image.data) {
-        LOGTHROW(err1, storage::FormatError)
-            << "Cannot deserialize navtile from file " << path << ".";
+        LOGTHROW(err1, storage::BadFileFormat)
+            << "Cannot decode navtile image from block(" << entry.start
+            << ", " << entry.size << " in file " << path << ".";
     }
 
     // check sizes
