@@ -12,11 +12,19 @@
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem.hpp>
 
+#include "utility/streams.hpp"
+
 #include "../../storage/error.hpp"
 #include "../storage.hpp"
 #include "./detail.hpp"
 
+namespace fs = boost::filesystem;
+
 namespace vadstena { namespace vts {
+
+namespace {
+    const fs::path ConfigFilename("storage.conf");
+}
 
 Storage::Storage(const boost::filesystem::path &path, OpenMode mode)
 {
@@ -54,10 +62,10 @@ Storage::Detail::Detail(const boost::filesystem::path &root
                 << "Storage at " << root << " already exists.";
         }
 
-        // // OK, we can overwrite; cache contents of old config (if any)
-        // try {
-        //     oldConfig_ = utility::read(root_ / filePath(File::config));
-        // } catch (...) {}
+        // OK, we can overwrite; cache contents of old config (if any)
+        try {
+            auto oldConfig(utility::read(root / ConfigFilename));
+        } catch (...) {}
     }
 
     // TODO: save config
