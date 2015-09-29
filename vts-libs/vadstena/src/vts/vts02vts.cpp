@@ -133,9 +133,6 @@ void Vts02Vts::configuration(po::options_description &cmdline
          , "Path to output (vts) tile set.")
         ("overwrite", "Existing tile set gets overwritten if set.")
 
-        ("referenceFrame", po::value(&properties_.referenceFrame)->required()
-         , "Reference frame.")
-
         ("textureLayer", po::value<std::string>()
          , "String/numeric id of bound layer to be used as external texture "
          "in generated meshes. Turns on generation of external texture "
@@ -707,8 +704,7 @@ int Vts02Vts::run()
     auto input(vts0::openTileSet(input_));
 
     properties_.id = input->getProperties().id;
-
-    // TODO: make checks here
+    properties_.referenceFrame = input->getProperties().referenceFrame;
 
     // run the encoder
     Encoder(output_, properties_, createMode_, input, config_).run();
