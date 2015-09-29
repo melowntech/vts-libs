@@ -123,6 +123,10 @@ Properties parse1024(const Json::Value &config)
 
     Json::get(properties.verticalAdjustment, config, "verticalAdjustment");
 
+    if (config.isMember("referenceFrame")) {
+        properties.referenceFrame = config["referenceFrame"].asString();
+    }
+
     return properties;
 }
 
@@ -194,6 +198,8 @@ void build(Json::Value &config, const Properties &properties)
     config["driver"] = detail::tileset::buildDriver(properties.driver);
 
     config["verticalAdjustment"] = Json::Value(properties.verticalAdjustment);
+
+    config["referenceFrame"] = Json::Value(properties.referenceFrame);
 }
 
 namespace detail { namespace storage {

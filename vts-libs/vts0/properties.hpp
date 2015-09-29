@@ -43,6 +43,10 @@ struct StaticProperties {
      */
     LodLevels metaLevels;
 
+    /** Frame of reference. Only marked here for conversion.
+     */
+    std::string referenceFrame;
+
     /** Spatial reference system of map.
      */
     std::string srs;
@@ -68,9 +72,11 @@ struct StaticProperties {
         , srs = 0x008
         , driver = 0x010
         , verticalAdjustment = 0x020
+        , referenceFrame = 0x040
         // IF YOU WANT TO NEW ITEM DO NOT COLIDE WITH SettableProperties
         // AND UPDATE ALL:
-        , all = (id | metaLevels | extents | srs | driver | verticalAdjustment)
+        , all = (id | metaLevels | extents | srs | driver | verticalAdjustment
+                 | referenceFrame)
     }; };
 
     typedef int MaskType;
@@ -238,6 +244,7 @@ TILESTORAGE_PROPERTIES_SETTER_INIT(StaticProperties)
     TILESTORAGE_PROPERTIES_SETTER(srs)
     TILESTORAGE_PROPERTIES_SETTER(driver)
     TILESTORAGE_PROPERTIES_SETTER(verticalAdjustment)
+    TILESTORAGE_PROPERTIES_SETTER(referenceFrame)
 TILESTORAGE_PROPERTIES_SETTER_FINI()
 
 TILESTORAGE_PROPERTIES_SETTER_INIT(SettableProperties)
@@ -280,6 +287,7 @@ inline bool StaticProperties::merge(const StaticProperties &other
     TILESTORAGE_PROPERTIES_MERGE(srs);
     TILESTORAGE_PROPERTIES_MERGE(driver);
     TILESTORAGE_PROPERTIES_MERGE(verticalAdjustment)
+    TILESTORAGE_PROPERTIES_MERGE(referenceFrame)
 
     return changed;
 }
