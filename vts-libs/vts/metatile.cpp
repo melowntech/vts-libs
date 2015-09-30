@@ -19,29 +19,6 @@ namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;
 namespace half = half_float::detail;
 
-namespace utility {
-
-struct StreamState {
-    template<class CharT, class Traits>
-    StreamState(std::basic_ios<CharT, Traits> &ios)
-        : state(ios.rdstate()) {}
-
-    std::ios_base::iostate state;
-};
-
-template <typename E, typename T>
-std::basic_ostream<E, T>&
-operator<<(std::basic_ostream<E, T> &os, const StreamState &ss)
-{
-    if (ss.state & std::ios_base::goodbit) { os << "G"; }
-    if (ss.state & std::ios_base::badbit) { os << "B"; }
-    if (ss.state & std::ios_base::failbit) { os << "F"; }
-    if (ss.state & std::ios_base::eofbit) { os << "E"; }
-    return os;
-}
-
-} // namespace utility
-
 namespace vadstena { namespace vts {
 
 namespace {
@@ -145,26 +122,27 @@ std::uint8_t nodeSize(Lod lod)
 }
 
 std::vector<std::uint8_t>
-buildGeomExtents(Lod lod, const math::Extents3 &extents)
+buildGeomExtents(const TileId &tileId, const math::Extents3 &extents)
 {
     struct Encoder {
-        Encoder(Lod lod)
-            : block(1, 0), bits(2 + lod)
-            , count(1 << bits)
+        Encoder(const TileId &tileId)
+            : tileId(tileId)
+            , block(1, 0), bits(2 + tileId.lod)
+            , max((1 << bits) - 1)
             , out(&block.back()), outMask(0x80)
         {}
 
-        void operator()(double value, bool rounding = false) {
+        void operator()(double value, bool ceil = false) {
             // clamp to valid range
             value = math::clamp(value, 0.0, 1.0);
 
             // convert to (double) index in the lod grid, round up or down based
             // on rounding value (false down, true up)
-            auto dindex(value * count);
-            if (rounding) {
-                dindex = std::floor(dindex);
-            } else {
+            auto dindex(value * max);
+            if (ceil) {
                 dindex = std::ceil(dindex);
+            } else {
+                dindex = std::floor(dindex);
             }
 
             // convert to integer
@@ -186,14 +164,15 @@ buildGeomExtents(Lod lod, const math::Extents3 &extents)
             outMask >>= 1;
         }
 
+        const TileId tileId;
         std::vector<std::uint8_t> block;
         std::uint8_t bits;
-        std::uint32_t count;
+        std::uint32_t max;
         std::uint8_t *out;
         std::uint32_t outMask;
     };
 
-    Encoder encoder(lod);
+    Encoder encoder(tileId);
 
     encoder(extents.ll(0));
     encoder(extents.ur(0), true);
@@ -205,13 +184,54 @@ buildGeomExtents(Lod lod, const math::Extents3 &extents)
     return encoder.block;
 }
 
-void parseGeomExtents(Lod lod, const math::Extents3 &extents
-                      , std::vector<std::uint8_t> &block)
+void parseGeomExtents(const TileId &tileId, math::Extents3 &extents
+                      , const std::vector<std::uint8_t> &block)
 {
-    // TODO: implement me
-    (void) lod;
-    (void) extents;
-    (void) block;
+    struct Decoder {
+        Decoder(const TileId &tileId, const std::vector<std::uint8_t> &block)
+            : tileId(tileId)
+            , block(block), bits(2 + tileId.lod)
+            , max((1 << bits) - 1)
+            , in(block.begin()), inMask(0x80)
+        {}
+
+        double operator()() {
+            std::uint32_t index(0);
+
+            for (std::uint32_t bm(1 << (bits - 1)); bm; bm >>= 1) {
+                if (pop()) { index |= bm; }
+            }
+
+            return index / max;
+        }
+
+        bool pop() {
+            if (!inMask) {
+                ++in;
+                inMask = 0x80;
+            }
+
+            auto value(*in & inMask);
+            inMask >>= 1;
+            return value;
+        }
+
+        const TileId tileId;
+        const std::vector<std::uint8_t> &block;
+        std::uint8_t bits;
+        double max;
+        std::vector<std::uint8_t>::const_iterator in;
+        std::uint32_t inMask;
+    };
+
+    Decoder decoder(tileId, block);
+
+    extents.ll(0) = decoder();
+    extents.ur(0) = decoder();
+    extents.ll(1) = decoder();
+    extents.ur(1) = decoder();
+    extents.ll(2) = decoder();
+    extents.ur(2) = decoder();
 }
 
 } // namespace
@@ -260,7 +280,7 @@ void MetaTile::save(std::ostream &out) const
     }
 
     // write credit count
-    bin::write(out, std::uint16_t(credits.size()));
+    bin::write(out, std::uint8_t(credits.size()));
 
     if (credits.empty() || !empty(validSize)) {
         // no credits -> credit block size is irrelevant
@@ -294,10 +314,12 @@ void MetaTile::save(std::ostream &out) const
 
     for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
         for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
+            TileId tileId(origin_.lod, origin_.x + i, origin_.y + j);
+
             const auto &node(grid_[j * size_ + i]);
             bin::write(out, std::uint8_t(node.flags()));
 
-            bin::write(out, buildGeomExtents(origin_.lod, node.extents));
+            bin::write(out, buildGeomExtents(tileId, node.extents));
 
             switch (node.cc()) {
             case MetaNode::CoarsenessControl::texelSize:
@@ -375,7 +397,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
     bin::read(in, u8);
 
     // credit count
-    std::uint16_t creditCount;
+    std::uint8_t creditCount;
     bin::read(in, creditCount);
 
     // read credit block size (unused)
@@ -421,7 +443,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
             bin::read(in, flags);
             node.flags(flags);
 
-            std::vector<std::uint8_t> geomExtents(geomLen(origin_.lod), 0);
+            std::vector<std::uint8_t> geomExtents(geomLen(origin_.lod));
             bin::read(in, geomExtents);
             parseGeomExtents(origin_.lod, node.extents, geomExtents);
 
