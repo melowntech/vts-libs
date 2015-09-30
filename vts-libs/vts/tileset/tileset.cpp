@@ -57,6 +57,16 @@ MetaNode TileSet::getMetaNode(const TileId &tileId) const
     return *node->metanode;
 }
 
+MetaTile TileSet::getMetaTile(const TileId &metaId) const
+{
+    auto *mt(detail().findMetaTile(metaId));
+    if (!mt) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "There is no metatile at " << metaId << ".";
+    }
+    return *mt;
+}
+
 bool TileSet::exists(const TileId &tileId) const
 {
     return detail().exists(tileId);
@@ -293,7 +303,7 @@ MetaTile* TileSet::Detail::findMetaTile(const TileId &tileId, bool addNew)
         auto f(driver->input(mid, TileFile::meta));
         fmetaTiles = metaTiles.insert
             (MetaTiles::value_type
-             (mid, loadMetaTile(*f, metaOrder()))).first;
+             (mid, loadMetaTile(*f, metaOrder(), f->name()))).first;
     }
 
     return &fmetaTiles->second;
@@ -351,6 +361,7 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     auto *node(findNode(tileId, true));
 
     // update node value
+    LOG(info4) << "Updating: " << tileId;
     node->update(tileId, metanode);
 
     tileIndex.setMask(tileId, TileFlag::watertight, watertight);

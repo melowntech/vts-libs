@@ -3,6 +3,8 @@
 
 #include <iostream>
 
+#include "utility/streams.hpp"
+
 #include "./basetypes.hpp"
 
 namespace vadstena { namespace vts {
@@ -12,6 +14,15 @@ inline std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits> &os, const TileId &id)
 {
     return os << id.lod << '-' << id.x << '-' << id.y;
+}
+
+template<typename CharT, typename Traits>
+inline std::basic_istream<CharT, Traits>&
+operator>>(std::basic_istream<CharT, Traits> &is, TileId &id)
+{
+    return is >> id.lod
+              >> utility::expect('-') >> id.x
+              >> utility::expect('-') >> id.y;
 }
 
 template<typename CharT, typename Traits>

@@ -15,6 +15,7 @@
 #include "../storage/credits.hpp"
 
 #include "./basetypes.hpp"
+#include "./tileop.hpp"
 
 #include "../range.hpp"
 
@@ -75,16 +76,16 @@ struct MetaNode {
     }
 
     bool ulChild() const { return check(Flag::ulChild); }
-    MetaNode&  ulChild(bool value) { return set(Flag::ulChild, value); }
+    MetaNode& ulChild(bool value) { return set(Flag::ulChild, value); }
 
     bool urChild() const { return check(Flag::urChild); }
-    MetaNode&  urChild(bool value) { return set(Flag::urChild, value); }
+    MetaNode& urChild(bool value) { return set(Flag::urChild, value); }
 
     bool llChild() const { return check(Flag::llChild); }
-    MetaNode&  llChild(bool value) { return set(Flag::llChild, value); }
+    MetaNode& llChild(bool value) { return set(Flag::llChild, value); }
 
     bool lrlChild() const { return check(Flag::lrChild); }
-    MetaNode&  lrChild(bool value) { return set(Flag::lrChild, value); }
+    MetaNode& lrChild(bool value) { return set(Flag::lrChild, value); }
 
     /** Normalized extents in range 0.0-1.0.
      */
@@ -137,11 +138,15 @@ private:
 class MetaTile {
 public:
     typedef std::uint32_t size_type;
+    typedef math::Point2_<size_type> point_type;
+    typedef math::Size2_<size_type> size2_type;
+    typedef math::Extents2_<size_type> extents_type;
 
     MetaTile(const TileId &origin, std::uint8_t binaryOrder)
         : origin_(origin), binaryOrder_(binaryOrder)
         , size_(1 << binaryOrder)
         , grid_(size_ * size_, {})
+        , valid_(math::InvalidExtents{})
     {}
 
     const MetaNode* set(const TileId &tileId, const MetaNode &node);
@@ -158,22 +163,29 @@ public:
 
     const TileId& origin() const { return origin_; }
 
+    const size_type& size() const { return size_; }
+
+    extents_type validExtents() const;
+
     /** Runs given function for every real tile.
      */
     template <typename F> void for_each(F f) const;
 
 private:
-    size_type index(const TileId &tileId) const;
+    size_type index(const TileId &tileId, bool checkValidity = true) const;
 
     boost::optional<size_type>
-    index(const TileId &tileId, std::nothrow_t) const;
+    index(const TileId &tileId, std::nothrow_t, bool checkValidity = true)
+        const;
 
-    boost::optional<math::Point2_<size_type> >
-    gridIndex(const TileId &tileId, std::nothrow_t) const;
+    boost::optional<point_type>
+    gridIndex(const TileId &tileId, std::nothrow_t, bool checkValidity = true)
+        const;
 
-    math::Point2_<size_type> gridIndex(const TileId &tileId) const;
+    point_type gridIndex(const TileId &tileId, bool checkValidity = true)
+        const;
 
-    size_type index(const math::Point2_<size_type> &gi) const;
+    size_type index(const point_type &gi) const;
 
     /** Calculates serialized node size.
      */
@@ -191,7 +203,7 @@ private:
 
     /** Extents of valid area.
      */
-    math::Extents2_<size_type> valid_;
+    extents_type valid_;
 };
 
 void saveMetaTile(const boost::filesystem::path &path
@@ -204,6 +216,8 @@ MetaTile loadMetaTile(std::istream &in
                       , std::uint8_t binaryOrder
                       , const boost::filesystem::path &path = "unknown");
 
+std::vector<TileId> children(const MetaNode &node
+                             , const TileId &tileId);
 
 // inlines
 
@@ -214,17 +228,19 @@ inline MetaTile::size_type MetaTile::index(const math::Point2_<size_type> &gi)
 }
 
 inline boost::optional<MetaTile::size_type>
-MetaTile::index(const TileId &tileId, std::nothrow_t) const
+MetaTile::index(const TileId &tileId, std::nothrow_t
+                , bool checkValidity) const
 {
-    if (auto gi = gridIndex(tileId, std::nothrow)) {
+    if (auto gi = gridIndex(tileId, std::nothrow, checkValidity)) {
         return index(*gi);
     }
     return boost::none;
 }
 
-inline MetaTile::size_type MetaTile::index(const TileId &tileId) const
+inline MetaTile::size_type MetaTile::index(const TileId &tileId
+                                           , bool checkValidity) const
 {
-    return index(gridIndex(tileId));
+    return index(gridIndex(tileId, checkValidity));
 }
 
 inline const MetaNode* MetaTile::get(const TileId &tileId, std::nothrow_t)
@@ -251,6 +267,20 @@ inline void MetaTile::for_each(F f) const
             f(TileId(origin_.lod, origin_.x + i, origin_.y + j), node);
         }
     }
+}
+
+inline std::vector<TileId> children(const MetaNode &node
+                                    , const TileId &tileId)
+{
+    std::vector<TileId> c;
+    std::uint8_t mask(MetaNode::Flag::ulChild);
+    for (const auto &child : vts::children(tileId)) {
+        if (mask & node.flags()) {
+            c.push_back(child);
+        }
+        mask <<= 1;
+    }
+    return c;
 }
 
 } } // namespace vadstena::vts

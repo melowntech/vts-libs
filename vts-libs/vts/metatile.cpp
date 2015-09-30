@@ -19,6 +19,29 @@ namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;
 namespace half = half_float::detail;
 
+namespace utility {
+
+struct StreamState {
+    template<class CharT, class Traits>
+    StreamState(std::basic_ios<CharT, Traits> &ios)
+        : state(ios.rdstate()) {}
+
+    std::ios_base::iostate state;
+};
+
+template <typename E, typename T>
+std::basic_ostream<E, T>&
+operator<<(std::basic_ostream<E, T> &os, const StreamState &ss)
+{
+    if (ss.state & std::ios_base::goodbit) { os << "G"; }
+    if (ss.state & std::ios_base::badbit) { os << "B"; }
+    if (ss.state & std::ios_base::failbit) { os << "F"; }
+    if (ss.state & std::ios_base::eofbit) { os << "E"; }
+    return os;
+}
+
+} // namespace utility
+
 namespace vadstena { namespace vts {
 
 namespace {
@@ -40,8 +63,9 @@ namespace {
     }; };
 } // namespace
 
-boost::optional<math::Point2_<MetaTile::size_type> >
-MetaTile::gridIndex(const TileId &tileId, std::nothrow_t) const
+boost::optional<MetaTile::point_type>
+MetaTile::gridIndex(const TileId &tileId, std::nothrow_t
+                    , bool checkValidity) const
 {
     if ((origin_.lod != tileId.lod)
         || (origin_.x > tileId.x)
@@ -55,17 +79,22 @@ MetaTile::gridIndex(const TileId &tileId, std::nothrow_t) const
     if ((x >= size_) || (y >= size_)) {
         return boost::none;
     }
-    return { x, y };
+
+    math::Point2_<MetaTile::size_type> p(x, y);
+    if (checkValidity && !math::inside(valid_, p)) {
+        return boost::none;
+    }
+    return p;
 }
 
-math::Point2_<MetaTile::size_type> MetaTile::gridIndex(const TileId &tileId)
-    const
+MetaTile::point_type
+MetaTile::gridIndex(const TileId &tileId, bool checkValidity) const
 {
     if ((origin_.lod != tileId.lod)
         || (origin_.x > tileId.x)
         || (origin_.y > tileId.y))
     {
-        LOGTHROW(err1, storage::NoSuchTile)
+        LOGTHROW(warn1, storage::NoSuchTile)
             << "Node " << tileId << " not inside metatile " << origin_
             << ".";
     }
@@ -73,25 +102,24 @@ math::Point2_<MetaTile::size_type> MetaTile::gridIndex(const TileId &tileId)
     size_type x(tileId.x - origin_.x);
     size_type y(tileId.y - origin_.y);
     if ((x >= size_) || (y >= size_)) {
-        LOGTHROW(err1, storage::NoSuchTile)
+        LOGTHROW(warn1, storage::NoSuchTile)
             << "Node " << tileId << " not inside metatile " << origin_
             << ".";
     }
-    return { x, y };
+
+    math::Point2_<MetaTile::size_type> p(x, y);
+    if (checkValidity && !inside(valid_, p)) {
+        LOGTHROW(warn1, storage::NoSuchTile)
+            << "Node " << tileId << " not inside metatile " << origin_
+            << ".";
+    }
+    return p;
 }
 
 const MetaNode* MetaTile::set(const TileId &tileId, const MetaNode &node)
 {
-    auto gi(gridIndex(tileId));
-
-    // update valid extents; NB: using plus one!
-    valid_.ll(0) = std::min(valid_.ll(0), gi(0));
-    valid_.ll(1) = std::min(valid_.ll(1), gi(1));
-    valid_.ur(0) = std::max(valid_.ll(0), gi(0) + 1);
-    valid_.ur(1) = std::max(valid_.ll(1), gi(1) + 1);
-
+    auto gi(gridIndex(tileId, false));
     math::update(valid_, gi);
-
     auto *n(&grid_[index(gi)]);
     *n = node;
     return n;
@@ -99,7 +127,7 @@ const MetaNode* MetaTile::set(const TileId &tileId, const MetaNode &node)
 
 namespace {
 
-std::uint8_t geomLen(Lod lod)
+std::size_t geomLen(Lod lod)
 {
     // calculate lenght in bits, top it to the closest byte and calculate number
     // of bytes
@@ -199,10 +227,19 @@ void MetaTile::save(std::ostream &out) const
     bin::write(out, std::uint32_t(origin_.y));
 
     // offset and dimensions of saved grid
-    auto offset(valid_.ll);
-    bin::write(out, std::uint16_t(offset(0)));
-    bin::write(out, std::uint16_t(offset(1)));
-    auto validSize(size(valid_));
+    size2_type validSize;
+    if (valid(valid_)) {
+        auto offset(valid_.ll);
+        bin::write(out, std::uint16_t(offset(0)));
+        bin::write(out, std::uint16_t(offset(1)));
+        validSize = math::size(valid_);
+        ++validSize.width;
+        ++validSize.height;
+    } else {
+        bin::write(out, std::uint16_t(0));
+        bin::write(out, std::uint16_t(0));
+    }
+
     bin::write(out, std::uint16_t(validSize.width));
     bin::write(out, std::uint16_t(validSize.height));
 
@@ -225,7 +262,7 @@ void MetaTile::save(std::ostream &out) const
     // write credit count
     bin::write(out, std::uint16_t(credits.size()));
 
-    if (credits.empty()) {
+    if (credits.empty() || !empty(validSize)) {
         // no credits -> credit block size is irrelevant
         bin::write(out, std::uint16_t(0));
     } else {
@@ -252,9 +289,11 @@ void MetaTile::save(std::ostream &out) const
         }
     }
 
-    // write nodes
-    for (auto j(valid_.ll(1)); j < valid_.ur(1); ++j) {
-        for (auto i(valid_.ll(0)); i < valid_.ur(0); ++i) {
+    // write nodes if any
+    if (!valid(valid_)) { return; }
+
+    for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
+        for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
             const auto &node(grid_[j * size_ + i]);
             bin::write(out, std::uint8_t(node.flags()));
 
@@ -320,14 +359,20 @@ void MetaTile::load(std::istream &in, const fs::path &path)
     bin::read(in, u16); valid_.ll(0) = u16;
     bin::read(in, u16); valid_.ll(1) = u16;
 
-    math::Size2_<size_type> validSize;
+    size2_type validSize;
     bin::read(in, u16); validSize.width = u16;
     bin::read(in, u16); validSize.height = u16;
-    valid_.ur(0) = valid_.ll(0) + validSize.width;
-    valid_.ur(1) = valid_.ll(1) + validSize.height;
+    if (!empty(validSize)) {
+        // non-empty -> just remove one
+        valid_.ur(0) = valid_.ll(0) + validSize.width - 1;
+        valid_.ur(1) = valid_.ll(1) + validSize.height - 1;
+    } else {
+        // empty -> invalid
+        valid_ = extents_type(math::InvalidExtents{});
+    }
 
     // node size (unused)
-    bin::read(in, u16);
+    bin::read(in, u8);
 
     // credit count
     std::uint16_t creditCount;
@@ -366,15 +411,17 @@ void MetaTile::load(std::istream &in, const fs::path &path)
         }
     }
 
-    // read rest of nodes
-    for (auto j(valid_.ll(1)); j < valid_.ur(1); ++j) {
-        for (auto i(valid_.ll(0)); i < valid_.ur(0); ++i) {
+    // read rest of nodes if any
+    if (!valid(valid_)) { return; }
+
+    for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
+        for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
             auto &node(grid_[j * size_ + i]);
             std::uint8_t flags;
             bin::read(in, flags);
             node.flags(flags);
 
-            std::vector<std::uint8_t> geomExtents(geomLen(origin_.lod), 0x00);
+            std::vector<std::uint8_t> geomExtents(geomLen(origin_.lod), 0);
             bin::read(in, geomExtents);
             parseGeomExtents(origin_.lod, node.extents, geomExtents);
 
@@ -393,8 +440,8 @@ void MetaTile::load(std::istream &in, const fs::path &path)
                 break;
             }
 
-            bin::read(in, i16); node.heightRange.min = u16;
-            bin::read(in, i16); node.heightRange.max = u16;
+            bin::read(in, i16); node.heightRange.min = i16;
+            bin::read(in, i16); node.heightRange.max = i16;
         }
     }
 
@@ -405,7 +452,14 @@ MetaTile loadMetaTile(std::istream &in
                       , const boost::filesystem::path &path)
 {
     MetaTile meta({}, binaryOrder);
-    meta.load(in, path);
+    try {
+        meta.load(in, path);
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::BadFileFormat)
+            << "Error loading metatile from file " << path
+            << ": " << e.what()
+            << "; state=" << utility::StreamState(in) << ".";
+    }
     return meta;
 }
 
@@ -450,6 +504,14 @@ MetaNode& MetaNode::mergeExtents(const MetaNode &other)
     // merge
     extents = unite(extents, other.extents);
     return *this;
+}
+
+MetaTile::extents_type MetaTile::validExtents() const
+{
+    return extents_type(origin_.x + valid_.ll(0)
+                        , origin_.y + valid_.ll(1)
+                        , origin_.x + valid_.ur(0)
+                        , origin_.y + valid_.ur(1));
 }
 
 } } // namespace vadstena::vts

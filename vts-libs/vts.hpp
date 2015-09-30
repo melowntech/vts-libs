@@ -17,6 +17,7 @@
 #include "./storage/range.hpp"
 
 #include "./vts/tileset.hpp"
+#include "./vts/storage.hpp"
 
 namespace vadstena { namespace vts {
 

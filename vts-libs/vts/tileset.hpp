@@ -64,6 +64,8 @@ public:
 
     MetaNode getMetaNode(const TileId &tileId) const;
 
+    MetaTile getMetaTile(const TileId &metaId) const;
+
     bool exists(const TileId &tileId) const;
 
     void flush();
