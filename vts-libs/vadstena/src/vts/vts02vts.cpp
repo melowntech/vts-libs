@@ -117,7 +117,7 @@ private:
 
     vts::CreateMode createMode_;
 
-    vts::StaticProperties properties_;
+    vts::TileSetProperties properties_;
 
     Config config_;
 };
@@ -210,7 +210,7 @@ typedef vts::opencv::NavTile NavTile;
 class Encoder : public vts::Encoder {
 public:
     Encoder(const boost::filesystem::path &path
-            , const vts::StaticProperties &properties, vts::CreateMode mode
+            , const vts::TileSetProperties &properties, vts::CreateMode mode
             , const vts0::TileSet::pointer &input
             , const Config &config)
         : vts::Encoder(path, properties, mode)
