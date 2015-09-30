@@ -323,8 +323,10 @@ void MetaTile::save(std::ostream &out) const
 
             switch (node.cc()) {
             case MetaNode::CoarsenessControl::texelSize:
-                bin::write(out, half::float2half<std::round_to_nearest>
-                           (node.meshArea));
+                if (node.geometry()) {
+                    bin::write(out, half::float2half<std::round_to_nearest>
+                               (node.meshArea));
+                }
                 if (node.internalTexture()) {
                     bin::write(out, half::float2half<std::round_to_nearest>
                                (node.textureArea));
@@ -449,8 +451,10 @@ void MetaTile::load(std::istream &in, const fs::path &path)
 
             switch (node.cc()) {
             case MetaNode::CoarsenessControl::texelSize:
-                bin::read(in, u16);
-                node.meshArea = half::half2float(u16);
+                if (node.geometry()) {
+                    bin::read(in, u16);
+                    node.meshArea = half::half2float(u16);
+                }
                 if (node.internalTexture()) {
                     bin::read(in, u16);
                     node.textureArea = half::half2float(u16);

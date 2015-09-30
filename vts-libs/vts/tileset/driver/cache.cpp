@@ -157,7 +157,10 @@ fs::path Cache::Archives::filePath(const TileId &index) const
                             % index.lod % index.x % index.y
                             % extension));
     const auto parent(root / dir(filename));
-    create_directories(parent);
+    if (!readOnly) {
+        // ensure dir exists
+        create_directories(parent);
+    }
     return parent / filename;
 }
 

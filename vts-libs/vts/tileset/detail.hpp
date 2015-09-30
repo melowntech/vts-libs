@@ -14,7 +14,7 @@
 
 namespace vadstena { namespace vts {
 
-struct TileSet::Properties : StaticProperties {
+struct TileSet::Properties : TileSetProperties {
     /** Data version/revision. Should be increment anytime the data change.
      *  Used in template URL's to push through caches.
      */
@@ -89,7 +89,7 @@ struct TileSet::Detail
     LodRange lodRange;
 
     Detail(const Driver::pointer &driver);
-    Detail(const Driver::pointer &driver, const StaticProperties &properties);
+    Detail(const Driver::pointer &driver, const TileSetProperties &properties);
     ~Detail();
 
     void loadConfig();
@@ -137,7 +137,7 @@ struct TileSet::Detail
 
     MapConfig mapConfig() const;
 
-    ExtraProperties loadExtraConfig() const;
+    ExtraTileSetProperties loadExtraConfig() const;
 };
 
 inline void TileSet::DetailDeleter::operator()(Detail *d) { delete d; }

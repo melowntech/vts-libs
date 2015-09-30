@@ -179,6 +179,7 @@ set(vadstena-vts-core_SOURCES
   vts/storage.hpp
   vts/storage/detail.hpp
   vts/storage/storage.cpp
+  vts/storage/config.hpp vts/storage/config.cpp
 
   vts/mapconfig.hpp vts/mapconfig.cpp
   )

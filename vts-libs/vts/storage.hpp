@@ -23,6 +23,9 @@ struct StorageProperties {
     std::string referenceFrame;
 };
 
+struct ExtraStorageProperties {
+};
+
 /** Storage interface.
  */
 class Storage {

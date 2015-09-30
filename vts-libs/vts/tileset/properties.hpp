@@ -16,7 +16,7 @@ namespace vadstena { namespace vts {
 /** Tile set properties that must be specified during creation. They cannot be
  *  changed later.
  */
-struct StaticProperties {
+struct TileSetProperties {
     /** Unique set identifier.
      */
     std::string id;
@@ -37,10 +37,10 @@ struct StaticProperties {
      */
     registry::Position position;
 
-    StaticProperties() {}
+    TileSetProperties() {}
 };
 
-struct ExtraProperties {
+struct ExtraTileSetProperties {
     /** Override position.
      */
     boost::optional<registry::Position> position;
@@ -59,7 +59,7 @@ struct ExtraProperties {
 
     // TODO: view, freeLayers, namedViews, roi
 
-    ExtraProperties() {}
+    ExtraTileSetProperties() {}
 };
 
 } } // namespace vadstena::vts

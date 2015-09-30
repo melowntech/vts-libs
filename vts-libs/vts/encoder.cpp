@@ -41,7 +41,7 @@ namespace {
 
 struct Encoder::Detail {
     Detail(Encoder *owner, const boost::filesystem::path &path
-           , const StaticProperties &properties, CreateMode mode)
+           , const TileSetProperties &properties, CreateMode mode)
         : owner(owner), tileSet(createTileSet(path, properties, mode))
         , properties(tileSet.getProperties())
         , referenceFrame(tileSet.referenceFrame())
@@ -71,7 +71,7 @@ struct Encoder::Detail {
 
     Encoder *owner;
     TileSet tileSet;
-    StaticProperties properties;
+    TileSetProperties properties;
     registry::ReferenceFrame referenceFrame;
     registry::Srs physicalSrs;
 
@@ -179,11 +179,11 @@ void Encoder::Detail::process(const TileId &tileId
 }
 
 Encoder::Encoder(const boost::filesystem::path &path
-                 , const StaticProperties &properties, CreateMode mode)
+                 , const TileSetProperties &properties, CreateMode mode)
     : detail_(std::make_shared<Detail>(this, path, properties, mode))
 {}
 
-StaticProperties Encoder::properties() const
+TileSetProperties Encoder::properties() const
 {
     return detail_->properties;
 }

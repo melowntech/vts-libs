@@ -46,7 +46,7 @@ public:
     /** Get tile set propeties.
      * \return tile set properties
      */
-    StaticProperties getProperties() const;
+    TileSetProperties getProperties() const;
 
     /** Generates map configuration for this signle tile set.
      */
@@ -101,7 +101,7 @@ public:
 
 private:
     TileSet(const std::shared_ptr<Driver> &driver
-            , const StaticProperties &properties);
+            , const TileSetProperties &properties);
     TileSet(const std::shared_ptr<Driver> &driver);
 
     struct DetailDeleter { void operator()(Detail*); };

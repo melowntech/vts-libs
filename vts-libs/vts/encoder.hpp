@@ -16,7 +16,7 @@ namespace vadstena { namespace vts {
 class Encoder : boost::noncopyable {
 public:
     Encoder(const boost::filesystem::path &path
-            , const StaticProperties &properties, CreateMode mode);
+            , const TileSetProperties &properties, CreateMode mode);
 
     virtual ~Encoder() {}
 
@@ -65,7 +65,7 @@ public:
     };
 
 protected:
-    StaticProperties properties() const;
+    TileSetProperties properties() const;
     const registry::ReferenceFrame& referenceFrame() const;
     void setConstraints(const Constraints &constraints);
     const registry::Srs& physicalSrs() const;

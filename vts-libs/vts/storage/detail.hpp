@@ -15,7 +15,12 @@
 namespace vadstena { namespace vts {
 
 struct Storage::Properties : StorageProperties {
-    Properties() {}
+    /** Data version/revision. Should be increment anytime the data change.
+     *  Used in template URL's to push through caches.
+     */
+    unsigned int revision;
+
+    Properties() : revision(0) {}
 };
 
 struct Storage::Detail

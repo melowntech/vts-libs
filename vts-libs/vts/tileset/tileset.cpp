@@ -10,7 +10,7 @@ namespace fs = boost::filesystem;
 
 namespace vadstena { namespace vts {
 
-StaticProperties TileSet::getProperties() const
+TileSetProperties TileSet::getProperties() const
 {
     return {};
 }
@@ -21,7 +21,7 @@ TileSet::TileSet(const std::shared_ptr<Driver> &driver)
 }
 
 TileSet::TileSet(const std::shared_ptr<Driver> &driver
-                 , const StaticProperties &properties)
+                 , const TileSetProperties &properties)
     : detail_(new Detail(driver, properties))
 {
 }
@@ -103,7 +103,7 @@ LodRange TileSet::lodRange() const
 struct TileSet::Factory
 {
     static TileSet create(const fs::path &path
-                          , const StaticProperties &properties
+                          , const TileSetProperties &properties
                           , CreateMode mode)
     {
         // we are using binaryOrder = 5 :)
@@ -119,7 +119,7 @@ struct TileSet::Factory
 };
 
 TileSet createTileSet(const boost::filesystem::path &path
-                      , const StaticProperties &properties
+                      , const TileSetProperties &properties
                       , CreateMode mode)
 {
     return TileSet::Factory::create(path, properties, mode);
@@ -141,7 +141,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver
-                        , const StaticProperties &properties)
+                        , const TileSetProperties &properties)
     : readOnly(false), driver(driver), changed(false)
     , referenceFrame(registry::Registry::referenceFrame
                      (properties.referenceFrame))
@@ -153,14 +153,14 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     }
 
     // build initial properties
-    static_cast<StaticProperties&>(this->properties) = properties;
+    static_cast<TileSetProperties&>(this->properties) = properties;
     this->properties.driverOptions = driver->options();
 
     if (auto oldConfig = driver->oldConfig()) {
         try {
             // try to old config and grab old revision
             std::istringstream is(*oldConfig);
-            const auto p(vts::loadConfig(is));
+            const auto p(tileset::loadConfig(is));
             this->properties.revision = p.revision + 1;
         } catch (...) {}
     }
@@ -186,7 +186,7 @@ void TileSet::Detail::loadConfig()
     try {
         // load config
         auto f(driver->input(File::config));
-        const auto p(vts::loadConfig(*f));
+        const auto p(tileset::loadConfig(*f));
         f->close();
 
         // set
@@ -203,7 +203,7 @@ void TileSet::Detail::saveConfig()
     try {
         driver->wannaWrite("save config");
         auto f(driver->output(File::config));
-        vts::saveConfig(*f, properties);
+        tileset::saveConfig(*f, properties);
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
@@ -361,7 +361,6 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     auto *node(findNode(tileId, true));
 
     // update node value
-    LOG(info4) << "Updating: " << tileId;
     node->update(tileId, metanode);
 
     tileIndex.setMask(tileId, TileFlag::watertight, watertight);
@@ -583,7 +582,7 @@ MapConfig TileSet::mapConfig() const
     return detail().mapConfig();
 }
 
-ExtraProperties TileSet::Detail::loadExtraConfig() const
+ExtraTileSetProperties TileSet::Detail::loadExtraConfig() const
 {
     IStream::pointer is;
     try {
@@ -592,7 +591,7 @@ ExtraProperties TileSet::Detail::loadExtraConfig() const
         return {};
     }
 
-    return vts::loadExtraConfig(*is);
+    return tileset::loadExtraConfig(*is);
 }
 
 MapConfig TileSet::Detail::mapConfig() const

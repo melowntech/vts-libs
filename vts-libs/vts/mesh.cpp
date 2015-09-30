@@ -145,11 +145,18 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
         // load (external) texture layer information
         if (sm.textureLayer) {
             bin::write(out, *sm.textureLayer);
+        } else {
+            // save zero
+            bin::write(out, std::uint16_t(0));
         }
 
         // write extents
-        bin::write(out, bbox.ll);
-        bin::write(out, bbox.ur);
+        bin::write(out, bbox.ll(0));
+        bin::write(out, bbox.ll(1));
+        bin::write(out, bbox.ll(2));
+        bin::write(out, bbox.ur(0));
+        bin::write(out, bbox.ur(1));
+        bin::write(out, bbox.ur(2));
 
         // write sub-mesh data
         bin::write(out, std::uint16_t(sm.vertices.size()));
@@ -274,14 +281,23 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
 
         // load (external) texture layer information
         if (flags & SubMeshFlag::referencesExternalTexture) {
-            sm.textureLayer = 0.0;
+            sm.textureLayer = 0;
             bin::read(in, *sm.textureLayer);
+        } else {
+            // read zero
+            std::uint16_t u16;
+            bin::read(in, u16);
         }
 
         // load sub-mesh bounding box
         math::Extents3 bbox;
-        bin::read(in, bbox.ll);
-        bin::read(in, bbox.ur);
+        bin::read(in, bbox.ll(0));
+        bin::read(in, bbox.ll(1));
+        bin::read(in, bbox.ll(2));
+        bin::read(in, bbox.ur(0));
+        bin::read(in, bbox.ur(1));
+        bin::read(in, bbox.ur(2));
+
         math::Point3d bbsize(bbox.ur - bbox.ll);
 
         std::uint16_t vertexCount;

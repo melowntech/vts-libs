@@ -1,6 +1,3 @@
-#include <boost/uuid/string_generator.hpp>
-#include <boost/uuid/uuid_io.hpp>
-
 #include "dbglog/dbglog.hpp"
 #include "jsoncpp/as.hpp"
 
@@ -9,7 +6,7 @@
 #include "../../storage/error.hpp"
 #include "../../registry/json.hpp"
 
-namespace vadstena { namespace vts { namespace tileset {
+namespace vadstena { namespace vts { namespace storage {
 
 namespace detail {
 
@@ -68,81 +65,34 @@ void parseIdSet(registry::StringIdSet &ids, const Json::Value &object
     }
 }
 
-TileSet::Properties parse1(const Json::Value &config)
+Storage::Properties parse1(const Json::Value &config)
 {
-    TileSet::Properties properties;
-    Json::get(properties.id, config, "id");
+    Storage::Properties properties;
 
     Json::get(properties.referenceFrame, config, "referenceFrame");
     Json::get(properties.revision, config, "revision");
 
-    parseIdSet(properties.credits, config, "credits");
-    parseIdSet(properties.boundLayers, config, "boundLayers");
-
-    parse(properties.position, config["position"]);
-
-    // load driver options
-    const auto &driver(config["driver"]);
-
-    int binaryOrder;
-    Json::get(binaryOrder, driver, "binaryOrder");
-    properties.driverOptions.binaryOrder(binaryOrder);
-
-    std::string uuid;
-    Json::get(uuid, driver, "uuid");
-    properties.driverOptions.uuid(boost::uuids::string_generator()(uuid));
-
-    Json::get(properties.lodRange.min, config, "lodRange", 0);
-    Json::get(properties.lodRange.max, config, "lodRange", 1);
-
-    Json::get(properties.tileRange.ll(0), config, "tileRange", 0);
-    Json::get(properties.tileRange.ll(1), config, "tileRange", 1);
-    Json::get(properties.tileRange.ur(0), config, "tileRange", 2);
-    Json::get(properties.tileRange.ur(1), config, "tileRange", 3);
-
     return properties;
 }
 
-void build(Json::Value &config, const TileSet::Properties &properties)
+void build(Json::Value &config, const Storage::Properties &properties)
 {
     config["version"]
         = Json::Int64(detail::CURRENT_JSON_FORMAT_VERSION);
 
-    config["id"] = properties.id;
     config["referenceFrame"] = properties.referenceFrame;
     config["revision"] = properties.revision;
-
-    auto &credits(config["credits"] = Json::arrayValue);
-    for (auto cid : properties.credits) { credits.append(cid); }
-    auto &boundLayers(config["boundLayers"] = Json::arrayValue);
-    for (auto cid : properties.boundLayers) { boundLayers.append(cid); }
-
-    config["position"] = registry::asJson(properties.position);
-
-    auto &driver(config["driver"]);
-    driver["binaryOrder"] = properties.driverOptions.binaryOrder();
-    driver["uuid"] = to_string(properties.driverOptions.uuid());
-
-    auto &lodRange(config["lodRange"] = Json::arrayValue);
-    lodRange.append(properties.lodRange.min);
-    lodRange.append(properties.lodRange.max);
-
-    auto &tileRange(config["tileRange"] = Json::arrayValue);
-    tileRange.append(properties.tileRange.ll(0));
-    tileRange.append(properties.tileRange.ll(1));
-    tileRange.append(properties.tileRange.ur(0));
-    tileRange.append(properties.tileRange.ur(1));
 }
 
 } // namespace detail
 
-TileSet::Properties loadConfig(std::istream &in)
+Storage::Properties loadConfig(std::istream &in)
 {
     // load json
     Json::Value config;
     Json::Reader reader;
     if (!reader.parse(in, config)) {
-        LOGTHROW(err2, storage::FormatError)
+        LOGTHROW(err2, vadstena::storage::FormatError)
             << "Unable to parse config: "
             << reader.getFormattedErrorMessages() << ".";
     }
@@ -156,19 +106,19 @@ TileSet::Properties loadConfig(std::istream &in)
             return detail::parse1(config);
         }
 
-        LOGTHROW(err1, storage::FormatError)
-            << "Invalid tileset config format: unsupported version "
+        LOGTHROW(err1, vadstena::storage::FormatError)
+            << "Invalid storage config format: unsupported version "
             << version << ".";
 
     } catch (const Json::Error &e) {
-        LOGTHROW(err1, storage::FormatError)
-            << "Invalid tileset config format (" << e.what()
-            << "); Unable to work with this tileset.";
+        LOGTHROW(err1, vadstena::storage::FormatError)
+            << "Invalid storage config format (" << e.what()
+            << "); Unable to work with this storage.";
     }
     throw;
 }
 
-void saveConfig(std::ostream &out, const TileSet::Properties &properties)
+void saveConfig(std::ostream &out, const Storage::Properties &properties)
 {
     Json::Value config;
     detail::build(config, properties);
@@ -176,7 +126,7 @@ void saveConfig(std::ostream &out, const TileSet::Properties &properties)
     Json::StyledStreamWriter().write(out, config);
 }
 
-TileSet::Properties loadConfig(const boost::filesystem::path &path)
+Storage::Properties loadConfig(const boost::filesystem::path &path)
 {
     LOG(info1) << "Loading config from " << path  << ".";
     std::ifstream f;
@@ -184,7 +134,7 @@ TileSet::Properties loadConfig(const boost::filesystem::path &path)
     try {
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
-        LOGTHROW(err1, storage::NoSuchTileSet)
+        LOGTHROW(err1, vadstena::storage::NoSuchStorage)
             << "Unable to load config file " << path << ".";
     }
     auto p(loadConfig(f));
@@ -193,7 +143,7 @@ TileSet::Properties loadConfig(const boost::filesystem::path &path)
 }
 
 void saveConfig(const boost::filesystem::path &path
-                , const TileSet::Properties &properties)
+                , const Storage::Properties &properties)
 {
     LOG(info1) << "Saving config to " << path  << ".";
     std::ofstream f;
@@ -205,40 +155,22 @@ void saveConfig(const boost::filesystem::path &path
 
 namespace detail_extra {
 
-ExtraTileSetProperties parse1(const Json::Value &config)
+ExtraStorageProperties parse1(const Json::Value &config)
 {
-    ExtraTileSetProperties ep;
-
-    if (config.isMember("position")) {
-        ep.position = boost::in_place();
-        detail::parse(*ep.position, config["position"]);
-    }
-
-    if (config.isMember("textureLayer")) {
-        ep.textureLayer = boost::in_place();
-        Json::get(*ep.textureLayer, config, "textureLayer");
-    }
-
-    if (config.isMember("extraCredits")) {
-        detail::parseIdSet(ep.extraCredits, config, "extraCredits");
-    }
-
-    if (config.isMember("extraBoundLayers")) {
-        detail::parseIdSet(ep.extraBoundLayers, config, "extraBoundLayers");
-    }
-
+    ExtraStorageProperties ep;
+    (void) config;
     return ep;
 }
 
 } // namespace detail_extra
 
-ExtraTileSetProperties loadExtraConfig(std::istream &in)
+ExtraStorageProperties loadExtraConfig(std::istream &in)
 {
     // load json
     Json::Value config;
     Json::Reader reader;
     if (!reader.parse(in, config)) {
-        LOGTHROW(err2, storage::FormatError)
+        LOGTHROW(err2, vadstena::storage::FormatError)
             << "Unable to parse extra config: "
             << reader.getFormattedErrorMessages() << ".";
     }
@@ -252,19 +184,19 @@ ExtraTileSetProperties loadExtraConfig(std::istream &in)
             return detail_extra::parse1(config);
         }
 
-        LOGTHROW(err1, storage::FormatError)
+        LOGTHROW(err1, vadstena::storage::FormatError)
             << "Invalid extra config format: unsupported version "
             << version << ".";
 
     } catch (const Json::Error &e) {
-        LOGTHROW(err1, storage::FormatError)
+        LOGTHROW(err1, vadstena::storage::FormatError)
             << "Invalid extra config format (" << e.what()
             << "); Unable to work with this config.";
     }
     throw;
 }
 
-ExtraTileSetProperties loadExtraConfig(const boost::filesystem::path &path)
+ExtraStorageProperties loadExtraConfig(const boost::filesystem::path &path)
 {
     LOG(info1) << "Loading extra config from " << path  << ".";
     std::ifstream f;
@@ -272,7 +204,7 @@ ExtraTileSetProperties loadExtraConfig(const boost::filesystem::path &path)
     try {
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
-        LOGTHROW(err1, storage::NoSuchTileSet)
+        LOGTHROW(err1, vadstena::storage::NoSuchStorage)
             << "Unable to load extra config file " << path << ".";
     }
     auto p(loadExtraConfig(f));
@@ -280,4 +212,4 @@ ExtraTileSetProperties loadExtraConfig(const boost::filesystem::path &path)
     return p;
 }
 
-} } } // namespace vadstena::vts::tileset
+} } } // namespace vadstena::vts::storage

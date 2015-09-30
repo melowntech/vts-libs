@@ -22,7 +22,7 @@
 namespace vadstena { namespace vts {
 
 TileSet createTileSet(const boost::filesystem::path &path
-                      , const StaticProperties &properties
+                      , const TileSetProperties &properties
                       , CreateMode mode = CreateMode::failIfExists);
 
 TileSet openTileSet(const boost::filesystem::path &path);
