@@ -72,7 +72,7 @@ struct MetaNode {
 
     MetaNode& cc(CoarsenessControl value) {
         return set(Flag::coarsenessControl
-            , (value == CoarsenessControl::displaySize));
+            , (value == CoarsenessControl::texelSize));
     }
 
     bool ulChild() const { return check(Flag::ulChild); }

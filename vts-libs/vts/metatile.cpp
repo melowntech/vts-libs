@@ -321,22 +321,26 @@ void MetaTile::save(std::ostream &out) const
 
             bin::write(out, buildGeomExtents(tileId, node.extents));
 
+            std::uint16_t marea(0);
+            std::uint16_t tarea(0);
             switch (node.cc()) {
             case MetaNode::CoarsenessControl::texelSize:
                 if (node.geometry()) {
-                    bin::write(out, half::float2half<std::round_to_nearest>
-                               (node.meshArea));
+                    marea = half::float2half<std::round_to_nearest>
+                        (node.meshArea);
                 }
                 if (node.internalTexture()) {
-                    bin::write(out, half::float2half<std::round_to_nearest>
-                               (node.textureArea));
+                    tarea = half::float2half<std::round_to_nearest>
+                        (node.textureArea);
                 }
                 break;
 
             case MetaNode::CoarsenessControl::displaySize:
-                bin::write(out, std::uint16_t(node.displaySize));
+                marea = node.displaySize;
                 break;
             }
+            bin::write(out, marea);
+            bin::write(out, tarea);
 
             bin::write(out, std::int16_t(node.heightRange.min));
             bin::write(out, std::int16_t(node.heightRange.max));
@@ -451,18 +455,23 @@ void MetaTile::load(std::istream &in, const fs::path &path)
 
             switch (node.cc()) {
             case MetaNode::CoarsenessControl::texelSize:
+                // read mesh area
+                bin::read(in, u16);
                 if (node.geometry()) {
-                    bin::read(in, u16);
                     node.meshArea = half::half2float(u16);
                 }
+
+                // read texture area
+                bin::read(in, u16);
                 if (node.internalTexture()) {
-                    bin::read(in, u16);
                     node.textureArea = half::half2float(u16);
                 }
                 break;
 
             case MetaNode::CoarsenessControl::displaySize:
+                // read display size and texture area; use only display size
                 bin::read(in, u16); node.displaySize = u16;
+                bin::read(in, u16);
                 break;
             }
 
