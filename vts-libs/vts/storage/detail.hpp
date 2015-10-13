@@ -20,6 +20,10 @@ struct Storage::Properties : StorageProperties {
      */
     unsigned int revision;
 
+    /** List of tilesets in this storage.
+     */
+    std::vector<std::string> tilesets;
+
     Properties() : revision(0) {}
 };
 
@@ -32,6 +36,14 @@ struct Storage::Detail
            , CreateMode mode);
 
     ~Detail();
+
+    void loadConfig();
+
+    void saveConfig();
+
+    void add(const TileSet &tileset
+             , const Location &where, CreateMode mode
+             , const std::string tilesetId);
 
     boost::filesystem::path root;
 

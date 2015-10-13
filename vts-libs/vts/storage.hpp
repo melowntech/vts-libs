@@ -15,6 +15,8 @@
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem/path.hpp>
 
+#include "utility/enum-io.hpp"
+
 #include "./tileset.hpp"
 
 namespace vadstena { namespace vts {
@@ -42,6 +44,33 @@ public:
 
     ~Storage();
 
+    struct Location {
+        std::string where;
+
+        enum class Direction { below, above };
+        Direction direction;
+
+        Location(const std::string &where, Direction direction)
+            : where(where), direction(direction)
+        {}
+
+        Location() : direction(Direction::below) {}
+    };
+
+    /** Adds tileset from given path to the tileset at where location.
+     *  Operation fails if give tileset is already present in the stack and mode
+     *  is failIfExists.
+     *
+     *  \param tilesetPath path to source tileset
+     *  \param where location in the stack where to add
+     *  \param mode overwrite mode
+     *  \param tilesetId added tileset identifier; defaults to id of tileset at
+     *                   source path
+     */
+    void add(const boost::filesystem::path &tilesetPath
+             , const Location &where, CreateMode mode
+             , const boost::optional<std::string> tilesetId = boost::none);
+
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the storage's guts!
      */
@@ -56,6 +85,61 @@ private:
 public:
     struct Properties;
 };
+
+UTILITY_GENERATE_ENUM_IO(Storage::Location::Direction,
+    ((below))
+    ((above))
+)
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const Storage::Location &l)
+{
+    if (l.where.empty()) {
+        if (l.direction == Storage::Location::Direction::above) {
+            return os << "@BOTTOM";
+        } else {
+            return os << "@TOP";
+        }
+    }
+
+    return os << ((l.direction == Storage::Location::Direction::below)
+                  ? '-' : '+') << l.where;
+}
+
+template<typename CharT, typename Traits>
+inline std::basic_istream<CharT, Traits>&
+operator>>(std::basic_istream<CharT, Traits> &is, Storage::Location &l)
+{
+    std::string id;
+    is >> id;
+    if (id == "@BOTTOM") {
+        l.where.erase();
+        l.direction = Storage::Location::Direction::above;
+        return is;
+    } else if (id == "@TOP") {
+        l.where.erase();
+        l.direction = Storage::Location::Direction::below;
+        return is;
+    }
+
+    // +/- and at least one character
+    if (id.size() < 2) {
+        is.setstate(std::ios::failbit);
+        return is;
+    }
+
+    switch (id[0]) {
+    case '-': l.direction = Storage::Location::Direction::below; break;
+    case '+': l.direction = Storage::Location::Direction::above; break;
+    default:
+        is.setstate(std::ios::failbit);
+        return is;
+    }
+    l.where = id.substr(1);
+
+    return is;
+}
 
 } } // namespace vadstena::vts
 

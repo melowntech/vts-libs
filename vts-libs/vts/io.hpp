@@ -6,6 +6,7 @@
 #include "utility/streams.hpp"
 
 #include "./basetypes.hpp"
+#include "./storage.hpp"
 
 namespace vadstena { namespace vts {
 

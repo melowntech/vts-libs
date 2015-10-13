@@ -33,24 +33,8 @@ void parse(registry::Position &p, const Json::Value &value)
     p.verticalFov = Json::as<double>(value[8]);
 }
 
-void parseIdSet(registry::IdSet &ids, const Json::Value &object
-                , const char *name)
-{
-    const Json::Value &value(object[name]);
-
-    if (!value.isArray()) {
-        LOGTHROW(err1, Json::Error)
-            << "Type of " << name << " is not a list.";
-    }
-
-    for (const auto &element : value) {
-        Json::check(element, Json::intValue);
-        ids.insert(element.asInt());
-    }
-}
-
-void parseIdSet(registry::StringIdSet &ids, const Json::Value &object
-                , const char *name)
+void parseList(std::vector<std::string> &ids, const Json::Value &object
+               , const char *name)
 {
     const Json::Value &value(object[name]);
 
@@ -61,8 +45,14 @@ void parseIdSet(registry::StringIdSet &ids, const Json::Value &object
 
     for (const auto &element : value) {
         Json::check(element, Json::stringValue);
-        ids.insert(element.asString());
+        ids.push_back(element.asString());
     }
+}
+
+void buildList(const std::vector<std::string> &ids, Json::Value &object)
+{
+    object = Json::arrayValue;
+    for (const auto &id : ids) { object.append(id); }
 }
 
 Storage::Properties parse1(const Json::Value &config)
@@ -71,6 +61,8 @@ Storage::Properties parse1(const Json::Value &config)
 
     Json::get(properties.referenceFrame, config, "referenceFrame");
     Json::get(properties.revision, config, "revision");
+
+    parseList(properties.tilesets, config, "tilesets");
 
     return properties;
 }
@@ -82,6 +74,8 @@ void build(Json::Value &config, const Storage::Properties &properties)
 
     config["referenceFrame"] = properties.referenceFrame;
     config["revision"] = properties.revision;
+
+    buildList(properties.tilesets, config["tilesets"]);
 }
 
 } // namespace detail
