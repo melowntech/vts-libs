@@ -35,6 +35,9 @@ struct Storage::Detail
            , const StorageProperties &properties
            , CreateMode mode);
 
+    Detail(const boost::filesystem::path &root
+           , OpenMode mode);
+
     ~Detail();
 
     void loadConfig();

@@ -12,7 +12,7 @@ namespace vadstena { namespace vts {
 
 TileSetProperties TileSet::getProperties() const
 {
-    return {};
+    return detail().properties;
 }
 
 TileSet::TileSet(const std::shared_ptr<Driver> &driver)
@@ -116,6 +116,55 @@ struct TileSet::Factory
         auto driver(std::make_shared<Driver>(path));
         return TileSet(driver);
     }
+
+    static TileSet clone(const boost::filesystem::path &path
+                         , const TileSet &src, CreateMode mode
+                         , const boost::optional<std::string> &id)
+    {
+        auto properties(src.getProperties());
+        if (id) { properties.id = *id; }
+        auto dst(createTileSet(path, properties, mode));
+
+        auto &sd(*src.detail().driver);
+        auto &dd(*dst.detail().driver);
+
+        copyFile(sd.input(storage::File::tileIndex)
+                 , dd.output(storage::File::tileIndex));
+
+        traverse(src.detail().tileIndex
+                 , [&](const TileId &tid, QTree::value_type mask)
+        {
+            LOG(info4) << tid << ": " << std::bitset<8>(mask);
+            if (mask & Detail::TileFlag::mesh) {
+                // copy mesh
+                copyFile(sd.input(tid, storage::TileFile::mesh)
+                         , dd.output(tid, storage::TileFile::mesh));
+            }
+
+            if (mask & Detail::TileFlag::atlas) {
+                // copy atlas
+                copyFile(sd.input(tid, storage::TileFile::atlas)
+                         , dd.output(tid, storage::TileFile::atlas));
+            }
+
+            if (mask & Detail::TileFlag::navtile) {
+                // copy navtile
+                copyFile(sd.input(tid, storage::TileFile::navtile)
+                         , dd.output(tid, storage::TileFile::navtile));
+            }
+
+            if (mask & Detail::TileFlag::meta) {
+                // copy meta
+                copyFile(sd.input(tid, storage::TileFile::meta)
+                         , dd.output(tid, storage::TileFile::meta));
+            }
+        });
+
+        // flush changes
+        dst.flush();
+
+        return dst;;
+    }
 };
 
 TileSet createTileSet(const boost::filesystem::path &path
@@ -128,6 +177,13 @@ TileSet createTileSet(const boost::filesystem::path &path
 TileSet openTileSet(const boost::filesystem::path &path)
 {
     return TileSet::Factory::open(path);
+}
+
+TileSet cloneTileSet(const boost::filesystem::path &path
+                     , const TileSet &src, CreateMode mode
+                     , const boost::optional<std::string> &id)
+{
+    return TileSet::Factory::clone(path, src, mode, id);
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver)
@@ -363,6 +419,7 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     // update node value
     node->update(tileId, metanode);
 
+    LOG(info4) << tileId << " watertight: " << watertight;
     tileIndex.setMask(tileId, TileFlag::watertight, watertight);
 
     // go up the tree
@@ -414,8 +471,10 @@ void TileSet::Detail::setTile(const TileId &tileId
         metanode.cc(MetaNode::CoarsenessControl::texelSize);
         metanode.meshArea = std::sqrt(ma.mesh);
 
-        // internal texture
-        metanode.internalTexture(true);
+        if (atlas) {
+            // internal texture
+            metanode.internalTexture(true);
+        }
 
         // calculate texture area
         double textureArea(0.0);
@@ -517,6 +576,19 @@ bool TileSet::Detail::exists(const TileId &tileId) const
 
 void TileSet::Detail::saveMetadata()
 {
+    auto maskFromNode([](const TileId &tid, const MetaNode &node)
+                      -> std::uint8_t
+    {
+        std::uint8_t m(0);
+        if (node.geometry()) { m |= TileFlag::mesh; }
+        if (node.navtile()) { m |= TileFlag::navtile; }
+        if (node.internalTexture()) { m |= TileFlag::atlas; }
+
+        LOG(info4) << tid << " Mask: " << std::bitset<8>(m);
+
+        return m;
+    });
+
     driver->wannaWrite("save metadata");
 
     for (const auto &item : metaTiles) {
@@ -534,8 +606,7 @@ void TileSet::Detail::saveMetadata()
         {
             // mark node only if real
             if (node.real()) {
-                // TODO: convert node info into mask
-                tileIndex.setMask(tileId, 1);
+                tileIndex.setMask(tileId, maskFromNode(tileId, node));
             }
         });
 

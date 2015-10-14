@@ -27,6 +27,11 @@ TileSet createTileSet(const boost::filesystem::path &path
 
 TileSet openTileSet(const boost::filesystem::path &path);
 
+TileSet cloneTileSet(const boost::filesystem::path &path
+                     , const TileSet &src
+                     , CreateMode mode = CreateMode::failIfExists
+                     , const boost::optional<std::string> &id = boost::none);
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_hpp_included_

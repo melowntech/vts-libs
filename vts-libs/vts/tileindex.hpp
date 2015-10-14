@@ -149,6 +149,19 @@ inline void TileIndex::set(const TileId &tileId, QTree::value_type value)
     }
 }
 
+template <typename Op>
+inline void traverse(const TileIndex &ti, const Op &op)
+{
+    auto lod(ti.minLod());
+    for (const auto &tree : ti.trees()) {
+        tree.forEach([&](long x, long y, QTree::value_type mask)
+        {
+            op(TileId(lod, x, y), mask);
+        }, QTree::Filter::white);
+        ++lod;
+    }
+}
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_tileindex_hpp_included_
