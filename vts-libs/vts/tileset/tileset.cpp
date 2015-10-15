@@ -134,7 +134,6 @@ struct TileSet::Factory
         traverse(src.detail().tileIndex
                  , [&](const TileId &tid, QTree::value_type mask)
         {
-            LOG(info4) << tid << ": " << std::bitset<8>(mask);
             if (mask & Detail::TileFlag::mesh) {
                 // copy mesh
                 copyFile(sd.input(tid, storage::TileFile::mesh)
@@ -419,7 +418,6 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     // update node value
     node->update(tileId, metanode);
 
-    LOG(info4) << tileId << " watertight: " << watertight;
     tileIndex.setMask(tileId, TileFlag::watertight, watertight);
 
     // go up the tree
@@ -579,13 +577,11 @@ void TileSet::Detail::saveMetadata()
     auto maskFromNode([](const TileId &tid, const MetaNode &node)
                       -> std::uint8_t
     {
+        (void) tid;
         std::uint8_t m(0);
         if (node.geometry()) { m |= TileFlag::mesh; }
         if (node.navtile()) { m |= TileFlag::navtile; }
         if (node.internalTexture()) { m |= TileFlag::atlas; }
-
-        LOG(info4) << tid << " Mask: " << std::bitset<8>(m);
-
         return m;
     });
 

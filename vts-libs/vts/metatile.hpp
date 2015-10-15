@@ -261,8 +261,8 @@ inline const MetaNode& MetaTile::get(const TileId &tileId)
 template <typename F>
 inline void MetaTile::for_each(F f) const
 {
-    for (auto j(valid_.ll(1)); j < valid_.ur(1); ++j) {
-        for (auto i(valid_.ll(0)); i < valid_.ur(0); ++i) {
+    for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
+        for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
             const auto &node(grid_[j * size_ + i]);
             f(TileId(origin_.lod, origin_.x + i, origin_.y + j), node);
         }
