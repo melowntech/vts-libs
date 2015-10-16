@@ -94,6 +94,14 @@ public:
      */
     const Driver& driver() const;
 
+    /** Root path of this tileset.
+     */
+    boost::filesystem::path root() const;
+
+    /** Get tileset's ID.
+     */
+    std::string id() const { return getProperties().id; }
+
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the tileset's guts!
      */

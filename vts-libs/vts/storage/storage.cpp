@@ -7,12 +7,14 @@
 
 #include <memory>
 #include <string>
-
+#include <exception>
+ 
 #include <boost/optional.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem.hpp>
 
 #include "utility/streams.hpp"
+#include "utility/guarded-call.hpp"
 
 #include "../../storage/error.hpp"
 #include "../storage.hpp"
@@ -117,15 +119,81 @@ void Storage::Detail::saveConfig()
     }
 }
 
+namespace {
+
+class Tx {
+public:
+    Tx() {}
+    ~Tx();
+
+    void add(const fs::path &work, const fs::path &dst);
+
+private:
+    void rollback();
+    void commit();
+
+    typedef std::map<fs::path, fs::path> Mapping;
+    Mapping mapping_;
+};
+
+Tx::~Tx() {
+    if (std::uncaught_exception()) {
+        // we cannot throw!
+        rollback();
+    } else {
+        commit();
+    }
+}
+
+void Tx::add(const fs::path &work, const fs::path &dst)
+{
+    mapping_.insert(Mapping::value_type(work, dst));
+}
+
+void Tx::rollback()
+{
+    for (const auto &item : mapping_) {
+        try { remove_all(item.first); } catch (...) {}
+    }
+}
+
+void Tx::commit()
+{
+    for (const auto &item : mapping_) {
+        // TODO: make more robust
+        // remove old stuff
+        remove_all(item.second);
+        // move new stuff there
+        rename(item.first, item.second);
+    }
+}
+
+} // namespace
+
 void Storage::Detail::add(const TileSet &tileset
                           , const Location &where, CreateMode mode
                           , const std::string tilesetId)
 {
-    auto dst(cloneTileSet(root / TileSetDir / tilesetId, tileset, mode
+    // TODO: check tilesetId for existence in the stack and consult with mode
+
+    LOG(info3) << "Adding tileset " << tileset.id() << " (from "
+               << tileset.root() << ").";
+
+    Tx tx;
+    const auto workPath(root / TileSetDir / "tmp" / tilesetId);
+
+    tx.add(workPath, root / TileSetDir / tilesetId);
+
+    // create tileset at work path (overwrite any existing stuff here)
+    auto dst(cloneTileSet(workPath, tileset, CreateMode::overwrite
                           , tilesetId));
 
-    (void) where;
     (void) dst;
+
+    // TODO: create glues
+
+    (void) mode;
+    (void) where;
 }
 
 } } // namespace vadstena::vts

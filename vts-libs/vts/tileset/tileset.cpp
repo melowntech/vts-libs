@@ -644,6 +644,11 @@ const Driver& TileSet::driver() const
     return *detail().driver;
 }
 
+fs::path TileSet::root() const
+{
+    return detail().driver->root();
+}
+
 MapConfig TileSet::mapConfig() const
 {
     return detail().mapConfig();
