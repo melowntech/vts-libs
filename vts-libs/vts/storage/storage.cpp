@@ -8,10 +8,11 @@
 #include <memory>
 #include <string>
 #include <exception>
- 
+
 #include <boost/optional.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/format.hpp>
 
 #include "utility/streams.hpp"
 #include "utility/guarded-call.hpp"
@@ -170,11 +171,29 @@ void Tx::commit()
 
 } // namespace
 
+    /** Returns list of tileses in the stacked order (bottom to top);
+     */
+std::vector<std::string> Storage::tilesets() const
+{
+    return detail().properties.tilesets;
+}
+
+Glue::list Storage::glues() const
+{
+    return detail().properties.glues;
+}
+
 void Storage::Detail::add(const TileSet &tileset
                           , const Location &where, CreateMode mode
                           , const std::string tilesetId)
 {
     // TODO: check tilesetId for existence in the stack and consult with mode
+
+    dbglog::thread_id(str(boost::format("%s->%s/%s")
+                          % tileset.id()
+                          % root.filename().string()
+                          % tilesetId));
+
 
     LOG(info3) << "Adding tileset " << tileset.id() << " (from "
                << tileset.root() << ").";

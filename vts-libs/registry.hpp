@@ -39,6 +39,8 @@ struct Registry {
     static const Credit::ndict credits(int);
 
     static void init(const boost::filesystem::path &confRoot);
+
+    static boost::filesystem::path confRoot();
 };
 
 boost::filesystem::path defaultPath();

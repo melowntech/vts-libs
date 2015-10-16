@@ -49,10 +49,51 @@ void parseList(std::vector<std::string> &ids, const Json::Value &object
     }
 }
 
-void buildList(const std::vector<std::string> &ids, Json::Value &object)
+void parseGlue(Glue &glue, const Json::Value &value)
+{
+    if (!value.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of glue is not an object.";
+    }
+
+    parseList(glue.id, value, "glue[id]");
+    Json::get(glue.path, value, "glue[path]");
+}
+
+void parseGlues(Glue::list &glues, const Json::Value &value)
+{
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of glues is not an array.";
+    }
+
+    for (const auto &element : value) {
+        Json::check(element, Json::objectValue);
+        glues.push_back({});
+        parseGlue(glues.back(), element);
+    }
+}
+
+void buildList(const std::vector<std::string> &ids, Json::Value &value)
+{
+    value = Json::arrayValue;
+    for (const auto &id : ids) { value.append(id); }
+}
+
+void buildGlue(const Glue &glue, Json::Value &object)
+{
+    object = Json::objectValue;
+    buildList(glue.id, object["id"]);
+    object["path"] = glue.path;
+}
+
+void buildGlues(const Glue::list &glues, Json::Value &object)
 {
     object = Json::arrayValue;
-    for (const auto &id : ids) { object.append(id); }
+
+    for (const auto &glue : glues) {
+        buildGlue(glue, object.append(Json::nullValue));
+    }
 }
 
 Storage::Properties parse1(const Json::Value &config)
@@ -63,6 +104,7 @@ Storage::Properties parse1(const Json::Value &config)
     Json::get(properties.revision, config, "revision");
 
     parseList(properties.tilesets, config, "tilesets");
+    parseGlues(properties.glues, config["glues"]);
 
     return properties;
 }
@@ -76,6 +118,7 @@ void build(Json::Value &config, const Storage::Properties &properties)
     config["revision"] = properties.revision;
 
     buildList(properties.tilesets, config["tilesets"]);
+    buildGlues(properties.glues, config["glues"]);
 }
 
 } // namespace detail

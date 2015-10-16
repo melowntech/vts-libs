@@ -1,3 +1,7 @@
+#include <boost/format.hpp>
+
+#include "utility/progress.hpp"
+
 #include "../../vts.hpp"
 #include "../tileset.hpp"
 #include "../tileindex-io.hpp"
@@ -121,6 +125,10 @@ struct TileSet::Factory
                          , const TileSet &src, CreateMode mode
                          , const boost::optional<std::string> &id)
     {
+        const utility::Progress::ratio_t reportRatio(1, 100);
+        const auto reportName(str(boost::format("Cloning <%s> ")
+                                  % src.id()));
+
         auto properties(src.getProperties());
         if (id) { properties.id = *id; }
         auto dst(createTileSet(path, properties, mode));
@@ -130,6 +138,8 @@ struct TileSet::Factory
 
         copyFile(sd.input(storage::File::tileIndex)
                  , dd.output(storage::File::tileIndex));
+
+        utility::Progress progress(src.detail().tileIndex.count());
 
         traverse(src.detail().tileIndex
                  , [&](const TileId &tid, QTree::value_type mask)
@@ -157,6 +167,8 @@ struct TileSet::Factory
                 copyFile(sd.input(tid, storage::TileFile::meta)
                          , dd.output(tid, storage::TileFile::meta));
             }
+
+            (++progress).report(reportRatio, reportName);
         });
 
         // flush changes

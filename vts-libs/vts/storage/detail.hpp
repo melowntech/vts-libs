@@ -15,7 +15,7 @@
 namespace vadstena { namespace vts {
 
 struct Storage::Properties : StorageProperties {
-    /** Data version/revision. Should be increment anytime the data change.
+    /** Data version/revision. Should be incremented anytime the data change.
      *  Used in template URL's to push through caches.
      */
     unsigned int revision;
@@ -23,6 +23,10 @@ struct Storage::Properties : StorageProperties {
     /** List of tilesets in this storage.
      */
     std::vector<std::string> tilesets;
+
+    /** List of glues
+     */
+    Glue::list glues;
 
     Properties() : revision(0) {}
 };

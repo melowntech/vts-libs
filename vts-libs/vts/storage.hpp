@@ -28,6 +28,15 @@ struct StorageProperties {
 struct ExtraStorageProperties {
 };
 
+struct Glue {
+    std::vector<std::string> id;
+    std::string path;
+
+    typedef std::vector<Glue> list;
+
+    Glue() {}
+};
+
 /** Storage interface.
  */
 class Storage {
@@ -70,6 +79,14 @@ public:
     void add(const boost::filesystem::path &tilesetPath
              , const Location &where, CreateMode mode
              , const boost::optional<std::string> tilesetId = boost::none);
+
+    /** Returns list of tileses in the stacked order (bottom to top);
+     */
+    std::vector<std::string> tilesets() const;
+
+    /** Returns list of existing glues.
+     */
+    Glue::list glues() const;
 
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the storage's guts!

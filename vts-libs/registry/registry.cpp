@@ -5,6 +5,8 @@
 namespace vadstena { namespace registry {
 
 namespace detail {
+    boost::filesystem::path root;
+
     Srs::dict srs;
 
     ReferenceFrame::dict referenceFrames;
@@ -113,6 +115,8 @@ const Credit::ndict Registry::credits(int)
 
 void Registry::init(const boost::filesystem::path &confRoot)
 {
+    detail::root = confRoot;
+
     detail::srs = loadSrs(confRoot / "srs.json");
     detail::referenceFrames
         = loadReferenceFrames(confRoot / "referenceframes.json");
@@ -126,6 +130,11 @@ void Registry::init(const boost::filesystem::path &confRoot)
     for (auto const &c : detail::credits) {
         detail::nCredits.set(c.second.numericId, c.second);
     }
+}
+
+boost::filesystem::path Registry::confRoot()
+{
+    return detail::root;
 }
 
 boost::filesystem::path defaultPath()
