@@ -629,11 +629,6 @@ void TileSet::Detail::flush()
 void TileSet::Detail::saveMetatiles(TileIndex &tileIndex, TileIndex &metaIndex)
     const
 {
-    if (properties.hasData) {
-        // no data
-        return;
-    }
-
     struct Saver : MetaNodeSaver {
         const TileSet::Detail &detail;
         TileIndex &tileIndex;
@@ -1298,6 +1293,7 @@ void TileSet::Detail::clone(const Detail &src)
             // same meta levels -> just copy file
             copyFile(sd.input(metaId, TileFile::meta)
                      , dd.output(metaId, TileFile::meta));
+            LOG(info4) << "HERE";
         } else {
             // must load into memory, saved in flush
             auto f(sd.input(metaId, TileFile::meta));
