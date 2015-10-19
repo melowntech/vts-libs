@@ -100,6 +100,15 @@ public:
      */
     Stat statMask(QTree::value_type mask) const;
 
+    /** Translates node values.
+     */
+    template <typename Op>
+    void translate(const Op &op) {
+        for (auto &tree : trees_) {
+            tree.translateEachNode(op);
+        }
+    }
+
 private:
     QTree* tree(Lod lod, bool create = false);
 

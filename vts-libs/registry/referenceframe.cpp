@@ -888,9 +888,40 @@ Json::Value asJson(const Position &position)
     value.append(position.orientation(0));
     value.append(position.orientation(1));
     value.append(position.orientation(2));
-    value.append(position.viewHeight);
+    if (position.type != Position::Type::generic) {
+        value.append(position.verticalExtent);
+    }
     value.append(position.verticalFov);
     return value;
+}
+
+Position fromJson(const Json::Value value)
+{
+    Position p;
+
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of position is not a list.";
+    }
+
+    p.type = boost::lexical_cast<registry::Position::Type>
+        (Json::as<std::string>(value[0]));
+    p.position(0) = Json::as<double>(value[1]);
+    p.position(1) = Json::as<double>(value[2]);
+    p.position(2) = Json::as<double>(value[3]);
+
+    p.orientation(0) = Json::as<double>(value[4]);
+    p.orientation(1) = Json::as<double>(value[5]);
+    p.orientation(2) = Json::as<double>(value[6]);
+
+    if (p.type == Position::Type::generic) {
+        p.verticalFov = Json::as<double>(value[7]);
+    } else {
+        p.verticalExtent = Json::as<double>(value[7]);
+        p.verticalFov = Json::as<double>(value[8]);
+    }
+
+    return p;
 }
 
 Srs::dict listSrs(const ReferenceFrame &referenceFrame)

@@ -157,15 +157,15 @@ struct ReferenceFrame {
 };
 
 struct Position {
-    enum class Type { fixed, floating };
+    enum class Type { fixed, floating, generic };
 
     Type type;
     math::Point3 position;
     math::Point3 orientation;
-    double viewHeight;
+    double verticalExtent;
     double verticalFov;
 
-    Position() : type(Type::fixed), viewHeight(), verticalFov() {}
+    Position() : type(Type::fixed), verticalExtent(), verticalFov() {}
 };
 
 struct Credit {
@@ -273,6 +273,7 @@ UTILITY_GENERATE_ENUM_IO(Srs::Type,
 UTILITY_GENERATE_ENUM_IO(Position::Type,
     ((fixed))
     ((floating)("float"))
+    ((generic))
 )
 
 UTILITY_GENERATE_ENUM_IO(BoundLayer::Type,

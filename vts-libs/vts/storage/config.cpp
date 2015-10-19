@@ -12,27 +12,6 @@ namespace detail {
 
 const int CURRENT_JSON_FORMAT_VERSION(1);
 
-void parse(registry::Position &p, const Json::Value &value)
-{
-    if (!value.isArray()) {
-        LOGTHROW(err1, Json::Error)
-            << "Type of position is not a list.";
-    }
-
-    p.type = boost::lexical_cast<registry::Position::Type>
-        (Json::as<std::string>(value[0]));
-    p.position(0) = Json::as<double>(value[1]);
-    p.position(1) = Json::as<double>(value[2]);
-    p.position(2) = Json::as<double>(value[3]);
-
-    p.orientation(0) = Json::as<double>(value[4]);
-    p.orientation(1) = Json::as<double>(value[5]);
-    p.orientation(2) = Json::as<double>(value[6]);
-
-    p.viewHeight = Json::as<double>(value[7]);
-    p.verticalFov = Json::as<double>(value[8]);
-}
-
 void parseList(std::vector<std::string> &ids, const Json::Value &object
                , const char *name)
 {
@@ -56,8 +35,8 @@ void parseGlue(Glue &glue, const Json::Value &value)
             << "Type of glue is not an object.";
     }
 
-    parseList(glue.id, value, "glue[id]");
-    Json::get(glue.path, value, "glue[path]");
+    parseList(glue.id, value, "id");
+    Json::get(glue.path, value, "dir");
 }
 
 void parseGlues(Glue::list &glues, const Json::Value &value)
@@ -84,7 +63,7 @@ void buildGlue(const Glue &glue, Json::Value &object)
 {
     object = Json::objectValue;
     buildList(glue.id, object["id"]);
-    object["path"] = glue.path;
+    object["dir"] = glue.path;
 }
 
 void buildGlues(const Glue::list &glues, Json::Value &object)

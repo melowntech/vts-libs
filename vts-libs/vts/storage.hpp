@@ -28,8 +28,11 @@ struct StorageProperties {
 struct ExtraStorageProperties {
 };
 
+typedef std::vector<std::string> TilesetIdList;
+
 struct Glue {
-    std::vector<std::string> id;
+    typedef TilesetIdList Id;
+    Id id;
     std::string path;
 
     typedef std::vector<Glue> list;
@@ -67,22 +70,25 @@ public:
     };
 
     /** Adds tileset from given path to the tileset at where location.
-     *  Operation fails if give tileset is already present in the stack and mode
-     *  is failIfExists.
+     *  Operation fails if give tileset is already present in the stack.
      *
      *  \param tilesetPath path to source tileset
      *  \param where location in the stack where to add
-     *  \param mode overwrite mode
      *  \param tilesetId added tileset identifier; defaults to id of tileset at
      *                   source path
      */
-    void add(const boost::filesystem::path &tilesetPath
-             , const Location &where, CreateMode mode
+    void add(const boost::filesystem::path &tilesetPath, const Location &where
              , const boost::optional<std::string> tilesetId = boost::none);
+
+    /** Removes given tileset from the storage.
+     *
+     *  \param tilesetIds Ids of tilesets to remove
+     */
+    void remove(const TilesetIdList &tilesetIds);
 
     /** Returns list of tileses in the stacked order (bottom to top);
      */
-    std::vector<std::string> tilesets() const;
+    TilesetIdList tilesets() const;
 
     /** Returns list of existing glues.
      */

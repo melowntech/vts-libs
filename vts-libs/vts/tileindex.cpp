@@ -218,7 +218,7 @@ TileIndex::Stat TileIndex::statMask(QTree::value_type mask) const
         stat.tileRanges.emplace_back(math::InvalidExtents{});
         auto &tileRange(stat.tileRanges.back());
 
-        tree.forEachQuad([&](unsigned int x, unsigned int y, unsigned int size
+        tree.forEachNode([&](unsigned int x, unsigned int y, unsigned int size
                              , QTree::value_type value)
         {
             if (!(value & mask)) { return; }

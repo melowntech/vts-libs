@@ -34,6 +34,9 @@ public:
 
     unsigned int order() const { return order_; }
 
+    /** Merge nodes
+     *  Interprets value as: black: (value == 0), white: (value != 0)
+     */
     void merge(const QTree &other, bool checkDimensions = true);
 
     /** Returns number of non-zero elements.
@@ -44,16 +47,22 @@ public:
         black, white, both
     };
 
-    /** Runs op(x, y, xsize, value) for each quad based on filter.
+    /** Runs op(x, y, xsize, value) for each node based on filter.
      */
     template <typename Op>
-    void forEachQuad(const Op &op, Filter filter = Filter::both) const;
+    void forEachNode(const Op &op, Filter filter = Filter::both) const;
 
     /** Runs op(x, y, value) for each element base on filter.
-     *  Uses forEachQuad and rasterizes quad internally.
+     *  Uses forEachNode and rasterizes node internally.
      */
     template <typename Op>
     void forEach(const Op &op, Filter filter = Filter::both) const;
+
+    /** Translates value of every node.
+     *  Calls value = op(value) for every node.
+     */
+    template <typename Op>
+    void translateEachNode(const Op &op);
 
 private:
     /** Re-calculates number of non-zero elements.
@@ -88,10 +97,18 @@ private:
         void save(std::ostream &os) const;
         std::size_t load(unsigned int mask, std::istream &is);
 
-        /** Called from QTree::forEachQuad */
+        /** Called from QTree::forEachNode */
         template <typename Op>
         void descend(unsigned int mask, unsigned int x, unsigned int y
                      , const Op &op, Filter filter) const;
+
+        template <typename Op>
+        void translate(const Op &op);
+
+        /** Merge nodes
+         *  Interprets value as: black: (value == 0), white: (value != 0)
+         */
+        void merge(const Node &other);
     };
 
     unsigned int order_;
@@ -114,7 +131,7 @@ struct QTree::Node::Children {
 // inlines
 
 template <typename Op>
-inline void QTree::forEachQuad(const Op &op, Filter filter) const
+inline void QTree::forEachNode(const Op &op, Filter filter) const
 {
     root_.descend(size_, 0, 0, op, filter);
 }
@@ -122,10 +139,10 @@ inline void QTree::forEachQuad(const Op &op, Filter filter) const
 template <typename Op>
 inline void QTree::forEach(const Op &op, Filter filter) const
 {
-    this->forEachQuad([&](unsigned int x, unsigned int y, unsigned int size
+    this->forEachNode([&](unsigned int x, unsigned int y, unsigned int size
                           , value_type value)
     {
-        // rasterize quad
+        // rasterize node
         uint ex(x + size);
         uint ey(y + size);
 
@@ -161,6 +178,27 @@ inline void QTree::Node::descend(unsigned int mask, unsigned int x
 
     // call operation for node
     op(x, y, mask, value);
+}
+
+template <typename Op>
+void QTree::translateEachNode(const Op &op)
+{
+    root_.translate(op);
+    recount();
+}
+
+template <typename Op>
+void QTree::Node::translate(const Op &op)
+{
+    if (children) {
+        for (auto &node : children->nodes) {
+            node.translate();
+        }
+        contract();
+        return;
+    }
+
+    value = Op(value);
 }
 
 } } // namespace vadstena::vts

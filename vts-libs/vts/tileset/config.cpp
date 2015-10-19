@@ -15,27 +15,6 @@ namespace detail {
 
 const int CURRENT_JSON_FORMAT_VERSION(1);
 
-void parse(registry::Position &p, const Json::Value &value)
-{
-    if (!value.isArray()) {
-        LOGTHROW(err1, Json::Error)
-            << "Type of position is not a list.";
-    }
-
-    p.type = boost::lexical_cast<registry::Position::Type>
-        (Json::as<std::string>(value[0]));
-    p.position(0) = Json::as<double>(value[1]);
-    p.position(1) = Json::as<double>(value[2]);
-    p.position(2) = Json::as<double>(value[3]);
-
-    p.orientation(0) = Json::as<double>(value[4]);
-    p.orientation(1) = Json::as<double>(value[5]);
-    p.orientation(2) = Json::as<double>(value[6]);
-
-    p.viewHeight = Json::as<double>(value[7]);
-    p.verticalFov = Json::as<double>(value[8]);
-}
-
 void parseIdSet(registry::IdSet &ids, const Json::Value &object
                 , const char *name)
 {
@@ -79,7 +58,7 @@ TileSet::Properties parse1(const Json::Value &config)
     parseIdSet(properties.credits, config, "credits");
     parseIdSet(properties.boundLayers, config, "boundLayers");
 
-    parse(properties.position, config["position"]);
+    properties.position = registry::fromJson(config["position"]);
 
     // load driver options
     const auto &driver(config["driver"]);
@@ -211,7 +190,7 @@ ExtraTileSetProperties parse1(const Json::Value &config)
 
     if (config.isMember("position")) {
         ep.position = boost::in_place();
-        detail::parse(*ep.position, config["position"]);
+        *ep.position = registry::fromJson(config["position"]);
     }
 
     if (config.isMember("textureLayer")) {

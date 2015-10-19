@@ -102,8 +102,8 @@ long QTree::Node::set(unsigned int mask, unsigned int x, unsigned int y
         auto old(this->value);
         this->value = value;
         if ((old && value) || (!old && !value)) { return 0; }
-        if (old && !value) { return -1; }
-        return 1;
+        if (old && !value) { return -(mask * mask); }
+        return (mask * mask);
     }
 
     // not at the bottom of the tree
@@ -219,17 +219,50 @@ void QTree::merge(const QTree &other, bool checkDimensions)
                 << "Attempt to merge in data from qtree with diferent order.";
         }
     }
-    abort();
+
+    root_.merge(other.root_);
+    recount();
 }
 
 void QTree::recount()
 {
     std::size_t count(0);
-    forEachQuad([&](unsigned int, unsigned int, unsigned int size, value_type)
+    forEachNode([&](unsigned int, unsigned int, unsigned int size, value_type)
     {
         count += size * size;
     }, Filter::white);
     count_ = count;
+}
+
+void QTree::Node::merge(const Node &other)
+{
+    if ((value) || (!other.value)) {
+        // merge(WHITE, anything) = WHITE (keep)
+        // merge(anything, BLACK) = anything (keep)
+        return;
+    }
+
+    if (other.value) {
+        // merge(anything, WHITE) = WHITE
+        *this = other;
+        return;
+    }
+
+    // OK, other is gray
+    if (!value) {
+        // merge(BLACK, GRAY) = GRAY
+        *this = other;
+        return;
+    }
+
+    // merge(GRAY, GRAY) = go down
+    children->nodes[0].merge(other.children->nodes[0]);
+    children->nodes[1].merge(other.children->nodes[1]);
+    children->nodes[2].merge(other.children->nodes[2]);
+    children->nodes[3].merge(other.children->nodes[3]);
+
+    // contract if possible
+    contract();
 }
 
 } } // namespace vadstena::vts
