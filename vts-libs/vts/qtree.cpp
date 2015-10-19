@@ -179,7 +179,7 @@ void QTree::load(std::istream &is, const fs::path &path)
     std::uint8_t order;
     bin::read(is, order);
     recreate(order);
-    count_ = root_.load(is);
+    count_ = root_.load(size_, is);
 }
 
 void QTree::Node::save(std::ostream &os) const
@@ -194,7 +194,7 @@ void QTree::Node::save(std::ostream &os) const
     }
 }
 
-std::size_t QTree::Node::load(std::istream &is)
+std::size_t QTree::Node::load(unsigned int mask, std::istream &is)
 {
     std::uint8_t u8;
     bin::read(is, u8);
@@ -202,13 +202,13 @@ std::size_t QTree::Node::load(std::istream &is)
         children.reset(new Children());
         std::size_t count(0);
         for (auto &node : children->nodes) {
-            count += node.load(is);
+            count += node.load(mask >> 1, is);
         }
         return count;
     }
 
     value = u8;
-    return value > 0;
+    return (value > 0) * (mask * mask);
 }
 
 void QTree::merge(const QTree &other, bool checkDimensions)

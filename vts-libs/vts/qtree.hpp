@@ -86,7 +86,7 @@ private:
         void contract();
 
         void save(std::ostream &os) const;
-        std::size_t load(std::istream &is);
+        std::size_t load(unsigned int mask, std::istream &is);
 
         /** Called from QTree::forEachQuad */
         template <typename Op>

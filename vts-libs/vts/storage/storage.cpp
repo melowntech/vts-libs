@@ -30,6 +30,7 @@ namespace vadstena { namespace vts {
 namespace {
     const fs::path ConfigFilename("storage.conf");
     const fs::path TileSetDir("tilesets");
+    const fs::path TempDir("tmp");
 }
 
 Storage::Storage(const boost::filesystem::path &path, OpenMode mode)
@@ -199,7 +200,7 @@ void Storage::Detail::add(const TileSet &tileset
                << tileset.root() << ").";
 
     Tx tx;
-    const auto workPath(root / TileSetDir / "tmp" / tilesetId);
+    const auto workPath(root / TempDir / tilesetId);
 
     tx.add(workPath, root / TileSetDir / tilesetId);
 
