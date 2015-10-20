@@ -67,22 +67,14 @@ struct TileSet::Detail
     Driver::pointer driver;
 
     Properties properties;       // current properties
-    bool changed;                // marks whether tileset has been changed
+    mutable bool propertiesChanged; // marks that properties have been changed
+    mutable bool metadataChanged;   // marks that metadata have been changed
+    bool changed() const { return metadataChanged || propertiesChanged; }
 
     registry::ReferenceFrame referenceFrame;
 
     mutable TileNode::map tileNodes;
     mutable MetaTiles metaTiles;
-
-    struct TileFlag {
-        enum : std::uint8_t {
-            mesh = 0x01
-            , watertight = 0x02
-            , atlas = 0x04
-            , navtile = 0x08
-            , meta = 0x10
-        };
-    };
 
     TileIndex tileIndex;
 
@@ -139,8 +131,6 @@ struct TileSet::Detail
 
     ExtraTileSetProperties loadExtraConfig() const;
 };
-
-inline void TileSet::DetailDeleter::operator()(Detail *d) { delete d; }
 
 inline void TileSet::Detail::checkValidity() const {
     if (!driver) {

@@ -34,10 +34,20 @@ public:
 
     unsigned int order() const { return order_; }
 
-    /** Merge nodes
-     *  Interprets value as: black: (value == 0), white: (value != 0)
+    /** Merge nodes.
      */
-    void merge(const QTree &other, bool checkDimensions = true);
+    template <typename FilterOp>
+    void merge(const QTree &other, const FilterOp &filter);
+
+    /** Intersect nodes.
+     */
+    template <typename FilterOp>
+    void intersect(const QTree &other, const FilterOp &filter);
+
+    /** Coarsen one level up.
+     */
+    template <typename FilterOp>
+    void coarsen(const FilterOp &filter);
 
     /** Returns number of non-zero elements.
      */
@@ -106,9 +116,28 @@ private:
         void translate(const Op &op);
 
         /** Merge nodes
-         *  Interprets value as: black: (value == 0), white: (value != 0)
+         *  Uses type(filter) to determine node type.
          */
-        void merge(const Node &other);
+        template <typename FilterOp>
+        void merge(const Node &other, const FilterOp &filter);
+
+        /** Coarsen one level up.
+         *  Uses type(op) to determine node type.
+         */
+        template <typename FilterOp>
+        void coarsen(unsigned int size, const FilterOp &filter);
+
+        /** Intersect nodes.
+         */
+        template <typename FilterOp>
+        void intersect(const Node &other, const FilterOp &filter);
+
+        enum Type { black, white, gray };
+        template <typename FilterOp>
+        Type type(const FilterOp &filter) const {
+            if (children) { return Type::gray; }
+            return filter(value) ? Type::white : Type::black;
+        }
     };
 
     unsigned int order_;
@@ -199,6 +228,135 @@ void QTree::Node::translate(const Op &op)
     }
 
     value = Op(value);
+}
+
+template <typename FilterOp>
+inline void QTree::merge(const QTree &other, const FilterOp &filter)
+{
+    root_.merge(other.root_, filter);
+    recount();
+}
+
+template <typename FilterOp>
+void QTree::coarsen(const FilterOp &filter)
+{
+    root_.coarsen(size_, filter);
+    recount();
+}
+
+template <typename FilterOp>
+inline void QTree::intersect(const QTree &other, const FilterOp &filter)
+{
+    root_.intersect(other.root_, filter);
+    recount();
+}
+
+template <typename FilterOp>
+void QTree::Node::merge(const Node &other, const FilterOp &filter)
+{
+    auto tt(type(filter));
+    auto ot(other.type(filter));
+
+    if ((tt == Type::white) || (ot == Type::black)) {
+        // merge(WHITE, anything) = WHITE (keep)
+        // merge(anything, BLACK) = anything (keep)
+        return;
+    }
+
+    if (ot == Type::white) {
+        // merge(anything, WHITE) = WHITE
+        *this = other;
+        return;
+    }
+
+    // OK, other is gray
+    if (tt == Type::black) {
+        // merge(BLACK, GRAY) = GRAY
+        *this = other;
+        return;
+    }
+
+    // merge(GRAY, GRAY) = go down
+    children->nodes[0].merge(other.children->nodes[0], filter);
+    children->nodes[1].merge(other.children->nodes[1], filter);
+    children->nodes[2].merge(other.children->nodes[2], filter);
+    children->nodes[3].merge(other.children->nodes[3], filter);
+
+    // contract if possible
+    contract();
+}
+
+template <typename FilterOp>
+void QTree::Node::coarsen(unsigned int size, const FilterOp &filter)
+{
+    if (size == 2) {
+        // mark as present and drfilter any children
+        value = 1;
+        children.reset();
+        return;
+    }
+
+    // leaf -> leave
+    if (!children) { return; }
+
+    // non leaf -> descend
+    size >>= 1;
+    children->nodes[0].coarsen(size, filter);
+    children->nodes[1].coarsen(size, filter);
+    children->nodes[2].coarsen(size, filter);
+    children->nodes[3].coarsen(size, filter);
+
+    // contract if possible
+    contract();
+}
+
+template <typename FilterOp>
+void QTree::Node::intersect(const Node &other, const FilterOp &filter)
+{
+    auto tt(type(filter));
+    auto ot(other.type(filter));
+
+    if (tt == Type::black) {
+        // intersect(BLACK, anything) = BLACK
+        return;
+    }
+
+    if (tt == Type::white) {
+        if (ot == Type::black) {
+            // intersect(WHITE, BLACK) = BLACK
+            value = 0;
+            return;
+        } else if (ot == Type::white) {
+            // intersect(WHITE, WHITE) = WHITE
+            return;
+        }
+
+        // intersect(WHITE, GRAY) = GRAY
+        *this = other;
+        return;
+    } else {
+        // this is a gray node
+        if (ot == Type::black) {
+            // intersect(GRAY, BLACK) = BLACK
+            children.reset();
+            value = 0;
+            return;
+        } else if (ot == Type::white) {
+            // intersect(GRAY, WHITE) = GRAY
+            return;
+        }
+    }
+
+    // intersect(GRAY, GRAY);
+
+    // go down
+    children->nodes[0].intersect(other, filter);
+    children->nodes[1].intersect(other, filter);
+    children->nodes[2].intersect(other, filter);
+    children->nodes[3].intersect(other, filter);
+
+    // contract if possible
+    contract();
 }
 
 } } // namespace vadstena::vts

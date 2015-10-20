@@ -39,7 +39,7 @@ void parseGlue(Glue &glue, const Json::Value &value)
     Json::get(glue.path, value, "dir");
 }
 
-void parseGlues(Glue::list &glues, const Json::Value &value)
+void parseGlues(Glue::map &glues, const Json::Value &value)
 {
     if (!value.isArray()) {
         LOGTHROW(err1, Json::Error)
@@ -48,8 +48,9 @@ void parseGlues(Glue::list &glues, const Json::Value &value)
 
     for (const auto &element : value) {
         Json::check(element, Json::objectValue);
-        glues.push_back({});
-        parseGlue(glues.back(), element);
+        Glue g;
+        parseGlue(g, element);
+        glues.insert(Glue::map::value_type(g.id, g));
     }
 }
 
@@ -66,12 +67,12 @@ void buildGlue(const Glue &glue, Json::Value &object)
     object["dir"] = glue.path;
 }
 
-void buildGlues(const Glue::list &glues, Json::Value &object)
+void buildGlues(const Glue::map &glues, Json::Value &object)
 {
     object = Json::arrayValue;
 
-    for (const auto &glue : glues) {
-        buildGlue(glue, object.append(Json::nullValue));
+    for (const auto &item : glues) {
+        buildGlue(item.second, object.append(Json::nullValue));
     }
 }
 

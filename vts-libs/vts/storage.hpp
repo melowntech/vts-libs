@@ -35,7 +35,7 @@ struct Glue {
     Id id;
     std::string path;
 
-    typedef std::vector<Glue> list;
+    typedef std::map<Id, Glue> map;
 
     Glue() {}
 };
@@ -92,7 +92,7 @@ public:
 
     /** Returns list of existing glues.
      */
-    Glue::list glues() const;
+    Glue::map glues() const;
 
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the storage's guts!

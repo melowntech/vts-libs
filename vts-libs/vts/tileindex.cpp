@@ -68,7 +68,7 @@ void TileIndex::fill(Lod lod, const TileIndex &other)
     auto *newTree(tree(lod));
     if (!newTree) { return; }
 
-    newTree->merge(*oldTree);
+    newTree->merge(*oldTree, [](QTree::value_type value) { return value; });
 }
 
 void TileIndex::fill(const TileIndex &other)

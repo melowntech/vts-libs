@@ -211,19 +211,6 @@ std::size_t QTree::Node::load(unsigned int mask, std::istream &is)
     return (value > 0) * (mask * mask);
 }
 
-void QTree::merge(const QTree &other, bool checkDimensions)
-{
-    if (checkDimensions) {
-        if (order_ != other.order_) {
-            LOGTHROW(err1, std::runtime_error)
-                << "Attempt to merge in data from qtree with diferent order.";
-        }
-    }
-
-    root_.merge(other.root_);
-    recount();
-}
-
 void QTree::recount()
 {
     std::size_t count(0);
@@ -232,37 +219,6 @@ void QTree::recount()
         count += size * size;
     }, Filter::white);
     count_ = count;
-}
-
-void QTree::Node::merge(const Node &other)
-{
-    if ((value) || (!other.value)) {
-        // merge(WHITE, anything) = WHITE (keep)
-        // merge(anything, BLACK) = anything (keep)
-        return;
-    }
-
-    if (other.value) {
-        // merge(anything, WHITE) = WHITE
-        *this = other;
-        return;
-    }
-
-    // OK, other is gray
-    if (!value) {
-        // merge(BLACK, GRAY) = GRAY
-        *this = other;
-        return;
-    }
-
-    // merge(GRAY, GRAY) = go down
-    children->nodes[0].merge(other.children->nodes[0]);
-    children->nodes[1].merge(other.children->nodes[1]);
-    children->nodes[2].merge(other.children->nodes[2]);
-    children->nodes[3].merge(other.children->nodes[3]);
-
-    // contract if possible
-    contract();
 }
 
 } } // namespace vadstena::vts

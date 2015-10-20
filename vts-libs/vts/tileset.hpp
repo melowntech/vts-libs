@@ -30,6 +30,7 @@
 #include "./atlas.hpp"
 #include "./tileset/properties.hpp"
 #include "./mapconfig.hpp"
+#include "./tileindex.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -102,6 +103,10 @@ public:
      */
     std::string id() const { return getProperties().id; }
 
+    /** Returns tile index.
+     */
+    const TileIndex& tileIndex() const;
+
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the tileset's guts!
      */
@@ -112,8 +117,7 @@ private:
             , const TileSetProperties &properties);
     TileSet(const std::shared_ptr<Driver> &driver);
 
-    struct DetailDeleter { void operator()(Detail*); };
-    std::unique_ptr<Detail, DetailDeleter> detail_;
+    std::shared_ptr<Detail> detail_;
     Detail& detail() { return *detail_; }
     const Detail& detail() const { return *detail_; }
 

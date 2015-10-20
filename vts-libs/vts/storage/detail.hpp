@@ -26,7 +26,7 @@ struct Storage::Properties : StorageProperties {
 
     /** List of glues
      */
-    Glue::list glues;
+    Glue::map glues;
 
     Properties() : revision(0) {}
 
@@ -38,8 +38,8 @@ struct Storage::Properties : StorageProperties {
         return findTileset(tileset) != tilesets.end();
     }
 
-    Glue::list::iterator findGlue(const Glue::Id& glue);
-    Glue::list::const_iterator findGlue(const Glue::Id& glue) const;
+    Glue::map::iterator findGlue(const Glue::Id& glue);
+    Glue::map::const_iterator findGlue(const Glue::Id& glue) const;
 
     bool hasGlue(const Glue::Id& glue) const {
         return findGlue(glue) != glues.end();
@@ -75,7 +75,7 @@ struct Storage::Detail
     /** Removes given tileset from properties and returns new properties and
      *  list of removed glues.
      */
-    std::tuple<Properties, Glue::list>
+    std::tuple<Properties, Glue::map>
     removeTilesets(const Properties &properties
                    , const TilesetIdList &tilesetIds)
         const;

@@ -20,13 +20,13 @@ TileSetProperties TileSet::getProperties() const
 }
 
 TileSet::TileSet(const std::shared_ptr<Driver> &driver)
-    : detail_(new Detail(driver))
+    : detail_(std::make_shared<Detail>(driver))
 {
 }
 
 TileSet::TileSet(const std::shared_ptr<Driver> &driver
                  , const TileSetProperties &properties)
-    : detail_(new Detail(driver, properties))
+    : detail_(std::make_shared<Detail>(driver, properties))
 {
 }
 
@@ -101,7 +101,7 @@ void TileSet::drop()
 
 LodRange TileSet::lodRange() const
 {
-    return {};
+    return detail().tileIndex.lodRange();
 }
 
 struct TileSet::Factory
@@ -144,25 +144,25 @@ struct TileSet::Factory
         traverse(src.detail().tileIndex
                  , [&](const TileId &tid, QTree::value_type mask)
         {
-            if (mask & Detail::TileFlag::mesh) {
+            if (mask & TileIndex::TileFlag::mesh) {
                 // copy mesh
                 copyFile(sd.input(tid, storage::TileFile::mesh)
                          , dd.output(tid, storage::TileFile::mesh));
             }
 
-            if (mask & Detail::TileFlag::atlas) {
+            if (mask & TileIndex::TileFlag::atlas) {
                 // copy atlas
                 copyFile(sd.input(tid, storage::TileFile::atlas)
                          , dd.output(tid, storage::TileFile::atlas));
             }
 
-            if (mask & Detail::TileFlag::navtile) {
+            if (mask & TileIndex::TileFlag::navtile) {
                 // copy navtile
                 copyFile(sd.input(tid, storage::TileFile::navtile)
                          , dd.output(tid, storage::TileFile::navtile));
             }
 
-            if (mask & Detail::TileFlag::meta) {
+            if (mask & TileIndex::TileFlag::meta) {
                 // copy meta
                 copyFile(sd.input(tid, storage::TileFile::meta)
                          , dd.output(tid, storage::TileFile::meta));
@@ -171,7 +171,11 @@ struct TileSet::Factory
             (++progress).report(reportRatio, reportName);
         });
 
-        // flush changes
+        // only properties have been changed
+        dst.detail().propertiesChanged = true;
+        // load copied tile index
+        dst.detail().loadTileIndex();
+        // and flush
         dst.flush();
 
         return dst;;
@@ -198,7 +202,8 @@ TileSet cloneTileSet(const boost::filesystem::path &path
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver)
-    : readOnly(true), driver(driver), changed(false)
+    : readOnly(true), driver(driver)
+    , propertiesChanged(false), metadataChanged(false)
 {
     loadConfig();
     referenceFrame = registry::Registry::referenceFrame
@@ -209,7 +214,8 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
 
 TileSet::Detail::Detail(const Driver::pointer &driver
                         , const TileSetProperties &properties)
-    : readOnly(false), driver(driver), changed(false)
+    : readOnly(false), driver(driver)
+    , propertiesChanged(false), metadataChanged(false)
     , referenceFrame(registry::Registry::referenceFrame
                      (properties.referenceFrame))
     , lodRange(LodRange::emptyRange())
@@ -239,7 +245,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
 TileSet::Detail::~Detail()
 {
     // no exception thrown and not flushed? warn user!
-    if (!std::uncaught_exception() && changed) {
+    if (!std::uncaught_exception() && changed()) {
         LOG(warn3)
             << "Tile set <" << properties.id
             << "> is not flushed on destruction: data could be unusable.";
@@ -345,6 +351,7 @@ MetaTile* TileSet::Detail::addNewMetaTile(const TileId &tileId) const
 {
     auto mid(metaId(tileId));
     LOG(info1) << "Creating metatile " << mid << ".";
+    metadataChanged = true;
     return &metaTiles.insert
         (MetaTiles::value_type
          (mid, MetaTile(mid,  metaOrder()))).first->second;
@@ -361,7 +368,7 @@ MetaTile* TileSet::Detail::findMetaTile(const TileId &tileId, bool addNew)
     // load metatile if not found
     if (fmetaTiles == metaTiles.end()) {
         // does this metatile exist in the index?
-        if (!tileIndex.checkMask(mid, TileFlag::meta)) {
+        if (!tileIndex.checkMask(mid, TileIndex::TileFlag::meta)) {
             if (addNew) { return addNewMetaTile(tileId); }
             return nullptr;
         }
@@ -430,7 +437,7 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     // update node value
     node->update(tileId, metanode);
 
-    tileIndex.setMask(tileId, TileFlag::watertight, watertight);
+    tileIndex.setMask(tileId, TileIndex::TileFlag::watertight, watertight);
 
     // go up the tree
     while (tileId.lod) {
@@ -591,17 +598,20 @@ void TileSet::Detail::saveMetadata()
     {
         (void) tid;
         std::uint8_t m(0);
-        if (node.geometry()) { m |= TileFlag::mesh; }
-        if (node.navtile()) { m |= TileFlag::navtile; }
-        if (node.internalTexture()) { m |= TileFlag::atlas; }
+        if (node.geometry()) { m |= TileIndex::TileFlag::mesh; }
+        if (node.navtile()) { m |= TileIndex::TileFlag::navtile; }
+        if (node.internalTexture()) { m |= TileIndex::TileFlag::atlas; }
         return m;
     });
 
     driver->wannaWrite("save metadata");
 
+    LOG(info4) << "Metatiles: " << metaTiles.size();
+
     for (const auto &item : metaTiles) {
         const auto &meta(item.second);
         auto tileId(meta.origin());
+        LOG(info4) << "Saving: " << tileId;
 
         {
             // save metatile to file
@@ -619,7 +629,7 @@ void TileSet::Detail::saveMetadata()
         });
 
         // mark metatile
-        tileIndex.setMask(tileId, TileFlag::meta);
+        tileIndex.setMask(tileId, TileIndex::TileFlag::meta);
     }
 
     saveTileIndex();
@@ -627,8 +637,8 @@ void TileSet::Detail::saveMetadata()
 
 void update(TileSet::Properties &properties, const TileIndex &tileIndex)
 {
-    auto stat(tileIndex.statMask(TileSet::Detail::TileFlag::mesh
-                                 | TileSet::Detail::TileFlag::atlas));
+    auto stat(tileIndex.statMask(TileIndex::TileFlag::mesh
+                                 | TileIndex::TileFlag::atlas));
     properties.lodRange = stat.lodRange;
     if (properties.lodRange.empty()) {
         properties.tileRange = TileRange(math::InvalidExtents{});
@@ -641,11 +651,18 @@ void TileSet::Detail::flush()
 {
     driver->wannaWrite("flush");
 
-    saveMetadata();
+    if (metadataChanged) {
+        saveMetadata();
+        // force properties change
+        propertiesChanged = true;
+    }
 
     // update and save config
-    update(properties, tileIndex);
-    saveConfig();
+    if (propertiesChanged) {
+        update(properties, tileIndex);
+        saveConfig();
+        propertiesChanged = false;
+    }
 
     // flush driver
     driver->flush();
@@ -676,6 +693,11 @@ ExtraTileSetProperties TileSet::Detail::loadExtraConfig() const
     }
 
     return tileset::loadExtraConfig(*is);
+}
+
+const TileIndex& TileSet::tileIndex() const
+{
+    return detail().tileIndex;
 }
 
 MapConfig TileSet::Detail::mapConfig() const

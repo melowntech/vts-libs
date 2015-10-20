@@ -15,6 +15,7 @@
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 #include "utility/streams.hpp"
 #include "utility/guarded-call.hpp"
@@ -177,6 +178,8 @@ public:
         return vts::gluePath(root_, glue, tmp);
     }
 
+    TileSet open(const std::string &tilesetId) const;
+
 private:
     void rollback();
     void commit();
@@ -218,6 +221,11 @@ void Tx::commit()
     }
 }
 
+TileSet Tx::open(const std::string &tilesetId) const
+{
+    return openTileSet(tilesetPath(tilesetId));
+}
+
 } // namespace
 
 TilesetIdList::iterator
@@ -232,21 +240,15 @@ Storage::Properties::findTileset(const std::string& tileset) const
     return std::find(tilesets.begin(), tilesets.end(), tileset);
 }
 
-Glue::list::iterator Storage::Properties::findGlue(const Glue::Id& glue)
+Glue::map::iterator Storage::Properties::findGlue(const Glue::Id &glue)
 {
-    return std::find_if(glues.begin(), glues.end()
-                        , [&glue](const Glue &g) {
-                            return glue == g.id;
-                        });
+    return glues.find(glue);
 }
 
-Glue::list::const_iterator
+Glue::map::const_iterator
 Storage::Properties::findGlue(const Glue::Id& glue) const
 {
-    return std::find_if(glues.begin(), glues.end()
-                        , [&glue](const Glue &g) {
-                            return glue == g.id;
-                        });
+    return glues.find(glue);
 }
 
 TilesetIdList Storage::tilesets() const
@@ -254,30 +256,90 @@ TilesetIdList Storage::tilesets() const
     return detail().properties.tilesets;
 }
 
-Glue::list Storage::glues() const
+Glue::map Storage::glues() const
 {
     return detail().properties.glues;
 }
 
+
+namespace {
+
+typedef std::vector<TileSet> TileSets;
+typedef std::vector<TileIndex> TileIndices;
+
+std::tuple<TileSets, std::size_t>
+openTilesets(Tx &tx, const TilesetIdList &ids, TileSet &tileset)
+{
+    std::tuple<TileSets, std::size_t> res;
+    TileSets &tilesets(std::get<0>(res));
+    std::size_t index(0);
+    for (const auto &id : ids) {
+        if (id == tileset.id()) {
+            tilesets.push_back(tileset);
+            std::get<1>(res) = index;
+            LOG(info4) << "Reused <" << tilesets.back().id() << ">.";
+        } else {
+            tilesets.push_back(tx.open(id));
+            LOG(info4) << "Opened <" << tilesets.back().id() << ">.";
+        }
+
+        ++index;
+    }
+    return res;
+}
+
+LodRange range(const TileSets &tilesets)
+{
+    auto lr(LodRange::emptyRange());
+    for (const auto &ts : tilesets) {
+        lr = unite(lr, ts.lodRange());
+    }
+    return lr;
+}
+
 Storage::Properties
 createGlues(Tx &tx, Storage::Properties properties
-            , const TileSet &tileset)
+            , const std::tuple<TileSets, std::size_t> &tsets)
 {
     if (properties.tilesets.size() <= 1) {
         LOG(info3) << "No need to create any glue.";
         return properties;
     }
 
-    (void) tx;
-    (void) properties;
-    (void) tileset;
+    const auto &tilesets(std::get<0>(tsets));
+    const auto addedIndex(std::get<1>(tsets));
 
-    for (const auto &id : properties.tilesets) {
-        LOG(info4) << id;
+    // accumulate lod range for all tilesets
+    auto lr(range(tilesets));
+
+    LOG(info4) << lr;
+
+    auto tileFilter([](QTree::value_type value)
+    {
+        return (value & TileIndex::TileFlag::real);
+    });
+
+    TileIndices grown;
+    for (const auto &ts : tilesets) {
+        grown.push_back(ts.tileIndex().grow(lr, tileFilter));
+        LOG(info4) << "<" << ts.id() << "> grown up and down.";
     }
+
+    const auto &addedGrown(grown[addedIndex]);
+    for (const auto &ti : grown) {
+        // ignore added tileset
+        if (&ti == &addedGrown) { continue; }
+        auto isect(ti.intersect(addedGrown, tileFilter));
+        LOG(info4) << "intersection!";
+        (void) isect;
+    }
+
+    (void) tx;
 
     return properties;
 }
+
+} // namespace
 
 Storage::Properties Storage::Detail::addTileset(const Properties &properties
                                                 , const std::string tilesetId
@@ -323,21 +385,21 @@ Storage::Properties Storage::Detail::addTileset(const Properties &properties
     return p;
 }
 
-std::tuple<Storage::Properties, Glue::list>
+std::tuple<Storage::Properties, Glue::map>
 Storage::Detail::removeTilesets(const Properties &properties
-                               , const TilesetIdList &tilesetIds)
+                                , const TilesetIdList &tilesetIds)
     const
 {
-    std::tuple<Properties, Glue::list> res(properties, {});
+    std::tuple<Properties, Glue::map> res(properties, {});
     auto &p(std::get<0>(res));
     auto &tilesets(p.tilesets);
 
     for (const auto &tilesetId : tilesetIds) {
         auto ftilesets(p.findTileset(tilesetId));
         if (ftilesets == tilesets.end()) {
-            LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
-                << "Tileset <" << tilesetId << "> "
+            LOG(warn1) << "Tileset <" << tilesetId << "> "
                 "not found in storage " << root << ".";
+            continue;
         }
 
         // remove from tilesets
@@ -380,10 +442,15 @@ void Storage::Detail::add(const TileSet &tileset
         auto dst(cloneTileSet(workPath, tileset, CreateMode::overwrite
                               , tilesetId));
 
-        (void) dst;
-
         // create glues
-        nProperties = createGlues(tx, nProperties, dst);
+        auto tilesets(openTilesets(tx, nProperties.tilesets, dst));
+
+        nProperties = createGlues(tx, nProperties, tilesets);
+    }
+
+    // FIXME: remove
+    if (::getenv("ABORT")) {
+        abort();
     }
 
     // commit properties
@@ -398,7 +465,7 @@ void Storage::Detail::remove(const TilesetIdList &tilesetIds)
     //                       % tilesetId));
 
     Properties nProperties;
-    Glue::list glues;
+    Glue::map glues;
     std::tie(nProperties, glues) = removeTilesets(properties, tilesetIds);
 
     LOG(info3)
@@ -414,7 +481,8 @@ void Storage::Detail::remove(const TilesetIdList &tilesetIds)
         rmrf(path);
     }
 
-    for (const auto &glue : glues) {
+    for (const auto &item : glues) {
+        const auto &glue(item.second);
         auto path(gluePath(root, glue));
         LOG(info3) << "Removing glue " << glue.path << ".";
         rmrf(path);
