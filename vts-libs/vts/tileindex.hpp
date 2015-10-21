@@ -16,7 +16,9 @@ namespace vadstena { namespace vts {
 class TileIndex {
 public:
     struct TileFlag {
-        enum : std::uint8_t {
+        typedef std::uint8_t value_type;
+
+        enum : value_type {
             mesh = 0x01
             , watertight = 0x02
             , atlas = 0x04

@@ -297,6 +297,19 @@ LodRange range(const TileSets &tilesets)
     return lr;
 }
 
+struct Ts {
+    TileSet set;
+    TileIndex sphereOfInfluence;
+
+    Ts(const TileSet &tileset, const LodRange &lodRange)
+        : set(tileset)
+        , sphereOfInfluence
+          (tileset.sphereOfInfluence(lodRange, TileIndex::TileFlag::mesh))
+    {}
+
+    typedef std::vector<Ts> list;
+};
+
 Storage::Properties
 createGlues(Tx &tx, Storage::Properties properties
             , const std::tuple<TileSets, std::size_t> &tsets)
@@ -306,36 +319,37 @@ createGlues(Tx &tx, Storage::Properties properties
         return properties;
     }
 
-    const auto &tilesets(std::get<0>(tsets));
-    const auto addedIndex(std::get<1>(tsets));
-
     // accumulate lod range for all tilesets
-    auto lr(range(tilesets));
+    auto lr(range(std::get<0>(tsets)));
 
     LOG(info4) << lr;
 
-    // here, we are interested inly in tiles with mesh
-    auto meshFilter([](QTree::value_type value)
-    {
-        return (value & TileIndex::TileFlag::mesh);
-    });
+    // nonzero node in index
+    auto nonzero([](QTree::value_type value) { return value; });
 
-    const auto &added(tilesets[addedIndex]);
-
-    TileIndices grown;
-    for (const auto &ts : tilesets) {
-        grown.push_back(ts.tileIndex().grow(lr, meshFilter));
-        LOG(info4) << "<" << ts.id() << "> grown up and down.";
+    Ts::list tilesets;
+    for (auto &set : std::get<0>(tsets)) {
+        tilesets.emplace_back(set, lr);
     }
 
-    const auto &addedGrown(grown[addedIndex]);
-    for (const auto &ti : grown) {
+    // grab tileset that has been just added
+    const auto &added(tilesets[std::get<1>(tsets)]);
+
+    Ts::list incident;
+
+    for (const auto &ts : tilesets) {
         // ignore added tileset
-        if (&ti == &addedGrown) { continue; }
-        if (ti.notoverlaps(addedGrown, meshFilter)) {
+        if (&ts == &added) {
+            // remembered by default
+            incident.push_back(ts);
             continue;
         }
-        LOG(info4) << "<" << added.id() << "> shares the same tile space!";
+        if (ts.sphereOfInfluence.notoverlaps(ts.sphereOfInfluence, nonzero)) {
+            continue;
+        }
+
+        // incidence betwee spheres of influence -> remember
+        incident.push_back(ts);
     }
 
     (void) tx;

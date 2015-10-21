@@ -743,4 +743,15 @@ MapConfig TileSet::Detail::mapConfig() const
     return mapConfig;
 }
 
+TileIndex TileSet::sphereOfInfluence(const LodRange &range
+                                     , TileIndex::TileFlag::value_type type)
+    const
+{
+    const auto lr(range.empty() ? lodRange() : type);
+    return detail().tileIndex.grow(lr, [type](QTree::value_type value)
+    {
+        return (value & type);
+    });
+}
+
 } } // namespace vadstena::vts

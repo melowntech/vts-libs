@@ -107,6 +107,21 @@ public:
      */
     const TileIndex& tileIndex() const;
 
+    /** Returns sphere of influence of this tileset.
+     *
+     *  SoI are all tiles that have giventype and also tiles above and below
+     *  them.
+     *
+     * \param range optional LOD range in which to generate the SoI;
+     *              defaults to tileset's LOD range
+     * \param type type of tile to check
+     * \return SoI where only influenced tile has non-zero value
+     */
+    TileIndex sphereOfInfluence(const LodRange &range = LodRange::emptyRange()
+                                , TileIndex::TileFlag::value_type type
+                                = TileIndex::TileFlag::mesh)
+        const;
+
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the tileset's guts!
      */
