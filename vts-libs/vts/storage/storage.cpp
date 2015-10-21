@@ -314,14 +314,17 @@ createGlues(Tx &tx, Storage::Properties properties
 
     LOG(info4) << lr;
 
-    auto tileFilter([](QTree::value_type value)
+    // here, we are interested inly in tiles with mesh
+    auto meshFilter([](QTree::value_type value)
     {
-        return (value & TileIndex::TileFlag::real);
+        return (value & TileIndex::TileFlag::mesh);
     });
+
+    const auto &added(tilesets[addedIndex]);
 
     TileIndices grown;
     for (const auto &ts : tilesets) {
-        grown.push_back(ts.tileIndex().grow(lr, tileFilter));
+        grown.push_back(ts.tileIndex().grow(lr, meshFilter));
         LOG(info4) << "<" << ts.id() << "> grown up and down.";
     }
 
@@ -329,9 +332,10 @@ createGlues(Tx &tx, Storage::Properties properties
     for (const auto &ti : grown) {
         // ignore added tileset
         if (&ti == &addedGrown) { continue; }
-        auto isect(ti.intersect(addedGrown, tileFilter));
-        LOG(info4) << "intersection!";
-        (void) isect;
+        if (ti.notoverlaps(addedGrown, meshFilter)) {
+            continue;
+        }
+        LOG(info4) << "<" << added.id() << "> shares the same tile space!";
     }
 
     (void) tx;

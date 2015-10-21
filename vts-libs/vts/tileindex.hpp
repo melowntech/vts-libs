@@ -142,6 +142,11 @@ public:
     template <typename Filter>
     TileIndex intersect(const TileIndex &other, const Filter &filter) const;
 
+    /** Checks for any non-overlapping lod.
+     */
+    template <typename Filter>
+    bool notoverlaps(const TileIndex &other, const Filter &filter) const;
+
 private:
     QTree* tree(Lod lod, bool create = false);
 
@@ -353,6 +358,23 @@ TileIndex TileIndex::intersect(const TileIndex &other, const Filter &filter)
         ++ntree;
     }
     return ti;
+}
+
+template <typename Filter>
+bool TileIndex::notoverlaps(const TileIndex &other, const Filter &filter)
+    const
+{
+    // different lod range -> mismatch
+    if (lodRange() != other.lodRange()) { return true; }
+
+    auto ntree(trees_.begin());
+    for (const auto &otree : other.trees_) {
+        if (!ntree->overlaps(otree, filter)) {
+            return true;
+        }
+        ++ntree;
+    }
+    return false;
 }
 
 } } // namespace vadstena::vts

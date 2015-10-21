@@ -39,15 +39,20 @@ public:
     template <typename FilterOp>
     void merge(const QTree &other, const FilterOp &filter);
 
+    /** Coarsen one level up.
+     */
+    template <typename FilterOp>
+    void coarsen(const FilterOp &filter);
+
     /** Intersect nodes.
      */
     template <typename FilterOp>
     void intersect(const QTree &other, const FilterOp &filter);
 
-    /** Coarsen one level up.
+    /** Checks for intersection.
      */
     template <typename FilterOp>
-    void coarsen(const FilterOp &filter);
+    bool overlaps(const QTree &other, const FilterOp &filter) const;
 
     /** Returns number of non-zero elements.
      */
@@ -131,6 +136,11 @@ private:
          */
         template <typename FilterOp>
         void intersect(const Node &other, const FilterOp &filter);
+
+        /** Checks for intersection.
+         */
+        template <typename FilterOp>
+        bool overlaps(const Node &other, const FilterOp &filter) const;
 
         enum Type { black, white, gray };
         template <typename FilterOp>
@@ -252,6 +262,12 @@ inline void QTree::intersect(const QTree &other, const FilterOp &filter)
 }
 
 template <typename FilterOp>
+inline bool QTree::overlaps(const QTree &other, const FilterOp &filter) const
+{
+    return root_.overlaps(other.root_, filter);
+}
+
+template <typename FilterOp>
 void QTree::Node::merge(const Node &other, const FilterOp &filter)
 {
     auto tt(type(filter));
@@ -357,6 +373,50 @@ void QTree::Node::intersect(const Node &other, const FilterOp &filter)
 
     // contract if possible
     contract();
+}
+
+template <typename FilterOp>
+bool QTree::Node::overlaps(const Node &other, const FilterOp &filter) const
+{
+    auto tt(type(filter));
+    auto ot(other.type(filter));
+
+    if (tt == Type::black) {
+        // intersect(BLACK, anything) = BLACK
+        return false;
+    }
+
+    if (tt == Type::white) {
+        if (ot == Type::black) {
+            // intersect(WHITE, BLACK) = BLACK
+            return false;
+        } else if (ot == Type::white) {
+            // intersect(WHITE, WHITE) = WHITE
+            return true;
+        }
+
+        // intersect(WHITE, GRAY) = GRAY
+        // we assume that gray means at least one white child
+        return true;
+    } else {
+        // this is a gray node
+        if (ot == Type::black) {
+            // intersect(GRAY, BLACK) = BLACK
+            return false;
+        } else if (ot == Type::white) {
+            // intersect(GRAY, WHITE) = GRAY
+            // we assume that gray means at least one white child
+            return true;
+        }
+    }
+
+    // intersect(GRAY, GRAY);
+
+    // go down
+    return (children->nodes[0].overlaps(other, filter)
+            || children->nodes[1].overlaps(other, filter)
+            || children->nodes[2].overlaps(other, filter)
+            || children->nodes[3].overlaps(other, filter));
 }
 
 } } // namespace vadstena::vts
