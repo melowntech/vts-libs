@@ -38,6 +38,10 @@ struct Glue {
     typedef std::map<Id, Glue> map;
 
     Glue() {}
+
+    /** Returns true if glue references given tileset
+     */
+    bool references(const std::string &tilesetId) const;
 };
 
 /** Storage interface.

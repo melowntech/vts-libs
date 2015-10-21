@@ -122,16 +122,18 @@ struct TileSet::Factory
     }
 
     static TileSet clone(const boost::filesystem::path &path
-                         , const TileSet &src, CreateMode mode
-                         , const boost::optional<std::string> &id)
+                         , const TileSet &src
+                         , const CloneOptions &cloneOptions)
     {
         const utility::Progress::ratio_t reportRatio(1, 100);
         const auto reportName(str(boost::format("Cloning <%s> ")
                                   % src.id()));
 
         auto properties(src.getProperties());
-        if (id) { properties.id = *id; }
-        auto dst(createTileSet(path, properties, mode));
+        if (cloneOptions.tilesetId()) {
+            properties.id = *cloneOptions.tilesetId();
+        }
+        auto dst(createTileSet(path, properties, cloneOptions.mode()));
 
         auto &sd(*src.detail().driver);
         auto &dd(*dst.detail().driver);
@@ -144,28 +146,31 @@ struct TileSet::Factory
         traverse(src.detail().tileIndex
                  , [&](const TileId &tid, QTree::value_type mask)
         {
-            if (mask & TileIndex::TileFlag::mesh) {
+            if (mask & TileIndex::Flag::mesh) {
                 // copy mesh
                 copyFile(sd.input(tid, storage::TileFile::mesh)
                          , dd.output(tid, storage::TileFile::mesh));
             }
 
-            if (mask & TileIndex::TileFlag::atlas) {
+            if (mask & TileIndex::Flag::atlas) {
                 // copy atlas
                 copyFile(sd.input(tid, storage::TileFile::atlas)
                          , dd.output(tid, storage::TileFile::atlas));
             }
 
-            if (mask & TileIndex::TileFlag::navtile) {
-                // copy navtile
-                copyFile(sd.input(tid, storage::TileFile::navtile)
-                         , dd.output(tid, storage::TileFile::navtile));
-            }
-
-            if (mask & TileIndex::TileFlag::meta) {
+            if (mask & TileIndex::Flag::meta) {
                 // copy meta
                 copyFile(sd.input(tid, storage::TileFile::meta)
                          , dd.output(tid, storage::TileFile::meta));
+            }
+
+            if ((mask & TileIndex::Flag::navtile)
+                && (cloneOptions.allowDanglingNavtiles()
+                    || (mask & TileIndex::Flag::mesh)))
+            {
+                // copy navtile if allowed
+                copyFile(sd.input(tid, storage::TileFile::navtile)
+                         , dd.output(tid, storage::TileFile::navtile));
             }
 
             (++progress).report(reportRatio, reportName);
@@ -194,11 +199,10 @@ TileSet openTileSet(const boost::filesystem::path &path)
     return TileSet::Factory::open(path);
 }
 
-TileSet cloneTileSet(const boost::filesystem::path &path
-                     , const TileSet &src, CreateMode mode
-                     , const boost::optional<std::string> &id)
+TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src
+                     , const CloneOptions &cloneOptions)
 {
-    return TileSet::Factory::clone(path, src, mode, id);
+    return TileSet::Factory::clone(path, src, cloneOptions);
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver)
@@ -368,7 +372,7 @@ MetaTile* TileSet::Detail::findMetaTile(const TileId &tileId, bool addNew)
     // load metatile if not found
     if (fmetaTiles == metaTiles.end()) {
         // does this metatile exist in the index?
-        if (!tileIndex.checkMask(mid, TileIndex::TileFlag::meta)) {
+        if (!tileIndex.checkMask(mid, TileIndex::Flag::meta)) {
             if (addNew) { return addNewMetaTile(tileId); }
             return nullptr;
         }
@@ -437,7 +441,7 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     // update node value
     node->update(tileId, metanode);
 
-    tileIndex.setMask(tileId, TileIndex::TileFlag::watertight, watertight);
+    tileIndex.setMask(tileId, TileIndex::Flag::watertight, watertight);
 
     // go up the tree
     while (tileId.lod) {
@@ -598,9 +602,9 @@ void TileSet::Detail::saveMetadata()
     {
         (void) tid;
         std::uint8_t m(0);
-        if (node.geometry()) { m |= TileIndex::TileFlag::mesh; }
-        if (node.navtile()) { m |= TileIndex::TileFlag::navtile; }
-        if (node.internalTexture()) { m |= TileIndex::TileFlag::atlas; }
+        if (node.geometry()) { m |= TileIndex::Flag::mesh; }
+        if (node.navtile()) { m |= TileIndex::Flag::navtile; }
+        if (node.internalTexture()) { m |= TileIndex::Flag::atlas; }
         return m;
     });
 
@@ -629,7 +633,7 @@ void TileSet::Detail::saveMetadata()
         });
 
         // mark metatile
-        tileIndex.setMask(tileId, TileIndex::TileFlag::meta);
+        tileIndex.setMask(tileId, TileIndex::Flag::meta);
     }
 
     saveTileIndex();
@@ -637,8 +641,8 @@ void TileSet::Detail::saveMetadata()
 
 void update(TileSet::Properties &properties, const TileIndex &tileIndex)
 {
-    auto stat(tileIndex.statMask(TileIndex::TileFlag::mesh
-                                 | TileIndex::TileFlag::atlas));
+    auto stat(tileIndex.statMask(TileIndex::Flag::mesh
+                                 | TileIndex::Flag::atlas));
     properties.lodRange = stat.lodRange;
     if (properties.lodRange.empty()) {
         properties.tileRange = TileRange(math::InvalidExtents{});
@@ -744,14 +748,11 @@ MapConfig TileSet::Detail::mapConfig() const
 }
 
 TileIndex TileSet::sphereOfInfluence(const LodRange &range
-                                     , TileIndex::TileFlag::value_type type)
+                                     , TileIndex::Flag::value_type type)
     const
 {
     const auto lr(range.empty() ? lodRange() : type);
-    return detail().tileIndex.grow(lr, [type](QTree::value_type value)
-    {
-        return (value & type);
-    });
+    return detail().tileIndex.grow(lr, type);
 }
 
 } } // namespace vadstena::vts

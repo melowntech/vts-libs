@@ -228,6 +228,11 @@ TileSet Tx::open(const std::string &tilesetId) const
 
 } // namespace
 
+bool Glue::references(const std::string &tilesetId) const
+{
+    return (std::find(id.begin(), id.end(), tilesetId) != id.end());
+}
+
 TilesetIdList::iterator
 Storage::Properties::findTileset(const std::string& tileset)
 {
@@ -298,14 +303,35 @@ LodRange range(const TileSets &tilesets)
 }
 
 struct Ts {
+    /** Marks added tileset.
+     */
+    bool added;
+
+    /** This tileset
+     */
     TileSet set;
+
+    /** Tileset's sphere of influence.
+     */
     TileIndex sphereOfInfluence;
 
-    Ts(const TileSet &tileset, const LodRange &lodRange)
-        : set(tileset)
+    /** Set of tilesets that overlap with this one.
+     */
+    std::set<std::size_t> incidentSets;
+
+    Ts(const TileSet &tileset, const LodRange &lodRange
+       , bool added)
+        : added(added), set(tileset)
         , sphereOfInfluence
-          (tileset.sphereOfInfluence(lodRange, TileIndex::TileFlag::mesh))
+          (tileset.sphereOfInfluence(lodRange, TileIndex::Flag::mesh))
     {}
+
+    bool notoverlaps(const Ts &other) const {
+        return sphereOfInfluence.notoverlaps
+            (other.sphereOfInfluence, TileIndex::Flag::any);
+    }
+
+    std::string id() const { return set.id(); }
 
     typedef std::vector<Ts> list;
 };
@@ -324,32 +350,64 @@ createGlues(Tx &tx, Storage::Properties properties
 
     LOG(info4) << lr;
 
-    // nonzero node in index
-    auto nonzero([](QTree::value_type value) { return value; });
-
+    // create tileset list
     Ts::list tilesets;
-    for (auto &set : std::get<0>(tsets)) {
-        tilesets.emplace_back(set, lr);
+    {
+        std::size_t index(0);
+        for (auto &set : std::get<0>(tsets)) {
+            tilesets.emplace_back(set, lr, (index == std::get<1>(tsets)));
+            ++index;
+        }
     }
 
-    // grab tileset that has been just added
-    const auto &added(tilesets[std::get<1>(tsets)]);
+    // filter out all tilesets that do not overlap with added tileset
+    Ts::list incidentSets;
+    {
+        const auto &added(tilesets[std::get<1>(tsets)]);
+        for (const auto &ts : tilesets) {
+            // ignore added tileset
+            if (ts.added) {
+                // remembered by default
+                incidentSets.push_back(ts);
+                continue;
+            }
 
-    Ts::list incident;
+            if (ts.notoverlaps(added)) { continue; }
 
-    for (const auto &ts : tilesets) {
-        // ignore added tileset
-        if (&ts == &added) {
-            // remembered by default
-            incident.push_back(ts);
-            continue;
+            // incidence between spheres of influence -> remember
+            incidentSets.push_back(ts);
         }
-        if (ts.sphereOfInfluence.notoverlaps(ts.sphereOfInfluence, nonzero)) {
-            continue;
-        }
+    }
 
-        // incidence betwee spheres of influence -> remember
-        incident.push_back(ts);
+    // for each tileset in the input
+    std::size_t i(0);
+    for (auto iincidentSets(incidentSets.begin())
+             , eincidentSets(incidentSets.end());
+         iincidentSets != eincidentSets; ++iincidentSets, ++i)
+    {
+        // process all remaining tilesets
+        std::size_t j(i + 1);
+        for (auto iincidentSets2(std::next(iincidentSets));
+             iincidentSets2 != eincidentSets; ++iincidentSets2, ++j)
+        {
+            if (iincidentSets->added) {
+                iincidentSets->incidentSets.insert(j);
+                continue;
+            }
+
+            if (!iincidentSets2->added) {
+                if (iincidentSets2->added) { continue; }
+                if (iincidentSets->notoverlaps(*iincidentSets2)) { continue; }
+            }
+
+            iincidentSets->incidentSets.insert(j);
+        }
+    }
+
+    for (const auto &ts : incidentSets) {
+        LOG(info4)
+            << "overlap: <" << ts.id() << ">: "
+            << utility::join(ts.incidentSets, ", ");
     }
 
     (void) tx;
@@ -424,12 +482,16 @@ Storage::Detail::removeTilesets(const Properties &properties
         tilesets.erase(ftilesets);
     }
 
-    // TODO: drop all glues that reference this tileset
-
+    // drop all glues that reference requested tilesets
+    auto &resGlues(std::get<1>(res));
     for (const auto &tilesetId : tilesetIds) {
-        (void) tilesetId;
-        auto &resGlues(std::get<1>(res));
-        (void) resGlues;
+        for (auto iresGlues(resGlues.begin()); iresGlues != resGlues.end(); ) {
+            if (iresGlues->second.references(tilesetId)) {
+                iresGlues = resGlues.erase(iresGlues);
+            } else {
+                ++iresGlues;
+            }
+        }
     }
 
     return res;
@@ -457,8 +519,10 @@ void Storage::Detail::add(const TileSet &tileset
         tx.add(workPath, tilesetPath(root, tilesetId));
 
         // create tileset at work path (overwrite any existing stuff here)
-        auto dst(cloneTileSet(workPath, tileset, CreateMode::overwrite
-                              , tilesetId));
+        auto dst(cloneTileSet(workPath, tileset,
+                              CloneOptions()
+                              .mode(CreateMode::overwrite)
+                              .tilesetId(tilesetId)));
 
         // create glues
         auto tilesets(openTilesets(tx, nProperties.tilesets, dst));
@@ -468,7 +532,7 @@ void Storage::Detail::add(const TileSet &tileset
 
     // FIXME: remove
     if (::getenv("ABORT")) {
-        abort();
+        exit(-1);
     }
 
     // commit properties

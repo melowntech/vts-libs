@@ -118,8 +118,8 @@ public:
      * \return SoI where only influenced tile has non-zero value
      */
     TileIndex sphereOfInfluence(const LodRange &range = LodRange::emptyRange()
-                                , TileIndex::TileFlag::value_type type
-                                = TileIndex::TileFlag::mesh)
+                                , TileIndex::Flag::value_type type
+                                = TileIndex::Flag::mesh)
         const;
 
     /** Internals. Public to ease library developers' life, not to allow users

@@ -15,7 +15,7 @@ namespace vadstena { namespace vts {
 
 class TileIndex {
 public:
-    struct TileFlag {
+    struct Flag {
         typedef std::uint8_t value_type;
 
         enum : value_type {
@@ -25,6 +25,7 @@ public:
             , navtile = 0x08
             , meta = 0x10
             , real = mesh | atlas | navtile
+            , any = value_type(~0)
         };
     };
 
@@ -136,18 +137,16 @@ public:
      *  input where Filter return true has all parents up to lodRange.min and
      *  all children down to lodRange.max
      */
-    template <typename Filter>
-    TileIndex grow(const LodRange &lodRange, const Filter &filter) const;
+    TileIndex grow(const LodRange &lodRange, Flag::value_type type) const;
 
     /** Intersect this index with the other.
      */
-    template <typename Filter>
-    TileIndex intersect(const TileIndex &other, const Filter &filter) const;
+    TileIndex intersect(const TileIndex &other, Flag::value_type type)
+        const;
 
     /** Checks for any non-overlapping lod.
      */
-    template <typename Filter>
-    bool notoverlaps(const TileIndex &other, const Filter &filter) const;
+    bool notoverlaps(const TileIndex &other, Flag::value_type type) const;
 
 private:
     QTree* tree(Lod lod, bool create = false);
@@ -285,98 +284,6 @@ inline TileIndex::TileIndex(LodRange lodRange, const TileIndex &other
 
         fill(lod, other, filter);
     }
-}
-
-template <typename Filter>
-inline TileIndex TileIndex::grow(const LodRange &lodRange
-                                 , const Filter &filter) const
-{
-    TileIndex ti(lodRange, *this, filter);
-
-    if (trees_.size() < 2) {
-        // nothing to grow
-        return ti;
-    }
-
-    // traverse trees top to bottom and refine -> propagates tiles from top
-    // to bottom
-    {
-        auto lod(lodRange.min);
-        auto ctrees(ti.trees_.begin());
-
-        for (auto itrees(ctrees + 1), etrees(ti.trees_.end());
-             itrees != etrees; ++itrees, ++ctrees, ++lod)
-        {
-            LOG(debug) << "gd: " << lod << " -> " << (lod + 1);
-
-            auto &tree(*itrees);
-
-            // merge in parent -> all children are set
-            tree.merge(*ctrees, filter);
-        }
-    }
-
-    // traverse trees bottom to top and coarsen -> propagates tiles from bottom
-    // to top
-    {
-        auto lod(lodRange.max);
-        auto ctrees(ti.trees_.rbegin());
-
-        for (auto itrees(ctrees + 1), etrees(ti.trees_.rend());
-             itrees != etrees; ++itrees, ++ctrees, --lod)
-        {
-            LOG(debug) << "gu: " << lod << " -> " << (lod - 1);
-
-            // make copy of child
-            QTree child(*ctrees);
-            auto &tree(*itrees);
-
-            // coarsen child (do not change child!)
-            child.coarsen(filter);
-            // merge in coarsened child -> all parents are set
-            tree.merge(child, filter);
-        }
-    }
-
-    return ti;
-}
-
-template <typename Filter>
-TileIndex TileIndex::intersect(const TileIndex &other, const Filter &filter)
-    const
-{
-    TileIndex ti(lodRange(), *this, filter);
-
-    if (ti.empty()) {
-        // nothing to intersect
-        return ti;
-    }
-
-    auto ntree(ti.trees_.begin());
-    for (auto lod : lodRange()) {
-        if (const auto *otree = other.tree(lod)) {
-            ntree->intersect(*otree, filter);
-        }
-        ++ntree;
-    }
-    return ti;
-}
-
-template <typename Filter>
-bool TileIndex::notoverlaps(const TileIndex &other, const Filter &filter)
-    const
-{
-    // different lod range -> mismatch
-    if (lodRange() != other.lodRange()) { return true; }
-
-    auto ntree(trees_.begin());
-    for (const auto &otree : other.trees_) {
-        if (!ntree->overlaps(otree, filter)) {
-            return true;
-        }
-        ++ntree;
-    }
-    return false;
 }
 
 } } // namespace vadstena::vts

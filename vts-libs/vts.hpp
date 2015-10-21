@@ -27,10 +27,36 @@ TileSet createTileSet(const boost::filesystem::path &path
 
 TileSet openTileSet(const boost::filesystem::path &path);
 
-TileSet cloneTileSet(const boost::filesystem::path &path
-                     , const TileSet &src
-                     , CreateMode mode = CreateMode::failIfExists
-                     , const boost::optional<std::string> &id = boost::none);
+class CloneOptions {
+public:
+    CloneOptions()
+        : mode_(CreateMode::failIfExists)
+        , allowDanglingNavtiles_(false)
+    {}
+
+    CreateMode mode() const { return mode_; }
+    CloneOptions& mode(CreateMode mode) { mode_ = mode; return *this; }
+
+    bool allowDanglingNavtiles() const { return allowDanglingNavtiles_; }
+    CloneOptions& allowDanglingNavtiles(bool allowDanglingNavtiles) {
+        allowDanglingNavtiles_ = allowDanglingNavtiles; return *this;
+    }
+
+    boost::optional<std::string> tilesetId() const {
+        return tilesetId_;
+    }
+    CloneOptions& tilesetId(boost::optional<std::string> tilesetId) {
+        tilesetId_ = tilesetId; return *this;
+    }
+
+private:
+    CreateMode mode_;
+    bool allowDanglingNavtiles_;
+    boost::optional<std::string> tilesetId_;
+};
+
+TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src
+                     , const CloneOptions &cloneOptions);
 
 } } // namespace vadstena::vts
 

@@ -246,4 +246,98 @@ TileIndex::Stat TileIndex::statMask(QTree::value_type mask) const
     return stat;
 }
 
+TileIndex TileIndex::grow(const LodRange &lodRange
+                          , Flag::value_type type) const
+{
+    auto filter([type](QTree::value_type value) { return (value & type); });
+    TileIndex ti(lodRange, *this, filter);
+
+    if (trees_.size() < 2) {
+        // nothing to grow
+        return ti;
+    }
+
+    // traverse trees top to bottom and refine -> propagates tiles from top
+    // to bottom
+    {
+        auto lod(lodRange.min);
+        auto ctrees(ti.trees_.begin());
+
+        for (auto itrees(ctrees + 1), etrees(ti.trees_.end());
+             itrees != etrees; ++itrees, ++ctrees, ++lod)
+        {
+            LOG(debug) << "gd: " << lod << " -> " << (lod + 1);
+
+            auto &tree(*itrees);
+
+            // merge in parent -> all children are set
+            tree.merge(*ctrees, filter);
+        }
+    }
+
+    // traverse trees bottom to top and coarsen -> propagates tiles from bottom
+    // to top
+    {
+        auto lod(lodRange.max);
+        auto ctrees(ti.trees_.rbegin());
+
+        for (auto itrees(ctrees + 1), etrees(ti.trees_.rend());
+             itrees != etrees; ++itrees, ++ctrees, --lod)
+        {
+            LOG(debug) << "gu: " << lod << " -> " << (lod - 1);
+
+            // make copy of child
+            QTree child(*ctrees);
+            auto &tree(*itrees);
+
+            // coarsen child (do not change child!)
+            child.coarsen(filter);
+            // merge in coarsened child -> all parents are set
+            tree.merge(child, filter);
+        }
+    }
+
+    return ti;
+}
+
+TileIndex TileIndex::intersect(const TileIndex &other
+                               , Flag::value_type type)
+    const
+{
+    auto filter([type](QTree::value_type value) { return (value & type); });
+    TileIndex ti(lodRange(), *this, filter);
+
+    if (ti.empty()) {
+        // nothing to intersect
+        return ti;
+    }
+
+    auto ntree(ti.trees_.begin());
+    for (auto lod : lodRange()) {
+        if (const auto *otree = other.tree(lod)) {
+            ntree->intersect(*otree, filter);
+        }
+        ++ntree;
+    }
+    return ti;
+}
+
+bool TileIndex::notoverlaps(const TileIndex &other, Flag::value_type type)
+    const
+{
+    auto filter([type](QTree::value_type value) { return (value & type); });
+
+    // different lod range -> mismatch
+    if (lodRange() != other.lodRange()) { return true; }
+
+    auto ntree(trees_.begin());
+    for (const auto &otree : other.trees_) {
+        if (!ntree->overlaps(otree, filter)) {
+            return true;
+        }
+        ++ntree;
+    }
+    return false;
+}
+
 } } // namespace vadstena::vts
