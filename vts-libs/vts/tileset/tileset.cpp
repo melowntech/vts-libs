@@ -25,10 +25,9 @@ TileSet::TileSet(const std::shared_ptr<Driver> &driver)
 }
 
 TileSet::TileSet(const std::shared_ptr<Driver> &driver
-                 , const TileSetProperties &properties)
+                 , const TileSet::Properties &properties)
     : detail_(std::make_shared<Detail>(driver, properties))
-{
-}
+{}
 
 Mesh TileSet::getMesh(const TileId &tileId) const
 {
@@ -107,7 +106,7 @@ LodRange TileSet::lodRange() const
 struct TileSet::Factory
 {
     static TileSet create(const fs::path &path
-                          , const TileSetProperties &properties
+                          , const TileSet::Properties &properties
                           , CreateMode mode)
     {
         // we are using binaryOrder = 5 :)
@@ -129,11 +128,12 @@ struct TileSet::Factory
         const auto reportName(str(boost::format("Cloning <%s> ")
                                   % src.id()));
 
-        auto properties(src.getProperties());
+        auto properties(src.detail().properties);
         if (cloneOptions.tilesetId()) {
             properties.id = *cloneOptions.tilesetId();
         }
-        auto dst(createTileSet(path, properties, cloneOptions.mode()));
+        auto dst(TileSet::Factory::create(path, properties
+                                          , cloneOptions.mode()));
 
         auto &sd(*src.detail().driver);
         auto &dd(*dst.detail().driver);
@@ -217,7 +217,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver
-                        , const TileSetProperties &properties)
+                        , const TileSet::Properties &properties)
     : readOnly(false), driver(driver)
     , propertiesChanged(false), metadataChanged(false)
     , referenceFrame(registry::Registry::referenceFrame
@@ -230,7 +230,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     }
 
     // build initial properties
-    static_cast<TileSetProperties&>(this->properties) = properties;
+    this->properties = properties;
     this->properties.driverOptions = driver->options();
 
     if (auto oldConfig = driver->oldConfig()) {
@@ -500,6 +500,30 @@ void update(TileSet::Properties &properties, const NodeInfo &nodeInfo)
         res.first->second
             = math::unite(res.first->second, nodeInfo.extents);
     }
+}
+
+bool check(const SpatialDivisionExtents &l, const SpatialDivisionExtents &r)
+{
+    auto il(l.begin()), el(l.end());
+    auto ir(r.begin()), er(r.end());
+
+    // process in parallel
+    while ((il != el) && (ir != er)) {
+        if (il->first < ir->first) {
+            // left behind right
+            ++il;
+        } else if (ir->first < il->first) {
+            // right behind left
+            ++ir;
+        } else {
+            // same srs; overlaps -> OK
+            if (overlaps(il->second, ir->second)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 void TileSet::Detail::setTile(const TileId &tileId

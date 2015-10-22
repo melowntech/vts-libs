@@ -123,7 +123,7 @@ off_t seekFromEnd(const Filedes &fd, off_t pos = 0)
              , utility::formatError
              ("Failed to seek %s bytes from the end of the tilar file %s."
               , pos, fd.path()));
-        LOG(err1) << e.what();
+        LOG(err2) << e.what();
         throw e;
     }
     return p;
@@ -141,7 +141,7 @@ off_t seekFromStart(const Filedes &fd, off_t pos = 0)
              , utility::formatError
              ("Failed to seek %s bytes from the start of the tilar file %s."
               , pos, fd.path()));
-        LOG(err1) << e.what();
+        LOG(err2) << e.what();
         throw e;
     }
     return p;
@@ -155,7 +155,7 @@ off_t fileSize(const Filedes &fd)
             (errno, std::system_category()
              , utility::formatError
              ("Failed to stat tilar file %s.", fd.path()));
-        LOG(err1) << e.what();
+        LOG(err2) << e.what();
         throw e;
     }
     return buf.st_size;
@@ -168,7 +168,7 @@ off_t truncate(const Filedes &fd, off_t size)
             (errno, std::system_category()
              , utility::formatError
              ("Failed to truncate tilar file %s.", fd.path()));
-        LOG(err1) << e.what();
+        LOG(err2) << e.what();
         throw e;
     }
     return seekFromStart(fd, size);
@@ -187,7 +187,7 @@ void write(const Filedes &fd, const Block &block)
                 (errno, std::system_category()
                  , utility::formatError
                  ("Failed to write to tilar file %s.", fd.path()));
-            LOG(err1) << e.what();
+            LOG(err2) << e.what();
             throw e;
         }
         left -= bytes;
@@ -209,7 +209,7 @@ void read(const Filedes &fd, Block &block)
                 (errno, std::system_category()
                  , utility::formatError
                  ("Failed to read from tilar file %s.", fd.path()));
-            LOG(err1) << e.what();
+            LOG(err2) << e.what();
             throw e;
         }
         if (!bytes) {
@@ -237,7 +237,7 @@ Filedes openFile(const fs::path &path, int flags)
             (errno, std::system_category()
              , utility::formatError
              ("Failed to open tilar file %s.", path));
-        LOG(err1) << e.what();
+        LOG(err2) << e.what();
         throw e;
     }
     return fd;
@@ -893,6 +893,7 @@ Tilar Tilar::create(const fs::path &path, const Options &options
             (errno, std::system_category()
              , utility::formatError
              ("Failed to create tilar file %s.", path));
+        LOG(err2) << e.what();
         throw e;
     }
 
@@ -954,8 +955,9 @@ public:
 
     // write constructor
     Device(const Tilar::Detail::pointer &owner, const FileIndex &index, Append)
-        : owner(owner), fd(owner->getFd()), index(index)
-        , start(seekFromEnd(fd)), pos(start), end(0), writeEnd(0)
+        : owner(owner), path(owner->getFd().path()), index(index)
+        , start(seekFromEnd(owner->getFd())), pos(start)
+        , end(0), writeEnd(0)
     {
         owner->begin(index, start);
         owner->share();
@@ -963,7 +965,7 @@ public:
 
     // read constructor
     Device(const Tilar::Detail::pointer &owner, const FileIndex &index)
-        : owner(owner), fd(owner->getFd()), index(index)
+        : owner(owner), path(owner->getFd().path()), index(index)
         , start(0), pos(0), end(0), writeEnd(0)
     {
         const auto &slot(owner->index.get(index));
@@ -971,7 +973,7 @@ public:
             LOGTHROW(err1, NoSuchFile)
                 << "File [" << index.col << ',' << index.row
                 << ',' << index.type << "] does not exist in the archive "
-                << fd.path() << ".";
+                << path << ".";
         }
 
         // update
@@ -1010,7 +1012,7 @@ public:
 
     std::string name() const {
         std::ostringstream os;
-        os << fd.path().string()
+        os << path.string()
            << ':' << index.row << ',' << index.col << ',' << index.type;
         return os.str();
     }
@@ -1028,8 +1030,13 @@ public:
 
     FileStat stat() const { return owner->stat(index); }
 
+    /** File descriptor must be fetched from owner because it could be detached!
+     */
+    Filedes& fd() { return owner->getFd(); }
+
     Tilar::Detail::pointer owner;
-    Filedes &fd;
+    boost::filesystem::path path;
+
     const FileIndex index;
 
     off_t start;
@@ -1094,7 +1101,7 @@ public:
     FileStat stat() const { return device_->stat(); }
 
     ReadOnlyFd readOnlyfd() {
-        return { device_->fd.get(), std::size_t(device_->start)
+        return { device_->fd().get(), std::size_t(device_->start)
                 , std::size_t(device_->end), true };
     }
 
@@ -1198,7 +1205,7 @@ private:
 
 std::streamsize Tilar::Sink::write(const char *data, std::streamsize size)
 {
-    const auto &fd(device_->fd);
+    const auto &fd(device_->fd());
     for (;;) {
         auto bytes(::pwrite(fd, data, size, device_->pos));
         if (-1 == bytes) {
@@ -1209,6 +1216,7 @@ std::streamsize Tilar::Sink::write(const char *data, std::streamsize size)
                 (errno, std::system_category()
                  , utility::formatError
                  ("Unable to write to tilar file %s.", fd.path()));
+            LOG(err2) << e.what();
             throw e;
         }
         device_->written(bytes);
@@ -1276,7 +1284,7 @@ Tilar::Source::read_impl(char *data, std::streamsize size
 
     if (!size) { return size; }
 
-    const auto &fd(device_->fd);
+    const auto &fd(device_->fd());
     for (;;) {
         auto bytes(::pread(fd, data, size, pos));
         if (-1 == bytes) {
@@ -1287,6 +1295,7 @@ Tilar::Source::read_impl(char *data, std::streamsize size
                 (errno, std::system_category()
                  , utility::formatError
                  ("Unable to read from tilar file %s.", fd.path()));
+            LOG(err2) << e.what();
             throw e;
         }
         return bytes;

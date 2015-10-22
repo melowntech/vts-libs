@@ -16,6 +16,8 @@ namespace vadstena { namespace vts {
 
 typedef std::map<std::string, math::Extents2> SpatialDivisionExtents;
 
+bool check(const SpatialDivisionExtents &l, const SpatialDivisionExtents &r);
+
 struct TileSet::Properties : TileSetProperties {
     /** Data version/revision. Should be increment anytime the data change.
      *  Used in template URL's to push through caches.
@@ -38,6 +40,10 @@ struct TileSet::Properties : TileSetProperties {
     SpatialDivisionExtents spatialDivisionExtents;
 
     Properties() : revision(0) {}
+
+    Properties(const TileSetProperties &slice)
+        : TileSetProperties(slice), revision(0)
+    {}
 };
 
 struct TileNode {
@@ -97,7 +103,8 @@ struct TileSet::Detail
     LodRange lodRange;
 
     Detail(const Driver::pointer &driver);
-    Detail(const Driver::pointer &driver, const TileSetProperties &properties);
+    Detail(const Driver::pointer &driver
+           , const TileSet::Properties &properties);
     ~Detail();
 
     void loadConfig();

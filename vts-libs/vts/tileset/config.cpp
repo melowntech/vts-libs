@@ -51,14 +51,9 @@ void parseExtents(math::Extents2 &extents
                   , const Json::Value &value
                   , const char *name)
 {
-    if (!value.isArray()) {
+    if (!value.isArray() && (value.size() != 4)) {
         LOGTHROW(err1, Json::Error)
-            << "Type of " << name << " is not an array.";
-    }
-
-    if (value.size() != 4) {
-        LOGTHROW(err1, Json::Error)
-            << "Object " << name << " must have 4 items.";
+            << "Type of " << name << " is not an 4-item array.";
     }
 
     extents.ll(0) = Json::as<double>(value[0], name);

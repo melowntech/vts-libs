@@ -24,6 +24,8 @@
 #include "../storage.hpp"
 #include "../../vts.hpp"
 #include "./detail.hpp"
+#include "../tileset/detail.hpp"
+
 #include "./config.hpp"
 
 namespace fs = boost::filesystem;
@@ -311,29 +313,44 @@ struct Ts {
      */
     TileSet set;
 
-    /** Tileset's sphere of influence.
-     */
-    TileIndex sphereOfInfluence;
-
     /** Set of tilesets that overlap with this one.
      */
     std::set<std::size_t> incidentSets;
 
     Ts(const TileSet &tileset, const LodRange &lodRange
        , bool added)
-        : added(added), set(tileset)
-        , sphereOfInfluence
-          (tileset.sphereOfInfluence(lodRange, TileIndex::Flag::mesh))
+        : added(added), set(tileset), lodRange(lodRange)
     {}
 
     bool notoverlaps(const Ts &other) const {
-        return sphereOfInfluence.notoverlaps
-            (other.sphereOfInfluence, TileIndex::Flag::any);
+        if (!check(set.detail().properties.spatialDivisionExtents
+                   , other.set.detail().properties.spatialDivisionExtents))
+        {
+            return true;
+        }
+
+        return sphereOfInfluence().notoverlaps
+            (other.sphereOfInfluence(), TileIndex::Flag::any);
     }
 
     std::string id() const { return set.id(); }
 
+    const TileIndex& sphereOfInfluence() const {
+        if (!sphereOfInfluence_) {
+            sphereOfInfluence_ =
+                (set.sphereOfInfluence(lodRange, TileIndex::Flag::mesh));
+        }
+        return *sphereOfInfluence_;
+    }
+
     typedef std::vector<Ts> list;
+
+private:
+    /** Tileset's sphere of influence.
+     */
+    mutable boost::optional<TileIndex> sphereOfInfluence_;
+
+    LodRange lodRange;
 };
 
 Storage::Properties

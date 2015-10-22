@@ -127,23 +127,24 @@ public:
      */
     struct Detail;
 
+    /** Full tileset properties.
+     */
+    struct Properties;
+
 private:
     TileSet(const std::shared_ptr<Driver> &driver
-            , const TileSetProperties &properties);
+            , const TileSet::Properties &properties);
     TileSet(const std::shared_ptr<Driver> &driver);
 
     std::shared_ptr<Detail> detail_;
+
+public:
     Detail& detail() { return *detail_; }
     const Detail& detail() const { return *detail_; }
 
-public:
     /** Needed to instantiate.
      */
     class Factory; friend class Factory;
-
-    struct Accessor; friend class Accessor;
-
-    struct Properties;
 };
 
 } } // namespace vadstena::vts
