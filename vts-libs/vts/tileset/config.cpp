@@ -38,12 +38,61 @@ void parseIdSet(registry::StringIdSet &ids, const Json::Value &object
 
     if (!value.isArray()) {
         LOGTHROW(err1, Json::Error)
-            << "Type of " << name << " is not a list.";
+            << "Type of " << name << " is not an array.";
     }
 
     for (const auto &element : value) {
         Json::check(element, Json::stringValue);
         ids.insert(element.asString());
+    }
+}
+
+void parseExtents(math::Extents2 &extents
+                  , const Json::Value &value
+                  , const char *name)
+{
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of " << name << " is not an array.";
+    }
+
+    if (value.size() != 4) {
+        LOGTHROW(err1, Json::Error)
+            << "Object " << name << " must have 4 items.";
+    }
+
+    extents.ll(0) = Json::as<double>(value[0], name);
+    extents.ll(1) = Json::as<double>(value[1], name);
+    extents.ur(0) = Json::as<double>(value[2], name);
+    extents.ur(1) = Json::as<double>(value[3], name);
+}
+
+void parseSpatialDivisionExtents(SpatialDivisionExtents &sde
+                                 , const Json::Value &object
+                                 , const char *name)
+{
+    const Json::Value &value(object[name]);
+
+    if (!value.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of " << name << " is not an object.";
+    }
+
+    for (const auto &srs : value.getMemberNames()) {
+        parseExtents(sde[srs], value[srs], srs.c_str());
+    }
+}
+
+void build(Json::Value &value
+           , const SpatialDivisionExtents &spatialDivisionExtents)
+{
+    value = Json::objectValue;
+    for (const auto &item : spatialDivisionExtents) {
+        auto &e(value[item.first] = Json::arrayValue);
+        e.append(item.second.ll(0));
+        e.append(item.second.ll(1));
+        e.append(item.second.ur(0));
+        e.append(item.second.ur(1));
     }
 }
 
@@ -79,6 +128,9 @@ TileSet::Properties parse1(const Json::Value &config)
     Json::get(properties.tileRange.ur(0), config, "tileRange", 2);
     Json::get(properties.tileRange.ur(1), config, "tileRange", 3);
 
+    parseSpatialDivisionExtents(properties.spatialDivisionExtents
+                                , config, "spatialDivisionExtents");
+
     return properties;
 }
 
@@ -111,11 +163,14 @@ void build(Json::Value &config, const TileSet::Properties &properties)
     tileRange.append(properties.tileRange.ll(1));
     tileRange.append(properties.tileRange.ur(0));
     tileRange.append(properties.tileRange.ur(1));
+
+    build(config["spatialDivisionExtents"], properties.spatialDivisionExtents);
 }
 
 } // namespace detail
 
-TileSet::Properties loadConfig(std::istream &in)
+TileSet::Properties loadConfig(std::istream &in
+                               , const boost::filesystem::path &path)
 {
     // load json
     Json::Value config;
@@ -142,7 +197,7 @@ TileSet::Properties loadConfig(std::istream &in)
     } catch (const Json::Error &e) {
         LOGTHROW(err1, storage::FormatError)
             << "Invalid tileset config format (" << e.what()
-            << "); Unable to work with this tileset.";
+            << "); Unable to work with this tileset (file: " << path << ").";
     }
     throw;
 }
@@ -166,7 +221,7 @@ TileSet::Properties loadConfig(const boost::filesystem::path &path)
         LOGTHROW(err1, storage::NoSuchTileSet)
             << "Unable to load config file " << path << ".";
     }
-    auto p(loadConfig(f));
+    auto p(loadConfig(f, path));
     f.close();
     return p;
 }

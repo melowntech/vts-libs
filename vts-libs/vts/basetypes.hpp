@@ -19,6 +19,8 @@ using storage::LodRange;
 
 using registry::TileRange;
 
+typedef registry::ReferenceFrame::Division::Node RFNode;
+
 /** Tile identifier (index in 3D space): LOD + tile index from upper-left corner
  *  in tile grid.
  */

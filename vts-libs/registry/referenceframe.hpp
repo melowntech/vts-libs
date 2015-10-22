@@ -85,15 +85,17 @@ struct ReferenceFrame {
     struct Division {
         struct Node {
             struct Id {
+                typedef unsigned int index_type;
                 Lod lod;
-                unsigned int x;
-                unsigned int y;
+                index_type x;
+                index_type y;
 
-                Id(Lod lod = 0, unsigned int x = 0, unsigned int y = 0)
+                Id(Lod lod = 0, index_type x = 0, index_type y = 0)
                     : lod(lod), x(x), y(y)
                 {}
 
                 bool operator<(const Id &tid) const;
+                bool operator==(const Id &tid) const;
             };
 
             struct Partitioning {
@@ -123,6 +125,10 @@ struct ReferenceFrame {
         const Node* find(const Node::Id &id, std::nothrow_t) const;
 
         const Node& root() const { return find({}); }
+
+        /** Finds root node for given node id.
+         */
+        const Node& findSubtreeRoot(const Node::Id &nodeId) const;
     };
 
     std::string id;
@@ -147,6 +153,12 @@ struct ReferenceFrame {
         const
     {
         return division.find(id, std::nothrow);
+    }
+
+    const Division::Node& findSubtreeRoot(const Division::Node::Id &nodeId)
+        const
+    {
+        return division.findSubtreeRoot(nodeId);
     }
 
     /** For vts0 only:
@@ -282,6 +294,12 @@ UTILITY_GENERATE_ENUM_IO(BoundLayer::Type,
 )
 
 // inlines
+
+inline bool
+ReferenceFrame::Division::Node::Id::operator==(const Id &id) const
+{
+    return ((lod == id.lod) && (x == id.x) && (y < id.y));
+}
 
 inline bool
 ReferenceFrame::Division::Node::Id::operator<(const Id &id) const

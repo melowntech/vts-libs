@@ -39,6 +39,9 @@ std::string fileTemplate(TileFile type
 
 std::size_t tileCount(Lod lod);
 
+RFNode::Id rfNodeId(const TileId &tileId);
+TileId tileId(const RFNode::Id &rfNodeId);
+
 // inline stuff
 
 inline TileId parent(const TileId &tileId)
@@ -71,6 +74,17 @@ inline bool in(const LodRange &range, const TileId &tileId)
 inline std::size_t tileCount(Lod lod)
 {
     return std::size_t(1) << lod;
+}
+
+inline RFNode::Id rfNodeId(const TileId &tileId)
+{
+    return RFNode::Id
+        (tileId.lod, tileId.x, tileId.y);
+}
+
+inline TileId tileId(const RFNode::Id &rfNodeId)
+{
+    return TileId(rfNodeId.lod, rfNodeId.x, rfNodeId.y);
 }
 
 } } // namespace vadstena::vts

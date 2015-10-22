@@ -14,7 +14,9 @@
 
 namespace vadstena { namespace vts { namespace tileset {
 
-TileSet::Properties loadConfig(std::istream &in);
+TileSet::Properties loadConfig(std::istream &in
+                               , const boost::filesystem::path &path
+                               = "unknown");
 
 void saveConfig(std::ostream &out, const TileSet::Properties &properties);
 

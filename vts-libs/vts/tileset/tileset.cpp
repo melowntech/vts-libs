@@ -467,6 +467,41 @@ void accumulateBoundLayers(registry::IdSet &ids, const Mesh &mesh)
     }
 }
 
+namespace {
+
+math::Extents2 makeExtents(const RFNode &rootNode, const RFNode::Id &nodeId)
+{
+    // determine tile extents
+    auto tc(tileCount(nodeId.lod - rootNode.id.lod));
+    auto rs(size(rootNode.extents));
+    math::Size2f ts(rs.width / tc, rs.height / tc);
+    return  math::Extents2
+        (rootNode.extents.ll(0) + nodeId.x * ts.width
+         , rootNode.extents.ur(1) - (nodeId.y + 1) * ts.height
+         , rootNode.extents.ll(0) + (nodeId.x + 1) * ts.width
+         , rootNode.extents.ur(1) - nodeId.y * ts.height);
+}
+
+} // namespace
+
+NodeInfo::NodeInfo(const registry::ReferenceFrame referenceFrame
+                   , const TileId &tileId)
+    : tileId(tileId), nodeId(rfNodeId(tileId))
+    , rootNode(referenceFrame.findSubtreeRoot(nodeId))
+    , extents(makeExtents(rootNode, nodeId))
+{}
+
+void update(TileSet::Properties &properties, const NodeInfo &nodeInfo)
+{
+    auto res(properties.spatialDivisionExtents.insert
+             (SpatialDivisionExtents::value_type
+              (nodeInfo.rootNode.srs, nodeInfo.extents)));
+    if (!res.second) {
+        res.first->second
+            = math::unite(res.first->second, nodeInfo.extents);
+    }
+}
+
 void TileSet::Detail::setTile(const TileId &tileId
                               , const Mesh *mesh
                               , const Atlas *atlas
@@ -477,6 +512,8 @@ void TileSet::Detail::setTile(const TileId &tileId
     LOG(info1) << "Setting content of tile " << tileId << ".";
 
     MetaNode metanode;
+
+    NodeInfo nodeInfo(referenceFrame, tileId);
 
     // set various flags and metadata
     if (mesh) {
@@ -537,6 +574,8 @@ void TileSet::Detail::setTile(const TileId &tileId
     if (navtile) {
         save(driver->output(tileId, TileFile::navtile), *navtile);
     }
+
+    update(properties, nodeInfo);
 }
 
 Mesh TileSet::Detail::getMesh(const TileId &tileId) const
@@ -657,6 +696,7 @@ void TileSet::Detail::flush()
 
     if (metadataChanged) {
         saveMetadata();
+        metadataChanged = false;
         // force properties change
         propertiesChanged = true;
     }

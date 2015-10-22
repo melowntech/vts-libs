@@ -827,7 +827,7 @@ ReferenceFrame::Division::find(const Node::Id &id) const
     const auto *node(find(id, std::nothrow));
     if (!node) {
         LOGTHROW(err1, storage::KeyError)
-            << "No node <" << id << ">in division tree.";
+            << "No node <" << id << "> in division tree.";
     }
     return *node;
 }
@@ -978,6 +978,47 @@ BoundLayer::dict boundLayersAsDict(const IdSet &boundLayers)
         b.add(Registry::boundLayer(id));
     };
     return b;
+}
+
+const ReferenceFrame::Division::Node&
+ReferenceFrame::Division::findSubtreeRoot(const Node::Id &nodeId) const
+{
+    LOG(info4) << "Finding subtree root for node " << nodeId;
+    const Node *candidate(nullptr);
+    for (const auto &item : nodes) {
+        const auto &treeRoot(item.first);
+
+        if (candidate && (treeRoot.lod <= candidate->id.lod )) {
+            // this root would be above or at already found candidate root ->
+            // impossible
+            continue;
+        }
+
+        if (treeRoot.lod > nodeId.lod) {
+            // root cannot be bellow node
+            continue;
+        }
+
+        if (treeRoot == nodeId) {
+            // exact match -> standing at the root
+            return item.second;
+        }
+
+        // node bellow possible root -> check if it can be a candidate
+        auto diff(nodeId.lod - treeRoot.lod);
+        Node::Id::index_type x(nodeId.x >> diff), y(nodeId.y >> diff);
+        if ((treeRoot.x == x) && (treeRoot.y == y)) {
+            // match -> nodeId is bellow treeRoot -> remember
+            candidate = &item.second;
+        }
+    }
+
+    if (!candidate) {
+        LOGTHROW(err1, storage::KeyError)
+            << "Node <" << nodeId << "> has no root in this reference frame.";
+    }
+
+    return *candidate;
 }
 
 } } // namespace vadstena::registry

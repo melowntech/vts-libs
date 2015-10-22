@@ -14,6 +14,8 @@
 
 namespace vadstena { namespace vts {
 
+typedef std::map<std::string, math::Extents2> SpatialDivisionExtents;
+
 struct TileSet::Properties : TileSetProperties {
     /** Data version/revision. Should be increment anytime the data change.
      *  Used in template URL's to push through caches.
@@ -30,6 +32,10 @@ struct TileSet::Properties : TileSetProperties {
     /** Extents (inclusive) of tiles with mesh and/or atlas at lodRange.min
      */
     TileRange tileRange;
+
+    /** Occupied extents for each spatial division SRS
+     */
+    SpatialDivisionExtents spatialDivisionExtents;
 
     Properties() : revision(0) {}
 };
@@ -57,6 +63,16 @@ struct TileNode {
 };
 
 typedef std::map<TileId, MetaTile> MetaTiles;
+
+struct NodeInfo {
+    TileId tileId;
+    RFNode::Id nodeId;
+    RFNode rootNode;
+    math::Extents2 extents;
+
+    NodeInfo(const registry::ReferenceFrame referenceFrame
+             , const TileId &tileId);
+};
 
 /** Driver that implements physical aspects of tile set.
  */
