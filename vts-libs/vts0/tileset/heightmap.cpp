@@ -514,7 +514,8 @@ public:
                 for (int jj(0); jj < TileMetadata::HMSize; ++jj) {
                     for (int ii(0); ii < TileMetadata::HMSize; ++ii) {
                         int xx(x + ii), yy(y + jj);
-                        auto value(node->heightmap[jj][ii]);
+                        auto value(node->heightmap
+                                   [TileMetadata::HMSize - 1 - jj][ii]);
                         if (mask_.at<unsigned char>(yy, xx)) {
                             // valid value from other tile, use average
                             value += raster_.at<channel_type>(yy, xx);
@@ -537,12 +538,12 @@ public:
         auto &hm(updated_.back().heightmap);
 
         auto applyDistance(calculateDistance(ftile.vicinity));
-        (void) applyDistance;
 
         for (int j(0); j < TileMetadata::HMSize; ++j) {
             for (int i(0); i < TileMetadata::HMSize; ++i) {
-                const auto old(tile->heightmap[j][i]);
-                hm[j][i] = blend
+                const auto old
+                    (tile->heightmap[TileMetadata::HMSize - 1 - j][i]);
+                hm[TileMetadata::HMSize - 1 - j][i] = blend
                     (applyDistance, i, j, old
                      , imgproc::reconstruct
                      (*this, filter_, math::Point2(i, j))[0]);

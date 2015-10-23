@@ -546,7 +546,6 @@ public:
         auto &hm(updated_.back().heightmap);
 
         auto applyDistance(calculateDistance(ftile.vicinity));
-        (void) applyDistance;
 
         for (int j(0); j < TileMetadata::HMSize; ++j) {
             for (int i(0); i < TileMetadata::HMSize; ++i) {
