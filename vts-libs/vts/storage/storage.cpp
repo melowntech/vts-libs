@@ -305,6 +305,10 @@ LodRange range(const TileSets &tilesets)
 }
 
 struct Ts {
+    /** Own index in the list of tilesets.
+     */
+    std::size_t index;
+
     /** Marks added tileset.
      */
     bool added;
@@ -319,7 +323,7 @@ struct Ts {
 
     Ts(const TileSet &tileset, const LodRange &lodRange
        , bool added)
-        : added(added), set(tileset), lodRange(lodRange)
+        : index(0), added(added), set(tileset), lodRange(lodRange)
     {}
 
     bool notoverlaps(const Ts &other) const {
@@ -345,6 +349,9 @@ struct Ts {
 
     typedef std::vector<Ts> list;
 
+    typedef std::vector<Ts*> ptrlist;
+    typedef std::vector<const Ts*> const_ptrlist;
+
 private:
     /** Tileset's sphere of influence.
      */
@@ -352,6 +359,54 @@ private:
 
     LodRange lodRange;
 };
+
+class BitSet {
+public:
+    BitSet(std::size_t size = 0) : bs_(size, 0) {}
+
+    bool increment();
+
+    typedef std::vector<bool> repr_type;
+
+    const repr_type& repr() const { return bs_; }
+
+    typedef repr_type::iterator iterator;
+    typedef repr_type::const_iterator const_iterator;
+
+    iterator begin() { return bs_.begin(); }
+    iterator end() { return bs_.end(); }
+    const_iterator begin() const { return bs_.begin(); }
+    const_iterator end() const { return bs_.end(); }
+    const_iterator cbegin() { return bs_.begin(); }
+    const_iterator cend() { return bs_.end(); }
+    repr_type::reference operator[](std::size_t index) { return bs_[index]; }
+    repr_type::const_reference operator[](std::size_t index) const {
+        return bs_[index];
+    }
+
+private:
+    std::vector<bool> bs_;
+};
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const BitSet &bs)
+{
+    for (auto bit : boost::adaptors::reverse(bs.repr())) {
+        os << (bit ? '1' : '0');
+    }
+    return os;
+}
+
+bool BitSet::increment()
+{
+    for (std::size_t i(0), e(bs_.size()); i != e; ++i) {
+        auto nval(!bs_[i]);
+        bs_[i] = nval;
+        if (nval) { return true; }
+    }
+    return false;
+}
 
 Storage::Properties
 createGlues(Tx &tx, Storage::Properties properties
@@ -373,58 +428,106 @@ createGlues(Tx &tx, Storage::Properties properties
         std::size_t index(0);
         for (auto &set : std::get<0>(tsets)) {
             tilesets.emplace_back(set, lr, (index == std::get<1>(tsets)));
-            ++index;
+            tilesets.back().index = index++;
         }
     }
 
     // filter out all tilesets that do not overlap with added tileset
-    Ts::list incidentSets;
+    const auto &added(tilesets[std::get<1>(tsets)]);
+    Ts::ptrlist incidentSets;
     {
-        const auto &added(tilesets[std::get<1>(tsets)]);
-        for (const auto &ts : tilesets) {
+        for (auto &ts : tilesets) {
             // ignore added tileset
-            if (ts.added) {
-                // remembered by default
-                incidentSets.push_back(ts);
-                continue;
-            }
-
+            if (ts.added) {continue; }
             if (ts.notoverlaps(added)) { continue; }
 
             // incidence between spheres of influence -> remember
-            incidentSets.push_back(ts);
+            incidentSets.push_back(&ts);
         }
     }
 
     // for each tileset in the input
-    std::size_t i(0);
-    for (auto iincidentSets(incidentSets.begin())
-             , eincidentSets(incidentSets.end());
-         iincidentSets != eincidentSets; ++iincidentSets, ++i)
     {
-        // process all remaining tilesets
-        std::size_t j(i + 1);
-        for (auto iincidentSets2(std::next(iincidentSets));
-             iincidentSets2 != eincidentSets; ++iincidentSets2, ++j)
+        for (auto iincidentSets(incidentSets.begin())
+                 , eincidentSets(incidentSets.end());
+             iincidentSets != eincidentSets; ++iincidentSets)
         {
-            if (iincidentSets->added) {
-                iincidentSets->incidentSets.insert(j);
-                continue;
-            }
+            auto &first(**iincidentSets);
 
-            if (!iincidentSets2->added) {
-                if (iincidentSets2->added) { continue; }
-                if (iincidentSets->notoverlaps(*iincidentSets2)) { continue; }
-            }
+            // process all remaining tilesets, add self
+            for (auto iincidentSets2(std::next(iincidentSets));
+                 iincidentSets2 != eincidentSets; ++iincidentSets2)
+            {
+                auto &second(**iincidentSets2);
 
-            iincidentSets->incidentSets.insert(j);
+                // overlaps -> remember
+                if (!first.notoverlaps(second)) {
+                    first.incidentSets.insert(second.index);
+                }
+            }
         }
     }
 
-    for (const auto &ts : incidentSets) {
+    for (const auto &tsp : incidentSets) {
+        const auto &ts(*tsp);
+
         LOG(info4)
-            << "overlap: <" << ts.id() << ">: "
-            << utility::join(ts.incidentSets, ", ");
+            << "Sets <" << added.id() << "> and <"
+            << ts.id() << "> (" << added.index << ", " << ts.index
+            << ") overlap with [" << utility::join(ts.incidentSets, ", ")
+            << "].";
+
+        constexpr int emptyPlaceholder(-1);
+        constexpr int addedPlaceholder(-2);
+        constexpr int thisPlaceholder(-3);
+
+        std::vector<int> mapping(tilesets.size(), emptyPlaceholder);
+        mapping[ts.index] = thisPlaceholder;
+        mapping[added.index] = addedPlaceholder;
+        {
+            int index(0);
+            for (auto its : ts.incidentSets) {
+                mapping[its] = index;
+                ++index;
+            }
+        }
+
+        // build all combinations (ts, added and any combination of incident
+        // sets)
+        BitSet flags(ts.incidentSets.size());
+
+        Ts::const_ptrlist combination(2 * ts.incidentSets.size());
+        do {
+            LOG(info4) << "combination: <" << flags << ">";
+            // make room for combination
+            combination.clear();
+
+            for (std::size_t index(0), e(mapping.size()); index != e; ++ index)
+            {
+                auto value(mapping[index]);
+                switch (value) {
+                case emptyPlaceholder:
+                    continue;
+
+                case addedPlaceholder:
+                    combination.push_back(&added);
+                    continue;
+
+                case thisPlaceholder:
+                    combination.push_back(tsp);
+                    continue;
+
+                }
+
+                if (flags[value]) {
+                    combination.push_back(&tilesets[index]);
+                }
+            }
+        } while (flags.increment());
+
+        for (const auto &c : combination) {
+            LOG(info4) << c->id();
+        }
     }
 
     (void) tx;
