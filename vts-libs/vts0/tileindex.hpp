@@ -120,7 +120,7 @@ void dumpAsImages(const boost::filesystem::path &path, const TileIndex &ti
 
 class Bootstrap {
 public:
-    Bootstrap() : lodRange_(0, -1) {}
+    Bootstrap() : lodRange_(LodRange::emptyRange()) {}
     Bootstrap(const LodRange &lodRange) : lodRange_(lodRange) {}
     Bootstrap(const TileIndex &ti) : lodRange_(ti.lodRange()) {}
 
