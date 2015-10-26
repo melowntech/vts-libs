@@ -160,6 +160,7 @@ inline Lod TileIndex::maxLod() const
 
 inline LodRange TileIndex::lodRange() const
 {
+    if (empty()) { return LodRange::emptyRange(); }
     return { minLod_, maxLod() };
 }
 

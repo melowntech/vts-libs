@@ -498,7 +498,6 @@ createGlues(Tx &tx, Storage::Properties properties
 
         Ts::const_ptrlist combination(2 * ts.incidentSets.size());
         do {
-            LOG(info4) << "combination: <" << flags << ">";
             // make room for combination
             combination.clear();
 

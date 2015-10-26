@@ -38,7 +38,7 @@ LodRange range(const TileSet::list &sets)
     }
 
     // initialize with invalid range
-    LodRange r(0, -1);
+    LodRange r(LodRange::emptyRange());
     for (const auto &set : sets) {
         r = unite(r, TileSet::Accessor::detail(*set).lodRange);
     }
