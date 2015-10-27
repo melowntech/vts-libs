@@ -1283,6 +1283,9 @@ void TileSet::Detail::clone(const Detail &src)
             copyFile(sd.input(tileId, type), dd.output(tileId, type));
         }
         (++progress).report(reportRatio, name);
+
+        // mark that we have data
+        properties.hasData = true;
     });
 
     // copy metatiles
@@ -1303,6 +1306,9 @@ void TileSet::Detail::clone(const Detail &src)
     });
 
     if (!canCopy) {
+        // copy LOD range to have save tile index
+        lodRange = src.tileIndex.lodRange();
+
         // tell flush we have to dump metadata to storage
         metadataChanged = true;
     }
