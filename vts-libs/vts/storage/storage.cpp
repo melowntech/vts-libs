@@ -171,20 +171,26 @@ public:
     fs::path tilesetPath(const std::string &tilesetId, bool tmp = false)
         const
     {
-        return vts::tilesetPath(root_, tilesetId, tmp);
+        return createPath(vts::tilesetPath(root_, tilesetId, tmp));
     }
 
     fs::path gluePath(const Glue &glue, bool tmp = false)
         const
     {
-        return vts::gluePath(root_, glue, tmp);
+        return createPath(vts::gluePath(root_, glue, tmp));
     }
 
     TileSet open(const std::string &tilesetId) const;
 
+    fs::path addGlue(const Glue &glue);
+
+    fs::path addTileset(const std::string &tilesetId);
+
 private:
     void rollback();
     void commit();
+
+    fs::path createPath(const fs::path &path) const;
 
     const fs::path root_;
     typedef std::map<fs::path, fs::path> Mapping;
@@ -226,6 +232,26 @@ void Tx::commit()
 TileSet Tx::open(const std::string &tilesetId) const
 {
     return openTileSet(tilesetPath(tilesetId));
+}
+
+fs::path Tx::addGlue(const Glue &glue)
+{
+    auto tmp(gluePath(glue, true));
+    add(tmp, gluePath(glue));
+    return tmp;
+}
+
+fs::path Tx::addTileset(const std::string &tilesetId)
+{
+    auto tmp(tilesetPath(tilesetId, true));
+    add(tmp, tilesetPath(tilesetId));
+    return tmp;
+}
+
+fs::path Tx::createPath(const fs::path &path) const
+{
+    fs::create_directories(path.parent_path());
+    return path;
 }
 
 } // namespace
@@ -496,10 +522,10 @@ createGlues(Tx &tx, Storage::Properties properties
         // sets)
         BitSet flags(ts.incidentSets.size());
 
-        Ts::const_ptrlist combination(2 * ts.incidentSets.size());
         do {
             // make room for combination
-            combination.clear();
+            Ts::const_ptrlist combination;
+            Glue glue;
 
             for (std::size_t index(0), e(mapping.size()); index != e; ++ index)
             {
@@ -510,26 +536,41 @@ createGlues(Tx &tx, Storage::Properties properties
 
                 case addedPlaceholder:
                     combination.push_back(&added);
+                    glue.id.push_back(added.id());
                     continue;
 
                 case thisPlaceholder:
                     combination.push_back(tsp);
+                    glue.id.push_back(tsp->id());
                     continue;
 
                 }
 
                 if (flags[value]) {
                     combination.push_back(&tilesets[index]);
+                    glue.id.push_back(combination.back()->id());
                 }
             }
+
+            // create glue
+            auto glueSetId(boost::lexical_cast<std::string>
+                           (utility::join(glue.id, "_")));
+            glue.path = glueSetId;
+            LOG(info3) << "Trying to generate glue <" << glueSetId << ">.";
+
+            TileSetProperties properties;
+            properties.id = glueSetId;
+            properties.referenceFrame
+                = combination.front()->set.getProperties().referenceFrame;
+
+            auto gts(createTileSet(tx.addGlue(glue), properties
+                                   , CreateMode::overwrite));
+
+            
+            (void) gts;
+
         } while (flags.increment());
-
-        for (const auto &c : combination) {
-            LOG(info4) << c->id();
-        }
     }
-
-    (void) tx;
 
     return properties;
 }
@@ -633,12 +674,9 @@ void Storage::Detail::add(const TileSet &tileset
 
     {
         Tx tx(root);
-        const auto workPath(tilesetPath(root, tilesetId, true));
-
-        tx.add(workPath, tilesetPath(root, tilesetId));
 
         // create tileset at work path (overwrite any existing stuff here)
-        auto dst(cloneTileSet(workPath, tileset,
+        auto dst(cloneTileSet(tx.addTileset(tilesetId), tileset,
                               CloneOptions()
                               .mode(CreateMode::overwrite)
                               .tilesetId(tilesetId)));

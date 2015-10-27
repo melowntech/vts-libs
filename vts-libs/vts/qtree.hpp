@@ -79,6 +79,12 @@ public:
     template <typename Op>
     void translateEachNode(const Op &op);
 
+    /** Converts to simplified quadrant tree: value is converted to 1 (when
+     *  type(filter) says white) or 0 (when type(filter) says black.
+     */
+    template <typename FilterOp>
+    void simplify(const FilterOp &filter);
+
 private:
     /** Re-calculates number of non-zero elements.
      */
@@ -119,6 +125,9 @@ private:
 
         template <typename Op>
         void translate(const Op &op);
+
+        template <typename FilterOp>
+        void simplify(const FilterOp &filter);
 
         /** Merge nodes
          *  Uses type(filter) to determine node type.
@@ -231,13 +240,35 @@ void QTree::Node::translate(const Op &op)
 {
     if (children) {
         for (auto &node : children->nodes) {
-            node.translate();
+            node.translate(op);
         }
         contract();
         return;
     }
 
-    value = Op(value);
+    value = op(value);
+}
+
+template <typename FilterOp>
+void QTree::simplify(const FilterOp &filter)
+{
+    root_.simplify(filter);
+    recount();
+}
+
+template <typename FilterOp>
+void QTree::Node::simplify(const FilterOp &filter)
+{
+    switch (type(filter)) {
+    case Type::black: value = 0; break;
+    case Type::white: value = 1; break;
+    case Type::gray:
+        children->nodes[0].simplify(filter);
+        children->nodes[1].simplify(filter);
+        children->nodes[2].simplify(filter);
+        children->nodes[3].simplify(filter);
+        break;
+    }
 }
 
 template <typename FilterOp>
@@ -306,9 +337,17 @@ template <typename FilterOp>
 void QTree::Node::coarsen(unsigned int size, const FilterOp &filter)
 {
     if (size == 2) {
-        // mark as present and drfilter any children
-        value = 1;
-        children.reset();
+        if (!children) { return; }
+
+        for (const auto &child : children->nodes) {
+            if (filter(child.value)) {
+                // we have proper child
+                // copy value from child and make this node a leaf
+                value = child.value;
+                children.reset();
+                return;
+            }
+        }
         return;
     }
 

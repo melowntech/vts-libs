@@ -107,6 +107,10 @@ public:
      */
     const TileIndex& tileIndex() const;
 
+    /** Returns tile index in given lod range
+     */
+    TileIndex tileIndex(const LodRange &lodRange) const;
+
     /** Returns sphere of influence of this tileset.
      *
      *  SoI are all tiles that have giventype and also tiles above and below
@@ -121,6 +125,14 @@ public:
                                 , TileIndex::Flag::value_type type
                                 = TileIndex::Flag::mesh)
         const;
+
+    typedef std::vector<const TileSet*> const_ptrlist;
+
+    /** Creates glue from given sets into this set.
+     *
+     *  Priority grows from left to right.
+     */
+    void createGlue(const const_ptrlist &sets);
 
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the tileset's guts!

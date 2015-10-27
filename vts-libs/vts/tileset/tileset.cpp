@@ -815,8 +815,81 @@ TileIndex TileSet::sphereOfInfluence(const LodRange &range
                                      , TileIndex::Flag::value_type type)
     const
 {
-    const auto lr(range.empty() ? lodRange() : type);
+    const auto lr(range.empty() ? lodRange() : range);
     return detail().tileIndex.grow(lr, type);
+}
+
+TileIndex TileSet::tileIndex(const LodRange &lodRange) const
+{
+    return TileIndex(lodRange, &detail().tileIndex);
+}
+
+namespace {
+
+inline TileIndices tileIndices(const TileSet::const_ptrlist &sets
+                               , std::size_t size
+                               = std::numeric_limits<std::size_t>::max())
+{
+    size = std::min(size, sets.size());
+
+    TileIndices indices;
+    for (std::size_t i(0); i < size; ++size) {
+        indices.push_back(&sets[i]->tileIndex());
+    }
+    return indices;
+}
+
+LodRange range(const TileSet::const_ptrlist &sets)
+{
+    // start with invalid range
+    LodRange r(LodRange::emptyRange());
+
+    if (sets.empty()) { return r; }
+
+    for (const auto &set : sets) {
+        r = unite(r, set->lodRange());
+    }
+    return r;
+}
+
+const char *TILEINDEX_DUMP_ROOT("TILEINDEX_DUMP_ROOT");
+
+const char* getDumpDir()
+{
+    return std::getenv(TILEINDEX_DUMP_ROOT);
+}
+
+} // namespace
+
+void TileSet::createGlue(const const_ptrlist &sets)
+{
+    LOG(info3) << "(glue) Calculating generate set.";
+
+    // const auto *dumpRoot(getDumpDir());
+
+    // lod range of the world
+    auto lodRange(range(sets));
+
+    auto tsUpdate(sets.back()->tileIndex(lodRange)
+                  .simplify(TileIndex::Flag::mesh));
+    if (tsUpdate.empty()) {
+        LOG(warn3) << "(merge-in) Nothing to merge in. Bailing out.";
+        return;
+    }
+
+    tsUpdate.growDown(TileIndex::Flag::any);
+
+    auto tsPost(unite(tileIndices(sets), TileIndex::Flag::mesh
+                      , lodRange));
+    tsPost.growUp(TileIndex::Flag::mesh);
+
+    auto tsPre(unite(tileIndices(sets, sets.size() - 1)
+                     , TileIndex::Flag::mesh));
+    tsPre.growUp(TileIndex::Flag::mesh).invert(TileIndex::Flag::mesh);
+
+    auto generate(tsPost.intersect
+                  (unite(tsUpdate, tsPre, TileIndex::Flag::mesh)
+                   , TileIndex::Flag::mesh));
 }
 
 } } // namespace vadstena::vts

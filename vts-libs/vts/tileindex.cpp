@@ -340,4 +340,124 @@ bool TileIndex::notoverlaps(const TileIndex &other, Flag::value_type type)
     return false;
 }
 
+TileIndex unite(const TileIndices &tis, TileIndex::Flag::value_type type
+                , const LodRange &lodRange)
+{
+    auto filter([type](QTree::value_type value) { return (value & type); });
+
+    if (tis.empty()) {
+        return TileIndex(lodRange);
+    }
+
+    auto lr(lodRange);
+    for (const auto *ti : tis) {
+        lr = unite(lr, ti->lodRange());
+    }
+
+    LOG(info1) << "unite: lodRange: " << lr;
+
+    // result tile index
+    TileIndex out(lr);
+
+    // fill in targets
+    for (const auto *ti : tis) {
+        out.fill(*ti, filter);
+    }
+
+    // done
+    return out;
+}
+
+TileIndex unite(const TileIndex &l, const TileIndex &r
+                , TileIndex::Flag::value_type type
+                , const LodRange &lodRange)
+{
+    return unite({&l, &r}, type, lodRange);
+}
+
+TileIndex& TileIndex::growUp(Flag::value_type type)
+{
+    auto filter([type](QTree::value_type value) { return (value & type); });
+
+    if (trees_.size() < 2) {
+        // nothing to grow
+        return *this;
+    }
+
+    // traverse trees bottom to top
+    auto lod(lodRange().max);
+    auto ctrees(trees_.rbegin());
+
+    for (auto itrees(ctrees + 1), etrees(trees_.rend());
+         itrees != etrees; ++itrees, ++ctrees, --lod)
+    {
+        LOG(debug) << "gu: " << lod << " -> " << (lod - 1);
+
+        auto &child(*ctrees);
+        auto &mask(*itrees);
+
+        // coarsen one level
+        child.coarsen(filter);
+        mask.merge(child, filter);
+    }
+
+    return *this;
+}
+
+TileIndex& TileIndex::growDown(Flag::value_type type)
+{
+    auto filter([type](QTree::value_type value) { return (value & type); });
+
+    if (trees_.size() < 2) {
+        // nothing to grow
+        return *this;
+    }
+
+    // traverse trees top to bottom
+    auto lod(lodRange().min);
+    auto ptrees(trees_.begin());
+
+    for (auto itrees(ptrees + 1), etrees(trees_.end());
+         itrees != etrees; ++itrees, ++ptrees, ++lod)
+    {
+        LOG(debug) << "gd: " << lod << " -> " << (lod + 1);
+        const auto &parent(*ptrees);
+        auto &mask(*itrees);
+        // merge in parent mask, ignore its size
+        mask.merge(parent, filter);
+    }
+
+    return *this;
+}
+
+TileIndex& TileIndex::invert(Flag::value_type type)
+{
+    auto translate([type](QTree::value_type value) {
+            return (value & type) ? 0 : type;
+        });
+
+    // invert all trees
+    for (auto itrees(trees_.begin()), etrees(trees_.end());
+         itrees != etrees; ++itrees)
+    {
+        itrees->translateEachNode(translate);
+    }
+
+    return *this;
+}
+
+TileIndex& TileIndex::simplify(Flag::value_type type)
+{
+    auto filter([type](QTree::value_type value) { return (value & type); });
+
+    // invert all trees
+    for (auto itrees(trees_.begin()), etrees(trees_.end());
+         itrees != etrees; ++itrees)
+    {
+        itrees->simplify(filter);
+    }
+
+    return *this;
+}
+
 } } // namespace vadstena::vts

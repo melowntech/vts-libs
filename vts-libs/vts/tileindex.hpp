@@ -148,6 +148,23 @@ public:
      */
     bool notoverlaps(const TileIndex &other, Flag::value_type type) const;
 
+    /** Grows this tileindex down (inplace).
+     */
+    TileIndex& growDown(Flag::value_type type);
+
+    /** Grows this tileindex up (inplace).
+     */
+    TileIndex& growUp(Flag::value_type type);
+
+    /** Inverts value of all tiles. If tile's mask matches then it is set to
+     *  zero; if mask doesn't match it is set to type.
+     */
+    TileIndex& invert(Flag::value_type type);
+
+    /** Converts this tileindex to simplified index (black -> 0, white -> 1)
+     */
+    TileIndex& simplify(Flag::value_type type);
+
 private:
     QTree* tree(Lod lod, bool create = false);
 
@@ -157,8 +174,11 @@ private:
 
 typedef std::vector<const TileIndex*> TileIndices;
 
-template <typename Op>
-TileIndex unite(const TileIndices &tis, const Op &op
+TileIndex unite(const TileIndices &tis, TileIndex::Flag::value_type type
+                , const LodRange &lodRange = LodRange::emptyRange());
+
+TileIndex unite(const TileIndex &l, const TileIndex &r
+                , TileIndex::Flag::value_type type
                 , const LodRange &lodRange = LodRange::emptyRange());
 
 // inline stuff
@@ -236,33 +256,6 @@ void TileIndex::fill(const TileIndex &other, const Op &op)
     for (auto lod : lodRange()) {
         fill(lod, other, op);
     }
-}
-
-template <typename Op>
-inline TileIndex unite(const TileIndices &tis, const Op &op
-                       , const LodRange &lodRange)
-{
-    if (tis.empty()) {
-        return TileIndex(lodRange);
-    }
-
-    auto lr(lodRange);
-    for (const auto *ti : tis) {
-        lr = unite(lr, ti->lodRange());
-    }
-
-    LOG(info1) << "unite: lodRange: " << lr;
-
-    // result tile index
-    TileIndex out(lr);
-
-    // fill in targets
-    for (const auto *ti : tis) {
-        out.fill(*ti, op);
-    }
-
-    // done
-    return out;
 }
 
 template <typename Filter>
