@@ -227,6 +227,20 @@ inline void traverse(const TileIndex &ti, const Op &op)
     }
 }
 
+/** Traverses tile index and calls op(Index) for each existing tile.
+ */
+template <typename Op>
+inline void traverse(Lod lod, const TileIndex &ti, const Op &op)
+{
+    const auto *mask(ti.mask(lod));
+    if (!mask) { return; }
+
+    mask->forEach([&](long x, long y, bool)
+    {
+        op(TileId(lod, x, y));
+    }, RasterMask::Filter::white);
+}
+
 /** Traverses tile index and calls op(TileId) for each existing tile.
  */
 template <typename Op>

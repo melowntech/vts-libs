@@ -237,14 +237,10 @@ void TileSet::mergeIn(const list &kept, const list &update)
         << "About to process " << merger.progress.total() << " tiles.";
 
     auto lod(generate.minLod());
-    auto s(generate.rasterSize(lod));
-    for (long j(0); j < s.height; ++j) {
-        for (long i(0); i < s.width; ++i) {
-            LOG(info2) << "(merge-in) Processing subtree "
-                       << lod << "-" << i << "-" << j << ").";
-            merger.mergeSubtree({lod, i, j});
-        }
-    }
+    traverse(lod, generate, [&](const TileId &tileId)
+    {
+        merger.mergeSubtree(tileId);
+    });
 
     LOG(info3) << "(merge-in) Tile sets merged in.";
 
