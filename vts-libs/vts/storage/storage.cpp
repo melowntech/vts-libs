@@ -524,7 +524,7 @@ createGlues(Tx &tx, Storage::Properties properties
 
         do {
             // make room for combination
-            Ts::const_ptrlist combination;
+            TileSet::const_ptrlist combination;
             Glue glue;
 
             for (std::size_t index(0), e(mapping.size()); index != e; ++ index)
@@ -535,20 +535,20 @@ createGlues(Tx &tx, Storage::Properties properties
                     continue;
 
                 case addedPlaceholder:
-                    combination.push_back(&added);
+                    combination.push_back(&added.set);
                     glue.id.push_back(added.id());
                     continue;
 
                 case thisPlaceholder:
-                    combination.push_back(tsp);
+                    combination.push_back(&tsp->set);
                     glue.id.push_back(tsp->id());
                     continue;
 
                 }
 
                 if (flags[value]) {
-                    combination.push_back(&tilesets[index]);
-                    glue.id.push_back(combination.back()->id());
+                    combination.push_back(&tilesets[index].set);
+                    glue.id.push_back(tilesets[index].id());
                 }
             }
 
@@ -561,13 +561,12 @@ createGlues(Tx &tx, Storage::Properties properties
             TileSetProperties properties;
             properties.id = glueSetId;
             properties.referenceFrame
-                = combination.front()->set.getProperties().referenceFrame;
+                = combination.front()->getProperties().referenceFrame;
 
             auto gts(createTileSet(tx.addGlue(glue), properties
                                    , CreateMode::overwrite));
 
-            
-            (void) gts;
+            gts.createGlue(combination);
 
         } while (flags.increment());
     }

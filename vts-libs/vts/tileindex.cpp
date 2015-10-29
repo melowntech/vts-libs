@@ -353,7 +353,6 @@ TileIndex unite(const TileIndices &tis, TileIndex::Flag::value_type type
     for (const auto *ti : tis) {
         lr = unite(lr, ti->lodRange());
     }
-
     LOG(info1) << "unite: lodRange: " << lr;
 
     // result tile index
@@ -394,11 +393,14 @@ TileIndex& TileIndex::growUp(Flag::value_type type)
         LOG(debug) << "gu: " << lod << " -> " << (lod - 1);
 
         auto &child(*ctrees);
-        auto &mask(*itrees);
 
-        // coarsen one level
+        // coarsen child tree (kill all 1-pixel nodes) -> each tile has its
+        // sibling
         child.coarsen(filter);
-        mask.merge(child, filter);
+
+        // and merge this coarsened child into parent tree -> each tile gets
+        // parent
+        itrees->merge(child, filter);
     }
 
     return *this;
@@ -421,10 +423,9 @@ TileIndex& TileIndex::growDown(Flag::value_type type)
          itrees != etrees; ++itrees, ++ptrees, ++lod)
     {
         LOG(debug) << "gd: " << lod << " -> " << (lod + 1);
-        const auto &parent(*ptrees);
-        auto &mask(*itrees);
+
         // merge in parent mask, ignore its size
-        mask.merge(parent, filter);
+        itrees->merge(*ptrees, filter);
     }
 
     return *this;
@@ -458,6 +459,84 @@ TileIndex& TileIndex::simplify(Flag::value_type type)
     }
 
     return *this;
+}
+
+namespace {
+
+double pixelSize(const math::Size2 &dims, const long maxArea)
+{
+    long a(long(dims.width) * long(dims.height));
+    auto scale(std::sqrt(double(maxArea) / double(a)));
+    return scale;
+}
+
+void dumpTree(const fs::path &path, const QTree &tree
+              , TileIndex::Flag::value_type type, double pixelSize)
+{
+    const auto size(tree.size());
+    cv::Mat m(long(std::ceil(pixelSize * size.height))
+              , long(std::ceil(pixelSize * size.width))
+              , CV_8UC1);
+    m = cv::Scalar(0);
+    // auto white(cv::Scalar(0xff));
+
+    const std::vector<cv::Scalar> colors = { cv::Scalar(0xff)
+                                             , cv::Scalar(0xaf)
+                                             , cv::Scalar(0x7f)
+                                             , cv::Scalar(0x3f) };
+
+    LOG(info4) << tree.size() << ": " << path << ": " << pixelSize
+               << " -> " << m.size();
+
+    uint fracAdj(std::round(pixelSize) - pixelSize != 0.0 ? 1 : 0);
+
+    int color(0);
+
+    tree.forEachNode([&](unsigned int x, unsigned int y, unsigned int size
+                         , QTree::value_type value)
+    {
+        if (!(value & type)) { return; }
+        cv::Point2i start(int(std::floor(pixelSize * x))
+                          , int(std::floor(pixelSize * y)));
+        cv::Point2i end
+            (int(std::ceil(pixelSize * (x + size - fracAdj )))
+             , int(std::ceil(pixelSize * (y + size - fracAdj))));
+
+        LOG(info4) << "quad: " << start << " -> " << end
+                   << ", size: " << size;
+
+        cv::rectangle(m, start, end, colors[color], CV_FILLED, 4);
+        color = (color + 1) % colors.size();
+    }, QTree::Filter::white);
+
+    imwrite(path.string(), m);
+}
+
+} // namespace
+
+void dumpAsImages(const fs::path &path, const TileIndex &ti
+                  , TileIndex::Flag::value_type type, const long maxArea)
+{
+    LOG(info2) << "Dumping tileIndex as image stack at " << path << ".";
+    create_directories(path);
+
+    if (ti.trees().empty()) { return; }
+
+    auto lod(ti.lodRange().max);
+    const auto &trees(ti.trees());
+
+    for (auto itrees(trees.rbegin()), etrees(trees.rend());
+         itrees != etrees; ++itrees)
+    {
+        LOG(info1) << "Dumping lod " << lod;
+
+        // rasterize and dump
+        auto file(path / str(boost::format("%02d.png") % lod));
+        dumpTree(file, *itrees, type, pixelSize(itrees->size(), maxArea));
+
+        // next level
+        --lod;
+    }
 }
 
 } } // namespace vadstena::vts

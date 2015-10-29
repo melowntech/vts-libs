@@ -137,33 +137,35 @@ public:
      *  input where Filter return true has all parents up to lodRange.min and
      *  all children down to lodRange.max
      */
-    TileIndex grow(const LodRange &lodRange, Flag::value_type type) const;
+    TileIndex grow(const LodRange &lodRange
+                   , Flag::value_type type = Flag::any) const;
 
     /** Intersect this index with the other.
      */
-    TileIndex intersect(const TileIndex &other, Flag::value_type type)
-        const;
+    TileIndex intersect(const TileIndex &other
+                        , Flag::value_type type = Flag::any) const;
 
     /** Checks for any non-overlapping lod.
      */
-    bool notoverlaps(const TileIndex &other, Flag::value_type type) const;
+    bool notoverlaps(const TileIndex &other
+                     , Flag::value_type type = Flag::any) const;
 
     /** Grows this tileindex down (inplace).
      */
-    TileIndex& growDown(Flag::value_type type);
+    TileIndex& growDown(Flag::value_type type = Flag::any);
 
     /** Grows this tileindex up (inplace).
      */
-    TileIndex& growUp(Flag::value_type type);
+    TileIndex& growUp(Flag::value_type type = Flag::any);
 
     /** Inverts value of all tiles. If tile's mask matches then it is set to
      *  zero; if mask doesn't match it is set to type.
      */
-    TileIndex& invert(Flag::value_type type);
+    TileIndex& invert(Flag::value_type type = Flag::any);
 
     /** Converts this tileindex to simplified index (black -> 0, white -> 1)
      */
-    TileIndex& simplify(Flag::value_type type);
+    TileIndex& simplify(Flag::value_type type = Flag::any);
 
 private:
     QTree* tree(Lod lod, bool create = false);
@@ -174,12 +176,19 @@ private:
 
 typedef std::vector<const TileIndex*> TileIndices;
 
-TileIndex unite(const TileIndices &tis, TileIndex::Flag::value_type type
+TileIndex unite(const TileIndices &tis
+                , TileIndex::Flag::value_type type = TileIndex::Flag::any
                 , const LodRange &lodRange = LodRange::emptyRange());
 
 TileIndex unite(const TileIndex &l, const TileIndex &r
-                , TileIndex::Flag::value_type type
+                , TileIndex::Flag::value_type type = TileIndex::Flag::any
                 , const LodRange &lodRange = LodRange::emptyRange());
+
+/** Dump tile indes as set of images.
+ */
+void dumpAsImages(const boost::filesystem::path &path, const TileIndex &ti
+                  , TileIndex::Flag::value_type type = TileIndex::Flag::any
+                  , const long maxArea = 1 << 26);
 
 // inline stuff
 

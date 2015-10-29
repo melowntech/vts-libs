@@ -385,6 +385,7 @@ MetaNode TileSet::Detail::setMetaNode(const TileId &tileId
 
     // invalid node = node removal -> no metadata update
     if (!valid(metanode)) {
+        metadataChanged = true;
         return metanode;
     }
 

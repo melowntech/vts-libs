@@ -4,8 +4,13 @@
 #include <cstdint>
 #include <array>
 #include <iostream>
+#include <iostream>
 
 #include <boost/filesystem/path.hpp>
+
+#include "dbglog/dbglog.hpp"
+
+#include "math/geometry_core.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -57,6 +62,8 @@ public:
     /** Returns number of non-zero elements.
      */
     std::size_t count() const { return count_; }
+
+    math::Size2 size() const { return math::Size2(size_, size_); }
 
     enum class Filter {
         black, white, both
@@ -133,7 +140,8 @@ private:
          *  Uses type(filter) to determine node type.
          */
         template <typename FilterOp>
-        void merge(const Node &other, const FilterOp &filter);
+        void merge(unsigned int mask, const Node &other
+                   , const FilterOp &filter);
 
         /** Coarsen one level up.
          *  Uses type(op) to determine node type.
@@ -150,6 +158,9 @@ private:
          */
         template <typename FilterOp>
         bool overlaps(const Node &other, const FilterOp &filter) const;
+
+        template <typename FilterOp>
+        bool find(const FilterOp &filter) const;
 
         enum Type { black, white, gray };
         template <typename FilterOp>
@@ -274,7 +285,7 @@ void QTree::Node::simplify(const FilterOp &filter)
 template <typename FilterOp>
 inline void QTree::merge(const QTree &other, const FilterOp &filter)
 {
-    root_.merge(other.root_, filter);
+    root_.merge(size_, other.root_, filter);
     recount();
 }
 
@@ -299,7 +310,8 @@ inline bool QTree::overlaps(const QTree &other, const FilterOp &filter) const
 }
 
 template <typename FilterOp>
-void QTree::Node::merge(const Node &other, const FilterOp &filter)
+void QTree::Node::merge(unsigned int mask, const Node &other
+                        , const FilterOp &filter)
 {
     auto tt(type(filter));
     auto ot(other.type(filter));
@@ -324,10 +336,11 @@ void QTree::Node::merge(const Node &other, const FilterOp &filter)
     }
 
     // merge(GRAY, GRAY) = go down
-    children->nodes[0].merge(other.children->nodes[0], filter);
-    children->nodes[1].merge(other.children->nodes[1], filter);
-    children->nodes[2].merge(other.children->nodes[2], filter);
-    children->nodes[3].merge(other.children->nodes[3], filter);
+    mask >>= 1;
+    children->nodes[0].merge(mask, other.children->nodes[0], filter);
+    children->nodes[1].merge(mask, other.children->nodes[1], filter);
+    children->nodes[2].merge(mask, other.children->nodes[2], filter);
+    children->nodes[3].merge(mask, other.children->nodes[3], filter);
 
     // contract if possible
     contract();
@@ -339,15 +352,15 @@ void QTree::Node::coarsen(unsigned int size, const FilterOp &filter)
     if (size == 2) {
         if (!children) { return; }
 
+        // 2-pixel non-leaf node -> copy value of first while (or last black)
+        // node into this one
         for (const auto &child : children->nodes) {
-            if (filter(child.value)) {
-                // we have proper child
-                // copy value from child and make this node a leaf
-                value = child.value;
-                children.reset();
-                return;
-            }
+            value = child.value;
+            if (filter(child.value)) { break; }
         }
+
+        // drop children
+        children.reset();
         return;
     }
 
@@ -379,7 +392,7 @@ void QTree::Node::intersect(const Node &other, const FilterOp &filter)
     if (tt == Type::white) {
         if (ot == Type::black) {
             // intersect(WHITE, BLACK) = BLACK
-            value = 0;
+            *this = other;
             return;
         } else if (ot == Type::white) {
             // intersect(WHITE, WHITE) = WHITE
@@ -393,8 +406,7 @@ void QTree::Node::intersect(const Node &other, const FilterOp &filter)
         // this is a gray node
         if (ot == Type::black) {
             // intersect(GRAY, BLACK) = BLACK
-            children.reset();
-            value = 0;
+            *this = other;
             return;
         } else if (ot == Type::white) {
             // intersect(GRAY, WHITE) = GRAY
@@ -405,10 +417,10 @@ void QTree::Node::intersect(const Node &other, const FilterOp &filter)
     // intersect(GRAY, GRAY);
 
     // go down
-    children->nodes[0].intersect(other, filter);
-    children->nodes[1].intersect(other, filter);
-    children->nodes[2].intersect(other, filter);
-    children->nodes[3].intersect(other, filter);
+    children->nodes[0].intersect(other.children->nodes[0], filter);
+    children->nodes[1].intersect(other.children->nodes[1], filter);
+    children->nodes[2].intersect(other.children->nodes[2], filter);
+    children->nodes[3].intersect(other.children->nodes[3], filter);
 
     // contract if possible
     contract();
@@ -434,28 +446,39 @@ bool QTree::Node::overlaps(const Node &other, const FilterOp &filter) const
             return true;
         }
 
-        // intersect(WHITE, GRAY) = GRAY
-        // we assume that gray means at least one white child
-        return true;
+        // intersect(WHITE, GRAY) = value of GRAY
+        return other.find(filter);
     } else {
         // this is a gray node
         if (ot == Type::black) {
             // intersect(GRAY, BLACK) = BLACK
             return false;
         } else if (ot == Type::white) {
-            // intersect(GRAY, WHITE) = GRAY
-            // we assume that gray means at least one white child
-            return true;
+            // intersect(GRAY, WHITE) = value of GRAY
+            return find(filter);
         }
     }
 
     // intersect(GRAY, GRAY);
 
     // go down
-    return (children->nodes[0].overlaps(other, filter)
-            || children->nodes[1].overlaps(other, filter)
-            || children->nodes[2].overlaps(other, filter)
-            || children->nodes[3].overlaps(other, filter));
+    return (children->nodes[0].overlaps(other.children->nodes[0], filter)
+            || children->nodes[1].overlaps(other.children->nodes[1], filter)
+            || children->nodes[2].overlaps(other.children->nodes[2], filter)
+            || children->nodes[3].overlaps(other.children->nodes[3], filter));
+}
+
+template <typename FilterOp>
+bool QTree::Node::find(const FilterOp &filter) const
+{
+    if (children) {
+        return (children->nodes[0].find(filter)
+                || children->nodes[1].find(filter)
+                || children->nodes[2].find(filter)
+                || children->nodes[3].find(filter));
+    }
+
+    return filter(value);
 }
 
 } } // namespace vadstena::vts

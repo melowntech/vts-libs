@@ -102,8 +102,8 @@ long QTree::Node::set(unsigned int mask, unsigned int x, unsigned int y
         auto old(this->value);
         this->value = value;
         if ((old && value) || (!old && !value)) { return 0; }
-        if (old && !value) { return -(mask * mask); }
-        return (mask * mask);
+        if (old && !value) { return -1; }
+        return 1;
     }
 
     // not at the bottom of the tree
