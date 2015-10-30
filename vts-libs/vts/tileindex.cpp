@@ -1,8 +1,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 
-#include <opencv2/highgui/highgui.hpp>
-
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
 
@@ -374,6 +372,23 @@ TileIndex unite(const TileIndex &l, const TileIndex &r
     return unite({&l, &r}, type, lodRange);
 }
 
+namespace {
+
+void showTree(const QTree &tree, const std::string &name
+              , QTree::value_type mask)
+{
+    tree.forEachNode([&](unsigned int x, unsigned int y, unsigned int size
+                         , QTree::value_type value)
+    {
+        if (!(value & mask)) { return; }
+        LOG(info4)
+            << name << "[" << tree.size()
+            << "] node(" << x << ", " << y << ", " << size << ")";
+    });
+}
+
+} // namespace
+
 TileIndex& TileIndex::growUp(Flag::value_type type)
 {
     auto filter([type](QTree::value_type value) { return (value & type); });
@@ -470,48 +485,6 @@ double pixelSize(const math::Size2 &dims, const long maxArea)
     return scale;
 }
 
-void dumpTree(const fs::path &path, const QTree &tree
-              , TileIndex::Flag::value_type type, double pixelSize)
-{
-    const auto size(tree.size());
-    cv::Mat m(long(std::ceil(pixelSize * size.height))
-              , long(std::ceil(pixelSize * size.width))
-              , CV_8UC1);
-    m = cv::Scalar(0);
-    // auto white(cv::Scalar(0xff));
-
-    const std::vector<cv::Scalar> colors = { cv::Scalar(0xff)
-                                             , cv::Scalar(0xaf)
-                                             , cv::Scalar(0x7f)
-                                             , cv::Scalar(0x3f) };
-
-    LOG(info4) << tree.size() << ": " << path << ": " << pixelSize
-               << " -> " << m.size();
-
-    uint fracAdj(std::round(pixelSize) - pixelSize != 0.0 ? 1 : 0);
-
-    int color(0);
-
-    tree.forEachNode([&](unsigned int x, unsigned int y, unsigned int size
-                         , QTree::value_type value)
-    {
-        if (!(value & type)) { return; }
-        cv::Point2i start(int(std::floor(pixelSize * x))
-                          , int(std::floor(pixelSize * y)));
-        cv::Point2i end
-            (int(std::ceil(pixelSize * (x + size - fracAdj )))
-             , int(std::ceil(pixelSize * (y + size - fracAdj))));
-
-        LOG(info4) << "quad: " << start << " -> " << end
-                   << ", size: " << size;
-
-        cv::rectangle(m, start, end, colors[color], CV_FILLED, 4);
-        color = (color + 1) % colors.size();
-    }, QTree::Filter::white);
-
-    imwrite(path.string(), m);
-}
-
 } // namespace
 
 void dumpAsImages(const fs::path &path, const TileIndex &ti
@@ -532,7 +505,10 @@ void dumpAsImages(const fs::path &path, const TileIndex &ti
 
         // rasterize and dump
         auto file(path / str(boost::format("%02d.png") % lod));
-        dumpTree(file, *itrees, type, pixelSize(itrees->size(), maxArea));
+        dump(*itrees, file, [type](TileIndex::Flag::value_type value)
+        {
+            return value & type;
+        }, pixelSize(itrees->size(), maxArea));
 
         // next level
         --lod;

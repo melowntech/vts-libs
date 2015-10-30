@@ -5,6 +5,7 @@
 #include <array>
 #include <iostream>
 #include <iostream>
+#include <functional>
 
 #include <boost/filesystem/path.hpp>
 
@@ -175,6 +176,12 @@ private:
     Node root_;
     std::size_t count_;
 };
+
+/** Using std::function to hide implementation.
+ */
+void dump(const QTree &tree, const boost::filesystem::path &path
+          , const std::function<bool(QTree::value_type)> &filter
+          , double pixelSize = 1.0);
 
 struct QTree::Node::Children {
     std::array<Node, 4> nodes; // ul, ur, ll, lr
