@@ -167,6 +167,10 @@ public:
      */
     TileIndex& simplify(Flag::value_type type = Flag::any);
 
+    /** Makes tileindex complete -> every existing tile has its parent.
+     */
+    TileIndex& complete(Flag::value_type type = Flag::any);
+
 private:
     QTree* tree(Lod lod, bool create = false);
 

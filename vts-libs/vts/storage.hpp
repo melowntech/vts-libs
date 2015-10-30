@@ -38,6 +38,7 @@ struct Glue {
     typedef std::map<Id, Glue> map;
 
     Glue() {}
+    Glue(const Id &id, const std::string &path) : id(id), path(path) {}
 
     /** Returns true if glue references given tileset
      */

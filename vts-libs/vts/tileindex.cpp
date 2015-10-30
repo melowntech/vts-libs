@@ -255,45 +255,10 @@ TileIndex TileIndex::grow(const LodRange &lodRange
         return ti;
     }
 
-    // traverse trees top to bottom and refine -> propagates tiles from top
-    // to bottom
-    {
-        auto lod(lodRange.min);
-        auto ctrees(ti.trees_.begin());
-
-        for (auto itrees(ctrees + 1), etrees(ti.trees_.end());
-             itrees != etrees; ++itrees, ++ctrees, ++lod)
-        {
-            LOG(debug) << "gd: " << lod << " -> " << (lod + 1);
-
-            auto &tree(*itrees);
-
-            // merge in parent -> all children are set
-            tree.merge(*ctrees, filter);
-        }
-    }
-
-    // traverse trees bottom to top and coarsen -> propagates tiles from bottom
-    // to top
-    {
-        auto lod(lodRange.max);
-        auto ctrees(ti.trees_.rbegin());
-
-        for (auto itrees(ctrees + 1), etrees(ti.trees_.rend());
-             itrees != etrees; ++itrees, ++ctrees, --lod)
-        {
-            LOG(debug) << "gu: " << lod << " -> " << (lod - 1);
-
-            // make copy of child
-            QTree child(*ctrees);
-            auto &tree(*itrees);
-
-            // coarsen child (do not change child!)
-            child.coarsen(filter);
-            // merge in coarsened child -> all parents are set
-            tree.merge(child, filter);
-        }
-    }
+    // propagate tiles down
+    ti.growDown();
+    // propagate tiles up
+    ti.complete();
 
     return ti;
 }
@@ -471,6 +436,40 @@ TileIndex& TileIndex::simplify(Flag::value_type type)
          itrees != etrees; ++itrees)
     {
         itrees->simplify(filter);
+    }
+
+    return *this;
+}
+
+TileIndex& TileIndex::complete(Flag::value_type type)
+{
+    auto filter([type](QTree::value_type value) { return (value & type); });
+
+    if (trees_.size() < 2) {
+        // nothing to grow
+        return *this;
+    }
+
+    // traverse trees bottom to top and coarsen -> propagates tiles from bottom
+    // to top
+    {
+        auto lod(lodRange().max);
+        auto ctrees(trees_.rbegin());
+
+        for (auto itrees(ctrees + 1), etrees(trees_.rend());
+             itrees != etrees; ++itrees, ++ctrees, --lod)
+        {
+            LOG(debug) << "gu: " << lod << " -> " << (lod - 1);
+
+            // make copy of child
+            auto child(*ctrees);
+            auto &tree(*itrees);
+
+            // coarsen child (do not change child!)
+            child.coarsen(filter);
+            // merge in coarsened child -> all parents are set
+            tree.merge(child, filter);
+        }
     }
 
     return *this;

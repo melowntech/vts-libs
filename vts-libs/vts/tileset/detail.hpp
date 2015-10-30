@@ -117,6 +117,7 @@ struct TileSet::Detail
 
     MetaTile* findMetaTile(const TileId &tileId, bool addNew = false) const;
     TileNode* findNode(const TileId &tileId, bool addNew = false) const;
+    const MetaNode* findMetaNode(const TileId &tileId) const;
 
     void loadTileIndex();
     void saveTileIndex();
@@ -147,12 +148,24 @@ struct TileSet::Detail
     void getAtlas(const TileId &tileId, Atlas &atlas) const;
     void getNavTile(const TileId &tileId, NavTile &navtile) const;
 
+    /** Trusts that findMetaNode(tileId) yields the same value as node.
+     */
+    Mesh getMesh(const TileId &tileId, const MetaNode *node) const;
+
     void flush();
     void saveMetadata();
 
     MapConfig mapConfig() const;
 
     ExtraTileSetProperties loadExtraConfig() const;
+
+    Detail& other(TileSet &otherSet) {
+        return otherSet.detail();
+    }
+
+    const Detail& other(const TileSet &otherSet) const {
+        return otherSet.detail();
+    }
 };
 
 inline void TileSet::Detail::checkValidity() const {
@@ -172,6 +185,13 @@ inline TileId TileSet::Detail::metaId(TileId tileId) const
     tileId.x &= ~((1 << referenceFrame.metaBinaryOrder) - 1);
     tileId.y &= ~((1 << referenceFrame.metaBinaryOrder) - 1);
     return tileId;
+}
+
+inline const MetaNode* TileSet::Detail::findMetaNode(const TileId &tileId)
+    const
+{
+    if (auto *node = findNode(tileId)) { return node->metanode; }
+    return nullptr;
 }
 
 } } // namespace vadstena::vts

@@ -59,8 +59,6 @@ public:
 
     void setTile(const TileId &tileId, const Tile &tile);
 
-    void setNavTile(const TileId &tileId, const NavTile &navtile);
-
     void getNavTile(const TileId &tileId, NavTile &navtile) const;
 
     MetaNode getMetaNode(const TileId &tileId) const;

@@ -186,6 +186,8 @@ public:
 
     fs::path addTileset(const std::string &tilesetId);
 
+    void remove(const fs::path &path);
+
 private:
     void rollback();
     void commit();
@@ -221,11 +223,16 @@ void Tx::rollback()
 void Tx::commit()
 {
     for (const auto &item : mapping_) {
-        // TODO: make more robust
-        // remove old stuff
-        rmrf(item.second);
-        // move new stuff there
-        rename(item.first, item.second);
+        LOG(info4) << "commit(" << item.first << ", " << item.second << ")";
+        if (item.second.empty()) {
+            // no destination -> just remove
+            rmrf(item.first);
+        } else {
+            // remove old stuff
+            rmrf(item.second);
+            // move new stuff there
+            rename(item.first, item.second);
+        }
     }
 }
 
@@ -252,6 +259,11 @@ fs::path Tx::createPath(const fs::path &path) const
 {
     fs::create_directories(path.parent_path());
     return path;
+}
+
+void Tx::remove(const fs::path &path)
+{
+    mapping_[path] = fs::path();
 }
 
 } // namespace
@@ -558,15 +570,36 @@ createGlues(Tx &tx, Storage::Properties properties
             glue.path = glueSetId;
             LOG(info3) << "Trying to generate glue <" << glueSetId << ">.";
 
-            TileSetProperties properties;
-            properties.id = glueSetId;
-            properties.referenceFrame
+            TileSetProperties gprop;
+            gprop.id = glueSetId;
+            gprop.referenceFrame
                 = combination.front()->getProperties().referenceFrame;
 
-            auto gts(createTileSet(tx.addGlue(glue), properties
-                                   , CreateMode::overwrite));
+            {
+                // create glue
+                auto tmpPath(tx.addGlue(glue));
+                auto gts(createTileSet(tmpPath, gprop
+                                       , CreateMode::overwrite));
 
-            gts.createGlue(combination);
+                gts.createGlue(combination);
+
+                if (gts.empty()) {
+                    // unusable
+                    LOG(info3)
+                        << "Glue <" << glueSetId  << "> contains no tile; "
+                        << "glue is forgotten.";
+                    tx.remove(tmpPath);
+                } else {
+                    // usable
+                    LOG(info3) << "Glue <" << glueSetId  << "> created.";
+
+                    // flush
+                    gts.flush();
+
+                    // and remember
+                    properties.glues[glue.id] = glue;
+                }
+            }
 
         } while (flags.increment());
     }
