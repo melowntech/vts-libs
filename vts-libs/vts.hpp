@@ -58,6 +58,13 @@ private:
 TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src
                      , const CloneOptions &cloneOptions);
 
+Storage openStorage(const boost::filesystem::path &path
+                    , OpenMode mode = OpenMode::readOnly);
+
+Storage createStorage(const boost::filesystem::path &path
+                      , const StorageProperties &properties
+                      , CreateMode mode);
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_hpp_included_

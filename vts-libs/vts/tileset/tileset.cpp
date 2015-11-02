@@ -884,4 +884,18 @@ bool TileSet::check(const boost::filesystem::path &root)
     return true;
 }
 
+bool TileSet::externallyChanged() const
+{
+    return detail().driver->externallyChanged();
+}
+
+storage::Resources TileSet::resources() const
+{
+    return detail().driver->resources();
+}
+
+std::time_t TileSet::lastModified() const {
+    return detail().driver->lastModified();
+}
+
 } } // namespace vadstena::vts

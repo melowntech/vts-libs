@@ -316,6 +316,10 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     vts/tileset/merge.hpp vts/tileset/merge.cpp
     vts/storage/change.cpp
 
+    # dump support
+    vts/tileindex-dump.cpp
+    vts/qtree-dump.cpp
+
     licence/fingerprint.hpp licence/fingerprint.cpp
 
     ${PUBLIC_KEY_SOURCES}

@@ -36,6 +36,20 @@ namespace vadstena { namespace vts {
 
 namespace {
     const fs::path ConfigFilename("storage.conf");
+    const fs::path ExtraConfigFilename("extra.conf");
+}
+
+Storage createStorage(const boost::filesystem::path &path
+                      , const StorageProperties &properties
+                      , CreateMode mode)
+{
+    return { path, properties, mode };
+}
+
+Storage openStorage(const boost::filesystem::path &path
+                    , OpenMode mode)
+{
+    return { path, mode };
 }
 
 Storage::Storage(const boost::filesystem::path &path, OpenMode mode)
@@ -62,6 +76,8 @@ Storage::Detail::Detail(const boost::filesystem::path &root
                         , const StorageProperties &properties
                         , CreateMode mode)
     : root(root)
+    , configPath(root / ConfigFilename)
+    , extraConfigPath(root / ExtraConfigFilename)
     , referenceFrame(registry::Registry::referenceFrame
                      (properties.referenceFrame))
 {
@@ -77,7 +93,7 @@ Storage::Detail::Detail(const boost::filesystem::path &root
 
         // OK, we can overwrite; cache contents of old config (if any)
         try {
-            auto old(storage::loadConfig(root / ConfigFilename));
+            auto old(storage::loadConfig(configPath));
             this->properties.revision = old.revision + 1;
         } catch (...) {}
     }
@@ -88,10 +104,16 @@ Storage::Detail::Detail(const boost::filesystem::path &root
 Storage::Detail::Detail(const boost::filesystem::path &root
                         , OpenMode mode)
     : root(root)
+    , configPath(root / ConfigFilename)
+    , extraConfigPath(root / ExtraConfigFilename)
+    , properties(storage::loadConfig(configPath))
+    , rootStat(FileStat::stat(root))
+    , configStat(FileStat::stat(configPath))
+    , extraConfigStat(FileStat::stat(extraConfigPath, std::nothrow))
+    , lastModified(std::max({ rootStat.lastModified, configStat.lastModified
+                    , extraConfigStat.lastModified }))
 {
     (void) mode;
-
-    loadConfig();
 
     referenceFrame = registry::Registry::referenceFrame
         (properties.referenceFrame);
@@ -119,7 +141,7 @@ void Storage::Detail::saveConfig()
 {
     // save json
     try {
-        storage::saveConfig(root / ConfigFilename, properties);
+        storage::saveConfig(configPath, properties);
     } catch (const std::exception &e) {
         LOGTHROW(err2, vadstena::storage::Error)
             << "Unable to write config: <" << e.what() << ">.";
@@ -222,6 +244,29 @@ bool Storage::check(const boost::filesystem::path &root)
         return false;
     }
     return true;
+}
+
+bool Storage::externallyChanged() const
+{
+    return detail().externallyChanged();
+}
+
+vadstena::storage::Resources Storage::resources() const
+{
+    return {};
+}
+
+bool Storage::Detail::externallyChanged() const
+{
+    return (rootStat.changed(FileStat::stat(root))
+            || configStat.changed(FileStat::stat(configPath))
+            || extraConfigStat.changed(FileStat::stat
+                                       (extraConfigPath, std::nothrow)));
+}
+
+std::time_t Storage::lastModified() const
+{
+    return detail().lastModified;
 }
 
 } } // namespace vadstena::vts

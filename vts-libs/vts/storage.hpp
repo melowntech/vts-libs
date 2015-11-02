@@ -83,6 +83,12 @@ public:
      */
     Glue::map glues() const;
 
+    bool externallyChanged() const;
+
+    std::time_t lastModified() const;
+
+    vadstena::storage::Resources resources() const;
+
     /** Generates map configuration for this storage.
      */
     MapConfig mapConfig() const;

@@ -11,8 +11,11 @@
 #include <boost/filesystem/path.hpp>
 
 #include "../storage.hpp"
+#include "../../storage/streams.hpp"
 
 namespace vadstena { namespace vts {
+
+using vadstena::storage::FileStat;
 
 struct Storage::Properties : StorageProperties {
     /** Data version/revision. Should be incremented anytime the data change.
@@ -50,6 +53,30 @@ struct Storage::Detail
 {
     bool readOnly;
 
+    boost::filesystem::path root;
+    boost::filesystem::path configPath;
+    boost::filesystem::path extraConfigPath;
+
+    Properties properties;
+
+    registry::ReferenceFrame referenceFrame;
+
+    /** Information about root when tileset was open in read-only mode.
+     */
+    FileStat rootStat;
+
+    /** Information about config when tileset was open in read-only mode.
+     */
+    FileStat configStat;
+
+    /** Information about extra-config when tileset was open in read-only mode.
+     */
+    FileStat extraConfigStat;
+
+    /** Time of last modification (recorded at read-only open)
+     */
+    std::time_t lastModified;
+
     Detail(const boost::filesystem::path &root
            , const StorageProperties &properties
            , CreateMode mode);
@@ -82,18 +109,14 @@ struct Storage::Detail
                    , const TilesetIdList &tilesetIds)
         const;
 
+    bool externallyChanged() const;
+
     MapConfig mapConfig() const;
 
     static MapConfig mapConfig(const boost::filesystem::path &path);
 
     static MapConfig mapConfig(const boost::filesystem::path &root
                                , const Storage::Properties &properties);
-
-    boost::filesystem::path root;
-
-    Properties properties;
-
-    registry::ReferenceFrame referenceFrame;
 };
 
 inline void Storage::DetailDeleter::operator()(Detail *d) { delete d; }

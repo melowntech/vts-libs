@@ -22,6 +22,7 @@
 
 #include "../storage/lod.hpp"
 #include "../storage/range.hpp"
+#include "../storage/resources.hpp"
 
 #include "./basetypes.hpp"
 #include "./types.hpp"
@@ -131,6 +132,14 @@ public:
      *  Priority grows from left to right.
      */
     void createGlue(const const_ptrlist &sets);
+
+    bool externallyChanged() const;
+
+    /** Returns time of last modification. Recorded at read-only open.
+     */
+    std::time_t lastModified() const;
+
+    storage::Resources resources() const;
 
     /** Returns mapConfig for given path.
      */
