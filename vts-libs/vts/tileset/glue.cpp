@@ -99,9 +99,9 @@ struct Merger {
 
     /** Generates new tile as a merge of tiles from other tilesets.
      */
-    void generateTile(const TileId &tileId
-                      , const merge::Input::list &parentSource
-                      , merge::Input::list &source, int quadrant);
+    merge::Output generateTile(const TileId &tileId
+                               , const merge::Input::list &parentSource
+                               , int quadrant);
 
 
     TileSet::Detail &self;
@@ -148,8 +148,9 @@ void Merger::mergeTile(const TileId &tileId
         }
 
         if (!thisGenerated) {
-            // regular generation
-            generateTile(tileId, parentSource, source, quadrant);
+            // regular generation: generate tile and remember its sources (used
+            // in children generation)
+            source = generateTile(tileId, parentSource, quadrant).source;
         }
 
         (++progress).report(utility::Progress::ratio_t(5, 1000), "(glue) ");
@@ -168,27 +169,29 @@ void Merger::mergeTile(const TileId &tileId
     }
 }
 
-void Merger::generateTile(const TileId &tileId
-                          , const merge::Input::list &parentSource
-                          , merge::Input::list &source, int quadrant)
+merge::Output Merger::generateTile(const TileId &tileId
+                                   , const merge::Input::list &parentSource
+                                   , int quadrant)
 {
-    (void) tileId;
-    (void) parentSource;
-    (void) source;
-    (void) quadrant;
 
     LOG(info4) << "Generate tile: " << tileId;
 
     // create input
     merge::Input::list input;
-    for (const auto &ts : src) {
-        merge::Input t(self.other(*ts), tileId);
-        if (t) { input.push_back(t); }
+    {
+        merge::Input::Id id(0);
+        for (const auto &ts : src) {
+            merge::Input t(id++, self.other(*ts), tileId);
+            if (t) { input.push_back(t); }
+        }
     }
 
-    // TODO: physical tile merge
+    auto tile(merge::mergeTile(input, parentSource, quadrant));
 
     // TODO: analyze tile and store if it is proper glue tile
+
+    // done
+    return tile;
 }
 
 } // namespace

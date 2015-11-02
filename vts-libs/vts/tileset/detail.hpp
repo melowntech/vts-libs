@@ -108,6 +108,7 @@ struct TileSet::Detail
     ~Detail();
 
     void loadConfig();
+    static Properties loadConfig(const Driver &driver);
 
     void saveConfig();
 
@@ -151,13 +152,23 @@ struct TileSet::Detail
     /** Trusts that findMetaNode(tileId) yields the same value as node.
      */
     Mesh getMesh(const TileId &tileId, const MetaNode *node) const;
+    void getAtlas(const TileId &tileId, Atlas &atlas
+                  , const MetaNode *node) const;
+    void getNavTile(const TileId &tileId, NavTile &navtile
+                    , const MetaNode *node) const;
 
     void flush();
     void saveMetadata();
 
     MapConfig mapConfig() const;
 
+    static MapConfig mapConfig(const Driver &driver);
+
+    static MapConfig mapConfig(const Properties &properties
+                               , const ExtraTileSetProperties &extra);
+
     ExtraTileSetProperties loadExtraConfig() const;
+    static ExtraTileSetProperties loadExtraConfig(const Driver &driver);
 
     Detail& other(TileSet &otherSet) {
         return otherSet.detail();

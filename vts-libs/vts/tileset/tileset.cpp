@@ -260,18 +260,24 @@ TileSet::~TileSet() = default;
 
 void TileSet::Detail::loadConfig()
 {
+    properties = loadConfig(*driver);
+}
+
+TileSet::Properties TileSet::Detail::loadConfig(const Driver &driver)
+{
     try {
         // load config
-        auto f(driver->input(File::config));
+        auto f(driver.input(File::config));
         const auto p(tileset::loadConfig(*f));
         f->close();
 
         // set
-        properties = p;
+        return p;
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
             << "Unable to read config: <" << e.what() << ">.";
     }
+    throw;
 }
 
 void TileSet::Detail::saveConfig()
@@ -625,15 +631,15 @@ Mesh TileSet::Detail::getMesh(const TileId &tileId) const
     return getMesh(tileId, findMetaNode(tileId));
 }
 
-void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas) const
+void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas
+                               , const MetaNode *node) const
 {
-    auto *node(findNode(tileId));
     if (!node) {
         LOGTHROW(err2, storage::NoSuchTile)
             << "There is no tile at " << tileId << ".";
     }
 
-    if (!node->metanode->internalTexture()) {
+    if (!node->internalTexture()) {
         LOGTHROW(err2, storage::NoSuchTile)
             << "Tile " << tileId << " has no atlas.";
     }
@@ -641,22 +647,31 @@ void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas) const
     load(driver->input(tileId, TileFile::atlas), atlas);
 }
 
-void TileSet::Detail::getNavTile(const TileId &tileId, NavTile &navtile) const
+void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas) const
 {
-    auto *node(findNode(tileId));
+    return getAtlas(tileId, atlas, findMetaNode(tileId));
+}
+
+void TileSet::Detail::getNavTile(const TileId &tileId, NavTile &navtile
+                                 , const MetaNode *node) const
+{
     if (!node) {
         LOGTHROW(err2, storage::NoSuchTile)
             << "There is no tile at " << tileId << ".";
     }
 
-    if (!node->metanode->navtile()) {
+    if (!node->navtile()) {
         LOGTHROW(err2, storage::NoSuchTile)
             << "Tile " << tileId << " has no navtile.";
     }
 
-    load(node->metanode->heightRange
-         , driver->input(tileId, TileFile::navtile)
+    load(node->heightRange, driver->input(tileId, TileFile::navtile)
          , navtile);
+}
+
+void TileSet::Detail::getNavTile(const TileId &tileId, NavTile &navtile) const
+{
+    return getNavTile(tileId, navtile, findMetaNode(tileId));
 }
 
 bool TileSet::Detail::exists(const TileId &tileId) const
@@ -763,9 +778,14 @@ MapConfig TileSet::mapConfig() const
 
 ExtraTileSetProperties TileSet::Detail::loadExtraConfig() const
 {
+    return loadExtraConfig(*driver);
+}
+
+ExtraTileSetProperties TileSet::Detail::loadExtraConfig(const Driver &driver)
+{
     IStream::pointer is;
     try {
-        is = driver->input(File::extraConfig);
+        is = driver.input(File::extraConfig);
     } catch (std::exception) {
         return {};
     }
@@ -778,8 +798,28 @@ const TileIndex& TileSet::tileIndex() const
     return detail().tileIndex;
 }
 
+MapConfig TileSet::mapConfig(const boost::filesystem::path &root)
+{
+    return Detail::mapConfig(Driver(root));
+}
+
+MapConfig TileSet::Detail::mapConfig(const Driver &driver)
+{
+    return mapConfig(loadConfig(driver), loadExtraConfig(driver));
+}
+
 MapConfig TileSet::Detail::mapConfig() const
 {
+    return mapConfig(properties, loadExtraConfig());
+}
+
+MapConfig
+TileSet::Detail::mapConfig(const Properties &properties
+                           , const ExtraTileSetProperties &extra)
+{
+    auto referenceFrame(registry::Registry::referenceFrame
+                        (properties.referenceFrame));
+
     MapConfig mapConfig;
 
     mapConfig.referenceFrame = referenceFrame;
@@ -805,15 +845,15 @@ MapConfig TileSet::Detail::mapConfig() const
     }
 
     // apply extra config
-    auto ec(loadExtraConfig());
     mapConfig.credits.update
-        (registry::creditsAsDict(ec.extraCredits));
+        (registry::creditsAsDict(extra.extraCredits));
     mapConfig.boundLayers.update
-       (registry::boundLayersAsDict(ec.extraBoundLayers));
+       (registry::boundLayersAsDict(extra.extraBoundLayers));
 
-    surface.textureLayer = ec.textureLayer;
+    surface.textureLayer = extra.textureLayer;
 
-    mapConfig.position = ec.position ? *ec.position : properties.position;
+    mapConfig.position
+        = extra.position ? *extra.position : properties.position;
 
     // just one view
     mapConfig.view.surfaces.insert(surface.id);
@@ -832,6 +872,16 @@ TileIndex TileSet::sphereOfInfluence(const LodRange &range
 TileIndex TileSet::tileIndex(const LodRange &lodRange) const
 {
     return TileIndex(lodRange, &detail().tileIndex);
+}
+
+bool TileSet::check(const boost::filesystem::path &root)
+{
+    try {
+        Detail::loadConfig(Driver(root));
+    } catch (const storage::Error&) {
+        return false;
+    }
+    return true;
 }
 
 } } // namespace vadstena::vts

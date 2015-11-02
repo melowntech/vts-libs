@@ -49,7 +49,7 @@ public:
      */
     TileSetProperties getProperties() const;
 
-    /** Generates map configuration for this signle tile set.
+    /** Generates map configuration for this single tile set.
      */
     MapConfig mapConfig() const;
 
@@ -131,6 +131,14 @@ public:
      *  Priority grows from left to right.
      */
     void createGlue(const const_ptrlist &sets);
+
+    /** Returns mapConfig for given path.
+     */
+    static MapConfig mapConfig(const boost::filesystem::path &root);
+
+    /** Check for tileset at given path.
+     */
+    static bool check(const boost::filesystem::path &root);
 
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the tileset's guts!

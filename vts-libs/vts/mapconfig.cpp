@@ -1,4 +1,5 @@
 #include "../registry/json.hpp"
+#include "../storage/error.hpp"
 
 #include "./tileop.hpp"
 #include "./mapconfig.hpp"
@@ -11,13 +12,16 @@ namespace {
 
 const char* MapConfig::contentType("application/json");
 
-Json::Value asJson(const Surface &surface
-                   , registry::BoundLayer::dict &boundLayers)
+Json::Value asJson(const Glue::Id &id)
 {
-    Json::Value s(Json::objectValue);
+    Json::Value value(Json::arrayValue);
+    for (const auto &str : id) { value.append(str); }
+    return value;
+}
 
-    s["id"] = surface.id;
-
+void asJson(const SurfaceCommonConfig &surface, Json::Value &s
+            , registry::BoundLayer::dict &boundLayers)
+{
     auto &lodRange(s["lodRange"] = Json::arrayValue);
     lodRange.append(surface.lodRange.min);
     lodRange.append(surface.lodRange.max);
@@ -49,16 +53,42 @@ Json::Value asJson(const Surface &surface
         boundLayers.add
             (registry::Registry::boundLayer(*surface.textureLayer));
     }
+}
 
+Json::Value asJson(const SurfaceConfig &surface
+                   , registry::BoundLayer::dict &boundLayers)
+{
+    Json::Value s(Json::objectValue);
+    s["id"] = surface.id;
+    asJson(surface, s, boundLayers);
     return s;
 }
 
-Json::Value asJson(const Surface::list &surfaces
+Json::Value asJson(const GlueConfig &glue
+                   , registry::BoundLayer::dict &boundLayers)
+{
+    Json::Value s(Json::objectValue);
+    s["id"] = asJson(glue.id);
+    asJson(glue, s, boundLayers);
+    return s;
+}
+
+Json::Value asJson(const SurfaceConfig::list &surfaces
                    , registry::BoundLayer::dict &boundLayers)
 {
     Json::Value s(Json::arrayValue);
     for (const auto &surface : surfaces) {
         s.append(asJson(surface, boundLayers));
+    }
+    return s;
+}
+
+Json::Value asJson(const GlueConfig::list &glues
+                   , registry::BoundLayer::dict &boundLayers)
+{
+    Json::Value s(Json::arrayValue);
+    for (const auto &glue : glues) {
+        s.append(asJson(glue, boundLayers));
     }
     return s;
 }
@@ -98,12 +128,12 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     auto credits(mapConfig.credits);
 
     content["surfaces"] = asJson(mapConfig.surfaces, boundLayers);
+    content["glue"] = asJson(mapConfig.glues, boundLayers);
 
     content["position"] = registry::asJson(mapConfig.position);
 
     // not implemented (so far)
     content["freeLayers"] = Json::objectValue;
-    content["glue"] = Json::arrayValue;
     content["rois"] = Json::arrayValue;
     content["view"] = asJson(mapConfig.view, boundLayers);
     content["namedViews"] = Json::arrayValue;
@@ -122,6 +152,54 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
 
     os.precision(15);
     Json::StyledStreamWriter().write(os, content);
+}
+
+void mergeRest(MapConfig &out, const MapConfig &in)
+{
+    out.srs.update(in.srs);
+    out.credits.update(in.credits);
+    out.boundLayers.update(in.boundLayers);
+
+    // TODO: find out first valid
+    out.position = in.position;
+    out.view = in.view;
+
+    // all inputs mas be texture-atlas-ready
+    out.textureAtlasReady &= in.textureAtlasReady;
+}
+
+void MapConfig::mergeTileSet(const MapConfig &tilesetMapConfig
+                             , const boost::filesystem::path &root)
+{
+    if (tilesetMapConfig.surfaces.size() != 1) {
+        LOGTHROW(err1, storage::NoSuchTileSet)
+            << "Cannot merge tileset mapConfig: "
+            "there must be just one surface in the input mapConfig.";
+    }
+
+    SurfaceConfig s(tilesetMapConfig.surfaces.front());
+    s.root = root;
+    surfaces.push_back(s);
+
+    mergeRest(*this, tilesetMapConfig);
+}
+
+void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
+                          , const Glue &glue
+                          , const boost::filesystem::path &root)
+{
+    if (tilesetMapConfig.surfaces.size() != 1) {
+        LOGTHROW(err1, storage::NoSuchTileSet)
+            << "Cannot merge tileset mapConfig as a glue: "
+            "there must be just one surface in the input mapConfig.";
+    }
+
+    GlueConfig g(tilesetMapConfig.surfaces.front());
+    g.id = glue.id;
+    g.root = root / glue.path;
+    glues.push_back(g);
+
+    mergeRest(*this, tilesetMapConfig);
 }
 
 } } // namespace vadstena::vts

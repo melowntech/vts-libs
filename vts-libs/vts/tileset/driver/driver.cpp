@@ -75,7 +75,7 @@ Driver::Driver(const boost::filesystem::path &root
     , extraConfigPath_(root_ / filePath(File::extraConfig))
     , options_(options.binaryOrder()) // we have to generate new UUID
     , cache_(root_, options_, false)
-    , lastModified_()
+    , runnable_(), lastModified_()
 {
     if (!create_directories(root_)) {
         // directory already exists -> fail if mode says so
@@ -100,6 +100,7 @@ Driver::Driver(const boost::filesystem::path &root)
     , rootStat_(FileStat::stat(root_))
     , configStat_(FileStat::stat(configPath_))
     , extraConfigStat_(FileStat::stat(extraConfigPath_, std::nothrow))
+    , runnable_()
     , lastModified_(std::max({ rootStat_.lastModified, configStat_.lastModified
                     , extraConfigStat_.lastModified }))
 {

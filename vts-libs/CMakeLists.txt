@@ -170,8 +170,6 @@ set(vadstena-vts-core_SOURCES
   vts/tileset/properties.hpp
   vts/tileset/tileset.cpp
   vts/tileset/config.hpp vts/tileset/config.cpp
-  vts/tileset/glue.cpp
-  vts/tileset/merge.hpp vts/tileset/merge.cpp
 
   vts/tileset/driver.hpp
   vts/tileset/driver/driver.cpp
@@ -314,6 +312,9 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
 
     vts/opencv/atlas.hpp vts/opencv/atlas.cpp
     vts/opencv/navtile.hpp vts/opencv/navtile.cpp
+    vts/tileset/glue.cpp
+    vts/tileset/merge.hpp vts/tileset/merge.cpp
+    vts/storage/change.cpp
 
     licence/fingerprint.hpp licence/fingerprint.cpp
 

@@ -11,21 +11,37 @@
 #include <boost/filesystem/path.hpp>
 
 #include "../registry.hpp"
-#include "./tileset/properties.hpp"
+#include "./basetypes.hpp"
 
 namespace vadstena { namespace vts {
 
-struct Surface {
-    std::string id;
+struct SurfaceCommonConfig {
     boost::filesystem::path root;
     storage::LodRange lodRange;
     registry::TileRange tileRange;
     boost::optional<std::string> textureLayer;
     unsigned int revision;
 
-    Surface() : revision(0) {}
+    SurfaceCommonConfig() : revision(0) {}
+};
 
-    typedef std::vector<Surface> list;
+struct SurfaceConfig : SurfaceCommonConfig {
+    TilesetId id;
+
+    SurfaceConfig() {}
+
+    typedef std::vector<SurfaceConfig> list;
+};
+
+struct GlueConfig : SurfaceCommonConfig {
+    Glue::Id id;
+
+    GlueConfig() {}
+    GlueConfig(const SurfaceConfig &surface)
+        : SurfaceCommonConfig(surface)
+    {}
+
+    typedef std::vector<GlueConfig> list;
 };
 
 struct View {
@@ -42,13 +58,34 @@ struct MapConfig {
     registry::Position position;
     bool textureAtlasReady;
 
-    Surface::list surfaces;
+    SurfaceConfig::list surfaces;
+    GlueConfig::list glues;
 
     View view;
 
     static const char *contentType;
 
     MapConfig() : textureAtlasReady(false) {}
+
+    /** Merges in mapConfig for one tileset.
+     *
+     * \param tilesetMapConfig single tileset mapConfig
+     * \param root path to tileset
+     */
+    void mergeTileSet(const MapConfig &tilesetMapConfig
+                      , const boost::filesystem::path &root);
+
+    /** Merges in mapConfig for one tileset as a glue.
+     *
+     * \param glueMapConfig single tileset mapConfig
+     * \param glue glue definition
+     * \param root path to glues
+     *
+     * NB: glue path is composed as root / glue.path
+     */
+    void mergeGlue(const MapConfig &tilesetMapConfig
+                   , const Glue &glue
+                   , const boost::filesystem::path &root);
 };
 
 /** Save map config into stream.

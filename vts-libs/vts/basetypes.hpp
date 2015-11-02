@@ -52,6 +52,24 @@ enum class CreateMode {
     , overwrite  //!< existing tile set/storage is replace with new one
 };
 
+typedef std::string TilesetId;
+typedef std::vector<TilesetId> TilesetIdList;
+
+struct Glue {
+    typedef TilesetIdList Id;
+    Id id;
+    std::string path;
+
+    typedef std::map<Id, Glue> map;
+
+    Glue() {}
+    Glue(const Id &id, const std::string &path) : id(id), path(path) {}
+
+    /** Returns true if glue references given tileset
+     */
+    bool references(const std::string &tilesetId) const;
+};
+
 // inline stuff
 
 inline bool TileId::operator<(const TileId &tileId) const

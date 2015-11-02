@@ -61,6 +61,8 @@ struct Storage::Detail
 
     void loadConfig();
 
+    static Storage::Properties loadConfig(const boost::filesystem::path &root);
+
     void saveConfig();
 
     void add(const TileSet &tileset, const Location &where
@@ -80,9 +82,18 @@ struct Storage::Detail
                    , const TilesetIdList &tilesetIds)
         const;
 
+    MapConfig mapConfig() const;
+
+    static MapConfig mapConfig(const boost::filesystem::path &path);
+
+    static MapConfig mapConfig(const boost::filesystem::path &root
+                               , const Storage::Properties &properties);
+
     boost::filesystem::path root;
 
     Properties properties;
+
+    registry::ReferenceFrame referenceFrame;
 };
 
 inline void Storage::DetailDeleter::operator()(Detail *d) { delete d; }

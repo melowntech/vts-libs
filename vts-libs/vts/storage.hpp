@@ -18,6 +18,7 @@
 #include "utility/enum-io.hpp"
 
 #include "./tileset.hpp"
+#include "./basetypes.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -26,23 +27,6 @@ struct StorageProperties {
 };
 
 struct ExtraStorageProperties {
-};
-
-typedef std::vector<std::string> TilesetIdList;
-
-struct Glue {
-    typedef TilesetIdList Id;
-    Id id;
-    std::string path;
-
-    typedef std::map<Id, Glue> map;
-
-    Glue() {}
-    Glue(const Id &id, const std::string &path) : id(id), path(path) {}
-
-    /** Returns true if glue references given tileset
-     */
-    bool references(const std::string &tilesetId) const;
 };
 
 /** Storage interface.
@@ -98,6 +82,18 @@ public:
     /** Returns list of existing glues.
      */
     Glue::map glues() const;
+
+    /** Generates map configuration for this storage.
+     */
+    MapConfig mapConfig() const;
+
+    /** Generates map configuration for storage at given path.
+     */
+    static MapConfig mapConfig(const boost::filesystem::path &path);
+
+    /** Check for storage at given path.
+     */
+    static bool check(const boost::filesystem::path &path);
 
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the storage's guts!
