@@ -1,6 +1,7 @@
 #include <opencv2/highgui/highgui.hpp>
 
 #include "dbglog/dbglog.hpp"
+#include "utility/binaryio.hpp"
 
 #include "./qtree.hpp"
 

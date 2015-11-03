@@ -1,3 +1,4 @@
+#include <boost/format.hpp>
 #include <boost/filesystem.hpp>
 
 #include "dbglog/dbglog.hpp"
