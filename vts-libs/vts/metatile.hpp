@@ -145,7 +145,7 @@ public:
     MetaTile(const TileId &origin, std::uint8_t binaryOrder)
         : origin_(origin), binaryOrder_(binaryOrder)
         , size_(1 << binaryOrder)
-        , grid_(size_ * size_, {})
+        , grid_(size_ * size_, MetaNode())
         , valid_(math::InvalidExtents{})
     {}
 
