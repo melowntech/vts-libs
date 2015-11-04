@@ -21,6 +21,8 @@ struct Table {
         {}
 
         std::size_t end() const { return start + size; }
+
+        operator bool() const { return size; }
     };
 
     typedef std::vector<Entry> Entries;
@@ -65,6 +67,8 @@ struct Table {
     iterator end() { return entries.end(); }
 
     Entries::size_type size() const { return entries.size(); }
+
+    bool empty() const { return entries.empty(); }
 
     const Entry& operator[](Entries::size_type i) const { return entries[i]; }
 };

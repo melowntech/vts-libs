@@ -38,7 +38,7 @@ const Table& Table::checkEntryCount(Entries::size_type count
 
 void writeTable(const Table &table, std::ostream &os)
 {
-    // writa table
+    // write table
     for (const auto &entry : table) {
         bin::write(os, std::uint32_t(entry.start));
         bin::write(os, std::uint32_t(entry.size));

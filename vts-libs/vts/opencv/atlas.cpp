@@ -60,7 +60,7 @@ void Atlas::set(std::size_t index, const Image &image)
     images_[index] = image;
 }
 
-std::size_t Atlas::area(std::size_t index) const
+double Atlas::area_impl(std::size_t index) const
 {
     if (index >= images_.size()) { return 0; }
     const auto &image(images_[index]);

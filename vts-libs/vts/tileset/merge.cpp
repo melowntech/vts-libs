@@ -33,7 +33,7 @@ const Mesh& Input::mesh() const
     return *mesh_;
 }
 
-const opencv::Atlas& Input::atlas() const
+const RawAtlas& Input::atlas() const
 {
     if (!atlas_) {
         atlas_ = boost::in_place();

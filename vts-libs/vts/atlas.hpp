@@ -27,13 +27,34 @@ public:
     void deserialize(std::istream &is
                      , const boost::filesystem::path &path = "unknown");
 
-    /** Returns area of all given texture image.
+    /** Returns area of all given texture image (apparentResolution applied)
      */
-    virtual std::size_t area(std::size_t index) const = 0;
+    double area(std::size_t index) const;
 
-    static multifile::Table readTable(std::istream &is
-                                      , const boost::filesystem::path &path
-                                      = "unknown");
+    struct Properties {
+        /** Apparent area of one pixel, defaults to 1.
+         */
+        double apparentPixelArea;
+
+        Properties() : apparentPixelArea(1.0) {}
+
+        typedef std::vector<Properties> list;
+    };
+
+    void properties(std::size_t index, const Properties &properties);
+
+    Properties properties(std::size_t index) const;
+
+    struct Table : multifile::Table {
+        Entry properties;
+
+        struct Decompose {};
+        Table(const multifile::Table &src);
+    };
+
+    static Table readTable(std::istream &is
+                           , const boost::filesystem::path &path
+                           = "unknown");
 
 private:
     virtual multifile::Table serialize_impl(std::ostream &os) const = 0;
@@ -41,6 +62,10 @@ private:
     virtual void deserialize_impl(std::istream &is
                                   , const boost::filesystem::path &path
                                   , const multifile::Table &table) = 0;
+
+    virtual double area_impl(std::size_t index) const = 0;
+
+    Properties::list properties_;
 };
 
 class RawAtlas : public Atlas {
@@ -58,7 +83,7 @@ private:
                                   , const boost::filesystem::path &path
                                   , const multifile::Table &table);
 
-    virtual std::size_t area(std::size_t index) const;
+    virtual double area_impl(std::size_t index) const;
 
     typedef std::vector<Image> Images;
     Images images_;

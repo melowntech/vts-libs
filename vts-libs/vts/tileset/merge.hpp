@@ -53,7 +53,7 @@ public:
 
     /** Returns atlas. Lazy load.
      */
-    const opencv::Atlas& atlas() const;
+    const RawAtlas& atlas() const;
 
     /** Returns atlas. Lazy load.
      */
@@ -79,7 +79,7 @@ private:
 
     const MetaNode *node_;
     mutable boost::optional<Mesh> mesh_;
-    mutable boost::optional<opencv::Atlas> atlas_;
+    mutable boost::optional<RawAtlas> atlas_;
     mutable boost::optional<opencv::NavTile> navtile_;
 };
 
@@ -88,7 +88,7 @@ private:
 struct Output {
     MetaNode node;
     boost::optional<Mesh> mesh;
-    boost::optional<opencv::Atlas> atlas;
+    boost::optional<RawAtlas> atlas;
     boost::optional<opencv::NavTile> navtile;
 
     // list of tiles this tile was generated from

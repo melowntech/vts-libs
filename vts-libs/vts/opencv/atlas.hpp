@@ -28,7 +28,7 @@ private:
                                   , const boost::filesystem::path &path
                                   , const multifile::Table &table);
 
-    virtual std::size_t area(std::size_t index) const;
+    virtual double area_impl(std::size_t index) const;
 
     int quality_;
     typedef std::vector<Image> Images;
