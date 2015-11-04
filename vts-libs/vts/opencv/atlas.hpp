@@ -9,7 +9,7 @@ namespace vadstena { namespace vts { namespace opencv {
 
 class Atlas : public vts::Atlas {
 public:
-    Atlas(int quality) : quality_(quality) {}
+    Atlas(int quality = 100) : quality_(quality) {}
 
     virtual std::size_t size() const { return images_.size(); }
 

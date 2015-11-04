@@ -1,6 +1,7 @@
 #include <boost/format.hpp>
 
 #include "utility/progress.hpp"
+#include "geo/csconvertor.hpp"
 
 #include "../../vts.hpp"
 #include "../tileset.hpp"
@@ -748,6 +749,22 @@ void TileSet::Detail::flush()
         metadataChanged = false;
         // force properties change
         propertiesChanged = true;
+
+        if (!properties.position.valid()
+            && !properties.spatialDivisionExtents.empty()) {
+            // guess position from spatial division extents
+            const auto &item(*properties.spatialDivisionExtents.begin());
+            auto &position(properties.position);
+            properties.position.type = registry::Position::Type::floating;
+            position.orientation = { .0, -90., .0 };
+            math::Point2 p(center(item.second));
+            position.position = { p(0), p(1), 200 };
+
+            geo::CsConvertor conv(registry::Registry::srs(item.first).srsDef
+                                  , registry::Registry::srs
+                                  (referenceFrame.model.navigationSrs).srsDef);
+            position.position = conv(position.position);
+        }
     }
 
     // update and save config

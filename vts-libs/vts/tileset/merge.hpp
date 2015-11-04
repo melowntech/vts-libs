@@ -22,7 +22,7 @@ namespace vadstena { namespace vts { namespace merge {
  */
 class Input {
 public:
-    typedef unsigned int Id;
+    typedef int Id;
 
     /** Create merge input.
      *
@@ -43,6 +43,10 @@ public:
      */
     const MetaNode& node() const { return *node_; }
 
+    bool hasMesh() const;
+    bool hasAtlas() const;
+    bool hasNavtile() const;
+
     /** Returns mesh. Lazy load.
      */
     const Mesh& mesh() const;
@@ -60,6 +64,9 @@ public:
     /** Return owning tileset
      */
     const TileSet::Detail *owner() const { return owner_; }
+
+    const TileId& tileId() const { return tileId_; }
+
 
     Id id() const { return id_; }
 
@@ -80,12 +87,20 @@ private:
  */
 struct Output {
     MetaNode node;
-    Mesh mesh;
+    boost::optional<Mesh> mesh;
     boost::optional<opencv::Atlas> atlas;
     boost::optional<opencv::NavTile> navtile;
 
     // list of tiles this tile was generated from
     Input::list source;
+
+    operator bool() const {
+        return mesh || atlas || navtile;
+    }
+
+    const Mesh* getMesh() const { return mesh ? &*mesh : nullptr; }
+    const Atlas* getAtlas() const { return atlas ? &*atlas : nullptr; }
+    const NavTile* getNavtile() const { return navtile ? &*navtile : nullptr; }
 };
 
 /** Generates new tile from given source and parent source fallback.

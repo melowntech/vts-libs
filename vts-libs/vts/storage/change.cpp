@@ -85,9 +85,10 @@ public:
 
     void remove(const fs::path &path);
 
+    void commit();
+
 private:
     void rollback();
-    void commit();
 
     fs::path createPath(const fs::path &path) const;
 
@@ -100,8 +101,6 @@ Tx::~Tx() {
     if (std::uncaught_exception()) {
         // we cannot throw!
         rollback();
-    } else {
-        commit();
     }
 }
 
@@ -115,6 +114,7 @@ void Tx::rollback()
     for (const auto &item : mapping_) {
         try { rmrf(item.first); } catch (...) {}
     }
+    mapping_.clear();
 }
 
 void Tx::commit()
@@ -134,6 +134,7 @@ void Tx::commit()
             rename(item.first, item.second);
         }
     }
+    mapping_.clear();
 }
 
 TileSet Tx::open(const std::string &tilesetId) const
@@ -445,7 +446,7 @@ createGlues(Tx &tx, Storage::Properties properties
 
                 gts.createGlue(combination);
 
-                if (false && gts.empty()) {
+                if (gts.empty()) {
                     // unusable
                     LOG(info3)
                         << "Glue <" << glueSetId  << "> contains no tile; "
@@ -589,6 +590,8 @@ void Storage::Detail::add(const TileSet &tileset
         auto tilesets(openTilesets(tx, nProperties.tilesets, dst));
 
         nProperties = createGlues(tx, nProperties, tilesets);
+
+        tx.commit();
     }
 
     // FIXME: remove

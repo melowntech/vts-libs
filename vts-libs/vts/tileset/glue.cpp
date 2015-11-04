@@ -150,7 +150,13 @@ void Merger::mergeTile(const TileId &tileId
         if (!thisGenerated) {
             // regular generation: generate tile and remember its sources (used
             // in children generation)
-            source = generateTile(tileId, parentSource, quadrant).source;
+            auto tile(generateTile(tileId, parentSource, quadrant));
+            source = tile.source;
+
+            if (tile) {
+                self.setTile(tileId, tile.getMesh(), tile.getAtlas()
+                             , tile.getNavtile());
+            }
         }
 
         (++progress).report(utility::Progress::ratio_t(5, 1000), "(glue) ");
@@ -186,6 +192,7 @@ merge::Output Merger::generateTile(const TileId &tileId
         }
     }
 
+    LOG(info4) << "merge from " << input.size();
     auto tile(merge::mergeTile(input, parentSource, quadrant));
 
     // TODO: analyze tile and store if it is proper glue tile

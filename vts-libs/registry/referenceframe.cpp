@@ -983,7 +983,7 @@ BoundLayer::dict boundLayersAsDict(const IdSet &boundLayers)
 const ReferenceFrame::Division::Node&
 ReferenceFrame::Division::findSubtreeRoot(const Node::Id &nodeId) const
 {
-    LOG(info4) << "Finding subtree root for node " << nodeId;
+    LOG(debug) << "Finding subtree root for node " << nodeId;
     const Node *candidate(nullptr);
     for (const auto &item : nodes) {
         const auto &treeRoot(item.first);

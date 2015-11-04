@@ -178,6 +178,8 @@ struct Position {
     double verticalFov;
 
     Position() : type(Type::fixed), verticalExtent(), verticalFov() {}
+
+    bool valid() { return orientation != math::Point3(0, 0, 0); }
 };
 
 struct Credit {
