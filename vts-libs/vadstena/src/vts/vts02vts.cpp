@@ -6,8 +6,6 @@
 
 #include <boost/algorithm/string/split.hpp>
 
-#include <jpeglib.h>
-
 #include <opencv2/highgui/highgui.hpp>
 
 #include "dbglog/dbglog.hpp"
@@ -23,6 +21,7 @@
 #include "math/filters.hpp"
 
 #include "imgproc/scanconversion.hpp"
+#include "imgproc/jpeg.hpp"
 
 #include "geo/csconvertor.hpp"
 #include "geo/coordinates.hpp"
@@ -52,38 +51,6 @@ namespace fs = boost::filesystem;
 namespace ublas = boost::numeric::ublas;
 
 namespace {
-
-math::Size2 jpegSize(std::istream &is, const fs::path &path)
-{
-    char buf[1024];
-    std::size_t size(sizeof(buf));
-
-    {
-        auto exc(utility::scopedStreamExceptions(is));
-
-        // clear EOF bit
-        is.exceptions(exc.state()
-                      & ~(std::ios_base::failbit | std::ios_base::eofbit));
-        size = is.read(buf, size).gcount();
-        is.clear();
-    }
-
-    ::jpeg_decompress_struct cinfo;
-    ::jpeg_error_mgr jerr;
-    cinfo.err = ::jpeg_std_error(&jerr);
-    ::jpeg_create_decompress(&cinfo);
-
-    ::jpeg_mem_src(&cinfo, reinterpret_cast<unsigned char*>(buf), size);
-    auto res(::jpeg_read_header(&cinfo, TRUE));
-
-    if (res != JPEG_HEADER_OK) {
-        LOGTHROW(err4, std::runtime_error)
-            << "Unable to determine size of JPEG " << path << ".";
-    }
-
-    // fine
-    return math::Size2(cinfo.image_width, cinfo.image_height);
-}
 
 struct Config {
     boost::optional<std::uint16_t> textureLayer;
@@ -259,7 +226,8 @@ vts0::Mesh loadMesh(const vs::IStream::pointer &is)
 class Atlas : public vts::Atlas {
 public:
     Atlas(const vs::IStream::pointer &stream)
-        : stream_(stream), area_(math::area(jpegSize(*stream, stream->name())))
+        : stream_(stream)
+        , area_(math::area(imgproc::jpegSize(*stream, stream->name())))
     {}
 
 private:
