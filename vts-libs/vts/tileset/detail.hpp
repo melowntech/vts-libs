@@ -70,16 +70,6 @@ struct TileNode {
 
 typedef std::map<TileId, MetaTile> MetaTiles;
 
-struct NodeInfo {
-    TileId tileId;
-    RFNode::Id nodeId;
-    RFNode rootNode;
-    math::Extents2 extents;
-
-    NodeInfo(const registry::ReferenceFrame referenceFrame
-             , const TileId &tileId);
-};
-
 /** Driver that implements physical aspects of tile set.
  */
 struct TileSet::Detail
@@ -124,7 +114,8 @@ struct TileSet::Detail
     void saveTileIndex();
 
     void setTile(const TileId &tileId, const Mesh *mesh
-                 , const Atlas *atlas, const NavTile *navtile);
+                 , const Atlas *atlas, const NavTile *navtile
+                 , const NodeInfo *nodeInfo = nullptr);
 
     std::uint8_t metaOrder() const;
     TileId metaId(TileId tileId) const;

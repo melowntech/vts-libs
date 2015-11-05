@@ -55,7 +55,7 @@ struct Encoder::Detail {
         UTILITY_OMP(single)
         process(TileId(referenceFrame.division.rootLod, 0, 0)
                 , ConstraintsFlag::build(constraints)
-                , &referenceFrame.root(), 0);
+                , NodeInfo(referenceFrame));
 
         // let the caller finish the tileset
         owner->finish(tileSet);
@@ -67,7 +67,7 @@ struct Encoder::Detail {
     typedef registry::ReferenceFrame::Division::Node Node;
 
     void process(const TileId &tileId, ConstraintsFlag::type useConstraints
-                 , const Node *node, Lod lodFromNode);
+                 , const NodeInfo &nodeInfo);
 
     Encoder *owner;
     TileSet tileSet;
@@ -80,7 +80,7 @@ struct Encoder::Detail {
 
 void Encoder::Detail::process(const TileId &tileId
                               , ConstraintsFlag::type useConstraints
-                              , const Node *node, Lod lodFromNode)
+                              , const NodeInfo &nodeInfo)
 {
     struct TIDGuard {
         TIDGuard(const std::string &id)
@@ -111,18 +111,9 @@ void Encoder::Detail::process(const TileId &tileId
     TIDGuard tg(str(boost::format("tile:%d-%d-%d")
                     % (unsigned int)(tileId.lod) % tileId.x % tileId.y));
 
-    // determine tile extents
-    auto tc(tileCount(lodFromNode));
-    auto rs(size(node->extents));
-    math::Size2f ts(rs.width / tc, rs.height / tc);
-    math::Extents2 divisionExtents
-        (node->extents.ll(0) + tileId.x * ts.width
-         , node->extents.ur(1) - (tileId.y + 1) * ts.height
-         , node->extents.ll(0) + (tileId.x + 1) * ts.width
-         , node->extents.ur(1) - tileId.y * ts.height);
-
+    const auto &extents(nodeInfo.node.extents);
     if (useConstraints & ConstraintsFlag::useExtents) {
-        if (!overlaps(*constraints.extents, divisionExtents)) {
+        if (!overlaps(*constraints.extents, extents)) {
             // nothing can live out here -> done
             // * equivalent to TileResult::noData
             return;
@@ -132,17 +123,17 @@ void Encoder::Detail::process(const TileId &tileId
     if (processTile) {
         LOG(info2)
             << "Trying to generate " << tileId << " (extents: "
-            << std::fixed << divisionExtents << ").";
+            << std::fixed << extents << ").";
 
-        auto tile(owner->generate(tileId, *node, divisionExtents));
+        auto tile(owner->generate(tileId, nodeInfo));
         switch (tile.result) {
         case TileResult::Result::data:
             LOG(info3)
                 << "Generated " << tileId << " (extents: "
-                << std::fixed << divisionExtents << ").";
+                << std::fixed << extents << ").";
 
             UTILITY_OMP(critical)
-            tileSet.setTile(tileId, tile.tile);
+            tileSet.setTile(tileId, tile.tile, nodeInfo);
 
             // we hit a tile with mesh -> do not apply extents constraints for
             // children if set
@@ -161,20 +152,17 @@ void Encoder::Detail::process(const TileId &tileId
     } else {
         LOG(info3)
             << "Falling through " << tileId << " (extents: "
-            << std::fixed << divisionExtents << ").";
+            << std::fixed << extents << ").";
     }
 
     // we can proces children -> go down
+    int childNum(0);
     for (auto child : children(tileId)) {
-        // find node for this child
-        // TODO: use manual/bisection information
-        const auto *childNode
-            (referenceFrame.find({child.lod, child.x, child.y}, std::nothrow));
+        // compute child node
+        auto childNode(nodeInfo.child(childNum++));
 
         UTILITY_OMP(task)
-        process(child, useConstraints
-                , (childNode ? childNode : node)
-                , (childNode ? 0 : lodFromNode + 1));
+        process(child, useConstraints, childNode);
     }
 }
 

@@ -53,6 +53,17 @@ const opencv::NavTile& Input::navtile() const
     return *navtile_;
 }
 
+const VerticesList& Input::sdVertices() const
+{
+    if (!sdVertices_) {
+        // TODO: get srs definitions from reference frame
+        geo::CsConvertor conv(geo::SrsDefinition("a")
+                              , geo::SrsDefinition("a"));
+        sdVertices_ = convert(mesh(), conv);
+    }
+    return *sdVertices_;
+}
+
 namespace detail {
 auto cvCoverageType(CV_16S);
 typedef std::int16_t coverageType;

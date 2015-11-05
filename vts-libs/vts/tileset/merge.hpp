@@ -14,6 +14,7 @@
 #include "../tileop.hpp"
 #include "../opencv/atlas.hpp"
 #include "../opencv/navtile.hpp"
+#include "../mesh-conversion.hpp"
 #include "./detail.hpp"
 
 namespace vadstena { namespace vts { namespace merge {
@@ -61,12 +62,16 @@ public:
 
     typedef std::vector<Input> list;
 
+    /** Returns mesh vertices (vector per submesh) converted to spatial division
+     *  SRS.
+     */
+    const VerticesList& sdVertices() const;
+
     /** Return owning tileset
      */
     const TileSet::Detail *owner() const { return owner_; }
 
     const TileId& tileId() const { return tileId_; }
-
 
     Id id() const { return id_; }
 
@@ -81,6 +86,10 @@ private:
     mutable boost::optional<Mesh> mesh_;
     mutable boost::optional<RawAtlas> atlas_;
     mutable boost::optional<opencv::NavTile> navtile_;
+
+    /** Mesh vertices in spatial division SRS
+     */
+    mutable boost::optional<VerticesList> sdVertices_;
 };
 
 /** Merge output.

@@ -89,9 +89,7 @@ private:
      *      }
      */
     virtual TileResult
-    generate(const TileId &tileId
-             , const registry::ReferenceFrame::Division::Node &node
-             , const math::Extents2 &divisionExtents) = 0;
+    generate(const TileId &tileId, const NodeInfo &nodeInfo) = 0;
 
 
     /** Called from run after whole tree is processed.

@@ -58,7 +58,22 @@ public:
 
     void getAtlas(const TileId &tileId, Atlas &atlas) const;
 
+    /** Set tile content.
+     *  \param tileId tile identifier
+     *  \param tile tile content
+     */
     void setTile(const TileId &tileId, const Tile &tile);
+
+    /** Set tile content.
+     *
+     * Supplied nodeInfo must be correct!
+     *
+     *  \param tileId tile identifier
+     *  \param tile tile content
+     *  \param nodeInfo information about node
+     */
+    void setTile(const TileId &tileId, const Tile &tile
+                 , const NodeInfo &nodeInfo);
 
     void getNavTile(const TileId &tileId, NavTile &navtile) const;
 

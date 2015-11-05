@@ -52,6 +52,56 @@ enum class CreateMode {
     , overwrite  //!< existing tile set/storage is replace with new one
 };
 
+/** Reference frame node information.
+ */
+struct NodeInfo {
+    /** Associated reference frame
+     */
+    const registry::ReferenceFrame *referenceFrame;
+
+    /** Root of this subtree.
+     */
+    const RFNode *subtreeRoot;
+
+    /** Node.
+     */
+    RFNode node;
+
+    /** Creates node info from reference frame and tileId.
+     *
+     * Root node is found in reference frame and than current node derived.
+     */
+    NodeInfo(const registry::ReferenceFrame &referenceFrame
+             , const TileId &tileId);
+
+    /** Root node info.
+     */
+    NodeInfo(const registry::ReferenceFrame &referenceFrame)
+        : referenceFrame(&referenceFrame), subtreeRoot(&referenceFrame.root())
+        , node(*subtreeRoot)
+    {}
+
+    /** Root node info.
+     */
+    NodeInfo(const registry::ReferenceFrame &referenceFrame
+             , const RFNode &node)
+        : referenceFrame(&referenceFrame), subtreeRoot(&node), node(node)
+    {}
+
+    /** Node id.
+     */
+    RFNode::Id nodeId() const { return node.id; }
+
+    /** Distance from root.
+     */
+    Lod distanceFromRoot() const { return node.id.lod - subtreeRoot->id.lod; }
+
+    /** Returns child node. Uses same child assignment as children() functiom
+     *  children() from tileop.
+     */
+    NodeInfo child(int childNum) const;
+};
+
 typedef std::string TilesetId;
 typedef std::vector<TilesetId> TilesetIdList;
 

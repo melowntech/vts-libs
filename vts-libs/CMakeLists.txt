@@ -153,8 +153,10 @@ buildsys_library(vadstena-vts-browser)
 
 set(vadstena-vts-core_SOURCES
   vts.hpp
+  vts/basetypes.hpp vts/basetypes.cpp
   vts/multifile.hpp vts/multifile.cpp
   vts/mesh.hpp vts/mesh.cpp
+  vts/mesh-conversion.hpp vts/mesh-conversion.cpp
   vts/metatile.hpp vts/metatile.cpp
   vts/atlas.hpp vts/atlas.cpp
   vts/navtile.hpp vts/navtile.cpp
