@@ -38,7 +38,19 @@ struct TileId {
     {}
 };
 
-typedef std::array<TileId, 4> Children;
+struct Child : TileId {
+    unsigned int index;
+
+    Child(const TileId &tileId = TileId(), unsigned int index = 0)
+        : TileId(tileId), index(index)
+    {}
+
+    Child(Lod lod, unsigned int x, unsigned int y, unsigned int index)
+        : TileId(lod, x, y), index(index)
+    {}
+};
+
+typedef std::array<Child, 4> Children;
 
 /** Open mode
  */

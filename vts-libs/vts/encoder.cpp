@@ -156,10 +156,9 @@ void Encoder::Detail::process(const TileId &tileId
     }
 
     // we can proces children -> go down
-    int childNum(0);
     for (auto child : children(tileId)) {
         // compute child node
-        auto childNode(nodeInfo.child(childNum++));
+        auto childNode(nodeInfo.child(child.index));
 
         UTILITY_OMP(task)
         process(child, useConstraints, childNode);

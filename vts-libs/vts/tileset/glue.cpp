@@ -79,6 +79,7 @@ inline void dump(const char *root, const boost::filesystem::path &dir
 }
 
 struct Merger {
+public:
     Merger(TileSet::Detail &self, const TileIndex &generate
            , const TileSet::const_ptrlist &src)
         : self(self), world(generate), generate(generate)
@@ -88,10 +89,17 @@ struct Merger {
         world.complete();
     }
 
+    void operator()() {
+        mergeTile(NodeInfo(self.referenceFrame));
+    }
+
+
+private:
     /** Merge subtree starting at index.
      *  Calls itself recursively.
      */
-    void mergeTile(const TileId &tileId = TileId()
+    void mergeTile(const NodeInfo &nodeInfo
+                   , const TileId &tileId = TileId()
                    , const merge::Input::list &parentSource
                    = merge::Input::list()
                    , int quadrant = -1
@@ -99,7 +107,8 @@ struct Merger {
 
     /** Generates new tile as a merge of tiles from other tilesets.
      */
-    merge::Output generateTile(const TileId &tileId
+    merge::Output generateTile(const NodeInfo &nodeInfo
+                               , const TileId &tileId
                                , const merge::Input::list &parentSource
                                , int quadrant);
 
@@ -112,7 +121,7 @@ struct Merger {
     utility::Progress progress;
 };
 
-void Merger::mergeTile(const TileId &tileId
+void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
                        , const merge::Input::list &parentSource
                        , int quadrant, bool parentGenerated)
 {
@@ -150,7 +159,7 @@ void Merger::mergeTile(const TileId &tileId
         if (!thisGenerated) {
             // regular generation: generate tile and remember its sources (used
             // in children generation)
-            auto tile(generateTile(tileId, parentSource, quadrant));
+            auto tile(generateTile(nodeInfo, tileId, parentSource, quadrant));
             source = tile.source;
 
             if (tile) {
@@ -171,11 +180,13 @@ void Merger::mergeTile(const TileId &tileId
     // OK, process children
     quadrant = 0;
     for (const auto &child : children(tileId)) {
-        mergeTile(child, source, quadrant++, g);
+        mergeTile(nodeInfo.child(child.index)
+                  , child, source, quadrant++, g);
     }
 }
 
-merge::Output Merger::generateTile(const TileId &tileId
+merge::Output Merger::generateTile(const NodeInfo &nodeInfo
+                                   , const TileId &tileId
                                    , const merge::Input::list &parentSource
                                    , int quadrant)
 {
@@ -187,7 +198,7 @@ merge::Output Merger::generateTile(const TileId &tileId
     {
         merge::Input::Id id(0);
         for (const auto &ts : src) {
-            merge::Input t(id++, self.other(*ts), tileId);
+            merge::Input t(id++, self.other(*ts), tileId, nodeInfo);
             if (t) { input.push_back(t); }
         }
     }
@@ -248,7 +259,7 @@ void TileSet::createGlue(const const_ptrlist &sets)
         return;
     }
 
-    Merger(detail(), generate, sets).mergeTile();
+    Merger(detail(), generate, sets)();
 }
 
 } } // namespace vadstena::vts

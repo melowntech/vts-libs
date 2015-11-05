@@ -56,9 +56,10 @@ const opencv::NavTile& Input::navtile() const
 const VerticesList& Input::sdVertices() const
 {
     if (!sdVertices_) {
-        // TODO: get srs definitions from reference frame
-        geo::CsConvertor conv(geo::SrsDefinition("a")
-                              , geo::SrsDefinition("a"));
+        geo::CsConvertor conv
+            (registry::Registry::srs(nodeInfo_->node.srs).srsDef
+             , registry::Registry::srs
+             (nodeInfo_->referenceFrame->model.physicalSrs).srsDef);
         sdVertices_ = convert(mesh(), conv);
     }
     return *sdVertices_;
@@ -236,6 +237,10 @@ Output mergeTile(const Input::list &currentSource
 
     // TODO: merge mesh based on coverage
     // TODO: merge navtile based on navtile coverage
+
+    for (const auto &input : source) {
+        input.sdVertices();
+    }
 
     return result;
 

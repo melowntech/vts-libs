@@ -31,9 +31,11 @@ public:
      *  \param owner owner of the tile
      *  \param tileId tile identifier
      */
-    Input(Id id, const TileSet::Detail &owner, const TileId &tileId)
+    Input(Id id, const TileSet::Detail &owner, const TileId &tileId
+          , const NodeInfo &nodeInfo)
         : id_(id), tileId_(tileId), owner_(&owner)
         , node_(owner.findMetaNode(tileId))
+        , nodeInfo_(&nodeInfo)
     {}
 
     /** Input is valid only if there is node with geometry
@@ -83,6 +85,7 @@ private:
     const TileSet::Detail *owner_;
 
     const MetaNode *node_;
+    const NodeInfo *nodeInfo_;
     mutable boost::optional<Mesh> mesh_;
     mutable boost::optional<RawAtlas> atlas_;
     mutable boost::optional<opencv::NavTile> navtile_;
@@ -116,8 +119,8 @@ struct Output {
  *
  * Source and * parent source inputs are merged together using their id's.
  */
-Output mergeTile(const Input::list &source, const Input::list &parentSource
-                 , int quadrant);
+Output mergeTile(const Input::list &source
+                 , const Input::list &parentSource, int quadrant);
 
 } } } // namespace vadstena::merge::vts
 
