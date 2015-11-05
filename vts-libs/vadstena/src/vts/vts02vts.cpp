@@ -197,9 +197,8 @@ public:
 
 private:
     virtual TileResult
-    generate(const vts::TileId &tileId
-             , const vr::ReferenceFrame::Division::Node &node
-             , const math::Extents2 &divisionExtents) UTILITY_OVERRIDE;
+    generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo)
+        UTILITY_OVERRIDE;
 
     virtual void finish(vts::TileSet&) UTILITY_OVERRIDE {}
 
@@ -255,7 +254,7 @@ private:
             << "This atlas is serialize-only.";
     }
 
-    virtual std::size_t area(std::size_t index) const {
+    virtual double area_impl(std::size_t index) const {
         UTILITY_OVERRIDE
         if (index) {
             LOGTHROW(err4, std::runtime_error)
@@ -603,11 +602,9 @@ void Encoder::hm2Navtile()
 }
 
 Encoder::TileResult
-Encoder::generate(const vts::TileId &tileId
-                  , const vr::ReferenceFrame::Division::Node &node
-                  , const math::Extents2 &divisionExtents)
+Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo)
 {
-    const auto nodeSrs(vr::Registry::srs(node.srs));
+    const auto nodeSrs(vr::Registry::srs(nodeInfo.node.srs));
     geo::SrsDefinition spatialDivisionSrs(nodeSrs.srsDef);
 
     auto vts0Id(asVts(tileId));
@@ -656,8 +653,8 @@ Encoder::generate(const vts::TileId &tileId
 
     // convert mesh from old one
     tile.mesh = createMeshAndNavtile(tileId, mesh, spatialDivisionSrs
-                                     , physicalSrs(), divisionExtents
-                                     , bool(node.boundLayerLod)
+                                     , physicalSrs(), nodeInfo.node.extents
+                                     , bool(nodeInfo.node.boundLayerLod)
                                      , config_.textureLayer, navtile);
 
     // set navtile
