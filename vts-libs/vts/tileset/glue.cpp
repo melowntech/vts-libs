@@ -180,8 +180,7 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     // OK, process children
     quadrant = 0;
     for (const auto &child : children(tileId)) {
-        mergeTile(nodeInfo.child(child.index)
-                  , child, source, quadrant++, g);
+        mergeTile(nodeInfo.child(child), child, source, quadrant++, g);
     }
 }
 

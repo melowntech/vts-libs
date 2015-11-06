@@ -48,14 +48,15 @@ NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
     , node(makeNode(*subtreeRoot, tileId))
 {}
 
-NodeInfo NodeInfo::child(int childNum) const
+NodeInfo NodeInfo::child(Child childDef) const
 {
+    // build child id from this node and index
     RFNode::Id childId(node.id);
     ++childId.lod;
     childId.x <<= 1;
     childId.y <<= 1;
 
-    switch (childNum) {
+    switch (childDef.index) {
     case 0: // upper-left
         break;
 
@@ -74,8 +75,18 @@ NodeInfo NodeInfo::child(int childNum) const
 
     default:
         LOGTHROW(err2, storage::Error)
-            << "Invalid child number (" << childNum << ").";
+            << "Invalid child number (" << childDef.index << ").";
         break;
+    }
+
+    // check for child validity
+    if ((childId.lod != childDef.lod)
+        || (childId.x != childDef.x)
+        || (childId.y != childDef.y))
+    {
+        LOGTHROW(err2, storage::Error)
+            << "Node " << childId << " is not a child of "
+            << node.id << ".";
     }
 
     if (const auto *childNode = referenceFrame->find(childId, std::nothrow)) {
@@ -95,7 +106,7 @@ NodeInfo NodeInfo::child(int childNum) const
 
     // no need to check childNum since it was checked above
     auto &extents(child.node.extents);
-    switch (childNum) {
+    switch (childDef.index) {
     case 0: // upper-left
         extents.ur(0) -= es.width;
         extents.ll(1) += es.height;

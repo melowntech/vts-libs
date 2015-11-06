@@ -111,7 +111,7 @@ struct NodeInfo {
     /** Returns child node. Uses same child assignment as children() functiom
      *  children() from tileop.
      */
-    NodeInfo child(int childNum) const;
+    NodeInfo child(Child child) const;
 };
 
 typedef std::string TilesetId;
