@@ -32,11 +32,7 @@ public:
      *  \param tileId tile identifier
      */
     Input(Id id, const TileSet::Detail &owner, const TileId &tileId
-          , const NodeInfo &nodeInfo)
-        : id_(id), tileId_(tileId), owner_(&owner)
-        , node_(owner.findMetaNode(tileId))
-        , nodeInfo_(&nodeInfo)
-    {}
+          , const NodeInfo &nodeInfo);
 
     /** Input is valid only if there is node with geometry
      */
@@ -64,10 +60,15 @@ public:
 
     typedef std::vector<Input> list;
 
-    /** Returns mesh vertices (vector per submesh) converted to spatial division
-     *  SRS.
+    /** Returns mesh vertices (vector per submesh) converted to coverage space.
      */
-    const VerticesList& sdVertices() const;
+    const VerticesList& coverageVertices() const;
+
+    /** Extents in spatial division SRS.
+     */
+    const math::Extents2 sdExtents() const { return nodeInfo_->node.extents; }
+
+    const math::Matrix4& sd2Coverage() const { return sd2Coverage_; }
 
     /** Return owning tileset
      */
@@ -90,9 +91,11 @@ private:
     mutable boost::optional<RawAtlas> atlas_;
     mutable boost::optional<opencv::NavTile> navtile_;
 
-    /** Mesh vertices in spatial division SRS
+    /** Mesh vertices in coverage space
      */
-    mutable boost::optional<VerticesList> sdVertices_;
+    mutable boost::optional<VerticesList> coverageVertices_;
+
+    math::Matrix4 sd2Coverage_;
 };
 
 /** Merge output.
@@ -111,15 +114,18 @@ struct Output {
     }
 
     const Mesh* getMesh() const { return mesh ? &*mesh : nullptr; }
-    const Atlas* getAtlas() const { return atlas ? &*atlas : nullptr; }
+    const RawAtlas* getAtlas() const { return atlas ? &*atlas : nullptr; }
     const NavTile* getNavtile() const { return navtile ? &*navtile : nullptr; }
+
+    Mesh& forceMesh();
+    RawAtlas& forceAtlas();
 };
 
 /** Generates new tile from given source and parent source fallback.
  *
  * Source and * parent source inputs are merged together using their id's.
  */
-Output mergeTile(const Input::list &source
+Output mergeTile(const TileId &tileId, const Input::list &source
                  , const Input::list &parentSource, int quadrant);
 
 } } } // namespace vadstena::merge::vts

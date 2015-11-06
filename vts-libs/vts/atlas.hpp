@@ -45,6 +45,8 @@ public:
 
     Properties properties(std::size_t index) const;
 
+    bool valid(std::size_t index) const { return index < size(); }
+
     struct Table : multifile::Table {
         Entry properties;
 
@@ -74,7 +76,14 @@ public:
 
     typedef std::vector<unsigned char> Image;
 
-    const Image& get(std::size_t index) { return images_[index]; }
+    const Image& get(std::size_t index) const { return images_[index]; }
+
+    void add(const Image &image) { images_.push_back(image); }
+
+    void add(const RawAtlas &other) {
+        images_.insert(images_.end(), other.images_.begin()
+                       , other.images_.end());
+    }
 
 private:
     virtual multifile::Table serialize_impl(std::ostream &os) const;

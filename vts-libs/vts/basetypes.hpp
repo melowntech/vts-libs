@@ -81,7 +81,7 @@ struct NodeInfo {
 
     /** Creates node info from reference frame and tileId.
      *
-     * Root node is found in reference frame and than current node derived.
+     * Root node is found in reference frame and then current node is derived.
      */
     NodeInfo(const registry::ReferenceFrame &referenceFrame
              , const TileId &tileId);

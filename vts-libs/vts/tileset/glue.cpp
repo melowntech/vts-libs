@@ -189,8 +189,7 @@ merge::Output Merger::generateTile(const NodeInfo &nodeInfo
                                    , const merge::Input::list &parentSource
                                    , int quadrant)
 {
-
-    LOG(info4) << "Generate tile: " << tileId;
+    LOG(info3) << "Generate tile: " << tileId;
 
     // create input
     merge::Input::list input;
@@ -202,8 +201,7 @@ merge::Output Merger::generateTile(const NodeInfo &nodeInfo
         }
     }
 
-    LOG(info4) << "merge from " << input.size();
-    auto tile(merge::mergeTile(input, parentSource, quadrant));
+    auto tile(merge::mergeTile(tileId, input, parentSource, quadrant));
 
     // TODO: analyze tile and store if it is proper glue tile
 

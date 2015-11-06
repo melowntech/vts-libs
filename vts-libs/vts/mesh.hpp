@@ -16,7 +16,8 @@
 namespace vadstena { namespace vts {
 
 typedef math::Point3_<std::uint16_t> Point3u16;
-typedef std::vector<Point3u16> Points3u16;
+typedef Point3u16 Face;
+typedef std::vector<Face> Faces;
 
 struct SubMesh {
     /** Vertices
@@ -39,12 +40,12 @@ struct SubMesh {
 
     /** Indices to face vertices.
      */
-    Points3u16 faces;
+    Faces faces;
 
     /** Indices to internal texture coordinates (empty if none, otherwise must
-     *  have the same as faces).
+     *  have the same size as faces).
      */
-    Points3u16 facesTc;
+    Faces facesTc;
 
     /** ID of external texture layer.
      */

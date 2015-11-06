@@ -9,7 +9,12 @@ namespace vadstena { namespace vts {
 
 typedef std::vector<math::Points3d> VerticesList;
 
-VerticesList convert(const Mesh &mesh, const geo::CsConvertor &conv);
+/** Converts all submeshes' vertices by conv to another SRS and then by 4x4
+ *  matrix to another system.
+ */
+VerticesList convert(const Mesh &mesh, const geo::CsConvertor &conv
+                     , const math::Matrix4 &trafo
+                     = boost::numeric::ublas::identity_matrix<double>(4));
 
 } } // namespace vadstena::vts
 
