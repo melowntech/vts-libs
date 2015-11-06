@@ -735,10 +735,14 @@ void TileSet::Detail::flush()
             // guess position from spatial division extents
             const auto &item(*properties.spatialDivisionExtents.begin());
             auto &position(properties.position);
-            properties.position.type = registry::Position::Type::floating;
+
+            position.type = registry::Position::Type::fixed;
             position.orientation = { .0, -90., .0 };
+
             math::Point2 p(center(item.second));
-            position.position = { p(0), p(1), 200 };
+            position.position = { p(0), p(1), 1000 };
+            position.verticalExtent = 5000;
+            position.verticalFov = 90;
 
             geo::CsConvertor conv(registry::Registry::srs(item.first).srsDef
                                   , registry::Registry::srs

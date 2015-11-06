@@ -52,6 +52,8 @@ NodeInfo NodeInfo::child(int childNum) const
 {
     RFNode::Id childId(node.id);
     ++childId.lod;
+    childId.x <<= 1;
+    childId.y <<= 1;
 
     switch (childNum) {
     case 0: // upper-left
@@ -95,23 +97,23 @@ NodeInfo NodeInfo::child(int childNum) const
     auto &extents(child.node.extents);
     switch (childNum) {
     case 0: // upper-left
-        extents.ur(0) = extents.ll(0) + es.width;
-        extents.ur(1) = extents.ll(1) + es.height;
+        extents.ur(0) -= es.width;
+        extents.ll(1) += es.height;
         break;
 
     case 1: // upper-right
-        extents.ll(0) = extents.ur(0) - es.width;
-        extents.ur(1) = extents.ll(1) + es.height;
+        extents.ll(0) += es.width;
+        extents.ll(1) += es.height;
         break;
 
     case 2: // lower-left
-        extents.ur(0) = extents.ll(0) + es.width;
-        extents.ll(1) = extents.ur(1) - es.height;
+        extents.ur(0) -= es.width;
+        extents.ur(1) -= es.height;
         break;
 
     case 3: // lower-right
-        extents.ll(0) = extents.ur(0) - es.width;
-        extents.ll(1) = extents.ur(1) - es.height;
+        extents.ll(0) += es.width;
+        extents.ur(1) -= es.height;
         break;
     }
 
