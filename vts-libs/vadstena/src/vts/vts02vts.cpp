@@ -102,8 +102,7 @@ void Vts02Vts::configuration(po::options_description &cmdline
 
         ("textureLayer", po::value<std::string>()
          , "String/numeric id of bound layer to be used as external texture "
-         "in generated meshes. Turns on generation of external texture "
-         "coordinates if set.")
+         "in generated meshes.")
 
         ("credits", po::value<std::string>()->required()
          , "Comma-separated list of string/numeric credit id.")
