@@ -78,12 +78,9 @@ public:
 
     const Image& get(std::size_t index) const { return images_[index]; }
 
-    void add(const Image &image) { images_.push_back(image); }
+    void add(const Image &image, int scale = 1);
 
-    void add(const RawAtlas &other) {
-        images_.insert(images_.end(), other.images_.begin()
-                       , other.images_.end());
-    }
+    void add(const RawAtlas &other, int scale = 1);
 
 private:
     virtual multifile::Table serialize_impl(std::ostream &os) const;

@@ -42,6 +42,8 @@ public:
      */
     const MetaNode& node() const { return *node_; }
 
+    const NodeInfo& nodeInfo() const { return *nodeInfo_; }
+
     bool hasMesh() const;
     bool hasAtlas() const;
     bool hasNavtile() const;
@@ -62,13 +64,9 @@ public:
 
     /** Returns mesh vertices (vector per submesh) converted to coverage space.
      */
-    const VerticesList& coverageVertices() const;
+    VerticesList coverageVertices(const NodeInfo &nodeInfo) const;
 
-    /** Extents in spatial division SRS.
-     */
-    const math::Extents2 sdExtents() const { return nodeInfo_->node.extents; }
-
-    const math::Matrix4& sd2Coverage() const { return sd2Coverage_; }
+    const math::Matrix4 sd2Coverage(const NodeInfo &nodeInfo) const;
 
     /** Return owning tileset
      */
@@ -82,7 +80,15 @@ public:
 
 private:
     Id id_;
+
+    /** Tile's ID
+     */
     TileId tileId_;
+
+    /** Difference between this tileId and tileId of currently processed tile.
+     *  Default to (0, 0, 0).
+     */
+    TileId tileDiff_;
     const TileSet::Detail *owner_;
 
     const MetaNode *node_;
@@ -90,12 +96,6 @@ private:
     mutable boost::optional<Mesh> mesh_;
     mutable boost::optional<RawAtlas> atlas_;
     mutable boost::optional<opencv::NavTile> navtile_;
-
-    /** Mesh vertices in coverage space
-     */
-    mutable boost::optional<VerticesList> coverageVertices_;
-
-    math::Matrix4 sd2Coverage_;
 };
 
 /** Merge output.
@@ -125,8 +125,10 @@ struct Output {
  *
  * Source and * parent source inputs are merged together using their id's.
  */
-Output mergeTile(const TileId &tileId, const Input::list &source
-                 , const Input::list &parentSource, int quadrant);
+Output mergeTile(const TileId &tileId
+                 , const NodeInfo &nodeInfo
+                 , const Input::list &source
+                 , const Input::list &parentSource);
 
 } } } // namespace vadstena::merge::vts
 

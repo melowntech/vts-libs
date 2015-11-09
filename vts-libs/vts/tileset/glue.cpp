@@ -102,15 +102,13 @@ private:
                    , const TileId &tileId = TileId()
                    , const merge::Input::list &parentSource
                    = merge::Input::list()
-                   , int quadrant = -1
                    , bool parentGenerated = false);
 
     /** Generates new tile as a merge of tiles from other tilesets.
      */
     merge::Output generateTile(const NodeInfo &nodeInfo
                                , const TileId &tileId
-                               , const merge::Input::list &parentSource
-                               , int quadrant);
+                               , const merge::Input::list &parentSource);
 
 
     TileSet::Detail &self;
@@ -123,7 +121,7 @@ private:
 
 void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
                        , const merge::Input::list &parentSource
-                       , int quadrant, bool parentGenerated)
+                       , bool parentGenerated)
 {
     if (!world.exists(tileId)) {
         // no data below
@@ -159,7 +157,7 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
         if (!thisGenerated) {
             // regular generation: generate tile and remember its sources (used
             // in children generation)
-            auto tile(generateTile(nodeInfo, tileId, parentSource, quadrant));
+            auto tile(generateTile(nodeInfo, tileId, parentSource));
             source = tile.source;
 
             if (tile) {
@@ -178,16 +176,14 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     }
 
     // OK, process children
-    quadrant = 0;
     for (const auto &child : children(tileId)) {
-        mergeTile(nodeInfo.child(child), child, source, quadrant++, g);
+        mergeTile(nodeInfo.child(child), child, source, g);
     }
 }
 
 merge::Output Merger::generateTile(const NodeInfo &nodeInfo
                                    , const TileId &tileId
-                                   , const merge::Input::list &parentSource
-                                   , int quadrant)
+                                   , const merge::Input::list &parentSource)
 {
     LOG(info3) << "Generate tile: " << tileId;
 
@@ -201,7 +197,7 @@ merge::Output Merger::generateTile(const NodeInfo &nodeInfo
         }
     }
 
-    auto tile(merge::mergeTile(tileId, input, parentSource, quadrant));
+    auto tile(merge::mergeTile(tileId, nodeInfo, input, parentSource));
 
     // TODO: analyze tile and store if it is proper glue tile
 

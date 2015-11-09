@@ -45,7 +45,6 @@ Input::Input(Id id, const TileSet::Detail &owner, const TileId &tileId
              , const NodeInfo &nodeInfo)
     : id_(id), tileId_(tileId), owner_(&owner)
     , node_(owner.findMetaNode(tileId)), nodeInfo_(&nodeInfo)
-    , sd2Coverage_(geo2mask(nodeInfo.node.extents, Mesh::coverageSize()))
 {
 }
 
@@ -93,16 +92,18 @@ const opencv::NavTile& Input::navtile() const
     return *navtile_;
 }
 
-const VerticesList& Input::coverageVertices() const
+VerticesList Input::coverageVertices(const NodeInfo &nodeInfo) const
 {
-    if (!coverageVertices_) {
-        geo::CsConvertor conv
-            (registry::Registry::srs(nodeInfo_->node.srs).srsDef
-             , registry::Registry::srs
-             (nodeInfo_->referenceFrame->model.physicalSrs).srsDef);
-        coverageVertices_ = convert(mesh(), conv, sd2Coverage_);
-    }
-    return *coverageVertices_;
+    geo::CsConvertor conv
+        (registry::Registry::srs(nodeInfo.node.srs).srsDef
+         , registry::Registry::srs
+         (nodeInfo.referenceFrame->model.physicalSrs).srsDef);
+    return convert(mesh(), conv, sd2Coverage(nodeInfo));
+}
+
+const math::Matrix4 Input::sd2Coverage(const NodeInfo &nodeInfo) const
+{
+    return geo2mask(nodeInfo.node.extents, Mesh::coverageSize());
 }
 
 Mesh& Output::forceMesh() {
@@ -121,18 +122,50 @@ RawAtlas& Output::forceAtlas() {
 
 namespace {
 
-void rasterize(const Mesh &mesh
-               , const cv::Scalar &color
-               , cv::Mat &coverage)
+void rasterize(const Mesh &mesh, const cv::Scalar &color
+               , cv::Mat &coverage
+               , const TileId &diff = TileId())
 {
+    // size of source pixel in destination pixels
+    int pixelSize(1 << diff.lod);
+
+    // offset in destination pixels
+    cv::Point2i offset(diff.x * coverage.cols, diff.y * coverage.rows);
+
     mesh.coverageMask.forEachQuad([&](uint xstart, uint ystart, uint xsize
                                       , uint ysize, bool)
     {
+        // scale
+        xstart *= pixelSize;
+        ystart *= pixelSize;
+        xsize *= pixelSize;
+        ysize *= pixelSize;
+
+        // shift
+        xstart -= offset.x;
+        ystart -= offset.y;
+
         cv::Point2i start(xstart, ystart);
         cv::Point2i end(xstart + xsize - 1, ystart + ysize - 1);
 
         cv::rectangle(coverage, start, end, color, CV_FILLED, 4);
     }, Mesh::CoverageMask::Filter::white);
+}
+
+void rasterize(const Mesh &mesh, const cv::Scalar &color
+               , cv::Mat &coverage
+               , const NodeInfo &srcNodeInfo
+               , const NodeInfo &dstNodeInfo)
+{
+    (void) mesh;
+    (void) color;
+    (void) coverage;
+    (void) srcNodeInfo;
+    (void) dstNodeInfo;
+
+    LOG(warn3)
+        << "Cross SRS fallback merge is unsupported so far. "
+        << "Skipping fallback tile.";
 }
 
 void clampMatPos(int &x, int &y, const cv::Mat &mat)
@@ -160,11 +193,12 @@ struct Coverage {
     std::vector<bool> indices;
     boost::optional<Input::Id> single;
 
-    Coverage(const TileId &tileId, const Input::list &sources)
+    Coverage(const TileId &tileId, const NodeInfo &nodeInfo
+             , const Input::list &sources)
         : tileId(tileId), sources(sources), hasHoles(false)
         , indices(sources.back().id() + 1, false)
     {
-        generateCoverage();
+        generateCoverage(nodeInfo);
         analyze();
     }
 
@@ -225,6 +259,24 @@ struct Coverage {
         return false;
     }
 
+    void fillMeshMask(Output &out) const {
+        if (!out.mesh) { return; }
+
+        // we have mesh -> fill
+        auto &cm(out.mesh->coverageMask);
+
+        // whole black
+        cm.reset(false);
+        for (int j(0); j < coverage.rows; ++j) {
+            for (int i(0); i < coverage.cols; ++i) {
+                // non-hole -> set in mask
+                if (coverage.at<pixel_type>(j, i) >= 0) {
+                    cm.set(j, i);
+                }
+            }
+        }
+    }
+
     void dump(const fs::path &dump, const TileId &tileId) const {
         const cv::Vec3b colors[10] = {
             { 0, 0, 0 }
@@ -251,16 +303,20 @@ struct Coverage {
     }
 
 private:
-    void generateCoverage() {
+    void generateCoverage(const NodeInfo &nodeInfo) {
         // prepare coverage map (set to invalid index)
         auto coverageSize(Mesh::coverageSize());
         coverage.create(coverageSize.height, coverageSize.width, CV_16S);
         coverage = cv::Scalar(-1);
 
         for (const auto &input : sources) {
-            // TODO: handle proper rasterizing
-            if (input.tileId().lod == tileId.lod) {
-                rasterize(input.mesh(), input.id(), coverage);
+            if (nodeInfo.node.srs == input.nodeInfo().node.srs) {
+                // same SRS -> mask is rendered as is (possible scale and shift)
+                rasterize(input.mesh(), input.id(), coverage
+                          , local(input.tileId().lod, tileId));
+            } else {
+                rasterize(input.mesh(), input.id(), coverage
+                          , input.nodeInfo(), nodeInfo);
             }
         }
     }
@@ -289,12 +345,6 @@ private:
 
         // convert special negative value back to no value
         if (single && (single < 0)) { single = boost::none; }
-
-        for (int i(0), e(indices.size()); i != e; ++i) {
-            if (indices[i]) {
-                LOG(info4) << "    " << i;
-            }
-        }
     }
 
     bool check(float x, float y, Input::Id id) const {
@@ -364,11 +414,44 @@ private:
     std::vector<int> tcMap_;
 };
 
+Output singleSourced(const TileId &tileId, const Input &input)
+{
+    Output result;
+    if (input.tileId().lod == tileId.lod) {
+        // as is -> copy
+        result.mesh = input.mesh();
+        if (input.hasAtlas()) { result.atlas = input.atlas(); }
+        if (input.hasNavtile()) { result.navtile = input.navtile(); }
+        return result;
+    }
+
+    const auto localId(local(tileId.lod, input.tileId()));
+
+    // clip mesh to current submesh
+
+    // TODO: cut mesh
+    result.mesh = input.mesh();
+
+    if (input.hasAtlas()) {
+        // TODO: get images for submeshes that are put to output
+        result.forceAtlas().add(input.atlas(), localId.lod);
+    }
+
+    if (input.hasNavtile()) {
+        // TODO: get proper subtile
+        result.navtile = input.navtile();
+    }
+
+    // done
+    return result;
+}
+
 } // namespace
 
-Output mergeTile(const TileId &tileId, const Input::list &currentSource
-                 , const Input::list &parentSource
-                 , int quadrant)
+Output mergeTile(const TileId &tileId
+                 , const NodeInfo &nodeInfo
+                 , const Input::list &currentSource
+                 , const Input::list &parentSource)
 {
     // build uniform source by merging current and parent sources
     // current data have precedence
@@ -426,16 +509,12 @@ Output mergeTile(const TileId &tileId, const Input::list &currentSource
     if (source.empty()) { return result; }
 
     if ((source.size() == 1)) {
-        // just copy one source
-        const auto &input(source.back());
-        result.mesh = input.mesh();
-        if (input.hasAtlas()) { result.atlas = input.atlas(); }
-        if (input.hasNavtile()) { result.navtile = input.navtile(); }
-        return result;
+        // just one source
+        return singleSourced(tileId, source.back());
     }
 
     // analyze coverage
-    Coverage coverage(tileId, source);
+    Coverage coverage(tileId, nodeInfo, source);
 
     if (const auto *dumpDir = ::getenv("MERGE_MASK_DUMP_DIR")) {
         coverage.dump(dumpDir, tileId);
@@ -451,11 +530,9 @@ Output mergeTile(const TileId &tileId, const Input::list &currentSource
             return result;
         }
 
-        // just one source -> just copy
+        // just one source
         if (const auto input = coverage.getSingle()) {
-            result.mesh = input->mesh();
-            if (input->hasAtlas()) { result.atlas = input->atlas(); }
-            if (input->hasNavtile()) { result.navtile = input->navtile(); }
+            return singleSourced(tileId, *input);
         }
 
         // OK
@@ -468,8 +545,11 @@ Output mergeTile(const TileId &tileId, const Input::list &currentSource
     // to the tile)
     for (const auto &input : result.source) {
         const auto &mesh(input.mesh());
+        const auto coverageVertices(input.coverageVertices(nodeInfo));
         // get current mesh vertices converted to coverage coordinate system
-        auto icoverageVertices(input.coverageVertices().begin());
+        auto icoverageVertices(coverageVertices.begin());
+
+        const auto localId(local(tileId.lod, input.tileId()));
 
         // traverse all submeshes
         for (int m(0), em(mesh.submeshes.size()); m != em; ++m) {
@@ -491,15 +571,16 @@ Output mergeTile(const TileId &tileId, const Input::list &currentSource
                 // there are some vertices -> put to output
                 result.forceMesh().submeshes.push_back(ma.get());
                 if (input.hasAtlas() && input.atlas().valid(m)) {
-                    result.forceAtlas().add(input.atlas().get(m));
+                    result.forceAtlas().add(input.atlas().get(m), localId.lod);
                 }
             }
         }
     }
 
-    return result;
+    // generate coverage mask
+    coverage.fillMeshMask(result);
 
-    (void) quadrant;
+    return result;
 }
 
 } } } // namespace vadstena::merge::vts

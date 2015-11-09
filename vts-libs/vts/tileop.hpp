@@ -42,6 +42,8 @@ std::size_t tileCount(Lod lod);
 RFNode::Id rfNodeId(const TileId &tileId);
 TileId tileId(const RFNode::Id &rfNodeId);
 
+TileId local(Lod rootLod, const TileId &tileId);
+
 // inline stuff
 
 inline TileId parent(const TileId &tileId)
@@ -85,6 +87,15 @@ inline RFNode::Id rfNodeId(const TileId &tileId)
 inline TileId tileId(const RFNode::Id &rfNodeId)
 {
     return TileId(rfNodeId.lod, rfNodeId.x, rfNodeId.y);
+}
+
+inline TileId local(Lod rootLod, const TileId &tileId)
+{
+    if (rootLod >= tileId.lod) { return {}; }
+
+    const auto ldiff(tileId.lod - rootLod);
+    const auto mask((1 << ldiff) - 1);
+    return TileId(ldiff, tileId.x & mask, tileId.y & mask);
 }
 
 } } // namespace vadstena::vts
