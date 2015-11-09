@@ -17,7 +17,7 @@ namespace vadstena { namespace vts { namespace merge {
 
 namespace {
 
-inline math::Matrix4 geo2grid(const math::Extents2& extents
+inline math::Matrix4 geo2mask(const math::Extents2& extents
                               , const math::Size2 &gridSize)
 {
     math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
@@ -25,15 +25,16 @@ inline math::Matrix4 geo2grid(const math::Extents2& extents
     auto es(size(extents));
 
     // scales
-    math::Size2f scale((gridSize.width - 1) / es.width
-                       , (gridSize.height - 1) / es.height);
+    math::Size2f scale(gridSize.width / es.width
+                       , gridSize.height / es.height);
 
     // scale to grid
     trafo(0, 0) = scale.width;
     trafo(1, 1) = -scale.height;
 
-    trafo(0, 3) = -extents.ll(0) * scale.width;
-    trafo(1, 3) = extents.ur(1) * scale.height;
+    // move to origin (half grid pixel left and up of origin)
+    trafo(0, 3) = -extents.ll(0) * scale.width - 0.5;
+    trafo(1, 3) = extents.ur(1) * scale.height - 0.5;
 
     return trafo;
 }
@@ -44,7 +45,7 @@ Input::Input(Id id, const TileSet::Detail &owner, const TileId &tileId
              , const NodeInfo &nodeInfo)
     : id_(id), tileId_(tileId), owner_(&owner)
     , node_(owner.findMetaNode(tileId)), nodeInfo_(&nodeInfo)
-    , sd2Coverage_(geo2grid(nodeInfo.node.extents, Mesh::coverageSize()))
+    , sd2Coverage_(geo2mask(nodeInfo.node.extents, Mesh::coverageSize()))
 {
 }
 
