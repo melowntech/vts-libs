@@ -10,6 +10,7 @@
 
 #include "./merge.hpp"
 #include "../io.hpp"
+#include "../refineandclip.hpp"
 
 namespace fs = boost::filesystem;
 
@@ -37,6 +38,15 @@ inline math::Matrix4 geo2mask(const math::Extents2& extents
     trafo(1, 3) = extents.ur(1) * scale.height - 0.5;
 
     return trafo;
+}
+
+math::Extents2 coverageExtents(double margin = .0)
+{
+    const auto grid(Mesh::coverageSize());
+    return math::Extents2(-.5 - margin
+                          , -.5 - margin
+                          , grid.width - .5 + margin
+                          , grid.height - .5 + margin);
 }
 
 } // namespace
@@ -92,13 +102,18 @@ const opencv::NavTile& Input::navtile() const
     return *navtile_;
 }
 
-VerticesList Input::coverageVertices(const NodeInfo &nodeInfo) const
+Vertices2List Input::coverageVertices(const NodeInfo &nodeInfo) const
 {
-    geo::CsConvertor conv
-        (registry::Registry::srs(nodeInfo.node.srs).srsDef
-         , registry::Registry::srs
-         (nodeInfo.referenceFrame->model.physicalSrs).srsDef);
-    return convert(mesh(), conv, sd2Coverage(nodeInfo));
+    auto trafo(sd2Coverage(nodeInfo));
+
+    if (nodeInfo.node.srs != nodeInfo.referenceFrame->model.physicalSrs) {
+        geo::CsConvertor conv
+            (registry::Registry::srs(nodeInfo.node.srs).srsDef
+             , registry::Registry::srs
+             (nodeInfo.referenceFrame->model.physicalSrs).srsDef);
+        return convert2(mesh(), &conv, &trafo);
+    }
+    return convert2(mesh(), nullptr, &trafo);
 }
 
 const math::Matrix4 Input::sd2Coverage(const NodeInfo &nodeInfo) const
@@ -121,6 +136,58 @@ RawAtlas& Output::forceAtlas() {
 }
 
 namespace {
+
+/** Build uniform source by merging current and parent sources current data have
+ *  precedence only tiles with mesh are used.
+*/
+Input::list mergeSource(const Input::list &currentSource
+                   , const Input::list &parentSource)
+{
+    Input::list source;
+    {
+        auto icurrentSource(currentSource.begin())
+            , ecurrentSource(currentSource.end());
+        auto iparentSource(parentSource.begin())
+            , eparentSource(parentSource.end());
+
+        // merge head and common content
+        while ((icurrentSource != ecurrentSource)
+               && (iparentSource != eparentSource))
+        {
+            const auto &ts(*icurrentSource);
+            const auto &ps(*iparentSource);
+            if (ts < ps) {
+                if (ts.hasMesh()) { source.push_back(ts); }
+                ++icurrentSource;
+            } else if (ps < ts) {
+                if (ps.hasMesh()) { source.push_back(ps); }
+                ++iparentSource;
+            } else {
+                if (ts.hasMesh()) {
+                    source.push_back(ts);
+                } else if (ps.hasMesh()) {
+                    source.push_back(ps);
+                }
+                ++icurrentSource;
+                ++iparentSource;
+            }
+        }
+
+        // copy tail (one or another)
+        for (; icurrentSource != ecurrentSource; ++icurrentSource) {
+            if (icurrentSource->hasMesh()) {
+                source.push_back(*icurrentSource);
+            }
+        }
+
+        for (; iparentSource != eparentSource; ++iparentSource) {
+            if (iparentSource->hasMesh()) {
+                source.push_back(*iparentSource);
+            }
+        }
+    }
+    return source;
+}
 
 void rasterize(const Mesh &mesh, const cv::Scalar &color
                , cv::Mat &coverage
@@ -221,20 +288,19 @@ struct Coverage {
         return &*fsources;
     }
 
-    bool covered(const Face &face, const math::Points3d &vertices
-                 , Input::Id id)
+    bool covered(const Face &face, const math::Points2d &vertices
+                 , Input::Id id) const
     {
-        cv::Point3f tri[3];
-        {
-            int index(0);
-            for (const auto &i : face) {
-                const auto &v(vertices[i]);
-                tri[index++] = { float(v(0)), float(v(1)), float(v(2)) };
-            }
-        }
-
         std::vector<imgproc::Scanline> scanlines;
-        imgproc::scanConvertTriangle(tri, 0, coverage.rows, scanlines);
+
+        const math::Point2 *tri[3] = {
+            &vertices[face[0]]
+            , &vertices[face[1]]
+            , &vertices[face[2]]
+        };
+
+        imgproc::scanConvertTriangle
+            (*tri[0], *tri[1], *tri[2], 0, coverage.rows, scanlines);
 
         for (const auto &sl : scanlines) {
             bool covered(false);
@@ -251,7 +317,7 @@ struct Coverage {
 
         // do one more check in case the triangle is thinner than one pixel
         for (int i = 0; i < 3; ++i) {
-            if (check(tri[i].x, tri[i].y, id)) {
+            if (check((*tri[i])(0), (*tri[i])(1), id)) {
                 return true;
             }
         }
@@ -356,44 +422,69 @@ private:
     }
 };
 
-class MeshAccumulator {
+class MeshFilter {
 public:
-    MeshAccumulator(const SubMesh &original)
-        : original_(original)
+    MeshFilter(const SubMesh &original, int submeshIndex
+                       , const math::Points2 &originalCoverage
+                       , const Input &input, const Coverage &coverage)
+        : original_(original), submeshIndex_(submeshIndex)
+        , originalCoverage_(originalCoverage)
+        , input_(input)
+        , mesh_(result_.mesh), coverageVertices_(result_.projected)
         , vertexMap_(original.vertices.size(), -1)
         , tcMap_(original.tc.size(), -1)
-    {}
+    {
+        filter(coverage);
+    }
+
+    void addTo(Output &out, int scaling);
+
+    EnhancedSubMesh result() const { return result_; }
+
+    operator bool() const { return mesh_.vertices.size(); }
+
+private:
+    void filter(const Coverage &coverage) {
+        // each face covered at least by one pixel is added to new mesh
+        for (int f(0), ef(original_.faces.size()); f != ef; ++f) {
+            // only vertices
+            if (coverage.covered
+                (original_.faces[f], originalCoverage_, input_.id()))
+            {
+                addFace(f);
+            }
+        }
+    }
 
     void addFace(int faceIndex) {
         const auto &of(original_.faces[faceIndex]);
-        result_.faces.emplace_back
+
+        mesh_.faces.emplace_back
             (addVertex(of(0)), addVertex(of(1)), addVertex(of(2)));
 
         if (!original_.facesTc.empty()) {
             const auto &oftc(original_.facesTc[faceIndex]);
-            result_.facesTc.emplace_back
+            mesh_.facesTc.emplace_back
                 (addTc(oftc(0)), addTc(oftc(1)), addTc(oftc(2)));
         }
     }
 
-    const SubMesh& get() const { return result_; }
-
-    operator bool() const { return result_.vertices.size(); }
-
-private:
     int addVertex(int i) {
         auto &m(vertexMap_[i]);
         if (m < 0) {
             // new vertex
-            m = result_.vertices.size();
-            result_.vertices.push_back(original_.vertices[i]);
+            m = mesh_.vertices.size();
+            mesh_.vertices.push_back(original_.vertices[i]);
             if (!original_.etc.empty()) {
-                result_.etc.push_back(original_.etc[i]);
+                mesh_.etc.push_back(original_.etc[i]);
             }
             if (!original_.vertexUndulation.empty()) {
-                result_.vertexUndulation.push_back
+                mesh_.vertexUndulation.push_back
                     (original_.vertexUndulation[i]);
             }
+
+            // coverage vertices (if needed)
+            coverageVertices_.push_back(originalCoverage_[i]);
         }
         return m;
     }
@@ -402,17 +493,31 @@ private:
         auto &m(tcMap_[i]);
         if (m < 0) {
             // new vertex
-            m = result_.tc.size();
-            result_.tc.push_back(original_.tc[i]);
+            m = mesh_.tc.size();
+            mesh_.tc.push_back(original_.tc[i]);
         }
         return m;
     }
 
     const SubMesh &original_;
-    SubMesh result_;
+    const int submeshIndex_;
+    const math::Points2 originalCoverage_;
+    const Input &input_;
+
+    EnhancedSubMesh result_;
+    SubMesh &mesh_;
+    math::Points2 &coverageVertices_;
     std::vector<int> vertexMap_;
     std::vector<int> tcMap_;
 };
+
+void MeshFilter::addTo(Output &out, int scaling)
+{
+    out.forceMesh().submeshes.push_back(mesh_);
+    if (input_.hasAtlas() && input_.atlas().valid(submeshIndex_)) {
+        out.forceAtlas().add(input_.atlas().get(submeshIndex_), scaling);
+    }
+}
 
 Output singleSourced(const TileId &tileId, const Input &input)
 {
@@ -425,7 +530,7 @@ Output singleSourced(const TileId &tileId, const Input &input)
         return result;
     }
 
-    const auto localId(local(tileId.lod, input.tileId()));
+    const auto localId(local(input.tileId().lod, tileId));
 
     // clip mesh to current submesh
 
@@ -453,52 +558,7 @@ Output mergeTile(const TileId &tileId
                  , const Input::list &currentSource
                  , const Input::list &parentSource)
 {
-    // build uniform source by merging current and parent sources
-    // current data have precedence
-    // only tiles with mesh are used
-    Input::list source;
-    {
-        auto icurrentSource(currentSource.begin())
-            , ecurrentSource(currentSource.end());
-        auto iparentSource(parentSource.begin())
-            , eparentSource(parentSource.end());
-
-        // merge head and common content
-        while ((icurrentSource != ecurrentSource)
-               && (iparentSource != eparentSource))
-        {
-            const auto &ts(*icurrentSource);
-            const auto &ps(*iparentSource);
-            if (ts < ps) {
-                if (ts.hasMesh()) { source.push_back(ts); }
-                ++icurrentSource;
-            } else if (ps < ts) {
-                if (ps.hasMesh()) { source.push_back(ps); }
-                ++iparentSource;
-            } else {
-                if (ts.hasMesh()) {
-                    source.push_back(ts);
-                } else if (ps.hasMesh()) {
-                    source.push_back(ps);
-                }
-                ++icurrentSource;
-                ++iparentSource;
-            }
-        }
-
-        // copy tail (one or another)
-        for (; icurrentSource != ecurrentSource; ++icurrentSource) {
-            if (icurrentSource->hasMesh()) {
-                source.push_back(*icurrentSource);
-            }
-        }
-
-        for (; iparentSource != eparentSource; ++iparentSource) {
-            if (iparentSource->hasMesh()) {
-                source.push_back(*iparentSource);
-            }
-        }
-    }
+    auto source(mergeSource(currentSource, parentSource));
 
     // from here, all input tiles have geometry -> no need to check for mesh
     // presence
@@ -549,30 +609,34 @@ Output mergeTile(const TileId &tileId
         // get current mesh vertices converted to coverage coordinate system
         auto icoverageVertices(coverageVertices.begin());
 
-        const auto localId(local(tileId.lod, input.tileId()));
+        const auto localId(local(input.tileId().lod, tileId));
 
         // traverse all submeshes
         for (int m(0), em(mesh.submeshes.size()); m != em; ++m) {
-            const auto &sm(mesh.submeshes[m]);
-            const auto &coverageVertices(*icoverageVertices++);
-
-            MeshAccumulator ma(sm);
-
-            for (int f(0), ef(sm.faces.size()); f != ef; ++f) {
-                // only vertices
-                if (coverage.covered
-                    (sm.faces[f], coverageVertices, input.id()))
-                {
-                    ma.addFace(f);
-                }
+            // accumulate new mesh
+            MeshFilter mf(mesh[m], m, *icoverageVertices++
+                          , input, coverage);
+            if (!mf) {
+                // empty result mesh -> nothing to do
+                continue;
             }
 
-            if (ma) {
-                // there are some vertices -> put to output
-                result.forceMesh().submeshes.push_back(ma.get());
-                if (input.hasAtlas() && input.atlas().valid(m)) {
-                    result.forceAtlas().add(input.atlas().get(m), localId.lod);
-                }
+            if (!localId.lod) {
+                // add as is
+                mf.addTo(result, localId.lod);
+                continue;
+            }
+
+            // fallback mesh: we have to clip and refine accumulated
+            // mesh and process again
+            auto refined
+                (refineAndClip(mf.result(), coverageExtents(1.), localId.lod));
+
+            MeshFilter rmf(refined.mesh, m, refined.projected
+                           , input, coverage);
+            if (rmf) {
+                // add refined
+                rmf.addTo(result, localId.lod);
             }
         }
     }

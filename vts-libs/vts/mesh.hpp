@@ -82,6 +82,12 @@ struct Mesh {
     const_iterator end() const { return submeshes.end(); }
     const_iterator cbegin() { return submeshes.begin(); }
     const_iterator cend() { return submeshes.end(); }
+
+    const SubMesh& operator[](std::size_t index) const {
+        return submeshes[index];
+    }
+
+    SubMesh& operator[](std::size_t index) { return submeshes[index]; }
 };
 
 inline bool watertight(const Mesh &mesh) { return mesh.coverageMask.full(); }

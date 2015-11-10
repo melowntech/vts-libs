@@ -161,8 +161,10 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
             source = tile.source;
 
             if (tile) {
+                if (tileId.lod == 21) {
                 self.setTile(tileId, tile.getMesh(), tile.getAtlas()
                              , tile.getNavtile());
+                }
             }
         }
 

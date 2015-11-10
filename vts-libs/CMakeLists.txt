@@ -316,6 +316,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
     vts/opencv/navtile.hpp vts/opencv/navtile.cpp
     vts/tileset/glue.cpp
     vts/tileset/merge.hpp vts/tileset/merge.cpp
+    vts/refineandclip.hpp vts/refineandclip.cpp
     vts/storage/change.cpp
 
     # dump support
