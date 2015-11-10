@@ -102,7 +102,7 @@ const opencv::NavTile& Input::navtile() const
     return *navtile_;
 }
 
-Vertices2List Input::coverageVertices(const NodeInfo &nodeInfo) const
+Vertices3List Input::coverageVertices(const NodeInfo &nodeInfo) const
 {
     auto trafo(sd2Coverage(nodeInfo));
 
@@ -111,9 +111,9 @@ Vertices2List Input::coverageVertices(const NodeInfo &nodeInfo) const
             (registry::Registry::srs(nodeInfo.node.srs).srsDef
              , registry::Registry::srs
              (nodeInfo.referenceFrame->model.physicalSrs).srsDef);
-        return convert2(mesh(), &conv, &trafo);
+        return convert3(mesh(), &conv, &trafo);
     }
-    return convert2(mesh(), nullptr, &trafo);
+    return convert3(mesh(), nullptr, &trafo);
 }
 
 const math::Matrix4 Input::sd2Coverage(const NodeInfo &nodeInfo) const
@@ -288,12 +288,12 @@ struct Coverage {
         return &*fsources;
     }
 
-    bool covered(const Face &face, const math::Points2d &vertices
+    bool covered(const Face &face, const math::Points3d &vertices
                  , Input::Id id) const
     {
         std::vector<imgproc::Scanline> scanlines;
 
-        const math::Point2 *tri[3] = {
+        const math::Point3 *tri[3] = {
             &vertices[face[0]]
             , &vertices[face[1]]
             , &vertices[face[2]]
@@ -425,7 +425,7 @@ private:
 class MeshFilter {
 public:
     MeshFilter(const SubMesh &original, int submeshIndex
-                       , const math::Points2 &originalCoverage
+                       , const math::Points3 &originalCoverage
                        , const Input &input, const Coverage &coverage)
         : original_(original), submeshIndex_(submeshIndex)
         , originalCoverage_(originalCoverage)
@@ -501,12 +501,12 @@ private:
 
     const SubMesh &original_;
     const int submeshIndex_;
-    const math::Points2 originalCoverage_;
+    const math::Points3 originalCoverage_;
     const Input &input_;
 
     EnhancedSubMesh result_;
     SubMesh &mesh_;
-    math::Points2 &coverageVertices_;
+    math::Points3 &coverageVertices_;
     std::vector<int> vertexMap_;
     std::vector<int> tcMap_;
 };

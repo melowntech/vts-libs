@@ -64,7 +64,7 @@ public:
 
     /** Returns mesh vertices (vector per submesh) converted to coverage space.
      */
-    Vertices2List coverageVertices(const NodeInfo &nodeInfo) const;
+    Vertices3List coverageVertices(const NodeInfo &nodeInfo) const;
 
     const math::Matrix4 sd2Coverage(const NodeInfo &nodeInfo) const;
 

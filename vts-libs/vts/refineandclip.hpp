@@ -11,7 +11,7 @@ namespace vadstena { namespace vts {
  */
 struct EnhancedSubMesh {
     SubMesh mesh;
-    math::Points2d projected;
+    math::Points3d projected;
 };
 
 EnhancedSubMesh refineAndClip(const EnhancedSubMesh &mesh

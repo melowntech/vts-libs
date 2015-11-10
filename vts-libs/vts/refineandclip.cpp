@@ -30,7 +30,7 @@ struct ClipLine {
         return boost::numeric::ublas::inner_prod(p, normal) + c;
     }
 
-    double intersect(const math::Point2d &p1, const math::Point2d &p2) const {
+    double intersect(const math::Point3d &p1, const math::Point3d &p2) const {
         double dot1(boost::numeric::ublas::inner_prod(p1, normal));
         double dot2(boost::numeric::ublas::inner_prod(p2, normal));
         double den(dot1 - dot2);
@@ -103,17 +103,17 @@ private:
 
 class PointMapper {
 public:
-    PointMapper(math::Points2d &points) : points_(points) {}
+    PointMapper(math::Points3d &points) : points_(points) {}
 
-    std::size_t add(const math::Point2d &point);
+    std::size_t add(const math::Point3d &point);
 
 private:
-    math::Points2d &points_;
+    math::Points3d &points_;
     typedef std::map<math::Point2d, std::size_t> Mapping;
     Mapping mapping_;
 };
 
-inline std::size_t PointMapper::add(const math::Point2d &p)
+inline std::size_t PointMapper::add(const math::Point3d &p)
 {
     auto res(mapping_.insert(Mapping::value_type(p, points_.size())));
     if (res.second) {
@@ -186,7 +186,7 @@ void Clipper::clip(const ClipLine &line)
             LOG(info4) << "    " << s1 << " -> " << t1 << " -> " << p1;
             LOG(info4) << "    " << s2 << " -> " << t2 << " -> " << p2;
 
-            // TODO: add real mesh and texture coords generation here
+            // real mesh coordinates will be generated from projected
             auto i1(pmap.add(p1));
             auto i2(pmap.add(p2));
 
