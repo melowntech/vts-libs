@@ -5,8 +5,12 @@
 
 #include <opencv2/highgui/highgui.hpp>
 
+#include "math/transform.hpp"
+
 #include "imgproc/rastermask/cvmat.hpp"
 #include "imgproc/scanconversion.hpp"
+
+#include "geo/csconvertor.hpp"
 
 #include "./merge.hpp"
 #include "../io.hpp"
@@ -18,6 +22,8 @@ namespace vadstena { namespace vts { namespace merge {
 
 namespace {
 
+/** Geo coordinates to coverage mask mapping.
+ */
 inline math::Matrix4 geo2mask(const math::Extents2& extents
                               , const math::Size2 &gridSize)
 {
@@ -36,6 +42,30 @@ inline math::Matrix4 geo2mask(const math::Extents2& extents
     // move to origin (half grid pixel left and up of origin)
     trafo(0, 3) = -extents.ll(0) * scale.width - 0.5;
     trafo(1, 3) = extents.ur(1) * scale.height - 0.5;
+
+    return trafo;
+}
+
+/** Coverage mask mapping to geo coordinates.
+ */
+inline math::Matrix4 mask2geo(const math::Extents2& extents
+                              , const math::Size2 &gridSize)
+{
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
+
+    auto es(size(extents));
+
+    // scales
+    math::Size2f scale(es.width / gridSize.width
+                       , es.height / gridSize.height);
+
+    // scale to grid
+    trafo(0, 0) = scale.width;
+    trafo(1, 1) = -scale.height;
+
+    // move to origin (half grid pixel right and down of origin)
+    trafo(0, 3) = extents.ll(0) + 0.5 * scale.width;
+    trafo(1, 3) = extents.ur(1) - 0.5 * scale.height;
 
     return trafo;
 }
@@ -105,20 +135,42 @@ const opencv::NavTile& Input::navtile() const
 Vertices3List Input::coverageVertices(const NodeInfo &nodeInfo) const
 {
     auto trafo(sd2Coverage(nodeInfo));
+    const auto &mesh(this->mesh());
 
+    Vertices3List out(mesh.submeshes.size());
     if (nodeInfo.node.srs != nodeInfo.referenceFrame->model.physicalSrs) {
         geo::CsConvertor conv
             (registry::Registry::srs(nodeInfo.node.srs).srsDef
              , registry::Registry::srs
              (nodeInfo.referenceFrame->model.physicalSrs).srsDef);
-        return convert3(mesh(), &conv, &trafo);
+
+        auto iout(out.begin());
+        for (const auto &sm : mesh.submeshes) {
+            auto &ov(*iout++);
+            for (const auto &v : sm.vertices) {
+                ov.push_back(transform(trafo, conv(v)));
+            }
+        }
+    } else {
+        auto iout(out.begin());
+        for (const auto &sm : mesh.submeshes) {
+            auto &ov(*iout++);
+            for (const auto &v : sm.vertices) {
+                ov.push_back(transform(trafo, v));
+            }
+        }
     }
-    return convert3(mesh(), nullptr, &trafo);
+    return out;
 }
 
 const math::Matrix4 Input::sd2Coverage(const NodeInfo &nodeInfo) const
 {
     return geo2mask(nodeInfo.node.extents, Mesh::coverageSize());
+}
+
+const math::Matrix4 Input::coverage2Sd(const NodeInfo &nodeInfo) const
+{
+    return mask2geo(nodeInfo.node.extents, Mesh::coverageSize());
 }
 
 Mesh& Output::forceMesh() {
@@ -425,8 +477,8 @@ private:
 class MeshFilter {
 public:
     MeshFilter(const SubMesh &original, int submeshIndex
-                       , const math::Points3 &originalCoverage
-                       , const Input &input, const Coverage &coverage)
+               , const math::Points3 &originalCoverage
+               , const Input &input, const Coverage &coverage)
         : original_(original), submeshIndex_(submeshIndex)
         , originalCoverage_(originalCoverage)
         , input_(input)
@@ -518,6 +570,64 @@ void MeshFilter::addTo(Output &out, int scaling)
         out.forceAtlas().add(input_.atlas().get(submeshIndex_), scaling);
     }
 }
+
+class SdMeshConvertor : public MeshVertexConvertor {
+public:
+    SdMeshConvertor(const Input &input, const NodeInfo &nodeInfo)
+        : geoTrafo_(input.coverage2Sd(nodeInfo))
+    {
+        if (nodeInfo.node.srs != nodeInfo.referenceFrame->model.physicalSrs) {
+            geoConv_ = geo::CsConvertor
+                (registry::Registry::srs
+                 (nodeInfo.referenceFrame->model.physicalSrs).srsDef
+                 , registry::Registry::srs(nodeInfo.node.srs).srsDef);
+        }
+    }
+
+    virtual math::Point3d vertex(const math::Point3d &v) const {
+        if (geoConv_) {
+            return (*geoConv_)(transform(geoTrafo_, v));
+        }
+        return transform(geoTrafo_, v);
+    }
+
+    virtual double undulation(const math::Point3d &v) const {
+        (void) v;
+        // TODO: implement me
+        return .0;
+    }
+
+    virtual math::Point2d etc(const math::Point3d &v) const {
+        // TODO: implement me
+        return v;
+    }
+
+    virtual math::Point2d etc(const math::Point2d &v) const
+    {
+        // TODO: implement me
+        return v;
+    }
+
+private:
+    math::Matrix4 geoTrafo_;
+    boost::optional<geo::CsConvertor> geoConv_;
+};
+
+#if 0
+Vertices3List Input::coverageVertices(const NodeInfo &nodeInfo) const
+{
+    auto trafo(sd2Coverage(nodeInfo));
+
+    if (nodeInfo.node.srs != nodeInfo.referenceFrame->model.physicalSrs) {
+        geo::CsConvertor conv
+            (registry::Registry::srs(nodeInfo.node.srs).srsDef
+             , registry::Registry::srs
+             (nodeInfo.referenceFrame->model.physicalSrs).srsDef);
+        return convert3(mesh(), &conv, &trafo);
+    }
+    return convert3(mesh(), nullptr, &trafo);
+}
+#endif
 
 Output singleSourced(const TileId &tileId, const Input &input)
 {
@@ -630,7 +740,8 @@ Output mergeTile(const TileId &tileId
             // fallback mesh: we have to clip and refine accumulated
             // mesh and process again
             auto refined
-                (refineAndClip(mf.result(), coverageExtents(1.), localId.lod));
+                (refineAndClip(mf.result(), coverageExtents(1.), localId.lod
+                               , SdMeshConvertor(input, nodeInfo)));
 
             MeshFilter rmf(refined.mesh, m, refined.projected
                            , input, coverage);

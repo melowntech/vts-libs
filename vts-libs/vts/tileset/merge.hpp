@@ -14,10 +14,11 @@
 #include "../tileop.hpp"
 #include "../opencv/atlas.hpp"
 #include "../opencv/navtile.hpp"
-#include "../mesh-conversion.hpp"
 #include "./detail.hpp"
 
 namespace vadstena { namespace vts { namespace merge {
+
+typedef std::vector<math::Points3d> Vertices3List;
 
 /** Merge input.
  */
@@ -67,6 +68,8 @@ public:
     Vertices3List coverageVertices(const NodeInfo &nodeInfo) const;
 
     const math::Matrix4 sd2Coverage(const NodeInfo &nodeInfo) const;
+
+    const math::Matrix4 coverage2Sd(const NodeInfo &nodeInfo) const;
 
     /** Return owning tileset
      */

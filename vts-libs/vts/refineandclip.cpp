@@ -4,6 +4,8 @@
 
 namespace vadstena { namespace vts {
 
+namespace {
+
 template <typename PointType>
 struct Segment_ {
     const PointType &p1;
@@ -19,15 +21,18 @@ struct Segment_ {
 typedef Segment_<math::Point2d> Segment2;
 typedef Segment_<math::Point3d> Segment3;
 
-struct ClipLine {
-    math::Point2d normal;
-    double c;
+/** Plane defined as dot(p, normal) + c = 0
+ */
+struct ClipPlane {
+    math::Point3d normal;
+    double d;
 
-    ClipLine(double a, double b, double c) : normal(a, b), c(c) {}
-    ClipLine() : c() {}
+    ClipPlane(double a, double b, double c, double d)
+        : normal(a, b, c), d(d) {}
+    ClipPlane() : d() {}
 
     double signedDistance(const math::Point2d &p) const {
-        return boost::numeric::ublas::inner_prod(p, normal) + c;
+        return boost::numeric::ublas::inner_prod(p, normal) + d;
     }
 
     double intersect(const math::Point3d &p1, const math::Point3d &p2) const {
@@ -39,19 +44,19 @@ struct ClipLine {
         if (std::abs(den) < 1e-10) {
             return 0.5;
         }
-        return (dot1 + c) / den;
+        return (dot1 + d) / den;
     }
 
-    double intersect(const Segment2 &segment) const {
+    double intersect(const Segment3 &segment) const {
         return intersect(segment.p1, segment.p2);
     }
 };
 
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
-operator<<(std::basic_ostream<CharT, Traits> &os, const ClipLine &cl)
+operator<<(std::basic_ostream<CharT, Traits> &os, const ClipPlane &cl)
 {
-    return os << "ClipLine(" << cl.normal << ", " << cl.c << ")";
+    return os << "ClipPlane(" << cl.normal << ", " << cl.d << ")";
 }
 
 template<typename CharT, typename Traits, typename PointType>
@@ -70,21 +75,55 @@ struct ClipFace {
     typedef std::vector<ClipFace> list;
 
     ClipFace(const Face &face) : face(face) {}
+    ClipFace(Face::value_type a, Face::value_type b, Face::value_type c)
+        : face(a, b, c)
+    {}
+};
+
+/** Maps point coordinates into list of points (one point is held only once)
+ *  generated
+ */
+template <typename PointType>
+class PointMapper {
+public:
+    PointMapper(const std::vector<PointType> &points)
+        : points_(points)
+    {}
+
+    std::size_t add(const PointType &point)
+    {
+        auto res(mapping_.insert
+                 (typename Mapping::value_type
+                  (point, points_.size())));
+        if (res.second) {
+            // new point -> insert
+            points_.push_back(point);
+        }
+        return res.first->second;
+    }
+
+    const std::vector<PointType>& points() const { return points_; }
+
+private:
+    typedef std::map<PointType, std::size_t> Mapping;
+    std::vector<PointType> points_;
+    Mapping mapping_;
 };
 
 class Clipper {
 public:
     Clipper(const EnhancedSubMesh &mesh)
         : mesh_(mesh)
+        , fpmap_(mesh_.projected), ftpmap_(mesh_.mesh.tc)
     {
         extractFaces();
     }
 
     void refine(int lodDiff);
 
-    void clip(const ClipLine &line);
+    void clip(const ClipPlane &line);
 
-    EnhancedSubMesh mesh() { finalize(); return mesh_; }
+    EnhancedSubMesh mesh(const MeshVertexConvertor &convertor);
 
 private:
     void extractFaces() {
@@ -95,46 +134,43 @@ private:
         }
     }
 
-    void finalize();
+    const EnhancedSubMesh &mesh_;
 
-    EnhancedSubMesh mesh_;
     ClipFace::list faces_;
+
+    // face points and  map
+    PointMapper<math::Point3d> fpmap_;
+
+    // face texture points and map
+    PointMapper<math::Point2d> ftpmap_;
 };
 
-class PointMapper {
-public:
-    PointMapper(math::Points3d &points) : points_(points) {}
+/** Use to uniformly map face vertices to fixed names.
+ */
+struct VMap {
+    int a, b, c;
 
-    std::size_t add(const math::Point3d &point);
-
-private:
-    math::Points3d &points_;
-    typedef std::map<math::Point2d, std::size_t> Mapping;
-    Mapping mapping_;
-};
-
-inline std::size_t PointMapper::add(const math::Point3d &p)
-{
-    auto res(mapping_.insert(Mapping::value_type(p, points_.size())));
-    if (res.second) {
-        // new point -> insert
-        points_.push_back(p);
+    template <typename Check>
+    VMap(const bool (&inside)[3], Check check) {
+        if (check(inside[0])) { a = 0; b = 1; c = 2; }
+        else if (check(inside[1])) { a = 1; b = 2; c = 0; }
+        else { a = 2; b = 0; c = 1; }
     }
-    return res.first->second;
-}
+};
 
-void Clipper::clip(const ClipLine &line)
+void Clipper::clip(const ClipPlane &line)
 {
-    LOG(info4) << "clip: " << line;
+    LOG(debug) << "clip: " << line;
     ClipFace::list out;
 
-    PointMapper pmap(mesh_.projected);
+    const auto &vertices(fpmap_.points());
+    const auto &tc(ftpmap_.points());
 
     for (const auto cf : faces_) {
-        const math::Point2d tri[3] = {
-            mesh_.projected[cf.face[0]]
-            , mesh_.projected[cf.face[1]]
-            , mesh_.projected[cf.face[2]]
+        const math::Point3d tri[3] = {
+            vertices[cf.face[0]]
+            , vertices[cf.face[1]]
+            , vertices[cf.face[2]]
         };
 
         const bool inside[3] = {
@@ -143,68 +179,117 @@ void Clipper::clip(const ClipLine &line)
             , (line.signedDistance(tri[2]) >= .0)
         };
 
-        LOG(info4) << "face:";
-        LOG(info4) << "    " << tri[0] << ", " << inside[0];
-        LOG(info4) << "    " << tri[1] << ", " << inside[1];
-        LOG(info4) << "    " << tri[2] << ", " << inside[2];
+        LOG(debug) << "cutting face:";
+        LOG(debug) << "    " << tri[0] << ", " << inside[0];
+        LOG(debug) << "    " << tri[1] << ", " << inside[1];
+        LOG(debug) << "    " << tri[2] << ", " << inside[2];
 
         int count(inside[0] + inside[1] + inside[2]);
         if (!count) {
+            LOG(debug) << "    -> fully outside";
             // whole face is outside
             continue;
         }
 
         if (count == 3) {
             // whole face is inside
+            LOG(debug) << "    -> fully inside";
             out.push_back(cf);
             continue;
         }
 
-        struct Segment {
-            const math::Point3d &p1;
-            const math::Point3d &p2;
-        };
+        // oneInside: true: one inside, false: one outside
+        bool oneInside(count == 1);
 
-        if (count == 1) {
-            LOG(info4) << "cut one";
-            // one vertex is inside -> move those two to proper place
+        VMap vm(inside, (oneInside ? ([](bool i) { return i; })
+                         : ([](bool i) { return !i; })));
 
-            int a, b, c;
-            if (inside[0]) { a = 0; b = 1; c = 2; }
-            else if (inside[1]) { a = 1; b = 2; c = 0; }
-            else { a = 2; b = 0; c = 1; }
+        double t1, t2;
 
-            Segment2 s1(tri[a], tri[b]);
-            Segment2 s2(tri[c], tri[a]);
+        /* mesh face */ {
+            Segment3 s1(tri[vm.a], tri[vm.b]);
+            Segment3 s2(tri[vm.c], tri[vm.a]);
 
-            auto t1(line.intersect(s1));
-            auto t2(line.intersect(s2));
+            // intersect segments with both lines
+            t1 = line.intersect(s1);
+            t2 = line.intersect(s2);
 
+            // calculate new point
             auto p1(s1.point(t1));
             auto p2(s2.point(t2));
 
-            LOG(info4) << "    " << s1 << " -> " << t1 << " -> " << p1;
-            LOG(info4) << "    " << s2 << " -> " << t2 << " -> " << p2;
+            LOG(debug) << "    " << s1 << " -> " << t1 << " -> " << p1;
+            LOG(debug) << "    " << s2 << " -> " << t2 << " -> " << p2;
 
-            // real mesh coordinates will be generated from projected
-            auto i1(pmap.add(p1));
-            auto i2(pmap.add(p2));
+            // and new (projected) vertices
+            auto vi1(fpmap_.add(p1));
+            auto vi2(fpmap_.add(p2));
 
-            Face nface(cf.face[a], i1, i2);
-            out.emplace_back(nface);
+            if (oneInside) {
+                // one vertex inside: just one face:
+                out.emplace_back(cf.face[vm.a], vi1, vi2);
 
-            continue;
+                LOG(debug) << "    -> one vertex inside, new face:";
+                LOG(debug) << "    " << tri[vm.a];
+                LOG(debug) << "    " << p1;
+                LOG(debug) << "    " << p2;
+
+            } else {
+                // one vertex outside: two new faces
+                out.emplace_back(vi1, cf.face[vm.b], cf.face[vm.c]);
+                out.emplace_back(vi1, cf.face[vm.c], vi2);
+
+                LOG(debug) << "    -> one vertex outside, new faces:";
+                LOG(debug) << "    " << p1;
+                LOG(debug) << "    " << tri[vm.b];
+                LOG(debug) << "    " << tri[vm.c];
+                LOG(debug) << "    " << p1;
+                LOG(debug) << "    " << tri[vm.c];
+                LOG(debug) << "    " << p2;
+            }
         }
 
-        LOG(info4) << "cut two";
+        if (cf.faceTc) {
+            // texture face
+            auto face(*cf.faceTc);
+
+            LOG(debug) << "cutting texture face:";
+            LOG(debug) << "    " << tc[face[0]] << ", " << inside[0];
+            LOG(debug) << "    " << tc[face[1]] << ", " << inside[1];
+            LOG(debug) << "    " << tc[face[2]] << ", " << inside[2];
+
+            // calculate new point
+            auto tp1(Segment2(tc[face[vm.a]], tc[face[vm.b]]).point(t1));
+            auto tp2(Segment2(tc[face[vm.c]], tc[face[vm.a]]).point(t2));
+
+            auto ti1(ftpmap_.add(tp1));
+            auto ti2(ftpmap_.add(tp2));
+
+            if (oneInside) {
+                // one vertex inside: just one face:
+                out.back().faceTc = Face(face[vm.a], ti1, ti2);
+
+                LOG(debug) << "    -> one vertex inside, new face:";
+                LOG(debug) << "    " << tc[face[vm.a]];
+                LOG(debug) << "    " << tp1;
+                LOG(debug) << "    " << tp2;
+            } else {
+                // one vertex outside: two new faces
+                out[out.size() - 2].faceTc = Face(ti1, face[vm.b], face[vm.c]);
+                out[out.size() - 1].faceTc = Face(ti1, face[vm.c], ti2);
+
+                LOG(debug) << "    -> one vertex outside, new faces:";
+                LOG(debug) << "    " << tp1;
+                LOG(debug) << "    " << tc[face[vm.b]];
+                LOG(debug) << "    " << tc[face[vm.c]];
+                LOG(debug) << "    " << tp1;
+                LOG(debug) << "    " << tc[face[vm.c]];
+                LOG(debug) << "    " << tp2;
+            }
+        }
     }
 
     out.swap(faces_);
-}
-
-void Clipper::finalize()
-{
-    // TODO: implement me
 }
 
 void Clipper::refine(int lodDiff)
@@ -214,25 +299,129 @@ void Clipper::refine(int lodDiff)
     // TODO: implement me
 }
 
+EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor &convertor)
+{
+    /** Generate new mesh.
+     */
+    struct Filter {
+        const SubMesh &original;
+        const ClipFace::list &faces;
+        const math::Points3d &vertices;
+        const math::Points3d &projected;
+        const math::Points2d &tc;
+        const MeshVertexConvertor &convertor;
+
+        std::vector<int> vertexMap;
+        std::vector<int> tcMap;
+
+        EnhancedSubMesh emesh;
+        SubMesh &mesh;
+
+        Filter(const SubMesh &original, const ClipFace::list &faces
+               , const math::Points3d &projected, const math::Points2d &tc
+               , const MeshVertexConvertor &convertor)
+            : original(original), faces(faces), vertices(original.vertices)
+            , projected(projected), tc(tc), convertor(convertor)
+            , vertexMap(projected.size(), -1)
+            , tcMap(tc.size(), -1)
+            , mesh(emesh.mesh)
+        {
+            for (const auto &cf : faces) {
+                addFace(cf);
+            }
+        }
+
+        void addFace(const ClipFace &cf) {
+            mesh.faces.emplace_back(addVertex(cf.face(0))
+                                    , addVertex(cf.face(1))
+                                    , addVertex(cf.face(2)));
+            if (cf.faceTc) {
+                mesh.facesTc.emplace_back(addTc((*cf.faceTc)(0))
+                                          , addTc((*cf.faceTc)(1))
+                                          , addTc((*cf.faceTc)(2)));
+            }
+        }
+
+        std::size_t addVertex(std::size_t i) {
+            auto &m(vertexMap[i]);
+            if (m < 0) {
+                // new vertex
+                m = mesh.vertices.size();
+
+                const auto newPoint(i >= vertices.size());
+                const auto generateEtc(!original.etc.empty());
+                const auto &v(projected[i]);
+
+                if (newPoint) {
+                    // must unproject
+                    mesh.vertices.push_back(convertor.vertex(v));
+
+                    // etc
+                    if (generateEtc) {
+                        mesh.etc.push_back(convertor.etc(original.etc[i]));
+                    }
+                } else {
+                    // use original
+                    mesh.vertices.push_back(vertices[i]);
+
+                    if (generateEtc) {
+                        mesh.etc.push_back(v);
+                    }
+                }
+
+                if (!original.vertexUndulation.empty() && !newPoint) {
+                    // copy undulation for exiting point
+                    mesh.vertexUndulation.push_back
+                        (original.vertexUndulation[i]);
+                } else {
+                    // generate undulation
+                    mesh.vertexUndulation.push_back(convertor.undulation(v));
+                }
+
+                // remember projected vertex
+                emesh.projected.push_back(v);
+            }
+            return m;
+        }
+
+        int addTc(int i) {
+            auto &m(tcMap[i]);
+            if (m < 0) {
+                // new vertex
+                m = mesh.tc.size();
+                mesh.tc.push_back(tc[i]);
+            }
+            return m;
+        }
+    };
+
+    // run the machinery
+    return Filter(mesh_.mesh, faces_, fpmap_.points(), ftpmap_.points()
+                  , convertor).emesh;
+}
+
+} // namespace
+
 EnhancedSubMesh refineAndClip(const EnhancedSubMesh &mesh
                               , const math::Extents2 &projectedExtents
-                              , storage::Lod lodDiff)
+                              , storage::Lod lodDiff
+                              , const MeshVertexConvertor &convertor)
 {
-    LOG(info4) << std::fixed << "projectedExtents: " << projectedExtents;
-    const ClipLine clipLines[4] = {
-        { 1.,  .0, -projectedExtents.ll(0) }
-        , { -1., .0, projectedExtents.ur(0) }
-        , { .0,  1., -projectedExtents.ll(1) }
-        , { 0., -1., projectedExtents.ur(1) }
+    LOG(debug) << std::fixed << "Clipping mesh to: " << projectedExtents;
+    const ClipPlane clipPlanes[4] = {
+        { 1.,  .0, .0, -projectedExtents.ll(0) }
+        , { -1., .0, .0, projectedExtents.ur(0) }
+        , { .0,  1., .0, -projectedExtents.ll(1) }
+        , { 0., -1., .0, projectedExtents.ur(1) }
     };
 
     Clipper clipper(mesh);
 
     clipper.refine(lodDiff);
 
-    for (const auto &cl : clipLines) { clipper.clip(cl); }
+    for (const auto &cp : clipPlanes) { clipper.clip(cp); }
 
-    return clipper.mesh();
+    return clipper.mesh(convertor);
 }
 
 } } // namespace vadstena::vts
