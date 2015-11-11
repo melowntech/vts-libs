@@ -285,7 +285,7 @@ public:
     math::Point2 operator()(const math::Point3 &p) const {
         // NB: origin is in the upper-left corner
         return { (p(0) - origin_(0)) / size_.width
-                , 1.0 - ((p(1) - origin_(1)) / size_.height) };
+                , (p(1) - origin_(1)) / size_.height };
     };
 
 private:
