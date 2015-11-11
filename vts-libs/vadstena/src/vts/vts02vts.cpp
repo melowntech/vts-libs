@@ -667,8 +667,18 @@ int Vts02Vts::run()
     // open vts0 tileset
     auto input(vts0::openTileSet(input_));
 
-    properties_.id = input->getProperties().id;
-    properties_.referenceFrame = input->getProperties().referenceFrame;
+    {
+        auto oldprop(input->getProperties());
+        properties_.id = oldprop.id;
+        properties_.referenceFrame = oldprop.referenceFrame;
+
+        auto &pos(properties_.position);
+        pos.type = vr::Position::Type::fixed;
+        pos.position = oldprop.defaultPosition;
+        pos.orientation = oldprop.defaultOrientation;
+        pos.verticalExtent = 5000;
+        pos.verticalFov = 90;
+    }
 
     // run the encoder
     Encoder(output_, properties_, createMode_, input, config_).run();
