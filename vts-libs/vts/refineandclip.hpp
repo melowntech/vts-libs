@@ -13,6 +13,10 @@ namespace vadstena { namespace vts {
 struct EnhancedSubMesh {
     SubMesh mesh;
     math::Points3d projected;
+
+    operator bool() const {
+        return !mesh.vertices.empty();
+    }
 };
 
 /** Converts projected vertex (whatever it means) to real world coordinates

@@ -590,7 +590,8 @@ private:
     CsConvertor geoConv_;
 };
 
-Output singleSourced(const TileId &tileId, const Input &input)
+Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
+                     , CsConvertor phys2sd, const Input &input)
 {
     Output result;
     if (input.tileId().lod == tileId.lod) {
@@ -603,19 +604,35 @@ Output singleSourced(const TileId &tileId, const Input &input)
 
     const auto localId(local(input.tileId().lod, tileId));
 
-    // clip mesh to current submesh
+    // clip source mesh/navtile
 
-    // TODO: cut mesh
-    result.mesh = input.mesh();
+    const auto coverageVertices
+        (inputCoverageVertices(input, nodeInfo, phys2sd));
+    SdMeshConvertor sdmc(input, nodeInfo);
 
-    if (input.hasAtlas()) {
-        // TODO: get images for submeshes that are put to output
-        result.forceAtlas().add(input.atlas(), localId.lod);
-    }
+    auto &outMesh(result.forceMesh());
+    std::size_t smIndex(0);
+    for (const auto &sm : input.mesh()) {
+        auto refined
+            (refineAndClip({ sm, coverageVertices[smIndex] }
+                           , coverageExtents(1.), localId.lod, sdmc));
 
-    if (input.hasNavtile()) {
-        // TODO: get proper subtile
-        result.navtile = input.navtile();
+        if (refined) {
+            // we have some mesh
+            outMesh.submeshes.push_back(refined.mesh);
+
+            if (input.hasAtlas()) {
+                result.forceAtlas().add
+                    (input.atlas().get(smIndex), localId.lod);
+            }
+
+            if (input.hasNavtile()) {
+                // TODO: cut and scale proper navtile content
+                result.navtile = input.navtile();
+            }
+        }
+
+        ++smIndex;
     }
 
     // done
@@ -639,9 +656,12 @@ Output mergeTile(const TileId &tileId
 
     if (source.empty()) { return result; }
 
+    CsConvertor phys2sd(nodeInfo.referenceFrame->model.physicalSrs
+                        , nodeInfo.node.srs);
+
     if ((source.size() == 1)) {
         // just one source
-        return singleSourced(tileId, source.back());
+        return singleSourced(tileId, nodeInfo, phys2sd, source.back());
     }
 
     // analyze coverage
@@ -663,7 +683,7 @@ Output mergeTile(const TileId &tileId
 
         // just one source
         if (const auto input = coverage.getSingle()) {
-            return singleSourced(tileId, *input);
+            return singleSourced(tileId, nodeInfo, phys2sd, *input);
         }
 
         // OK
@@ -671,9 +691,6 @@ Output mergeTile(const TileId &tileId
     }
 
     // TODO: merge navtile based on navtile coverage
-
-    CsConvertor phys2sd(nodeInfo.referenceFrame->model.physicalSrs
-                        , nodeInfo.node.srs);
 
     // process all input tiles from result source (i.e. only those contributing
     // to the tile)
@@ -692,8 +709,7 @@ Output mergeTile(const TileId &tileId
         // traverse all submeshes
         for (int m(0), em(mesh.submeshes.size()); m != em; ++m) {
             // accumulate new mesh
-            MeshFilter mf(mesh[m], m, *icoverageVertices++
-                          , input, coverage);
+            MeshFilter mf(mesh[m], m, *icoverageVertices++, input, coverage);
             if (!mf) {
                 // empty result mesh -> nothing to do
                 continue;
