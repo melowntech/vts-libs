@@ -160,6 +160,7 @@ set(vadstena-vts-core_SOURCES
   vts/atlas.hpp vts/atlas.cpp
   vts/navtile.hpp vts/navtile.cpp
   vts/encoder.hpp vts/encoder.cpp
+  vts/csconvertor.hpp vts/csconvertor.cpp
 
   vts/maskfwd.hpp
   vts/qtree.hpp vts/qtree.cpp

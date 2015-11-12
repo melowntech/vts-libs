@@ -63,10 +63,6 @@ public:
 
     typedef std::vector<Input> list;
 
-    /** Returns mesh vertices (vector per submesh) converted to coverage space.
-     */
-    Vertices3List coverageVertices(const NodeInfo &nodeInfo) const;
-
     const math::Matrix4 sd2Coverage(const NodeInfo &nodeInfo) const;
 
     const math::Matrix4 coverage2Sd(const NodeInfo &nodeInfo) const;
@@ -133,6 +129,6 @@ Output mergeTile(const TileId &tileId
                  , const Input::list &source
                  , const Input::list &parentSource);
 
-} } } // namespace vadstena::merge::vts
+} } } // namespace vadstena::vts::merge
 
 #endif // vadstena_libs_vts_merge_hpp_included_

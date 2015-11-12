@@ -10,7 +10,7 @@
 #include "imgproc/rastermask/cvmat.hpp"
 #include "imgproc/scanconversion.hpp"
 
-#include "geo/csconvertor.hpp"
+#include "../csconvertor.hpp"
 
 #include "./merge.hpp"
 #include "../io.hpp"
@@ -132,32 +132,21 @@ const opencv::NavTile& Input::navtile() const
     return *navtile_;
 }
 
-Vertices3List Input::coverageVertices(const NodeInfo &nodeInfo) const
+/** Returns mesh vertices (vector per submesh) converted to coverage space.
+ */
+Vertices3List inputCoverageVertices(const Input &input
+                                    , const NodeInfo &nodeInfo
+                                    , const CsConvertor &conv)
 {
-    auto trafo(sd2Coverage(nodeInfo));
-    const auto &mesh(this->mesh());
+    const auto trafo(input.sd2Coverage(nodeInfo));
 
+    const auto &mesh(input.mesh());
     Vertices3List out(mesh.submeshes.size());
-    if (nodeInfo.node.srs != nodeInfo.referenceFrame->model.physicalSrs) {
-        geo::CsConvertor conv
-            (registry::Registry::srs(nodeInfo.node.srs).srsDef
-             , registry::Registry::srs
-             (nodeInfo.referenceFrame->model.physicalSrs).srsDef);
-
-        auto iout(out.begin());
-        for (const auto &sm : mesh.submeshes) {
-            auto &ov(*iout++);
-            for (const auto &v : sm.vertices) {
-                ov.push_back(transform(trafo, conv(v)));
-            }
-        }
-    } else {
-        auto iout(out.begin());
-        for (const auto &sm : mesh.submeshes) {
-            auto &ov(*iout++);
-            for (const auto &v : sm.vertices) {
-                ov.push_back(transform(trafo, v));
-            }
+    auto iout(out.begin());
+    for (const auto &sm : mesh.submeshes) {
+        auto &ov(*iout++);
+        for (const auto &v : sm.vertices) {
+            ov.push_back(transform(trafo, conv(v)));
         }
     }
     return out;
@@ -575,26 +564,20 @@ class SdMeshConvertor : public MeshVertexConvertor {
 public:
     SdMeshConvertor(const Input &input, const NodeInfo &nodeInfo)
         : geoTrafo_(input.coverage2Sd(nodeInfo))
-    {
-        if (nodeInfo.node.srs != nodeInfo.referenceFrame->model.physicalSrs) {
-            geoConv_ = geo::CsConvertor
-                (registry::Registry::srs
-                 (nodeInfo.referenceFrame->model.physicalSrs).srsDef
-                 , registry::Registry::srs(nodeInfo.node.srs).srsDef);
-        }
-    }
+        , geoConv_(nodeInfo.node.srs
+                   , nodeInfo.referenceFrame->model.physicalSrs)
+        , undulator_(nodeInfo.referenceFrame->model.physicalSrs
+                     , nodeInfo.referenceFrame->model.publicSrs)
+    {}
 
     virtual math::Point3d vertex(const math::Point3d &v) const {
-        if (geoConv_) {
-            return (*geoConv_)(transform(geoTrafo_, v));
-        }
-        return transform(geoTrafo_, v);
+        // point is in node SD SRS
+        return geoConv_(transform(geoTrafo_, v));
     }
 
     virtual double undulation(const math::Point3d &v) const {
-        (void) v;
-        // TODO: implement me
-        return .0;
+        // point is in physical SRS
+        return undulator_.undulation(v);
     }
 
     virtual math::Point2d etc(const math::Point3d &v) const {
@@ -609,25 +592,19 @@ public:
     }
 
 private:
+    /** Linear transformation from local coverage coordinates to node's SD SRS.
+     */
     math::Matrix4 geoTrafo_;
-    boost::optional<geo::CsConvertor> geoConv_;
+
+    /** Convertor between node's SD SRS and reference frame's physical SRS.
+     */
+    CsConvertor geoConv_;
+
+    /** Convertor between reference frame's physical SRS and reference frame's
+     *  public SRS, used to calculate undulation only.
+     */
+    CsConvertor undulator_;
 };
-
-#if 0
-Vertices3List Input::coverageVertices(const NodeInfo &nodeInfo) const
-{
-    auto trafo(sd2Coverage(nodeInfo));
-
-    if (nodeInfo.node.srs != nodeInfo.referenceFrame->model.physicalSrs) {
-        geo::CsConvertor conv
-            (registry::Registry::srs(nodeInfo.node.srs).srsDef
-             , registry::Registry::srs
-             (nodeInfo.referenceFrame->model.physicalSrs).srsDef);
-        return convert3(mesh(), &conv, &trafo);
-    }
-    return convert3(mesh(), nullptr, &trafo);
-}
-#endif
 
 Output singleSourced(const TileId &tileId, const Input &input)
 {
@@ -711,14 +688,21 @@ Output mergeTile(const TileId &tileId
 
     // TODO: merge navtile based on navtile coverage
 
+    CsConvertor phys2sd(nodeInfo.referenceFrame->model.physicalSrs
+                        , nodeInfo.node.srs);
+
     // process all input tiles from result source (i.e. only those contributing
     // to the tile)
     for (const auto &input : result.source) {
         const auto &mesh(input.mesh());
-        const auto coverageVertices(input.coverageVertices(nodeInfo));
+
         // get current mesh vertices converted to coverage coordinate system
+        const auto coverageVertices
+            (inputCoverageVertices(input, nodeInfo, phys2sd));
+
         auto icoverageVertices(coverageVertices.begin());
 
+        // localize tileId -> used to map fallback content into this tile
         const auto localId(local(input.tileId().lod, tileId));
 
         // traverse all submeshes
@@ -758,4 +742,4 @@ Output mergeTile(const TileId &tileId
     return result;
 }
 
-} } } // namespace vadstena::merge::vts
+} } } // namespace vadstena::vts::merge

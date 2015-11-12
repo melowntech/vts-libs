@@ -23,7 +23,7 @@ struct MeshVertexConvertor {
      */
     virtual math::Point3d vertex(const math::Point3d &v) const = 0;
 
-    /** Get vertex undulation.
+    /** Get physical vertex undulation.
      */
     virtual double undulation(const math::Point3d &v) const = 0;
 
