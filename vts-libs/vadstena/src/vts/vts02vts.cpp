@@ -39,6 +39,7 @@
 #include "vadstena-libs/vts/encoder.hpp"
 #include "vadstena-libs/vts/opencv/navtile.hpp"
 #include "vadstena-libs/vts/io.hpp"
+#include "vadstena-libs/vts/csconvertor.hpp"
 
 namespace po = boost::program_options;
 namespace vs = vadstena::storage;
@@ -483,8 +484,7 @@ void rasterizeMesh(const vts::TileId &tileId, const math::Extents2 &extents
 
 vts::Mesh::pointer
 createMeshAndNavtile(const vts::TileId &tileId, const vts0::Mesh &m
-                     , const geo::SrsDefinition &srcSrs
-                     , const vr::Srs &dstSrs
+                     , const vts::CsConvertor &node2phys
                      , const math::Extents2 &divisionExtents
                      , bool externalTextureCoordinates
                      , boost::optional<std::uint16_t> textureLayer
@@ -496,13 +496,12 @@ createMeshAndNavtile(const vts::TileId &tileId, const vts0::Mesh &m
     auto &sm(mesh->submeshes.back());
 
     // copy vertices
-    geo::CsConvertor conv(srcSrs, dstSrs.srsDef);
     TextureNormalizer tn(divisionExtents);
     auto t2g(geo::local2geo(divisionExtents));
     for (const auto &v : m.vertices) {
         // convert v from local coordinates to division SRS and than to physical
         // SRS (the last transformation can be no-op)
-        sm.vertices.push_back(conv(transform(t2g, v)));
+        sm.vertices.push_back(node2phys(transform(t2g, v)));
 
         // generate external texture coordinates if instructed
         if (externalTextureCoordinates) { sm.etc.push_back(tn(v)); }
@@ -603,8 +602,8 @@ void Encoder::hm2Navtile()
 Encoder::TileResult
 Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo)
 {
-    const auto nodeSrs(vr::Registry::srs(nodeInfo.node.srs));
-    geo::SrsDefinition spatialDivisionSrs(nodeSrs.srsDef);
+    vts::CsConvertor node2phys(nodeInfo.node.srs
+                               , referenceFrame().model.physicalSrs);
 
     auto vts0Id(asVts(tileId));
 
@@ -651,8 +650,8 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo)
     tile.atlas = std::make_shared<Atlas>(atlasStream);
 
     // convert mesh from old one
-    tile.mesh = createMeshAndNavtile(tileId, mesh, spatialDivisionSrs
-                                     , physicalSrs(), nodeInfo.node.extents
+    tile.mesh = createMeshAndNavtile(tileId, mesh, node2phys
+                                     , nodeInfo.node.extents
                                      , bool(nodeInfo.node.boundLayerLod)
                                      , config_.textureLayer, navtile);
 
@@ -676,7 +675,7 @@ int Vts02Vts::run()
         pos.type = vr::Position::Type::fixed;
         pos.position = oldprop.defaultPosition;
         pos.orientation = oldprop.defaultOrientation;
-        pos.verticalExtent = 5000;
+        pos.verticalExtent = 1080;
         pos.verticalFov = 90;
     }
 
