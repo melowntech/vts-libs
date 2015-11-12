@@ -33,11 +33,6 @@ struct SubMesh {
      */
     math::Points2d etc;
 
-    /** Per-vertex undulation (empty if none, otherwise must have the same size
-     *  as vertices).
-     */
-    std::vector<double> vertexUndulation;
-
     /** Indices to face vertices.
      */
     Faces faces;
@@ -59,7 +54,6 @@ struct Mesh {
     typedef std::shared_ptr<Mesh> pointer;
     typedef imgproc::quadtree::RasterMask CoverageMask;
 
-    double meanUndulation;
     SubMesh::list submeshes;
     CoverageMask coverageMask;
 
@@ -70,8 +64,7 @@ struct Mesh {
     static constexpr unsigned int meshIndex() { return 0; }
 
     Mesh()
-        : meanUndulation()
-        , coverageMask(coverageSize(), CoverageMask::InitMode::FULL)
+        : coverageMask(coverageSize(), CoverageMask::InitMode::FULL)
     {}
 
     typedef SubMesh::list::iterator iterator;

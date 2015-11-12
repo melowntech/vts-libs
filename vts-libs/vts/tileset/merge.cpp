@@ -519,10 +519,6 @@ private:
             if (!original_.etc.empty()) {
                 mesh_.etc.push_back(original_.etc[i]);
             }
-            if (!original_.vertexUndulation.empty()) {
-                mesh_.vertexUndulation.push_back
-                    (original_.vertexUndulation[i]);
-            }
 
             // coverage vertices (if needed)
             coverageVertices_.push_back(originalCoverage_[i]);
@@ -566,18 +562,11 @@ public:
         : geoTrafo_(input.coverage2Sd(nodeInfo))
         , geoConv_(nodeInfo.node.srs
                    , nodeInfo.referenceFrame->model.physicalSrs)
-        , undulator_(nodeInfo.referenceFrame->model.physicalSrs
-                     , nodeInfo.referenceFrame->model.publicSrs)
     {}
 
     virtual math::Point3d vertex(const math::Point3d &v) const {
         // point is in node SD SRS
         return geoConv_(transform(geoTrafo_, v));
-    }
-
-    virtual double undulation(const math::Point3d &v) const {
-        // point is in physical SRS
-        return undulator_.undulation(v);
     }
 
     virtual math::Point2d etc(const math::Point3d &v) const {
@@ -599,11 +588,6 @@ private:
     /** Convertor between node's SD SRS and reference frame's physical SRS.
      */
     CsConvertor geoConv_;
-
-    /** Convertor between reference frame's physical SRS and reference frame's
-     *  public SRS, used to calculate undulation only.
-     */
-    CsConvertor undulator_;
 };
 
 Output singleSourced(const TileId &tileId, const Input &input)

@@ -369,15 +369,6 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor &convertor)
                     }
                 }
 
-                if (!original.vertexUndulation.empty() && !newPoint) {
-                    // copy undulation for exiting point
-                    mesh.vertexUndulation.push_back
-                        (original.vertexUndulation[i]);
-                } else {
-                    // generate undulation
-                    mesh.vertexUndulation.push_back(convertor.undulation(v));
-                }
-
                 // remember projected vertex
                 emesh.projected.push_back(v);
             }

@@ -41,15 +41,6 @@ public:
      */
     math::Point3 operator()(const math::Point3 &p) const;
 
-    /** Calculates undulation in TO SRS, i.e. the difference between
-     *  un-vertical-adjusted vertical component in TO SRS and
-     *  un-vertical-adjusted vertical component in TO ellipsoidal SRS.
-     *
-     * \param p point in FROM-SRS
-     * \return undulation in TO-SRS
-     */
-    double undulation(const math::Point3 &p) const;
-
 private:
     /** Initialization helper.
      */
@@ -66,11 +57,6 @@ private:
     /** Convertor between source and destination SRS's.
      */
     boost::optional<geo::CsConvertor> conv_;
-
-    /** Convertor between source SRS and destination ellipsoidal SRS (if
-     *  defined)
-     */
-    boost::optional<geo::CsConvertor> convEllps_;
 
     /** Vertical un/adjuster in source SRS.
      */

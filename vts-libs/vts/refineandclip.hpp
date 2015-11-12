@@ -23,10 +23,6 @@ struct MeshVertexConvertor {
      */
     virtual math::Point3d vertex(const math::Point3d &v) const = 0;
 
-    /** Get physical vertex undulation.
-     */
-    virtual double undulation(const math::Point3d &v) const = 0;
-
     /** Convert vertex from projected space to external texture coordinates.
      */
     virtual math::Point2d etc(const math::Point3d &v) const = 0;

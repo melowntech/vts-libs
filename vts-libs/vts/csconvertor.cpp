@@ -31,9 +31,6 @@ void CsConvertor::init()
         dstAdjuster_ = geo::VerticalAdjuster(srsTo_->srsDef);
     }
 
-    if (srsTo_->srsDefEllps)  {
-        convEllps_ = boost::in_place(srsFrom_->srsDef, *srsTo_->srsDefEllps);
-    }
 }
 
 CsConvertor CsConvertor::inverse() const
@@ -48,25 +45,6 @@ math::Point3 CsConvertor::operator()(const math::Point3 &p) const
 
     // un-vert-adjusts -> converts -> vert-adjusts
     return dstAdjuster_((*conv_)(srcAdjuster_(p, true)));
-}
-
-double CsConvertor::undulation(const math::Point3 &p) const
-{
-    // no ellipsiodal SRS -> no undulation
-    if (!convEllps_) { return .0; }
-
-    // unudjust point (if applicable)
-    const auto up(srcAdjuster_(p, true));
-
-    // convert point to orthometric SRS (no-op if same as this one) and get
-    // Z-component
-    const auto zo(conv_ ? (*conv_)(up)(2) : up(2));
-
-    // convert point to ellipsoidal SRS and get Z-component
-    const auto ze((*convEllps_)(up)(2));
-
-    // return difference
-    return zo - ze;
 }
 
 } } // namespace vadstena::vts

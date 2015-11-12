@@ -27,7 +27,7 @@ namespace {
     struct SubMeshFlag { enum : std::uint8_t {
         internalTexture = 0x1
         , externalTexture = 0x2
-        , perVertexUndulation = 0x4
+        /*, reserved = 0x4 */
         , referencesExternalTexture = 0x8
     }; };
 } // namespace
@@ -118,7 +118,10 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
     // write header
     bin::write(out, MAGIC);
     bin::write(out, VERSION);
-    bin::write(out, mesh.meanUndulation);
+
+    // no mean undulation
+    bin::write(out, double(0.0));
+
     bin::write(out, std::uint16_t(mesh.submeshes.size()));
 
     // write submeshes
@@ -133,9 +136,6 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
         }
         if (!sm.etc.empty()) {
             flags |= SubMeshFlag::externalTexture;
-        }
-        if (!sm.vertexUndulation.empty()) {
-            flags |= SubMeshFlag::perVertexUndulation;
         }
         if (sm.textureLayer) {
             flags |= SubMeshFlag::referencesExternalTexture;
@@ -162,7 +162,6 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
         bin::write(out, std::uint16_t(sm.vertices.size()));
 
         auto ietc(sm.etc.begin());
-        auto ivertexUndulation(sm.vertexUndulation.begin());
         for (const auto &vertex : sm.vertices) {
             saveVertexComponent(vertex(0), bbox.ll(0), bbsize(0));
             saveVertexComponent(vertex(1), bbox.ll(1), bbsize(1));
@@ -172,11 +171,6 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
                 saveTexCoord((*ietc)(0));
                 saveTexCoord((*ietc)(1));
                 ++ietc;
-            }
-
-            if (flags & SubMeshFlag::perVertexUndulation) {
-                bin::write(out, half::float2half<std::round_to_nearest>
-                           (*ivertexUndulation++));
             }
         }
 
@@ -268,7 +262,9 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
             << " has unsupported version (" << version << ").";
     }
 
-    bin::read(in, mesh.meanUndulation);
+    // ignore mean undulation
+    double reserved;
+    bin::read(in, reserved);
 
     std::uint16_t subMeshCount;
     bin::read(in, subMeshCount);
@@ -308,13 +304,8 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
             sm.etc.resize(vertexCount);
         }
 
-        if (flags & SubMeshFlag::perVertexUndulation) {
-            sm.vertexUndulation.resize(vertexCount);
-        }
-
         // load all vertex components
         auto ietc(sm.etc.begin());
-        auto ivertexUndulation(sm.vertexUndulation.begin());
         for (auto &vertex : sm.vertices) {
             vertex(0) = loadVertexComponent(bbox.ll(0), bbsize(0));
             vertex(1) = loadVertexComponent(bbox.ll(1), bbsize(1));
@@ -324,12 +315,6 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
                 (*ietc)(0) = loadTexCoord();
                 (*ietc)(1) = loadTexCoord();
                 ++ietc;
-            }
-
-            if (flags & SubMeshFlag::perVertexUndulation) {
-                std::uint16_t v;
-                bin::read(in, v);
-                *ivertexUndulation++ = half::half2float(v);
             }
         }
 
