@@ -895,8 +895,14 @@ storage::Resources TileSet::resources() const
     return detail().driver->resources();
 }
 
-std::time_t TileSet::lastModified() const {
+std::time_t TileSet::lastModified() const
+{
     return detail().driver->lastModified();
+}
+
+bool TileSet::Detail::fullyCovered(const TileId &tileId) const
+{
+    return (tileIndex.get(tileId) & TileIndex::Flag::watertight);
 }
 
 } } // namespace vadstena::vts

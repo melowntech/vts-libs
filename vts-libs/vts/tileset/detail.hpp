@@ -168,6 +168,8 @@ struct TileSet::Detail
     const Detail& other(const TileSet &otherSet) const {
         return otherSet.detail();
     }
+
+    bool fullyCovered(const TileId &tileId) const;
 };
 
 inline void TileSet::Detail::checkValidity() const {

@@ -83,7 +83,9 @@ public:
     Merger(TileSet::Detail &self, const TileIndex &generate
            , const TileSet::const_ptrlist &src)
         : self(self), world(generate), generate(generate)
-        , src(src), progress(generate.count())
+        , src(src), top(self.other(*src.back()))
+        , topId(src.size() - 1)
+        , progress(generate.count())
     {
         // make world complete
         world.complete();
@@ -110,19 +112,42 @@ private:
                                , const TileId &tileId
                                , const merge::Input::list &parentSource);
 
+    bool isGlueTile(const merge::Output &tile) const;
 
     TileSet::Detail &self;
     TileIndex world;
     const TileIndex &generate;
     const TileSet::const_ptrlist &src;
+    const TileSet::Detail &top;
+    const merge::Input::Id topId;
 
     utility::Progress progress;
 };
+
+inline bool Merger::isGlueTile(const merge::Output &tile) const
+{
+    // tile that is fully covered by top set -> not a glue tile
+    if (top.fullyCovered(tile.tileId)) { return false; }
+
+    for (const auto &source : tile.source) {
+        if (source.tileId().lod != tile.tileId.lod) {
+            // fallback used -> glue tile
+            return true;
+        }
+
+        if (source.id() == topId) {
+            // tile generated from top set -> glue tile
+            return true;
+        }
+    }
+    return false;
+}
 
 void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
                        , const merge::Input::list &parentSource
                        , bool parentGenerated)
 {
+    (void) parentGenerated;
     if (!world.exists(tileId)) {
         // no data below
         return;
@@ -134,38 +159,14 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     if (g) {
         LOG(info2) << "(glue) Processing tile " << tileId << ".";
 
-        bool thisGenerated(false);
+        // regular generation: generate tile and remember its sources (used
+        // in children generation)
+        auto tile(generateTile(nodeInfo, tileId, parentSource));
+        source = tile.source;
 
-        if (!parentGenerated) {
-            // if (auto t = self.getTile(self.parent(tileId), std::nothrow)) {
-            //     // no parent was generated and we have sucessfully loaded parent
-            //     // tile from existing content as a fallback tile!
-
-            //     // TODO: since this is merge result its information can be
-            //     // outdated
-            //     MergeInput::list loadedParentTiles;
-            //     loadedParentTiles.push_back
-            //         (MergeInput(t.get(), nullptr, tileId));
-
-            //     quadrant = child(tileId);
-            //     tile = generateTile(tileId, loadedParentTiles
-            //                         , incidentTiles, quadrant);
-            //     thisGenerated = true;
-            // }
-        }
-
-        if (!thisGenerated) {
-            // regular generation: generate tile and remember its sources (used
-            // in children generation)
-            auto tile(generateTile(nodeInfo, tileId, parentSource));
-            source = tile.source;
-
-            if (tile) {
-                if (tileId.lod == 21) {
-                self.setTile(tileId, tile.getMesh(), tile.getAtlas()
-                             , tile.getNavtile());
-                }
-            }
+        if (tile && isGlueTile(tile)) {
+            self.setTile(tileId, tile.getMesh(), tile.getAtlas()
+                         , tile.getNavtile());
         }
 
         (++progress).report(utility::Progress::ratio_t(5, 1000), "(glue) ");
@@ -199,12 +200,7 @@ merge::Output Merger::generateTile(const NodeInfo &nodeInfo
         }
     }
 
-    auto tile(merge::mergeTile(tileId, nodeInfo, input, parentSource));
-
-    // TODO: analyze tile and store if it is proper glue tile
-
-    // done
-    return tile;
+    return merge::mergeTile(tileId, nodeInfo, input, parentSource);
 }
 
 } // namespace

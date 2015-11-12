@@ -593,7 +593,7 @@ private:
 Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
                      , CsConvertor phys2sd, const Input &input)
 {
-    Output result;
+    Output result(tileId);
     if (input.tileId().lod == tileId.lod) {
         // as is -> copy
         result.mesh = input.mesh();
@@ -652,7 +652,7 @@ Output mergeTile(const TileId &tileId
     // presence
 
     // merge result
-    Output result;
+    Output result(tileId);
 
     if (source.empty()) { return result; }
 

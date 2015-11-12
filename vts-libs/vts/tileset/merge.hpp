@@ -100,6 +100,8 @@ private:
 /** Merge output.
  */
 struct Output {
+    TileId tileId;
+
     MetaNode node;
     boost::optional<Mesh> mesh;
     boost::optional<RawAtlas> atlas;
@@ -107,6 +109,8 @@ struct Output {
 
     // list of tiles this tile was generated from
     Input::list source;
+
+    explicit Output(const TileId &tileId) : tileId(tileId) {}
 
     operator bool() const {
         return mesh || atlas || navtile;
