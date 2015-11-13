@@ -19,7 +19,7 @@
 #include <boost/range/adaptor/reversed.hpp>
 
 #include "utility/streams.hpp"
-#include "utility/guarded-call.hpp"
+#include "utility/openmp.hpp"
 
 #include "../../storage/error.hpp"
 #include "../storage.hpp"
@@ -27,6 +27,7 @@
 #include "./detail.hpp"
 #include "../tileset/detail.hpp"
 #include "../encoder.hpp"
+#include "../io.hpp"
 
 #include "./config.hpp"
 #include "./paths.hpp"
@@ -702,15 +703,21 @@ private:
 Encoder::TileResult
 Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo)
 {
-    (void) tileId;
     (void) nodeInfo;
-
     for (const auto &ts : boost::adaptors::reverse(tilesets_)) {
         if (!ts.exists(tileId)) {
             continue;
         }
 
-        // get tile here
+        LOG(info4) << "Tile " << tileId << " exists in set " << ts.id() << ".";
+
+        TileResult result;
+        UTILITY_OMP(critical)
+        {
+            // this must be inside critical section
+            result.source() = ts.getTileSource(tileId);
+        }
+        return result;
     }
 
     return {};

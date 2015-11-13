@@ -188,9 +188,13 @@ struct TileSet::Factory
                          , dd.output(tid, storage::TileFile::meta));
             }
 
+#if 0
+            // NB: this unsupported so far: we have to change index and metanode
             if ((mask & TileIndex::Flag::navtile)
                 && (cloneOptions.allowDanglingNavtiles()
                     || (mask & TileIndex::Flag::mesh)))
+#endif
+            if (mask & TileIndex::Flag::navtile)
             {
                 // copy navtile if allowed
                 copyFile(sd.input(tid, storage::TileFile::navtile)
@@ -710,14 +714,17 @@ TileSource TileSet::Detail::getTileSource(const TileId &tileId) const
     TileSource tile(*node, fullyCovered(tileId));
 
     if (node->geometry()) {
+        LOG(info4) << "geometry";
         tile.mesh = driver->input(tileId, TileFile::mesh);
     }
 
     if (node->internalTexture()) {
+        LOG(info4) << "atlas";
         tile.atlas = driver->input(tileId, TileFile::atlas);
     }
 
     if (node->navtile()) {
+        LOG(info4) << "navtile";
         tile.navtile = driver->input(tileId, TileFile::navtile);
     }
 
