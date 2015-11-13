@@ -78,14 +78,25 @@ inline void dump(const char *root, const boost::filesystem::path &dir
     }
 }
 
+typedef std::vector<const TileSet::Detail*> DetailList;
+
+DetailList details(TileSet::Detail &detail
+                   , const TileSet::const_ptrlist &sets)
+{
+    DetailList out;
+    for (const auto *set : sets) {
+        out.push_back(&detail.other(*set));
+    }
+    return out;
+}
+
 struct Merger {
 public:
     Merger(TileSet::Detail &self, const TileIndex &generate
-           , const TileSet::const_ptrlist &src)
+           , const TileSet::const_ptrlist &srcSets)
         : self(self), world(generate), generate(generate)
-        , src(src), top(self.other(*src.back()))
-        , topId(src.size() - 1)
-        , progress(generate.count())
+        , src(details(self, srcSets)), top(*src.back())
+        , topId(src.size() - 1), progress(generate.count())
     {
         // make world complete
         world.complete();
@@ -94,7 +105,6 @@ public:
     void operator()() {
         mergeTile(NodeInfo(self.referenceFrame));
     }
-
 
 private:
     /** Merge subtree starting at index.
@@ -117,7 +127,7 @@ private:
     TileSet::Detail &self;
     TileIndex world;
     const TileIndex &generate;
-    const TileSet::const_ptrlist &src;
+    const DetailList src;
     const TileSet::Detail &top;
     const merge::Input::Id topId;
 
@@ -126,6 +136,8 @@ private:
 
 inline bool Merger::isGlueTile(const merge::Output &tile) const
 {
+    // TODO: make better
+
     // tile that is fully covered by top set -> not a glue tile
     if (top.fullyCovered(tile.tileId)) { return false; }
 
@@ -194,8 +206,8 @@ merge::Output Merger::generateTile(const NodeInfo &nodeInfo
     merge::Input::list input;
     {
         merge::Input::Id id(0);
-        for (const auto &ts : src) {
-            merge::Input t(id++, self.other(*ts), tileId, nodeInfo);
+        for (const auto *ts : src) {
+            merge::Input t(id++, *ts, tileId, nodeInfo);
             if (t) { input.push_back(t); }
         }
     }

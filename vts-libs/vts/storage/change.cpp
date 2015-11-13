@@ -26,6 +26,7 @@
 #include "../../vts.hpp"
 #include "./detail.hpp"
 #include "../tileset/detail.hpp"
+#include "../encoder.hpp"
 
 #include "./config.hpp"
 #include "./paths.hpp"
@@ -46,6 +47,16 @@ void Storage::add(const boost::filesystem::path &tilesetPath
 void Storage::remove(const TilesetIdList &tilesetIds)
 {
     detail().remove(tilesetIds);
+}
+
+TileSet Storage::flatten(const boost::filesystem::path &tilesetPath
+                         , CreateMode mode
+                         , const boost::optional<std::string> tilesetId)
+{
+    return detail()
+        .flatten(tilesetPath, mode
+                 , (tilesetId ? *tilesetId
+                    : tilesetPath.filename().string()));
 }
 
 namespace {
@@ -196,6 +207,16 @@ openTilesets(Tx &tx, const TilesetIdList &ids, TileSet &tileset)
     return res;
 }
 
+TileSets openTilesets(Tx &tx, const TilesetIdList &ids)
+{
+    TileSets tilesets;
+    for (const auto &id : ids) {
+        tilesets.push_back(tx.open(id));
+        LOG(info2) << "Opened <" << tilesets.back().id() << ">.";
+    }
+    return tilesets;
+}
+
 LodRange range(const TileSets &tilesets)
 {
     auto lr(LodRange::emptyRange());
@@ -203,6 +224,21 @@ LodRange range(const TileSets &tilesets)
         lr = unite(lr, ts.lodRange());
     }
     return lr;
+}
+
+TileIndex sphereOfInfluence(Lod depth, const TileSets &tilesets)
+{
+    LodRange lr(0, depth);
+    TileIndex res;
+    for (const auto &ts : tilesets) {
+        // dumpAsImages(str(boost::format("./dump/x/ti/%s") % ts.id())
+        //              , ts.tileIndex(), TileIndex::Flag::mesh);
+        auto soi(ts.sphereOfInfluence(lr, TileIndex::Flag::mesh));
+        // dumpAsImages(str(boost::format("./dump/x/soi/%s") % ts.id()), soi);
+        res = unite(res, soi, TileIndex::Flag::any, lr);
+    }
+
+    return res;
 }
 
 struct Ts {
@@ -321,7 +357,7 @@ createGlues(Tx &tx, Storage::Properties properties
     // accumulate lod range for all tilesets
     auto lr(range(std::get<0>(tsets)));
 
-    LOG(info4) << lr;
+    LOG(info1) << "Glue lod range: " << lr;
 
     // create tileset list
     Ts::list tilesets;
@@ -594,11 +630,6 @@ void Storage::Detail::add(const TileSet &tileset
         tx.commit();
     }
 
-    // FIXME: remove
-    if (::getenv("ABORT")) {
-        exit(-1);
-    }
-
     // commit properties
     properties = nProperties;
     saveConfig();
@@ -633,6 +664,73 @@ void Storage::Detail::remove(const TilesetIdList &tilesetIds)
         LOG(info3) << "Removing glue " << glue.path << ".";
         rmrf(path);
     }
+}
+
+namespace {
+
+class Flattener : public Encoder {
+public:
+    Flattener(Tx &tx, const Storage::Properties &properties
+              , const boost::filesystem::path &path
+              , const TileSetProperties &tsProps
+              , CreateMode mode)
+        : Encoder(path, tsProps, mode), tx_(tx)
+        , properties_(properties)
+        , tilesets_(openTilesets(tx, properties.tilesets))
+        , dataLodRange_(range(tilesets_))
+        , soi_(sphereOfInfluence(dataLodRange_.max, tilesets_))
+    {
+        // limit lodRange
+        setConstraints(Constraints()
+                       .setLodRange(dataLodRange_)
+                       .setValidTree(&soi_));
+    }
+
+private:
+    virtual TileResult
+    generate(const TileId &tileId, const NodeInfo &nodeInfo);
+
+    virtual void finish(TileSet &tileSet);
+
+    Tx &tx_;
+    const Storage::Properties properties_;
+    TileSets tilesets_;
+    const LodRange dataLodRange_;
+    const TileIndex soi_;
+};
+
+Encoder::TileResult
+Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo)
+{
+    (void) tileId;
+    (void) nodeInfo;
+
+    for (const auto &ts : boost::adaptors::reverse(tilesets_)) {
+        (void) ts;
+    }
+
+    return {};
+}
+
+void Flattener::finish(TileSet &tileSet)
+{
+    (void) tileSet;
+}
+
+} // namespace
+
+TileSet Storage::Detail::flatten(const boost::filesystem::path &tilesetPath
+                                 , CreateMode mode
+                                 , const std::string &tilesetId)
+{
+    TileSetProperties tsProp;
+    tsProp.id = tilesetId;
+    tsProp.referenceFrame = properties.referenceFrame;
+
+    Tx tx(root);
+    Flattener flattener(tx, properties, tilesetPath, tsProp, mode);
+
+    return flattener.run();
 }
 
 } } // namespace vadstena::vts

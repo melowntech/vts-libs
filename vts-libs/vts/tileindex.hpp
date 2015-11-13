@@ -36,7 +36,7 @@ public:
 
     template <typename Filter>
     TileIndex(LodRange lodRange, const TileIndex &other
-              , const Filter &filter);
+              , const Filter &filter, bool fullRange = true);
 
     TileIndex(const TileIndex &other);
 
@@ -208,6 +208,7 @@ inline Lod TileIndex::maxLod() const
 
 inline LodRange TileIndex::lodRange() const
 {
+    if (empty()) { return LodRange::emptyRange(); }
     return { minLod_, maxLod() };
 }
 
@@ -273,10 +274,9 @@ void TileIndex::fill(const TileIndex &other, const Op &op)
 
 template <typename Filter>
 inline TileIndex::TileIndex(LodRange lodRange, const TileIndex &other
-                            , const Filter &filter)
+                            , const Filter &filter, bool fullRange)
 {
-    // include old definition if non-empty
-    if (other.empty()) {
+    if (fullRange) {
         // something present in on-disk data
         lodRange = unite(lodRange, other.lodRange());
     }

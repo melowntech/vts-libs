@@ -75,6 +75,17 @@ public:
      */
     void remove(const TilesetIdList &tilesetIds);
 
+    /** Flattens content of this storage into new tileset at tilesetPath.
+     *
+     * \param tilesetPath path to tileset
+     * \param mode create mode of new tileset
+     * \param tilesetId ID of new tileset (defaults to filename of path)
+     */
+    TileSet flatten(const boost::filesystem::path &tilesetPath
+                    , CreateMode mode
+                    , const boost::optional<std::string> tilesetId
+                    = boost::none);
+
     /** Returns list of tileses in the stacked order (bottom to top);
      */
     TilesetIdList tilesets() const;

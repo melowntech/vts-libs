@@ -27,6 +27,7 @@ void dump(const QTree &tree, const fs::path &path
                          , QTree::value_type value)
     {
         if (!(filter(value))) { return; }
+
         cv::Point2i start(int(std::floor(pixelSize * x))
                           , int(std::floor(pixelSize * y)));
         cv::Point2i end

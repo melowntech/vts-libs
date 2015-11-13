@@ -108,7 +108,7 @@ void TileSet::drop()
 
 LodRange TileSet::lodRange() const
 {
-    return detail().tileIndex.lodRange();
+    return detail().properties.lodRange;
 }
 
 struct TileSet::Factory
@@ -866,7 +866,7 @@ TileIndex TileSet::sphereOfInfluence(const LodRange &range
                                      , TileIndex::Flag::value_type type)
     const
 {
-    const auto lr(range.empty() ? lodRange() : range);
+    const auto lr(range.empty() ? detail().tileIndex.lodRange() : range);
     return detail().tileIndex.grow(lr, type);
 }
 

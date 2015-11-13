@@ -49,7 +49,7 @@ struct Encoder::Detail {
                       (referenceFrame.model.physicalSrs))
     {}
 
-    void run()
+    TileSet run()
     {
         UTILITY_OMP(parallel)
         UTILITY_OMP(single)
@@ -62,6 +62,9 @@ struct Encoder::Detail {
 
         // flush result
         tileSet.flush();
+
+        // done
+        return tileSet;
     }
 
     typedef registry::ReferenceFrame::Division::Node Node;
@@ -92,6 +95,11 @@ void Encoder::Detail::process(const TileId &tileId
 
         const std::string old;
     };
+
+    if (constraints.validTree && !constraints.validTree->get(tileId)) {
+        // tile not in valid tree -> stop
+        return;
+    }
 
     bool processTile(true);
 
@@ -190,9 +198,9 @@ void Encoder::setConstraints(const Constraints &constraints)
     detail_->constraints = constraints;
 }
 
-void Encoder::run()
+TileSet Encoder::run()
 {
-    detail_->run();
+    return detail_->run();
 }
 
 } } // namespace vadstena::vts

@@ -97,6 +97,9 @@ struct Storage::Detail
 
     void remove(const TilesetIdList &tilesetIds);
 
+    TileSet flatten(const boost::filesystem::path &tilesetPath
+                    , CreateMode mode, const std::string &tilesetId);
+
     Properties addTileset(const Properties &properties
                           , const std::string tilesetId
                           , const Location &where) const;

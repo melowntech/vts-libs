@@ -137,12 +137,16 @@ private:
         template <typename FilterOp>
         void simplify(const FilterOp &filter);
 
+        /** Nodes that satisfy condition (filter(value) == 0) are set to 0.
+         */
+        template <typename FilterOp>
+        void filterOut(const FilterOp &filter);
+
         /** Merge nodes
          *  Uses type(filter) to determine node type.
          */
         template <typename FilterOp>
-        void merge(unsigned int mask, const Node &other
-                   , const FilterOp &filter);
+        void merge(const Node &other, const FilterOp &filter);
 
         /** Coarsen one level up.
          *  Uses type(op) to determine node type.
@@ -292,7 +296,7 @@ void QTree::Node::simplify(const FilterOp &filter)
 template <typename FilterOp>
 inline void QTree::merge(const QTree &other, const FilterOp &filter)
 {
-    root_.merge(size_, other.root_, filter);
+    root_.merge(other.root_, filter);
     recount();
 }
 
@@ -317,8 +321,26 @@ inline bool QTree::overlaps(const QTree &other, const FilterOp &filter) const
 }
 
 template <typename FilterOp>
-void QTree::Node::merge(unsigned int mask, const Node &other
-                        , const FilterOp &filter)
+void QTree::Node::filterOut(const FilterOp &filter)
+{
+    if (children) {
+        children->nodes[0].filterOut(filter);
+        children->nodes[1].filterOut(filter);
+        children->nodes[2].filterOut(filter);
+        children->nodes[3].filterOut(filter);
+
+        // contract if possible
+        contract();
+    }
+
+    // BLACK -> zero
+    if (!filter(value)) {
+        value = 0;
+    }
+}
+
+template <typename FilterOp>
+void QTree::Node::merge(const Node &other, const FilterOp &filter)
 {
     auto tt(type(filter));
     auto ot(other.type(filter));
@@ -339,15 +361,15 @@ void QTree::Node::merge(unsigned int mask, const Node &other
     if (tt == Type::black) {
         // merge(BLACK, GRAY) = GRAY
         *this = other;
+        filterOut(filter);
         return;
     }
 
     // merge(GRAY, GRAY) = go down
-    mask >>= 1;
-    children->nodes[0].merge(mask, other.children->nodes[0], filter);
-    children->nodes[1].merge(mask, other.children->nodes[1], filter);
-    children->nodes[2].merge(mask, other.children->nodes[2], filter);
-    children->nodes[3].merge(mask, other.children->nodes[3], filter);
+    children->nodes[0].merge(other.children->nodes[0], filter);
+    children->nodes[1].merge(other.children->nodes[1], filter);
+    children->nodes[2].merge(other.children->nodes[2], filter);
+    children->nodes[3].merge(other.children->nodes[3], filter);
 
     // contract if possible
     contract();

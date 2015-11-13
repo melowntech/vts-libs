@@ -29,7 +29,7 @@ public:
      *  noData).  Constraints are applied during traversal to filter out tiles
      *  that doesn't need to or cannot be generated.
      */
-    void run();
+    TileSet run();
 
     /** Tree traversal algorithm constraints. See bellow.
      */
@@ -118,11 +118,19 @@ struct Encoder::Constraints {
      */
     bool useExtentsForFirstHit;
 
+    /** Index with tree to descend, combined with all other constrains if
+     *  nonnull.
+     *  NB: this must be complete tree from the root!
+     */
+    const TileIndex *validTree;
+
     Constraints& setLodRange(const boost::optional<LodRange> &value);
 
     Constraints& setExtents(const boost::optional<math::Extents2> &value);
 
-    Constraints() : useExtentsForFirstHit(true) {}
+    Constraints& setValidTree(const TileIndex *value);
+
+    Constraints() : useExtentsForFirstHit(true), validTree(nullptr) {}
 };
 
 inline Encoder::Constraints&
@@ -136,6 +144,13 @@ inline Encoder::Constraints&
 Encoder::Constraints::setExtents(const boost::optional<math::Extents2> &value)
 {
     extents = value;
+    return *this;
+}
+
+inline Encoder::Constraints&
+Encoder::Constraints::setValidTree(const TileIndex *value)
+{
+    validTree = value;
     return *this;
 }
 
