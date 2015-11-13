@@ -32,6 +32,7 @@
 #include "./tileset/properties.hpp"
 #include "./mapconfig.hpp"
 #include "./tileindex.hpp"
+#include "./tilesource.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -75,11 +76,30 @@ public:
     void setTile(const TileId &tileId, const Tile &tile
                  , const NodeInfo &nodeInfo);
 
+    /** Set tile content.
+     *  \param tileId tile identifier
+     *  \param tile tile content source
+     */
+    void setTile(const TileId &tileId, const TileSource &tile);
+
+    /** Set tile content.
+     *
+     * Supplied nodeInfo must be correct!
+     *
+     *  \param tileId tile identifier
+     *  \param tile tile content source
+     *  \param nodeInfo information about node
+     */
+    void setTile(const TileId &tileId, const TileSource &tile
+                 , const NodeInfo &nodeInfo);
+
     void getNavTile(const TileId &tileId, NavTile &navtile) const;
 
     MetaNode getMetaNode(const TileId &tileId) const;
 
     MetaTile getMetaTile(const TileId &metaId) const;
+
+    TileSource getTileSource(const TileId &tileId) const;
 
     bool exists(const TileId &tileId) const;
 

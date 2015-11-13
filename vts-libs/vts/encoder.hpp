@@ -50,18 +50,51 @@ public:
 
             /** Valid tile data.
              */
-            , data
-        };
+            , tile
+
+            /** Valid tile source.
+             */
+            , source
+       };
+
+        TileResult(Result result = Result::noData) : result_(result) {}
+
+        /** Generated tile. Throws if source has been called before.
+         */
+        Tile& tile();
+
+        /** Generated tile source. result==Result::data. Throws if tile has
+         * been called before.
+         */
+        TileSource& source();
+
+        /** Generated tile.
+         */
+        const Tile& tile() const;
+
+        /** Generated tile source.
+         */
+        const TileSource& source() const;
+
+        /** Switches to no-data-yet state.
+         */
+        TileResult noDataYet() { result_ = Result::noDataYet; return *this; }
+
+        /** Switches to no-data state.
+         */
+        TileResult noData() { result_ = Result::noData; return *this; }
+
+        Result result() const { return result_; }
+
+    private:
+        void fail(const char *what) const;
 
         /** Result of generate() operation.
          */
-        Result result;
+        Result result_;
 
-        /** Tile data. Valid only when (result == data).
-         */
-        Tile tile;
-
-        TileResult(Result result = Result::noData) : result(result) {}
+        boost::optional<Tile> tile_;
+        boost::optional<TileSource> source_;
     };
 
 protected:
@@ -152,6 +185,40 @@ Encoder::Constraints::setValidTree(const TileIndex *value)
 {
     validTree = value;
     return *this;
+}
+
+inline const Tile& Encoder::TileResult::tile() const
+{
+    if (!tile_) { fail("no tile data"); }
+    return *tile_;
+}
+
+inline const TileSource& Encoder::TileResult::source() const
+{
+    if (!source_) { fail("no tile source"); }
+    return *source_;
+}
+
+inline Tile& Encoder::TileResult::tile()
+{
+    if (tile_) { return *tile_; }
+    if (source_) {
+        fail("cannot create tile data since there is already tile source");
+    }
+    tile_ = boost::in_place();
+    result_ = Result::tile;
+    return *tile_;
+}
+
+inline TileSource& Encoder::TileResult::source()
+{
+    if (source_) { return *source_; }
+    if (tile_) {
+        fail("cannot create tile source since there are already tile data");
+    }
+    source_ = boost::in_place();
+    result_ = Result::source;
+    return *source_;
 }
 
 } } // namespace vadstena::vts

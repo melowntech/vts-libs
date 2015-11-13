@@ -45,6 +45,11 @@ void TileSet::getNavTile(const TileId &tileId, NavTile &navtile) const
     detail().getNavTile(tileId, navtile);
 }
 
+TileSource TileSet::getTileSource(const TileId &tileId) const
+{
+    return detail().getTileSource(tileId);
+}
+
 void TileSet::setTile(const TileId &tileId, const Tile &tile)
 {
     detail().setTile(tileId, tile.mesh.get(), tile.atlas.get()
@@ -56,6 +61,17 @@ void TileSet::setTile(const TileId &tileId, const Tile &tile
 {
     detail().setTile(tileId, tile.mesh.get(), tile.atlas.get()
                      , tile.navtile.get(), &nodeInfo);
+}
+
+void TileSet::setTile(const TileId &tileId, const TileSource &tile)
+{
+    detail().setTile(tileId, tile);
+}
+
+void TileSet::setTile(const TileId &tileId, const TileSource &tile
+                      , const NodeInfo &nodeInfo)
+{
+    detail().setTile(tileId, tile, &nodeInfo);
 }
 
 MetaNode TileSet::getMetaNode(const TileId &tileId) const
@@ -591,6 +607,31 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
            , (nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId)));
 }
 
+void TileSet::Detail::setTile(const TileId &tileId, const TileSource &tile
+                              , const NodeInfo *nodeInfo)
+{
+
+    // store node
+    updateNode(tileId, tile.metanode, tile.watertight);
+
+    // copy data
+    if (tile.mesh) {
+        copyFile(tile.mesh, driver->output(tileId, TileFile::mesh));
+    }
+
+    if (tile.atlas) {
+        copyFile(tile.atlas, driver->output(tileId, TileFile::atlas));
+    }
+
+    if (tile.navtile) {
+        copyFile(tile.navtile, driver->output(tileId, TileFile::navtile));
+    }
+
+    // update properties with node info (computed or generated)
+    update(properties
+           , (nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId)));
+}
+
 Mesh TileSet::Detail::getMesh(const TileId &tileId, const MetaNode *node)
     const
 {
@@ -655,6 +696,32 @@ void TileSet::Detail::getNavTile(const TileId &tileId, NavTile &navtile
 void TileSet::Detail::getNavTile(const TileId &tileId, NavTile &navtile) const
 {
     return getNavTile(tileId, navtile, findMetaNode(tileId));
+}
+
+TileSource TileSet::Detail::getTileSource(const TileId &tileId) const
+{
+    const auto *node(findMetaNode(tileId));
+
+    if (!node) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "There is no tile at " << tileId << ".";
+    }
+
+    TileSource tile(*node, fullyCovered(tileId));
+
+    if (node->geometry()) {
+        tile.mesh = driver->input(tileId, TileFile::mesh);
+    }
+
+    if (node->internalTexture()) {
+        tile.atlas = driver->input(tileId, TileFile::atlas);
+    }
+
+    if (node->navtile()) {
+        tile.navtile = driver->input(tileId, TileFile::navtile);
+    }
+
+    return tile;
 }
 
 bool TileSet::Detail::exists(const TileId &tileId) const

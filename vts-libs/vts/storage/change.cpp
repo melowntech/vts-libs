@@ -706,7 +706,11 @@ Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo)
     (void) nodeInfo;
 
     for (const auto &ts : boost::adaptors::reverse(tilesets_)) {
-        (void) ts;
+        if (!ts.exists(tileId)) {
+            continue;
+        }
+
+        // get tile here
     }
 
     return {};

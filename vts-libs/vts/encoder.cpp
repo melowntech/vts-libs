@@ -39,6 +39,12 @@ namespace {
     };
 } // namespace
 
+void Encoder::TileResult::fail(const char *what) const
+{
+    LOGTHROW(err1, std::runtime_error)
+        << "Encoder: " << what << ".";
+}
+
 struct Encoder::Detail {
     Detail(Encoder *owner, const boost::filesystem::path &path
            , const TileSetProperties &properties, CreateMode mode)
@@ -116,8 +122,7 @@ void Encoder::Detail::process(const TileId &tileId
         }
     }
 
-    TIDGuard tg(str(boost::format("tile:%d-%d-%d")
-                    % (unsigned int)(tileId.lod) % tileId.x % tileId.y));
+    TIDGuard tg(str(boost::format("tile:%s") % tileId));
 
     const auto &extents(nodeInfo.node.extents);
     if (useConstraints & ConstraintsFlag::useExtents) {
@@ -133,21 +138,30 @@ void Encoder::Detail::process(const TileId &tileId
             << "Trying to generate " << tileId << " (extents: "
             << std::fixed << extents << ").";
 
-        auto tile(owner->generate(tileId, nodeInfo));
-        switch (tile.result) {
-        case TileResult::Result::data:
+        const auto tile(owner->generate(tileId, nodeInfo));
+        switch (auto result = tile.result()) {
+        case TileResult::Result::tile:
+        case TileResult::Result::source:
+        {
             LOG(info3)
                 << "Generated " << tileId << " (extents: "
                 << std::fixed << extents << ").";
 
-            UTILITY_OMP(critical)
-            tileSet.setTile(tileId, tile.tile, nodeInfo);
+            bool hasMesh(false);
+            if (result == TileResult::Result::tile) {
+                UTILITY_OMP(critical)
+                tileSet.setTile(tileId, tile.tile(), nodeInfo);
+                hasMesh = bool(tile.tile().mesh);
+            } else {
+                // TODO: set tile from tile source
+                hasMesh = bool(tile.source().mesh);
+            }
 
             // we hit a tile with mesh -> do not apply extents constraints for
             // children if set
-            ConstraintsFlag::clearExtents
-                (useConstraints, bool(tile.tile.mesh));
+            ConstraintsFlag::clearExtents(useConstraints, hasMesh);
             break;
+        }
 
         case TileResult::Result::noDataYet:
             // fine, something could be down there

@@ -117,6 +117,9 @@ struct TileSet::Detail
                  , const Atlas *atlas, const NavTile *navtile
                  , const NodeInfo *nodeInfo = nullptr);
 
+    void setTile(const TileId &tileId, const TileSource &tile
+                 , const NodeInfo *nodeInfo = nullptr);
+
     std::uint8_t metaOrder() const;
     TileId metaId(TileId tileId) const;
     TileId originFromMetaId(TileId tileId) const;
@@ -147,6 +150,8 @@ struct TileSet::Detail
                   , const MetaNode *node) const;
     void getNavTile(const TileId &tileId, NavTile &navtile
                     , const MetaNode *node) const;
+
+    TileSource getTileSource(const TileId &metaId) const;
 
     void flush();
     void saveMetadata();
