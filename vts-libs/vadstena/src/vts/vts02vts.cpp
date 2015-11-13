@@ -626,8 +626,8 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo)
         }
 
         // OK, set navtile
-        vts::Encoder::TileResult result(TileResult::Result::data);
-        result.tile.navtile = fnavtiles->second;
+        vts::Encoder::TileResult result;
+        result.tile().navtile = fnavtiles->second;
         return result;
     }
 
@@ -643,8 +643,8 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo)
         atlasStream = aa_.input(vts0Id, vs::TileFile::atlas);
     }
 
-    vts::Encoder::TileResult result(TileResult::Result::data);
-    auto &tile(result.tile);
+    vts::Encoder::TileResult result;
+    auto &tile(result.tile());
 
     // use original atlas (file is piped)
     tile.atlas = std::make_shared<Atlas>(atlasStream);
