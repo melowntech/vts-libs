@@ -54,6 +54,10 @@ public:
 
     bool exists(const TileId &tileId) const { return get(tileId); }
 
+    bool real(const TileId &tileId) const {
+        return (get(tileId) & Flag::real);
+    }
+
     void fill(Lod lod, const TileIndex &other);
 
     void fill(const TileIndex &other);

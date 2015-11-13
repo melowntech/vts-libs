@@ -714,17 +714,14 @@ TileSource TileSet::Detail::getTileSource(const TileId &tileId) const
     TileSource tile(*node, fullyCovered(tileId));
 
     if (node->geometry()) {
-        LOG(info4) << "geometry";
         tile.mesh = driver->input(tileId, TileFile::mesh);
     }
 
     if (node->internalTexture()) {
-        LOG(info4) << "atlas";
         tile.atlas = driver->input(tileId, TileFile::atlas);
     }
 
     if (node->navtile()) {
-        LOG(info4) << "navtile";
         tile.navtile = driver->input(tileId, TileFile::navtile);
     }
 
@@ -734,7 +731,7 @@ TileSource TileSet::Detail::getTileSource(const TileId &tileId) const
 bool TileSet::Detail::exists(const TileId &tileId) const
 {
     // first try index
-    if (tileIndex.exists(tileId)) { return true; }
+    if (tileIndex.real(tileId)) { return true; }
 
     // then check for in-memory data
     return (tileNodes.find(tileId) != tileNodes.end());
