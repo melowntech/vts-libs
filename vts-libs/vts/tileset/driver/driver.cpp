@@ -177,6 +177,11 @@ bool Driver::externallyChanged() const
                                         (extraConfigPath_, std::nothrow)));
 }
 
+bool Driver::readOnly() const
+{
+    return cache_.readOnly();
+}
+
 void Driver::wannaWrite(const std::string &what) const
 {
     if (cache_.readOnly()) {

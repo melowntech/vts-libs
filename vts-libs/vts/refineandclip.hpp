@@ -31,7 +31,7 @@ struct MeshVertexConvertor {
      */
     virtual math::Point2d etc(const math::Point3d &v) const = 0;
 
-    /** Convert original extenral texture coordinates to proper texture
+    /** Convert original external texture coordinates to proper texture
      *  coordinates.
      */
     virtual math::Point2d etc(const math::Point2d &v) const = 0;

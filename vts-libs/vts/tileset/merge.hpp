@@ -67,6 +67,8 @@ public:
 
     const math::Matrix4 coverage2Sd(const NodeInfo &nodeInfo) const;
 
+    const math::Matrix4 coverage2Texture() const;
+
     /** Return owning tileset
      */
     const TileSet::Detail *owner() const { return owner_; }

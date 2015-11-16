@@ -82,6 +82,8 @@ public:
      */
     std::time_t lastModified() const { return lastModified_; }
 
+    bool readOnly() const;
+
 private:
     void checkRunning() const;
 

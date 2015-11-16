@@ -733,8 +733,8 @@ bool TileSet::Detail::exists(const TileId &tileId) const
     // first try index
     if (tileIndex.real(tileId)) { return true; }
 
-    // then check for in-memory data
-    return (tileNodes.find(tileId) != tileNodes.end());
+    // then check for in-memory data (only if in rw mode)
+    return (!readOnly && (tileNodes.find(tileId) != tileNodes.end()));
 }
 
 void TileSet::Detail::saveMetadata()

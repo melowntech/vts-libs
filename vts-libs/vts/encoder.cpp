@@ -151,9 +151,12 @@ void Encoder::Detail::process(const TileId &tileId
             if (result == TileResult::Result::tile) {
                 UTILITY_OMP(critical)
                 tileSet.setTile(tileId, tile.tile(), nodeInfo);
+
                 hasMesh = bool(tile.tile().mesh);
             } else {
-                // TODO: set tile from tile source
+                UTILITY_OMP(critical)
+                tileSet.setTile(tileId, tile.source(), nodeInfo);
+
                 hasMesh = bool(tile.source().mesh);
             }
 

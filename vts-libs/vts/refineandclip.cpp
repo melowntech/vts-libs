@@ -365,7 +365,7 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor &convertor)
                     mesh.vertices.push_back(vertices[i]);
 
                     if (generateEtc) {
-                        mesh.etc.push_back(v);
+                        mesh.etc.push_back(convertor.etc(v));
                     }
                 }
 

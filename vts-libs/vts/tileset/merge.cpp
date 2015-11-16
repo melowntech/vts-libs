@@ -24,7 +24,7 @@ namespace {
 
 /** Geo coordinates to coverage mask mapping.
  */
-inline math::Matrix4 geo2mask(const math::Extents2& extents
+inline math::Matrix4 geo2mask(const math::Extents2 &extents
                               , const math::Size2 &gridSize)
 {
     math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
@@ -48,7 +48,7 @@ inline math::Matrix4 geo2mask(const math::Extents2& extents
 
 /** Coverage mask mapping to geo coordinates.
  */
-inline math::Matrix4 mask2geo(const math::Extents2& extents
+inline math::Matrix4 mask2geo(const math::Extents2 &extents
                               , const math::Size2 &gridSize)
 {
     math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
@@ -66,6 +66,54 @@ inline math::Matrix4 mask2geo(const math::Extents2& extents
     // move to origin (half grid pixel right and down of origin)
     trafo(0, 3) = extents.ll(0) + 0.5 * scale.width;
     trafo(1, 3) = extents.ur(1) - 0.5 * scale.height;
+
+    return trafo;
+}
+
+/** Maps external texture coordinates from parent tile into subtile.
+ *  Relationship defined by tile id, parent is a root of the tree (i.e. tile id
+ *  0-0-0).
+ */
+inline math::Matrix4 etcNCTrafo(const TileId &id)
+{
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
+
+    // LOD=0 -> identity
+    if (!id.lod) { return trafo; }
+
+    double tileCount(1 << id.lod);
+
+    // number of tiles -> scale
+    trafo(0, 0) = tileCount;
+    trafo(1, 1) = tileCount;
+
+    // lower left point of extents in source tile:
+    // ll(0) = id.x / tileCount
+    // ll(1) = 1 - (id.y / tileCount)
+
+    // offset in new tile:
+    // o(0) = -scale * ll(0) = -tileCount * ll(0) = -id.x
+    // o(1) = -scale * ll(1) = -tileCount * ll(1) = -tileCount + id.y
+
+    trafo(0, 3) = -id.x;
+    trafo(1, 3) = id.y - tileCount;
+
+    return trafo;
+}
+
+/** Maps coverage coordinate into normalized external texture coordinates.
+ */
+inline math::Matrix4 coverage2EtcTrafo(const math::Size2 &gridSize)
+{
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
+
+    // scale to normalized range (0, 1)
+    trafo(0, 0) = 1.0 / gridSize.width;
+    trafo(1, 1) = -1.0 / gridSize.height;
+
+    // shift to proper orientation and cancel halfpixel offset
+    trafo(1, 3) = 0.5 / gridSize.width;
+    trafo(2, 3) = 1 - 0.5 / gridSize.height;
 
     return trafo;
 }
@@ -160,6 +208,11 @@ const math::Matrix4 Input::sd2Coverage(const NodeInfo &nodeInfo) const
 const math::Matrix4 Input::coverage2Sd(const NodeInfo &nodeInfo) const
 {
     return mask2geo(nodeInfo.node.extents, Mesh::coverageSize());
+}
+
+const math::Matrix4 Input::coverage2Texture() const
+{
+    return coverage2EtcTrafo(Mesh::coverageSize());
 }
 
 Mesh& Output::forceMesh() {
@@ -274,21 +327,6 @@ void rasterize(const Mesh &mesh, const cv::Scalar &color
     LOG(warn3)
         << "Cross SRS fallback merge is unsupported so far. "
         << "Skipping fallback tile.";
-}
-
-void clampMatPos(int &x, int &y, const cv::Mat &mat)
-{
-    if (x < 0) {
-        x = 0;
-    } else if (x >= mat.cols) {
-        x = mat.cols-1;
-    }
-
-    if (y < 0) {
-        y = 0;
-    } else if (y >= mat.rows) {
-        y = mat.rows-1;
-    }
 }
 
 struct Coverage {
@@ -558,10 +596,13 @@ void MeshFilter::addTo(Output &out, int scaling)
 
 class SdMeshConvertor : public MeshVertexConvertor {
 public:
-    SdMeshConvertor(const Input &input, const NodeInfo &nodeInfo)
+    SdMeshConvertor(const Input &input, const NodeInfo &nodeInfo
+                    , const TileId &tileId)
         : geoTrafo_(input.coverage2Sd(nodeInfo))
         , geoConv_(nodeInfo.node.srs
                    , nodeInfo.referenceFrame->model.physicalSrs)
+        , etcNCTrafo_(etcNCTrafo(tileId))
+        , coverage2Texture_(input.coverage2Texture())
     {}
 
     virtual math::Point3d vertex(const math::Point3d &v) const {
@@ -570,14 +611,14 @@ public:
     }
 
     virtual math::Point2d etc(const math::Point3d &v) const {
-        // TODO: implement me
-        return v;
+        // point is in projected space (i.e. in coverage raster)
+        return transform(coverage2Texture_, v);
     }
 
     virtual math::Point2d etc(const math::Point2d &v) const
     {
-        // TODO: implement me
-        return v;
+        // point is in the input's texture coordinates system
+        return transform(etcNCTrafo_, v);
     }
 
 private:
@@ -588,6 +629,16 @@ private:
     /** Convertor between node's SD SRS and reference frame's physical SRS.
      */
     CsConvertor geoConv_;
+
+    /** Converts external texture coordinates between fallback tile and current
+     *  tile.
+     */
+    math::Matrix4 etcNCTrafo_;
+
+    /** Converts between coverage coordinates and normalized external texture
+     *  cooridnates.
+     */
+    math::Matrix4 coverage2Texture_;
 };
 
 Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
@@ -608,7 +659,7 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
 
     const auto coverageVertices
         (inputCoverageVertices(input, nodeInfo, phys2sd));
-    SdMeshConvertor sdmc(input, nodeInfo);
+    SdMeshConvertor sdmc(input, nodeInfo, localId);
 
     auto &outMesh(result.forceMesh());
     std::size_t smIndex(0);
@@ -725,7 +776,7 @@ Output mergeTile(const TileId &tileId
             // mesh and process again
             auto refined
                 (refineAndClip(mf.result(), coverageExtents(1.), localId.lod
-                               , SdMeshConvertor(input, nodeInfo)));
+                               , SdMeshConvertor(input, nodeInfo, localId)));
 
             MeshFilter rmf(refined.mesh, m, refined.projected
                            , input, coverage);
