@@ -204,10 +204,11 @@ openTilesets(Tx &tx, const TilesetIdList &ids, TileSet &tileset)
         if (id == tileset.id()) {
             tilesets.push_back(tileset);
             std::get<1>(res) = index;
-            LOG(info2) << "Reused <" << tilesets.back().id() << ">.";
+            LOG(info2) << "Reused already open <"
+                       << tilesets.back().id() << ">.";
         } else {
             tilesets.push_back(tx.open(id));
-            LOG(info2) << "Opened <" << tilesets.back().id() << ">.";
+            LOG(info2) << "Opened tileset <" << tilesets.back().id() << ">.";
         }
 
         ++index;
@@ -660,16 +661,25 @@ public:
         TileIndex soi;
 
         Ts(Tx &tx, const TilesetId &id);
-        Ts(Tx &tx, const Glue &glue);
+        Ts(TileSet &&set) : set(set) {}
 
         void generateSoi(const LodRange &lodRange) {
             soi = set.sphereOfInfluence(lodRange, TileIndex::Flag::mesh);
         }
 
+        TilesetId id() const { return set.id(); }
+
         typedef std::vector<Ts> list;
         typedef std::vector<const Ts*> const_ptrlist;
+    };
 
-        typedef std::map<Glue::Id, Ts> GlueMap;
+    struct GlueTs : Ts {
+        GlueTs(Tx &tx, const Glue &glue);
+
+        Glue::Id id;
+
+        typedef std::vector<GlueTs> list;
+        typedef std::map<TilesetId, list> map;
     };
 
     Flattener(Tx &tx, const Storage::Properties &properties
@@ -697,9 +707,27 @@ private:
 
     GlueMapping getGluesMapping(const Glue::Id &glueId) const;
 
+    const GlueTs::list* glues(const TilesetId &tilesetId) const {
+        auto fglues(glues_.find(tilesetId));
+        if (fglues == glues_.end()) { return nullptr; }
+        return &fglues->second;
+    }
+
+    bool trySet(TileResult &result, const TileId &tileId, const Ts &ts)
+    {
+        if (!ts.set.exists(tileId)) { return false;; }
+
+        UTILITY_OMP(critical)
+        {
+            // this must be inside critical section
+            result.source() = ts.set.getTileSource(tileId);
+        }
+        return true;
+    }
+
     static Ts::list openTilesets(Tx &tx, const TilesetIdList &ids);
 
-    static Ts::GlueMap openGlues(Tx &tx, Lod depth, const Glue::map &glues);
+    static GlueTs::map openGlues(Tx &tx, Lod depth, const Glue::map &glues);
 
     static TileIndex soi(Lod depth, Ts::list &sets);
 
@@ -710,7 +738,7 @@ private:
     Ts::list tilesets_;
     const LodRange dataLodRange_;
     const TileIndex soi_;
-    Ts::GlueMap glues_;
+    GlueTs::map glues_;
 };
 
 LodRange Flattener::range(const Ts::list &tilesets)
@@ -726,8 +754,8 @@ Flattener::Ts::Ts(Tx &tx, const TilesetId &id)
     : set(tx.open(id))
 {}
 
-Flattener::Ts::Ts(Tx &tx, const Glue &glue)
-    : set(tx.open(glue))
+Flattener::GlueTs::GlueTs(Tx &tx, const Glue &glue)
+    : Ts(tx.open(glue)), id(glue.id)
 {}
 
 Flattener::Ts::list Flattener::openTilesets(Tx &tx, const TilesetIdList &ids)
@@ -736,24 +764,24 @@ Flattener::Ts::list Flattener::openTilesets(Tx &tx, const TilesetIdList &ids)
 
     for (const auto &id : ids) {
         sets.emplace_back(tx, id);
-        LOG(info2) << "Opened <" << sets.back().set.id() << ">.";
+        LOG(info2) << "Opened tileset <" << sets.back().set.id() << ">.";
     }
 
     return sets;
 }
 
-Flattener::Ts::GlueMap Flattener::openGlues(Tx &tx, Lod depth
+Flattener::GlueTs::map Flattener::openGlues(Tx &tx, Lod depth
                                             , const Glue::map &glues)
 {
-    Ts::GlueMap gm;
+    GlueTs::map gm;
     LodRange lr(0, depth);
 
     for (const auto &g : glues) {
-        auto res(gm.insert(Ts::GlueMap::value_type
-                           (g.first, Ts(tx, g.second))));
-        res.first->second.generateSoi(lr);
+        auto &list(gm[g.first.back()]);
+        list.emplace_back(tx, g.second);
+        list.back().generateSoi(lr);
         LOG(info2)
-            << "Opened glue <" << utility::join(res.first->first, ",") << ">.";
+            << "Opened glue <" << utility::join(list.back().id, ",") << ">.";
     }
 
     return gm;
@@ -805,30 +833,22 @@ Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo)
         }
     }
 
-    // fetch all glues that satisfy sets above
-    auto glues(getGluesMapping(glueId));
+    TileResult result;
 
-    (void) glues;
+    for (const auto &ts : boost::adaptors::reverse(tilesets_)) {
+        if (const auto *gs = glues(ts.id())) {
+            // TODO: check only appropriate glues
+            for (const auto glue : *gs) {
+                if (trySet(result, tileId, glue)) { return result; }
+            }
+        }
 
-    // for (const auto &ts : boost::adaptors::reverse(tilesets_)) {
-    //     if (!ts.canContain(nodeInfo)) { continue; }
+        if (trySet(result, tileId, ts)) { return result; }
+    }
 
-    //     if (!ts.exists(tileId)) { continue; }
+    // nothing appropriate
+    return result;
 
-    //     LOG(info4) << "Tile " << tileId << " exists in set " << ts.id() << ".";
-
-    //     TileResult result;
-    //     UTILITY_OMP(critical)
-    //     {
-    //         // this must be inside critical section
-    //         result.source() = ts.getTileSource(tileId);
-    //     }
-    //     return result;
-    // }
-
-    return {};
-
-    (void) tileId;
     (void) nodeInfo;
 }
 
