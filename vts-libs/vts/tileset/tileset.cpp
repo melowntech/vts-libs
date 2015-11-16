@@ -976,4 +976,12 @@ bool TileSet::Detail::fullyCovered(const TileId &tileId) const
     return (tileIndex.get(tileId) & TileIndex::Flag::watertight);
 }
 
+bool TileSet::canContain(const NodeInfo &nodeInfo) const
+{
+    const auto &sde(detail().properties.spatialDivisionExtents);
+    auto fsde(sde.find(nodeInfo.node.srs));
+    if (fsde == sde.end()) { return false; }
+    return overlaps(fsde->second, nodeInfo.node.extents);
+}
+
 } } // namespace vadstena::vts

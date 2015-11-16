@@ -176,6 +176,10 @@ public:
 
     storage::Resources resources() const;
 
+    /** Tells caller whether this tileset can contain given tile set.
+     */
+    bool canContain(const NodeInfo &nodeInfo) const;
+
     /** Returns mapConfig for given path.
      */
     static MapConfig mapConfig(const boost::filesystem::path &root);

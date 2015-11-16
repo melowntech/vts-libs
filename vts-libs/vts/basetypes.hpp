@@ -123,6 +123,7 @@ struct Glue {
     std::string path;
 
     typedef std::map<Id, Glue> map;
+    typedef std::vector<Glue> list;
 
     Glue() {}
     Glue(const Id &id, const std::string &path) : id(id), path(path) {}

@@ -89,7 +89,9 @@ public:
         return createPath(storage_paths::gluePath(root_, glue, tmp));
     }
 
-    TileSet open(const std::string &tilesetId) const;
+    TileSet open(const TilesetId &tilesetId) const;
+
+    TileSet open(const Glue &glue) const;
 
     fs::path addGlue(const Glue &glue);
 
@@ -149,9 +151,14 @@ void Tx::commit()
     mapping_.clear();
 }
 
-TileSet Tx::open(const std::string &tilesetId) const
+TileSet Tx::open(const TilesetId &tilesetId) const
 {
     return openTileSet(tilesetPath(tilesetId));
+}
+
+TileSet Tx::open(const Glue &glue) const
+{
+    return openTileSet(gluePath(glue));
 }
 
 fs::path Tx::addGlue(const Glue &glue)
@@ -208,16 +215,6 @@ openTilesets(Tx &tx, const TilesetIdList &ids, TileSet &tileset)
     return res;
 }
 
-TileSets openTilesets(Tx &tx, const TilesetIdList &ids)
-{
-    TileSets tilesets;
-    for (const auto &id : ids) {
-        tilesets.push_back(tx.open(id));
-        LOG(info2) << "Opened <" << tilesets.back().id() << ">.";
-    }
-    return tilesets;
-}
-
 LodRange range(const TileSets &tilesets)
 {
     auto lr(LodRange::emptyRange());
@@ -225,21 +222,6 @@ LodRange range(const TileSets &tilesets)
         lr = unite(lr, ts.lodRange());
     }
     return lr;
-}
-
-TileIndex sphereOfInfluence(Lod depth, const TileSets &tilesets)
-{
-    LodRange lr(0, depth);
-    TileIndex res;
-    for (const auto &ts : tilesets) {
-        // dumpAsImages(str(boost::format("./dump/x/ti/%s") % ts.id())
-        //              , ts.tileIndex(), TileIndex::Flag::mesh);
-        auto soi(ts.sphereOfInfluence(lr, TileIndex::Flag::mesh));
-        // dumpAsImages(str(boost::format("./dump/x/soi/%s") % ts.id()), soi);
-        res = unite(res, soi, TileIndex::Flag::any, lr);
-    }
-
-    return res;
 }
 
 struct Ts {
@@ -669,8 +651,27 @@ void Storage::Detail::remove(const TilesetIdList &tilesetIds)
 
 namespace {
 
+typedef std::map<TilesetId, Glue::list> GlueMapping;
+
 class Flattener : public Encoder {
 public:
+    struct Ts {
+        TileSet set;
+        TileIndex soi;
+
+        Ts(Tx &tx, const TilesetId &id);
+        Ts(Tx &tx, const Glue &glue);
+
+        void generateSoi(const LodRange &lodRange) {
+            soi = set.sphereOfInfluence(lodRange, TileIndex::Flag::mesh);
+        }
+
+        typedef std::vector<Ts> list;
+        typedef std::vector<const Ts*> const_ptrlist;
+
+        typedef std::map<Glue::Id, Ts> GlueMap;
+    };
+
     Flattener(Tx &tx, const Storage::Properties &properties
               , const boost::filesystem::path &path
               , const TileSetProperties &tsProps
@@ -679,7 +680,8 @@ public:
         , properties_(properties)
         , tilesets_(openTilesets(tx, properties.tilesets))
         , dataLodRange_(range(tilesets_))
-        , soi_(sphereOfInfluence(dataLodRange_.max, tilesets_))
+        , soi_(soi(dataLodRange_.max, tilesets_))
+        , glues_(openGlues(tx, dataLodRange_.max, properties.glues))
     {
         // limit lodRange
         setConstraints(Constraints()
@@ -693,34 +695,141 @@ private:
 
     virtual void finish(TileSet &tileSet);
 
+    GlueMapping getGluesMapping(const Glue::Id &glueId) const;
+
+    static Ts::list openTilesets(Tx &tx, const TilesetIdList &ids);
+
+    static Ts::GlueMap openGlues(Tx &tx, Lod depth, const Glue::map &glues);
+
+    static TileIndex soi(Lod depth, Ts::list &sets);
+
+    static LodRange range(const Ts::list &tilesets);
+
     Tx &tx_;
     const Storage::Properties properties_;
-    TileSets tilesets_;
+    Ts::list tilesets_;
     const LodRange dataLodRange_;
     const TileIndex soi_;
+    Ts::GlueMap glues_;
 };
+
+LodRange Flattener::range(const Ts::list &tilesets)
+{
+    auto lr(LodRange::emptyRange());
+    for (const auto &ts : tilesets) {
+        lr = unite(lr, ts.set.lodRange());
+    }
+    return lr;
+}
+
+Flattener::Ts::Ts(Tx &tx, const TilesetId &id)
+    : set(tx.open(id))
+{}
+
+Flattener::Ts::Ts(Tx &tx, const Glue &glue)
+    : set(tx.open(glue))
+{}
+
+Flattener::Ts::list Flattener::openTilesets(Tx &tx, const TilesetIdList &ids)
+{
+    Ts::list sets;
+
+    for (const auto &id : ids) {
+        sets.emplace_back(tx, id);
+        LOG(info2) << "Opened <" << sets.back().set.id() << ">.";
+    }
+
+    return sets;
+}
+
+Flattener::Ts::GlueMap Flattener::openGlues(Tx &tx, Lod depth
+                                            , const Glue::map &glues)
+{
+    Ts::GlueMap gm;
+    LodRange lr(0, depth);
+
+    for (const auto &g : glues) {
+        auto res(gm.insert(Ts::GlueMap::value_type
+                           (g.first, Ts(tx, g.second))));
+        res.first->second.generateSoi(lr);
+        LOG(info2)
+            << "Opened glue <" << utility::join(res.first->first, ",") << ">.";
+    }
+
+    return gm;
+}
+
+TileIndex Flattener::soi(Lod depth, Ts::list &sets)
+{
+    // get sphere of inlfuence of all meshes
+    LodRange lr(0, depth);
+    vts::TileIndices sois;
+    for (auto &ts : sets) {
+        ts.generateSoi(lr);
+        sois.push_back(&ts.soi);
+    }
+
+    // sphere of influence of whole storage
+    return unite(sois, TileIndex::Flag::any, lr);
+}
+
+GlueMapping Flattener::getGluesMapping(const Glue::Id &glueId) const
+{
+    // no or just one set in the id list -> no glues
+    if (glueId.size() <= 1) { return {}; }
+
+    GlueMapping gm;
+
+    for (const auto &glue : properties_.glues) {
+        LOG(info4)
+            << "checking: "
+            << utility::join(glue.first, "_")
+            << " against "
+            << utility::join(glueId, "_");
+    }
+
+    return gm;
+}
 
 Encoder::TileResult
 Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo)
 {
-    (void) nodeInfo;
-    for (const auto &ts : boost::adaptors::reverse(tilesets_)) {
-        if (!ts.exists(tileId)) {
-            continue;
-        }
+    Ts::const_ptrlist sets;
+    Glue::Id glueId;
 
-        LOG(info4) << "Tile " << tileId << " exists in set " << ts.id() << ".";
-
-        TileResult result;
-        UTILITY_OMP(critical)
-        {
-            // this must be inside critical section
-            result.source() = ts.getTileSource(tileId);
+    // get list of tilesets that can be source of given tile
+    for (const auto &ts : tilesets_) {
+        if (ts.soi.get(tileId)) {
+            sets.push_back(&ts);
+            glueId.push_back(ts.set.id());
         }
-        return result;
     }
 
+    // fetch all glues that satisfy sets above
+    auto glues(getGluesMapping(glueId));
+
+    (void) glues;
+
+    // for (const auto &ts : boost::adaptors::reverse(tilesets_)) {
+    //     if (!ts.canContain(nodeInfo)) { continue; }
+
+    //     if (!ts.exists(tileId)) { continue; }
+
+    //     LOG(info4) << "Tile " << tileId << " exists in set " << ts.id() << ".";
+
+    //     TileResult result;
+    //     UTILITY_OMP(critical)
+    //     {
+    //         // this must be inside critical section
+    //         result.source() = ts.getTileSource(tileId);
+    //     }
+    //     return result;
+    // }
+
     return {};
+
+    (void) tileId;
+    (void) nodeInfo;
 }
 
 void Flattener::finish(TileSet &tileSet)
