@@ -801,24 +801,6 @@ TileIndex Flattener::soi(Lod depth, Ts::list &sets)
     return unite(sois, TileIndex::Flag::any, lr);
 }
 
-GlueMapping Flattener::getGluesMapping(const Glue::Id &glueId) const
-{
-    // no or just one set in the id list -> no glues
-    if (glueId.size() <= 1) { return {}; }
-
-    GlueMapping gm;
-
-    for (const auto &glue : properties_.glues) {
-        LOG(info4)
-            << "checking: "
-            << utility::join(glue.first, "_")
-            << " against "
-            << utility::join(glueId, "_");
-    }
-
-    return gm;
-}
-
 Encoder::TileResult
 Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo)
 {
