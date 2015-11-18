@@ -819,7 +819,8 @@ Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo)
 
     for (const auto &ts : boost::adaptors::reverse(tilesets_)) {
         if (const auto *gs = glues(ts.id())) {
-            // TODO: check only appropriate glues
+            // TODO: check only appropriate glues (i.e. those that correspond
+            // with glueId constructed above
             for (const auto glue : *gs) {
                 if (trySet(result, tileId, glue)) { return result; }
             }
@@ -836,6 +837,7 @@ Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo)
 
 void Flattener::finish(TileSet &tileSet)
 {
+    // nothing appropriate
     (void) tileSet;
 }
 

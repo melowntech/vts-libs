@@ -62,12 +62,14 @@ struct Encoder::Detail {
         process(TileId(referenceFrame.division.rootLod, 0, 0)
                 , ConstraintsFlag::build(constraints)
                 , NodeInfo(referenceFrame));
+        LOG(info3) << "VTS Encoder: generated. Finishing and flushing.";
 
         // let the caller finish the tileset
         owner->finish(tileSet);
 
         // flush result
         tileSet.flush();
+        LOG(info3) << "VTS Encoder: done.";
 
         // done
         return tileSet;
