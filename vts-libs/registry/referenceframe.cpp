@@ -185,7 +185,6 @@ void parse(ReferenceFrame &rf, const Json::Value &content)
             << "Type of referenceframe[parameters] is not an object.";
     }
     Json::get(rf.metaBinaryOrder, parameters, "metaBinaryOrder");
-    Json::get(rf.navDelta, parameters, "navDelta");
 }
 
 } // namespace v1
@@ -329,7 +328,6 @@ void build(Json::Value &content, const ReferenceFrame &rf)
 
     auto &parameters(content["parameters"] = Json::objectValue);
     parameters["metaBinaryOrder"] = rf.metaBinaryOrder;
-    parameters["navDelta"] = rf.navDelta;
 }
 
 void build(Json::Value &content, const ReferenceFrame::dict &rfs)
@@ -341,6 +339,44 @@ void build(Json::Value &content, const ReferenceFrame::dict &rfs)
     }
 }
 
+GeoidGrid parseGeoidGrid(const Json::Value &content)
+{
+    if (!content.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "GeoidGrid is not an object.";
+    }
+
+    GeoidGrid gg;
+    v1::parse(gg.extents, content["extents"]);
+
+    Json::get(gg.valueRange.min, content, "valueRange", 0);
+    Json::get(gg.valueRange.max, content, "valueRange", 1);
+
+    Json::get(gg.definition, content, "definition");
+
+    std::string s;
+    gg.srsDefEllps = { Json::get(s, content, "srsDefEllps")
+                       , geo::SrsDefinition::Type::proj4 };
+    return gg;
+}
+
+Periodicity parsePeriodicity(const Json::Value &content)
+{
+    if (!content.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "Periodicity is not an object.";
+    }
+
+    Periodicity p;
+
+    std::string s;
+    p.type = boost::lexical_cast<Periodicity::Type>
+        (Json::get(s, content, "type"));
+    Json::get(p.period, content, "period");
+
+    return p;
+}
+
 void parse(Srs &srs, const Json::Value &content)
 {
     Json::get(srs.comment, content, "comment");
@@ -350,9 +386,12 @@ void parse(Srs &srs, const Json::Value &content)
     srs.type = boost::lexical_cast<Srs::Type>(Json::get(s, content, "type"));
     srs.srsDef = { Json::get(s, content, "srsDef")
                    , geo::SrsDefinition::Type::proj4};
-    if (content.isMember("srsDefEllps")) {
-        srs.srsDefEllps = { Json::get(s, content, "srsDefEllps")
-                            , geo::SrsDefinition::Type::proj4};
+    if (content.isMember("geoidGrid")) {
+        srs.geoidGrid = parseGeoidGrid(content["geoidGrid"]);
+    }
+
+    if (content.isMember("periodicity")) {
+        srs.periodicity = parsePeriodicity(content["periodicity"]);
     }
 
     // parse modifiers
@@ -368,19 +407,6 @@ void parse(Srs &srs, const Json::Value &content)
                     << "Invalid value " << s << " in srsModifiers.";
             }
         }
-    }
-
-    if (content.isMember("sphereoid")) {
-        const auto &sphereoid
-            (Json::check(content["sphereoid"], Json::objectValue));
-        srs.sphereoid = Sphereoid();
-        Json::get(srs.sphereoid->a, sphereoid, "a");
-        Json::get(srs.sphereoid->b, sphereoid, "b");
-    }
-
-    if (content.isMember("vdatum")) {
-        srs.vdatum = boost::lexical_cast<VerticalDatum>
-            (Json::get(s, content, "vdatum"));
     }
 }
 
@@ -407,19 +433,28 @@ void build(Json::Value &content, const Srs &srs)
     content["comment"] = srs.comment;
     content["type"] = boost::lexical_cast<std::string>(srs.type);
     content["srsDef"] = srs.srsDef.as(geo::SrsDefinition::Type::proj4).srs;
-    if (srs.srsDefEllps) {
-        content["srsDefEllps"]
-            = srs.srsDefEllps->as(geo::SrsDefinition::Type::proj4).srs;
+
+    if (srs.geoidGrid) {
+        const auto &gg(*srs.geoidGrid);
+        auto &jgg(content["geoidGrid"] = Json::objectValue);
+
+        build(jgg["extents"], gg.extents);
+
+        auto &valueRange(jgg["valueRange"] = Json::arrayValue);
+        valueRange.append(gg.valueRange.min);
+        valueRange.append(gg.valueRange.max);
+
+        jgg["definition"] = gg.definition;
+        jgg["srsDefEllps"]
+            = gg.srsDefEllps.as(geo::SrsDefinition::Type::proj4).srs;
     }
 
-    if (srs.sphereoid) {
-        auto &sphereoid(content["sphereoid"] = Json::objectValue);
-        sphereoid["a"] = srs.sphereoid->a;
-        sphereoid["b"] = srs.sphereoid->b;
-    }
+    if (srs.periodicity) {
+        const auto &p(*srs.periodicity);
+        auto &jp(content["periodicity"] = Json::objectValue);
 
-    if (srs.vdatum) {
-        content["vdatum"] = boost::lexical_cast<std::string>(*srs.vdatum);
+        jp["type"] = boost::lexical_cast<std::string>(p.type);
+        jp["period"] = p.period;
     }
 
     if (srs.srsModifiers) {

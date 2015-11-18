@@ -33,6 +33,7 @@ using storage::Lod;
 using storage::LodRange;
 using storage::CreditId;
 using storage::CreditIds;
+typedef storage::Range<double> HeightRange;
 
 typedef std::set<std::string> StringIdSet;
 typedef std::set<int> IdSet;
@@ -40,13 +41,21 @@ typedef std::set<int> IdSet;
 typedef math::Extents2_<unsigned int> TileRange;
 
 enum class PartitioningMode { bisection, manual, none };
-enum class VerticalDatum { orthometric, ellipsoidal };
 
-struct Sphereoid {
-    double a;
-    double b;
+struct GeoidGrid {
+    math::Extents2 extents;
+    HeightRange valueRange;
+    std::string definition;
+    geo::SrsDefinition srsDefEllps;
+};
 
-    Sphereoid(double a = 0, double b = 0) : a(a), b(b) {}
+struct Periodicity {
+    enum class Type { x, y };
+
+    Type type;
+    double period;
+
+    Periodicity() : type(), period() {}
 };
 
 struct Srs {
@@ -61,9 +70,8 @@ struct Srs {
     geo::SrsDefinition srsDef;
     int srsModifiers;
 
-    boost::optional<Sphereoid> sphereoid;
-    boost::optional<VerticalDatum> vdatum;
-    boost::optional<geo::SrsDefinition> srsDefEllps;
+    boost::optional<GeoidGrid> geoidGrid;
+    boost::optional<Periodicity> periodicity;
 
     static constexpr char typeName[] = "spatial reference system";
     typedef Dictionary<Srs> dict;
@@ -138,7 +146,6 @@ struct ReferenceFrame {
 
     // parameters -- generic container?
     unsigned int metaBinaryOrder;
-    unsigned int navDelta;
 
     static constexpr char typeName[] = "reference frame";
     typedef Dictionary<ReferenceFrame> dict;
@@ -267,15 +274,15 @@ math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
 
 // enum IO stuff
 
-UTILITY_GENERATE_ENUM_IO(VerticalDatum,
-    ((orthometric))
-    ((ellipsoidal))
-)
-
 UTILITY_GENERATE_ENUM_IO(PartitioningMode,
     ((bisection))
     ((manual))
     ((none))
+)
+
+UTILITY_GENERATE_ENUM_IO(Periodicity::Type,
+    ((x)("X"))
+    ((y)("Y"))
 )
 
 UTILITY_GENERATE_ENUM_IO(Srs::Type,
