@@ -59,8 +59,7 @@ struct Encoder::Detail {
     {
         UTILITY_OMP(parallel)
         UTILITY_OMP(single)
-        process(TileId(referenceFrame.division.rootLod, 0, 0)
-                , ConstraintsFlag::build(constraints)
+        process({}, ConstraintsFlag::build(constraints)
                 , NodeInfo(referenceFrame));
         LOG(info3) << "VTS Encoder: generated. Finishing and flushing.";
 

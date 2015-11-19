@@ -8,6 +8,7 @@
 
 #include <map>
 #include <string>
+#include <algorithm>
 
 #include "./dict.hpp"
 
@@ -35,6 +36,22 @@ public:
     const_iterator end() const { return map_.end(); }
 
     void update(const Dictionary &other);
+
+    template <typename Op> void for_each(Op op)
+    {
+        std::for_each(map_.begin(), map_.end()
+                      , [&](typename map::value_type &pair) {
+                          op(pair.second);
+                      });
+    }
+
+    template <typename Op> void for_each(Op op) const
+    {
+        std::for_each(map_.begin(), map_.end()
+                      , [&](const typename map::value_type &pair) {
+                          op(pair.second);
+                      });
+    }
 
 private:
     map map_;

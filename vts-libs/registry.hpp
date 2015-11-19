@@ -7,6 +7,7 @@
 #define vadstena_libs_registry_hpp_included_
 
 #include "./registry/referenceframe.hpp"
+#include "./registry/datafile.hpp"
 
 namespace vadstena { namespace registry {
 
@@ -37,6 +38,13 @@ struct Registry {
     static const Credit& credit(Credit::NumericId id);
     static const Credit::dict credits();
     static const Credit::ndict credits(int);
+
+    enum DataFileKey { filename, path };
+
+    static const DataFile& dataFile(const std::string &path
+                                    , DataFileKey key);
+    static const DataFile* dataFile(const std::string &path
+                                    , DataFileKey key, std::nothrow_t);
 
     static void init(const boost::filesystem::path &confRoot);
 

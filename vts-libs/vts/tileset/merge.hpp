@@ -55,7 +55,7 @@ public:
 
     /** Returns atlas. Lazy load.
      */
-    const RawAtlas& atlas() const;
+    const opencv::RawAtlas& atlas() const;
 
     /** Returns atlas. Lazy load.
      */
@@ -95,7 +95,7 @@ private:
     const MetaNode *node_;
     const NodeInfo *nodeInfo_;
     mutable boost::optional<Mesh> mesh_;
-    mutable boost::optional<RawAtlas> atlas_;
+    mutable boost::optional<opencv::RawAtlas> atlas_;
     mutable boost::optional<opencv::NavTile> navtile_;
 };
 
@@ -106,7 +106,7 @@ struct Output {
 
     MetaNode node;
     boost::optional<Mesh> mesh;
-    boost::optional<RawAtlas> atlas;
+    boost::optional<opencv::RawAtlas> atlas;
     boost::optional<opencv::NavTile> navtile;
 
     // list of tiles this tile was generated from
@@ -119,11 +119,13 @@ struct Output {
     }
 
     const Mesh* getMesh() const { return mesh ? &*mesh : nullptr; }
-    const RawAtlas* getAtlas() const { return atlas ? &*atlas : nullptr; }
+    const opencv::RawAtlas* getAtlas() const {
+        return atlas ? &*atlas : nullptr;
+    }
     const NavTile* getNavtile() const { return navtile ? &*navtile : nullptr; }
 
     Mesh& forceMesh();
-    RawAtlas& forceAtlas();
+    opencv::RawAtlas& forceAtlas();
 };
 
 /** Generates new tile from given source and parent source fallback.

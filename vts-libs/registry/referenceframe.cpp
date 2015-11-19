@@ -6,6 +6,7 @@
 #include <fstream>
 
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 
 #include "dbglog/dbglog.hpp"
 
@@ -15,7 +16,10 @@
 #include "../storage/error.hpp"
 #include "./referenceframe.hpp"
 #include "./json.hpp"
+#include "./datafile.hpp"
 #include "../registry.hpp"
+
+namespace ba = boost::algorithm;
 
 namespace vadstena { namespace registry {
 
@@ -23,6 +27,7 @@ constexpr char Srs::typeName[];
 constexpr char ReferenceFrame::typeName[];
 constexpr char Credit::typeName[];
 constexpr char BoundLayer::typeName[];
+constexpr char DataFile::typeName[];
 
 namespace {
 
@@ -141,9 +146,6 @@ void parse(ReferenceFrame::Division &division, const Json::Value &content)
             << "Type of division[extents] is not an object.";
     }
     parse(division.extents, extents);
-
-    Json::get(division.rootLod, content, "rootLod");
-    Json::get(division.arity, content, "arity");
 
     const auto &nodes(content["nodes"]);
     if (!nodes.isArray()) {
@@ -307,8 +309,6 @@ void build(Json::Value &content, const ReferenceFrame::Division &division)
     content = Json::objectValue;
 
     build(content["extents"], division.extents);
-    content["rootLod"] = division.rootLod;
-    content["arity"] = division.arity;
 
     auto &nodes(content["nodes"]);
     for (const auto &node : division.nodes) {
@@ -1055,5 +1055,26 @@ ReferenceFrame::Division::findSubtreeRoot(const Node::Id &nodeId) const
 
     return *candidate;
 }
+
+namespace {
+
+const char* guessContentType(const boost::filesystem::path &path)
+{
+    auto e(path.extension().string());
+    ba::to_upper(e);
+    if (e == ".JPG") {
+        return "image/jpeg";
+    } else if (e == ".JPEG") {
+        return "image/jpeg";
+    } else if (e == ".PNG") {
+        return "image/png";
+    }
+    return "application/octet-stream";
+}
+} // namespace
+
+DataFile::DataFile(const boost::filesystem::path &path)
+    : path(path), contentType(guessContentType(path))
+{}
 
 } } // namespace vadstena::registry

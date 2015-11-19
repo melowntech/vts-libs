@@ -4,8 +4,6 @@
 
 #include "utility/binaryio.hpp"
 
-#include "imgproc/jpeg.hpp"
-
 #include "../storage/error.hpp"
 
 #include "./atlas.hpp"
@@ -142,68 +140,6 @@ double Atlas::area(std::size_t index) const
 {
     auto area(area_impl(index));
     return area * properties(index).apparentPixelArea;
-}
-
-// raw atlas implementation
-
-multifile::Table RawAtlas::serialize_impl(std::ostream &os) const
-{
-    multifile::Table table;
-    auto pos(os.tellp());
-
-    for (const auto &image : images_) {
-        using utility::binaryio::write;
-        write(os, image.data(), image.size());
-        pos = table.add(pos, image.size());
-    }
-
-    return table;
-}
-
-void RawAtlas::deserialize_impl(std::istream &is
-                             , const boost::filesystem::path&
-                             , const multifile::Table &table)
-{
-    Images images;
-    for (const auto &entry : table) {
-        using utility::binaryio::read;
-
-        is.seekg(entry.start);
-        images.emplace_back(entry.size);
-        read(is, images.back().data(), entry.size);
-    }
-    images_.swap(images);
-}
-
-double RawAtlas::area_impl(std::size_t index) const
-{
-    const auto &image(images_[index]);
-    return math::area(imgproc::jpegSize(image.data(), image.size()));
-}
-
-void RawAtlas::add(const Image &image, int scale) {
-    images_.push_back(image);
-    if (scale <= 1) { return; }
-
-    // scale atlas
-    Properties p;
-    p.apparentPixelArea = scale * scale;
-    properties(images_.size() - 1, p);
-}
-
-void RawAtlas::add(const RawAtlas &other, int scale)
-{
-    auto start(images_.size());
-    images_.insert(images_.end(), other.images_.begin()
-                   , other.images_.end());
-    if (scale <= 1) { return; }
-
-    // scale atlas
-    Properties p;
-    p.apparentPixelArea = scale * scale;
-    for (std::size_t i(start); i < images_.size(); ++i) {
-        properties(i, p);
-    }
 }
 
 } } // namespace vadstena::vts

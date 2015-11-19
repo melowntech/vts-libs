@@ -16,6 +16,9 @@ namespace detail {
 
     Credit::dict credits;
     Credit::ndict nCredits;
+
+    DataFile::dict dataFilesByFilename;
+    DataFile::dict dataFilesByPath;
 }
 
 const Srs* Registry::srs(const std::string &id, std::nothrow_t)
@@ -113,6 +116,33 @@ const Credit::ndict Registry::credits(int)
     return detail::nCredits;
 }
 
+const DataFile& Registry::dataFile(const std::string &path
+                                   , DataFileKey key)
+{
+    switch (key) {
+    case DataFileKey::filename:
+        return detail::dataFilesByFilename.get(path);
+
+    case DataFileKey::path:
+        return detail::dataFilesByPath.get(path);
+    }
+    throw; // never reached
+}
+
+const DataFile* Registry::dataFile(const std::string &path
+                                   , DataFileKey key
+                                   , std::nothrow_t)
+{
+    switch (key) {
+    case DataFileKey::filename:
+        return detail::dataFilesByFilename.get(path, std::nothrow);
+
+    case DataFileKey::path:
+        return detail::dataFilesByPath.get(path, std::nothrow);
+    }
+    throw; // never reached
+}
+
 void Registry::init(const boost::filesystem::path &confRoot)
 {
     detail::root = confRoot;
@@ -129,6 +159,18 @@ void Registry::init(const boost::filesystem::path &confRoot)
     detail::credits = loadCredits(confRoot / "credits.json");
     for (auto const &c : detail::credits) {
         detail::nCredits.set(c.second.numericId, c.second);
+    }
+
+    // grab geoid grid files from srs
+    for (const auto &srs : detail::srs) {
+        if (!srs.second.geoidGrid) { continue; }
+        const auto &path(srs.second.geoidGrid->definition);
+        if (detail::dataFilesByPath.has(path)) { continue; }
+
+        DataFile df(detail::root / path);
+        detail::dataFilesByPath.set(path, df);
+        detail::dataFilesByFilename.set
+            (boost::filesystem::path(path).filename().string(), df);
     }
 }
 

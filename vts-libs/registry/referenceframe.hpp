@@ -125,8 +125,6 @@ struct ReferenceFrame {
         };
 
         math::Extents3 extents;
-        unsigned int rootLod;
-        unsigned int arity;
         Node::map nodes;
 
         const Node& find(const Node::Id &id) const;

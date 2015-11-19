@@ -160,7 +160,7 @@ const Mesh& Input::mesh() const
     return *mesh_;
 }
 
-const RawAtlas& Input::atlas() const
+const opencv::RawAtlas& Input::atlas() const
 {
     if (!atlas_) {
         atlas_ = boost::in_place();
@@ -222,7 +222,7 @@ Mesh& Output::forceMesh() {
     return *mesh;
 }
 
-RawAtlas& Output::forceAtlas() {
+opencv::RawAtlas& Output::forceAtlas() {
     if (!atlas) {
         atlas = boost::in_place();
     }
