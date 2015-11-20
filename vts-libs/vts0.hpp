@@ -25,8 +25,6 @@
 #include "math/geometry.hpp"
 #include "geometry/parse-obj.hpp"
 
-#include "./ids.hpp"
-
 #include "./storage/error.hpp"
 #include "./vts0/types.hpp"
 #include "./vts0/tileset.hpp"

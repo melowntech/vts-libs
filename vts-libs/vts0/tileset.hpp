@@ -29,8 +29,6 @@
 #include "./types.hpp"
 #include "./tileindex.hpp"
 #include "./properties.hpp"
-#include "../ids.hpp"
-#include "../range.hpp"
 
 namespace vadstena { namespace vts0 {
 

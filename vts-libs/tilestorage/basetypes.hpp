@@ -16,11 +16,16 @@
 
 #include <string>
 
+#include "../storage/lod.hpp"
+#include "../storage/range.hpp"
+
 #include "math/geometry_core.hpp"
 
-#include "../ids.hpp"
-
 namespace vadstena { namespace tilestorage {
+
+using storage::Lod;
+using storage::Range;
+using storage::LodRange;
 
 /** Tile set locator
  */

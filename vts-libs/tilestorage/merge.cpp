@@ -12,19 +12,18 @@
 #include "imgproc/scanconversion.hpp"
 #include "imgproc/binterpolate.hpp"
 
-#include "vadstena-libs/faceclip.hpp"
-#include "vadstena-libs/pointindex.hpp"
-#include "vadstena-libs/uvpack.hpp"
-#include "vadstena-libs/faceclip.hpp"
+#include "geometry/faceclip.hpp"
+#include "geometry/pointindex.hpp"
+#include "imgproc/uvpack.hpp"
 
 #include "geometry/mesh.hpp"
 #include "geometry/meshop.hpp"
+#include "geometry/binmesh.hpp"
 
 #include "./tileset.hpp"
 #include "./merge.hpp"
 #include "./io.hpp"
 
-#include "../binmesh.hpp"
 
 namespace ublas = boost::numeric::ublas;
 namespace va = vadstena;
@@ -117,7 +116,7 @@ double tileInvGeometryCoarseness(const Tile &tile, long tileSize)
     const Mesh &mesh(tile.mesh);
 
     //clip mesh to the tile extents
-    va::ClipTriangle::list triangles;
+    geometry::opencv::ClipTriangle::list triangles;
     for(auto &face : mesh.facets){
         triangles.emplace_back( 0, 0,
                                 mesh.vertices[face.v[0]],
@@ -132,14 +131,14 @@ double tileInvGeometryCoarseness(const Tile &tile, long tileSize)
     double eps = 0.0001;
     double halfsize = 0.5*tileSize - tileSize*eps;
 
-    va::ClipPlane planes[4];
+    geometry::opencv::ClipPlane planes[4];
     planes[0] = {+1.,  0., 0., halfsize};
     planes[1] = {-1.,  0., 0., halfsize};
     planes[2] = { 0., +1., 0., halfsize};
     planes[3] = { 0., -1., 0., halfsize};
 
     for (int i = 0; i < 4; i++) {
-        triangles = va::clipTriangles(triangles, planes[i]);
+        triangles = geometry::opencv::clipTriangles(triangles, planes[i]);
     }
 
     //compute the mesh area from clipped triangles
@@ -231,7 +230,7 @@ bool faceCovered(const Mesh &mesh, const Mesh::Facet &face,
 
 //! Draws a face into a matrix. Used to mark useful areas of an atlas.
 //!
-void markFace(const ClipTriangle &face, cv::Mat/*<char>*/ &mat)
+void markFace(const geometry::opencv::ClipTriangle &face, cv::Mat/*<char>*/ &mat)
 {
     cv::Point3f tri[3];
     for (int i = 0; i < 3; i++) {
@@ -269,11 +268,11 @@ void findContours(const cv::Mat &mat,
 
 //! Clips faces to tile boundaries.
 //!
-void clipFaces(ClipTriangle::list &faces, long tileSize)
+void clipFaces(geometry::opencv::ClipTriangle::list &faces, long tileSize)
 {
     double ts2(double(tileSize)/2);
 
-    ClipPlane planes[4] = {
+    geometry::opencv::ClipPlane planes[4] = {
         { 1.,  0., 0., ts2},
         {-1.,  0., 0., ts2},
         { 0.,  1., 0., ts2},
@@ -281,13 +280,13 @@ void clipFaces(ClipTriangle::list &faces, long tileSize)
     };
 
     for (int i = 0; i < 4; i++) {
-        faces = clipTriangles(faces, planes[i]);
+        faces = geometry::opencv::clipTriangles(faces, planes[i]);
     }
 }
 
 //! Convert from normalized to pixel-based texture coordinates.
 //!
-UVCoord denormalizeUV(const math::Point3d &uv, cv::Size texSize)
+imgproc::UVCoord denormalizeUV(const math::Point3d &uv, cv::Size texSize)
 {
     return {float(uv(0) * texSize.width),
             //float(texSize.height-1 - uv(1)*texSize.height)
@@ -296,7 +295,7 @@ UVCoord denormalizeUV(const math::Point3d &uv, cv::Size texSize)
 
 //! Convert from pixel-based to normalized texture coordinates.
 //!
-math::Point3d normalizeUV(const UVCoord &uv, cv::Size texSize)
+math::Point3d normalizeUV(const imgproc::UVCoord &uv, cv::Size texSize)
 {
     return {double(uv.x) / texSize.width,
             //(texSize.height-1 - double(uv.y)) / texSize.height,
@@ -320,23 +319,24 @@ math::Point2 tCoord(const cv::Point2d &t)
 
 //! Calculate a bounding rectangle of a list of points in the UV space.
 //!
-UVRect makeRect(const std::vector<cv::Point> &points)
+imgproc::UVRect makeRect(const std::vector<cv::Point> &points)
 {
-    UVRect rect;
+    imgproc::UVRect rect;
     for (const auto &pt : points) {
-        rect.update(UVCoord(pt.x, pt.y));
+        rect.update(imgproc::UVCoord(pt.x, pt.y));
     }
     return rect;
 }
 
 //! Finds a UV rectangle containing the given face.
 //!
-unsigned findRect(const ClipTriangle &face, const std::vector<UVRect> &rects)
+unsigned findRect(const geometry::opencv::ClipTriangle &face
+                  , const std::vector<imgproc::UVRect> &rects)
 {
     const auto &pt(face.uv[0]);
     for (unsigned i = 0; i < rects.size(); i++)
     {
-        const UVRect &r(rects[i]);
+        const imgproc::UVRect &r(rects[i]);
         const float safety(0.51);
 
         if (pt.x > (r.min.x - safety) && pt.x < (r.max.x + safety) &&
@@ -351,7 +351,7 @@ unsigned findRect(const ClipTriangle &face, const std::vector<UVRect> &rects)
 
 //! Copies a rectangle from one atlas to another (src -> dst).
 //!
-void copyRect(const UVRect &rect, const cv::Mat &src, cv::Mat &dst)
+void copyRect(const imgproc::UVRect &rect, const cv::Mat &src, cv::Mat &dst)
 {
     for (int y = 0; y < rect.height(); y++)
     for (int x = 0; x < rect.width(); x++)
@@ -474,10 +474,12 @@ MergeInput::list sortMergeInput(const MergeInput::list &mergeInput
     return result;
 }
 
-Mesh removeDuplicateVertexes(ClipTriangle::list & faces, cv::Size atlasSize){
+Mesh removeDuplicateVertexes(geometry::opencv::ClipTriangle::list & faces
+                             , cv::Size atlasSize)
+{
     Mesh result;
-    PointIndex<ClipTriangle::Point> vindex;
-    PointIndex<ClipTriangle::TCoord> tindex;
+    geometry::PointIndex<geometry::opencv::ClipTriangle::Point> vindex;
+    geometry::PointIndex<geometry::opencv::ClipTriangle::TCoord> tindex;
 
     for (const auto &face1 : faces)
     {
@@ -503,19 +505,20 @@ Mesh removeDuplicateVertexes(ClipTriangle::list & faces, cv::Size atlasSize){
 
 
 Atlas mergeAtlases( const std::vector<Atlas*> & atlases
-                  , ClipTriangle::list & faces, float inflate = 0){
+                  , geometry::opencv::ClipTriangle::list & faces, float inflate = 0)
+{
     std::vector<cv::Mat> marks;
     cv::Size safety(1, 1);
 
     for(uint i=0; i<atlases.size(); ++i){
         marks.emplace_back(atlases[i]->size() + safety, CV_8U, cv::Scalar(0));
     }
-    for (const ClipTriangle &face : faces) {
+    for (const geometry::opencv::ClipTriangle &face : faces) {
         markFace(face, marks[face.id1]);       
     }
 
     // determine UV rectangles that will get repacked
-    std::vector<std::vector<UVRect> > rects;
+    std::vector<std::vector<imgproc::UVRect> > rects;
     for (const auto &m : marks)
     {
         std::vector<std::vector<cv::Point> > contours;
@@ -563,7 +566,7 @@ Atlas mergeAtlases( const std::vector<Atlas*> & atlases
     }
 
     // pack the rectangles
-    RectPacker packer;
+    imgproc::RectPacker packer;
     for (auto &rlist : rects) {
         for (auto &r : rlist)
             packer.addRect(&r);
@@ -651,7 +654,7 @@ MergeInput clipQuad( const MergeInput & mergeInput, int fallbackQuad
     asize.width *= 2;
     asize.height *= 2;
 
-    ClipTriangle::list faces;
+    geometry::opencv::ClipTriangle::list faces;
     for (unsigned j = 0; j < mesh.facets.size(); j++) {
         const Mesh::Facet &face(mesh.facets[j]);
         faces.emplace_back(0,0,
@@ -751,7 +754,7 @@ MergedTile merge( const TileId &tileId, long tileSize
     }
 
     std::vector<Atlas*> usedAtlases;
-    ClipTriangle::list mergedFaces;
+    geometry::opencv::ClipTriangle::list mergedFaces;
     const int hms(MetaNode::HMSize);
     float minGsd = std::numeric_limits<float>::max();
     float heightmap[hms][hms];

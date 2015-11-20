@@ -13,8 +13,8 @@
 #include "utility/gccversion.hpp"
 
 #include "geo/srsdef.hpp"
+#include "geometry/binmesh.hpp"
 
-#include "../binmesh.hpp"
 #include "../vts0.hpp"
 #include "./config.hpp"
 #include "./tileindex.hpp"
@@ -64,14 +64,14 @@ void saveAtlas(const OStream::pointer &os, const Atlas &atlas
 
 Mesh loadMesh(const IStream::pointer &is)
 {
-    auto mesh(loadBinaryMesh(is->get()));
+    auto mesh(geometry::loadBinaryMesh(is->get()));
     is->close();
     return mesh;
 }
 
 void saveMesh(const OStream::pointer &os, const Mesh &mesh)
 {
-    writeBinaryMesh(os->get(), mesh);
+    geometry::writeBinaryMesh(os->get(), mesh);
     os->close();
 }
 

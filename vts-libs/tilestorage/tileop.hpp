@@ -3,8 +3,8 @@
 
 #include <boost/optional.hpp>
 
-#include "../entities.hpp"
 #include "./basetypes.hpp"
+#include "./types.hpp"
 #include "../storage/filetypes.hpp"
 #include "./properties.hpp"
 

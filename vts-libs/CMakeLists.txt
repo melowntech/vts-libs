@@ -8,7 +8,7 @@
 # major dependency is OpenCV
 
 # common stuff
-set(storage_SOURCES
+set(vts-common_SOURCES
   storage/lod.hpp storage/range.hpp
 
   storage/error.hpp
@@ -24,7 +24,7 @@ set(storage_SOURCES
   )
 
 # registry
-set(registry_SOURCES
+set(vts-registry_SOURCES
   registry.hpp registry/registry.cpp
   registry/referenceframe.hpp registry/referenceframe.cpp
 )
@@ -34,13 +34,13 @@ set(registry_SOURCES
 set(tilestorage_BROWSER_SOURCES
   tilestorage/support.hpp tilestorage/support.cpp
   )
-file_to_cpp(vts_BROWSER_SOURCES
+file_to_cpp(tilestorage_BROWSER_SOURCES
   vadstena::tilestorage::browser::index_html
   tilestorage/browser/index.html)
-file_to_cpp(vts_BROWSER_SOURCES
+file_to_cpp(tilestorage_BROWSER_SOURCES
   vadstena::tilestorage::browser::index_offline_html
   tilestorage/browser/index-offline.html)
-file_to_cpp(vts_BROWSER_SOURCES
+file_to_cpp(tilestorage_BROWSER_SOURCES
   vadstena::tilestorage::browser::skydome_jpg
   tilestorage/browser/skydome.jpg)
 
@@ -212,13 +212,13 @@ add_library(vts-libs-core STATIC
   ${vts-common_SOURCES}
   ${vts-registry_SOURCES}
 
-  ${vts-browser_SOURCES}
+  ${vts_BROWSER_SOURCES}
   ${vts-core_SOURCES}
 
-  ${vts0-browser_SOURCES}
+  ${vts0_BROWSER_SOURCES}
   ${vts0-core_SOURCES}
 
-  ${tilestorage-browser_SOURCES}
+  ${tilestorage_BROWSER_SOURCES}
   ${tilestorage-core_SOURCES}
   )
 buildsys_library(vts-libs-core)
@@ -241,6 +241,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
     ${tilestorage_SOURCES}
     )
   buildsys_library(vts-libs)
-  target_link_libraries(vts-libs vts-libs-core ${MODULE_LIBRARIES})
+  target_link_libraries(vts-libs ${MODULE_LIBRARIES})
   buildsys_target_compile_definitions(vts-libs ${MODULE_DEFINITIONS})
 endif()

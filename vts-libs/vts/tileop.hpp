@@ -1,10 +1,10 @@
 #ifndef vadstena_libs_vts_tileop_hpp_included_
 #define vadstena_libs_vts_tileop_hpp_included_
 
-#include "../entities.hpp"
 #include "../storage/filetypes.hpp"
 
 #include "./basetypes.hpp"
+#include "./types.hpp"
 
 namespace vadstena { namespace vts {
 

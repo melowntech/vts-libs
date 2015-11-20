@@ -10,11 +10,16 @@
 
 #include <string>
 
+#include "../storage/lod.hpp"
+#include "../storage/range.hpp"
+
 #include "math/geometry_core.hpp"
 
-#include "../ids.hpp"
-
 namespace vadstena { namespace vts0 {
+
+using storage::Lod;
+using storage::Range;
+using storage::LodRange;
 
 /** Tile identifier (index in 3D space): LOD + tile index from upper-left corner
  *  in tile grid.

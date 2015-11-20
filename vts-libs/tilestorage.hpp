@@ -30,8 +30,6 @@
 #include "math/geometry.hpp"
 #include "geometry/parse-obj.hpp"
 
-#include "./ids.hpp"
-
 #include "./storage/error.hpp"
 #include "./tilestorage/types.hpp"
 #include "./tilestorage/tileset.hpp"

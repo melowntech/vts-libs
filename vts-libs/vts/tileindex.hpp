@@ -9,8 +9,6 @@
 #include "./basetypes.hpp"
 #include "./tileop.hpp"
 
-#include "../entities.hpp"
-
 namespace vadstena { namespace vts {
 
 class TileIndex {
