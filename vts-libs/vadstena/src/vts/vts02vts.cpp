@@ -29,17 +29,17 @@
 #include "vadstena-libs/utility.hpp"
 
 // old stuff
-#include "vadstena-libs/binmesh.hpp"
-#include "vadstena-libs/vts0.hpp"
-#include "vadstena-libs/vts0/tileset-advanced.hpp"
-#include "vadstena-libs/vts0/io.hpp"
+#include "geometry/binmesh.hpp"
+#include "vts-libs/vts0.hpp"
+#include "vts-libs/vts0/tileset-advanced.hpp"
+#include "vts-libs/vts0/io.hpp"
 
 // new stuff
-#include "vadstena-libs/vts.hpp"
-#include "vadstena-libs/vts/encoder.hpp"
-#include "vadstena-libs/vts/opencv/navtile.hpp"
-#include "vadstena-libs/vts/io.hpp"
-#include "vadstena-libs/vts/csconvertor.hpp"
+#include "vts-libs/vts.hpp"
+#include "vts-libs/vts/encoder.hpp"
+#include "vts-libs/vts/opencv/navtile.hpp"
+#include "vts-libs/vts/io.hpp"
+#include "vts-libs/vts/csconvertor.hpp"
 
 namespace po = boost::program_options;
 namespace vs = vadstena::storage;
@@ -217,7 +217,7 @@ private:
 
 vts0::Mesh loadMesh(const vs::IStream::pointer &is)
 {
-    auto mesh(va::loadBinaryMesh(is->get()));
+    auto mesh(geometry::loadBinaryMesh(is->get()));
     is->close();
     return mesh;
 }
