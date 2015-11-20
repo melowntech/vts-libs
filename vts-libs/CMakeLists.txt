@@ -1,5 +1,14 @@
-# common storage stuff
-set(vadstena-libs-storage_SOURCES
+# VTS libraries
+# builds: core and main library
+
+# core library: allows tileset access, for example in delivery machinery;
+# depends on as little as possible dependencies (boost, gdal, proj)
+#
+# main library: allows better tileset data manipulation; uses core library;
+# major dependency is OpenCV
+
+# common stuff
+set(storage_SOURCES
   storage/lod.hpp storage/range.hpp
 
   storage/error.hpp
@@ -14,46 +23,30 @@ set(vadstena-libs-storage_SOURCES
   storage/support.hpp
   )
 
-define_module(LIBRARY vadstena-libs-storage DEPENDS
-  math utility dbglog Boost_IOSTREAMS)
-add_library(vadstena-libs-storage STATIC ${vadstena-libs-storage_SOURCES})
-buildsys_library(vadstena-libs-storage)
-target_link_libraries(vadstena-libs-storage
-  ${MODULE_LIBRARIES})
-buildsys_target_compile_definitions(vadstena-libs-storage ${MODULE_DEFINITIONS})
-
-# common storage stuff
-set(vadstena-libs-registry_SOURCES
+# registry
+set(registry_SOURCES
   registry.hpp registry/registry.cpp
   registry/referenceframe.hpp registry/referenceframe.cpp
 )
 
-define_module(LIBRARY vadstena-libs-registry DEPENDS
-  vadstena-libs-storage half jsoncpp Boost_IOSTREAMS)
-add_library(vadstena-libs-registry STATIC ${vadstena-libs-registry_SOURCES})
-buildsys_library(vadstena-libs-registry)
-target_link_libraries(vadstena-libs-registry
-  ${MODULE_LIBRARIES})
-buildsys_target_compile_definitions(vadstena-libs-registry ${MODULE_DEFINITIONS})
 
-# Create vadstena-tileset-browser library with browser files
-file_to_cpp(vadstena-libs_BROWSER_SOURCES
+# old tilestorage browser files
+set(tilestorage_BROWSER_SOURCES
+  tilestorage/support.hpp tilestorage/support.cpp
+  )
+file_to_cpp(vts_BROWSER_SOURCES
   vadstena::tilestorage::browser::index_html
   tilestorage/browser/index.html)
-file_to_cpp(vadstena-libs_BROWSER_SOURCES
+file_to_cpp(vts_BROWSER_SOURCES
   vadstena::tilestorage::browser::index_offline_html
   tilestorage/browser/index-offline.html)
-file_to_cpp(vadstena-libs_BROWSER_SOURCES
+file_to_cpp(vts_BROWSER_SOURCES
   vadstena::tilestorage::browser::skydome_jpg
   tilestorage/browser/skydome.jpg)
 
-add_library(vadstena-tileset-browser STATIC
-  ${vadstena-libs_BROWSER_SOURCES}
-  tilestorage/support.hpp tilestorage/support.cpp
-  )
-buildsys_library(vadstena-tileset-browser)
 
-set(vadstena-tileset-core_SOURCES
+# old tilestorage core files
+set(tilestorage-core_SOURCES
   tilestorage/basetypes.hpp
   tilestorage/properties.hpp
   tilestorage/tileop.hpp tilestorage/tileop.cpp
@@ -77,33 +70,37 @@ set(vadstena-tileset-core_SOURCES
   tilestorage/config.hpp tilestorage/config.cpp
   )
 
-define_module(LIBRARY vadstena-tileset-core DEPENDS
-  vadstena-libs-storage math utility dbglog jsoncpp Boost_IOSTREAMS)
-add_library(vadstena-tileset-core STATIC ${vadstena-tileset-core_SOURCES})
-buildsys_library(vadstena-tileset-core)
-target_link_libraries(vadstena-tileset-core
-  vadstena-tileset-browser
-  ${MODULE_LIBRARIES})
-buildsys_target_compile_definitions(vadstena-tileset-core ${MODULE_DEFINITIONS})
+set(tilestorage_SOURCES
+  tilestorage.hpp
+  tilestorage/types.hpp
+  tilestorage/storage.hpp tilestorage/storage.cpp
+  tilestorage/tileset.hpp tilestorage/tileset.cpp
+  tilestorage/po.hpp
+  tilestorage/tileindex.hpp tilestorage/tileindex.cpp
+  tilestorage/metatileop.hpp tilestorage/metatileop.cpp
 
-# Create vadstena-vts0-browser library with browser files
-file_to_cpp(vadstena-libs_vts0_BROWSER_SOURCES
+  tilestorage/merge.hpp tilestorage/merge.cpp
+  tilestorage/tileset/merge.cpp
+  tilestorage/tileset/dump.hpp
+  tilestorage/tileset/heightmap.cpp
+  )
+
+# old vts0 browser files
+set(vts0_BROWSER_SOURCES
+  vts0/support.hpp vts0/support.cpp
+  )
+file_to_cpp(vts0_BROWSER_SOURCES
   vadstena::vts0::browser::index_html
   vts0/browser/index.html)
-file_to_cpp(vadstena-libs_vts0_BROWSER_SOURCES
+file_to_cpp(vts0_BROWSER_SOURCES
   vadstena::vts0::browser::index_offline_html
   vts0/browser/index-offline.html)
-file_to_cpp(vadstena-libs_vts0_BROWSER_SOURCES
+file_to_cpp(vts0_BROWSER_SOURCES
   vadstena::vts0::browser::skydome_jpg
   vts0/browser/skydome.jpg)
 
-add_library(vadstena-vts0-browser STATIC
-  ${vadstena-libs_vts0_BROWSER_SOURCES}
-  vts0/support.hpp vts0/support.cpp
-  )
-buildsys_library(vadstena-vts0-browser)
-
-set(vadstena-vts0-core_SOURCES
+# old vts0 files
+set(vts0-core_SOURCES
   vts0/basetypes.hpp
   vts0/properties.hpp
   vts0/tileop.hpp vts0/tileop.cpp
@@ -122,36 +119,41 @@ set(vadstena-vts0-core_SOURCES
   vts0/config.hpp vts0/config.cpp
   )
 
-define_module(LIBRARY vadstena-vts0-core DEPENDS
-  vadstena-libs-registry vadstena-libs-storage
-  geo math utility dbglog jsoncpp half Boost_IOSTREAMS)
-add_library(vadstena-vts0-core STATIC ${vadstena-vts0-core_SOURCES})
-buildsys_library(vadstena-vts0-core)
-target_link_libraries(vadstena-vts0-core
-  vadstena-vts0-browser
-  ${MODULE_LIBRARIES})
-buildsys_target_compile_definitions(vadstena-vts0-core ${MODULE_DEFINITIONS})
 
-# VTS browser + core library
+set(vts0_SOURCES
+  vts0.hpp
+  vts0/types.hpp
+  vts0/tileset.hpp vts0/tileset.cpp
+  vts0/tileindex.hpp vts0/tileindex.cpp
+  vts0/metatileop.hpp vts0/metatileop.cpp
 
-# Create vadstena-vts-browser library with browser files
-file_to_cpp(vadstena-libs_vts_BROWSER_SOURCES
+  vts0/tileset/merge.cpp
+  vts0/tileset/dump.hpp
+
+  vts0/storage.hpp vts0/storage.cpp
+
+  vts0/merge.hpp vts0/merge.cpp
+  vts0/tileset/heightmap.cpp
+
+  vts0/encoder.hpp vts0/encoder.cpp
+  )
+
+# vts browser files
+set(vts_BROWSER_SOURCES
+  vts/support.hpp vts/support.cpp
+  )
+file_to_cpp(vts_BROWSER_SOURCES
   vadstena::vts::browser::index_html
   vts/browser/index.html)
-file_to_cpp(vadstena-libs_vts_BROWSER_SOURCES
+file_to_cpp(vts_BROWSER_SOURCES
   vadstena::vts::browser::index_offline_html
   vts/browser/index-offline.html)
-file_to_cpp(vadstena-libs_vts_BROWSER_SOURCES
+file_to_cpp(vts_BROWSER_SOURCES
   vadstena::vts::browser::skydome_jpg
   vts/browser/skydome.jpg)
 
-add_library(vadstena-vts-browser STATIC
-  ${vadstena-libs_vts_BROWSER_SOURCES}
-  vts/support.hpp vts/support.cpp
-  )
-buildsys_library(vadstena-vts-browser)
-
-set(vadstena-vts-core_SOURCES
+# vts core files
+set(vts-core_SOURCES
   vts.hpp
   vts/basetypes.hpp vts/basetypes.cpp
   vts/multifile.hpp vts/multifile.cpp
@@ -186,181 +188,59 @@ set(vadstena-vts-core_SOURCES
   vts/mapconfig.hpp vts/mapconfig.cpp
   )
 
-define_module(LIBRARY vadstena-vts-core DEPENDS
-  vadstena-libs-registry vadstena-libs-storage
-  geo imgproc math utility dbglog jsoncpp half Boost_IOSTREAMS)
-add_library(vadstena-vts-core STATIC ${vadstena-vts-core_SOURCES})
-buildsys_library(vadstena-vts-core)
-target_link_libraries(vadstena-vts-core
-  vadstena-vts-browser
+set(vts_SOURCES
+  vts/opencv/atlas.hpp vts/opencv/atlas.cpp
+  vts/opencv/navtile.hpp vts/opencv/navtile.cpp
+  vts/tileset/glue.cpp
+  vts/tileset/merge.hpp vts/tileset/merge.cpp
+  vts/refineandclip.hpp vts/refineandclip.cpp
+  vts/storage/change.cpp
+
+  # dump support
+  vts/tileindex-dump.cpp
+  vts/qtree-dump.cpp
+  )
+
+# vts core library
+define_module(LIBRARY vts-libs-core DEPENDS
+  geo imgproc math utility dbglog jsoncpp half
+  Boost_IOSTREAMS
+  Boost_FILESYSTEM
+  )
+
+add_library(vts-libs-core STATIC
+  ${vts-common_SOURCES}
+  ${vts-registry_SOURCES}
+
+  ${vts-browser_SOURCES}
+  ${vts-core_SOURCES}
+
+  ${vts0-browser_SOURCES}
+  ${vts0-core_SOURCES}
+
+  ${tilestorage-browser_SOURCES}
+  ${tilestorage-core_SOURCES}
+  )
+buildsys_library(vts-libs-core)
+target_link_libraries(vts-libs-core
   ${MODULE_LIBRARIES})
-buildsys_target_compile_definitions(vadstena-vts-core ${MODULE_DEFINITIONS})
+buildsys_target_compile_definitions(vts-libs-core ${MODULE_DEFINITIONS})
 
-if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vadstena-libs)
-  if (BUILDSYS_CUSTOMER_BUILD)
-    message(STATUS "Building vadstena-libs customized for customer "
-      "'${BUILDSYS_CUSTOMER}'.")
-    set(CUSTOMER_SOURCES customer/${BUILDSYS_CUSTOMER}.cpp)
-
-    # fingerprint:
-    include(${CMAKE_CURRENT_LIST_DIR}/licence/fingerprint.cmake)
-    fingerprint_to_cpp(CUSTOMER_SOURCES customer/${BUILDSYS_CUSTOMER}.fp
-      customer/base.fp)
-  else()
-    message(STATUS "Building vadstena-libs without any customization.")
-    set(CUSTOMER_SOURCES customer/none.cpp)
-  endif()
-
-  file_to_cpp(PUBLIC_KEY_SOURCES vadstena::matrixSource detail/matrix-source)
-  file_to_cpp(PUBLIC_KEY_SOURCES vadstena::fingerPrintManipulator
-    detail/fingeprint-manipulator)
-
-  define_module(LIBRARY vadstena-libs DEPENDS
-    vadstena-libs-storage
-    vadstena-libs-registry
-    vadstena-tileset-core
-    vadstena-vts0-core
-    vadstena-vts-core
+# main vts library is optional:
+if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
+  message(STATUS "Compiling main vts-libs library.")
+  define_module(LIBRARY vts-libs DEPENDS
+    vts-libs-core
     service cvision optics math geo geometry utility dbglog jsoncpp
-    Boost_FILESYSTEM Boost_REGEX
-    OpenCV LIBSHP CRYPTO++ MYSQL++)
+    OpenCV)
 
-  set(vadstena-libs_SOURCES
-    definitions.hpp imagetypes.hpp
-    db.hpp db.cpp
-    file.hpp
-    entities.hpp entities.cpp
 
-    utility.hpp
-    utility/utility.cpp
-    utility/job.cpp
-    utility/maintenance.cpp
-    utility/convert.hpp utility/convert.cpp
-    utility/detail.hpp
-
-    tiling.hpp tiling.cpp
-    copyfile.hpp copyfile.cpp
-    colorconfig.hpp colorconfig.cpp
-    colortrans.hpp
-    entities.hpp
-    pc.hpp pc.cpp
-    uvpack.hpp uvpack.cpp
-    mesh.hpp mesh.cpp
-    faceclip.hpp faceclip.cpp
-    binmesh.hpp binmesh.cpp
-
-    memory-requirements.hpp
-
-    # crypto stuff
-    clog.hpp clog.cpp
-    deferredlogger.hpp deferredlogger.cpp
-    encryptor.hpp encryptor.cpp
-    keepalive.hpp keepalive.cpp
-
-    cameralist.hpp cameralist.cpp
-    facetexcoords.hpp facetexcoords.cpp
-    gil2cvmat.hpp
-    gcp.hpp gcp.cpp
-
-    rectalloc.hpp rectalloc.cpp
-    viewrasterize.hpp viewrasterize.cpp
-    viewquality.hpp viewquality.cpp
-    orthopreview.hpp orthopreview.cpp
-
-    meshrasterize.hpp meshrasterize.cpp
-    coverage-map.hpp coverage-map.cpp
-
-    shapefile.hpp shapefile.cpp
-
-    viewconfig.hpp viewconfig.cpp
-    flowconfig.hpp flowconfig.cpp
-    features.hpp features.cpp
-    filelist.hpp filelist.cpp
-
-    measurements.hpp measurements.cpp
-
-    facespertile.hpp facespertile.cpp
-
-    lodmapping.hpp
-
-    tilestorage.hpp
-    tilestorage/types.hpp
-    tilestorage/storage.hpp tilestorage/storage.cpp
-    tilestorage/tileset.hpp tilestorage/tileset.cpp
-    tilestorage/po.hpp
-    tilestorage/tileindex.hpp tilestorage/tileindex.cpp
-    tilestorage/metatileop.hpp tilestorage/metatileop.cpp
-
-    tilestorage/merge.hpp tilestorage/merge.cpp
-    tilestorage/tileset/merge.cpp
-    tilestorage/tileset/dump.hpp
-    tilestorage/tileset/heightmap.cpp
-
-    vts0.hpp
-    vts0/types.hpp
-    vts0/tileset.hpp vts0/tileset.cpp
-    vts0/tileindex.hpp vts0/tileindex.cpp
-    vts0/metatileop.hpp vts0/metatileop.cpp
-
-    vts0/tileset/merge.cpp
-    vts0/tileset/dump.hpp
-
-    vts0/storage.hpp vts0/storage.cpp
-
-    vts0/merge.hpp vts0/merge.cpp
-    vts0/tileset/heightmap.cpp
-
-    vts0/encoder.hpp vts0/encoder.cpp
-
-    vts/opencv/atlas.hpp vts/opencv/atlas.cpp
-    vts/opencv/navtile.hpp vts/opencv/navtile.cpp
-    vts/tileset/glue.cpp
-    vts/tileset/merge.hpp vts/tileset/merge.cpp
-    vts/refineandclip.hpp vts/refineandclip.cpp
-    vts/storage/change.cpp
-
-    # dump support
-    vts/tileindex-dump.cpp
-    vts/qtree-dump.cpp
-
-    licence/fingerprint.hpp licence/fingerprint.cpp
-
-    ${PUBLIC_KEY_SOURCES}
-
-    customer.hpp ${CUSTOMER_SOURCES}
+  add_library(vts-libs STATIC
+    ${vts_SOURCES}
+    ${vts0_SOURCES}
+    ${tilestorage_SOURCES}
     )
-
-  if (CGAL_FOUND)
-    list(APPEND vadstena-libs_SOURCES
-      orthopreview.hpp orthopreview.cpp
-    )
-  endif()
-
-  # fallback to non-C++11 standard for this helper file
-  if (${CMAKE_C_COMPILER_ID} MATCHES GNU)
-    set_source_files_properties(copyfile.cpp PROPERTIES
-      COMPILE_FLAGS -std=c++98)
-  endif()
-
-  add_library(vadstena-libs STATIC ${vadstena-libs_SOURCES})
-  buildsys_library(vadstena-libs)
-  target_link_libraries(vadstena-libs ${MODULE_LIBRARIES})
-  buildsys_target_compile_definitions(vadstena-libs ${MODULE_DEFINITIONS})
-endif()
-
-# private library; NOT to be USED in customer code!
-if (DEFINED BUILDSYS_BUILD_TARGET_vadstena-libs-private)
-  define_module(LIBRARY vadstena-libs-private DEPENDS CRYPTO++)
-
-  file_to_cpp(PRIVATE_KEY_SOURCES vadstena::matrixSink detail/matrix-sink)
-
-  set(vadstena-libs-private_SOURCES
-    private-key.hpp private-key.cpp
-    ${PRIVATE_KEY_SOURCES}
-    )
-
-  add_library(vadstena-libs-private STATIC ${vadstena-libs-private_SOURCES})
-  buildsys_library(vadstena-libs-private)
-  target_link_libraries(vadstena-libs-private ${MODULE_LIBRARIES})
-  buildsys_target_compile_definitions(vadstena-libs-private ${MODULE_DEFINITIONS})
+  buildsys_library(vts-libs)
+  target_link_libraries(vts-libs vts-libs-core ${MODULE_LIBRARIES})
+  buildsys_target_compile_definitions(vts-libs ${MODULE_DEFINITIONS})
 endif()
