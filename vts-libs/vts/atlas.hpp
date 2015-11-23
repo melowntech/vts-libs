@@ -33,6 +33,8 @@ public:
 
     bool valid(std::size_t index) const { return index < size(); }
 
+    bool empty() const { return !size(); }
+
     static multifile::Table readTable(std::istream &is
                                       , const boost::filesystem::path &path
                                       = "unknown");

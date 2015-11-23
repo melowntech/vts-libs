@@ -98,6 +98,8 @@ struct Mesh {
     }
 
     SubMesh& operator[](std::size_t index) { return submeshes[index]; }
+
+    std::size_t size() const { return submeshes.size(); }
 };
 
 inline bool watertight(const Mesh &mesh) { return mesh.coverageMask.full(); }

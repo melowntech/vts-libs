@@ -536,6 +536,85 @@ bool check(const SpatialDivisionExtents &l, const SpatialDivisionExtents &r)
     return false;
 }
 
+namespace {
+
+void sanityCheck(const TileId &tileId, const Mesh *mesh, const Atlas *atlas)
+{
+    if (!mesh) {
+        if (atlas) {
+            LOGTHROW(err1, storage::InconsistentInput)
+                << "Tile " << tileId
+                << ": atlas cannot exist without mesh.";
+        }
+
+        // OK
+        return;
+    }
+
+    auto imesh(mesh->begin());
+
+    if (atlas) {
+        if (atlas->empty()) {
+            LOGTHROW(err1, storage::InconsistentInput)
+                << "Tile " << tileId << ": empty atlas.";
+        }
+
+        if (atlas->size() > mesh->size()) {
+            LOGTHROW(err1, storage::InconsistentInput)
+                << "Tile " << tileId
+                << ": there cannot be more textures than sub-meshes.";
+        }
+
+        // check submeshes with texture
+        for (std::size_t i(0), e(atlas->size()); i != e; ++i) {
+            const auto &sm(*imesh++);
+            if (sm.tc.empty()) {
+                LOGTHROW(err1, storage::InconsistentInput)
+                    << "Tile " << tileId
+                    << ": mesh with external texture without texture "
+                    "coordinate.";
+            }
+
+            if ((sm.textureMode == SubMesh::TextureMode::external)
+                && (sm.etc.empty()))
+            {
+                LOGTHROW(err1, storage::InconsistentInput)
+                    << "Tile " << tileId
+                    << ": external texture mode but there are no "
+                    "external texture coordinates .";
+            }
+        }
+    }
+
+    // check submeshes without texture
+    for (auto emesh(mesh->end()); imesh != emesh; ++imesh) {
+        const auto &sm(*imesh);
+
+        if (sm.etc.empty()) {
+            LOGTHROW(err1, storage::InconsistentInput)
+                << "Tile " << tileId
+                << ": mesh without internal texture without external "
+                "texture coordinates.";
+        }
+
+        if (sm.textureMode == SubMesh::TextureMode::internal) {
+            LOGTHROW(err1, storage::InconsistentInput)
+                << "Tile " << tileId
+                << ": mesh without internal texture cannot have internal "
+                "texture mode.";
+        }
+
+        if (!sm.tc.empty()) {
+            LOGTHROW(err1, storage::InconsistentInput)
+                << "Tile " << tileId
+                << ": mesh without internal texture cannot have internal "
+                "texture coordinates.";
+        }
+    }
+}
+
+} // namespace
+
 void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
                               , const Atlas *atlas, const NavTile *navtile
                               , const NodeInfo *nodeInfo)
@@ -544,11 +623,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
 
     LOG(info1) << "Setting content of tile " << tileId << ".";
 
-    if (atlas && (atlas->size() > mesh->submeshes.size())) {
-        LOGTHROW(err2, storage::InconsistentInput)
-            << "Tile " << tileId
-            << " has more textures than submeshes.";
-    }
+    sanityCheck(tileId, mesh, atlas);
 
     MetaNode metanode;
 
