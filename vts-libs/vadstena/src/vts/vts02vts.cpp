@@ -672,7 +672,8 @@ int Vts02Vts::run()
         properties_.referenceFrame = oldprop.referenceFrame;
 
         auto &pos(properties_.position);
-        pos.type = vr::Position::Type::fixed;
+        pos.type = vr::Position::Type::objective;
+        pos.heightMode = vr::Position::HeightMode::fixed;
         pos.position = oldprop.defaultPosition;
         pos.orientation = oldprop.defaultOrientation;
         pos.verticalExtent = 1080;
