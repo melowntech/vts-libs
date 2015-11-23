@@ -73,6 +73,10 @@ struct InvalidSignature : Error {
     InvalidSignature(const std::string &message) : Error(message) {}
 };
 
+struct InconsistentInput : Error {
+    InconsistentInput(const std::string &message) : Error(message) {}
+};
+
 struct Interrupted : Error {
     Interrupted(const std::string &message) : Error(message) {}
 };

@@ -105,29 +105,14 @@ double RawAtlas::area_impl(std::size_t index) const
     return math::area(imgproc::jpegSize(image.data(), image.size()));
 }
 
-void RawAtlas::add(const Image &image, int scale) {
+void RawAtlas::add(const Image &image) {
     images_.push_back(image);
-    if (scale <= 1) { return; }
-
-    // scale atlas
-    Properties p;
-    p.apparentPixelArea = scale * scale;
-    properties(images_.size() - 1, p);
 }
 
-void RawAtlas::add(const RawAtlas &other, int scale)
+void RawAtlas::add(const RawAtlas &other)
 {
-    auto start(images_.size());
     images_.insert(images_.end(), other.images_.begin()
                    , other.images_.end());
-    if (scale <= 1) { return; }
-
-    // scale atlas
-    Properties p;
-    p.apparentPixelArea = scale * scale;
-    for (std::size_t i(start); i < images_.size(); ++i) {
-        properties(i, p);
-    }
 }
 
 } } } // namespace vadstena::vts::opencv

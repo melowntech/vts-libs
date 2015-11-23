@@ -26,18 +26,6 @@ namespace {
     const std::uint16_t VERSION = 1;
 
     const std::size_t MIN_GEOM_BITS(2);
-
-    struct NodeFlag { enum : std::uint8_t {
-        geometryPresent = 0x01
-        , navtilePresent = 0x02
-        , internalTexturePresent = 0x04
-        , coarsenessControl = 0x08
-
-        , ulChild = 0x10
-        , urChild = 0x20
-        , llChild = 0x40
-        , lrChild = 0x80
-    }; };
 } // namespace
 
 boost::optional<MetaTile::point_type>
@@ -321,26 +309,15 @@ void MetaTile::save(std::ostream &out) const
 
             bin::write(out, buildGeomExtents(tileId, node.extents));
 
-            std::uint16_t marea(0);
-            std::uint16_t tarea(0);
-            switch (node.cc()) {
-            case MetaNode::CoarsenessControl::texelSize:
-                if (node.geometry()) {
-                    marea = half::float2half<std::round_to_nearest>
-                        (node.meshArea);
-                }
-                if (node.internalTexture()) {
-                    tarea = half::float2half<std::round_to_nearest>
-                        (node.textureArea);
-                }
-                break;
+            bin::write(out, std::uint8_t
+                       (std::max<std::size_t>
+                        (std::numeric_limits<std::uint8_t>::max()
+                         , node.internalTextureCount)));
 
-            case MetaNode::CoarsenessControl::displaySize:
-                marea = node.displaySize;
-                break;
-            }
-            bin::write(out, marea);
-            bin::write(out, tarea);
+            bin::write(out, std::uint16_t
+                       (half::float2half<std::round_to_nearest>
+                        (node.texelSize)));
+            bin::write(out, std::uint16_t(node.displaySize));
 
             bin::write(out, std::int16_t(node.heightRange.min));
             bin::write(out, std::int16_t(node.heightRange.max));
@@ -453,27 +430,9 @@ void MetaTile::load(std::istream &in, const fs::path &path)
             bin::read(in, geomExtents);
             parseGeomExtents(origin_.lod, node.extents, geomExtents);
 
-            switch (node.cc()) {
-            case MetaNode::CoarsenessControl::texelSize:
-                // read mesh area
-                bin::read(in, u16);
-                if (node.geometry()) {
-                    node.meshArea = half::half2float(u16);
-                }
-
-                // read texture area
-                bin::read(in, u16);
-                if (node.internalTexture()) {
-                    node.textureArea = half::half2float(u16);
-                }
-                break;
-
-            case MetaNode::CoarsenessControl::displaySize:
-                // read display size and texture area; use only display size
-                bin::read(in, u16); node.displaySize = u16;
-                bin::read(in, u16);
-                break;
-            }
+            bin::read(in, u8);  node.internalTextureCount = u8;
+            bin::read(in, u16); node.texelSize = half::half2float(u16);
+            bin::read(in, u16); node.displaySize = u16;
 
             bin::read(in, i16); node.heightRange.min = i16;
             bin::read(in, i16); node.heightRange.max = i16;

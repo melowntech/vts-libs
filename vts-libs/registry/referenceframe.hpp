@@ -174,15 +174,20 @@ struct ReferenceFrame {
 };
 
 struct Position {
-    enum class Type { fixed, floating, generic };
+    enum class Type { objective, subjective };
+    enum class HeightMode { fixed, floating };
 
     Type type;
+    HeightMode heightMode;
     math::Point3 position;
     math::Point3 orientation;
     double verticalExtent;
     double verticalFov;
 
-    Position() : type(Type::fixed), verticalExtent(), verticalFov() {}
+    Position()
+        : type(Type::objective), heightMode(HeightMode::fixed)
+        , verticalExtent(), verticalFov()
+    {}
 
     bool valid() { return orientation != math::Point3(0, 0, 0); }
 };
@@ -213,7 +218,6 @@ struct BoundLayer {
     NumericId numericId;
     Type type;
     std::string url;
-    math::Size2 tileSize;
     LodRange lodRange;
     TileRange tileRange;
     StringIdSet credits;
@@ -221,6 +225,9 @@ struct BoundLayer {
     BoundLayer() : numericId() {}
 
     static constexpr char typeName[] = "bound layer";
+
+    static math::Size2 tileSize() { return { 256, 256 }; }
+    static double tileArea() { return math::area(tileSize()); }
 
     typedef Dictionary<BoundLayer> dict;
     typedef Dictionary<BoundLayer, BoundLayer::NumericId> ndict;
@@ -290,9 +297,13 @@ UTILITY_GENERATE_ENUM_IO(Srs::Type,
 )
 
 UTILITY_GENERATE_ENUM_IO(Position::Type,
+    ((objective)("obj"))
+    ((subjective)("subj"))
+)
+
+UTILITY_GENERATE_ENUM_IO(Position::HeightMode,
     ((fixed))
     ((floating)("float"))
-    ((generic))
 )
 
 UTILITY_GENERATE_ENUM_IO(BoundLayer::Type,

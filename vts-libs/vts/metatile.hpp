@@ -28,8 +28,8 @@ struct MetaNode {
         enum : std::uint8_t {
             geometryPresent = 0x01
             , navtilePresent = 0x02
-            , internalTexturePresent = 0x04
-            , coarsenessControl = 0x08
+            , applyTexelSize = 0x04
+            , applyDisplaySize = 0x08
 
             , ulChild = 0x10
             , urChild = 0x20
@@ -38,12 +38,11 @@ struct MetaNode {
 
             , allChildren = (ulChild | urChild | llChild | lrChild)
 
-            , real = (geometryPresent | navtilePresent
-                      | internalTexturePresent)
+            , real = (geometryPresent | navtilePresent)
         };
     };
 
-    bool real() const { return check(Flag::real); }
+    bool real() const { return check(Flag::real) || internalTextureCount; }
 
     bool geometry() const { return check(Flag::geometryPresent); }
     MetaNode& geometry(bool value) {
@@ -55,24 +54,14 @@ struct MetaNode {
         return set(Flag::navtilePresent, value);
     }
 
-    bool internalTexture() const {
-        return check(Flag::internalTexturePresent);
-    }
-    MetaNode& internalTexture(bool value) {
-        return set(Flag::internalTexturePresent, value);
+    bool applyTexelSize() const { return check(Flag::applyTexelSize); }
+    MetaNode& applyTexelSize(bool value) {
+        return set(Flag::applyTexelSize, value);
     }
 
-    enum class CoarsenessControl { displaySize, texelSize };
-
-    CoarsenessControl cc() const {
-        return (check(Flag::coarsenessControl)
-                ? CoarsenessControl::texelSize
-                : CoarsenessControl::displaySize);
-    }
-
-    MetaNode& cc(CoarsenessControl value) {
-        return set(Flag::coarsenessControl
-            , (value == CoarsenessControl::texelSize));
+    bool applyDisplaySize() const { return check(Flag::applyDisplaySize); }
+    MetaNode& applyDisplaySize(bool value) {
+        return set(Flag::applyDisplaySize, value);
     }
 
     bool ulChild() const { return check(Flag::ulChild); }
@@ -91,18 +80,20 @@ struct MetaNode {
      */
     math::Extents3 extents;
 
-    union {
-        std::uint16_t displaySize;
-        float meshArea;
-    };
+    std::size_t internalTextureCount;
 
-    float textureArea;
+    float texelSize;
+
+    std::uint16_t displaySize;
 
     Range<std::int16_t> heightRange;
 
     storage::CreditIds credits;
 
-    MetaNode() : textureArea(), heightRange(), flags_() {}
+    MetaNode()
+        : internalTextureCount(), texelSize()
+        , displaySize(), heightRange(), flags_()
+    {}
 
     std::uint8_t flags() const { return flags_; }
     void flags(std::uint8_t flags) { flags_ = flags; }

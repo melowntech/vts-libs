@@ -54,6 +54,35 @@ void parseGlues(Glue::map &glues, const Json::Value &value)
     }
 }
 
+void parseTrash(TrashBin &trashBin, const Json::Value &value)
+{
+    // ignore missing trash bin
+    if (value.isNull()) { return; }
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of trash is not an array.";
+    }
+
+    for (const auto &element : value) {
+        Json::check(element, Json::objectValue);
+        // Glue g;
+        // parseGlue(g, element);
+        // glues.insert(Glue::map::value_type(g.id, g));
+    }
+    (void) trashBin;
+}
+
+void buildTrash(const TrashBin &trashBin, Json::Value &object)
+{
+    object = Json::arrayValue;
+
+    for (const auto &item : trashBin) {
+        // buildGlue(item.second, object.append(Json::nullValue));
+        (void) item;
+    }
+    (void) trashBin;
+}
+
 void buildList(const std::vector<std::string> &ids, Json::Value &value)
 {
     value = Json::arrayValue;
@@ -85,6 +114,7 @@ Storage::Properties parse1(const Json::Value &config)
 
     parseList(properties.tilesets, config, "tilesets");
     parseGlues(properties.glues, config["glues"]);
+    parseTrash(properties.trashBin, config["trashBin"]);
 
     return properties;
 }
@@ -99,6 +129,7 @@ void build(Json::Value &config, const Storage::Properties &properties)
 
     buildList(properties.tilesets, config["tilesets"]);
     buildGlues(properties.glues, config["glues"]);
+    buildTrash(properties.trashBin, config["trashBin"]);
 }
 
 } // namespace detail

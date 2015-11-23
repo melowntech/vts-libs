@@ -483,8 +483,6 @@ void parse(BoundLayer &bl, const Json::Value &content)
         (Json::get(s, content, "type"));
 
     Json::get(bl.url, content, "url");
-    Json::get(bl.tileSize.width, content, "tileSize", 0);
-    Json::get(bl.tileSize.height, content, "tileSize", 1);
     Json::get(bl.lodRange.min, content, "lodRange", 0);
     Json::get(bl.lodRange.max, content, "lodRange", 1);
 
@@ -537,10 +535,6 @@ void build(Json::Value &content, const BoundLayer &bl)
     content["id"] = bl.numericId;
     content["type"] = boost::lexical_cast<std::string>(bl.type);
     content["url"] = bl.url;
-
-    auto &tileSize(content["tileSize"] = Json::arrayValue);
-    tileSize.append(bl.tileSize.width);
-    tileSize.append(bl.tileSize.height);
 
     auto &lodRange(content["lodRange"] = Json::arrayValue);
     lodRange.append(bl.lodRange.min);
@@ -919,13 +913,12 @@ Json::Value asJson(const Position &position)
     value.append(boost::lexical_cast<std::string>(position.type));
     value.append(position.position(0));
     value.append(position.position(1));
+    value.append(boost::lexical_cast<std::string>(position.heightMode));
     value.append(position.position(2));
     value.append(position.orientation(0));
     value.append(position.orientation(1));
     value.append(position.orientation(2));
-    if (position.type != Position::Type::generic) {
-        value.append(position.verticalExtent);
-    }
+    value.append(position.verticalExtent);
     value.append(position.verticalFov);
     return value;
 }
@@ -943,18 +936,16 @@ Position fromJson(const Json::Value value)
         (Json::as<std::string>(value[0]));
     p.position(0) = Json::as<double>(value[1]);
     p.position(1) = Json::as<double>(value[2]);
-    p.position(2) = Json::as<double>(value[3]);
+    p.heightMode = boost::lexical_cast<registry::Position::HeightMode>
+        (Json::as<std::string>(value[3]));
+    p.position(2) = Json::as<double>(value[4]);
 
-    p.orientation(0) = Json::as<double>(value[4]);
-    p.orientation(1) = Json::as<double>(value[5]);
-    p.orientation(2) = Json::as<double>(value[6]);
+    p.orientation(0) = Json::as<double>(value[5]);
+    p.orientation(1) = Json::as<double>(value[6]);
+    p.orientation(2) = Json::as<double>(value[7]);
 
-    if (p.type == Position::Type::generic) {
-        p.verticalFov = Json::as<double>(value[7]);
-    } else {
-        p.verticalExtent = Json::as<double>(value[7]);
-        p.verticalFov = Json::as<double>(value[8]);
-    }
+    p.verticalExtent = Json::as<double>(value[8]);
+    p.verticalFov = Json::as<double>(value[9]);
 
     return p;
 }

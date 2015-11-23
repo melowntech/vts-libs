@@ -544,6 +544,12 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
 
     LOG(info1) << "Setting content of tile " << tileId << ".";
 
+    if (atlas && (atlas->size() > mesh->submeshes.size())) {
+        LOGTHROW(err2, storage::InconsistentInput)
+            << "Tile " << tileId
+            << " has more textures than submeshes.";
+    }
+
     MetaNode metanode;
 
     // set various flags and metadata
@@ -555,34 +561,32 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
         // get external textures info configuration
         accumulateBoundLayers(properties.boundLayers, *mesh);
 
-        // mesh and texture area stuff
-        auto ma(area(*mesh));
-        metanode.cc(MetaNode::CoarsenessControl::texelSize);
-        metanode.meshArea = std::sqrt(ma.mesh);
+        metanode.applyTexelSize(true);
 
-        if (atlas) {
-            // internal texture
-            metanode.internalTexture(true);
-        }
+        const auto ma(area(*mesh));
+        double meshArea(ma.mesh);
 
-        // calculate texture area
         double textureArea(0.0);
-        {
-            std::size_t index(0);
-            auto isubmeshes(mesh->submeshes.begin());
-            for (double ta : ma.texture) {
-                if (atlas) {
-                    textureArea += ta * atlas->area(index++);
-                } else if (isubmeshes->textureLayer) {
-                    // TODO: use value of to get size of texture textureLayer
-                    auto ts(registry::Registry::boundLayer
-                            (*isubmeshes->textureLayer).tileSize);
-                    textureArea += ta * area(ts);
-                }
+
+        // mesh and texture area -> texelSize
+        auto ita(ma.texture.begin());
+
+        // internally-textured submeshes
+        if (atlas) {
+            for (std::size_t i(0), e(atlas->size()); i != e; ++i) {
+                textureArea += *ita++ * atlas->area(i);
             }
-            ++isubmeshes;
+
+            // set atlas related info
+            metanode.internalTextureCount = atlas->size();
         }
-        metanode.textureArea = std::sqrt(textureArea);
+
+        // externally-textures submeshes
+        for (auto eta(ma.texture.end()); ita != eta; ++ita) {
+            textureArea += *ita++ * registry::BoundLayer::tileArea();
+        }
+
+        metanode.texelSize = std::sqrt(meshArea / textureArea);
     }
 
     // navtile
@@ -667,7 +671,7 @@ void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas
             << "There is no tile at " << tileId << ".";
     }
 
-    if (!node->internalTexture()) {
+    if (!node->internalTextureCount) {
         LOGTHROW(err2, storage::NoSuchTile)
             << "Tile " << tileId << " has no atlas.";
     }
@@ -717,7 +721,7 @@ TileSource TileSet::Detail::getTileSource(const TileId &tileId) const
         tile.mesh = driver->input(tileId, TileFile::mesh);
     }
 
-    if (node->internalTexture()) {
+    if (node->internalTextureCount) {
         tile.atlas = driver->input(tileId, TileFile::atlas);
     }
 
@@ -746,7 +750,7 @@ void TileSet::Detail::saveMetadata()
         std::uint8_t m(0);
         if (node.geometry()) { m |= TileIndex::Flag::mesh; }
         if (node.navtile()) { m |= TileIndex::Flag::navtile; }
-        if (node.internalTexture()) { m |= TileIndex::Flag::atlas; }
+        if (node.internalTextureCount) { m |= TileIndex::Flag::atlas; }
         return m;
     });
 
@@ -807,8 +811,9 @@ void TileSet::Detail::flush()
             const auto &item(*properties.spatialDivisionExtents.begin());
             auto &position(properties.position);
 
-            position.type = registry::Position::Type::fixed;
+            position.type = registry::Position::Type::objective;
             position.orientation = { .0, -90., .0 };
+            position.heightMode = registry::Position::HeightMode::fixed;
 
             math::Point2 p(center(item.second));
             position.position = { p(0), p(1), 1000 };

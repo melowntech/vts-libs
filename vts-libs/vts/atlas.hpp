@@ -31,32 +31,11 @@ public:
      */
     double area(std::size_t index) const;
 
-    struct Properties {
-        /** Apparent area of one pixel, defaults to 1.
-         */
-        double apparentPixelArea;
-
-        Properties() : apparentPixelArea(1.0) {}
-
-        typedef std::vector<Properties> list;
-    };
-
-    void properties(std::size_t index, const Properties &properties);
-
-    Properties properties(std::size_t index) const;
-
     bool valid(std::size_t index) const { return index < size(); }
 
-    struct Table : multifile::Table {
-        Entry properties;
-
-        struct Decompose {};
-        Table(const multifile::Table &src);
-    };
-
-    static Table readTable(std::istream &is
-                           , const boost::filesystem::path &path
-                           = "unknown");
+    static multifile::Table readTable(std::istream &is
+                                      , const boost::filesystem::path &path
+                                      = "unknown");
 
 private:
     virtual multifile::Table serialize_impl(std::ostream &os) const = 0;
@@ -66,8 +45,6 @@ private:
                                   , const multifile::Table &table) = 0;
 
     virtual double area_impl(std::size_t index) const = 0;
-
-    Properties::list properties_;
 };
 
 } } // namespace vadstena::vts

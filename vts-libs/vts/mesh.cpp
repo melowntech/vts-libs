@@ -28,7 +28,7 @@ namespace {
         internalTexture = 0x1
         , externalTexture = 0x2
         /*, reserved = 0x4 */
-        , referencesExternalTexture = 0x8
+        , textureMode = 0x8
     }; };
 } // namespace
 
@@ -66,7 +66,7 @@ std::pair<double, double> area(const SubMesh &sm)
 {
     if (sm.faces.empty()) { return { 0.0, 0.0 }; }
 
-    // calculate the total area of the faces in both the XYZ and UV spaces
+    // calculate the total area of the faces in both the XYZ
     double xyzArea(0);
     for (const auto &face : sm.faces) {
         xyzArea += detail::triangleArea(sm.vertices[face[0]]
@@ -74,14 +74,19 @@ std::pair<double, double> area(const SubMesh &sm)
                                         , sm.vertices[face[2]]);
     }
 
+    // calculate area total in UV space (either from texture-coordinates or
+    // external-texture-coordinates based on texture-mode
     double uvArea(0);
+    const math::Points2d &tc
+        ((sm.textureMode == SubMesh::TextureMode::internal) ? sm.tc : sm.etc);
     for (const auto &face : sm.facesTc) {
-        uvArea += detail::triangleArea(sm.tc[face[0]]
-                                       , sm.tc[face[1]]
-                                       , sm.tc[face[2]]);
+        uvArea += detail::triangleArea(tc[face[0]]
+                                       , tc[face[1]]
+                                       , tc[face[2]]);
     }
 
-    return { xyzArea, uvArea };
+    // NB: UV area is multiplied by uvAreaFactor to make it smaller
+    return { xyzArea, uvArea * sm.uvAreaScale };
 }
 
 MeshArea area(const Mesh &mesh)
@@ -137,14 +142,14 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
         if (!sm.etc.empty()) {
             flags |= SubMeshFlag::externalTexture;
         }
-        if (sm.textureLayer) {
-            flags |= SubMeshFlag::referencesExternalTexture;
+        if (sm.textureMode == SubMesh::TextureMode::external) {
+            flags |= SubMeshFlag::textureMode;
         }
         bin::write(out, flags);
 
-        // load (external) texture layer information
+        // write (external) texture layer information
         if (sm.textureLayer) {
-            bin::write(out, *sm.textureLayer);
+            bin::write(out, std::uint16_t(*sm.textureLayer));
         } else {
             // save zero
             bin::write(out, std::uint16_t(0));
@@ -203,6 +208,16 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
     }
 }
 
+void saveMeshProperties(std::uint16_t version, std::ostream &out
+                        , const Mesh &mesh)
+{
+    (void) version;
+
+    for (const auto &sm : mesh.submeshes) {
+        bin::write(out, double(sm.uvAreaScale));
+    }
+}
+
 } // namespace
 
 void saveMesh(std::ostream &out, const Mesh &mesh)
@@ -214,6 +229,9 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
     p = table.add(p, out.tellp() - p);
 
     mesh.coverageMask.dump(out);
+    p = table.add(p, out.tellp() - p);
+
+    saveMeshProperties(table.version, out, mesh);
     table.entries.emplace_back(p, out.tellp() - p);
 
     multifile::writeTable(table, out);
@@ -276,13 +294,15 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
         bin::read(in, flags);
 
         // load (external) texture layer information
-        if (flags & SubMeshFlag::referencesExternalTexture) {
-            sm.textureLayer = 0;
-            bin::read(in, *sm.textureLayer);
-        } else {
-            // read zero
-            std::uint16_t u16;
-            bin::read(in, u16);
+        std::uint16_t u16;
+        bin::read(in, u16);
+
+        if (flags & SubMeshFlag::textureMode) {
+            sm.textureMode = SubMesh::TextureMode::external;
+            // leave textureLayer undefined if zero
+            if (u16) {
+                sm.textureLayer = u16;
+            }
         }
 
         // load sub-mesh bounding box
@@ -355,6 +375,17 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
     }
 }
 
+void loadMeshProperties(std::uint16_t version, std::istream &in, Mesh &mesh)
+{
+    (void) version;
+
+    for (auto &sm : mesh.submeshes) {
+        double uvAreaScale;
+        bin::read(in, uvAreaScale);
+        sm.uvAreaScale = uvAreaScale;
+    }
+}
+
 } // namespace
 
 multifile::Table readMeshTable(std::istream &is
@@ -363,7 +394,7 @@ multifile::Table readMeshTable(std::istream &is
 {
     return multifile::readTable(is, MF_MAGIC, path)
         .versionAtMost(MF_VERSION, path)
-        .checkEntryCount(2, path);
+        .checkEntryCount(3, path);
 }
 
 Mesh loadMesh(std::istream &in, const fs::path &path)
@@ -377,6 +408,9 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
 
     in.seekg(table.entries[1].start);
     mesh.coverageMask.load(in);
+
+    in.seekg(table.entries[2].start);
+    loadMeshProperties(table.version, in, mesh);
 
     return mesh;
 }

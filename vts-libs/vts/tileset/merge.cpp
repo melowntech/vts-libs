@@ -143,7 +143,7 @@ bool Input::hasMesh() const
 
 bool Input::hasAtlas() const
 {
-    return node_ && node_->internalTexture();
+    return node_ && node_->internalTextureCount;
 }
 
 bool Input::hasNavtile() const
@@ -516,7 +516,7 @@ public:
         filter(coverage);
     }
 
-    void addTo(Output &out, int scaling);
+    void addTo(Output &out, double uvAreaScale = 1.0);
 
     EnhancedSubMesh result() const { return result_; }
 
@@ -586,11 +586,12 @@ private:
     std::vector<int> tcMap_;
 };
 
-void MeshFilter::addTo(Output &out, int scaling)
+void MeshFilter::addTo(Output &out, double uvAreaScale)
 {
     out.forceMesh().submeshes.push_back(mesh_);
+    out.forceMesh().submeshes.back().uvAreaScale = uvAreaScale;
     if (input_.hasAtlas() && input_.atlas().valid(submeshIndex_)) {
-        out.forceAtlas().add(input_.atlas().get(submeshIndex_), scaling);
+        out.forceAtlas().add(input_.atlas().get(submeshIndex_));
     }
 }
 
@@ -672,9 +673,11 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
             // we have some mesh
             outMesh.submeshes.push_back(refined.mesh);
 
+            // update apparent detail
+            outMesh.submeshes.back().uvAreaScale = (1 << localId.lod);
+
             if (input.hasAtlas()) {
-                result.forceAtlas().add
-                    (input.atlas().get(smIndex), localId.lod);
+                result.forceAtlas().add(input.atlas().get(smIndex));
             }
 
             if (input.hasNavtile()) {
@@ -768,7 +771,7 @@ Output mergeTile(const TileId &tileId
 
             if (!localId.lod) {
                 // add as is
-                mf.addTo(result, localId.lod);
+                mf.addTo(result);
                 continue;
             }
 
@@ -782,7 +785,7 @@ Output mergeTile(const TileId &tileId
                            , input, coverage);
             if (rmf) {
                 // add refined
-                rmf.addTo(result, localId.lod);
+                rmf.addTo(result, (1 << localId.lod));
             }
         }
     }

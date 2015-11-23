@@ -42,14 +42,31 @@ struct SubMesh {
      */
     Faces facesTc;
 
-    /** ID of external texture layer.
+    enum TextureMode { internal, external };
+
+    /** Texturing mode. Member textureLayer is interpreted only when
+     *  textureMode == TextureMode::external.
+     */
+    TextureMode textureMode;
+
+    /** ID of external texture layer. Can be undefined even when texture mode is
+     *  external.
      */
     boost::optional<std::uint16_t> textureLayer;
 
+    /** UV area scaling factor to artificially scale UV mesh area, i.e. to make
+     *  it look bigger.
+     *
+     * NB: this value is stored outside mesh served to the client!
+     */
+    double uvAreaScale;
+
     typedef std::vector<SubMesh> list;
-    SubMesh() {}
+    SubMesh() : textureMode(TextureMode::internal), uvAreaScale(1.0) {}
 };
 
+/**
+ */
 struct Mesh {
     typedef std::shared_ptr<Mesh> pointer;
     typedef imgproc::quadtree::RasterMask CoverageMask;

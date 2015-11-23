@@ -17,6 +17,38 @@ namespace vadstena { namespace vts {
 
 using vadstena::storage::FileStat;
 
+/** Tileset/glue Trash bin.
+ */
+class TrashBin {
+public:
+    struct Item {
+        unsigned int revision;
+
+        typedef std::map<TilesetIdList, Item> map;
+    };
+
+    TrashBin() {}
+
+    void add(const TilesetIdList &id, const Item &item);
+    void add(const TilesetId &id, const Item &item) {
+        add(TilesetIdList(1, id), item);
+    }
+
+    void remove(const TilesetIdList &id);
+    void remove(const TilesetId &id) { return remove(TilesetIdList(1, id)); }
+
+    const Item* find(const TilesetIdList &id) const;
+    const Item* find(const TilesetId &id) const {
+        return find(TilesetIdList(1, id));
+    }
+
+    Item::map::const_iterator begin() const { return content_.begin(); }
+    Item::map::const_iterator end() const { return content_.end(); }
+
+private:
+    Item::map content_;
+};
+
 struct Storage::Properties : StorageProperties {
     /** Data version/revision. Should be incremented anytime the data change.
      *  Used in template URL's to push through caches.
@@ -30,6 +62,10 @@ struct Storage::Properties : StorageProperties {
     /** List of glues
      */
     Glue::map glues;
+
+    /** Information about removed tilesets/glues.
+     */
+    TrashBin trashBin;
 
     Properties() : revision(0) {}
 

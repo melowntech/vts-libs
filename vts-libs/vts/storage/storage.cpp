@@ -39,6 +39,24 @@ namespace {
     const fs::path ExtraConfigFilename("extra.conf");
 }
 
+
+void TrashBin::add(const TilesetIdList &id, const Item &item)
+{
+    content_[id] = item;
+}
+
+void TrashBin::remove(const TilesetIdList &id)
+{
+    content_.erase(id);
+}
+
+const TrashBin::Item* TrashBin::find(const TilesetIdList &id) const
+{
+    auto fcontent(content_.find(id));
+    if (fcontent == content_.end()) { return nullptr; }
+    return &fcontent->second;
+}
+
 Storage createStorage(const boost::filesystem::path &path
                       , const StorageProperties &properties
                       , CreateMode mode)
