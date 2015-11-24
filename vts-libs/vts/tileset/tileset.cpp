@@ -538,7 +538,8 @@ bool check(const SpatialDivisionExtents &l, const SpatialDivisionExtents &r)
 
 namespace {
 
-void sanityCheck(const TileId &tileId, const Mesh *mesh, const Atlas *atlas)
+void sanityCheck(const TileId &tileId, const Mesh *mesh, const Atlas *atlas
+                 , const NodeInfo &nodeInfo)
 {
     if (!mesh) {
         if (atlas) {
@@ -610,6 +611,12 @@ void sanityCheck(const TileId &tileId, const Mesh *mesh, const Atlas *atlas)
                 << ": mesh without internal texture cannot have internal "
                 "texture coordinates.";
         }
+
+        if (!nodeInfo.node.externalTexture) {
+            LOGTHROW(err1, storage::InconsistentInput)
+                << "Tile " << tileId
+                << ": reference frame node doesn't allow external texture.";
+        }
     }
 }
 
@@ -617,13 +624,16 @@ void sanityCheck(const TileId &tileId, const Mesh *mesh, const Atlas *atlas)
 
 void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
                               , const Atlas *atlas, const NavTile *navtile
-                              , const NodeInfo *nodeInfo)
+                              , const NodeInfo *ni)
 {
     driver->wannaWrite("set tile");
 
     LOG(info1) << "Setting content of tile " << tileId << ".";
 
-    sanityCheck(tileId, mesh, atlas);
+    // resolve node info
+    const NodeInfo nodeInfo(ni ? *ni : NodeInfo(referenceFrame, tileId));
+
+    sanityCheck(tileId, mesh, atlas, nodeInfo);
 
     MetaNode metanode;
 
@@ -685,9 +695,8 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
         save(driver->output(tileId, TileFile::navtile), *navtile);
     }
 
-    // update properties with node info (computed or generated)
-    update(properties
-           , (nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId)));
+    // update properties
+    update(properties, nodeInfo);
 }
 
 void TileSet::Detail::setTile(const TileId &tileId, const TileSource &tile
