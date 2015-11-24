@@ -861,6 +861,15 @@ ReferenceFrame::Division::find(const Node::Id &id) const
     return *node;
 }
 
+std::set<std::string> ReferenceFrame::Division::srsList() const
+{
+    std::set<std::string> list;
+    for (const auto &item : nodes) {
+        list.insert(item.second.srs);
+    }
+    return list;
+}
+
 math::Extents2 ReferenceFrame::rootExtents() const
 {
     return division.find({}).extents;

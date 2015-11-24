@@ -1,5 +1,7 @@
 #include <boost/format.hpp>
 
+#include "dbglog/dbglog.hpp"
+
 #include "utility/openmp.hpp"
 
 #include "../vts.hpp"
@@ -7,6 +9,8 @@
 #include "./tileop.hpp"
 #include "./io.hpp"
 #include "./encoder.hpp"
+#include "./csconvertor.hpp"
+#include "../storage/error.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -53,6 +57,8 @@ struct Encoder::Detail {
         , referenceFrame(tileSet.referenceFrame())
         , physicalSrs(registry::Registry::srs
                       (referenceFrame.model.physicalSrs))
+        , navigationSrs(registry::Registry::srs
+                      (referenceFrame.model.navigationSrs))
     {}
 
     TileSet run()
@@ -74,6 +80,10 @@ struct Encoder::Detail {
         return tileSet;
     }
 
+    void setConstraints(const Constraints &constraints);
+
+    const math::Extents2& getExtents(const std::string &srs) const;
+
     typedef registry::ReferenceFrame::Division::Node Node;
 
     void process(const TileId &tileId, ConstraintsFlag::type useConstraints
@@ -83,10 +93,37 @@ struct Encoder::Detail {
     TileSet tileSet;
     TileSetProperties properties;
     registry::ReferenceFrame referenceFrame;
-    registry::Srs physicalSrs;
+    const registry::Srs &physicalSrs;
+    const registry::Srs &navigationSrs;
 
     Constraints constraints;
+
+    typedef std::map<std::string, math::Extents2> SrsExtentsMap;
+    SrsExtentsMap srsExtents;
 };
+
+void Encoder::Detail::setConstraints(const Constraints &c)
+{
+    constraints = c;
+    if (!constraints.extents) { return; }
+
+    for (const auto &srs : referenceFrame.division.srsList()) {
+        srsExtents[srs] = CsConvertor(constraints.extents->srs, srs)
+            (constraints.extents->extents);
+    }
+}
+
+inline const math::Extents2&
+Encoder::Detail::getExtents(const std::string &srs) const
+{
+    auto fsrsExtents(srsExtents.find(srs));
+    if (fsrsExtents == srsExtents.end()) {
+        LOGTHROW(err2, storage::Error)
+            << "Inconsistency: no extents constraints for srs "
+            << " <" << srs << ">.";
+    }
+    return fsrsExtents->second;
+}
 
 void Encoder::Detail::process(const TileId &tileId
                               , ConstraintsFlag::type useConstraints
@@ -127,7 +164,7 @@ void Encoder::Detail::process(const TileId &tileId
 
     const auto &extents(nodeInfo.node.extents);
     if (useConstraints & ConstraintsFlag::useExtents) {
-        if (!overlaps(*constraints.extents, extents)) {
+        if (!overlaps(getExtents(nodeInfo.node.srs), extents)) {
             // nothing can live out here -> done
             // * equivalent to TileResult::noData
             return;
@@ -206,14 +243,29 @@ const registry::ReferenceFrame& Encoder::referenceFrame() const
     return detail_->referenceFrame;
 }
 
+const std::string& Encoder::physicalSrsId() const
+{
+    return detail_->referenceFrame.model.physicalSrs;
+}
+
 const registry::Srs& Encoder::physicalSrs() const
 {
     return detail_->physicalSrs;
 }
 
+const std::string& Encoder::navigationSrsId() const
+{
+    return detail_->referenceFrame.model.navigationSrs;
+}
+
+const registry::Srs& Encoder::navigationSrs() const
+{
+    return detail_->navigationSrs;
+}
+
 void Encoder::setConstraints(const Constraints &constraints)
 {
-    detail_->constraints = constraints;
+    detail_->setConstraints(constraints);
 }
 
 TileSet Encoder::run()

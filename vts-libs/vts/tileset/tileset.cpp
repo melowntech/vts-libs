@@ -593,7 +593,7 @@ void sanityCheck(const TileId &tileId, const Mesh *mesh, const Atlas *atlas)
         if (sm.etc.empty()) {
             LOGTHROW(err1, storage::InconsistentInput)
                 << "Tile " << tileId
-                << ": mesh without internal texture without external "
+                << ": mesh without internal texture missing external "
                 "texture coordinates.";
         }
 
@@ -658,7 +658,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
 
         // externally-textures submeshes
         for (auto eta(ma.texture.end()); ita != eta; ++ita) {
-            textureArea += *ita++ * registry::BoundLayer::tileArea();
+            textureArea += *ita * registry::BoundLayer::tileArea();
         }
 
         metanode.texelSize = std::sqrt(meshArea / textureArea);

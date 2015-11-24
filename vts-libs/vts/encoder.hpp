@@ -101,7 +101,12 @@ protected:
     TileSetProperties properties() const;
     const registry::ReferenceFrame& referenceFrame() const;
     void setConstraints(const Constraints &constraints);
+
+    const std::string& physicalSrsId() const;
     const registry::Srs& physicalSrs() const;
+
+    const std::string& navigationSrsId() const;
+    const registry::Srs& navigationSrs() const;
 
 private:
     /** Called from run to generate mesh, atlas and navtile for every tile in
@@ -142,9 +147,20 @@ struct Encoder::Constraints {
      */
     boost::optional<LodRange> lodRange;
 
+    /** Extents: extents and their SRS.
+     */
+    struct Extents {
+        math::Extents2 extents;
+        std::string srs;
+
+        Extents(const math::Extents2 &extents, const std::string &srs)
+            : extents(extents), srs(srs)
+        {}
+    };
+
     /** Generate will be called only for tiles overlapping with given extents.
      */
-    boost::optional<math::Extents2> extents;
+    boost::optional<Extents> extents;
 
     /** Given extents are used to filter tiles until first valid tile is
      *  generated in given subtree if true. On by default.
@@ -159,7 +175,7 @@ struct Encoder::Constraints {
 
     Constraints& setLodRange(const boost::optional<LodRange> &value);
 
-    Constraints& setExtents(const boost::optional<math::Extents2> &value);
+    Constraints& setExtents(const boost::optional<Extents> &value);
 
     Constraints& setValidTree(const TileIndex *value);
 
@@ -174,7 +190,7 @@ Encoder::Constraints::setLodRange(const boost::optional<LodRange> &value)
 }
 
 inline Encoder::Constraints&
-Encoder::Constraints::setExtents(const boost::optional<math::Extents2> &value)
+Encoder::Constraints::setExtents(const boost::optional<Extents> &value)
 {
     extents = value;
     return *this;

@@ -135,6 +135,10 @@ struct ReferenceFrame {
         /** Finds root node for given node id.
          */
         const Node& findSubtreeRoot(const Node::Id &nodeId) const;
+
+        /** Get list of all SRS's used by this division
+         */
+        std::set<std::string> srsList() const;
     };
 
     std::string id;

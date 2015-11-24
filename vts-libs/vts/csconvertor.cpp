@@ -3,39 +3,108 @@
 namespace vadstena { namespace vts {
 
 CsConvertor::CsConvertor(const std::string &srsIdFrom
-                         , const std::string &srsTo)
-    : srsFrom_(&registry::Registry::srs(srsIdFrom))
-    , srsTo_(&registry::Registry::srs(srsTo))
+                         , const std::string &srsIdTo)
 {
-    init();
+    init(&registry::Registry::srs(srsIdFrom)
+         , &registry::Registry::srs(srsIdTo));
 }
 
-CsConvertor::CsConvertor(const registry::Srs *srsFrom
-                         , const registry::Srs *srsTo)
-    : srsFrom_(srsFrom), srsTo_(srsTo)
+CsConvertor::CsConvertor(const geo::SrsDefinition &srsFrom
+                         , const std::string &srsIdTo)
 {
-    init();
+    init(srsFrom, registry::Registry::srs(srsIdTo));
 }
 
-void CsConvertor::init()
+CsConvertor::CsConvertor(const std::string &srsIdFrom
+                         , const geo::SrsDefinition &srsTo)
 {
-    if (srsFrom_ != srsTo_) {
-        conv_ = boost::in_place(srsFrom_->srsDef, srsTo_->srsDef);
-    }
+    init(registry::Registry::srs(srsIdFrom), srsTo);
+}
 
-    if (srsFrom_->adjustVertical()) {
-        srcAdjuster_ = geo::VerticalAdjuster(srsFrom_->srsDef);
-    }
+CsConvertor::CsConvertor(const ::OGRSpatialReference &srsFrom
+                         , const std::string &srsIdTo)
+{
+    init(srsFrom, registry::Registry::srs(srsIdTo));
+}
 
-    if (srsTo_->adjustVertical()) {
-        dstAdjuster_ = geo::VerticalAdjuster(srsTo_->srsDef);
-    }
+CsConvertor::CsConvertor(const std::string &srsIdFrom
+                         , const ::OGRSpatialReference &srsTo)
+{
+    init(registry::Registry::srs(srsIdFrom), srsTo);
+}
 
+CsConvertor::CsConvertor(const boost::optional<geo::CsConvertor> &conv
+                         , const geo::VerticalAdjuster &srcAdjuster
+                         , const geo::VerticalAdjuster &dstAdjuster)
+    : conv_(conv), srcAdjuster_(srcAdjuster), dstAdjuster_(dstAdjuster)
+{}
+
+void CsConvertor::init(const registry::Srs *srsFrom
+                       , const registry::Srs *srsTo)
+{
+    if (srsFrom != srsTo) {
+        conv_ = boost::in_place(srsFrom->srsDef, srsTo->srsDef);
+
+        if (srsFrom->adjustVertical()) {
+            srcAdjuster_ = geo::VerticalAdjuster(srsFrom->srsDef);
+        }
+
+        if (srsTo->adjustVertical()) {
+            dstAdjuster_ = geo::VerticalAdjuster(srsTo->srsDef);
+        }
+    }
+}
+
+void CsConvertor::init(const geo::SrsDefinition &srsFrom
+                       , const registry::Srs &srsTo)
+{
+    conv_ = boost::in_place(srsFrom, srsTo.srsDef);
+
+    if (srsTo.adjustVertical()) {
+        dstAdjuster_ = geo::VerticalAdjuster(srsTo.srsDef);
+    }
+}
+
+
+void CsConvertor::init(const registry::Srs &srsFrom
+                       , const geo::SrsDefinition &srsTo)
+{
+    conv_ = boost::in_place(srsFrom.srsDef, srsTo);
+
+    if (srsFrom.adjustVertical()) {
+        srcAdjuster_ = geo::VerticalAdjuster(srsFrom.srsDef);
+    }
+}
+
+void CsConvertor::init(const ::OGRSpatialReference &srsFrom
+                       , const registry::Srs &srsTo)
+{
+    conv_ = boost::in_place(srsFrom, srsTo.srsDef);
+
+    if (srsTo.adjustVertical()) {
+        dstAdjuster_ = geo::VerticalAdjuster(srsTo.srsDef);
+    }
+}
+
+void CsConvertor::init(const registry::Srs &srsFrom
+                       , const ::OGRSpatialReference &srsTo)
+{
+    conv_ = boost::in_place(srsFrom.srsDef, srsTo);
+
+    if (srsFrom.adjustVertical()) {
+        srcAdjuster_ = geo::VerticalAdjuster(srsFrom.srsDef);
+    }
 }
 
 CsConvertor CsConvertor::inverse() const
 {
-    return { srsTo_, srsFrom_ };
+    if (conv_) {
+        // we have convertor, invert all
+        return { conv_->inverse(), dstAdjuster_, srcAdjuster_ };
+    }
+
+    // no convertor -> no-op
+    return { boost::none, {}, {} };
 }
 
 math::Point3 CsConvertor::operator()(const math::Point3 &p) const
@@ -45,6 +114,37 @@ math::Point3 CsConvertor::operator()(const math::Point3 &p) const
 
     // un-vert-adjusts -> converts -> vert-adjusts
     return dstAdjuster_((*conv_)(srcAdjuster_(p, true)));
+}
+
+math::Point2 CsConvertor::operator()(const math::Point2 &p) const
+{
+    // no conversion needed if no convertor present
+    if (!conv_) { return p; }
+
+    // TODO: should we check that both SRS are not cartesian?
+
+    // since z-component is zero -> nothing to adjust
+    return (*conv_)(p);
+}
+
+math::Extents3 CsConvertor::operator()(const math::Extents3 &e) const
+{
+    math::Extents3 out(math::InvalidExtents{});
+    for (const auto &p : { bll(e), bul(e), bur(e), blr(e)
+                           , tll(e), tul(e), tur(e), tlr(e) })
+    {
+        update(out, operator()(p));
+    }
+    return out;
+}
+
+math::Extents2 CsConvertor::operator()(const math::Extents2 &e) const
+{
+    math::Extents2 out(math::InvalidExtents{});
+    for (const auto &p : { ll(e), ul(e), ur(e), lr(e) }) {
+        update(out, operator()(p));
+    }
+    return out;
 }
 
 } } // namespace vadstena::vts

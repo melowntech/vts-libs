@@ -12,15 +12,32 @@ namespace vadstena { namespace vts {
  */
 class CsConvertor {
 public:
-    /** Creates convertor betwee two SRS specified as keys to global SRS
+    /** Creates convertor between two SRS specified as keys to global SRS
      *  registry.
+     *
+     *  Can result in no-op convertor when srsIdFrom == srsIdTo.
      */
     CsConvertor(const std::string &srsIdFrom, const std::string &srsIdTo);
 
-    /** Creates convertor betwee two SRS specified pointers to complex SRS
-     *  definitons.
+    /** Combined convertor, never results in no-op convertor.
      */
-    CsConvertor(const registry::Srs *srsFrom, const registry::Srs *srsTo);
+    CsConvertor(const geo::SrsDefinition &srsFrom
+                , const std::string &srsIdTo);
+
+    /** Combined convertor, never results in no-op convertor.
+     */
+    CsConvertor(const std::string &srsIdFrom
+                , const geo::SrsDefinition &srsTo);
+
+    /** Combined convertor, never results in no-op convertor.
+     */
+    CsConvertor(const ::OGRSpatialReference &srsFrom
+                , const std::string &srsIdTo);
+
+    /** Combined convertor, never results in no-op convertor.
+     */
+    CsConvertor(const std::string &srsIdFrom
+                , const ::OGRSpatialReference &srsTo);
 
     /** Returns inverse convertor (uses stored pointer to comples SRS
      *  definitions) -- swaps FROM and TO.
@@ -41,18 +58,36 @@ public:
      */
     math::Point3 operator()(const math::Point3 &p) const;
 
+    /** Converts 2D point between FROM and TO srs.
+     *
+     *  Since Z-component is zero no adjustment is made.
+     */
+    math::Point2 operator()(const math::Point2 &p) const;
+
+    /** Returns bounding box of all 8 corners converted to TO SRS.
+     */
+    math::Extents3 operator()(const math::Extents3 &e) const;
+
+    /** Returns bounding box of all 4 corners converted to TO SRS.
+     */
+    math::Extents2 operator()(const math::Extents2 &e) const;
+
 private:
-    /** Initialization helper.
+    /** Helper constructor for conversion inversion.
      */
-    void init();
+    CsConvertor(const boost::optional<geo::CsConvertor> &conv
+                , const geo::VerticalAdjuster &srcAdjuster
+                , const geo::VerticalAdjuster &dstAdjuster);
 
-    /** Source complex SRS.
+    /** Initialization helpers.
      */
-    const registry::Srs* srsFrom_;
-
-    /** Destinatio complex SRS.
-     */
-    const registry::Srs* srsTo_;
+    void init(const registry::Srs *srsFrom, const registry::Srs *srsTo);
+    void init(const geo::SrsDefinition &srsFrom, const registry::Srs &srsTo);
+    void init(const registry::Srs &srsFrom, const geo::SrsDefinition &srsTo);
+    void init(const ::OGRSpatialReference &srsFrom
+              , const registry::Srs &srsTo);
+    void init(const registry::Srs &srsFrom
+              , const ::OGRSpatialReference &srsTo);
 
     /** Convertor between source and destination SRS's.
      */
