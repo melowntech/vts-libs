@@ -652,7 +652,7 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo)
     // convert mesh from old one
     tile.mesh = createMeshAndNavtile(tileId, mesh, node2phys
                                      , nodeInfo.node.extents
-                                     , bool(nodeInfo.node.boundLayerLod)
+                                     , nodeInfo.node.externalTexture
                                      , config_.textureLayer, navtile);
 
     // set navtile
