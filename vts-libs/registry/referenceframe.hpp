@@ -119,9 +119,11 @@ struct ReferenceFrame {
             std::string srs;
             math::Extents2 extents;
             Partitioning partitioning;
-            boost::optional<Lod> boundLayerLod;
+            bool externalTexture;
 
             typedef std::map<Id, Node> map;
+
+            Node() : externalTexture(false) {}
         };
 
         math::Extents3 extents;

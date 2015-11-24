@@ -32,10 +32,6 @@ RFNode makeNode(const RFNode &subtreeRoot
     // set extents
     node.extents = makeExtents(subtreeRoot, nid);
 
-    if (node.boundLayerLod) {
-        // update bound layer lod
-        *node.boundLayerLod += (node.id.lod - subtreeRoot.id.lod);
-    }
     return node;
 }
 

@@ -132,9 +132,8 @@ void parse(ReferenceFrame::Division::Node &node, const Json::Value &content)
         parse(node.extents, extents);
     }
 
-    if (content.isMember("boundLayerLod")) {
-        node.boundLayerLod = 0;
-        Json::get(*node.boundLayerLod, content, "boundLayerLod");
+    if (content.isMember("externalTexture")) {
+        Json::get(node.externalTexture, content, "externalTexture");
     }
 }
 
@@ -299,8 +298,9 @@ void build(Json::Value &content, const ReferenceFrame::Division::Node &node)
         build(content["extents"], node.extents);
     }
 
-    if (node.boundLayerLod) {
-        content["boundLayerLod"] = *node.boundLayerLod;
+    // write only when true
+    if (node.externalTexture) {
+        content["externalTexture"] = node.externalTexture;
     }
 }
 
