@@ -103,8 +103,9 @@ std::uint8_t nodeSize(Lod lod)
 {
     return (1 // flags
             + geomLen(lod)
-            + 2 // displaySize/meshArea
-            + 2 // textureArea
+            + 1 // internalTextureCount
+            + 2 // texelSize
+            + 2 // displaySize
             + 2 + 2 // navtile height range
             );
 }
@@ -310,7 +311,7 @@ void MetaTile::save(std::ostream &out) const
             bin::write(out, buildGeomExtents(tileId, node.extents));
 
             bin::write(out, std::uint8_t
-                       (std::max<std::size_t>
+                       (std::min<std::size_t>
                         (std::numeric_limits<std::uint8_t>::max()
                          , node.internalTextureCount)));
 
