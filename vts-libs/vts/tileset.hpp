@@ -51,6 +51,10 @@ public:
      */
     TileSetProperties getProperties() const;
 
+    /** Sets new position.
+     */
+    void setPosition(const registry::Position &position);
+
     /** Generates map configuration for this single tile set.
      */
     MapConfig mapConfig() const;

@@ -20,6 +20,11 @@ TileSetProperties TileSet::getProperties() const
     return detail().properties;
 }
 
+void TileSet::setPosition(const registry::Position &position)
+{
+    detail().setPosition(position);
+}
+
 TileSet::TileSet(const std::shared_ptr<Driver> &driver)
     : detail_(std::make_shared<Detail>(driver))
 {
@@ -1020,6 +1025,12 @@ TileSet::Detail::mapConfig(const Properties &properties
     mapConfig.view.surfaces.insert(surface.id);
 
     return mapConfig;
+}
+
+void TileSet::Detail::setPosition(const registry::Position &position)
+{
+    properties.position = position;
+    propertiesChanged = true;
 }
 
 TileIndex TileSet::sphereOfInfluence(const LodRange &range
