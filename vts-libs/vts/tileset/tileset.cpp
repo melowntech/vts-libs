@@ -1029,6 +1029,7 @@ TileSet::Detail::mapConfig(const Properties &properties
 
 void TileSet::Detail::setPosition(const registry::Position &position)
 {
+    driver->wannaWrite("set position");
     properties.position = position;
     propertiesChanged = true;
 }
