@@ -1130,11 +1130,10 @@ public:
     Stream(const Tilar::Detail::pointer &owner, const FileIndex &index)
         : ContentTypeHolder(owner->getContentType(index.type))
         , OStream(contentType.c_str())
-        , buffer_(owner, index), stream_(&buffer_)
+        , buffer_(Tilar::Sink(owner, index), IOBufferSize, IOBufferSize)
+        , stream_(&buffer_)
     {
         stream_.exceptions(std::ios::badbit | std::ios::failbit);
-        buf_.reset(new char[IOBufferSize]);
-        buffer_.pubsetbuf(buf_.get(), IOBufferSize);
     }
 
     virtual std::ostream& get() UTILITY_OVERRIDE { return stream_; }
@@ -1154,7 +1153,6 @@ public:
     }
 
 private:
-    std::unique_ptr<char[]> buf_;
     boost::iostreams::stream_buffer<Tilar::Sink> buffer_;
     std::ostream stream_;
 };
@@ -1167,11 +1165,10 @@ public:
     Stream(const Tilar::Detail::pointer &owner, const FileIndex &index)
         : ContentTypeHolder(owner->getContentType(index.type))
         , IStream(contentType.c_str())
-        , buffer_(owner, index), stream_(&buffer_)
+        , buffer_(Tilar::Source(owner, index), IOBufferSize, IOBufferSize)
+        , stream_(&buffer_)
     {
         stream_.exceptions(std::ios::badbit | std::ios::failbit);
-        buf_.reset(new char[IOBufferSize]);
-        buffer_.pubsetbuf(buf_.get(), IOBufferSize);
     }
 
     virtual std::istream& get() UTILITY_OVERRIDE { return stream_; }
@@ -1198,7 +1195,6 @@ public:
     }
 
 private:
-    std::unique_ptr<char[]> buf_;
     boost::iostreams::stream_buffer<Tilar::Source> buffer_;
     std::istream stream_;
 };
