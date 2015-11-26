@@ -59,8 +59,12 @@ public:
      */
     MapConfig mapConfig() const;
 
+    /** Returns tile's mesh.
+     */
     Mesh getMesh(const TileId &tileId) const;
 
+    /** Returns tiles' atlas.
+     */
     void getAtlas(const TileId &tileId, Atlas &atlas) const;
 
     /** Set tile content.
@@ -97,16 +101,30 @@ public:
     void setTile(const TileId &tileId, const TileSource &tile
                  , const NodeInfo &nodeInfo);
 
+    /** Returns tile's navtile.
+     */
     void getNavTile(const TileId &tileId, NavTile &navtile) const;
 
+    /** Returns tile's metanode.
+     */
     MetaNode getMetaNode(const TileId &tileId) const;
 
+    /** Returns metatile.
+     */
     MetaTile getMetaTile(const TileId &metaId) const;
 
+    /** Returns tile's content source.
+     */
     TileSource getTileSource(const TileId &tileId) const;
 
+    /** Checks whether tile extist.
+     */
     bool exists(const TileId &tileId) const;
 
+    /** Flushes tileset.
+     *
+     * Must be called before close otherwise tileset is useless.
+     */
     void flush();
 
     /** Starts watching runnable without entering a transaction.
@@ -178,6 +196,8 @@ public:
      */
     std::time_t lastModified() const;
 
+    /** Returns information about used resources.
+     */
     storage::Resources resources() const;
 
     /** Tells caller whether this tileset can contain given tile set.
