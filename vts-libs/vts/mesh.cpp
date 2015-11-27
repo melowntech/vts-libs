@@ -2,6 +2,7 @@
 
 #include "utility/binaryio.hpp"
 
+#include "math/math.hpp"
 #include "math/geometry.hpp"
 #include "half/half.hpp"
 
@@ -115,9 +116,9 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
 
     auto saveTexCoord([&out](double v)
     {
-        bin::write
-            (out, std::uint16_t
-             (std::round(v * std::numeric_limits<std::uint16_t>::max())));
+        v = std::round(math::clamp(v, 0.0, 1.0)
+                       * std::numeric_limits<std::uint16_t>::max());
+        bin::write(out, std::uint16_t(v));
     });
 
     // write header
