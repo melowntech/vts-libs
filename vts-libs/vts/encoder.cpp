@@ -1,3 +1,5 @@
+#include <atomic>
+
 #include <boost/format.hpp>
 
 #include "dbglog/dbglog.hpp"
@@ -59,6 +61,7 @@ struct Encoder::Detail {
                       (referenceFrame.model.physicalSrs))
         , navigationSrs(registry::Registry::srs
                       (referenceFrame.model.navigationSrs))
+        , generated_(0)
     {}
 
     TileSet run()
@@ -100,6 +103,8 @@ struct Encoder::Detail {
 
     typedef std::map<std::string, math::Extents2> SrsExtentsMap;
     SrsExtentsMap srsExtents;
+
+    std::atomic<std::size_t> generated_;
 };
 
 void Encoder::Detail::setConstraints(const Constraints &c)
@@ -181,9 +186,11 @@ void Encoder::Detail::process(const TileId &tileId
         case TileResult::Result::tile:
         case TileResult::Result::source:
         {
+            auto number(++generated_);
+
             LOG(info3)
-                << "Generated " << tileId << " (extents: "
-                << std::fixed << extents << ").";
+                << "Generated tile #" << number << ": "
+                << tileId << " (extents: " << std::fixed << extents << ").";
 
             bool hasMesh(false);
             if (result == TileResult::Result::tile) {
