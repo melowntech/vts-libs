@@ -113,17 +113,25 @@ inline bool watertight(const Mesh::pointer &mesh) {
 math::Extents3 extents(const SubMesh &submesh);
 math::Extents3 extents(const Mesh &mesh);
 
-/** Returns mesh and texture area for given submesh as pair of double
- *  first = mesh area
- *  second = texture area (normalized)
+struct SubMeshArea {
+    double mesh;
+    double internalTexture;
+    double externalTexture;
+
+    typedef std::vector<SubMeshArea> list;
+
+    SubMeshArea() : mesh(), internalTexture(), externalTexture() {}
+};
+
+/** Returns mesh and texture area for given submesh
  */
-std::pair<double, double> area(const SubMesh &submesh);
+SubMeshArea area(const SubMesh &submesh);
 
 /** Returns mesh and texture area for given mesh.
  */
 struct MeshArea {
     double mesh;
-    std::vector<double> texture;
+    SubMeshArea::list submeshes;
 
     MeshArea() : mesh() {}
 };

@@ -4,6 +4,7 @@
 
 #include "math/math.hpp"
 #include "math/geometry.hpp"
+
 #include "half/half.hpp"
 
 #include "../storage/error.hpp"
@@ -63,40 +64,50 @@ double triangleArea(const math::Point2 &a, const math::Point2 &b,
 
 }
 
-std::pair<double, double> area(const SubMesh &sm)
+SubMeshArea area(const SubMesh &sm)
 {
-    if (sm.faces.empty()) { return { 0.0, 0.0 }; }
+    if (sm.faces.empty()) { return {}; }
 
-    // calculate the total area of the faces in both the XYZ
-    double xyzArea(0);
+    SubMeshArea a;
+
+    // calculate the total area of the faces
     for (const auto &face : sm.faces) {
-        xyzArea += detail::triangleArea(sm.vertices[face[0]]
-                                        , sm.vertices[face[1]]
-                                        , sm.vertices[face[2]]);
+        a.mesh += detail::triangleArea(sm.vertices[face[0]]
+                                       , sm.vertices[face[1]]
+                                       , sm.vertices[face[2]]);
     }
 
-    // calculate area total in UV space (either from texture-coordinates or
-    // external-texture-coordinates based on texture-mode
-    double uvArea(0);
-    const math::Points2d &tc
-        ((sm.textureMode == SubMesh::TextureMode::internal) ? sm.tc : sm.etc);
-    for (const auto &face : sm.facesTc) {
-        uvArea += detail::triangleArea(tc[face[0]]
-                                       , tc[face[1]]
-                                       , tc[face[2]]);
+    // internal texture
+    if (!sm.tc.empty()) {
+        for (const auto &face : sm.facesTc) {
+            a.internalTexture += detail::triangleArea(sm.tc[face[0]]
+                                                      , sm.tc[face[1]]
+                                                      , sm.tc[face[2]]);
+        }
     }
 
-    // NB: UV area is multiplied by uvAreaFactor to make it smaller
-    return { xyzArea, uvArea * sm.uvAreaScale };
+    // external texture
+    if (!sm.etc.empty()) {
+        for (const auto &face : sm.faces) {
+            a.externalTexture += detail::triangleArea(sm.etc[face[0]]
+                                                      , sm.etc[face[1]]
+                                                      , sm.etc[face[2]]);
+        }
+    }
+
+    // NB: UV area is multiplied by uvAreaFactor
+    a.internalTexture *= sm.uvAreaScale;
+    a.externalTexture *= sm.uvAreaScale;
+
+    return a;
 }
 
 MeshArea area(const Mesh &mesh)
 {
     MeshArea out;
     for (const auto &sm : mesh) {
-        auto a(area(sm));
-        out.mesh += a.first;
-        out.texture.push_back(a.second);
+        out.submeshes.push_back(area(sm));
+        out.mesh += out.submeshes.back().mesh;
     }
     return out;
 }

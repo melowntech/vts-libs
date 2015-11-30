@@ -659,12 +659,12 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
         double textureArea(0.0);
 
         // mesh and texture area -> texelSize
-        auto ita(ma.texture.begin());
+        auto ita(ma.submeshes.begin());
 
         // internally-textured submeshes
         if (atlas) {
-            for (std::size_t i(0), e(atlas->size()); i != e; ++i) {
-                textureArea += *ita++ * atlas->area(i);
+            for (std::size_t i(0), e(atlas->size()); i != e; ++i, ++ita) {
+                textureArea += ita->internalTexture * atlas->area(i);
             }
 
             // set atlas related info
@@ -672,8 +672,9 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
         }
 
         // externally-textures submeshes
-        for (auto eta(ma.texture.end()); ita != eta; ++ita) {
-            textureArea += *ita * registry::BoundLayer::tileArea();
+        for (auto eta(ma.submeshes.end()); ita != eta; ++ita) {
+            textureArea += (ita->externalTexture
+                            * registry::BoundLayer::tileArea());
         }
 
         metanode.texelSize = std::sqrt(meshArea / textureArea);
