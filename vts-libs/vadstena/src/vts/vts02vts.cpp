@@ -197,7 +197,8 @@ public:
 
 private:
     virtual TileResult
-    generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo)
+    generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
+             , const TileResult&)
         UTILITY_OVERRIDE;
 
     virtual void finish(vts::TileSet&) UTILITY_OVERRIDE {}
@@ -600,7 +601,8 @@ void Encoder::hm2Navtile()
 }
 
 Encoder::TileResult
-Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo)
+Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
+                  , const TileResult&)
 {
     vts::CsConvertor node2phys(nodeInfo.node.srs
                                , referenceFrame().model.physicalSrs);
