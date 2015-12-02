@@ -701,7 +701,8 @@ public:
 
 private:
     virtual TileResult
-    generate(const TileId &tileId, const NodeInfo &nodeInfo);
+    generate(const TileId &tileId, const NodeInfo &nodeInfo
+             , const TileResult&);
 
     virtual void finish(TileSet &tileSet);
 
@@ -802,7 +803,8 @@ TileIndex Flattener::soi(Lod depth, Ts::list &sets)
 }
 
 Encoder::TileResult
-Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo)
+Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo
+                    , const TileResult&)
 {
     Ts::const_ptrlist sets;
     Glue::Id glueId;

@@ -86,6 +86,21 @@ public:
 
         Result result() const { return result_; }
 
+        typedef std::shared_ptr<void> UserData;
+
+        /** Returns pointer to userdata. Can be NULL.
+         */
+        template <typename T>
+        const T* userData() const { return static_cast<T*>(userData_.get()); }
+
+        /** Sets userdata and returns reference to them.
+         *  Cannot be null.
+         */
+        template <typename T>
+        T& userData(const std::shared_ptr<T> &userData) {
+            userData_ = userData; return *userData;
+        }
+
     private:
         void fail(const char *what) const;
 
@@ -95,6 +110,8 @@ public:
 
         boost::optional<Tile> tile_;
         boost::optional<TileSource> source_;
+
+        UserData userData_;
     };
 
 protected:
@@ -107,6 +124,8 @@ protected:
 
     const std::string& navigationSrsId() const;
     const registry::Srs& navigationSrs() const;
+
+    std::size_t threadIndex() const;
 
 private:
     /** Called from run to generate mesh, atlas and navtile for every tile in
@@ -127,12 +146,18 @@ private:
      *      }
      */
     virtual TileResult
-    generate(const TileId &tileId, const NodeInfo &nodeInfo) = 0;
+    generate(const TileId &tileId, const NodeInfo &nodeInfo
+             , const TileResult &parentTile) = 0;
 
 
     /** Called from run after whole tree is processed.
      */
     virtual void finish(TileSet &tileSet) = 0;
+
+    /** Called before right before first call to generate() to report number of
+     *  threads.
+     */
+    virtual void threadCount(std::size_t) {};
 
     // internals (pimpl)
     struct Detail;

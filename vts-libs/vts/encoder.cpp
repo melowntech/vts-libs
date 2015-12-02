@@ -68,8 +68,11 @@ struct Encoder::Detail {
     {
         UTILITY_OMP(parallel)
         UTILITY_OMP(single)
-        process({}, ConstraintsFlag::build(constraints)
-                , NodeInfo(referenceFrame));
+        {
+            owner->threadCount(omp_get_num_threads());
+            process({}, ConstraintsFlag::build(constraints)
+                    , NodeInfo(referenceFrame), {});
+        }
         LOG(info3) << "VTS Encoder: generated. Finishing and flushing.";
 
         // let the caller finish the tileset
@@ -90,7 +93,7 @@ struct Encoder::Detail {
     typedef registry::ReferenceFrame::Division::Node Node;
 
     void process(const TileId &tileId, ConstraintsFlag::type useConstraints
-                 , const NodeInfo &nodeInfo);
+                 , const NodeInfo &nodeInfo, const TileResult &parentTile);
 
     Encoder *owner;
     TileSet tileSet;
@@ -132,7 +135,8 @@ Encoder::Detail::getExtents(const std::string &srs) const
 
 void Encoder::Detail::process(const TileId &tileId
                               , ConstraintsFlag::type useConstraints
-                              , const NodeInfo &nodeInfo)
+                              , const NodeInfo &nodeInfo
+                              , const TileResult &parentTile)
 {
     struct TIDGuard {
         TIDGuard(const std::string &id)
@@ -176,12 +180,13 @@ void Encoder::Detail::process(const TileId &tileId
         }
     }
 
+    TileResult tile;
     if (processTile) {
         LOG(info2)
             << "Trying to generate " << tileId << " (extents: "
             << std::fixed << extents << ").";
 
-        const auto tile(owner->generate(tileId, nodeInfo));
+        tile = owner->generate(tileId, nodeInfo, parentTile);
         switch (auto result = tile.result()) {
         case TileResult::Result::tile:
         case TileResult::Result::source:
@@ -194,15 +199,19 @@ void Encoder::Detail::process(const TileId &tileId
 
             bool hasMesh(false);
             if (result == TileResult::Result::tile) {
-                UTILITY_OMP(critical)
-                tileSet.setTile(tileId, tile.tile(), nodeInfo);
+                const auto &t(tile.tile());
 
-                hasMesh = bool(tile.tile().mesh);
+                UTILITY_OMP(critical)
+                tileSet.setTile(tileId, t, nodeInfo);
+
+                hasMesh = bool(t.mesh);
             } else {
-                UTILITY_OMP(critical)
-                tileSet.setTile(tileId, tile.source(), nodeInfo);
+                const auto &t(tile.source());
 
-                hasMesh = bool(tile.source().mesh);
+                UTILITY_OMP(critical)
+                tileSet.setTile(tileId, t, nodeInfo);
+
+                hasMesh = bool(t.mesh);
             }
 
             // we hit a tile with mesh -> do not apply extents constraints for
@@ -231,7 +240,7 @@ void Encoder::Detail::process(const TileId &tileId
         auto childNode(nodeInfo.child(child));
 
         UTILITY_OMP(task)
-        process(child, useConstraints, childNode);
+        process(child, useConstraints, childNode, tile);
     }
 }
 
@@ -278,6 +287,11 @@ void Encoder::setConstraints(const Constraints &constraints)
 TileSet Encoder::run()
 {
     return detail_->run();
+}
+
+std::size_t Encoder::threadIndex() const
+{
+    return omp_get_thread_num();
 }
 
 } } // namespace vadstena::vts
