@@ -51,6 +51,9 @@ struct Registry {
     static boost::filesystem::path confRoot();
 };
 
+/** Returns default path to registry.
+ *  NB: implemented in file generated from config.cpp.in template
+ */
 boost::filesystem::path defaultPath();
 
 } } // namespace vadstena::registry

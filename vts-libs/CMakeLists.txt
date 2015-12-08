@@ -7,6 +7,15 @@
 # main library: allows better tileset data manipulation; uses core library;
 # major dependency is OpenCV
 
+# settable path to VTS registry
+set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
+  "Installation path to VTS registry")
+
+# generate config file
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/registry/config.cpp.in
+  ${CMAKE_CURRENT_BINARY_DIR}/registry/config.cpp
+  ESCAPE_QUOTES)
+
 # common stuff
 set(vts-common_SOURCES
   storage/lod.hpp storage/range.hpp
@@ -27,6 +36,7 @@ set(vts-common_SOURCES
 set(vts-registry_SOURCES
   registry.hpp registry/registry.cpp
   registry/referenceframe.hpp registry/referenceframe.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/registry/config.cpp
 )
 
 

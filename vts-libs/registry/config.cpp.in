@@ -1,0 +1,15 @@
+/** -*- c++ -*-
+ * \file registry/config.cpp.in
+ * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
+ */
+
+#include "${CMAKE_CURRENT_SOURCE_DIR}/registry.hpp"
+
+namespace vadstena { namespace registry {
+
+boost::filesystem::path defaultPath()
+{
+    return "${VTS_LIBS_REGISTRY_PATH}";
+}
+
+} } // namespace vadstena::registry

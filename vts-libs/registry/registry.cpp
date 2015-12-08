@@ -179,9 +179,4 @@ boost::filesystem::path Registry::confRoot()
     return detail::root;
 }
 
-boost::filesystem::path defaultPath()
-{
-    return utility::buildsys::installPath("etc/registry");
-}
-
 } } // namespace vadstena::registry
