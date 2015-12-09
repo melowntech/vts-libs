@@ -57,7 +57,7 @@ struct Storage::Properties : StorageProperties {
 
     /** List of tilesets in this storage.
      */
-    TilesetIdList tilesets;
+    StoredTileset::list tilesets;
 
     /** List of glues
      */
@@ -69,12 +69,15 @@ struct Storage::Properties : StorageProperties {
 
     Properties() : revision(0) {}
 
-    TilesetIdList::iterator findTileset(const std::string& tileset);
-    TilesetIdList::const_iterator
-    findTileset(const std::string& tileset) const;
+    StoredTileset* findTileset(const TilesetId &tilesetId);
+    const StoredTileset* findTileset(const TilesetId &tilesetId) const;
 
-    bool hasTileset(const std::string& tileset) const {
-        return findTileset(tileset) != tilesets.end();
+    StoredTileset::list::iterator findTilesetIt(const TilesetId &tilesetId);
+    StoredTileset::list::const_iterator
+    findTilesetIt(const TilesetId &tilesetId) const;
+
+    bool hasTileset(const TilesetId &tileset) const {
+        return findTileset(tileset);
     }
 
     Glue::map::iterator findGlue(const Glue::Id& glue);
@@ -129,7 +132,7 @@ struct Storage::Detail
     void saveConfig();
 
     void add(const TileSet &tileset, const Location &where
-             , const std::string tilesetId);
+             , const StoredTileset &tilesetInfo);
 
     void remove(const TilesetIdList &tilesetIds);
 
@@ -137,7 +140,7 @@ struct Storage::Detail
                     , CreateMode mode, const std::string &tilesetId);
 
     Properties addTileset(const Properties &properties
-                          , const std::string tilesetId
+                          , const StoredTileset &tileset
                           , const Location &where) const;
 
     /** Removes given tileset from properties and returns new properties and

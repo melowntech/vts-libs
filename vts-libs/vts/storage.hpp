@@ -29,6 +29,21 @@ struct StorageProperties {
 struct ExtraStorageProperties {
 };
 
+struct StoredTileset {
+    enum class GlueMode { none, full };
+
+    TilesetId tilesetId;
+    GlueMode glueMode;
+
+    typedef std::vector<StoredTileset> list;
+
+    StoredTileset(const boost::optional<TilesetId> &tid = boost::none
+                  , GlueMode glueMode = GlueMode::full)
+        : tilesetId(tid ? *tid : TilesetId())
+        , glueMode(glueMode)
+    {}
+};
+
 /** Storage interface.
  */
 class Storage {
@@ -63,11 +78,12 @@ public:
      *
      *  \param tilesetPath path to source tileset
      *  \param where location in the stack where to add
-     *  \param tilesetId added tileset identifier; defaults to id of tileset at
-     *                   source path
+     *  \param info how to store this tileset.
+     *
+     *  Tileset's own id is used if info.tilesetId is empty.
      */
     void add(const boost::filesystem::path &tilesetPath, const Location &where
-             , const boost::optional<std::string> tilesetId = boost::none);
+             , const StoredTileset &info);
 
     /** Removes given tileset from the storage.
      *
@@ -130,6 +146,11 @@ public:
 UTILITY_GENERATE_ENUM_IO(Storage::Location::Direction,
     ((below))
     ((above))
+)
+
+UTILITY_GENERATE_ENUM_IO(StoredTileset::GlueMode,
+    ((full))
+    ((none))
 )
 
 template<typename CharT, typename Traits>

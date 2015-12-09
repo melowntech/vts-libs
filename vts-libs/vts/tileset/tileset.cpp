@@ -25,6 +25,16 @@ void TileSet::setPosition(const registry::Position &position)
     detail().setPosition(position);
 }
 
+void TileSet::addCredits(const registry::IdSet &credits)
+{
+    detail().addCredits(credits);
+}
+
+void TileSet::addBoundLayers(const registry::IdSet &boundLayers)
+{
+    detail().addBoundLayers(boundLayers);
+}
+
 TileSet::TileSet(const std::shared_ptr<Driver> &driver)
     : detail_(std::make_shared<Detail>(driver))
 {
@@ -1032,6 +1042,20 @@ void TileSet::Detail::setPosition(const registry::Position &position)
 {
     driver->wannaWrite("set position");
     properties.position = position;
+    propertiesChanged = true;
+}
+
+void TileSet::Detail::addCredits(const registry::IdSet &credits)
+{
+    driver->wannaWrite("add credits");
+    properties.credits.insert(credits.begin(), credits.end());
+    propertiesChanged = true;
+}
+
+void TileSet::Detail::addBoundLayers(const registry::IdSet &boundLayers)
+{
+    driver->wannaWrite("add bound layers");
+    properties.boundLayers.insert(boundLayers.begin(), boundLayers.end());
     propertiesChanged = true;
 }
 

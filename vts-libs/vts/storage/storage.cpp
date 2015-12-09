@@ -171,16 +171,36 @@ bool Glue::references(const std::string &tilesetId) const
     return (std::find(id.begin(), id.end(), tilesetId) != id.end());
 }
 
-TilesetIdList::iterator
-Storage::Properties::findTileset(const std::string& tileset)
+StoredTileset::list::iterator
+Storage::Properties::findTilesetIt(const TilesetId &tilesetId)
 {
-    return std::find(tilesets.begin(), tilesets.end(), tileset);
+    return std::find_if(tilesets.begin(), tilesets.end()
+                        , [&tilesetId](const StoredTileset &tileset)
+                        { return tileset.tilesetId == tilesetId; });
 }
 
-TilesetIdList::const_iterator
-Storage::Properties::findTileset(const std::string& tileset) const
+StoredTileset::list::const_iterator
+Storage::Properties::findTilesetIt(const TilesetId &tilesetId) const
 {
-    return std::find(tilesets.begin(), tilesets.end(), tileset);
+    return std::find_if(tilesets.begin(), tilesets.end()
+                        , [&tilesetId](const StoredTileset &tileset)
+                        { return tileset.tilesetId == tilesetId; });
+}
+
+StoredTileset* Storage::Properties::findTileset(const TilesetId &tilesetId)
+{
+    auto it(findTilesetIt(tilesetId));
+    if (it == tilesets.end()) { return nullptr; }
+    return &*it;
+}
+
+const StoredTileset*
+Storage::Properties::findTileset(const TilesetId &tilesetId)
+    const
+{
+    auto it(findTilesetIt(tilesetId));
+    if (it == tilesets.end()) { return nullptr; }
+    return &*it;
 }
 
 Glue::map::iterator Storage::Properties::findGlue(const Glue::Id &glue)
@@ -196,7 +216,11 @@ Storage::Properties::findGlue(const Glue::Id& glue) const
 
 TilesetIdList Storage::tilesets() const
 {
-    return detail().properties.tilesets;
+    TilesetIdList list;
+    for (const auto &stored : detail().properties.tilesets) {
+        list.push_back(stored.tilesetId);
+    }
+    return list;
 }
 
 Glue::map Storage::glues() const
@@ -236,10 +260,10 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     mapConfig.referenceFrame = referenceFrame;
     mapConfig.srs = registry::listSrs(mapConfig.referenceFrame);
 
-    for (const auto &tilesetId : properties.tilesets) {
+    for (const auto &tileset : properties.tilesets) {
         mapConfig.mergeTileSet
             (TileSet::mapConfig
-             (storage_paths::tilesetPath(root, tilesetId))
+             (storage_paths::tilesetPath(root, tileset.tilesetId))
              , storage_paths::tilesetRoot());
     }
 

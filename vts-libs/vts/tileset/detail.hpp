@@ -176,6 +176,8 @@ struct TileSet::Detail
     bool fullyCovered(const TileId &tileId) const;
 
     void setPosition(const registry::Position &position);
+    void addCredits(const registry::IdSet &credits);
+    void addBoundLayers(const registry::IdSet &boundLayers);
 };
 
 inline void TileSet::Detail::checkValidity() const {

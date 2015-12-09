@@ -1,3 +1,4 @@
+#include <boost/lexical_cast.hpp>
 #include "dbglog/dbglog.hpp"
 #include "jsoncpp/as.hpp"
 
@@ -25,6 +26,33 @@ void parseList(std::vector<std::string> &ids, const Json::Value &object
     for (const auto &element : value) {
         Json::check(element, Json::stringValue);
         ids.push_back(element.asString());
+    }
+}
+
+void parseTileset(StoredTileset &tileset, const Json::Value &value)
+{
+    if (!value.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of tileset is not an object.";
+    }
+
+    Json::get(tileset.tilesetId, value, "id");
+    std::string s;
+    Json::get(s, value, "mode");
+    tileset.glueMode = boost::lexical_cast<StoredTileset::GlueMode>(s);
+}
+
+void parseTilesets(StoredTileset::list &tilesets, const Json::Value &value)
+{
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of tilesets is not an array.";
+    }
+
+    for (const auto &element : value) {
+        Json::check(element, Json::objectValue);
+        tilesets.emplace_back();
+        parseTileset(tilesets.back(), element);
     }
 }
 
@@ -89,6 +117,22 @@ void buildList(const std::vector<std::string> &ids, Json::Value &value)
     for (const auto &id : ids) { value.append(id); }
 }
 
+void buildTileset(const StoredTileset &tileset, Json::Value &object)
+{
+    object = Json::objectValue;
+    object["id"] = tileset.tilesetId;
+    object["mode"] = boost::lexical_cast<std::string>(tileset.glueMode);
+}
+
+void buildTilesets(const StoredTileset::list &tilesets, Json::Value &object)
+{
+    object = Json::arrayValue;
+
+    for (const auto &item : tilesets) {
+        buildTileset(item, object.append(Json::nullValue));
+    }
+}
+
 void buildGlue(const Glue &glue, Json::Value &object)
 {
     object = Json::objectValue;
@@ -112,7 +156,7 @@ Storage::Properties parse1(const Json::Value &config)
     Json::get(properties.referenceFrame, config, "referenceFrame");
     Json::get(properties.revision, config, "revision");
 
-    parseList(properties.tilesets, config, "tilesets");
+    parseTilesets(properties.tilesets, config["tilesets"]);
     parseGlues(properties.glues, config["glues"]);
     parseTrash(properties.trashBin, config["trashBin"]);
 
@@ -127,7 +171,7 @@ void build(Json::Value &config, const Storage::Properties &properties)
     config["referenceFrame"] = properties.referenceFrame;
     config["revision"] = properties.revision;
 
-    buildList(properties.tilesets, config["tilesets"]);
+    buildTilesets(properties.tilesets, config["tilesets"]);
     buildGlues(properties.glues, config["glues"]);
     buildTrash(properties.trashBin, config["trashBin"]);
 }

@@ -55,6 +55,14 @@ public:
      */
     void setPosition(const registry::Position &position);
 
+    /** Adds given credits into list of credits used by this tileset.
+     */
+    void addCredits(const registry::IdSet &credits);
+
+    /** Adds given bound layers into list of bound layers used by this tileset.
+     */
+    void addBoundLayers(const registry::IdSet &boundLayers);
+
     /** Generates map configuration for this single tile set.
      */
     MapConfig mapConfig() const;
