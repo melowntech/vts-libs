@@ -7,6 +7,7 @@
 #include "../registry/po.hpp"
 #include "../vts/basetypes.hpp"
 #include "../vts/io.hpp"
+#include "../vts/tileop.hpp"
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -86,6 +87,11 @@ int NodeInfo::run()
     std::cout << "Subtree root node: " << ni.subtreeRoot->id << std::endl;
     std::cout << "Subtree root division extents: "
               << ni.subtreeRoot->extents << std::endl;
+
+    std::cout << "Children:" << std::endl;
+    for (auto child : children(tileId_)) {
+        std::cout << "    " << ni.child(child).nodeId() << std::endl;
+    }
 
     return EXIT_SUCCESS;
 }
