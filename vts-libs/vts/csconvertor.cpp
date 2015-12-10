@@ -42,6 +42,11 @@ CsConvertor::CsConvertor(const boost::optional<geo::CsConvertor> &conv
 void CsConvertor::init(const registry::Srs *srsFrom
                        , const registry::Srs *srsTo)
 {
+    LOG(debug) << "CsConvert(\"" << srsFrom->srsDef << '"'
+               << (srsFrom->adjustVertical() ? " [va]" : "")
+               << ", \"" << srsTo->srsDef << '"'
+               << (srsTo->adjustVertical() ? " [va]" : "")
+               << ").";
     if (srsFrom != srsTo) {
         conv_ = boost::in_place(srsFrom->srsDef, srsTo->srsDef);
 
@@ -58,6 +63,10 @@ void CsConvertor::init(const registry::Srs *srsFrom
 void CsConvertor::init(const geo::SrsDefinition &srsFrom
                        , const registry::Srs &srsTo)
 {
+    LOG(debug) << "CsConvert(\"" << srsFrom.srs << "\", \""
+               << srsTo.srsDef << '"'
+               << (srsTo.adjustVertical() ? " [va]" : "")
+               << ").";
     conv_ = boost::in_place(srsFrom, srsTo.srsDef);
 
     if (srsTo.adjustVertical()) {
@@ -69,6 +78,10 @@ void CsConvertor::init(const geo::SrsDefinition &srsFrom
 void CsConvertor::init(const registry::Srs &srsFrom
                        , const geo::SrsDefinition &srsTo)
 {
+    LOG(debug) << "CsConvert(\"" << srsFrom.srsDef << '"'
+               << (srsFrom.adjustVertical() ? " [va]" : "")
+               << ", \""
+               << srsTo.srs << "\").";
     conv_ = boost::in_place(srsFrom.srsDef, srsTo);
 
     if (srsFrom.adjustVertical()) {
