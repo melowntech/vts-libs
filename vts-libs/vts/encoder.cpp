@@ -17,32 +17,34 @@
 namespace vadstena { namespace vts {
 
 namespace {
-    struct ConstraintsFlag {
-        typedef std::uint32_t type;
-        enum : type {
-            useLodRange = 0x01
-            , useExtents = 0x02
-            , clearExtentsOnHit = 0x04
 
-            , all = (useLodRange | useExtents)
-        };
+struct ConstraintsFlag {
+    typedef std::uint32_t type;
+    enum : type {
+        useLodRange = 0x01
+        , useExtents = 0x02
+        , clearExtentsOnHit = 0x04
 
-        static type build(const Encoder::Constraints &c) {
-            type flags(0);
-
-            if (c.lodRange) { flags |= useLodRange; }
-            if (c.extents) { flags |= useExtents; }
-            if (c.useExtentsForFirstHit) { flags |= clearExtentsOnHit; }
-
-            return flags;
-        }
-
-        static void clearExtents(type &flags, bool value) {
-            if (value && (flags & clearExtentsOnHit)) {
-                flags &= ~useExtents;
-            }
-        }
+        , all = (useLodRange | useExtents)
     };
+
+    static type build(const Encoder::Constraints &c) {
+        type flags(0);
+
+        if (c.lodRange) { flags |= useLodRange; }
+        if (c.extents) { flags |= useExtents; }
+        if (c.useExtentsForFirstHit) { flags |= clearExtentsOnHit; }
+
+        return flags;
+    }
+
+    static void clearExtents(type &flags, bool value) {
+        if (value && (flags & clearExtentsOnHit)) {
+            flags &= ~useExtents;
+        }
+    }
+};
+
 } // namespace
 
 void Encoder::TileResult::fail(const char *what) const
