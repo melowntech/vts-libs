@@ -255,3 +255,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
   target_link_libraries(vts-libs ${MODULE_LIBRARIES})
   buildsys_target_compile_definitions(vts-libs ${MODULE_DEFINITIONS})
 endif()
+
+# add tools subdirectory
+if(MODULE_service_FOUND)
+  add_subdirectory(tools EXCLUDE_FROM_ALL)
+endif()
