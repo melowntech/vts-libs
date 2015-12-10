@@ -3,13 +3,32 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
+#include <cstdlib>
+
+#include "dbglog/dbglog.hpp"
+
 #include "${CMAKE_CURRENT_SOURCE_DIR}/registry.hpp"
 
 namespace vadstena { namespace registry {
 
+namespace def {
+const char *defaultPathEnv("VTS_LIBS_REGISTRY_PATH");
+const boost::filesystem::path defaultPath("${VTS_LIBS_REGISTRY_PATH}");
+
+} // namespace
+
 boost::filesystem::path defaultPath()
 {
-    return "${VTS_LIBS_REGISTRY_PATH}";
+    if (const char *env = std::getenv(def::defaultPathEnv)) {
+        LOG(info2) << "Using default registry path \"" << env
+                   << "\" from environment variable \""
+                   << def::defaultPathEnv << "\".";
+        return env;
+    }
+
+    LOG(info2) << "Using compiled in default registry path "
+               << def::defaultPath << ".";
+    return def::defaultPath;
 }
 
 } } // namespace vadstena::registry

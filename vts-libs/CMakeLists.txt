@@ -12,6 +12,7 @@ set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
   "Installation path to VTS registry")
 
 # generate config file
+message(STATUS "Generatig VTS configuration.")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/registry/config.cpp.in
   ${CMAKE_CURRENT_BINARY_DIR}/registry/config.cpp
   ESCAPE_QUOTES)
