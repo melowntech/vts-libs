@@ -81,6 +81,8 @@ int NodeInfo::run()
     std::cout << "Division SRS: " << ni.node.srs << std::endl;
     std::cout << "Division extents: "
               << std::fixed << ni.node.extents << std::endl;
+    std::cout << "Tile size: "
+              << std::fixed << size(ni.node.extents) << std::endl;
     std::cout << "Subtree root node: " << ni.subtreeRoot->id << std::endl;
     std::cout << "Subtree root division extents: "
               << ni.subtreeRoot->extents << std::endl;
