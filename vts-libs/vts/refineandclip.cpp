@@ -326,6 +326,8 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor &convertor)
             , tcMap(tc.size(), -1)
             , mesh(emesh.mesh)
         {
+            // clone metadata into output mesh
+            original.cloneMetadataInto(mesh);
             for (const auto &cf : faces) {
                 addFace(cf);
             }

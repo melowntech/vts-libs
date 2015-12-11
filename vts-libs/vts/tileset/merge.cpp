@@ -370,6 +370,8 @@ struct Coverage {
     bool covered(const Face &face, const math::Points3d &vertices
                  , Input::Id id) const
     {
+        // TODO: repeat border for some distance to take triangles from the tile
+        // margin into account
         std::vector<imgproc::Scanline> scanlines;
 
         const math::Point3 *tri[3] = {
@@ -455,6 +457,9 @@ private:
         coverage = cv::Scalar(-1);
 
         for (const auto &input : sources) {
+            LOG(info4) << "Rasterizing " << tileId << " from "
+                       << input.id() << " <" << input.name() << ">, mask: "
+                       << input.mesh().coverageMask.count() << ".";
             if (nodeInfo.node.srs == input.nodeInfo().node.srs) {
                 // same SRS -> mask is rendered as is (possible scale and shift)
                 rasterize(input.mesh(), input.id(), coverage
@@ -513,6 +518,7 @@ public:
         , vertexMap_(original.vertices.size(), -1)
         , tcMap_(original.tc.size(), -1)
     {
+        original_.cloneMetadataInto(mesh_);
         filter(coverage);
     }
 
@@ -586,13 +592,36 @@ private:
     std::vector<int> tcMap_;
 };
 
+namespace {
+
+SubMesh::list::iterator firstNonTextured(SubMesh::list &submeshes)
+{
+    return std::find_if(submeshes.begin(), submeshes.end()
+                        , [](const SubMesh &sm)
+    {
+        return sm.tc.empty();
+    });
+}
+
+} // namespace
+
 void MeshFilter::addTo(Output &out, double uvAreaScale)
 {
-    out.forceMesh().submeshes.push_back(mesh_);
-    out.forceMesh().submeshes.back().uvAreaScale = uvAreaScale;
+    bool textured(false);
     if (input_.hasAtlas() && input_.atlas().valid(submeshIndex_)) {
         out.forceAtlas().add(input_.atlas().get(submeshIndex_));
+        textured = true;
     }
+
+    // find place where to put new submesh
+    auto &submeshes(out.forceMesh().submeshes);
+    auto fsubmeshes(!textured ? submeshes.end()
+                    : firstNonTextured(submeshes));
+    // insert submesh
+    fsubmeshes = submeshes.insert(fsubmeshes, mesh_);
+
+    // update scale (TODO: multiply?)
+    fsubmeshes->uvAreaScale = uvAreaScale;
 }
 
 class SdMeshConvertor : public MeshVertexConvertor {
@@ -792,6 +821,17 @@ Output mergeTile(const TileId &tileId
 
     // generate coverage mask
     coverage.fillMeshMask(result);
+
+    for (const auto &sm : result.forceMesh().submeshes) {
+        LOG(info4) << "vertices: " << sm.vertices.size();
+        LOG(info4) << "tc: " << sm.tc.size();
+        LOG(info4) << "etc: " << sm.etc.size();
+        LOG(info4) << "faces: " << sm.faces.size();
+        LOG(info4) << "facesTc: " << sm.facesTc.size();
+        LOG(info4) << "textureMode: "
+                   << ((sm.textureMode == SubMesh::TextureMode::internal)
+                       ? "internal" : "external");
+    }
 
     return result;
 }

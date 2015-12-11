@@ -45,14 +45,22 @@ public:
     boost::optional<std::string> tilesetId() const {
         return tilesetId_;
     }
+
     CloneOptions& tilesetId(boost::optional<std::string> tilesetId) {
         tilesetId_ = tilesetId; return *this;
+    }
+
+    boost::optional<LodRange> lodRange() const { return lodRange_; }
+
+    CloneOptions& lodRange(const boost::optional<LodRange> &lodRange) {
+        lodRange_ = lodRange;  return *this;
     }
 
 private:
     CreateMode mode_;
     bool allowDanglingNavtiles_;
     boost::optional<std::string> tilesetId_;
+    boost::optional<LodRange> lodRange_;
 };
 
 TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src

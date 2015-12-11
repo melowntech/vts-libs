@@ -36,9 +36,9 @@ void Atlas::deserialize(std::istream &is
     deserialize_impl(is, path, table);
 }
 
-double Atlas::area(std::size_t index) const
+math::Size2 Atlas::imageSize(std::size_t index) const
 {
-    return area_impl(index);
+    return imageSize_impl(index);
 }
 
 } } // namespace vadstena::vts

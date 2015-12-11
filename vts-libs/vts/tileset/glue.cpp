@@ -137,9 +137,13 @@ private:
 inline bool Merger::isGlueTile(const merge::Output &tile) const
 {
     // TODO: make better
+    return true;
 
     // tile that is fully covered by top set -> not a glue tile
-    if (top.fullyCovered(tile.tileId)) { return false; }
+    if (top.fullyCovered(tile.tileId)) {
+        LOG(info4) << "Fully covered by top set.";
+        return false;
+    }
 
     for (const auto &source : tile.source) {
         if (source.tileId().lod != tile.tileId.lod) {
@@ -152,6 +156,7 @@ inline bool Merger::isGlueTile(const merge::Output &tile) const
             return true;
         }
     }
+
     return false;
 }
 

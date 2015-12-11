@@ -8,6 +8,8 @@
 
 #include <boost/filesystem/path.hpp>
 
+#include "math/geometry_core.hpp"
+
 #include "./multifile.hpp"
 
 namespace vadstena { namespace vts {
@@ -27,9 +29,13 @@ public:
     void deserialize(std::istream &is
                      , const boost::filesystem::path &path = "unknown");
 
-    /** Returns area of all given texture image (apparentResolution applied)
+    /** Returns area of given texture image
      */
     double area(std::size_t index) const;
+
+    /** Returns dimensions of given texture image
+     */
+    math::Size2 imageSize(std::size_t index) const;
 
     bool valid(std::size_t index) const { return index < size(); }
 
@@ -46,8 +52,15 @@ private:
                                   , const boost::filesystem::path &path
                                   , const multifile::Table &table) = 0;
 
-    virtual double area_impl(std::size_t index) const = 0;
+    virtual math::Size2 imageSize_impl(std::size_t index) const = 0;
 };
+
+inline double Atlas::area(std::size_t index) const
+{
+    auto s(imageSize(index));
+    return double(s.width) * double(s.height);
+}
+
 
 } } // namespace vadstena::vts
 

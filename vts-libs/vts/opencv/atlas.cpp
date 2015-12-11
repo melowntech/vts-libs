@@ -61,11 +61,11 @@ void Atlas::set(std::size_t index, const Image &image)
     images_[index] = image;
 }
 
-double Atlas::area_impl(std::size_t index) const
+math::Size2 Atlas::imageSize_impl(std::size_t index) const
 {
-    if (index >= images_.size()) { return 0; }
+    if (index >= images_.size()) { return {}; }
     const auto &image(images_[index]);
-    return image.cols * image.rows;
+    return math::Size2(image.cols, image.rows);
 }
 
 // raw atlas implementation
@@ -99,10 +99,11 @@ void RawAtlas::deserialize_impl(std::istream &is
     images_.swap(images);
 }
 
-double RawAtlas::area_impl(std::size_t index) const
+math::Size2 RawAtlas::imageSize_impl(std::size_t index) const
 {
+    if (index >= images_.size()) { return {}; }
     const auto &image(images_[index]);
-    return math::area(imgproc::jpegSize(image.data(), image.size()));
+    return imgproc::jpegSize(image.data(), image.size());
 }
 
 void RawAtlas::add(const Image &image) {

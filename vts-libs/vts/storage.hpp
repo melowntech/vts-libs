@@ -44,6 +44,18 @@ struct StoredTileset {
     {}
 };
 
+class TileFilter {
+public:
+    boost::optional<LodRange> lodRange() const { return lodRange_; }
+
+    TileFilter& lodRange(const boost::optional<LodRange> &lodRange) {
+        lodRange_ = lodRange;  return *this;
+    }
+
+private:
+    boost::optional<LodRange> lodRange_;
+};
+
 /** Storage interface.
  */
 class Storage {
@@ -79,11 +91,13 @@ public:
      *  \param tilesetPath path to source tileset
      *  \param where location in the stack where to add
      *  \param info how to store this tileset.
+     *  \param filter optional filter for input dataset
      *
      *  Tileset's own id is used if info.tilesetId is empty.
      */
     void add(const boost::filesystem::path &tilesetPath, const Location &where
-             , const StoredTileset &info);
+             , const StoredTileset &info
+             , const TileFilter &filter = TileFilter());
 
     /** Removes given tileset from the storage.
      *

@@ -38,14 +38,15 @@ namespace vadstena { namespace vts {
 
 void Storage::add(const boost::filesystem::path &tilesetPath
                   , const Location &where
-                  , const StoredTileset &info)
+                  , const StoredTileset &info
+                  , const TileFilter &filter)
 {
     auto ts(openTileSet(tilesetPath));
     StoredTileset useInfo(info);
     if (useInfo.tilesetId.empty()) {
         useInfo.tilesetId = ts.getProperties().id;
     }
-    detail().add(ts, where, useInfo);
+    detail().add(ts, where, useInfo, filter);
 }
 
 void Storage::remove(const TilesetIdList &tilesetIds)
@@ -584,7 +585,8 @@ Storage::Detail::removeTilesets(const Properties &properties
 
 void Storage::Detail::add(const TileSet &tileset
                           , const Location &where
-                          , const StoredTileset &tilesetInfo)
+                          , const StoredTileset &tilesetInfo
+                          , const TileFilter &filter)
 {
     dbglog::thread_id(str(boost::format("%s->%s/%s")
                           % tileset.id()
@@ -614,7 +616,8 @@ void Storage::Detail::add(const TileSet &tileset
         auto dst(cloneTileSet(tx.addTileset(tilesetInfo.tilesetId), tileset,
                               CloneOptions()
                               .mode(CreateMode::overwrite)
-                              .tilesetId(tilesetInfo.tilesetId)));
+                              .tilesetId(tilesetInfo.tilesetId)
+                              .lodRange(filter.lodRange())));
 
         // create glues only if tileset participates in any glue
         if (tilesetInfo.glueMode != StoredTileset::GlueMode::none) {
@@ -840,7 +843,7 @@ Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo
         if (const auto *gs = glues(ts.id())) {
             // TODO: check only appropriate glues (i.e. those that correspond
             // with glueId constructed above
-            for (const auto glue : *gs) {
+            for (const auto &glue : *gs) {
                 if (trySet(result, tileId, glue)) { return result; }
             }
         }

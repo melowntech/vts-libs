@@ -8,6 +8,7 @@
 
 #include <boost/filesystem/path.hpp>
 
+#include "utility/enum-io.hpp"
 #include "math/geometry_core.hpp"
 #include "imgproc/rastermask/quadtree.hpp"
 
@@ -63,6 +64,10 @@ struct SubMesh {
 
     typedef std::vector<SubMesh> list;
     SubMesh() : textureMode(TextureMode::internal), uvAreaScale(1.0) {}
+
+    /** Clones metadata (texture mod, layer etc.).
+     */
+    void cloneMetadataInto(SubMesh &dst) const;
 };
 
 /**
@@ -148,6 +153,20 @@ Mesh loadMesh(const boost::filesystem::path &path);
 multifile::Table readMeshTable(std::istream &is
                                , const boost::filesystem::path &path
                                = "unknown");
+
+// inlines
+
+inline void SubMesh::cloneMetadataInto(SubMesh &dst) const
+{
+    dst.textureMode = textureMode;
+    dst.textureLayer = textureLayer;
+    dst.uvAreaScale = uvAreaScale;
+}
+
+UTILITY_GENERATE_ENUM_IO(SubMesh::TextureMode,
+    ((internal))
+    ((external))
+)
 
 } } // namespace vadstena::vts
 

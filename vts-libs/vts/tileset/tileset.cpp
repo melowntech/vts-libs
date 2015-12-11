@@ -159,31 +159,20 @@ struct TileSet::Factory
         return TileSet(driver);
     }
 
-    static TileSet clone(const boost::filesystem::path &path
-                         , const TileSet &src
-                         , const CloneOptions &cloneOptions)
+    static void clone(const Detail &src, Detail &dst)
     {
-        const utility::Progress::ratio_t reportRatio(1, 100);
-        const auto reportName(str(boost::format("Cloning <%s> ")
-                                  % src.id()));
-
-        auto properties(src.detail().properties);
-        if (cloneOptions.tilesetId()) {
-            properties.id = *cloneOptions.tilesetId();
-        }
-        auto dst(TileSet::Factory::create(path, properties
-                                          , cloneOptions.mode()));
-
-        auto &sd(*src.detail().driver);
-        auto &dd(*dst.detail().driver);
+        const auto &sd(*src.driver);
+        auto &dd(*dst.driver);
 
         copyFile(sd.input(storage::File::tileIndex)
                  , dd.output(storage::File::tileIndex));
 
-        utility::Progress progress(src.detail().tileIndex.count());
+        const utility::Progress::ratio_t reportRatio(1, 100);
+        const auto reportName(str(boost::format("Cloning <%s> ")
+                                  % src.properties.id));
+        utility::Progress progress(src.tileIndex.count());
 
-        traverse(src.detail().tileIndex
-                 , [&](const TileId &tid, QTree::value_type mask)
+        traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
         {
             if (mask & TileIndex::Flag::mesh) {
                 // copy mesh
@@ -219,10 +208,89 @@ struct TileSet::Factory
             (++progress).report(reportRatio, reportName);
         });
 
+        // load copied tile index
+        dst.loadTileIndex();
+    }
+
+    static void clone(const Detail &src, Detail &dst, const LodRange &lodRange)
+    {
+        const auto &sd(*src.driver);
+        auto &dd(*dst.driver);
+
+        const utility::Progress::ratio_t reportRatio(1, 100);
+        const auto reportName(str(boost::format("Cloning <%s> ")
+                                  % src.properties.id));
+        utility::Progress progress(src.tileIndex.count());
+
+        auto report([&]() { (++progress).report(reportRatio, reportName); });
+
+        traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
+        {
+            // skip
+            if (!in(lodRange, tid.lod)) {
+                report();
+                return;
+            }
+
+            const auto *metanode(src.findMetaNode(tid));
+            if (!metanode) {
+                LOG(warn2)
+                    << "Cannot find metanode for tile " << tileId << "; "
+                    << "skipping.";
+                report();
+                return;
+            }
+
+            if (mask & TileIndex::Flag::mesh) {
+                // copy mesh
+                copyFile(sd.input(tid, storage::TileFile::mesh)
+                         , dd.output(tid, storage::TileFile::mesh));
+            }
+
+            if (mask & TileIndex::Flag::atlas) {
+                // copy atlas
+                copyFile(sd.input(tid, storage::TileFile::atlas)
+                         , dd.output(tid, storage::TileFile::atlas));
+            }
+
+#if 0
+            // NB: this unsupported so far: we have to change index and metanode
+            if ((mask & TileIndex::Flag::navtile)
+                && (cloneOptions.allowDanglingNavtiles()
+                    || (mask & TileIndex::Flag::mesh)))
+#endif
+            if (mask & TileIndex::Flag::navtile)
+            {
+                // copy navtile if allowed
+                copyFile(sd.input(tid, storage::TileFile::navtile)
+                         , dd.output(tid, storage::TileFile::navtile));
+            }
+
+            dst.updateNode(tid, *metanode
+                           , mask & TileIndex::Flag::watertight);
+            report();
+        });
+    }
+
+    static TileSet clone(const boost::filesystem::path &path
+                         , const TileSet &src
+                         , const CloneOptions &cloneOptions)
+    {
+        auto properties(src.detail().properties);
+        if (cloneOptions.tilesetId()) {
+            properties.id = *cloneOptions.tilesetId();
+        }
+        auto dst(TileSet::Factory::create(path, properties
+                                          , cloneOptions.mode()));
+
+        if (cloneOptions.lodRange()) {
+            clone(src.detail(), dst.detail(), *cloneOptions.lodRange());
+        } else {
+            clone(src.detail(), dst.detail());
+        }
+
         // only properties have been changed
         dst.detail().propertiesChanged = true;
-        // load copied tile index
-        dst.detail().loadTileIndex();
         // and flush
         dst.flush();
 
@@ -587,7 +655,7 @@ void sanityCheck(const TileId &tileId, const Mesh *mesh, const Atlas *atlas
             if (sm.tc.empty()) {
                 LOGTHROW(err1, storage::InconsistentInput)
                     << "Tile " << tileId
-                    << ": mesh with external texture without texture "
+                    << ": mesh with internal texture without texture "
                     "coordinate.";
             }
 

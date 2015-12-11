@@ -28,7 +28,7 @@ private:
                                   , const boost::filesystem::path &path
                                   , const multifile::Table &table);
 
-    virtual double area_impl(std::size_t index) const;
+    virtual math::Size2 imageSize_impl(std::size_t index) const;
 
     int quality_;
     typedef std::vector<Image> Images;
@@ -54,7 +54,7 @@ private:
                                   , const boost::filesystem::path &path
                                   , const multifile::Table &table);
 
-    virtual double area_impl(std::size_t index) const;
+    virtual math::Size2 imageSize_impl(std::size_t index) const;
 
     typedef std::vector<Image> Images;
     Images images_;

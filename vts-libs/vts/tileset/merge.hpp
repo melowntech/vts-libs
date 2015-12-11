@@ -73,6 +73,8 @@ public:
      */
     const TileSet::Detail *owner() const { return owner_; }
 
+    const std::string& name() const { return owner_->properties.id; }
+
     const TileId& tileId() const { return tileId_; }
 
     Id id() const { return id_; }
