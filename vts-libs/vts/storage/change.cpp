@@ -206,7 +206,7 @@ openTilesets(Tx &tx, const StoredTileset::list &infos, TileSet &tileset
     TileSets &tilesets(std::get<0>(res));
     std::size_t index(0);
     for (const auto &info : infos) {
-        if (glueMode && (*glueMode == info.glueMode)) {
+        if (glueMode && (*glueMode != info.glueMode)) {
             LOG(info2) << "Skipping masked out tileset <"
                        << info.tilesetId << ">.";
             continue;
@@ -860,6 +860,10 @@ void Flattener::finish(TileSet &tileSet)
         const auto props(set->getProperties());
         tileSet.addCredits(props.credits);
         tileSet.addBoundLayers(props.boundLayers);
+    }
+
+    if (!usedSets_.empty()) {
+        tileSet.setPosition((*usedSets_.begin())->getProperties().position);
     }
 }
 
