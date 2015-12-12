@@ -39,9 +39,9 @@ inline math::Matrix4 geo2mask(const math::Extents2 &extents
     trafo(0, 0) = scale.width;
     trafo(1, 1) = -scale.height;
 
-    // move to origin (half grid pixel left and up of origin)
-    trafo(0, 3) = -extents.ll(0) * scale.width - 0.5;
-    trafo(1, 3) = extents.ur(1) * scale.height - 0.5;
+    // move to origin
+    trafo(0, 3) = -extents.ll(0) * scale.width;
+    trafo(1, 3) = extents.ur(1) * scale.height;
 
     return trafo;
 }
@@ -63,9 +63,9 @@ inline math::Matrix4 mask2geo(const math::Extents2 &extents
     trafo(0, 0) = scale.width;
     trafo(1, 1) = -scale.height;
 
-    // move to origin (half grid pixel right and down of origin)
-    trafo(0, 3) = extents.ll(0) + 0.5 * scale.width;
-    trafo(1, 3) = extents.ur(1) - 0.5 * scale.height;
+    // move to origin
+    trafo(0, 3) = extents.ll(0);
+    trafo(1, 3) = extents.ur(1);
 
     return trafo;
 }

@@ -16,17 +16,20 @@ multifile::Table NavTile::serialize_impl(std::ostream &os) const
 {
     // convert data to image
     const auto ts(NavTile::size());
-    cv::Mat image(ts.height, ts.width, CV_8UC1);
+    cv::Mat image(ts.height, ts.width, CV_8UC1, cv::Scalar(128));
 
     const auto hr(heightRange());
 
+    // TODO: implement inpainting
     auto size(hr.size());
-    std::transform(data_.begin<double>(), data_.end<double>()
-                   , image.begin<std::uint8_t>()
-                   , [&](double value) -> std::uint8_t
-    {
-        return std::uint8_t(std::round((255 * (value - hr.min)) / size));
-    });
+    if (size >= 1e-6) {
+        coverageMask().forEach([&](int x, int y, bool)
+        {
+            auto value(data_.at<double>(y, x));
+            image.at<std::uint8_t>(y, x)
+                = std::uint8_t(std::round((255 * (value - hr.min)) / size));
+        }, CoverageMask::Filter::white);
+    }
 
     // write
     multifile::Table table;
@@ -87,10 +90,18 @@ void NavTile::deserialize_impl(const HeightRange &heightRange
 
 NavTile::HeightRange NavTile::heightRange() const
 {
-    // TODO: filter-out masked-out values
-    // get min/max
-    storage::Range<double> range;
-    cv::minMaxLoc(data_, &range.min, &range.max);
+    // get min/max from valid pixels
+    storage::Range<double> range(0, 0);
+    if (!coverageMask().empty()) {
+        range = { std::numeric_limits<double>::max()
+                  , std::numeric_limits<double>::lowest() };
+        coverageMask().forEach([&](int x, int y, bool)
+        {
+            auto value(data_.at<double>(y, x));
+            range.min = std::min(range.min, value);
+            range.max = std::max(range.max, value);
+        }, CoverageMask::Filter::white);
+    }
     return HeightRange(std::int16_t(std::floor(range.min))
                        , std::int16_t(std::ceil(range.max)));
 }

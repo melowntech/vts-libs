@@ -294,7 +294,7 @@ struct TileSet::Factory
         // and flush
         dst.flush();
 
-        return dst;;
+        return dst;
     }
 };
 
