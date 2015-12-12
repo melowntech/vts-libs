@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/photo/photo.hpp>
 
 #include "dbglog/dbglog.hpp"
 
@@ -12,25 +13,10 @@
 
 namespace vadstena { namespace vts { namespace opencv {
 
-multifile::Table NavTile::serialize_impl(std::ostream &os) const
+namespace {
+
+multifile::Table writeImage(const cv::Mat &image, std::ostream &os)
 {
-    // convert data to image
-    const auto ts(NavTile::size());
-    cv::Mat image(ts.height, ts.width, CV_8UC1, cv::Scalar(128));
-
-    const auto hr(heightRange());
-
-    // TODO: implement inpainting
-    auto size(hr.size());
-    if (size >= 1e-6) {
-        coverageMask().forEach([&](int x, int y, bool)
-        {
-            auto value(data_.at<double>(y, x));
-            image.at<std::uint8_t>(y, x)
-                = std::uint8_t(std::round((255 * (value - hr.min)) / size));
-        }, CoverageMask::Filter::white);
-    }
-
     // write
     multifile::Table table;
     auto pos(os.tellp());
@@ -39,13 +25,66 @@ multifile::Table NavTile::serialize_impl(std::ostream &os) const
     using utility::binaryio::write;
     std::vector<unsigned char> buf;
     // TODO: configurable quality?
-    cv::imencode(".jpg", image, buf
-                 , { cv::IMWRITE_JPEG_QUALITY, 92 });
+    cv::imencode(".jpg", image, buf, { cv::IMWRITE_JPEG_QUALITY, 92 });
 
     write(os, buf.data(), buf.size());
     pos = table.add(pos, buf.size());
 
     return table;
+}
+
+} // namespace
+
+multifile::Table NavTile::serialize_impl(std::ostream &os) const
+{
+    // convert data to image
+    const auto ts(NavTile::size());
+    const auto hr(heightRange());
+
+    auto size(hr.size());
+    if (size < 1e-6) {
+        // flat -> single value
+        return writeImage
+            (cv::Mat(ts.height, ts.width, CV_8UC1, cv::Scalar(128)), os);
+    }
+
+    // non-flat
+    if (coverageMask().full()) {
+        // fully covered
+        cv::Mat image(ts.height, ts.width, CV_8UC1);
+        std::transform(data_.begin<double>(), data_.end<double>()
+                       , image.begin<std::uint8_t>()
+                       , [&](double value) -> std::uint8_t
+        {
+            return std::uint8_t
+                (std::round((255 * (value - hr.min)) / size));
+        });
+        return writeImage(image, os);
+    }
+
+    // partially covered: process only valid part and then then inpaint
+    // invalid part to get something smooth
+    int margin(2);
+    math::Size2 mts(ts.width + 2 * margin, ts.height + 2 * margin);
+    cv::Mat image(mts.height, mts.width, CV_8UC1, cv::Scalar(128));
+    cv::Mat mask(mts.height, mts.width, CV_8UC1, cv::Scalar(255));
+
+    // render valid pixels and mask them out in the inpaint mask
+    coverageMask().forEach([&](int x, int y, bool)
+    {
+        auto value(data_.at<double>(y, x));
+        image.at<std::uint8_t>(y + margin, x + margin)
+            = std::uint8_t(std::round((255 * (value - hr.min)) / size));
+        mask.at<std::uint8_t>(y + margin, x + margin) = 0;
+    }, CoverageMask::Filter::white);
+
+    // inpaint
+    cv::Mat tmp(mts.height, mts.width, CV_8UC1);
+    cv::inpaint(image, mask, tmp, 3, cv::INPAINT_TELEA);
+
+    // done
+    return writeImage
+        (cv::Mat(tmp, cv::Rect(margin, margin, ts.width, ts.height)), os);
 }
 
 void NavTile::deserialize_impl(const HeightRange &heightRange
