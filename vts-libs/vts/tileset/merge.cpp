@@ -23,6 +23,7 @@ namespace vadstena { namespace vts { namespace merge {
 namespace {
 
 /** Geo coordinates to coverage mask mapping.
+ * NB: result is in pixel system: pixel centers have integral indices
  */
 inline math::Matrix4 geo2mask(const math::Extents2 &extents
                               , const math::Size2 &gridSize)
@@ -39,14 +40,15 @@ inline math::Matrix4 geo2mask(const math::Extents2 &extents
     trafo(0, 0) = scale.width;
     trafo(1, 1) = -scale.height;
 
-    // move to origin
-    trafo(0, 3) = -extents.ll(0) * scale.width;
-    trafo(1, 3) = extents.ur(1) * scale.height;
+    // move to origin and also move pixel centers to integral indices
+    trafo(0, 3) = -extents.ll(0) * scale.width - 0.5;
+    trafo(1, 3) = extents.ur(1) * scale.height - 0.5;
 
     return trafo;
 }
 
 /** Coverage mask mapping to geo coordinates.
+ * NB: result is in pixel system: pixel centers have integral indices
  */
 inline math::Matrix4 mask2geo(const math::Extents2 &extents
                               , const math::Size2 &gridSize)
@@ -64,8 +66,8 @@ inline math::Matrix4 mask2geo(const math::Extents2 &extents
     trafo(1, 1) = -scale.height;
 
     // move to origin
-    trafo(0, 3) = extents.ll(0);
-    trafo(1, 3) = extents.ur(1);
+    trafo(0, 3) = extents.ll(0) + 0.5 * scale.width;
+    trafo(1, 3) = extents.ur(1) - 0.5 * scale.height;
 
     return trafo;
 }
