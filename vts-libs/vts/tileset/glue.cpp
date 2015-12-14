@@ -268,6 +268,7 @@ void TileSet::createGlue(const const_ptrlist &sets)
     }
 
     Merger(detail(), generate, sets)();
+    setPosition(sets.back()->getProperties().position);
 }
 
 } } // namespace vadstena::vts
