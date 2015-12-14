@@ -95,9 +95,10 @@ SubMeshArea area(const SubMesh &sm)
         }
     }
 
-    // NB: UV area is multiplied by uvAreaFactor
+    // NB: internal UV area is multiplied by uvAreaFactor
     a.internalTexture *= sm.uvAreaScale;
-    a.externalTexture *= sm.uvAreaScale;
+    // NB: external texture is not scaled because there are always finer data
+    //     for external texture
 
     return a;
 }
