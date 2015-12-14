@@ -485,7 +485,6 @@ void rasterizeMesh(const vts::TileId &tileId, const math::Extents2 &extents
 
 vts::Mesh::pointer
 createMeshAndNavtile(const vts::TileId &tileId, const vts0::Mesh &m
-                     , const vts::CsConvertor &node2phys
                      , const math::Extents2 &divisionExtents
                      , bool externalTextureCoordinates
                      , boost::optional<std::uint16_t> textureLayer
@@ -500,9 +499,8 @@ createMeshAndNavtile(const vts::TileId &tileId, const vts0::Mesh &m
     TextureNormalizer tn(divisionExtents);
     auto t2g(geo::local2geo(divisionExtents));
     for (const auto &v : m.vertices) {
-        // convert v from local coordinates to division SRS and than to physical
-        // SRS (the last transformation can be no-op)
-        sm.vertices.push_back(node2phys(transform(t2g, v)));
+        // convert v from local coordinates to physical SRS
+        sm.vertices.push_back(transform(t2g, v));
 
         // generate external texture coordinates if instructed
         if (externalTextureCoordinates) { sm.etc.push_back(tn(v)); }
@@ -604,9 +602,6 @@ Encoder::TileResult
 Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
                   , const TileResult&)
 {
-    vts::CsConvertor node2phys(nodeInfo.node.srs
-                               , referenceFrame().model.physicalSrs);
-
     auto vts0Id(asVts(tileId));
 
     if (!cti_.exists(vts0Id)) {
@@ -652,7 +647,7 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     tile.atlas = std::make_shared<Atlas>(atlasStream);
 
     // convert mesh from old one
-    tile.mesh = createMeshAndNavtile(tileId, mesh, node2phys
+    tile.mesh = createMeshAndNavtile(tileId, mesh
                                      , nodeInfo.node.extents
                                      , nodeInfo.node.externalTexture
                                      , config_.textureLayer, navtile);
