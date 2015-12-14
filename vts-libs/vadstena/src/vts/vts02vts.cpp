@@ -227,7 +227,7 @@ class Atlas : public vts::Atlas {
 public:
     Atlas(const vs::IStream::pointer &stream)
         : stream_(stream)
-        , area_(math::area(imgproc::jpegSize(*stream, stream->name())))
+        , size_(imgproc::jpegSize(*stream, stream->name()))
     {}
 
 private:
@@ -255,18 +255,18 @@ private:
             << "This atlas is serialize-only.";
     }
 
-    virtual double area_impl(std::size_t index) const {
+    virtual math::Size2 imageSize_impl(std::size_t index) const {
         UTILITY_OVERRIDE
         if (index) {
             LOGTHROW(err4, std::runtime_error)
-                << "This atlas has just one image+.";
+                << "This atlas has just one image.";
         }
 
-        return area_;
+        return size_;
     }
 
     vs::IStream::pointer stream_;
-    std::size_t area_;
+    math::Size2 size_;
 };
 
 inline vts0::TileId asVts(const vts::TileId tileId) {
