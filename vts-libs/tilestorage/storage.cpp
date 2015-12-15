@@ -263,7 +263,7 @@ void Storage::Detail::addTileSets(const std::vector<Locator> &locators
 
             // get current properties
             auto thisProps(output->getProperties());
-            LOG(info4) << utility::dump(output->getProperties());
+            LOG(info2) << utility::dump(output->getProperties());
 
             // clone
             cloneTileSet(output, update.begin()->second

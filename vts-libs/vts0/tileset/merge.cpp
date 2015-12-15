@@ -378,7 +378,7 @@ void Merger::filterHeightmap()
     TileIndices continuous;
     TileIndices discrete;
     for (const auto &info : affectedTiles) {
-        LOG(info4)
+        LOG(info2)
             << "Using tile index from <" << info.first->getProperties().id
             << ">.";
         continuous.push_back(&info.second->continuous);

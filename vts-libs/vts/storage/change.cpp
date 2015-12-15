@@ -403,7 +403,7 @@ createGlues(Tx &tx, Storage::Properties properties
     for (const auto &tsp : incidentSets) {
         const auto &ts(*tsp);
 
-        LOG(info4)
+        LOG(info2)
             << "Sets <" << added.id() << "> and <"
             << ts.id() << "> (" << added.index << ", " << ts.index
             << ") overlap with [" << utility::join(ts.incidentSets, ", ")
