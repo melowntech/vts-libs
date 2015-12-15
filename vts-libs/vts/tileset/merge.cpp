@@ -89,16 +89,9 @@ inline math::Matrix4 etcNCTrafo(const TileId &id)
     trafo(0, 0) = tileCount;
     trafo(1, 1) = tileCount;
 
-    // lower left point of extents in source tile:
-    // ll(0) = id.x / tileCount
-    // ll(1) = 1 - (id.y / tileCount)
-
-    // offset in new tile:
-    // o(0) = -scale * ll(0) = -tileCount * ll(0) = -id.x
-    // o(1) = -scale * ll(1) = -tileCount * ll(1) = -tileCount + id.y
-
-    trafo(0, 3) = -id.x;
-    trafo(1, 3) = id.y - tileCount;
+    // NB: id.x is unsigned -> must cast to double first
+    trafo(0, 3) = - double(id.x);
+    trafo(1, 3) = (id.y + 1) - tileCount;
 
     return trafo;
 }
@@ -114,8 +107,8 @@ inline math::Matrix4 coverage2EtcTrafo(const math::Size2 &gridSize)
     trafo(1, 1) = -1.0 / gridSize.height;
 
     // shift to proper orientation and cancel halfpixel offset
-    trafo(1, 3) = 0.5 / gridSize.width;
-    trafo(2, 3) = 1 - 0.5 / gridSize.height;
+    trafo(0, 3) = 0.5 / gridSize.width;
+    trafo(1, 3) = 1 - 0.5 / gridSize.height;
 
     return trafo;
 }
@@ -459,9 +452,6 @@ private:
         coverage = cv::Scalar(-1);
 
         for (const auto &input : sources) {
-            LOG(info4) << "Rasterizing " << tileId << " from "
-                       << input.id() << " <" << input.name() << ">, mask: "
-                       << input.mesh().coverageMask.count() << ".";
             if (nodeInfo.node.srs == input.nodeInfo().node.srs) {
                 // same SRS -> mask is rendered as is (possible scale and shift)
                 rasterize(input.mesh(), input.id(), coverage
@@ -607,11 +597,14 @@ SubMesh::list::iterator firstNonTextured(SubMesh::list &submeshes)
 
 } // namespace
 
-void MeshFilter::addTo(Output &out, double uvAreaScale)
+void addInputToOutput(Output &out, const Input &input
+                      , SubMesh mesh
+                      , int submeshIndex
+                      , double uvAreaScale)
 {
     bool textured(false);
-    if (input_.hasAtlas() && input_.atlas().valid(submeshIndex_)) {
-        out.forceAtlas().add(input_.atlas().get(submeshIndex_));
+    if (input.hasAtlas() && input.atlas().valid(submeshIndex)) {
+        out.forceAtlas().add(input.atlas().get(submeshIndex));
         textured = true;
     }
 
@@ -620,10 +613,15 @@ void MeshFilter::addTo(Output &out, double uvAreaScale)
     auto fsubmeshes(!textured ? submeshes.end()
                     : firstNonTextured(submeshes));
     // insert submesh
-    fsubmeshes = submeshes.insert(fsubmeshes, mesh_);
+    fsubmeshes = submeshes.insert(fsubmeshes, mesh);
 
     // update scale (TODO: multiply?)
     fsubmeshes->uvAreaScale = uvAreaScale;
+}
+
+void MeshFilter::addTo(Output &out, double uvAreaScale)
+{
+    addInputToOutput(out, input_, mesh_, submeshIndex_, uvAreaScale);
 }
 
 class SdMeshConvertor : public MeshVertexConvertor {
@@ -647,8 +645,7 @@ public:
         return transform(coverage2Texture_, v);
     }
 
-    virtual math::Point2d etc(const math::Point2d &v) const
-    {
+    virtual math::Point2d etc(const math::Point2d &v) const {
         // point is in the input's texture coordinates system
         return transform(etcNCTrafo_, v);
     }
@@ -676,7 +673,7 @@ private:
 Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
                      , CsConvertor phys2sd, const Input &input)
 {
-    Output result(tileId);
+    Output result(tileId, input);
     if (input.tileId().lod == tileId.lod) {
         // as is -> copy
         result.mesh = input.mesh();
@@ -693,7 +690,6 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
         (inputCoverageVertices(input, nodeInfo, phys2sd));
     SdMeshConvertor sdmc(input, nodeInfo, localId);
 
-    auto &outMesh(result.forceMesh());
     std::size_t smIndex(0);
     for (const auto &sm : input.mesh()) {
         auto refined
@@ -701,24 +697,14 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
                            , coverageExtents(1.), localId.lod, sdmc));
 
         if (refined) {
-            // we have some mesh
-            outMesh.submeshes.push_back(refined.mesh);
-
-            // update apparent detail
-            outMesh.submeshes.back().uvAreaScale = (1 << localId.lod);
-
-            if (input.hasAtlas()) {
-                result.forceAtlas().add(input.atlas().get(smIndex));
-            }
-
-            if (input.hasNavtile()) {
-                // TODO: cut and scale proper navtile content
-                result.navtile = input.navtile();
-            }
+            addInputToOutput(result, input, refined.mesh, smIndex
+                             , (1 << localId.lod));
         }
 
         ++smIndex;
     }
+
+    // TODO: cut coverage mask from original mesh
 
     // done
     return result;
@@ -823,17 +809,6 @@ Output mergeTile(const TileId &tileId
 
     // generate coverage mask
     coverage.fillMeshMask(result);
-
-    for (const auto &sm : result.forceMesh().submeshes) {
-        LOG(info4) << "vertices: " << sm.vertices.size();
-        LOG(info4) << "tc: " << sm.tc.size();
-        LOG(info4) << "etc: " << sm.etc.size();
-        LOG(info4) << "faces: " << sm.faces.size();
-        LOG(info4) << "facesTc: " << sm.facesTc.size();
-        LOG(info4) << "textureMode: "
-                   << ((sm.textureMode == SubMesh::TextureMode::internal)
-                       ? "internal" : "external");
-    }
 
     return result;
 }

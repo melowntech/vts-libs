@@ -116,6 +116,9 @@ struct Output {
 
     explicit Output(const TileId &tileId) : tileId(tileId) {}
 
+    Output(const TileId &tileId, const Input &input)
+        : tileId(tileId), source{input} {}
+
     operator bool() const {
         return mesh || atlas || navtile;
     }

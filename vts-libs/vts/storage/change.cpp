@@ -560,7 +560,7 @@ Storage::Detail::removeTilesets(const Properties &properties
     for (const auto &tilesetId : tilesetIds) {
         auto ftilesets(p.findTilesetIt(tilesetId));
         if (ftilesets == tilesets.end()) {
-            LOG(warn1) << "Tileset <" << tilesetId << "> "
+            LOG(warn2) << "Tileset <" << tilesetId << "> "
                 "not found in storage " << root << ".";
         } else {
             // remove from tilesets
@@ -569,13 +569,15 @@ Storage::Detail::removeTilesets(const Properties &properties
     }
 
     // drop all glues that reference requested tilesets
+    auto &glues(p.glues);
     auto &resGlues(std::get<1>(res));
     for (const auto &tilesetId : tilesetIds) {
-        for (auto iresGlues(resGlues.begin()); iresGlues != resGlues.end(); ) {
-            if (iresGlues->second.references(tilesetId)) {
-                iresGlues = resGlues.erase(iresGlues);
+        for (auto iglues(glues.begin()); iglues != glues.end(); ) {
+            if (iglues->second.references(tilesetId)) {
+                resGlues.insert(*iglues);
+                iglues = glues.erase(iglues);
             } else {
-                ++iresGlues;
+                ++iglues;
             }
         }
     }

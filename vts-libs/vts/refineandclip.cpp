@@ -360,14 +360,19 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor &convertor)
 
                     // etc
                     if (generateEtc) {
-                        mesh.etc.push_back(convertor.etc(original.etc[i]));
+                        mesh.etc.push_back(convertor.etc(v));
+                        LOG(debug) << v << ": etc from vertex: " << v << " -> "
+                                   << mesh.etc.back();
                     }
                 } else {
                     // use original
                     mesh.vertices.push_back(vertices[i]);
 
                     if (generateEtc) {
-                        mesh.etc.push_back(convertor.etc(v));
+                        mesh.etc.push_back(convertor.etc(original.etc[i]));
+                        LOG(debug) << v << ": etc from old: "
+                                   << original.etc[i]
+                                   << " -> " << mesh.etc.back();
                     }
                 }
 

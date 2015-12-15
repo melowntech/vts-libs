@@ -59,7 +59,9 @@ double triangleArea(const math::Point3 &a, const math::Point3 &b,
 double triangleArea(const math::Point2 &a, const math::Point2 &b,
                     const math::Point2 &c)
 {
-    return math::crossProduct(math::Point2(b - a), math::Point2(c - a)) / 2.0;
+    return std::abs
+        (math::crossProduct(math::Point2(b - a), math::Point2(c - a)))
+        / 2.0;
 }
 
 }

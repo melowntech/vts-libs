@@ -749,7 +749,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
             metanode.internalTextureCount = atlas->size();
         }
 
-        // externally-textures submeshes
+        // externally-textured submeshes
         for (auto eta(ma.submeshes.end()); ita != eta; ++ita) {
             textureArea += (ita->externalTexture
                             * registry::BoundLayer::tileArea());
