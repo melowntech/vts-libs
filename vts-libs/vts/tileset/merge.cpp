@@ -407,15 +407,20 @@ struct Coverage {
         // we have mesh -> fill
         auto &cm(out.mesh->coverageMask);
 
-        // whole black
-        cm.reset(false);
-        for (int j(0); j < coverage.rows; ++j) {
-            for (int i(0); i < coverage.cols; ++i) {
-                // non-hole -> set in mask
-                if (coverage.at<pixel_type>(j, i) >= 0) {
-                    cm.set(j, i);
+        if (hasHoles) {
+            // start with whole black mask and set non-hole pixels
+            cm.reset(false);
+            for (int j(0); j < coverage.rows; ++j) {
+                for (int i(0); i < coverage.cols; ++i) {
+                    // non-hole -> set in mask
+                    if (coverage.at<pixel_type>(j, i) >= 0) {
+                        cm.set(j, i);
+                    }
                 }
             }
+        } else {
+            // fully covered
+            cm.reset(true);
         }
     }
 
@@ -704,7 +709,10 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
         ++smIndex;
     }
 
-    // TODO: cut coverage mask from original mesh
+    // cut coverage mask from original mesh
+    result.forceMesh().coverageMask
+        = input.mesh().coverageMask.subTree
+        (Mesh::coverageSize(), localId.lod, localId.x, localId.y);
 
     // done
     return result;
