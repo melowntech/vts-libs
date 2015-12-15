@@ -17,3 +17,13 @@ set(vts02vts_SOURCES
   )
 
 vadstena_tool(storage vts02vts ${vts02vts_SOURCES})
+
+# ------------------------------------------------------------------------
+define_module(BINARY vts2vts
+  DEPENDS JPEG vadstena-libs)
+
+set(vts2vts_SOURCES
+  vts2vts.cpp
+  )
+
+vadstena_tool(storage vts2vts ${vts2vts_SOURCES})
