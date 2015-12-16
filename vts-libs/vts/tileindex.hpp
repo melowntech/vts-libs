@@ -22,7 +22,10 @@ public:
             , atlas = 0x04
             , navtile = 0x08
             , meta = 0x10
-            , real = mesh | atlas | navtile
+
+             // tile is real if it contains mesh
+             , real = mesh
+
             , any = value_type(~0)
         };
     };

@@ -113,14 +113,14 @@ private:
     void mergeTile(const NodeInfo &nodeInfo
                    , const TileId &tileId = TileId()
                    , const merge::Input::list &parentSource
-                   = merge::Input::list()
-                   , bool parentGenerated = false);
+                   = merge::Input::list());
 
     /** Generates new tile as a merge of tiles from other tilesets.
      */
-    merge::Output generateTile(const NodeInfo &nodeInfo
-                               , const TileId &tileId
-                               , const merge::Input::list &parentSource);
+    merge::Output processTile(const NodeInfo &nodeInfo
+                              , const TileId &tileId
+                              , const merge::Input::list &parentSource
+                              , bool dummy = false);
 
     bool isGlueTile(const merge::Output &tile) const;
 
@@ -134,6 +134,29 @@ private:
     utility::Progress progress;
 };
 
+struct TIDGuard {
+    TIDGuard(const std::string &id, bool append = false)
+        : valid(false), old(dbglog::thread_id())
+    {
+        if (append) {
+            dbglog::thread_id(old + "/" + id);
+        } else {
+            dbglog::thread_id(id);
+        }
+        valid = true;
+    }
+    ~TIDGuard() { pop(); }
+
+    void pop() {
+        if (!valid) { return; }
+        dbglog::thread_id(old);
+        valid = false;
+    }
+
+    bool valid;
+    const std::string old;
+};
+
 inline bool Merger::isGlueTile(const merge::Output &tile) const
 {
     // TODO: make better
@@ -145,6 +168,13 @@ inline bool Merger::isGlueTile(const merge::Output &tile) const
         return false;
     }
 
+    // check for single source tile
+    if (tile.source.size() == 1) {
+        // single source tile, can be stored only when it is a fallback tile
+        return (tile.source.front().tileId().lod != tile.tileId.lod);
+    }
+
+    // check multisource
     for (const auto &source : tile.source) {
         if (source.tileId().lod != tile.tileId.lod) {
             // fallback used -> glue tile
@@ -161,53 +191,51 @@ inline bool Merger::isGlueTile(const merge::Output &tile) const
 }
 
 void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
-                       , const merge::Input::list &parentSource
-                       , bool parentGenerated)
+                       , const merge::Input::list &parentSource)
 {
-    (void) parentGenerated;
     if (!world.exists(tileId)) {
         // no data below
         return;
     }
 
-    merge::Input::list source;
+    TIDGuard tg(str(boost::format("tile:%s") % tileId), true);
 
-    auto g(generate.exists(tileId));
+    bool g(generate.exists(tileId));
+    bool atBottom(tileId.lod >= generate.maxLod());
+
+    LOG(info2) << "(glue) Processing tile " << tileId << ".";
+
+    // terminate descent if at bottom and nothing is going to be generated
+    if (atBottom && !g) { return; }
+
+    // process tile
+    auto tile(processTile(nodeInfo, tileId, parentSource, !g));
+
+    if (tile && isGlueTile(tile)) {
+        self.setTile(tileId, tile.getMesh(), tile.getAtlas()
+                     , tile.getNavtile(), &nodeInfo);
+    }
+
     if (g) {
-        LOG(info2) << "(glue) Processing tile " << tileId << ".";
-
-        // regular generation: generate tile and remember its sources (used
-        // in children generation)
-        auto tile(generateTile(nodeInfo, tileId, parentSource));
-        source = tile.source;
-
-        if (tile && isGlueTile(tile)) {
-            self.setTile(tileId, tile.getMesh(), tile.getAtlas()
-                         , tile.getNavtile());
-        }
-
         (++progress).report(utility::Progress::ratio_t(5, 1000), "(glue) ");
     }
 
-    // can we go down?
-    if (tileId.lod >= generate.maxLod()) {
-        // no way down
-        return;
-    }
+    // do not descent if we are at the bottom
+    if (atBottom) { return; }
+
+    tg.pop();
 
     // OK, process children
     for (const auto &child : children(tileId)) {
-        mergeTile(nodeInfo.child(child), child, source, g);
+        mergeTile(nodeInfo.child(child), child, tile.source);
     }
 }
 
-merge::Output Merger::generateTile(const NodeInfo &nodeInfo
-                                   , const TileId &tileId
-                                   , const merge::Input::list &parentSource)
+merge::Output Merger::processTile(const NodeInfo &nodeInfo
+                                  , const TileId &tileId
+                                  , const merge::Input::list &parentSource
+                                  , bool dummy)
 {
-    LOG(info3) << "Generate tile: " << tileId;
-
-    // create input
     merge::Input::list input;
     {
         merge::Input::Id id(0);
@@ -216,8 +244,7 @@ merge::Output Merger::generateTile(const NodeInfo &nodeInfo
             if (t) { input.push_back(t); }
         }
     }
-
-    return merge::mergeTile(tileId, nodeInfo, input, parentSource);
+    return merge::mergeTile(tileId, nodeInfo, input, parentSource, dummy);
 }
 
 } // namespace

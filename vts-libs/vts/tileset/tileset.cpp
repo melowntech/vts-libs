@@ -902,11 +902,18 @@ TileSource TileSet::Detail::getTileSource(const TileId &tileId) const
 
 bool TileSet::Detail::exists(const TileId &tileId) const
 {
-    // first try index
-    if (tileIndex.real(tileId)) { return true; }
+    // tile exists when it is real (i.e. has mesh and/or atlas)
+    if (readOnly) {
+        // readonly -> try tileindex
+        return tileIndex.real(tileId);
+    }
 
-    // then check for in-memory data (only if in rw mode)
-    return (!readOnly && (tileNodes.find(tileId) != tileNodes.end()));
+    // rw -> no tileindex generated -> find metatile
+    auto ftileNodes(tileNodes.find(tileId));
+    if (ftileNodes == tileNodes.end()) { return false; }
+
+    // tile must be real
+    return ftileNodes->second.metanode->real();
 }
 
 void TileSet::Detail::saveMetadata()

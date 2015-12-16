@@ -38,11 +38,12 @@ struct MetaNode {
 
             , allChildren = (ulChild | urChild | llChild | lrChild)
 
-            , real = (geometryPresent | navtilePresent)
+            // tile is real if it contains geometry
+            , real = geometryPresent
         };
     };
 
-    bool real() const { return check(Flag::real) || internalTextureCount; }
+    bool real() const { return check(Flag::real); }
 
     bool geometry() const { return check(Flag::geometryPresent); }
     MetaNode& geometry(bool value) {

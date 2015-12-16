@@ -230,7 +230,7 @@ namespace {
  *  precedence only tiles with mesh are used.
 */
 Input::list mergeSource(const Input::list &currentSource
-                   , const Input::list &parentSource)
+                        , const Input::list &parentSource)
 {
     Input::list source;
     {
@@ -676,7 +676,7 @@ private:
 };
 
 Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
-                     , CsConvertor phys2sd, const Input &input)
+                     , const Input &input)
 {
     Output result(tileId, input);
     if (input.tileId().lod == tileId.lod) {
@@ -690,6 +690,9 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
     const auto localId(local(input.tileId().lod, tileId));
 
     // clip source mesh/navtile
+
+    CsConvertor phys2sd(nodeInfo.referenceFrame->model.physicalSrs
+                        , nodeInfo.node.srs);
 
     const auto coverageVertices
         (inputCoverageVertices(input, nodeInfo, phys2sd));
@@ -723,9 +726,14 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
 Output mergeTile(const TileId &tileId
                  , const NodeInfo &nodeInfo
                  , const Input::list &currentSource
-                 , const Input::list &parentSource)
+                 , const Input::list &parentSource
+                 , bool dummy)
 {
     auto source(mergeSource(currentSource, parentSource));
+    if (dummy) {
+        // just sources
+        return Output(tileId, source);
+    }
 
     // from here, all input tiles have geometry -> no need to check for mesh
     // presence
@@ -735,12 +743,9 @@ Output mergeTile(const TileId &tileId
 
     if (source.empty()) { return result; }
 
-    CsConvertor phys2sd(nodeInfo.referenceFrame->model.physicalSrs
-                        , nodeInfo.node.srs);
-
     if ((source.size() == 1)) {
         // just one source
-        return singleSourced(tileId, nodeInfo, phys2sd, source.back());
+        return singleSourced(tileId, nodeInfo, source.back());
     }
 
     // analyze coverage
@@ -762,7 +767,7 @@ Output mergeTile(const TileId &tileId
 
         // just one source
         if (const auto input = coverage.getSingle()) {
-            return singleSourced(tileId, nodeInfo, phys2sd, *input);
+            return singleSourced(tileId, nodeInfo, *input);
         }
 
         // OK
@@ -770,6 +775,9 @@ Output mergeTile(const TileId &tileId
     }
 
     // TODO: merge navtile based on navtile coverage
+
+    CsConvertor phys2sd(nodeInfo.referenceFrame->model.physicalSrs
+                        , nodeInfo.node.srs);
 
     // process all input tiles from result source (i.e. only those contributing
     // to the tile)

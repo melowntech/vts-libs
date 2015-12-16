@@ -119,6 +119,9 @@ struct Output {
     Output(const TileId &tileId, const Input &input)
         : tileId(tileId), source{input} {}
 
+    Output(const TileId &tileId, const Input::list &input)
+        : tileId(tileId), source(input) {}
+
     operator bool() const {
         return mesh || atlas || navtile;
     }
@@ -135,12 +138,21 @@ struct Output {
 
 /** Generates new tile from given source and parent source fallback.
  *
- * Source and * parent source inputs are merged together using their id's.
+ * Source and parent source inputs are merged together using their id's.
+ *
+ * If dummy flag is set only merged list of sources is returned.
+ *
+ * \param tileId tile's ID
+ * \param nodeInfo node info
+ * \param source list of current tile's sources
+ * \param parentSource list of parent tile's sources
+ * \param dummy no content is generated if false
  */
 Output mergeTile(const TileId &tileId
                  , const NodeInfo &nodeInfo
                  , const Input::list &source
-                 , const Input::list &parentSource);
+                 , const Input::list &parentSource
+                 , bool dummy = false);
 
 } } } // namespace vadstena::vts::merge
 
