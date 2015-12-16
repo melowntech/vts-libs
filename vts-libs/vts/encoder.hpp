@@ -101,6 +101,10 @@ public:
             userData_ = userData; return *userData;
         }
 
+        bool hasMesh() const;
+        bool hasAtlas() const;
+        bool hasNavtile() const;
+
     private:
         void fail(const char *what) const;
 
@@ -260,6 +264,27 @@ inline TileSource& Encoder::TileResult::source()
     source_ = boost::in_place();
     result_ = Result::source;
     return *source_;
+}
+
+inline bool Encoder::TileResult::hasMesh() const
+{
+    if (tile_) { return bool(tile_->mesh); }
+    if (source_) { return bool(source_->mesh); }
+    return false;
+}
+
+inline bool Encoder::TileResult::hasAtlas() const
+{
+    if (tile_) { return bool(tile_->atlas); }
+    if (source_) { return bool(source_->atlas); }
+    return false;
+}
+
+inline bool Encoder::TileResult::hasNavtile() const
+{
+    if (tile_) { return bool(tile_->navtile); }
+    if (source_) { return bool(source_->navtile); }
+    return false;
 }
 
 } } // namespace vadstena::vts

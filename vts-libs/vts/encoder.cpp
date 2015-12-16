@@ -45,6 +45,21 @@ struct ConstraintsFlag {
     }
 };
 
+struct TileFlags {
+    const Encoder::TileResult &tr;
+};
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const TileFlags &tf)
+{
+    const char *sep("");
+    if (tf.tr.hasMesh()) { os << "mesh"; sep = ","; }
+    if (tf.tr.hasAtlas()) { os << sep << "atlas"; sep = ","; }
+    if (tf.tr.hasNavtile()) { os << sep << "navtile"; }
+    return os;
+}
+
 } // namespace
 
 void Encoder::TileResult::fail(const char *what) const
@@ -197,7 +212,8 @@ void Encoder::Detail::process(const TileId &tileId
 
             LOG(info3)
                 << "Generated tile #" << number << ": "
-                << tileId << " (extents: " << std::fixed << extents << ").";
+                << tileId << " (extents: " << std::fixed << extents << ") ["
+                << TileFlags{tile} << "].";
 
             bool hasMesh(false);
             if (result == TileResult::Result::tile) {
