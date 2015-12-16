@@ -419,8 +419,6 @@ void rasterizeMesh(const vts::TileId &tileId, const math::Extents2 &extents
     // use same mask as mesh mask
     navtile->coverageMask(cm);
 
-    // TODO: pixel-grow data in heights using mask to have nice data in navtile
-
     // get kernel from low-pass filter
     auto kernel(math::LowPassFilter_t(radius, radius).getKernel());
 
