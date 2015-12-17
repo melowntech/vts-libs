@@ -26,7 +26,8 @@ public:
              // tile is real if it contains mesh
              , real = mesh
 
-            , any = value_type(~0)
+             // cannot be 0xff since it is reserved value!
+            , any = 0x7f
         };
     };
 

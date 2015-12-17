@@ -12,6 +12,7 @@ namespace vadstena { namespace vts {
 
 namespace detail {
     enum : QTree::value_type { GrayNode = 0xff };
+    enum : QTree::value_type { GrayNodeReplacement = 0x7f };
 } // namespace detail
 
 QTree::QTree(unsigned int order, value_type value)
@@ -190,7 +191,11 @@ void QTree::Node::save(std::ostream &os) const
         for (const auto &node : children->nodes) { node.save(os); }
     } else {
         // just value
-        bin::write(os, std::uint8_t(value));
+        std::uint8_t u8(value);
+        if (u8 == detail::GrayNode) {
+            u8 = detail::GrayNodeReplacement;
+        }
+        bin::write(os, u8);
     }
 }
 

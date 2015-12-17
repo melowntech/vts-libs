@@ -94,7 +94,6 @@ void TileIndex::load(std::istream &f, const fs::path &path)
     minLod_ = minLod;
 
     trees_.resize(size);
-
     for (auto &tree : trees_) {
         tree.load(f, path);
     }
@@ -413,7 +412,7 @@ TileIndex& TileIndex::growDown(Flag::value_type type)
 
 TileIndex& TileIndex::invert(Flag::value_type type)
 {
-    auto translate([type](QTree::value_type value) {
+    auto translate([type](QTree::value_type value) -> QTree::value_type {
             return (value & type) ? 0 : type;
         });
 
