@@ -1,6 +1,7 @@
 #include <boost/format.hpp>
 
 #include "utility/progress.hpp"
+#include "utility/path.hpp"
 
 #include "../io.hpp"
 
@@ -59,21 +60,29 @@ const char* getDumpDir()
 }
 
 void dumpTileIndex(const char *root, const fs::path &name
-                   , const TileIndex &index)
+                   , const TileIndex &index
+                   , const std::string &referenceFrame)
 {
     if (!root) { return; }
     LOG(info1) << "Dumping tileindex " << name << ".";
-    dumpAsImages(root / name, index);
+    auto filename(root / utility::addExtension(name, ".index"));
+    create_directories(filename.parent_path());
+    index.save(filename);
+
+    auto rfFilename(root / utility::addExtension(name, ".rframe"));
+    utility::write(rfFilename, referenceFrame.data(), referenceFrame.size());
 }
 
 inline void dump(const char *root, const boost::filesystem::path &dir
-                 , const std::vector<TileIndex> &tileIndices)
+                 , const std::vector<TileIndex> &tileIndices
+                 , const std::string &referenceFrame)
 {
     if (!root) { return; }
 
     int i(0);
     for (const auto &ti : tileIndices) {
-        dumpTileIndex(root, dir / str(boost::format("%03d") % i), ti);
+        dumpTileIndex(root, dir / str(boost::format("%03d") % i), ti
+                      , referenceFrame);
         ++i;
     }
 }
@@ -254,13 +263,14 @@ void TileSet::createGlue(const const_ptrlist &sets)
     LOG(info3) << "(glue) Calculating generate set.";
 
     const auto *dumpRoot(getDumpDir());
+    const auto &referenceFrame(getProperties().referenceFrame);
 
     // lod range of the world
     auto lodRange(range(sets));
 
     // clone simplified indices
     auto indices(tileIndices(sets, lodRange));
-    dump(dumpRoot, "indices", indices);
+    dump(dumpRoot, "indices", indices, referenceFrame);
 
     auto tsUpdate(indices.back());
     if (tsUpdate.empty()) {
@@ -268,24 +278,24 @@ void TileSet::createGlue(const const_ptrlist &sets)
         return;
     }
 
-    dumpTileIndex(dumpRoot, "tsUpdate", tsUpdate);
+    dumpTileIndex(dumpRoot, "tsUpdate", tsUpdate, referenceFrame);
     tsUpdate.growDown();
-    dumpTileIndex(dumpRoot, "tsUpdate-gd", tsUpdate);
+    dumpTileIndex(dumpRoot, "tsUpdate-gd", tsUpdate, referenceFrame);
 
     auto tsPost(unite(tileIndices(indices)));
-    dumpTileIndex(dumpRoot, "tsPost", tsPost);
+    dumpTileIndex(dumpRoot, "tsPost", tsPost, referenceFrame);
     tsPost.growUp();
-    dumpTileIndex(dumpRoot, "tsPost-gu", tsPost);
+    dumpTileIndex(dumpRoot, "tsPost-gu", tsPost, referenceFrame);
 
     auto tsPre(unite(tileIndices(indices, indices.size() - 1)));
-    dumpTileIndex(dumpRoot, "tsPre", tsPre);
+    dumpTileIndex(dumpRoot, "tsPre", tsPre, referenceFrame);
     tsPre.growUp();
-    dumpTileIndex(dumpRoot, "tsPre-gu", tsPre);
+    dumpTileIndex(dumpRoot, "tsPre-gu", tsPre, referenceFrame);
     tsPre.invert();
-    dumpTileIndex(dumpRoot, "tsPre-gu-inv", tsPre);
+    dumpTileIndex(dumpRoot, "tsPre-gu-inv", tsPre, referenceFrame);
 
     auto generate(tsPost.intersect(unite(tsUpdate, tsPre)));
-    dumpTileIndex(dumpRoot, "generate", generate);
+    dumpTileIndex(dumpRoot, "generate", generate, referenceFrame);
 
     LOG(info1) << "generate: " << generate.count();
 
