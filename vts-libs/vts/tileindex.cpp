@@ -255,7 +255,7 @@ TileIndex TileIndex::grow(const LodRange &lodRange
     }
 
     // propagate tiles down
-    ti.growDown();
+    ti.completeDown();
     // propagate tiles up
     ti.complete();
 
@@ -357,54 +357,82 @@ TileIndex& TileIndex::growUp(Flag::value_type type)
 {
     auto filter([type](QTree::value_type value) { return (value & type); });
 
-    if (trees_.size() < 2) {
-        // nothing to grow
-        return *this;
-    }
+    if (trees_.empty()) { return *this; }
 
     // traverse trees bottom to top
     auto lod(lodRange().max);
-    auto ctrees(trees_.rbegin());
 
-    for (auto itrees(ctrees + 1), etrees(trees_.rend());
-         itrees != etrees; ++itrees, ++ctrees, --lod)
+    auto itrees(trees_.rbegin());
+    for (auto ptrees(itrees + 1), etrees(trees_.rend());
+         itrees != etrees; ++itrees, --lod)
     {
         LOG(debug) << "gu: " << lod << " -> " << (lod - 1);
 
-        auto &child(*ctrees);
-
-        // coarsen child tree (kill all 1-pixel nodes) -> each tile has its
+        // coarsen this tree (kill all 1-pixel nodes) -> each tile has its
         // sibling
-        child.coarsen(filter);
+        itrees->coarsen(filter);
 
-        // and merge this coarsened child into parent tree -> each tile gets
-        // parent
-        itrees->merge(child, filter);
+        if (ptrees != etrees) {
+            // if there is a parent tree: merge this coarsened tree into parent
+            // tree -> each tile gets parent
+            ptrees->merge(*itrees, filter);
+
+            // increment here, otherwise ptrees would point after end
+            ++ptrees;
+        }
     }
 
     return *this;
+}
+
+TileIndex& TileIndex::completeDown(Flag::value_type type)
+{
+    auto filter([type](QTree::value_type value) { return (value & type); });
+
+    if (trees_.empty()) { return *this; }
+
+    // traverse trees top to bottom
+    auto lod(lodRange().min);
+    auto itrees(trees_.begin());
+
+    for (auto ctrees(itrees + 1), etrees(trees_.end());
+         ctrees != etrees; ++itrees, ++ctrees, ++lod)
+    {
+        LOG(debug) << "gd: " << lod << " -> " << (lod + 1);
+
+        // parent mask is merged-in into child, ignore its size
+        ctrees->merge(*itrees, filter);
+    }
+
+    return *this;
+
 }
 
 TileIndex& TileIndex::growDown(Flag::value_type type)
 {
     auto filter([type](QTree::value_type value) { return (value & type); });
 
-    if (trees_.size() < 2) {
-        // nothing to grow
-        return *this;
-    }
+    if (trees_.empty()) { return *this; }
 
     // traverse trees top to bottom
     auto lod(lodRange().min);
-    auto ptrees(trees_.begin());
+    auto itrees(trees_.begin());
 
-    for (auto itrees(ptrees + 1), etrees(trees_.end());
-         itrees != etrees; ++itrees, ++ptrees, ++lod)
+    for (auto ctrees(itrees + 1), etrees(trees_.end());
+         itrees != etrees; ++itrees, ++lod)
     {
         LOG(debug) << "gd: " << lod << " -> " << (lod + 1);
 
-        // merge in parent mask, ignore its size
-        itrees->merge(*ptrees, filter);
+        if (ctrees != etrees) {
+            // parent mask is merged-in into child, ignore its size
+            ctrees->merge(*itrees, filter);
+
+            // increment here, otherwise ctrees would point after end
+            ++ctrees;
+        }
+
+        // coarsen this node to add siblings
+        itrees->coarsen(filter);
     }
 
     return *this;

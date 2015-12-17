@@ -177,6 +177,11 @@ public:
      */
     TileIndex& complete(Flag::value_type type = Flag::any);
 
+    /** Makes tileindex complete down the tree -> every existing tile has its
+     *  child.
+     */
+    TileIndex& completeDown(Flag::value_type type = Flag::any);
+
 private:
     QTree* tree(Lod lod, bool create = false);
 
