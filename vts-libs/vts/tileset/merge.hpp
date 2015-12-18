@@ -136,6 +136,30 @@ struct Output {
     opencv::RawAtlas& forceAtlas();
 };
 
+/** Various merging constraints.
+ */
+class MergeConstraints {
+public:
+    MergeConstraints(bool generable = false)
+        : generable_(generable)
+    {}
+
+    virtual ~MergeConstraints() {}
+
+    /** Called when possible sources collected. Merge returns immediately on
+     *  false.
+     */
+    bool generable() const { return generable_; }
+
+    /** Called when exact sources are identified. Merge returns immediately on
+     *  false. By default returns true.
+     */
+    virtual bool feasible(const Output &result) const;
+
+private:
+    bool generable_;
+};
+
 /** Generates new tile from given source and parent source fallback.
  *
  * Source and parent source inputs are merged together using their id's.
@@ -146,13 +170,17 @@ struct Output {
  * \param nodeInfo node info
  * \param source list of current tile's sources
  * \param parentSource list of parent tile's sources
- * \param dummy no content is generated if false
+ * \param constraints various merging constraints
  */
 Output mergeTile(const TileId &tileId
                  , const NodeInfo &nodeInfo
                  , const Input::list &source
                  , const Input::list &parentSource
-                 , bool dummy = false);
+                 , const MergeConstraints &constraints);
+
+// inlines
+
+inline bool MergeConstraints::feasible(const Output &) const { return true; }
 
 } } } // namespace vadstena::vts::merge
 

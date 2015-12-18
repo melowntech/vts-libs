@@ -438,6 +438,27 @@ TileIndex& TileIndex::growDown(Flag::value_type type)
     return *this;
 }
 
+TileIndex& TileIndex::makeQuadComplete(Flag::value_type type)
+{
+    auto filter([type](QTree::value_type value) { return (value & type); });
+
+    if (trees_.empty()) { return *this; }
+
+    // traverse trees top to bottom
+    auto lod(lodRange().min);
+    auto itrees(trees_.begin());
+
+    for (auto &tree : trees_) {
+        LOG(debug) << "qc: " << lod;
+
+        // coarsen this node to add siblings
+        tree.coarsen(filter);
+        ++lod;
+    }
+
+    return *this;
+}
+
 TileIndex& TileIndex::invert(Flag::value_type type)
 {
     auto translate([type](QTree::value_type value) -> QTree::value_type {

@@ -127,7 +127,11 @@ std::basic_ostream<E, T>&
 operator<<(std::basic_ostream<E,T> &os,
            const Range<RangeT> &range)
 {
-    os << range.min << "," << range.max;
+    if (range.empty()) {
+        os << "empty";
+    } else {
+        os << range.min << "," << range.max;
+    }
     return os;
 }
 

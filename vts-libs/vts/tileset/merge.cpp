@@ -351,17 +351,6 @@ struct Coverage {
         }
     }
 
-    const Input* getSingle() const {
-        if (!single) { return nullptr; }
-        auto fsources(std::find_if(sources.begin(), sources.end()
-                                   , [&](const Input &input)
-        {
-            return input.id() == *single;
-        }));
-        if (fsources == sources.end()) { return nullptr; }
-        return &*fsources;
-    }
-
     bool covered(const Face &face, const math::Points3d &vertices
                  , Input::Id id) const
     {
@@ -727,10 +716,10 @@ Output mergeTile(const TileId &tileId
                  , const NodeInfo &nodeInfo
                  , const Input::list &currentSource
                  , const Input::list &parentSource
-                 , bool dummy)
+                 , const MergeConstraints &constraints)
 {
     auto source(mergeSource(currentSource, parentSource));
-    if (dummy) {
+    if (!constraints.generable()) {
         // just sources
         return Output(tileId, source);
     }
@@ -744,8 +733,12 @@ Output mergeTile(const TileId &tileId
     if (source.empty()) { return result; }
 
     if ((source.size() == 1)) {
+        result = { tileId, source };
+
+        if (!constraints.feasible(result)) { return result; }
+
         // just one source
-        return singleSourced(tileId, nodeInfo, source.back());
+        return singleSourced(tileId, nodeInfo, source.front());
     }
 
     // analyze coverage
@@ -758,6 +751,11 @@ Output mergeTile(const TileId &tileId
     // get contributing tile sets
     coverage.getSources(result);
 
+    if (!constraints.feasible(result)) {
+        // nothing to merge
+        return result;
+    }
+
     if (coverage.single) {
         // single source
         if (*coverage.single < 0) {
@@ -765,13 +763,8 @@ Output mergeTile(const TileId &tileId
             return result;
         }
 
-        // just one source
-        if (const auto input = coverage.getSingle()) {
-            return singleSourced(tileId, nodeInfo, *input);
-        }
-
-        // OK
-        return result;
+        // process single source
+        return singleSourced(tileId, nodeInfo, result.source.front());
     }
 
     // TODO: merge navtile based on navtile coverage

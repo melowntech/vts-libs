@@ -116,6 +116,17 @@ public:
     }
 
 private:
+    struct Constraints : merge::MergeConstraints {
+        Constraints(const Merger &merger, bool generable)
+            : merge::MergeConstraints(generable), merger(merger)
+        {}
+        virtual bool feasible(const merge::Output &result) const {
+            return merger.isGlueTile(result);
+        }
+        const Merger &merger;
+    };
+    friend struct Constraints;
+
     /** Merge subtree starting at index.
      *  Calls itself recursively.
      */
@@ -129,7 +140,7 @@ private:
     merge::Output processTile(const NodeInfo &nodeInfo
                               , const TileId &tileId
                               , const merge::Input::list &parentSource
-                              , bool dummy = false);
+                              , const Constraints &constraints);
 
     bool isGlueTile(const merge::Output &tile) const;
 
@@ -169,7 +180,6 @@ struct TIDGuard {
 inline bool Merger::isGlueTile(const merge::Output &tile) const
 {
     // TODO: make better
-    // return true;
 
     // tile that is fully covered by top set -> not a glue tile
     if (top.fullyCovered(tile.tileId)) {
@@ -177,10 +187,9 @@ inline bool Merger::isGlueTile(const merge::Output &tile) const
         return false;
     }
 
-    // check for single source tile
-    if (tile.source.size() == 1) {
-        // single source tile, can be stored only when it is a fallback tile
-        return (tile.source.front().tileId().lod != tile.tileId.lod);
+    if (tile.source.size() == src.size()) {
+        // merged from all input sets -> glue
+        return true;
     }
 
     // check multisource
@@ -218,9 +227,10 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     if (atBottom && !g) { return; }
 
     // process tile
-    auto tile(processTile(nodeInfo, tileId, parentSource, !g));
+    auto tile(processTile(nodeInfo, tileId, parentSource
+                          , Constraints(*this, g)));
 
-    if (tile && isGlueTile(tile)) {
+    if (tile) {
         self.setTile(tileId, tile.getMesh(), tile.getAtlas()
                      , tile.getNavtile(), &nodeInfo);
     }
@@ -243,7 +253,7 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
 merge::Output Merger::processTile(const NodeInfo &nodeInfo
                                   , const TileId &tileId
                                   , const merge::Input::list &parentSource
-                                  , bool dummy)
+                                  , const Constraints &constraints)
 {
     merge::Input::list input;
     {
@@ -253,7 +263,8 @@ merge::Output Merger::processTile(const NodeInfo &nodeInfo
             if (t) { input.push_back(t); }
         }
     }
-    return merge::mergeTile(tileId, nodeInfo, input, parentSource, dummy);
+    return merge::mergeTile(tileId, nodeInfo, input, parentSource
+                            , constraints);
 }
 
 } // namespace
@@ -265,38 +276,13 @@ void TileSet::createGlue(const const_ptrlist &sets)
     const auto *dumpRoot(getDumpDir());
     const auto &referenceFrame(getProperties().referenceFrame);
 
-    // lod range of the world
-    auto lodRange(range(sets));
+    // make update (last set) round (all tiles have siblings)
+    auto update(sets.back()->tileIndex());
+    update.simplify(TileIndex::Flag::mesh).makeQuadComplete();
+    dumpTileIndex(dumpRoot, "roundUpdate", update, referenceFrame);
 
-    // clone simplified indices
-    auto indices(tileIndices(sets, lodRange));
-    dump(dumpRoot, "indices", indices, referenceFrame);
-
-    auto tsUpdate(indices.back());
-    if (tsUpdate.empty()) {
-        LOG(warn3) << "(glue) Nothing to generate. Bailing out.";
-        return;
-    }
-
-    dumpTileIndex(dumpRoot, "tsUpdate", tsUpdate, referenceFrame);
-    tsUpdate.growDown();
-    dumpTileIndex(dumpRoot, "tsUpdate-gd", tsUpdate, referenceFrame);
-
-    auto tsPost(unite(tileIndices(indices)));
-    dumpTileIndex(dumpRoot, "tsPost", tsPost, referenceFrame);
-    tsPost.growUp();
-    dumpTileIndex(dumpRoot, "tsPost-gu", tsPost, referenceFrame);
-
-    auto tsPre(unite(tileIndices(indices, indices.size() - 1)));
-    dumpTileIndex(dumpRoot, "tsPre", tsPre, referenceFrame);
-    tsPre.growUp();
-    dumpTileIndex(dumpRoot, "tsPre-gu", tsPre, referenceFrame);
-    tsPre.invert();
-    dumpTileIndex(dumpRoot, "tsPre-gu-inv", tsPre, referenceFrame);
-
-    auto generate(tsPost.intersect(unite(tsUpdate, tsPre)));
+    auto generate(update);
     dumpTileIndex(dumpRoot, "generate", generate, referenceFrame);
-
     LOG(info1) << "generate: " << generate.count();
 
     if (generate.empty()) {
