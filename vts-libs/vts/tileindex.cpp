@@ -438,7 +438,7 @@ TileIndex& TileIndex::growDown(Flag::value_type type)
     return *this;
 }
 
-TileIndex& TileIndex::makeQuadComplete(Flag::value_type type)
+TileIndex& TileIndex::round(Flag::value_type type)
 {
     auto filter([type](QTree::value_type value) { return (value & type); });
 

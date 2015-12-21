@@ -88,6 +88,7 @@ int NodeInfo::run()
     std::cout << "Subtree root division extents: "
               << ni.subtreeRoot->extents << std::endl;
 
+    std::cout << "Parent: " << parent(tileId_) << std::endl;
     std::cout << "Children:" << std::endl;
     for (auto child : children(tileId_)) {
         std::cout << "    " << ni.child(child).nodeId() << std::endl;

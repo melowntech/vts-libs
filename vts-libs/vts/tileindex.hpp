@@ -184,7 +184,7 @@ public:
 
     /** Ensures that quad-tree comdition is met: every tile has its sibling.
      */
-    TileIndex& makeQuadComplete(Flag::value_type type = Flag::any);
+    TileIndex& round(Flag::value_type type = Flag::any);
 
 private:
     QTree* tree(Lod lod, bool create = false);

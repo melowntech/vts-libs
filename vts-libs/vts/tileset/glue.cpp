@@ -1,4 +1,7 @@
+#include <iterator>
+
 #include <boost/format.hpp>
+#include <boost/range/sub_range.hpp>
 
 #include "utility/progress.hpp"
 #include "utility/path.hpp"
@@ -14,17 +17,27 @@ namespace vadstena { namespace vts {
 
 namespace {
 
-inline std::vector<TileIndex> tileIndices(const TileSet::const_ptrlist &sets
-                                          , const LodRange &lodRange)
+typedef std::vector<TileIndex> TileIndexList;
+
+inline TileIndexList
+tileIndices(const TileSet::const_ptrlist &sets
+            , const LodRange &lodRange
+            , std::size_t size
+            = std::numeric_limits<std::size_t>::max())
 {
+    size = std::min(size, sets.size());
+
     std::vector<TileIndex> indices;
-    for (const auto ts : sets) {
+    auto isets(sets.begin());
+    for (std::size_t i(0); i < size; ++i) {
         indices.push_back
-            (ts->tileIndex(lodRange).simplify(TileIndex::Flag::mesh));
+            ((*isets)->tileIndex(lodRange).simplify(TileIndex::Flag::mesh));
+        ++isets;
     }
     return indices;
 }
 
+#if 0
 inline TileIndices tileIndices(const std::vector<TileIndex> &tis
                                , std::size_t size
                                = std::numeric_limits<std::size_t>::max())
@@ -38,6 +51,7 @@ inline TileIndices tileIndices(const std::vector<TileIndex> &tis
 
     return indices;
 }
+#endif
 
 LodRange range(const TileSet::const_ptrlist &sets)
 {
@@ -103,16 +117,16 @@ struct Merger {
 public:
     Merger(TileSet::Detail &self, const TileIndex &generate
            , const TileSet::const_ptrlist &srcSets)
-        : self(self), world(generate), generate(generate)
-        , src(details(self, srcSets)), top(*src.back())
-        , topId(src.size() - 1), progress(generate.count())
+        : self_(self), world_(generate), generate_(generate)
+        , src_(details(self, srcSets)), top_(*src_.back())
+        , topId_(src_.size() - 1), progress_(generate_.count())
     {
         // make world complete
-        world.complete();
+        world_.complete();
     }
 
     void operator()() {
-        mergeTile(NodeInfo(self.referenceFrame));
+        mergeTile(NodeInfo(self_.referenceFrame));
     }
 
 private:
@@ -144,14 +158,14 @@ private:
 
     bool isGlueTile(const merge::Output &tile) const;
 
-    TileSet::Detail &self;
-    TileIndex world;
-    const TileIndex &generate;
-    const DetailList src;
-    const TileSet::Detail &top;
-    const merge::Input::Id topId;
+    TileSet::Detail &self_;
+    TileIndex world_;
+    const TileIndex &generate_;
+    const DetailList src_;
+    const TileSet::Detail &top_;
+    const merge::Input::Id topId_;
 
-    utility::Progress progress;
+    utility::Progress progress_;
 };
 
 struct TIDGuard {
@@ -179,47 +193,61 @@ struct TIDGuard {
 
 inline bool Merger::isGlueTile(const merge::Output &tile) const
 {
-    // TODO: make better
-
-    // tile that is fully covered by top set -> not a glue tile
-    if (top.fullyCovered(tile.tileId)) {
+    // shortcut
+    if (top_.fullyCovered(tile.tileId)) {
         LOG(info1) << "Fully covered by top set.";
         return false;
     }
 
-    if (tile.source.size() == src.size()) {
-        // merged from all input sets -> glue
+    auto size(tile.source.size());
+    auto srcSize(src_.size());
+
+    // sanity check
+    if (!size) { return false; }
+
+    // special case
+    if (tile.source.front().id() == topId_) {
+        // generated only from top set, must be derived tile
+        return tile.derived(0);
+    }
+
+    // if tile is generated from all input sets -> glue
+    if (size == srcSize) {
         return true;
     }
 
-    // check multisource
-    for (const auto &source : tile.source) {
-        if (source.tileId().lod != tile.tileId.lod) {
-            // fallback used -> glue tile
-            return true;
+    if ((size + 1) == srcSize) {
+        // possibly generated from rest sets
+        if (tile.source.back().id() == topId_) {
+            // contains top -> no way
+            return false;
         }
 
-        if (source.id() == topId) {
-            // tile generated from top set -> glue tile
-            return true;
+        if (size == 1) {
+            // just one set -> must be derived
+            return tile.derived(0);
         }
+
+        // all sets except top
+        return true;
     }
 
+    // anything else -> not glue
     return false;
 }
 
 void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
                        , const merge::Input::list &parentSource)
 {
-    if (!world.exists(tileId)) {
+    if (!world_.exists(tileId)) {
         // no data below
         return;
     }
 
     TIDGuard tg(str(boost::format("tile:%s") % tileId), true);
 
-    bool g(generate.exists(tileId));
-    bool atBottom(tileId.lod >= generate.maxLod());
+    bool g(generate_.exists(tileId));
+    bool atBottom(tileId.lod >= generate_.maxLod());
 
     LOG(info2) << "(glue) Processing tile " << tileId << ".";
 
@@ -231,12 +259,12 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
                           , Constraints(*this, g)));
 
     if (tile) {
-        self.setTile(tileId, tile.getMesh(), tile.getAtlas()
-                     , tile.getNavtile(), &nodeInfo);
+        self_.setTile(tileId, tile.getMesh(), tile.getAtlas()
+                      , tile.getNavtile(), &nodeInfo);
     }
 
     if (g) {
-        (++progress).report(utility::Progress::ratio_t(5, 1000), "(glue) ");
+        (++progress_).report(utility::Progress::ratio_t(5, 1000), "(glue) ");
     }
 
     // do not descent if we are at the bottom
@@ -258,7 +286,7 @@ merge::Output Merger::processTile(const NodeInfo &nodeInfo
     merge::Input::list input;
     {
         merge::Input::Id id(0);
-        for (const auto *ts : src) {
+        for (const auto *ts : src_) {
             merge::Input t(id++, *ts, tileId, nodeInfo);
             if (t) { input.push_back(t); }
         }
@@ -271,26 +299,66 @@ merge::Output Merger::processTile(const NodeInfo &nodeInfo
 
 void TileSet::createGlue(const const_ptrlist &sets)
 {
+    if (sets.size() < 2) {
+        LOG(info3) << "(glue) Too few sets to glue together ("
+                   << sets.size() << ").";
+    }
+
     LOG(info3) << "(glue) Calculating generate set.";
 
     const auto *dumpRoot(getDumpDir());
     const auto &referenceFrame(getProperties().referenceFrame);
 
-    // make update (last set) round (all tiles have siblings)
-    auto update(sets.back()->tileIndex());
-    update.simplify(TileIndex::Flag::mesh).makeQuadComplete();
-    dumpTileIndex(dumpRoot, "roundUpdate", update, referenceFrame);
+    // lod range of all sets
+    const LodRange lr(range(sets));
+    LOG(info2) << "LOD range: " << lr;
 
-    auto generate(update);
-    dumpTileIndex(dumpRoot, "generate", generate, referenceFrame);
-    LOG(info1) << "generate: " << generate.count();
+    // get all indices
+    auto all(tileIndices(sets, lr));
+    auto &top(all.back());
+    dumpTileIndex(dumpRoot, "top", top, referenceFrame);
 
-    if (generate.empty()) {
+    top.round();
+    const auto topUp(TileIndex(top).complete());
+    const auto topDown(TileIndex(top).completeDown());
+
+    dumpTileIndex(dumpRoot, "top-round", top, referenceFrame);
+    dumpTileIndex(dumpRoot, "top-up", topUp, referenceFrame);
+    dumpTileIndex(dumpRoot, "top-down", topDown, referenceFrame);
+
+    boost::sub_range<TileIndexList> rest(all.begin(), std::prev(all.end()));
+
+    // output generate set
+    boost::optional<TileIndex> generate;
+
+    for (const auto &r : rest) {
+        auto rUp(TileIndex(r).complete());
+        auto rDown(TileIndex(r).completeDown());
+
+        auto i1(topUp.intersect(rDown));
+        auto i2(topDown.intersect(rUp));
+
+        if (!generate) {
+            generate = unite(i1, i2);
+        } else {
+            generate = generate->intersect(unite(i1, i2));
+        }
+    }
+
+    dumpTileIndex(dumpRoot, "generate", *generate, referenceFrame);
+    LOG(info1) << "generate: " << generate->count();
+
+    if (generate->empty()) {
         LOG(warn3) << "(glue) Nothing to generate. Bailing out.";
         return;
     }
 
-    Merger(detail(), generate, sets)();
+    LOG(info3) << "(glue) Generate set calculated.";
+
+    // merge it together
+    Merger(detail(), *generate, sets)();
+
+    // done
     setPosition(sets.back()->getProperties().position);
 }
 

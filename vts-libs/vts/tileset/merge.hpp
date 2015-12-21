@@ -134,6 +134,11 @@ struct Output {
 
     Mesh& forceMesh();
     opencv::RawAtlas& forceAtlas();
+
+    bool derived(std::size_t index) const {
+        if (index >= source.size()) { return false; }
+        return (source[index].tileId().lod != tileId.lod);
+    }
 };
 
 /** Various merging constraints.

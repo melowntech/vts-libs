@@ -590,10 +590,7 @@ void Storage::Detail::add(const TileSet &tileset
                           , const StoredTileset &tilesetInfo
                           , const TileFilter &filter)
 {
-    dbglog::thread_id(str(boost::format("%s->%s/%s")
-                          % tileset.id()
-                          % root.filename().string()
-                          % tilesetInfo.tilesetId));
+    dbglog::thread_id(str(boost::format("add(%s)") % tilesetInfo.tilesetId));
 
     // check compatibility
     if (tileset.getProperties().referenceFrame != properties.referenceFrame) {
