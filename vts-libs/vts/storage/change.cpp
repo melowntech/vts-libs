@@ -705,7 +705,8 @@ public:
         , tilesets_(openTilesets(tx, properties.tilesets))
         , dataLodRange_(range(tilesets_))
         , soi_(soi(dataLodRange_.max, tilesets_))
-        , glues_(openGlues(tx, dataLodRange_.max, properties.glues))
+        , glues_(openGlues(tx, dataLodRange_.max, properties.tilesets
+                           , properties.glues))
     {
         // limit lodRange
         setConstraints(Constraints()
@@ -722,15 +723,25 @@ private:
 
     GlueMapping getGluesMapping(const Glue::Id &glueId) const;
 
-    const GlueTs::list* glues(const TilesetId &tilesetId) const {
+    const GlueTs::list& glues(const TilesetId &tilesetId) const {
         auto fglues(glues_.find(tilesetId));
-        if (fglues == glues_.end()) { return nullptr; }
-        return &fglues->second;
+        if (fglues == glues_.end()) { return noGlue_; }
+        return fglues->second;
     }
 
-    bool trySet(TileResult &result, const TileId &tileId, const Ts &ts)
+    bool trySet(TileResult &result, const TileId &tileId, const Ts &ts
+                , bool full = false )
     {
-        if (!ts.set.exists(tileId)) { return false;; }
+        LOG(info4) << "trying " << ts.set.id();
+        if (full) {
+            if (!ts.set.fullyCovered(tileId)) {
+                return false;
+            }
+        } else if (!ts.set.exists(tileId)) {
+            return false;
+        }
+
+        LOG(info4) << "using " << ts.set.id();
 
         UTILITY_OMP(critical)
         {
@@ -743,7 +754,9 @@ private:
 
     static Ts::list openTilesets(Tx &tx, const StoredTileset::list &infos);
 
-    static GlueTs::map openGlues(Tx &tx, Lod depth, const Glue::map &glues);
+    static GlueTs::map openGlues(Tx &tx, Lod depth
+                                 , const StoredTileset::list &infos
+                                 , const Glue::map &glues);
 
     static TileIndex soi(Lod depth, Ts::list &sets);
 
@@ -755,6 +768,7 @@ private:
     const LodRange dataLodRange_;
     const TileIndex soi_;
     GlueTs::map glues_;
+    GlueTs::list noGlue_;
 
     // accumulates used sets
     std::set<const TileSet*> usedSets_;
@@ -791,6 +805,7 @@ Flattener::openTilesets(Tx &tx, const StoredTileset::list &infos)
 }
 
 Flattener::GlueTs::map Flattener::openGlues(Tx &tx, Lod depth
+                                            , const StoredTileset::list &infos
                                             , const Glue::map &glues)
 {
     GlueTs::map gm;
@@ -801,7 +816,57 @@ Flattener::GlueTs::map Flattener::openGlues(Tx &tx, Lod depth
         list.emplace_back(tx, g.second);
         list.back().generateSoi(lr);
         LOG(info2)
-            << "Opened glue <" << utility::join(list.back().id, ",") << ">.";
+            << "Opened glue <" << utility::join(list.back().id, ",")
+            << " for set <" << g.first.back() << ">.";
+    }
+
+    // create tileset id -> depth mapping
+    std::map<TilesetId, int> depthMap;
+    {
+        int d(0);
+        for (const auto &info : boost::adaptors::reverse(infos)) {
+            depthMap[info.tilesetId] = d;
+            LOG(info2) << "Depth <" << info.tilesetId << ">: " << d << ".";
+            ++d;
+        }
+    }
+
+    auto compareGlues([&](const GlueTs &l, const GlueTs &r) -> bool
+    {
+        const auto &lid(l.id), &rid(r.id);
+
+        if (lid.size() > rid.size()) {
+            return true;
+        } else if (lid.size() < rid.size()) {
+            return false;
+        }
+
+        // same length
+        for (std::size_t i(0), e(lid.size()); i < e; ++i) {
+            auto ld(depthMap[lid[i]]);
+            auto rd(depthMap[rid[i]]);
+            if (ld < rd) {
+                return true;
+            } else if (ld > rd) {
+                return false;
+            }
+            // same depth -> next
+        }
+        return false;
+    });
+
+    // sort each tileset's glue so longest comes first
+    for (auto &item : gm) {
+        std::sort(item.second.begin(), item.second.end()
+                  , compareGlues);
+
+        LOG(info2) << "Search order <" << item.first << ">: "
+                   << utility::LManip([&](std::ostream &os)
+        {
+            for (const auto &glue : item.second) {
+                os << " <" << utility::join(glue.id, ",") << ">";
+            }
+        });
     }
 
     return gm;
@@ -839,12 +904,12 @@ Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo
     TileResult result;
 
     for (const auto &ts : boost::adaptors::reverse(tilesets_)) {
-        if (const auto *gs = glues(ts.id())) {
-            // TODO: check only appropriate glues (i.e. those that correspond
-            // with glueId constructed above
-            for (const auto &glue : *gs) {
-                if (trySet(result, tileId, glue)) { return result; }
-            }
+        // // first, check whether this set contains full tile
+        // if (trySet(result, tileId, ts, true)) { return result; }
+
+        // partial -> check glues
+        for (const auto &glue : glues(ts.id())) {
+            if (trySet(result, tileId, glue)) { return result; }
         }
 
         if (trySet(result, tileId, ts)) { return result; }
@@ -886,3 +951,4 @@ TileSet Storage::Detail::flatten(const boost::filesystem::path &tilesetPath
 }
 
 } } // namespace vadstena::vts
+

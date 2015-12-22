@@ -139,6 +139,13 @@ struct Output {
         if (index >= source.size()) { return false; }
         return (source[index].tileId().lod != tileId.lod);
     }
+
+    bool fullyDerived() const {
+        for (const auto &src : source) {
+            if (src.tileId().lod == tileId.lod) { return false; }
+        }
+        return  true;
+    }
 };
 
 /** Various merging constraints.

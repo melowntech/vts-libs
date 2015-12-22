@@ -125,9 +125,13 @@ public:
      */
     TileSource getTileSource(const TileId &tileId) const;
 
-    /** Checks whether tile extist.
+    /** Checks whether tile exist.
      */
     bool exists(const TileId &tileId) const;
+
+    /** Checks whether tile extist and covers whole tile.
+     */
+    bool fullyCovered(const TileId &tileId) const;
 
     /** Flushes tileset.
      *

@@ -223,13 +223,9 @@ inline bool Merger::isGlueTile(const merge::Output &tile) const
             return false;
         }
 
-        if (size == 1) {
-            // just one set -> must be derived
-            return tile.derived(0);
-        }
-
-        // all sets except top
-        return true;
+        // tile must be fully derived from other sets (such tile cannot exist in
+        // others)
+        return tile.fullyDerived();
     }
 
     // anything else -> not glue
@@ -261,6 +257,25 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     if (tile) {
         self_.setTile(tileId, tile.getMesh(), tile.getAtlas()
                       , tile.getNavtile(), &nodeInfo);
+        LOG(info4) << "Tile generated from: <"
+                   << utility::LManip([&](std::ostream &os)
+        {
+            const char *sep("");
+            for (const auto &src : tile.source) {
+                os << sep << src.name();
+                sep = "_";
+            }
+        }) << ">.";
+    } else {
+        LOG(info4) << "Tile is in: <"
+                   << utility::LManip([&](std::ostream &os)
+        {
+            const char *sep("");
+            for (const auto &src : tile.source) {
+                os << sep << src.name();
+                sep = "_";
+            }
+        }) << ">.";
     }
 
     if (g) {

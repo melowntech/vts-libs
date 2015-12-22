@@ -114,6 +114,11 @@ bool TileSet::exists(const TileId &tileId) const
     return detail().exists(tileId);
 }
 
+bool TileSet::fullyCovered(const TileId &tileId) const
+{
+    return detail().fullyCovered(tileId);
+}
+
 void TileSet::flush()
 {
     detail().flush();
