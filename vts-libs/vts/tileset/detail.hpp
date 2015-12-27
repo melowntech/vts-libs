@@ -88,7 +88,13 @@ struct TileSet::Detail
     mutable TileNode::map tileNodes;
     mutable MetaTiles metaTiles;
 
+    /** Index of existing tiles.
+     */
     TileIndex tileIndex;
+
+    /** References to other datasets.
+     */
+    TileIndex references;
 
     LodRange lodRange;
 
@@ -119,6 +125,8 @@ struct TileSet::Detail
 
     void setTile(const TileId &tileId, const TileSource &tile
                  , const NodeInfo *nodeInfo = nullptr);
+
+    void addReference(const TileId &tileId, uint8_t other);
 
     std::uint8_t metaOrder() const;
     TileId metaId(TileId tileId) const;

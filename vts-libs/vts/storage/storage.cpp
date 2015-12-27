@@ -311,4 +311,36 @@ std::time_t Storage::lastModified() const
     return detail().lastModified;
 }
 
+TilesetIdList tilesetIdList(const StoredTileset::list &tilesets)
+{
+    TilesetIdList list;
+    for (const auto &ts : tilesets) { list.push_back(ts.tilesetId); }
+    return list;
+}
+
+GlueIndices buildGlueIndices(const TilesetIdList &world, const Glue::Id &id)
+{
+    GlueIndices indices;
+    std::size_t i(0);
+    for (const auto &ts : id) {
+        if (i >= world.size()) {
+            LOGTHROW(err2, vadstena::storage::Error)
+                << "Glue <" << utility::join(id, ", ")
+                << "> doesn't belong into world <"
+                << utility::join(world, ", ") << ">.";
+        }
+
+        while (i < world.size()) {
+            if (world[i] == ts) {
+                indices.push_back(i);
+                ++i;
+                break;
+            } else {
+                ++i;
+            }
+        }
+    }
+    return indices;
+}
+
 } } // namespace vadstena::vts

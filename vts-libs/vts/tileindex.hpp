@@ -22,6 +22,7 @@ public:
             , atlas = 0x04
             , navtile = 0x08
             , meta = 0x10
+            , reference = 0x20
 
              // tile is real if it contains mesh
              , real = mesh

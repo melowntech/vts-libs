@@ -197,12 +197,6 @@ struct TileSet::Factory
                          , dd.output(tid, storage::TileFile::meta));
             }
 
-#if 0
-            // NB: this unsupported so far: we have to change index and metanode
-            if ((mask & TileIndex::Flag::navtile)
-                && (cloneOptions.allowDanglingNavtiles()
-                    || (mask & TileIndex::Flag::mesh)))
-#endif
             if (mask & TileIndex::Flag::navtile)
             {
                 // copy navtile if allowed
@@ -258,12 +252,6 @@ struct TileSet::Factory
                          , dd.output(tid, storage::TileFile::atlas));
             }
 
-#if 0
-            // NB: this unsupported so far: we have to change index and metanode
-            if ((mask & TileIndex::Flag::navtile)
-                && (cloneOptions.allowDanglingNavtiles()
-                    || (mask & TileIndex::Flag::mesh)))
-#endif
             if (mask & TileIndex::Flag::navtile)
             {
                 // copy navtile if allowed
@@ -358,8 +346,9 @@ TileSet::Detail::Detail(const Driver::pointer &driver
         } catch (...) {}
     }
 
-    // save config and (empty) tile indices
+    // save config and (empty) tile index and reference
     saveConfig();
+    saveTileIndex();
 }
 
 TileSet::Detail::~Detail()
@@ -416,6 +405,10 @@ void TileSet::Detail::loadTileIndex()
         tileIndex = {};
         auto f(driver->input(File::tileIndex));
         tileIndex.load(*f);
+
+        if (f->get().peek() != std::istream::traits_type::eof()) {
+            references.load(*f);
+        }
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
@@ -432,10 +425,11 @@ void TileSet::Detail::saveTileIndex()
     try {
         auto f(driver->output(File::tileIndex));
         tileIndex.save(*f);
+        references.save(*f);
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
-            << "Unable to read tile index: " << e.what() << ".";
+            << "Unable to save tile index: " << e.what() << ".";
     }
 }
 
@@ -513,7 +507,6 @@ registry::ReferenceFrame TileSet::referenceFrame() const
 {
     return detail().referenceFrame;
 }
-
 
 void TileSet::Detail::save(const OStream::pointer &os, const Mesh &mesh) const
 {
@@ -811,6 +804,13 @@ void TileSet::Detail::setTile(const TileId &tileId, const TileSource &tile
     // update properties with node info (computed or generated)
     update(properties
            , (nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId)));
+}
+
+void TileSet::Detail::addReference(const TileId &tileId, uint8_t other)
+{
+    metadataChanged = true;
+    references.set(tileId, other);
+    tileIndex.setMask(tileId, TileIndex::Flag::reference);
 }
 
 Mesh TileSet::Detail::getMesh(const TileId &tileId, const MetaNode *node)
@@ -1188,6 +1188,14 @@ bool TileSet::canContain(const NodeInfo &nodeInfo) const
     auto fsde(sde.find(nodeInfo.node.srs));
     if (fsde == sde.end()) { return false; }
     return overlaps(fsde->second, nodeInfo.node.extents);
+}
+
+boost::optional<int> TileSet::getReference(const TileId &tileId) const
+{
+    if (!detail().tileIndex.checkMask(tileId, TileIndex::Flag::reference)) {
+        return boost::none;
+    }
+    return detail().references.get(tileId);
 }
 
 } } // namespace vadstena::vts

@@ -125,6 +125,10 @@ public:
      */
     TileSource getTileSource(const TileId &tileId) const;
 
+    /** Returns reference for given tile.
+     */
+    boost::optional<int> getReference(const TileId &tileId) const;
+
     /** Checks whether tile exist.
      */
     bool exists(const TileId &tileId) const;

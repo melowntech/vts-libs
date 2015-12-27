@@ -8,6 +8,7 @@
 
 #include "../io.hpp"
 
+#include "../../storage/tidguard.hpp"
 #include "./detail.hpp"
 #include "./merge.hpp"
 
@@ -36,22 +37,6 @@ tileIndices(const TileSet::const_ptrlist &sets
     }
     return indices;
 }
-
-#if 0
-inline TileIndices tileIndices(const std::vector<TileIndex> &tis
-                               , std::size_t size
-                               = std::numeric_limits<std::size_t>::max())
-{
-    size = std::min(size, tis.size());
-
-    TileIndices indices;
-    for (const auto &ti : tis) {
-        indices.push_back(&ti);
-    }
-
-    return indices;
-}
-#endif
 
 LodRange range(const TileSet::const_ptrlist &sets)
 {
@@ -123,9 +108,8 @@ public:
     {
         // make world complete
         world_.complete();
-    }
 
-    void operator()() {
+        // ruin
         mergeTile(NodeInfo(self_.referenceFrame));
     }
 
@@ -166,29 +150,6 @@ private:
     const merge::Input::Id topId_;
 
     utility::Progress progress_;
-};
-
-struct TIDGuard {
-    TIDGuard(const std::string &id, bool append = false)
-        : valid(false), old(dbglog::thread_id())
-    {
-        if (append) {
-            dbglog::thread_id(old + "/" + id);
-        } else {
-            dbglog::thread_id(id);
-        }
-        valid = true;
-    }
-    ~TIDGuard() { pop(); }
-
-    void pop() {
-        if (!valid) { return; }
-        dbglog::thread_id(old);
-        valid = false;
-    }
-
-    bool valid;
-    const std::string old;
 };
 
 inline bool Merger::isGlueTile(const merge::Output &tile) const
@@ -240,7 +201,7 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
         return;
     }
 
-    TIDGuard tg(str(boost::format("tile:%s") % tileId), true);
+    vadstena::storage::TIDGuard tg(str(boost::format("%s") % tileId), true);
 
     bool g(generate_.exists(tileId));
     bool atBottom(tileId.lod >= generate_.maxLod());
@@ -257,25 +218,13 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     if (tile) {
         self_.setTile(tileId, tile.getMesh(), tile.getAtlas()
                       , tile.getNavtile(), &nodeInfo);
-        LOG(info4) << "Tile generated from: <"
-                   << utility::LManip([&](std::ostream &os)
-        {
-            const char *sep("");
-            for (const auto &src : tile.source) {
-                os << sep << src.name();
-                sep = "_";
-            }
-        }) << ">.";
-    } else {
-        LOG(info4) << "Tile is in: <"
-                   << utility::LManip([&](std::ostream &os)
-        {
-            const char *sep("");
-            for (const auto &src : tile.source) {
-                os << sep << src.name();
-                sep = "_";
-            }
-        }) << ">.";
+    } else if (g && !tile.source.empty()) {
+        auto topSourceId(tile.source.back().id());
+        if (topSourceId != topId_) {
+            // tile references single existing tile in other set -> store
+            LOG(info4) << "Setting reference " << topSourceId;
+            self_.addReference(tileId, topSourceId);
+        }
     }
 
     if (g) {
@@ -317,6 +266,7 @@ void TileSet::createGlue(const const_ptrlist &sets)
     if (sets.size() < 2) {
         LOG(info3) << "(glue) Too few sets to glue together ("
                    << sets.size() << ").";
+        return;
     }
 
     LOG(info3) << "(glue) Calculating generate set.";
@@ -370,11 +320,13 @@ void TileSet::createGlue(const const_ptrlist &sets)
 
     LOG(info3) << "(glue) Generate set calculated.";
 
-    // merge it together
-    Merger(detail(), *generate, sets)();
+    // create merge
+    Merger merger(detail(), *generate, sets);
+
+    // copy position
+    setPosition(sets.back()->getProperties().position);
 
     // done
-    setPosition(sets.back()->getProperties().position);
 }
 
 } } // namespace vadstena::vts

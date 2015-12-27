@@ -88,6 +88,11 @@ struct Storage::Properties : StorageProperties {
     }
 };
 
+TilesetIdList tilesetIdList(const StoredTileset::list &tilesets);
+
+typedef std::vector<int> GlueIndices;
+GlueIndices buildGlueIndices(const TilesetIdList &world, const Glue::Id &id);
+
 struct Storage::Detail
 {
     bool readOnly;

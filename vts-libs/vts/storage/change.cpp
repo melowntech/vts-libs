@@ -20,8 +20,10 @@
 
 #include "utility/streams.hpp"
 #include "utility/openmp.hpp"
+#include "utility/path.hpp"
 
 #include "../../storage/error.hpp"
+#include "../../storage/tidguard.hpp"
 #include "../storage.hpp"
 #include "../../vts.hpp"
 #include "./detail.hpp"
@@ -464,6 +466,8 @@ createGlues(Tx &tx, Storage::Properties properties
             glue.path = glueSetId;
             LOG(info3) << "Trying to generate glue <" << glueSetId << ">.";
 
+            vadstena::storage::TIDGuard tg(glueSetId);
+
             TileSetProperties gprop;
             gprop.id = glueSetId;
             gprop.referenceFrame
@@ -590,7 +594,8 @@ void Storage::Detail::add(const TileSet &tileset
                           , const StoredTileset &tilesetInfo
                           , const TileFilter &filter)
 {
-    dbglog::thread_id(str(boost::format("add(%s)") % tilesetInfo.tilesetId));
+    vadstena::storage::TIDGuard tg
+        (str(boost::format("add(%s)") % tilesetInfo.tilesetId));
 
     // check compatibility
     if (tileset.getProperties().referenceFrame != properties.referenceFrame) {
@@ -685,12 +690,14 @@ public:
 
         typedef std::vector<Ts> list;
         typedef std::vector<const Ts*> const_ptrlist;
+        typedef std::map<Glue::Id, const Ts*> map;
     };
 
     struct GlueTs : Ts {
-        GlueTs(Tx &tx, const Glue &glue);
+        GlueTs(Tx &tx, const Glue &glue, const TilesetIdList &world);
 
         Glue::Id id;
+        GlueIndices indices;
 
         typedef std::vector<GlueTs> list;
         typedef std::map<TilesetId, list> map;
@@ -708,6 +715,16 @@ public:
         , glues_(openGlues(tx, dataLodRange_.max, properties.tilesets
                            , properties.glues))
     {
+        for (const auto &ts : tilesets_) {
+            all_.insert(Ts::map::value_type({1, ts.id()}, &ts));
+        }
+
+        for (const auto &glues : glues_) {
+            for (const auto &glue : glues.second) {
+                all_.insert(Ts::map::value_type(glue.id, &glue));
+            }
+        }
+
         // limit lodRange
         setConstraints(Constraints()
                        .setLodRange(dataLodRange_)
@@ -729,19 +746,17 @@ private:
         return fglues->second;
     }
 
-    bool trySet(TileResult &result, const TileId &tileId, const Ts &ts
-                , bool full = false )
-    {
-        LOG(info4) << "trying " << ts.set.id();
-        if (full) {
-            if (!ts.set.fullyCovered(tileId)) {
-                return false;
-            }
-        } else if (!ts.set.exists(tileId)) {
-            return false;
-        }
+    const Ts* findSet(const Glue::Id &glueId) const {
+        auto fall(all_.find(glueId));
+        if (fall == all_.end()) { return nullptr; }
+        return fall->second;
+    }
 
-        LOG(info4) << "using " << ts.set.id();
+    bool trySet(TileResult &result, const TileId &tileId, const Ts &ts) {
+        LOG(info1) << "trying " << ts.set.id();
+        if (!ts.set.exists(tileId)) { return false; }
+
+        LOG(info1) << "using " << ts.set.id();
 
         UTILITY_OMP(critical)
         {
@@ -769,6 +784,7 @@ private:
     const TileIndex soi_;
     GlueTs::map glues_;
     GlueTs::list noGlue_;
+    Ts::map all_;
 
     // accumulates used sets
     std::set<const TileSet*> usedSets_;
@@ -787,8 +803,9 @@ Flattener::Ts::Ts(Tx &tx, const TilesetId &id)
     : set(tx.open(id))
 {}
 
-Flattener::GlueTs::GlueTs(Tx &tx, const Glue &glue)
-    : Ts(tx.open(glue)), id(glue.id)
+Flattener::GlueTs::GlueTs(Tx &tx, const Glue &glue
+                          , const TilesetIdList &world)
+    : Ts(tx.open(glue)), id(glue.id), indices(buildGlueIndices(world, id))
 {}
 
 Flattener::Ts::list
@@ -810,14 +827,16 @@ Flattener::GlueTs::map Flattener::openGlues(Tx &tx, Lod depth
 {
     GlueTs::map gm;
     LodRange lr(0, depth);
+    auto world(tilesetIdList(infos));
 
     for (const auto &g : glues) {
         auto &list(gm[g.first.back()]);
-        list.emplace_back(tx, g.second);
+        list.emplace_back(tx, g.second, world);
         list.back().generateSoi(lr);
         LOG(info2)
             << "Opened glue <" << utility::join(list.back().id, ",")
-            << " for set <" << g.first.back() << ">.";
+            << "> (<" << utility::join(list.back().indices, ",")
+            << ">) for set <" << g.first.back() << ">.";
     }
 
     // create tileset id -> depth mapping
@@ -860,7 +879,7 @@ Flattener::GlueTs::map Flattener::openGlues(Tx &tx, Lod depth
         std::sort(item.second.begin(), item.second.end()
                   , compareGlues);
 
-        LOG(info2) << "Search order <" << item.first << ">: "
+        LOG(info2) << "Search order <" << item.first << ">:"
                    << utility::LManip([&](std::ostream &os)
         {
             for (const auto &glue : item.second) {
@@ -890,6 +909,8 @@ Encoder::TileResult
 Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo
                     , const TileResult&)
 {
+#if 0
+    // TODO: optimization
     Ts::const_ptrlist sets;
     Glue::Id glueId;
 
@@ -900,19 +921,46 @@ Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo
             glueId.push_back(ts.set.id());
         }
     }
+#endif
 
     TileResult result;
 
-    for (const auto &ts : boost::adaptors::reverse(tilesets_)) {
-        // // first, check whether this set contains full tile
-        // if (trySet(result, tileId, ts, true)) { return result; }
+    // NB: index to tiles is 1-based, decremented to 0-based is done when
+    // accessing tileset list
 
-        // partial -> check glues
-        for (const auto &glue : glues(ts.id())) {
-            if (trySet(result, tileId, glue)) { return result; }
+    // glue trying
+    auto tryGlues([&](const GlueTs::list &glues) -> int
+    {
+        for (const auto &glue : glues) {
+            if (trySet(result, tileId, glue)) {
+                return 0;
+            } else if (auto reference = glue.set.getReference(tileId)) {
+                LOG(info1) << "Redirected to <" << glue.id[*reference] << ">.";
+                return glue.indices[*reference] + 1;
+            }
         }
+        return -1;
+    });
 
-        if (trySet(result, tileId, ts)) { return result; }
+    // iterate through tilesets from back (i.e. the top)
+    for (std::size_t tsi(tilesets_.size()); tsi;) {
+        // get tileset
+        const auto &ts(tilesets_[--tsi]);
+
+        // try glues first
+        auto gr(tryGlues(glues(ts.id())));
+        if (!gr) {
+            // found tile in one of glues result
+            return result;
+        } else if (gr > 0) {
+            // reference found -> redirect
+            tsi = gr;
+        } else {
+            // nothing found in glues, try tileset itself
+            if (trySet(result, tileId, ts)) {
+                return result;
+            }
+        }
     }
 
     // nothing appropriate
