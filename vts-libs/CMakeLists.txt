@@ -165,7 +165,7 @@ file_to_cpp(vts_BROWSER_SOURCES
 
 # vts core files
 set(vts-core_SOURCES
-  vts.hpp
+  vts.hpp vts/vts.cpp
   vts/basetypes.hpp vts/basetypes.cpp
   vts/multifile.hpp vts/multifile.cpp
   vts/mesh.hpp vts/mesh.cpp

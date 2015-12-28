@@ -935,8 +935,8 @@ Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo
             if (trySet(result, tileId, glue)) {
                 return 0;
             } else if (auto reference = glue.set.getReference(tileId)) {
-                LOG(info1) << "Redirected to <" << glue.id[*reference] << ">.";
-                return glue.indices[*reference] + 1;
+                LOG(info2) << "Redirected to <" << glue.id[reference] << ">.";
+                return glue.indices[reference - 1] + 1;
             }
         }
         return -1;

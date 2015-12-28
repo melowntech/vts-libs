@@ -21,6 +21,10 @@
 
 namespace vadstena { namespace vts {
 
+enum class DatasetType { Unknown, TileSet, Storage };
+
+DatasetType datasetType(const boost::filesystem::path &path);
+
 TileSet createTileSet(const boost::filesystem::path &path
                       , const TileSetProperties &properties
                       , CreateMode mode = CreateMode::failIfExists);

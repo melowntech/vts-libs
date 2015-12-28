@@ -1190,10 +1190,10 @@ bool TileSet::canContain(const NodeInfo &nodeInfo) const
     return overlaps(fsde->second, nodeInfo.node.extents);
 }
 
-boost::optional<int> TileSet::getReference(const TileId &tileId) const
+int TileSet::getReference(const TileId &tileId) const
 {
     if (!detail().tileIndex.checkMask(tileId, TileIndex::Flag::reference)) {
-        return boost::none;
+        return 0;
     }
     return detail().references.get(tileId);
 }
