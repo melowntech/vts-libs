@@ -10017,6 +10017,12 @@ Melown.RendererInterface.prototype.createTexture = function(options_) {
     return null;
 };
 
+Melown.RendererInterface.prototype.removeTexture = function(texture_) {
+    if (texture_) {
+        texture_.kill();
+    }
+};
+
 Melown.RendererInterface.prototype.createMesh = function(options_) {
     if (options_ == null || typeof options_ !== "object") {
         return null;
@@ -10031,6 +10037,12 @@ Melown.RendererInterface.prototype.createMesh = function(options_) {
     };
 
     return new Melown.GpuMesh(this.gpu_, data_, 0, this.renderer_.core_);
+};
+
+Melown.RendererInterface.prototype.removeMesh = function(mesh_) {
+    if (mesh_) {
+        mesh_.kill();
+    }
 };
 
 Melown.RendererInterface.prototype.createProgram = function(options_) {
@@ -11369,7 +11381,7 @@ Melown.Map = function(core_, mapConfig_, path_, config_) {
 
     this.mapTrees_ = [];
 
-    this.gpuCache_ = new Melown.MapCache(this, this.config_.mapGpuCache_*1024*1024);
+    this.gpuCache_ = new Melown.MapCache(this, this.config_.mapGPUCache_*1024*1024);
     this.resourcesCache_ = new Melown.MapCache(this, this.config_.mapCache_*1024*1024);
     this.metatileCache_ = new Melown.MapCache(this, this.config_.mapMetatileCache_*1024*1024);
 
@@ -11442,6 +11454,10 @@ Melown.Map.prototype.getOption = function(key_) {
 
 Melown.Map.prototype.addSrs = function(id_, srs_) {
     this.srses_[id_] = srs_;
+};
+
+Melown.Map.prototype.getSrs = function(srsId_) {
+    return this.srses_[srsId_];
 };
 
 Melown.Map.prototype.getSrses = function() {
@@ -11646,54 +11662,25 @@ Melown.Map.prototype.getPosition = function() {
     return this.position_.clone();
 };
 
-Melown.Map.prototype.pan = function(pos_, dx_ ,dy_) {
-    var pos2_ = pos_.clone();
-
-    var zoomFactor_ = (pos_.getViewExtent() * Math.tan(Melown.radians(this.camera_.getFov()))) / 800;
-    dx_ *= zoomFactor_;
-    dy_ *= zoomFactor_;
-
-    var yaw_ = Melown.radians(pos_.getOrientation()[0]);
-    var forward_ = [-Math.sin(yaw_), Math.cos(yaw_)];
-    var aside_ = [Math.cos(yaw_), Math.sin(yaw_)];
-
-    var coords_ = pos_.getCoords();
-    var coords2_ = pos_.getCoords();
-    var navigationSrsInfo_ = this.getNavigationSrs().getSrsInfo();
-
-    if (this.getNavigationSrs().isProjected()) {
-        pos2_.setCoords2([coords_[0] + (forward_[0]*dy_ - aside_[0]*dx_),
-                          coords_[1] + (forward_[1]*dy_ - aside_[1]*dx_)]);
-    } else {
-        var mx_ = forward_[0]*dy_ - aside_[0]*dx_;
-        var my_ = forward_[1]*dy_ - aside_[1]*dx_;
-
-        var azimut_ = Melown.degrees(Math.atan2(mx_, my_));
-        var distance_ = Math.sqrt(mx_*mx_ + my_*my_);
-        //console.log("azimut: " + azimut_ + " distance: " + distance_);
-
-        var coords_ = pos_.getCoords();
-        var navigationSrsInfo_ = this.getNavigationSrs().getSrsInfo();
-
-        var geod = new GeographicLib.Geodesic.Geodesic(navigationSrsInfo_["a"],
-                                                       (navigationSrsInfo_["a"] / navigationSrsInfo_["b"]) - 1.0);
-
-        var r = geod.Direct(coords_[1], coords_[0], azimut_, distance_);
-        pos2_.setCoords2([r.lon2, r.lat2]);
-
-        //console.log("oldpos: " + JSON.stringify(pos_));
-        //console.log("newpos: " + JSON.stringify(pos2_));
-    }
-
-    return pos2_;
-};
-
 Melown.Map.prototype.setConfigParams = function(params_) {
     if (typeof params_ === "object" && params_ !== null) {
         for (var key_ in params_) {
             this.setConfigParam(key_, params_[key_]);
         }
     }
+};
+
+Melown.Map.prototype.getAzimuthCorrection = function(coords_, coords2_) {
+    if (!this.getNavigationSrs().isProjected()) {
+        var geodesic_ = this.getGeodesic();
+        var r = geodesic_.Inverse(coords_[0], coords_[1], coords2_[0], coords2_[1]);
+        var ret_ = (r.azi1 - r.azi2);
+        if (isNaN(ret_)) {
+            ret_ = 0;
+        } 
+        return ret_; 
+    }
+    return 0;
 };
 
 Melown.Map.prototype.setConfigParam = function(key_, value_) {
@@ -14445,6 +14432,41 @@ Melown.MapPosition.prototype.check = function(mode_) {
     this.pos_[7] = this.pos_[7] % 360;
 };
 
+Melown.MapPosition.prototype.moveCoordsTo = function(azimuth_, distance_) {
+    var coords_ = this.getCoords();
+    var navigationSrsInfo_ = this.map_.getNavigationSrs().getSrsInfo();
+
+    if (this.map_.getNavigationSrs().isProjected()) {
+        var yaw_ = Melown.radians(azimuth_);
+        var forward_ = [-Math.sin(yaw_), Math.cos(yaw_)];
+
+        this.setCoords2([coords_[0] + (forward_[0]*distance_),
+                         coords_[1] + (forward_[1]*distance_)]);
+    } else {
+        var navigationSrsInfo_ = this.map_.getNavigationSrs().getSrsInfo();
+
+        var geod = new GeographicLib.Geodesic.Geodesic(navigationSrsInfo_["a"],
+                                                       (navigationSrsInfo_["a"] / navigationSrsInfo_["b"]) - 1.0);
+
+        var r = geod.Direct(coords_[1], coords_[0], azimuth_, distance_);
+        this.setCoords2([r.lon2, r.lat2]);
+
+        var orientation_ = this.getOrientation();
+
+        //console.log("corerction_: " + (r.azi1 - r.azi2));
+
+        orientation_[0] += (r.azi1 - r.azi2); 
+        //orientation_[0] -= (r.azi1 - r.azi2); 
+
+        var orientation_ = this.setOrientation(orientation_);
+
+        //console.log("oldpos: " + JSON.stringify(this));
+        //console.log("newpos: " + JSON.stringify(pos2_));
+    }
+    
+    return this;
+};
+
 Melown.MapPosition.prototype.convertViewMode = function(mode_) {
     if (mode_ == this.pos_[0]) {
         return this;
@@ -14647,9 +14669,18 @@ Melown.MapPosition.prototype.getCanvasCoords = function() {
 Melown.MapPosition.prototype.getNED = function() {
     var pos_ = this.clone();
     pos_.convertHeightMode("fix");
-    //pos_.setCoords2([0,0]);
+   // pos_.setCoords2([0,90]);
     var coords_ = pos_.getCoords();
     var centerCoords_ = this.map_.convertCoords(coords_, "navigation", "physical");
+
+    var tcoords01_ = this.map_.convertCoords([0,0], "navigation", "physical");
+    var tcoords06_ = this.map_.convertCoords([-180,0], "navigation", "physical");
+    var tcoords02_ = this.map_.convertCoords([90,0], "navigation", "physical");
+    var tcoords03_ = this.map_.convertCoords([0,90], "navigation", "physical");
+    var tcoords04_ = this.map_.convertCoords([-90,0], "navigation", "physical");
+    var tcoords05_ = this.map_.convertCoords([0,-90], "navigation", "physical");
+    var tcoords07_ = this.map_.convertCoords([0,-100], "navigation", "physical");
+
 
     if (this.map_.getNavigationSrs().isProjected()) {
         var upCoords_ = this.map_.convertCoords([coords_[0], coords_[1] + 100, coords_[2]], "navigation", "physical");
@@ -14657,7 +14688,7 @@ Melown.MapPosition.prototype.getNED = function() {
     } else {
         var geodesic_ = this.map_.getGeodesic();
     
-        var r = geodesic_.Direct(coords_[1], coords_[0], 0, 100);
+        var r = geodesic_.Direct(coords_[1], coords_[0], 0, -100);
         var upPos_ = this.clone();
         upPos_.setCoords2([r.lon2, r.lat2]);        
         var upCoords_ = this.map_.convertCoords(upPos_.getCoords(), "navigation", "physical");
@@ -14684,9 +14715,9 @@ Melown.MapPosition.prototype.getNED = function() {
     Melown.vec3.normalize(dir_);
     
     return {
-        east_  : dir_,
-        direction_ : right_,
-        north_ : up_        
+        east_  : right_, 
+        direction_ : up_,
+        north_ : dir_        
     };
 
 };
@@ -14727,22 +14758,21 @@ Melown.Map.prototype.updateCamera = function() {
         height_ += surfaceHeight_[0];
     }
 
+    if (this.position_.getViewMode() == "obj") {
+        var orbitPos_ = [0, -this.cameraDistance_, 0];
+        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, orbitPos_);
+    } else {
+        var orbitPos_ = [0, 0, 0];
+    }
+
+    this.cameraVector_ = [0, 1, 0];
+    Melown.mat4.multiplyVec3(this.updateCameraMatrix_, this.cameraVector_);
+
 
     if (this.getNavigationSrs().isProjected()) {
-        
-        if (this.position_.getViewMode() == "obj") {
-            var orbitPos_ = [0, -this.cameraDistance_, 0];
-            Melown.mat4.multiplyVec3(this.updateCameraMatrix_, orbitPos_);
-        } else {
-            var orbitPos_ = [0, 0, 0];
-        }
-
-        this.cameraVector_ = [0, 1, 0];
-        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, this.cameraVector_);
-
         //this.camera_.setPosition(orbitPos_);
-        this.camera_.setOrientation(orientation_);
-        this.renderer_.cameraDistance_ = this.cameraDistance_;
+        //this.camera_.setOrientation(orientation_);
+        //this.renderer_.cameraDistance_ = this.cameraDistance_;
 
         
         this.updateCameraMatrix_ = Melown.mat4.create();
@@ -14750,6 +14780,7 @@ Melown.Map.prototype.updateCamera = function() {
         //Melown.mat4.multiply(Melown.rotationMatrix(2, Melown.radians(-orientation_[0])), Melown.rotationMatrix(0, Melown.radians(-orientation_[1] - 90.0)), this.updateCameraMatrix_);
         Melown.mat4.multiply(Melown.rotationMatrix(0, Melown.radians(-orientation_[1] - 90.0)), Melown.rotationMatrix(2, Melown.radians(-orientation_[0])), this.updateCameraMatrix_);
 
+        /*
         //get NED for latlon coordinates
         //http://www.mathworks.com/help/aeroblks/directioncosinematrixeceftoned.html
         var coords_ = this.position_.getCoords();
@@ -14765,20 +14796,63 @@ Melown.Map.prototype.updateCamera = function() {
         north_ = Melown.vec3.negate(north_);
         east_  = Melown.vec3.negate(east_);
         //direction_ = Melown.vec3.negate(direction_);
+        */
 
-        //east_  = [1,0,0];
-        //direction_ = [0,1,0];
-        //north_ = [0,0,1];
+        var ned_ = this.position_.getNED();
+        north_ = ned_.north_;
+        east_  = ned_.east_;
+        direction_ = ned_.direction_;
+
+        var spaceMatrix_ = [
+            east_[0], east_[1], east_[2], 0,
+            direction_[0], direction_[1], direction_[2], 0,
+            north_[0], north_[1], north_[2], 0,
+            0, 0, 0, 1
+        ];
         
+        var east2_  = [1,0,0];
+        var direction2_ = [0,1,0];
+        var north2_ = [0,0,1];
+
+        var dir_ = [1,0,0];
+        var up_ = [0,0,-1];
+        var right_ = [0,0,0];
+        Melown.vec3.cross(dir_, up_, right_);
+
         //rotate vectors according to eulers
-        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, north_);
-        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, east_);
-        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, direction_);
+        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, north2_);
+        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, east2_);
+        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, direction2_);
 
-        //var t = north_[0]; north_[0] = north_[1]; north_[1] = t; north_[2] = -north_[2];
-        //var t = east_[0]; east_[0] = east_[1]; east_[1] = t; east_[2] = -east_[2];
-        //var t = direction_[0]; direction_[0] = direction_[1]; direction_[1] = t; direction_[2] = -direction_[2];
+        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, dir_);
+        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, up_);
+        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, right_);
 
+        var t = 0;
+        t = dir_[0]; dir_[0] = dir_[1]; dir_[1] = t;
+        t = up_[0]; up_[0] = up_[1]; up_[1] = t;
+        t = right_[0]; right_[0] = right_[1]; right_[1] = t;
+        
+        dir_[2] = -dir_[2];
+        up_[2] = -up_[2];
+        right_[2] = -right_[2];
+
+        /*
+        Melown.mat4.multiplyVec3(spaceMatrix_, north2_);
+        Melown.mat4.multiplyVec3(spaceMatrix_, east2_);
+        Melown.mat4.multiplyVec3(spaceMatrix_, direction2_);
+        */
+
+        //get rotation matrix
+        var rotationMatrix_ = [
+            east2_[0], east2_[1], east2_[2], 0,
+            direction2_[0], direction2_[1], direction2_[2], 0,
+            north2_[0], north2_[1], north2_[2], 0,
+            0, 0, 0, 1
+        ];
+
+       // Melown.mat4.multiplyVec3(spaceMatrix_, orbitPos_);
+/*
         //get rotation matrix
         var rotationMatrix_ = [
             east_[0], east_[1], east_[2], 0,
@@ -14786,56 +14860,17 @@ Melown.Map.prototype.updateCamera = function() {
             north_[0], north_[1], north_[2], 0,
             0, 0, 0, 1
         ];
-
-        //Melown.mat4.transpose(rotationMatrix_);
-        //rotationMatrix_ = Melown.mat4.inverse(rotationMatrix_);
-
-
-        var orbitPos2_ = [0, -this.cameraDistance_, 0];
-        Melown.mat4.multiplyVec3(rotationMatrix_, orbitPos2_);
-
-        var orbitPos3_ = [0, this.cameraDistance_, 0];
-        Melown.mat4.multiplyVec3(rotationMatrix_, orbitPos3_);
-
-        var orbitPos31_ = [0, 0, this.cameraDistance_];
-        Melown.mat4.multiplyVec3(rotationMatrix_, orbitPos31_);
-
-        var orbitPos32_ = [0, 0, -this.cameraDistance_];
-        Melown.mat4.multiplyVec3(rotationMatrix_, orbitPos32_);
-
-        rotationMatrix_ = Melown.mat4.inverse(rotationMatrix_);
-
-        var orbitPos4_ = [0, -this.cameraDistance_, 0];
-        Melown.mat4.multiplyVec3(rotationMatrix_, orbitPos4_);
-
-        var orbitPos5_ = [0, this.cameraDistance_, 0];
-        Melown.mat4.multiplyVec3(rotationMatrix_, orbitPos5_);
-
-        var orbitPos51_ = [0, 0, -this.cameraDistance_];
-        Melown.mat4.multiplyVec3(rotationMatrix_, orbitPos51_);
-
-        var orbitPos52_ = [0, 0, this.cameraDistance_];
-        Melown.mat4.multiplyVec3(rotationMatrix_, orbitPos52_);
-
-        orbitPos_ = orbitPos_;
-
-        //get rotation matrix
-        var rotationMatrix_ = [
-            east_[0], east_[1], east_[2], 0,
-            direction_[0], direction_[1], direction_[2], 0,
-            north_[0], north_[1], north_[2], 0,
-            0, 0, 0, 1
-        ];
-
-        this.camera_.setPosition(orbitPos52_);
+*/
+        this.camera_.setPosition(orbitPos_);
         this.camera_.setRotationMatrix(rotationMatrix_);
-        //this.renderer_.cameraDistance_ = this.cameraDistance_;
+        this.renderer_.cameraDistance_ = this.cameraDistance_;
         
 
     } else { //geographics
 
         //get NED for latlon coordinates
         //http://www.mathworks.com/help/aeroblks/directioncosinematrixeceftoned.html
+/*        
         var coords_ = this.position_.getCoords();
         var lon_ = Melown.radians(coords_[0]);
         var lat_ = Melown.radians(coords_[1]);
@@ -14861,39 +14896,101 @@ Melown.Map.prototype.updateCamera = function() {
         north_ = Melown.vec3.normalize(north_);
         east_  = Melown.vec3.normalize(east_);
         direction_ = Melown.vec3.normalize(direction_);
+*/
         
         var ned_ = this.position_.getNED();
         north_ = ned_.north_;
         east_  = ned_.east_;
         direction_ = ned_.direction_;
+        
 
-        this.updateCameraMatrix_ = Melown.mat4.create();
-        Melown.mat4.multiply(Melown.rotationMatrix(0, Melown.radians(-orientation_[1] - 90.0)), Melown.rotationMatrix(2, Melown.radians(-orientation_[0])), this.updateCameraMatrix_);
-
-        //rotate vectors according to eulers
-        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, north_);
-        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, east_);
-        Melown.mat4.multiplyVec3(this.updateCameraMatrix_, direction_);
-
-        //get rotation matrix
-        var rotationMatrix_ = [
+        var spaceMatrix_ = [
             east_[0], east_[1], east_[2], 0,
             direction_[0], direction_[1], direction_[2], 0,
             north_[0], north_[1], north_[2], 0,
             0, 0, 0, 1
         ];
+        
+        //spaceMatrix_ = Melown.mat4.inverse(spaceMatrix_);
+        
+        var localRotMatrix_ = Melown.mat4.create();
+        Melown.mat4.multiply(Melown.rotationMatrix(0, Melown.radians(-orientation_[1] - 90.0)), Melown.rotationMatrix(2, Melown.radians(-orientation_[0])), localRotMatrix_);
 
-        var rotationMatrix_ = Melown.mat4.inverse(rotationMatrix_);
+        var east2_  = [1,0,0];
+        var direction2_ = [0,1,0];
+        var north2_ = [0,0,1];
 
-        var orbitPos_ = [0, 0, this.cameraDistance_];
-        Melown.mat4.multiplyVec3(rotationMatrix_, orbitPos_);
+        var coords_ = this.position_.getCoords();
+        var latlonMatrix_ = Melown.mat4.create();
+        Melown.mat4.multiply(Melown.rotationMatrix(0, Melown.radians((coords_[1] - 90.0))), Melown.rotationMatrix(2, Melown.radians((-coords_[0]-90))), latlonMatrix_);
+//        Melown.mat4.multiply(Melown.rotationMatrix(2, Melown.radians((coords_[0]-90))), Melown.rotationMatrix(0, Melown.radians((coords_[1] - 90.0))), latlonMatrix_);
 
-        var rotationMatrix_ = Melown.mat4.inverse(rotationMatrix_);
+
+        //Melown.mat4.multiply(Melown.rotationMatrix(0, Melown.radians(0)), Melown.rotationMatrix(2, Melown.radians(-(coords_[0]+90))), latlonMatrix_);
+        //Melown.mat4.multiply(Melown.rotationMatrix(0, Melown.radians(0)), Melown.rotationMatrix(2, Melown.radians(0)), latlonMatrix_);
+
+        //rotate vectors according to latlon
+        Melown.mat4.multiplyVec3(latlonMatrix_, north2_);
+        Melown.mat4.multiplyVec3(latlonMatrix_, east2_);
+        Melown.mat4.multiplyVec3(latlonMatrix_, direction2_);
+
+
+        var spaceMatrix_ = [
+            east2_[0], east2_[1], east2_[2], 0,
+            direction2_[0], direction2_[1], direction2_[2], 0,
+            north2_[0], north2_[1], north2_[2], 0,
+            0, 0, 0, 1
+        ];
+
+        var right_ = [1,0,0];
+        var dir_ = [0,1,0];
+        var up_ = [0,0,1];
+        //Melown.vec3.cross(dir_, up_, right_);
+
+        //rotate vectors according to eulers
+        //Melown.mat4.multiplyVec3(this.updateCameraMatrix_, north2_);
+        //Melown.mat4.multiplyVec3(this.updateCameraMatrix_, east2_);
+        //Melown.mat4.multiplyVec3(this.updateCameraMatrix_, direction2_);
+
+        Melown.mat4.multiplyVec3(spaceMatrix_, dir_);
+        Melown.mat4.multiplyVec3(spaceMatrix_, up_);
+        Melown.mat4.multiplyVec3(spaceMatrix_, right_);
+
+        Melown.mat4.multiplyVec3(localRotMatrix_, right_);
+        Melown.mat4.multiplyVec3(localRotMatrix_, dir_);
+        Melown.mat4.multiplyVec3(localRotMatrix_, up_);
+        
+        //Melown.mat4.multiplyVec3(spaceMatrix_, north2_);
+        //Melown.mat4.multiplyVec3(spaceMatrix_, east2_);
+        //Melown.mat4.multiplyVec3(spaceMatrix_, direction2_);
+
+
+        //get rotation matrix
+/*        
+        var rotationMatrix_ = [
+            east2_[0], east2_[1], east2_[2], 0,
+            direction2_[0], direction2_[1], direction2_[2], 0,
+            north2_[0], north2_[1], north2_[2], 0,
+            0, 0, 0, 1
+        ];
+*/        
+
+        var rotationMatrix_ = [
+            right_[0], right_[1], right_[2], 0,
+            dir_[0], dir_[1], dir_[2], 0,
+            up_[0], up_[1], up_[2], 0,
+            0, 0, 0, 1
+        ];
+
+        spaceMatrix_ = Melown.mat4.inverse(spaceMatrix_);
+
+        Melown.mat4.multiplyVec3(spaceMatrix_, orbitPos_);
 
         this.camera_.setPosition(orbitPos_);
         this.camera_.setRotationMatrix(rotationMatrix_);
         this.renderer_.cameraDistance_ = this.cameraDistance_;
         
+       // this.position_.setCoords([0,90,0]);
         this.position_.setHeight(0);
     }
 
@@ -14934,6 +15031,18 @@ Melown.Map.prototype.updateCamera = function() {
     }
     */
 
+
+    //set near and far of camera by distance of orbit
+    var factor_ = Math.max(1.0, this.cameraDistance_ / 600000);
+
+    var near_ = 2 * (factor_ * 20);
+    var far_ = 600000 * (factor_ * 10);
+
+    console.log("near: " + near_ + "  far: " + far_);
+
+    this.camera_.setParams(this.camera_.getFov(), near_, far_);
+
+
     //this.dirty_ = true;
 };
 
@@ -14963,6 +15072,12 @@ Melown.Map.prototype.parseConfig = function() {
     }
 
     if (this.mapConfig_["position"] != null) {
+        //this.mapConfig_["position"][1] = 0;
+        //this.mapConfig_["position"][2] = 0;//89.99;
+
+        //this.mapConfig_["position"][5] = 0;
+        //this.mapConfig_["position"][6] = 0;
+
         this.setPosition(this.mapConfig_["position"], false);
     }
 
@@ -15441,11 +15556,12 @@ Melown.MapInterface.prototype.getSrses = function() {
 };
 
 Melown.MapInterface.prototype.getSrsInfo = function(srsId_) {
-    return this.map_.getSrsInfo(surfaceId_);
+    var srs_ = this.map_.getSrs(srsId_);
+    return srs_ ? srs_.getInfo() : {};
 };
 
 Melown.MapInterface.prototype.getReferenceFrame = function() {
-    return this.map_.getReferenceFrame();
+    return this.map_.referenceFrame_.getInfo();
 };
 
 Melown.MapInterface.prototype.convertPositionViewMode = function(position_, mode_) {
@@ -15466,6 +15582,10 @@ Melown.MapInterface.prototype.convertCoords = function(sourceSrs_, destinationSr
     }
 
     return srs2_.convertCoordsFrom(coords_, srs_);
+};
+
+Melown.MapInterface.prototype.clonePosition = function(position_) {
+    return (new Melown.MapPosition(this.map_, position_)).pos_;
 };
 
 Melown.MapInterface.prototype.setPositionCoords = function(position_, coords_) {
@@ -15520,6 +15640,10 @@ Melown.MapInterface.prototype.getPositionCanvasCoords = function(position_) {
     return (new Melown.MapPosition(this.map_, position_)).getCanvasCoords();
 };
 
+Melown.MapInterface.prototype.movePositionCoordsTo = function(position_, azimuth_, distance_) {
+    return (new Melown.MapPosition(this.map_, position_)).moveCoordsTo(azimuth_, distance_);
+};
+
 Melown.MapInterface.prototype.getSurfaceHeight = function(coords_, precision_) {
     return this.map_.getSurfaceHeight(coords_, this.map_.getOptimalHeightLodBySampleSize(coords_, precision_));
 };
@@ -15528,8 +15652,8 @@ Melown.MapInterface.prototype.getDistance = function(coords_, coords2_, includin
     return this.map_.getDistancet(coords_, coords2_, includingHeight_);
 };
 
-Melown.MapInterface.prototype.pan = function(position_, dx_, dy_) {
-    return this.map_.pan(new Melown.MapPosition(this.map_, position_), dx_, dy_).pos_.slice();
+Melown.MapInterface.prototype.getAzimuthCorrection = function(coords_, coords2_) {
+    return this.map_.getAzimuthCorrection(coords_, coords2_);
 };
 
 Melown.MapInterface.prototype.getCameraInfo = function() {
@@ -17205,9 +17329,9 @@ Melown.MapRefFrame = function(map_, json_) {
 
 Melown.MapRefFrame.prototype.getInfo = function() {
     return {
-        "physicalSrs" : this.model_.physicalSrs_,
-        "navigationSrs" : this.model_.navigationSrs_,
-        "publicSrs" : this.model_.publicSrs_
+        "physicalSrs" : this.model_.physicalSrs_.id_,
+        "navigationSrs" : this.model_.navigationSrs_.id_,
+        "publicSrs" : this.model_.publicSrs_.id_
     };
 };
 
@@ -20419,6 +20543,10 @@ Melown.ControlMode.Disabled = function() {
 Melown.ControlMode.MapObserver = function(browser_) {
     this.browser_ = browser_;
     this.config_ = browser_.config_;
+    
+    this.coordsDeltas_ = [];
+    this.orientationDeltas_ = [];
+    this.viewExtentDeltas_ = [];
 
     this["drag"] = this.drag;
     this["wheel"] = this.wheel;
@@ -20433,7 +20561,9 @@ Melown.ControlMode.MapObserver.prototype.drag = function(event_) {
     }
 
     var pos_ = map_.getPosition();
+    var coords_ = map_.getPositionCoords(pos_);
     var delta_ = event_.getDragDelta();
+    var azimuthDistance_ = this.getAzimuthAndDistance(delta_[0], delta_[1]);
 
     if (event_.getDragButton("left") && this.config_.panAllowed_) { //pan
         if (map_.getPositionHeightMode(pos_) == "fix") {
@@ -20442,14 +20572,23 @@ Melown.ControlMode.MapObserver.prototype.drag = function(event_) {
                 pos_ = pos2_;
             }
         } else {
-            var sensitivity_ = 0.5;
-            pos_ = map_.pan(pos_, delta_[0] * sensitivity_,
-                                  delta_[1] * sensitivity_);
+            var azimuth_ = Melown.radians(azimuthDistance_[0]);
+            var forward_ = [-Math.sin(azimuth_),
+                            Math.cos(azimuth_),
+                            azimuthDistance_[1], azimuthDistance_[0],
+                            coords_[0], coords_[1]];
+            
+            this.coordsDeltas_.push(forward_);
+            //this.coordsDeltas_[0] = forward_;
+            //console.log("pan: " + JSON.stringify(azimuthDistance_));
         }
     } else if (event_.getDragButton("right") && this.config_.rotationAllowed_) { //rotate
         var sensitivity_ = 0.4;
-        pos_[5] -= delta_[0] * sensitivity_;
-        pos_[6] -= delta_[1] * sensitivity_;
+        //pos_[5] -= delta_[0] * sensitivity_;
+        //pos_[6] -= delta_[1] * sensitivity_;
+
+        this.orientationDeltas_.push([-delta_[0] * sensitivity_,
+                                      -delta_[1] * sensitivity_, 0]);
     }
 
     map_.setPosition(pos_);
@@ -20465,18 +20604,170 @@ Melown.ControlMode.MapObserver.prototype.wheel = function(event_) {
     var delta_ = event_.getWheelDelta();
 
     var factor_ = 1.0 + (delta_ > 0 ? -1 : 1)*0.05;
-    pos_[8] *= factor_;
+    //pos_[8] *= factor_;
 
-    map_.setPosition(pos_);
+    //map_.setPosition(pos_);
+    
+    this.viewExtentDeltas_.push(factor_);
+};
+
+Melown.ControlMode.MapObserver.prototype.isNavigationSRSProjected = function() {
+    var map_ = this.browser_.getCore().getMap();
+    var rf_ = map_.getReferenceFrame();
+    var srs_ = map_.getSrsInfo(rf_["navigationSrs"]);
+    return (srs_) ? (srs_["type"] == "projected") : false; 
+};
+
+Melown.ControlMode.MapObserver.prototype.getAzimuthAndDistance = function(dx_, dy_) {
+    var map_ = this.browser_.getCore().getMap();
+    var pos_ = map_.getPosition();
+    var viewExtent_ = map_.getPositionViewExtent(pos_);
+    var fov_ = map_.getPositionFov(pos_)*0.5;
+
+    var sensitivity_ = 0.5;
+    var zoomFactor_ = ((viewExtent_ * Math.tan(Melown.radians(fov_))) / 800) * sensitivity_;
+    dx_ *= zoomFactor_;
+    dy_ *= zoomFactor_;
+
+    var distance_ = Math.sqrt(dx_*dx_ + dy_*dy_);    
+    var azimuth_ = Melown.degrees(Math.atan2(dx_, dy_)) + map_.getPositionOrientation(pos_)[0]; 
+    
+    return [azimuth_, distance_];
 };
 
 Melown.ControlMode.MapObserver.prototype.tick = function(event_) {
+    var map_ = this.browser_.getCore().getMap();
+    if (map_ == null) {
+        return;
+    }
 
+    var pos_ = map_.getPosition();
+    var update_ = false;
+    //var inertia_ = [0.8, 0.8, 0.8]; 
+    var inertia_ = [0.95, 0.8, 0.8]; 
+    //var inertia_ = [0, 0, 0]; 
+
+    //process coords deltas
+    if (this.coordsDeltas_.length > 0) {
+        var deltas_ = this.coordsDeltas_;
+        var forward_ = [0,0];
+        var coords_ = map_.getPositionCoords(pos_);
+        
+        //get foward vector form coord deltas    
+        for (var i = 0; i < deltas_.length; i++) {
+            var delta_ = deltas_[i];
+
+            var coords2_ = [delta_[4], delta_[5]];
+            
+            var azimuth_ = delta_[3];
+            azimuth_ += 0;//map_.getAzimuthCorrection(coords2_, coords_);
+            azimuth_ = Melown.radians(azimuth_);
+
+            //console.log("correction: " + map_.getAzimuthCorrection(coords2_, coords_) + " coords2: " + JSON.stringify(coords2_) + " coords: " + JSON.stringify(coords_));
+
+
+            forward_[0] += -Math.sin(azimuth_) * delta_[2];  
+            forward_[1] += Math.cos(azimuth_) * delta_[2];
+
+
+            /*
+            forward_[0] += delta_[0] * delta_[2];  
+            forward_[1] += delta_[1] * delta_[2];
+            */
+            delta_[2] *= inertia_[0];
+
+            
+            //remove zero deltas
+            if (delta_[2] < 0.01) {
+                deltas_.splice(i, 1);
+                i--;
+            }
+        }
+        
+        var distance_ = Math.sqrt(forward_[0]*forward_[0] + forward_[1]*forward_[1]);
+        var azimuth_ = Melown.degrees(Math.atan2(forward_[0], forward_[1]));
+    
+        //console.log("tick: " + azimuth_ + " " + distance_);
+
+        //apply final azimuth and distance
+        var correction_ = map_.getPositionOrientation(pos_)[0];
+        pos_ = map_.movePositionCoordsTo(pos_, (this.isNavigationSRSProjected() ? -1 : 1) * azimuth_, distance_);
+        correction_ = map_.getPositionOrientation(pos_)[0] - correction_;
+
+        //console.log("correction2: " + correction_);
+
+        for (var i = 0; i < deltas_.length; i++) {
+            var delta_ = deltas_[i];
+            delta_[3] += correction_; 
+        }
+
+        update_ = true;
+    }
+
+    //process coords deltas
+    if (this.orientationDeltas_.length > 0) {
+        var deltas_ = this.orientationDeltas_;
+        var orientation_ = map_.getPositionOrientation(pos_);
+        
+        //apply detals to current orientation    
+        for (var i = 0; i < deltas_.length; i++) {
+            var delta_ = deltas_[i];
+            orientation_[0] += delta_[0];  
+            orientation_[1] += delta_[1];
+            orientation_[2] += delta_[2];
+            delta_[0] *= inertia_[1];
+            delta_[1] *= inertia_[1];
+            delta_[2] *= inertia_[1];
+            
+            //remove zero deltas
+            if (delta_[0]*delta_[0] + delta_[1]*delta_[1] + delta_[2]*delta_[2] < 0.1) {
+                deltas_.splice(i, 1);
+                i--;
+            }
+        }
+
+        //apply final orintation
+        pos_ = map_.setPositionOrientation(pos_, orientation_);
+        update_ = true;
+    }
+
+    //process view extents deltas
+    if (this.viewExtentDeltas_.length > 0) {
+        var deltas_ = this.viewExtentDeltas_;
+        var viewExtent_ = map_.getPositionViewExtent(pos_);
+        
+        //apply detals to current orientation    
+        for (var i = 0; i < deltas_.length; i++) {
+            viewExtent_ *= deltas_[i];
+            deltas_[i] += (1 - deltas_[i]) * (1.0 - inertia_[2]);
+            
+            //remove zero deltas
+            if (Math.abs(1 - deltas_[i]) < 0.001) {
+                deltas_.splice(i, 1);
+                i--;
+            }
+        }
+
+        //apply final orintation
+        pos_ = map_.setPositionViewExtent(pos_, viewExtent_);
+        update_ = true;
+    }
+
+
+    //set new position
+    if (update_) {
+        map_.setPosition(pos_);        
+    }
+    
 };
 
 Melown.ControlMode.MapObserver.prototype.reset = function(config_) {
-
+    this.coordsDeltas_ = [];
+    this.orientationDeltas_ = [];
+    this.viewExtentDeltas_ = [];
 };
+
+
 /**
  * @constructor
  */
@@ -20901,6 +21192,10 @@ Melown.BrowserInterface.prototype.convertCoords = function(sourceSrs_, destinati
     return this.map_.convertCoords(sourceSrs_, destinationSrs_, coords_);
 };
 
+Melown.BrowserInterface.prototype.clonePosition = function(position_) {
+    return this.map_.clonePosition(position_);
+};
+
 Melown.BrowserInterface.prototype.setPositionCoords = function(position_, coords_) {
     return this.map_.setPositionCoords(position_, coords_);
 };
@@ -20951,6 +21246,10 @@ Melown.BrowserInterface.prototype.getPositionHeigthMode = function(position_) {
 
 Melown.BrowserInterface.prototype.getPositionCanvasCoords = function(position_) {
     return this.map_.getPositionCanvasCoords(position_);
+};
+
+Melown.BrowserInterface.prototype.movePositionCoordsTo = function(position_, azimuth_, distance_) {
+    return this.map_.movePositionCoordsTo(position_, azimuth_, distance_);
 };
 
 Melown.BrowserInterface.prototype.pan = function(position_, dx_, dy_) {
@@ -21021,8 +21320,6 @@ Melown.BrowserInterface.prototype["on"] = Melown.BrowserInterface.prototype.on;
 
 
 function startDemo() { var browser_ = Melown.MapBrowser('melown-demo', { map : './mapConfig.json' }); }
-
-
 
 
 
