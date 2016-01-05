@@ -168,7 +168,7 @@ inline bool Merger::isGlueTile(const merge::Output &tile) const
 
     // special case
     if (tile.source.front().id() == topId_) {
-        // generated only from top set, must be derived tile
+        // generated only from top set, must be derived tile to be glue tile
         return tile.derived(0);
     }
 
@@ -178,18 +178,18 @@ inline bool Merger::isGlueTile(const merge::Output &tile) const
     }
 
     if ((size + 1) == srcSize) {
-        // possibly generated from rest sets
+        // possibly generated from sets other than top set
         if (tile.source.back().id() == topId_) {
-            // contains top -> no way
+            // contains top set -> cannot be a glue
             return false;
         }
 
         // tile must be fully derived from other sets (such tile cannot exist in
-        // others)
+        // other glues)
         return tile.fullyDerived();
     }
 
-    // anything else -> not glue
+    // anything else -> not a glue
     return false;
 }
 
@@ -201,6 +201,7 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
         return;
     }
 
+    // thread name contains tile
     vadstena::storage::TIDGuard tg(str(boost::format("%s") % tileId), true);
 
     bool g(generate_.exists(tileId));
@@ -216,12 +217,14 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
                           , Constraints(*this, g)));
 
     if (tile) {
+        // tile generated, store into glue
         self_.setTile(tileId, tile.getMesh(), tile.getAtlas()
                       , tile.getNavtile(), &nodeInfo);
     } else if (g && !tile.source.empty()) {
+        // no tile generated but there are some data to generate it
         auto topSourceId(tile.source.back().id());
         if (topSourceId != topId_) {
-            // tile references single existing tile in other set -> store
+            // tile references single tile in other set -> store reference
             LOG(info1) << "Setting reference " << topSourceId + 1;
             self_.addReference(tileId, topSourceId + 1);
         }
@@ -234,9 +237,10 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     // do not descent if we are at the bottom
     if (atBottom) { return; }
 
+    // remove this tile from thread name
     tg.pop();
 
-    // OK, process children
+    // this tile is processed, go after children
     for (const auto &child : children(tileId)) {
         mergeTile(nodeInfo.child(child), child, tile.source);
     }
@@ -247,6 +251,7 @@ merge::Output Merger::processTile(const NodeInfo &nodeInfo
                                   , const merge::Input::list &parentSource
                                   , const Constraints &constraints)
 {
+    // fetch input
     merge::Input::list input;
     {
         merge::Input::Id id(0);
@@ -255,6 +260,8 @@ merge::Output Merger::processTile(const NodeInfo &nodeInfo
             if (t) { input.push_back(t); }
         }
     }
+
+    // run merge operation
     return merge::mergeTile(tileId, nodeInfo, input, parentSource
                             , constraints);
 }
@@ -274,16 +281,19 @@ void TileSet::createGlue(const const_ptrlist &sets)
     const auto *dumpRoot(getDumpDir());
     const auto &referenceFrame(getProperties().referenceFrame);
 
-    // lod range of all sets
+    // LOD range of all sets
     const LodRange lr(range(sets));
     LOG(info2) << "LOD range: " << lr;
 
-    // get all indices
+    // get all indices from all sets in full LOD range
     auto all(tileIndices(sets, lr));
     auto &top(all.back());
     dumpTileIndex(dumpRoot, "top", top, referenceFrame);
 
+    // make top round (i.e. quad condition is satisfied for every tile)
     top.round();
+    // make complete up and down trees for top (up: every tile has parent, down:
+    // every tile has all children)
     const auto topUp(TileIndex(top).complete());
     const auto topDown(TileIndex(top).completeDown());
 
@@ -291,21 +301,27 @@ void TileSet::createGlue(const const_ptrlist &sets)
     dumpTileIndex(dumpRoot, "top-up", topUp, referenceFrame);
     dumpTileIndex(dumpRoot, "top-down", topDown, referenceFrame);
 
+    // grab all tile indices except the top one
     boost::sub_range<TileIndexList> rest(all.begin(), std::prev(all.end()));
 
     // output generate set
     boost::optional<TileIndex> generate;
 
     for (const auto &r : rest) {
+        // make up and down complete tree
         auto rUp(TileIndex(r).complete());
         auto rDown(TileIndex(r).completeDown());
 
+        // intersect up and down trees with top up and down trees
         auto i1(topUp.intersect(rDown));
         auto i2(topDown.intersect(rUp));
 
         if (!generate) {
+            // first iteration -> just unite both trees
             generate = unite(i1, i2);
         } else {
+            // next iteration -> intersect up/down union with intermediate
+            // result
             generate = generate->intersect(unite(i1, i2));
         }
     }
@@ -320,10 +336,10 @@ void TileSet::createGlue(const const_ptrlist &sets)
 
     LOG(info3) << "(glue) Generate set calculated.";
 
-    // create merge
-    Merger merger(detail(), *generate, sets);
+    // run merge
+    Merger(detail(), *generate, sets);
 
-    // copy position
+    // copy position from top dataset
     setPosition(sets.back()->getProperties().position);
 
     // done
