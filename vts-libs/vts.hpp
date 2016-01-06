@@ -70,6 +70,10 @@ private:
 TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src
                      , const CloneOptions &cloneOptions);
 
+TileSet concatTileSets(const boost::filesystem::path &path
+                       , const std::vector<boost::filesystem::path> &tilesets
+                       , const CloneOptions &createOptions);
+
 Storage openStorage(const boost::filesystem::path &path
                     , OpenMode mode = OpenMode::readOnly);
 

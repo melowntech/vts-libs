@@ -259,22 +259,25 @@ void MetaTile::save(std::ostream &out) const
     std::map<std::uint16_t, std::vector<size_type> > credits;
     {
         size_type idx(0);
-        for (const auto &node : grid_) {
-            for (const auto cid : node.credits) {
-                // TODO make it faster?
-                credits[cid].push_back(idx);
+        for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
+            for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i, ++idx) {
+                const auto &node(grid_[j * size_ + i]);
+                for (const auto cid : node.credits()) {
+                    // TODO make it faster?
+                    credits[cid].push_back(idx);
+                }
             }
-            ++idx;
         }
     }
 
-    // write credit count
-    bin::write(out, std::uint8_t(credits.size()));
-
-    if (credits.empty() || !empty(validSize)) {
+    if (credits.empty() || empty(validSize)) {
         // no credits -> credit block size is irrelevant
+        bin::write(out, std::uint8_t(0));
         bin::write(out, std::uint16_t(0));
     } else {
+        // write credit count
+        bin::write(out, std::uint8_t(credits.size()));
+
         imgproc::bitfield::RasterMask
             bitmap(validSize.width, validSize.height);
 
@@ -290,7 +293,7 @@ void MetaTile::save(std::ostream &out) const
             bitmap.create(validSize.width, validSize.height
                           , imgproc::bitfield::RasterMask::EMPTY);
             for (auto idx : credit.second) {
-                bitmap.set(idx / validSize.width, idx % validSize.width);
+                bitmap.set(idx % validSize.width, idx / validSize.width);
             }
 
             // write out bitmap
@@ -400,18 +403,15 @@ void MetaTile::load(std::istream &in, const fs::path &path)
             bitmap.readData(in);
 
             // process whole bitmap and update credits of all nodes
-
-            for (std::uint32_t j(valid_.ll(1)), jj(0); j < valid_.ur(1);
+            for (unsigned int j(valid_.ll(1)), jj(0); j <= valid_.ur(1);
                  ++j, ++jj)
             {
-                for (std::uint32_t i(valid_.ll(0)), ii(0); i < valid_.ur(0);
+                for (unsigned int i(valid_.ll(0)), ii(0); i <= valid_.ur(0);
                      ++i, ++ii)
                 {
                     auto &node(grid_[j * size_ + i]);
 
-                    if (bitmap.get(ii, jj)) {
-                        node.credits.insert(creditId);
-                    }
+                    if (bitmap.get(ii, jj)) { node.addCredit(creditId); }
                 }
             }
         }

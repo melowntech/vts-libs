@@ -221,6 +221,11 @@ public:
      */
     bool canContain(const NodeInfo &nodeInfo) const;
 
+    /** Pastes other tileset into this one.
+     */
+    void paste(const TileSet &src
+               , const boost::optional<LodRange> &lodRange = boost::none);
+
     /** Returns mapConfig for given path.
      */
     static MapConfig mapConfig(const boost::filesystem::path &root);

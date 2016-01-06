@@ -89,8 +89,6 @@ struct MetaNode {
 
     Range<std::int16_t> heightRange;
 
-    storage::CreditIds credits;
-
     MetaNode()
         : internalTextureCount(), texelSize()
         , displaySize(), heightRange(), flags_()
@@ -112,6 +110,18 @@ struct MetaNode {
 
     MetaNode& mergeExtents(const MetaNode &other);
 
+    const storage::CreditIds& credits() const {  return credits_; }
+
+    template <typename CreditIdsType>
+    void updateCredits(const CreditIdsType &credits) {
+        credits_.insert(credits.begin(), credits.end());
+    }
+
+    template <typename CreditIdType>
+    void addCredit(const CreditIdType &creditId) {
+        credits_.insert(creditId);
+    }
+
 private:
     bool check(std::uint8_t flag) const { return flags_ & flag; }
 
@@ -125,6 +135,8 @@ private:
     }
 
     std::uint8_t flags_;
+
+    storage::CreditIds credits_;
 };
 
 class MetaTile {

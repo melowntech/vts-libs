@@ -27,6 +27,9 @@ public:
              // tile is real if it contains mesh
              , real = mesh
 
+             // content: tile has some content
+             , content = (mesh | atlas | navtile)
+
              // cannot be 0xff since it is reserved value!
             , any = 0x7f
         };

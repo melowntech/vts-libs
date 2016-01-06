@@ -6,6 +6,8 @@
 #include <boost/optional.hpp>
 #include <boost/noncopyable.hpp>
 
+#include "dbglog/dbglog.hpp"
+
 #include "geo/srsdef.hpp"
 
 #include "./tileset.hpp"
@@ -15,8 +17,32 @@ namespace vadstena { namespace vts {
 
 class Encoder : boost::noncopyable {
 public:
+    /** Encoder options.
+     */
+    class Options {
+    public:
+        bool flush() const { return flush_; };
+        Options& flush(bool value) { flush_ = value; return *this; };
+
+        dbglog::level level() const { return level_; };
+        Options& level(dbglog::level value) { level_ = value; return *this; };
+
+        Options() : flush_(true), level_(dbglog::info3) {}
+
+    private:
+        bool flush_;
+        dbglog::level level_;
+    };
+
+    /** Creates encoder for new tileset.
+     */
     Encoder(const boost::filesystem::path &path
-            , const TileSetProperties &properties, CreateMode mode);
+            , const TileSetProperties &properties, CreateMode mode
+            , const Options &options = Options());
+
+    /** Creates encoder for existing tileset.
+     */
+    Encoder(TileSet &tileset, const Options &options = Options());
 
     virtual ~Encoder() {}
 

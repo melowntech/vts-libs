@@ -1,4 +1,5 @@
 #include <boost/format.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 #include "utility/progress.hpp"
 #include "geo/csconvertor.hpp"
@@ -164,7 +165,8 @@ struct TileSet::Factory
         return TileSet(driver);
     }
 
-    static void clone(const Detail &src, Detail &dst)
+    static void clone(const std::string &reportName
+                      , const Detail &src, Detail &dst)
     {
         const auto &sd(*src.driver);
         auto &dd(*dst.driver);
@@ -173,9 +175,8 @@ struct TileSet::Factory
                  , dd.output(storage::File::tileIndex));
 
         const utility::Progress::ratio_t reportRatio(1, 100);
-        const auto reportName(str(boost::format("Cloning <%s> ")
-                                  % src.properties.id));
         utility::Progress progress(src.tileIndex.count());
+        auto report([&]() { (++progress).report(reportRatio, reportName); });
 
         traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
         {
@@ -204,23 +205,26 @@ struct TileSet::Factory
                          , dd.output(tid, storage::TileFile::navtile));
             }
 
-            (++progress).report(reportRatio, reportName);
+            LOG(info1) << "Stored tile " << tid << ".";
+            report();
         });
 
         // load copied tile index
         dst.loadTileIndex();
+
+        // properties have been changed
+        dst.propertiesChanged = true;
     }
 
-    static void clone(const Detail &src, Detail &dst, const LodRange &lodRange)
+    static void clone(const std::string &reportName
+                      , const Detail &src, Detail &dst
+                      , const LodRange &lodRange)
     {
         const auto &sd(*src.driver);
         auto &dd(*dst.driver);
 
         const utility::Progress::ratio_t reportRatio(1, 100);
-        const auto reportName(str(boost::format("Cloning <%s> ")
-                                  % src.properties.id));
         utility::Progress progress(src.tileIndex.count());
-
         auto report([&]() { (++progress).report(reportRatio, reportName); });
 
         traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
@@ -233,9 +237,12 @@ struct TileSet::Factory
 
             const auto *metanode(src.findMetaNode(tid));
             if (!metanode) {
-                LOG(warn2)
-                    << "Cannot find metanode for tile " << tileId << "; "
-                    << "skipping.";
+                if (mask & TileIndex::Flag::content) {
+                    LOG(warn2)
+                        << "Cannot find metanode for tile " << tid << "; "
+                        << "skipping (flags: " << std::bitset<8>(mask)
+                        << ").";
+                }
                 report();
                 return;
             }
@@ -261,8 +268,12 @@ struct TileSet::Factory
 
             dst.updateNode(tid, *metanode
                            , mask & TileIndex::Flag::watertight);
+            LOG(info1) << "Stored tile " << tid << ".";
             report();
         });
+
+        // properties have been changed
+        dst.propertiesChanged = true;
     }
 
     static TileSet clone(const boost::filesystem::path &path
@@ -276,14 +287,15 @@ struct TileSet::Factory
         auto dst(TileSet::Factory::create(path, properties
                                           , cloneOptions.mode()));
 
+        const auto reportName(str(boost::format("Cloning <%s> ")
+                                  % src.detail().properties.id));
         if (cloneOptions.lodRange()) {
-            clone(src.detail(), dst.detail(), *cloneOptions.lodRange());
+            clone(reportName, src.detail(), dst.detail()
+                  , *cloneOptions.lodRange());
         } else {
-            clone(src.detail(), dst.detail());
+            clone(reportName, src.detail(), dst.detail());
         }
 
-        // only properties have been changed
-        dst.detail().propertiesChanged = true;
         // and flush
         dst.flush();
 
@@ -754,6 +766,9 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
         }
 
         metanode.texelSize = std::sqrt(meshArea / textureArea);
+
+        // set credits
+        metanode.updateCredits(properties.credits);
     }
 
     // navtile
@@ -1196,6 +1211,126 @@ int TileSet::getReference(const TileId &tileId) const
         return 0;
     }
     return detail().references.get(tileId);
+}
+
+void TileSet::paste(const TileSet &srcSet
+                    , const boost::optional<LodRange> &lodRange)
+{
+    const auto &src(srcSet.detail());
+    auto &dst(detail());
+
+    const auto reportName(str(boost::format("Pasting <%s> into <%s> ")
+                              % src.properties.id
+                              % dst.properties.id));
+
+    const auto &sd(*src.driver);
+    auto &dd(*dst.driver);
+
+    const utility::Progress::ratio_t reportRatio(1, 100);
+    utility::Progress progress(src.tileIndex.count());
+    auto report([&]() { (++progress).report(reportRatio, reportName); });
+
+    LOG(info3) << "About to paste " << progress.total() << " tiles.";
+
+    traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
+    {
+        // skip
+        if (lodRange && !in(*lodRange, tid.lod)) {
+            report();
+            return;
+        }
+
+        const auto *metanode(src.findMetaNode(tid));
+        if (!metanode) {
+            if (mask & TileIndex::Flag::content) {
+                LOG(warn2)
+                    << "Cannot find metanode for tile " << tid << "; "
+                    << "skipping (flags: " << std::bitset<8>(mask)
+                    << ").";
+            }
+            report();
+            return;
+        }
+
+        if (mask & TileIndex::Flag::mesh) {
+            // copy mesh
+            copyFile(sd.input(tid, storage::TileFile::mesh)
+                     , dd.output(tid, storage::TileFile::mesh));
+        }
+
+        if (mask & TileIndex::Flag::atlas) {
+            // copy atlas
+            copyFile(sd.input(tid, storage::TileFile::atlas)
+                     , dd.output(tid, storage::TileFile::atlas));
+        }
+
+        if (mask & TileIndex::Flag::navtile){
+            // copy navtile if allowed
+            copyFile(sd.input(tid, storage::TileFile::navtile)
+                     , dd.output(tid, storage::TileFile::navtile));
+        }
+
+        dst.updateNode(tid, *metanode
+                       , mask & TileIndex::Flag::watertight);
+        LOG(info1) << "Stored tile " << tid << ".";
+        report();
+    });
+
+    // properties have been changed
+    dst.propertiesChanged = true;
+}
+
+TileSet concatTileSets(const boost::filesystem::path &path
+                       , const std::vector<fs::path> &tilesets
+                       , const CloneOptions &createOptions)
+{
+    if (tilesets.empty()) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "No tilesets to concatenate.";
+    }
+
+
+    auto co(createOptions);
+    if (!co.tilesetId()) {
+        co.tilesetId(path.filename().string());
+    }
+
+    // fill in tilesets in reverse order (first is at the back)
+    std::vector<TileSet> tsList;
+    {
+        std::string rf;
+        for (const auto &p : boost::adaptors::reverse(tilesets)) {
+            tsList.push_back(openTileSet(p));
+            const auto prop(tsList.back().getProperties());
+            if (rf.empty()) {
+                rf = prop.referenceFrame;
+            } else if (rf != prop.referenceFrame) {
+                LOGTHROW(err1, vadstena::storage::IncompatibleTileSet)
+                    << "Tileset <" << prop.id << "> "
+                    "uses different reference frame ("
+                    << prop.referenceFrame
+                    << ") than other tilesets ("
+                    << rf << ").";
+            }
+        }
+    }
+
+    // create new tileset with same properties as the first one (except its id)
+    auto properties(tsList.front().getProperties());
+    if (co.tilesetId()) {
+        properties.id = *co.tilesetId();
+    }
+    auto dst(createTileSet(path, properties, co.mode()));
+
+    // clone-in all tileset from back (i.e. in the order they have been
+    // specified bu user
+    for (; !tsList.empty(); tsList.pop_back()) {
+        dst.paste(tsList.back(), createOptions.lodRange());
+    }
+
+    dst.flush();
+
+    return dst;
 }
 
 } } // namespace vadstena::vts

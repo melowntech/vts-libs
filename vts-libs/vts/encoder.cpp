@@ -70,8 +70,23 @@ void Encoder::TileResult::fail(const char *what) const
 
 struct Encoder::Detail {
     Detail(Encoder *owner, const boost::filesystem::path &path
-           , const TileSetProperties &properties, CreateMode mode)
-        : owner(owner), tileSet(createTileSet(path, properties, mode))
+           , const TileSetProperties &properties, CreateMode mode
+           , const Options &options)
+        : owner(owner), options(options)
+        , ownTs(createTileSet(path, properties, mode))
+        , tileSet(*ownTs)
+        , properties(tileSet.getProperties())
+        , referenceFrame(tileSet.referenceFrame())
+        , physicalSrs(registry::Registry::srs
+                      (referenceFrame.model.physicalSrs))
+        , navigationSrs(registry::Registry::srs
+                      (referenceFrame.model.navigationSrs))
+        , generated_(0)
+    {}
+
+    Detail(Encoder *owner, TileSet &tileset, const Options &options)
+        : owner(owner), options(options)
+        , tileSet(tileset)
         , properties(tileSet.getProperties())
         , referenceFrame(tileSet.referenceFrame())
         , physicalSrs(registry::Registry::srs
@@ -90,13 +105,17 @@ struct Encoder::Detail {
             process({}, ConstraintsFlag::build(constraints)
                     , NodeInfo(referenceFrame), {});
         }
-        LOG(info3) << "VTS Encoder: generated. Finishing and flushing.";
+        LOG(info3) << "VTS Encoder: generated. Finishing.";
 
         // let the caller finish the tileset
         owner->finish(tileSet);
 
         // flush result
-        tileSet.flush();
+        if (options.flush()) {
+            LOG(info3) << "VTS Encoder: Flushing.";
+            tileSet.flush();
+        }
+
         LOG(info3) << "VTS Encoder: done.";
 
         // done
@@ -113,7 +132,10 @@ struct Encoder::Detail {
                  , const NodeInfo &nodeInfo, const TileResult &parentTile);
 
     Encoder *owner;
-    TileSet tileSet;
+    const Options options;
+    boost::optional<TileSet> ownTs;
+    TileSet &tileSet;
+
     TileSetProperties properties;
     registry::ReferenceFrame referenceFrame;
     const registry::Srs &physicalSrs;
@@ -167,7 +189,7 @@ void Encoder::Detail::process(const TileId &tileId
     };
 
     if (constraints.validTree && !constraints.validTree->get(tileId)) {
-        // tile not in valid tree -> stop
+        // tile not in valid tree-> stop
         return;
     }
 
@@ -210,7 +232,7 @@ void Encoder::Detail::process(const TileId &tileId
         {
             auto number(++generated_);
 
-            LOG(info3)
+            LOGR(options.level())
                 << "Generated tile #" << number << ": "
                 << tileId << " (extents: " << std::fixed << extents << ") ["
                 << TileFlags{tile} << "].";
@@ -263,8 +285,13 @@ void Encoder::Detail::process(const TileId &tileId
 }
 
 Encoder::Encoder(const boost::filesystem::path &path
-                 , const TileSetProperties &properties, CreateMode mode)
-    : detail_(std::make_shared<Detail>(this, path, properties, mode))
+                 , const TileSetProperties &properties, CreateMode mode
+                 , const Options &options)
+    : detail_(std::make_shared<Detail>(this, path, properties, mode, options))
+{}
+
+Encoder::Encoder(TileSet &tileset, const Options &options)
+    : detail_(std::make_shared<Detail>(this, tileset, options))
 {}
 
 TileSetProperties Encoder::properties() const
