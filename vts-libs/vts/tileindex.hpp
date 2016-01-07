@@ -124,9 +124,10 @@ public:
     struct Stat {
         storage::LodRange lodRange;
         std::vector<TileRange> tileRanges;
+        std::size_t count;
 
         Stat()
-            : lodRange(LodRange::emptyRange())
+            : lodRange(LodRange::emptyRange()), count()
         {}
     };
 

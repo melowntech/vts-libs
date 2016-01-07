@@ -226,6 +226,8 @@ TileIndex::Stat TileIndex::statMask(QTree::value_type mask) const
             // update tile range
             math::update(tileRange, x, y);
             math::update(tileRange, x + size - 1, y + size - 1);
+
+            stat.count += (std::size_t(size) * std::size_t(size));
         });
         ++lod;
     }
