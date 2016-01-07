@@ -55,6 +55,7 @@ namespace {
 
 struct Config {
     boost::optional<std::uint16_t> textureLayer;
+    vs::CreditIds credits;
 };
 
 class Vts02Vts : public va::UtilityBase
@@ -155,7 +156,7 @@ void Vts02Vts::configure(const po::variables_map &vars)
                 credit = vr::Registry::credit(value);
             }
 
-            properties_.credits.insert(credit.numericId);
+            config_.credits.insert(credit.numericId);
         }
     }
 }
@@ -652,6 +653,9 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
 
     // set navtile
     tile.navtile = navtile;
+
+    // set credits
+    tile.credits = config_.credits;
 
     return result;
 }
