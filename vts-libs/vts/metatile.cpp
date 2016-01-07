@@ -103,7 +103,7 @@ std::uint8_t nodeSize(Lod lod)
 {
     return (1 // flags
             + geomLen(lod)
-            + 1 // internalTextureCount
+            + 1 // internalTextureCount/reference
             + 2 // texelSize
             + 2 // displaySize
             + 2 + 2 // navtile height range
@@ -111,12 +111,11 @@ std::uint8_t nodeSize(Lod lod)
 }
 
 std::vector<std::uint8_t>
-buildGeomExtents(const TileId &tileId, const math::Extents3 &extents)
+buildGeomExtents(Lod lod, const math::Extents3 &extents)
 {
     struct Encoder {
-        Encoder(const TileId &tileId)
-            : tileId(tileId)
-            , block(1, 0), bits(2 + tileId.lod)
+        Encoder(Lod lod)
+            : block(1, 0), bits(2 + lod)
             , max((1 << bits) - 1)
             , out(&block.back()), outMask(0x80)
         {}
@@ -153,7 +152,6 @@ buildGeomExtents(const TileId &tileId, const math::Extents3 &extents)
             outMask >>= 1;
         }
 
-        const TileId tileId;
         std::vector<std::uint8_t> block;
         std::uint8_t bits;
         std::uint32_t max;
@@ -161,7 +159,7 @@ buildGeomExtents(const TileId &tileId, const math::Extents3 &extents)
         std::uint32_t outMask;
     };
 
-    Encoder encoder(tileId);
+    Encoder encoder(lod);
 
     encoder(extents.ll(0));
     encoder(extents.ur(0), true);
@@ -173,13 +171,12 @@ buildGeomExtents(const TileId &tileId, const math::Extents3 &extents)
     return encoder.block;
 }
 
-void parseGeomExtents(const TileId &tileId, math::Extents3 &extents
+void parseGeomExtents(Lod lod, math::Extents3 &extents
                       , const std::vector<std::uint8_t> &block)
 {
     struct Decoder {
-        Decoder(const TileId &tileId, const std::vector<std::uint8_t> &block)
-            : tileId(tileId)
-            , block(block), bits(2 + tileId.lod)
+        Decoder(Lod lod, const std::vector<std::uint8_t> &block)
+            : block(block), bits(2 + lod)
             , max((1 << bits) - 1)
             , in(block.begin()), inMask(0x80)
         {}
@@ -205,7 +202,6 @@ void parseGeomExtents(const TileId &tileId, math::Extents3 &extents
             return value;
         }
 
-        const TileId tileId;
         const std::vector<std::uint8_t> &block;
         std::uint8_t bits;
         double max;
@@ -213,7 +209,7 @@ void parseGeomExtents(const TileId &tileId, math::Extents3 &extents
         std::uint32_t inMask;
     };
 
-    Decoder decoder(tileId, block);
+    Decoder decoder(lod, block);
 
     extents.ll(0) = decoder();
     extents.ur(0) = decoder();
@@ -224,6 +220,24 @@ void parseGeomExtents(const TileId &tileId, math::Extents3 &extents
 }
 
 } // namespace
+
+inline void MetaNode::save(std::ostream &out, Lod lod) const
+{
+    bin::write(out, std::uint8_t(flags_));
+
+    bin::write(out, buildGeomExtents(lod, extents));
+
+    bin::write(out, (geometry()
+                     ? std::uint8_t(internalTextureCount_)
+                     : std::uint8_t(reference_)));
+
+    bin::write(out, std::uint16_t
+               (half::float2half<std::round_to_nearest>(texelSize)));
+    bin::write(out, std::uint16_t(displaySize));
+
+    bin::write(out, std::int16_t(heightRange.min));
+    bin::write(out, std::int16_t(heightRange.max));
+}
 
 void MetaTile::save(std::ostream &out) const
 {
@@ -306,25 +320,7 @@ void MetaTile::save(std::ostream &out) const
 
     for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
         for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
-            TileId tileId(origin_.lod, origin_.x + i, origin_.y + j);
-
-            const auto &node(grid_[j * size_ + i]);
-            bin::write(out, std::uint8_t(node.flags()));
-
-            bin::write(out, buildGeomExtents(tileId, node.extents));
-
-            bin::write(out, std::uint8_t
-                       (std::min<std::size_t>
-                        (std::numeric_limits<std::uint8_t>::max()
-                         , node.internalTextureCount)));
-
-            bin::write(out, std::uint16_t
-                       (half::float2half<std::round_to_nearest>
-                        (node.texelSize)));
-            bin::write(out, std::uint16_t(node.displaySize));
-
-            bin::write(out, std::int16_t(node.heightRange.min));
-            bin::write(out, std::int16_t(node.heightRange.max));
+            grid_[j * size_ + i].save(out, origin_.lod);
         }
     }
 }
@@ -334,6 +330,30 @@ void saveMetaTile(const fs::path &path, const MetaTile &meta)
     utility::ofstreambuf f(path.string());
     meta.save(f);
     f.close();
+}
+
+inline void MetaNode::load(std::istream &in, Lod lod)
+{
+    std::uint8_t f;
+    bin::read(in, f);
+    flags_ = f;
+
+    std::vector<std::uint8_t> geomExtents(geomLen(lod));
+    bin::read(in, geomExtents);
+    parseGeomExtents(lod, extents, geomExtents);
+
+    std::uint8_t u8;
+    std::uint16_t u16;
+    std::int16_t i16;
+
+    bin::read(in, u8);
+    (geometry() ? internalTextureCount_ : reference_) = u8;
+
+    bin::read(in, u16); texelSize = half::half2float(u16);
+    bin::read(in, u16); displaySize = u16;
+
+    bin::read(in, i16); heightRange.min = i16;
+    bin::read(in, i16); heightRange.max = i16;
 }
 
 void MetaTile::load(std::istream &in, const fs::path &path)
@@ -356,7 +376,6 @@ void MetaTile::load(std::istream &in, const fs::path &path)
 
     std::uint8_t u8;
     std::uint16_t u16;
-    std::int16_t i16;
     std::uint32_t u32;
 
     // tile id information
@@ -422,21 +441,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
 
     for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
         for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
-            auto &node(grid_[j * size_ + i]);
-            std::uint8_t flags;
-            bin::read(in, flags);
-            node.flags(flags);
-
-            std::vector<std::uint8_t> geomExtents(geomLen(origin_.lod));
-            bin::read(in, geomExtents);
-            parseGeomExtents(origin_.lod, node.extents, geomExtents);
-
-            bin::read(in, u8);  node.internalTextureCount = u8;
-            bin::read(in, u16); node.texelSize = half::half2float(u16);
-            bin::read(in, u16); node.displaySize = u16;
-
-            bin::read(in, i16); node.heightRange.min = i16;
-            bin::read(in, i16); node.heightRange.max = i16;
+            grid_[j * size_ + i].load(in, origin_.lod);
         }
     }
 
@@ -498,6 +503,37 @@ MetaNode& MetaNode::mergeExtents(const MetaNode &other)
 
     // merge
     extents = unite(extents, other.extents);
+    return *this;
+}
+
+MetaNode& MetaNode::internalTextureCount(std::size_t value)
+{
+    if (!geometry()) {
+        LOGTHROW(err1, storage::Error)
+            << "Cannot set internal texture count in tile wihtout geometry.";
+    }
+    const std::size_t limit
+        (std::numeric_limits<decltype(internalTextureCount_)>::max());
+    internalTextureCount_ = std::min(value, limit);
+    return *this;
+}
+
+MetaNode& MetaNode::reference(std::size_t value)
+{
+    if (geometry()) {
+        LOGTHROW(err1, storage::Error)
+            << "Cannot set reference in tile with geometry.";
+    }
+
+    const std::size_t limit
+        (std::numeric_limits<decltype(internalTextureCount_)>::max());
+    if (value > limit) {
+        LOGTHROW(err1, storage::Error)
+            << "Invalid reference " << value << ", allowed maximum is "
+            << limit << ".";
+    }
+
+    internalTextureCount_ = value;
     return *this;
 }
 

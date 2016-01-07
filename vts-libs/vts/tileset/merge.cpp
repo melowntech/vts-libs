@@ -138,7 +138,7 @@ bool Input::hasMesh() const
 
 bool Input::hasAtlas() const
 {
-    return node_ && node_->internalTextureCount;
+    return node_ && node_->internalTextureCount();
 }
 
 bool Input::hasNavtile() const

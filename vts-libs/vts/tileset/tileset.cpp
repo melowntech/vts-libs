@@ -595,6 +595,10 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     node->update(tileId, metanode);
 
     tileIndex.setMask(tileId, TileIndex::Flag::watertight, watertight);
+    if (auto r = node->metanode->reference()) {
+        tileIndex.setMask(tileId, TileIndex::Flag::reference, true);
+        references.set(tileId, r);
+    }
 
     // collect global information (i.e. credits)
     updateProperties(metanode);
@@ -770,7 +774,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile
             }
 
             // set atlas related info
-            metanode.internalTextureCount = atlas->size();
+            metanode.internalTextureCount(atlas->size());
         }
 
         // externally-textured submeshes
@@ -835,11 +839,11 @@ void TileSet::Detail::setTile(const TileId &tileId, const TileSource &tile
         ((nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId)));
 }
 
-void TileSet::Detail::addReference(const TileId &tileId, uint8_t other)
+void TileSet::Detail::setReferenceTile(const TileId &tileId, uint8_t other)
 {
-    metadataChanged = true;
-    references.set(tileId, other);
-    tileIndex.setMask(tileId, TileIndex::Flag::reference);
+    MetaNode node;
+    node.reference(other);
+    updateNode(tileId, node, false);
 }
 
 Mesh TileSet::Detail::getMesh(const TileId &tileId, const MetaNode *node)
@@ -873,7 +877,7 @@ void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas
             << "There is no tile at " << tileId << ".";
     }
 
-    if (!node->internalTextureCount) {
+    if (!node->internalTextureCount()) {
         LOGTHROW(err2, storage::NoSuchTile)
             << "Tile " << tileId << " has no atlas.";
     }
@@ -923,7 +927,7 @@ TileSource TileSet::Detail::getTileSource(const TileId &tileId) const
         tile.mesh = driver->input(tileId, TileFile::mesh);
     }
 
-    if (node->internalTextureCount) {
+    if (node->internalTextureCount()) {
         tile.atlas = driver->input(tileId, TileFile::atlas);
     }
 
@@ -959,7 +963,7 @@ void TileSet::Detail::saveMetadata()
         std::uint8_t m(0);
         if (node.geometry()) { m |= TileIndex::Flag::mesh; }
         if (node.navtile()) { m |= TileIndex::Flag::navtile; }
-        if (node.internalTextureCount) { m |= TileIndex::Flag::atlas; }
+        if (node.internalTextureCount()) { m |= TileIndex::Flag::atlas; }
         return m;
     });
 

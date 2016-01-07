@@ -25,7 +25,8 @@ namespace vadstena { namespace vts {
 
 struct MetaNode {
     struct Flag {
-        enum : std::uint8_t {
+        typedef std::uint8_t value_type;
+        enum : value_type {
             geometryPresent = 0x01
             , navtilePresent = 0x02
             , applyTexelSize = 0x04
@@ -81,8 +82,6 @@ struct MetaNode {
      */
     math::Extents3 extents;
 
-    std::size_t internalTextureCount;
-
     float texelSize;
 
     std::uint16_t displaySize;
@@ -90,15 +89,15 @@ struct MetaNode {
     Range<std::int16_t> heightRange;
 
     MetaNode()
-        : internalTextureCount(), texelSize()
-        , displaySize(), heightRange(), flags_()
+        : texelSize(), displaySize(), heightRange(), flags_()
+        , internalTextureCount_()
     {}
 
-    std::uint8_t flags() const { return flags_; }
-    void flags(std::uint8_t flags) { flags_ = flags; }
+    Flag::value_type flags() const { return flags_; }
+    void flags(Flag::value_type flags) { flags_ = flags; }
 
-    std::uint8_t childFlags() const { return flags_ & Flag::allChildren; }
-    void childFlags(std::uint8_t flags) {
+    Flag::value_type childFlags() const { return flags_ & Flag::allChildren; }
+    void childFlags(Flag::value_type flags) {
         flags_ = (flags_ & ~Flag::allChildren) | (flags & Flag::allChildren);
     }
 
@@ -122,10 +121,23 @@ struct MetaNode {
         credits_.insert(creditId);
     }
 
-private:
-    bool check(std::uint8_t flag) const { return flags_ & flag; }
+    std::size_t internalTextureCount() const {
+        return (geometry() ? internalTextureCount_ : 0);
+    }
+    MetaNode& internalTextureCount(std::size_t value);
 
-    MetaNode& set(std::uint8_t flag, bool value) {
+    std::size_t reference() const {
+        return (!geometry() ? reference_ : 0);
+    }
+    MetaNode& reference(std::size_t value);
+
+    void load(std::istream &in, Lod lod);
+    void save(std::ostream &out, Lod lod) const;
+
+private:
+    bool check(Flag::value_type flag) const { return flags_ & flag; }
+
+    MetaNode& set(Flag::value_type flag, bool value) {
         if (value) {
             flags_ |= flag;
         } else {
@@ -134,7 +146,13 @@ private:
         return *this;
     }
 
-    std::uint8_t flags_;
+    Flag::value_type flags_;
+
+    // union 1
+    union {
+        std::uint8_t internalTextureCount_;
+        std::uint8_t reference_;
+    };
 
     storage::CreditIds credits_;
 };

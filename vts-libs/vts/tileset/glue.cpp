@@ -225,7 +225,7 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
         if (topSourceId != topId_) {
             // tile references single tile in other set -> store reference
             LOG(info1) << "Setting reference " << topSourceId + 1;
-            self_.addReference(tileId, topSourceId + 1);
+            self_.setReferenceTile(tileId, topSourceId + 1);
         }
     }
 
