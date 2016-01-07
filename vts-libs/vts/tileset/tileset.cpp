@@ -68,15 +68,13 @@ TileSource TileSet::getTileSource(const TileId &tileId) const
 
 void TileSet::setTile(const TileId &tileId, const Tile &tile)
 {
-    detail().setTile(tileId, tile.mesh.get(), tile.atlas.get()
-                     , tile.navtile.get());
+    detail().setTile(tileId, tile);
 }
 
 void TileSet::setTile(const TileId &tileId, const Tile &tile
                       , const NodeInfo &nodeInfo)
 {
-    detail().setTile(tileId, tile.mesh.get(), tile.atlas.get()
-                     , tile.navtile.get(), &nodeInfo);
+    detail().setTile(tileId, tile, &nodeInfo);
 }
 
 void TileSet::setTile(const TileId &tileId, const TileSource &tile)
@@ -558,6 +556,34 @@ void TileSet::Detail::load(const NavTile::HeightRange &heightRange
     navtile.deserialize(heightRange, os->get(), os->name());
 }
 
+void TileSet::Detail::updateProperties(const MetaNode &metanode)
+{
+    properties.credits.insert(metanode.credits().begin()
+                              , metanode.credits().end());
+    propertiesChanged = true;
+}
+
+void TileSet::Detail::updateProperties(const NodeInfo &nodeInfo)
+{
+    auto res(properties.spatialDivisionExtents.insert
+             (SpatialDivisionExtents::value_type
+              (nodeInfo.subtreeRoot->srs, nodeInfo.node.extents)));
+    if (!res.second) {
+        res.first->second
+            = math::unite(res.first->second, nodeInfo.node.extents);
+        propertiesChanged = true;
+    }
+}
+
+void TileSet::Detail::updateProperties(const Mesh &mesh)
+{
+    for (const auto &sm : mesh) {
+        if (sm.textureLayer) {
+            properties.boundLayers.insert(*sm.textureLayer);
+        }
+    }
+}
+
 TileNode* TileSet::Detail::updateNode(TileId tileId
                                       , const MetaNode &metanode
                                       , bool watertight)
@@ -569,6 +595,9 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     node->update(tileId, metanode);
 
     tileIndex.setMask(tileId, TileIndex::Flag::watertight, watertight);
+
+    // collect global information (i.e. credits)
+    updateProperties(metanode);
 
     // go up the tree
     while (tileId.lod) {
@@ -585,24 +614,6 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     }
 
     return node;
-}
-
-void accumulateBoundLayers(registry::IdSet &ids, const Mesh &mesh)
-{
-    for (const auto &sm : mesh) {
-        if (sm.textureLayer) { ids.insert(*sm.textureLayer); }
-    }
-}
-
-void update(TileSet::Properties &properties, const NodeInfo &nodeInfo)
-{
-    auto res(properties.spatialDivisionExtents.insert
-             (SpatialDivisionExtents::value_type
-              (nodeInfo.subtreeRoot->srs, nodeInfo.node.extents)));
-    if (!res.second) {
-        res.first->second
-            = math::unite(res.first->second, nodeInfo.node.extents);
-    }
 }
 
 bool check(const SpatialDivisionExtents &l, const SpatialDivisionExtents &r)
@@ -715,13 +726,16 @@ void sanityCheck(const TileId &tileId, const Mesh *mesh, const Atlas *atlas
 
 } // namespace
 
-void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
-                              , const Atlas *atlas, const NavTile *navtile
+void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile
                               , const NodeInfo *ni)
 {
     driver->wannaWrite("set tile");
 
     LOG(info1) << "Setting content of tile " << tileId << ".";
+
+    auto *mesh(tile.mesh.get());
+    auto *atlas(tile.atlas.get());
+    auto *navtile(tile.navtile.get());
 
     // resolve node info
     const NodeInfo nodeInfo(ni ? *ni : NodeInfo(referenceFrame, tileId));
@@ -737,7 +751,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
         metanode.extents = normalizedExtents(referenceFrame, extents(*mesh));
 
         // get external textures info configuration
-        accumulateBoundLayers(properties.boundLayers, *mesh);
+        updateProperties(*mesh);
 
         metanode.applyTexelSize(true);
 
@@ -767,8 +781,8 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
 
         metanode.texelSize = std::sqrt(meshArea / textureArea);
 
-        // set credits
-        metanode.updateCredits(properties.credits);
+        // set credits (only when we have mesh)
+        metanode.updateCredits(tile.credits);
     }
 
     // navtile
@@ -793,7 +807,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const Mesh *mesh
     }
 
     // update properties
-    update(properties, nodeInfo);
+    updateProperties(nodeInfo);
 }
 
 void TileSet::Detail::setTile(const TileId &tileId, const TileSource &tile
@@ -817,8 +831,8 @@ void TileSet::Detail::setTile(const TileId &tileId, const TileSource &tile
     }
 
     // update properties with node info (computed or generated)
-    update(properties
-           , (nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId)));
+    updateProperties
+        ((nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId)));
 }
 
 void TileSet::Detail::addReference(const TileId &tileId, uint8_t other)

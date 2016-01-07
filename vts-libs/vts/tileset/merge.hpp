@@ -106,7 +106,6 @@ private:
 struct Output {
     TileId tileId;
 
-    MetaNode node;
     boost::optional<Mesh> mesh;
     boost::optional<opencv::RawAtlas> atlas;
     boost::optional<opencv::NavTile> navtile;
@@ -131,6 +130,22 @@ struct Output {
         return atlas ? &*atlas : nullptr;
     }
     const NavTile* getNavtile() const { return navtile ? &*navtile : nullptr; }
+
+    // Takes content as a tile
+    Tile tile() {
+        Tile tile;
+        if (mesh) {tile.mesh.reset(&*mesh, [](void*) {}); }
+        if (atlas) {tile.atlas.reset(&*atlas, [](void*) {}); }
+        if (navtile) {tile.navtile.reset(&*navtile, [](void*) {}); }
+
+        // join all credits from tile source
+        for (const auto &src : source) {
+            const auto &sCredits(src.node().credits());
+            tile.credits.insert(sCredits.begin(), sCredits.end());
+        }
+
+        return tile;
+    }
 
     Mesh& forceMesh();
     opencv::RawAtlas& forceAtlas();

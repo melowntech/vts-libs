@@ -119,8 +119,7 @@ struct TileSet::Detail
     void loadTileIndex();
     void saveTileIndex();
 
-    void setTile(const TileId &tileId, const Mesh *mesh
-                 , const Atlas *atlas, const NavTile *navtile
+    void setTile(const TileId &tileId, const Tile &tile
                  , const NodeInfo *nodeInfo = nullptr);
 
     void setTile(const TileId &tileId, const TileSource &tile
@@ -186,6 +185,11 @@ struct TileSet::Detail
     void setPosition(const registry::Position &position);
     void addCredits(const registry::IdSet &credits);
     void addBoundLayers(const registry::IdSet &boundLayers);
+
+private:
+    void updateProperties(const MetaNode &metanode);
+    void updateProperties(const NodeInfo &nodeInfo);
+    void updateProperties(const Mesh &mesh);
 };
 
 inline void TileSet::Detail::checkValidity() const {

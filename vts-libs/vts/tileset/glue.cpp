@@ -218,8 +218,7 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
 
     if (tile) {
         // tile generated, store into glue
-        self_.setTile(tileId, tile.getMesh(), tile.getAtlas()
-                      , tile.getNavtile(), &nodeInfo);
+        self_.setTile(tileId, tile.tile(), &nodeInfo);
     } else if (g && !tile.source.empty()) {
         // no tile generated but there are some data to generate it
         auto topSourceId(tile.source.back().id());

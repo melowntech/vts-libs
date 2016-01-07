@@ -5,6 +5,8 @@
 
 #include "math/geometry_core.hpp"
 
+#include "../storage/credits.hpp"
+
 #include "basetypes.hpp"
 #include "mesh.hpp"
 #include "atlas.hpp"
@@ -16,6 +18,9 @@ struct Tile {
     Mesh::pointer mesh;
     Atlas::pointer atlas;
     NavTile::pointer navtile;
+
+    // credits to store in metanode
+    storage::CreditIds credits;
 
     Tile() {}
 };

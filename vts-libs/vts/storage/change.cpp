@@ -971,12 +971,6 @@ Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo
 
 void Flattener::finish(TileSet &tileSet)
 {
-    for (const auto *set : usedSets_) {
-        const auto props(set->getProperties());
-        tileSet.addCredits(props.credits);
-        tileSet.addBoundLayers(props.boundLayers);
-    }
-
     if (!usedSets_.empty()) {
         tileSet.setPosition((*usedSets_.begin())->getProperties().position);
     }
