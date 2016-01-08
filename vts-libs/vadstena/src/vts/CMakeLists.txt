@@ -14,6 +14,7 @@ define_module(BINARY vts02vts
 
 set(vts02vts_SOURCES
   vts02vts.cpp
+  heightmap.cpp
   )
 
 vadstena_tool(storage vts02vts ${vts02vts_SOURCES})

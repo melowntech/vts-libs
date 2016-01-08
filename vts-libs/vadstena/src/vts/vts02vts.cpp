@@ -41,6 +41,8 @@
 #include "vts-libs/vts/io.hpp"
 #include "vts-libs/vts/csconvertor.hpp"
 
+#include "./heightmap.hpp"
+
 namespace po = boost::program_options;
 namespace vs = vadstena::storage;
 namespace vr = vadstena::registry;
@@ -56,6 +58,10 @@ namespace {
 struct Config {
     boost::optional<std::uint16_t> textureLayer;
     vs::CreditIds credits;
+    unsigned int ntOffset;
+    unsigned int ntSourceOffset;
+
+    Config() : ntOffset(2), ntSourceOffset(1) {}
 };
 
 class Vts02Vts : public va::UtilityBase
@@ -106,8 +112,18 @@ void Vts02Vts::configuration(po::options_description &cmdline
          , "String/numeric id of bound layer to be used as external texture "
          "in generated meshes.")
 
-        ("credits", po::value<std::string>()->required()
+        ("credits", po::value<std::string>()
          , "Comma-separated list of string/numeric credit id.")
+
+        ("navtileLodOffset"
+         , po::value(&config_.ntOffset)->default_value(config_.ntOffset)
+         ->required()
+         , "Offset from maximum LOD where navtiles are generated.")
+
+        ("navtileSourceLodOffset"
+         , po::value(&config_.ntSourceOffset)
+         ->default_value(config_.ntSourceOffset)->required()
+         , "Offset from maximum LOD where navtiles date is generated from.")
         ;
 
     registryConfiguration(cmdline);
@@ -175,6 +191,13 @@ usage
 
 typedef vts::opencv::NavTile NavTile;
 
+vs::Lod computeNtLod(const vs::LodRange &lodRange, unsigned int ntOffset)
+{
+    auto ls(lodRange.size());
+    if (ls < ntOffset) { ntOffset = ls; }
+    return lodRange.max - ntOffset;
+}
+
 class Encoder : public vts::Encoder {
 public:
     Encoder(const boost::filesystem::path &path
@@ -185,15 +208,15 @@ public:
         , config_(config)
         , input_(input), aa_(input_->advancedApi())
         , ti_(aa_.tileIndex()), cti_(ti_)
+        , ntLod_(computeNtLod(input->lodRange(), config.ntOffset))
+        , ntSourceLod_(computeNtLod(input->lodRange(), config.ntSourceOffset))
     {
         cti_.makeFull().makeComplete();
+
         // set constraints: from zero to max LOD
         setConstraints(Constraints()
                        .setLodRange
                        (vs::LodRange(0, input->lodRange().max)));
-
-        // generate navigation tiles from original metanodes' heightmaps
-        hm2Navtile();
     }
 
 private:
@@ -202,9 +225,10 @@ private:
              , const TileResult&)
         UTILITY_OVERRIDE;
 
-    virtual void finish(vts::TileSet&) UTILITY_OVERRIDE {}
+    virtual void finish(vts::TileSet&) UTILITY_OVERRIDE;
 
-    void hm2Navtile();
+    void generateHeightMap(const vts::TileId &tileId, const vts0::Mesh &m
+                           , const math::Extents2 &divisionExtents);
 
     const Config config_;
 
@@ -212,9 +236,9 @@ private:
     vts0::TileSet::AdvancedApi aa_;
     const vts0::TileIndex &ti_;
     vts0::TileIndex cti_;
-
-    typedef std::map<vts::TileId, NavTile::pointer> NavTiles;
-    NavTiles navtiles_;
+    vs::Lod ntLod_;
+    vs::Lod ntSourceLod_;
+    HeightMap::Accumulator hma_;
 };
 
 vts0::Mesh loadMesh(const vs::IStream::pointer &is)
@@ -304,7 +328,7 @@ private:
  *  Optional offset allows us to map grid into larger grid of same coarsenes at
  *  given position is such grid.
  */
-inline math::Matrix4 geo2grid(const math::Extents2& extents
+inline math::Matrix4 mesh2grid(const math::Extents2& extents
                               , const math::Size2 &gridSize
                               , const math::Size2 &offset = math::Size2())
 {
@@ -327,167 +351,91 @@ inline math::Matrix4 geo2grid(const math::Extents2& extents
     return trafo;
 }
 
+/** Geo coordinates to coverage mask mapping.
+ * NB: result is in pixel system: pixel centers have integral indices
+ */
+inline math::Matrix4 mesh2mask(const math::Extents2 &extents
+                               , const math::Size2 &gridSize)
+{
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
+
+    auto es(size(extents));
+
+    // scales
+    math::Size2f scale(gridSize.width / es.width
+                       , gridSize.height / es.height);
+
+    // scale to grid
+    trafo(0, 0) = scale.width;
+    trafo(1, 1) = -scale.height;
+
+    // move upper left corner to -0.5, -0.5
+    trafo(0, 3) = gridSize.width / 2.0 - 0.5;
+    trafo(1, 3) = gridSize.height / 2.0 - 0.5;
+
+    return trafo;
+}
+
+template <typename Op>
+void rasterizeMesh(const vts0::Mesh &mesh, const math::Matrix4 &trafo
+                   , const math::Size2 &rasterSize, Op op)
+{
+    std::vector<imgproc::Scanline> scanlines;
+    cv::Point3f tri[3];
+    for (const auto &face : mesh.facets) {
+        for (int i : { 0, 1, 2 }) {
+            auto p(transform(trafo, mesh.vertices[face.v[i]]));
+            tri[i].x = p(0); tri[i].y = p(1); tri[i].z = p(2);
+        }
+
+        scanlines.clear();
+        imgproc::scanConvertTriangle(tri, 0, rasterSize.height, scanlines);
+
+        for (const auto &sl : scanlines) {
+            imgproc::processScanline(sl, 0, rasterSize.width, op);
+        }
+    }
+}
+
 /** Rasterizes mesh to generate mesh mask and mesh heightmap.
  */
-void rasterizeMesh(const vts::TileId &tileId, const math::Extents2 &extents
-                   , const vts0::Mesh &mesh, vts::Mesh::CoverageMask &cm
-                   , NavTile::pointer &navtile)
+void createMeshMask(const vts::TileId &tileId, const math::Extents2 &extents
+                    , const vts0::Mesh &mesh, vts::Mesh::CoverageMask &cm)
 {
     (void) tileId;
 
-    // do not change
-    const int scale(2);
-
     const auto cms(vts::Mesh::coverageSize());
 
-    // We need to create pane with 2x the size of mask/navtile; since
-    // both are in grid registration and thus they have shared edges with
-    // neighbouring tiles we must double the subtract 1 from both dimenstions at
-    // each level
-    math::Size2 sourceSize(2 * cms.width - 1, 2 * cms.height - 1);
-
-    // since we are about to filter this down back to original size we have to
-    // add filter radius to each direction; radius is 2x scale -> 4
-
-    const int radius(2 * scale);
-    const math::Size2 rasterSize(sourceSize.width + 2 * radius
-                                 , sourceSize.height + 2 * radius);
-
-    LOG(info2) << "rasterSize: " << rasterSize;
+    LOG(info2) << "coverage size: " << cms;
     // NB: sourceSize covers extents, raster size are a bit bigger
 
-    // build trafo to map tile data into raster
-    auto trafo(geo2grid(extents, sourceSize, math::Size2(radius, radius)));
-    LOG(info2) << "trafo: " << trafo;
-
     // build heights and mask matrices
-    cv::Mat heights(rasterSize.height, rasterSize.width, CV_64FC1);
-    heights = cv::Scalar(0);
-    cv::Mat mask(rasterSize.height, rasterSize.width, CV_8UC1);
-    mask = cv::Scalar(0);
+    cv::Mat mask(cms.height, cms.width, CV_8UC1, cv::Scalar(0));
 
-    // draw all faces into the heightmap and mask
+    // draw all faces into the mask
+    rasterizeMesh(mesh, mesh2mask(extents, cms)
+                  , cms, [&](int x, int y, float)
     {
-        std::vector<imgproc::Scanline> scanlines;
-        cv::Point3f tri[3];
-        for (const auto &face : mesh.facets) {
-            for (int i : { 0, 1, 2 }) {
-                auto p(transform(trafo, mesh.vertices[face.v[i]]));
-                tri[i].x = p(0); tri[i].y = p(1); tri[i].z = p(2);
-            }
+        // remember mask
+        mask.at<unsigned char>(y, x) = 0xff;
+    });
 
-            scanlines.clear();
-            imgproc::scanConvertTriangle(tri, 0, heights.rows, scanlines);
-
-            for (const auto &sl : scanlines) {
-                imgproc::processScanline(sl, 0, heights.cols
-                                         , [&](int x, int y, float z)
-                {
-                    // remember height
-                    auto &height(heights.at<double>(y, x));
-                    if (z > height) { height = z; }
-
-                    // remember mask
-                    mask.at<unsigned char>(y, x) = 255;
-                });
-            }
-        }
-    }
-
-    // scale-down mask into cm
-    for (int j(0), y(radius), ej(cm.size().height); j < ej; ++j, y += 2) {
-        for (int i(0), x(radius), ei(cm.size().width); i < ei; ++i, x += 2) {
-            // 3x3 submatrix at given location (nb, end is exclusive!)
-            cv::Range yr(y - 1, y + 2);
-            cv::Range xr(x - 1, x + 2);
-
-            // we need to skip out-of mask values (otherwise we remove border
-            // pixels in mask that is cut exactly to extents!)
-            if (!j) { ++yr.start; } else if ((j + 1) == ej) {--yr.end; }
-            if (!i) { ++xr.start; } else if ((i + 1) == ei) {--xr.end; }
-
-            // calculate minimum in given submatrix
-            double min;
-            cv::minMaxIdx(cv::Mat(mask, yr, xr), &min, nullptr);
-            // reset mask if minimum is zero
-            if (!min) { cm.set(i, j, false); }
-        }
-    }
-
-    if (navtile) { return; }
-    navtile = std::make_shared<NavTile>();
-
-    // use same mask as mesh mask
-    navtile->coverageMask(cm);
-
-    // get kernel from low-pass filter
-    auto kernel(math::LowPassFilter_t(radius, radius).getKernel());
-
-    // temporary buffer for horizontal filtering
-    cv::Mat buffer(rasterSize.height, cms.width, CV_64FC1);
-
-    // horizontal filtering
-    // for every row in output
-    for (int j(0); j < buffer.rows; ++j) {
-        // and for every column in buffer
-        for (int i(0); i < buffer.cols; ++i) {
-            // and for every item in kernel
-
-            // calculate convolution
-            int x(2 * i);
-            double sum(0), weight(0);
-            for (const auto f : kernel) {
-                // if unmasked -> take into account
-                if (mask.at<unsigned char>(j, x)) {
-                    sum += f * heights.at<double>(j, x);
-                    weight += f;
-                }
-                ++x;
-            }
-
-            // write filtered value
-            if (weight) {
-                buffer.at<double>(j, i) = sum / weight;
-            }
-        }
-    }
-
-    // output heightmap
-    auto &hm(navtile->data());
-
-    // vertical filtering
-    // and for every column in output
-    for (int i(0); i < hm.cols; ++i) {
-        // and for every row in output
-        for (int j(0); j < hm.rows; ++j) {
-            // and for every item in kernel
-
-            // calculate convolution
-            int y(2 * j);
-            double sum(0), weight(0);
-            for (const auto f : kernel) {
-                // if unmasked -> take into account
-                if (mask.at<unsigned char>(y, 2 * i + radius)) {
-                    sum += f * buffer.at<double>(y, i);
-                    weight += f;
-                }
-                ++y;
-            }
-
-            // write filtered value
-            if (weight) {
-                hm.at<double>(j, i) = sum / weight;
+    // convert into rastermask; we are optimistic so we start with full mask
+    cm.reset();
+    for (int j(0); j < cms.height; ++j) {
+        for (int i(0); i < cms.width; ++i) {
+            if (!mask.at<std::uint8_t>(j, i)) {
+                cm.set(i, j, false);
             }
         }
     }
 }
 
 vts::Mesh::pointer
-createMeshAndNavtile(const vts::TileId &tileId, const vts0::Mesh &m
-                     , const math::Extents2 &divisionExtents
-                     , bool externalTextureCoordinates
-                     , boost::optional<std::uint16_t> textureLayer
-                     , NavTile::pointer &navtile)
+createMesh(const vts::TileId &tileId, const vts0::Mesh &m
+           , const math::Extents2 &divisionExtents
+           , bool externalTextureCoordinates
+           , boost::optional<std::uint16_t> textureLayer)
 {
     // just one submesh
     auto mesh(std::make_shared<vts::Mesh>());
@@ -522,78 +470,31 @@ createMeshAndNavtile(const vts::TileId &tileId, const vts0::Mesh &m
         sm.facesTc.emplace_back(f.t[0], f.t[1], f.t[2]);
     }
 
-    // create mesh mask and navtile
-    rasterizeMesh(tileId, divisionExtents, m, mesh->coverageMask, navtile);
+    // create mesh mask
+    createMeshMask(tileId, divisionExtents, m, mesh->coverageMask);
 
     // done
     return mesh;
 }
 
-void Encoder::hm2Navtile()
+void Encoder::generateHeightMap(const vts::TileId &tileId
+                                , const vts0::Mesh &mesh
+                                , const math::Extents2 &extents)
 {
-    const auto lr(input_->lodRange());
-    const vs::LodRange gap(lr.max - 8 + 1, lr.min);
-
-    auto navtile([&](vts::TileId tileId) -> NavTile::pointer&
+    auto& hm([&]() -> cv::Mat&
     {
-        // get navtile and create if missing
-        auto &nt(navtiles_[tileId]);
-        if (!nt) {
-            nt = std::make_shared<NavTile>();
-            // clear mask
-            nt->coverageMask().reset(false);
-        }
-        return nt;
-    });
+        cv::Mat *t(nullptr);
+        UTILITY_OMP(critical)
+            t = &hma_.tile(tileId);
+        return *t;
+    }());
 
-    aa_.traverseTiles([&](const vts0::TileId &vts0Id)
+    rasterizeMesh(mesh, mesh2grid(extents, hma_.tileSize())
+                  , hma_.tileSize()
+                  , [&](int x, int y, float z)
     {
-        // cannot go above root :)
-        if (vts0Id.lod < 8) { return; }
-
-        vts::TileId tileId(vts0Id.lod - 8, vts0Id.x >> 8, vts0Id.y >> 8);
-        unsigned int x(vts0Id.x & 0xff);
-        unsigned int y(vts0Id.y & 0xff);
-
-        // get navtile and create if missing
-        auto &nt(navtile(tileId));
-
-        // get value read from center of tile's heightmap
-        auto height(input_->getMetadata(vts0Id)
-                    .heightmap[vts0::TileMetadata::HMSize / 2]
-                    [vts0::TileMetadata::HMSize / 2]);
-        // get in navtile and mask
-        nt->data().at<double>(y, x) = height;
-        nt->coverageMask().set(x, y);
-
-        if (gap.empty() || (vts0Id.lod != lr.max)) { return; }
-
-        // bottom of pyramid, we can generate tiles in the gap from this one
-        auto generateMask([](unsigned int bits)
-        {
-            return (((unsigned int)(1) << bits) - (unsigned int)(1));
-        });
-
-        int index(7);
-        for (auto l : gap) {
-            unsigned int count(generateMask(8 - index));
-            unsigned int mask(generateMask(index));
-
-            vts::TileId tileId(l, vts0Id.x >> index, vts0Id.y >> index);
-            unsigned int x((vts0Id.x & mask) << (8 - index));
-            unsigned int y((vts0Id.y & mask) << (8 - index));
-
-            // get navtile and create if missing
-            auto &nt(navtile(tileId));
-            for (unsigned int j(0); j <= count; ++j) {
-                for (unsigned int i(0); i <= count; ++i) {
-                    nt->data().at<double>(y + j, x + i) = height;
-                    nt->coverageMask().set(x + i, y + j);
-                }
-            }
-
-            --index;
-        }
+        auto &value(hm.at<float>(y, x));
+        if (z > value) { value = z; }
     });
 }
 
@@ -608,23 +509,8 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
         return TileResult::Result::noData;
     }
 
-    // get generated navtile
-    auto fnavtiles(navtiles_.find(tileId));
-
-    NavTile::pointer navtile;
-    if (fnavtiles != navtiles_.end()) { navtile = fnavtiles->second; }
-
     if (!ti_.exists(vts0Id)) {
-        // check for generated navtile
-        if (!navtile) {
-            // nothing here, continue down
-            return TileResult::Result::noDataYet;
-        }
-
-        // OK, set navtile
-        vts::Encoder::TileResult result;
-        result.tile().navtile = fnavtiles->second;
-        return result;
+        return TileResult::Result::noDataYet;
     }
 
     // load mesh; NB: mesh is in space division srs, just convert to physical
@@ -646,18 +532,26 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     tile.atlas = std::make_shared<Atlas>(atlasStream);
 
     // convert mesh from old one
-    tile.mesh = createMeshAndNavtile(tileId, mesh
-                                     , nodeInfo.node.extents
-                                     , nodeInfo.node.externalTexture
-                                     , config_.textureLayer, navtile);
-
-    // set navtile
-    tile.navtile = navtile;
+    tile.mesh = createMesh(tileId, mesh, nodeInfo.node.extents
+                           , nodeInfo.node.externalTexture
+                           , config_.textureLayer);
 
     // set credits
     tile.credits = config_.credits;
 
+    if (tileId.lod == ntSourceLod_) {
+        // we have to generate source data for navtiles
+        generateHeightMap(tileId, mesh, nodeInfo.node.extents);
+    }
+
     return result;
+}
+
+void Encoder::finish(vts::TileSet &ts)
+{
+    (void) ts;
+    HeightMap hm(std::move(hma_));
+    hm.filter();
 }
 
 int Vts02Vts::run()
