@@ -264,7 +264,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
         mapConfig.mergeTileSet
             (TileSet::mapConfig
              (storage_paths::tilesetPath(root, tileset.tilesetId))
-             , storage_paths::tilesetRoot());
+             , storage_paths::tilesetRoot() / tileset.tilesetId);
     }
 
     for (const auto &item : properties.glues) {
