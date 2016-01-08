@@ -154,15 +154,21 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     Json::StyledStreamWriter().write(os, content);
 }
 
-void mergeRest(MapConfig &out, const MapConfig &in)
+void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
 {
     out.srs.update(in.srs);
     out.credits.update(in.credits);
     out.boundLayers.update(in.boundLayers);
 
-    // TODO: find out first valid
-    out.position = in.position;
-    out.view = in.view;
+    // merge views
+    if (surface) {
+        out.view.surfaces.insert
+            (out.view.surfaces.end()
+             , in.view.surfaces.begin(), in.view.surfaces.end());
+
+        // TODO: find out first valid
+        out.position = in.position;
+    }
 
     // all inputs mas be texture-atlas-ready
     out.textureAtlasReady &= in.textureAtlasReady;
@@ -181,7 +187,7 @@ void MapConfig::mergeTileSet(const MapConfig &tilesetMapConfig
     s.root = root;
     surfaces.push_back(s);
 
-    mergeRest(*this, tilesetMapConfig);
+    mergeRest(*this, tilesetMapConfig, true);
 }
 
 void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
@@ -199,7 +205,7 @@ void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
     g.root = root / glue.path;
     glues.push_back(g);
 
-    mergeRest(*this, tilesetMapConfig);
+    mergeRest(*this, tilesetMapConfig, false);
 }
 
 } } // namespace vadstena::vts

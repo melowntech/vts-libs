@@ -1145,8 +1145,8 @@ TileSet::Detail::mapConfig(const Properties &properties
     mapConfig.position
         = extra.position ? *extra.position : properties.position;
 
-    // just one view
-    mapConfig.view.surfaces.insert(surface.id);
+    // just one surface in the view
+    mapConfig.view.surfaces.push_back(surface.id);
 
     return mapConfig;
 }

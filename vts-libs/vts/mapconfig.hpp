@@ -45,7 +45,7 @@ struct GlueConfig : SurfaceCommonConfig {
 };
 
 struct View {
-    registry::StringIdSet surfaces;
+    std::vector<std::string> surfaces;
     registry::StringIdSet boundLayers;
     registry::StringIdSet freeLayers;
 };
