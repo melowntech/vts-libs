@@ -248,8 +248,9 @@ determineNtLod(const vts0::TileIndex &ti, const vts0::Properties &prop
         const auto cent(center(extents));
 
         lodPixelSize
-            = ((vts0::tileSize(prop, lod).height * sf(cent).meridionalScale)
-               / NavTile::size().height);
+            = ((vts0::tileSize(prop, lod).height
+                * sf(cent).meridionalScale)
+               / (NavTile::size().height - 1));
 
         if (std::round(lodPixelSize) <= pixelSize) {
             return std::tuple<vs::Lod, double>(lod, lodPixelSize);
