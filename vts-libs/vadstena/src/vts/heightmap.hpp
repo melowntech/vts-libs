@@ -11,20 +11,19 @@ class HeightMap {
 public:
     class Accumulator;
 
-    typedef vts::TileRange::point_type Index;
-
     HeightMap(Accumulator &&accumulator);
 
-    void filter(int kernelSize = 3, int count = 3);
+    void dtmize(int count);
 
     math::Size2 size() const { return sizeInPixels_; };
 
 private:
     math::Size2 tileSize_;
+    math::Size2 tileGrid_;
     vts::TileRange tileRange_;
     math::Size2 sizeInTiles_;
     math::Size2 sizeInPixels_;
-    std::vector<cv::Mat> pane_;
+    cv::Mat pane_;
 };
 
 /** Helper class. HeightMap can access internals.
@@ -38,12 +37,13 @@ public:
     const math::Size2& tileSize() const { return tileSize_; }
 
 private:
-    cv::Mat* findTile(const HeightMap::Index &index);
+    typedef vts::TileRange::point_type Index;
+    cv::Mat* findTile(const Index &index);
 
     friend class HeightMap;
     math::Size2 tileSize_;
-    typedef std::map<HeightMap::Index, cv::Mat> Pane;
-    Pane pane_;
+    typedef std::map<Index, cv::Mat> Tiles;
+    Tiles tiles_;
     vts::TileRange tileRange_;
     math::Size2 sizeInTiles_;
 };

@@ -58,10 +58,10 @@ namespace {
 struct Config {
     boost::optional<std::uint16_t> textureLayer;
     vs::CreditIds credits;
-    unsigned int ntOffset;
-    unsigned int ntSourceOffset;
+    unsigned int ntLodPixelSize;
+    double dtmExtractionRadius;
 
-    Config() : ntOffset(2), ntSourceOffset(1) {}
+    Config() : ntLodPixelSize(1.0), dtmExtractionRadius(40.0) {}
 };
 
 class Vts02Vts : public va::UtilityBase
@@ -115,15 +115,17 @@ void Vts02Vts::configuration(po::options_description &cmdline
         ("credits", po::value<std::string>()
          , "Comma-separated list of string/numeric credit id.")
 
-        ("navtileLodOffset"
-         , po::value(&config_.ntOffset)->default_value(config_.ntOffset)
-         ->required()
-         , "Offset from maximum LOD where navtiles are generated.")
+        ("navtileLodPixelSize"
+         , po::value(&config_.ntLodPixelSize)
+         ->default_value(config_.ntLodPixelSize)->required()
+         , "Navigation data are generated at first LOD (starting from root) "
+         "where rounded value of pixel size (in navigation grid) is less or "
+         "equal to this value.")
 
-        ("navtileSourceLodOffset"
-         , po::value(&config_.ntSourceOffset)
-         ->default_value(config_.ntSourceOffset)->required()
-         , "Offset from maximum LOD where navtiles date is generated from.")
+        ("dtmExtraction.radius"
+         , po::value(&config_.dtmExtractionRadius)
+         ->default_value(config_.dtmExtractionRadius)->required()
+         , "Radius (in meters) of DTM extraction element (in meters).")
         ;
 
     registryConfiguration(cmdline);
@@ -191,11 +193,71 @@ usage
 
 typedef vts::opencv::NavTile NavTile;
 
-vs::Lod computeNtLod(const vs::LodRange &lodRange, unsigned int ntOffset)
+// determine first navtile LOD: LOD where navtile pixel size reaches one
+// meter; source LOD is first navtile LOD + 1; both are clamped inside
+// available LOD range
+
+vs::Lod clampLod(const vs::LodRange &lodRange, vs::Lod lod)
 {
-    auto ls(lodRange.size());
-    if (ls < ntOffset) { ntOffset = ls; }
-    return lodRange.max - ntOffset;
+    if (lod < lodRange.min) { return lodRange.min; }
+    if (lod > lodRange.max) { return lodRange.max; }
+    return lod;
+}
+
+vr::TileRange tileRange(const vts0::RasterMask &layer)
+{
+    vr::TileRange tileRange(math::InvalidExtents{});
+    layer.forEachQuad([&](long x, long y, long xsize, long ysize, bool)
+    {
+        update(tileRange, vr::TileRange::point_type(x, y));
+        update(tileRange, vr::TileRange::point_type
+               (x + xsize - 1, y + ysize - 1));
+    }, vts0::RasterMask::Filter::white);
+
+    return tileRange;
+}
+
+std::tuple<vs::Lod, double>
+determineNtLod(const vts0::TileIndex &ti, const vts0::Properties &prop
+               , vr::ReferenceFrame referenceFrame, double pixelSize)
+{
+    geo::SrsFactors sf
+        (vr::Registry::srs(referenceFrame.model.physicalSrs).srsDef);
+
+    const auto lodRange(ti.lodRange());
+
+    double lodPixelSize(0.0);
+    for (const auto lod : lodRange) {
+
+        const auto *layer(ti.mask(lod));
+        if (!layer) { continue; }
+
+        const auto tr(tileRange(*layer));
+        if (!valid(tr)) { continue; }
+
+        // dataset extents at given LOD
+        math::Extents2 extents(math::InvalidExtents{});
+        update(extents
+               , vts0::extents
+               (prop, vts0::TileId(lod, tr.ll(0), tr.ll(1))).ll);
+        update(extents
+               , vts0::extents
+               (prop, vts0::TileId(lod, tr.ur(0), tr.ur(1))).ur);
+
+        // dataset center at given LOD
+        const auto cent(center(extents));
+
+        lodPixelSize
+            = ((vts0::tileSize(prop, lod).height * sf(cent).meridionalScale)
+               / NavTile::size().height);
+
+        if (std::round(lodPixelSize) <= pixelSize) {
+            return std::tuple<vs::Lod, double>(lod, lodPixelSize);
+        }
+    }
+
+    // no such LOD available, take bottom
+    return std::tuple<vs::Lod, double>(lodRange.max, lodPixelSize);
 }
 
 class Encoder : public vts::Encoder {
@@ -208,9 +270,25 @@ public:
         , config_(config)
         , input_(input), aa_(input_->advancedApi())
         , ti_(aa_.tileIndex()), cti_(ti_)
-        , ntLod_(computeNtLod(input->lodRange(), config.ntOffset))
-        , ntSourceLod_(computeNtLod(input->lodRange(), config.ntSourceOffset))
     {
+        std::tie(ntLod_, ntSourceLodPixelSize_)
+            = determineNtLod
+            (ti_, input->getProperties()
+             , referenceFrame(), config.ntLodPixelSize);
+
+        if ((ntLod_ + 1) <= input->lodRange().max) {
+            ntSourceLod_ = ntLod_ + 1;
+            ntSourceLodPixelSize_ /= 2.0;
+        } else {
+            ntSourceLod_ = ntLod_;
+        }
+
+        LOG(info2)
+            << "Navtile data stored at LOD: " << ntLod_ << " and above.";
+        LOG(info2)
+            << "Navtile data extracted from LOD: " << ntSourceLod_
+            << " with pixel size " << ntSourceLodPixelSize_;
+
         cti_.makeFull().makeComplete();
 
         // set constraints: from zero to max LOD
@@ -238,6 +316,7 @@ private:
     vts0::TileIndex cti_;
     vs::Lod ntLod_;
     vs::Lod ntSourceLod_;
+    double ntSourceLodPixelSize_;
     HeightMap::Accumulator hma_;
 };
 
@@ -489,12 +568,14 @@ void Encoder::generateHeightMap(const vts::TileId &tileId
         return *t;
     }());
 
+    // invalid heightmap value (i.e. initial value) is +oo and we take minimum
+    // of all rasterized heights in given placeq
     rasterizeMesh(mesh, mesh2grid(extents, hma_.tileSize())
                   , hma_.tileSize()
                   , [&](int x, int y, float z)
     {
         auto &value(hm.at<float>(y, x));
-        if (z > value) { value = z; }
+        if (z < value) { value = z; }
     });
 }
 
@@ -551,7 +632,7 @@ void Encoder::finish(vts::TileSet &ts)
 {
     (void) ts;
     HeightMap hm(std::move(hma_));
-    hm.filter();
+    hm.dtmize(config_.dtmExtractionRadius / ntSourceLodPixelSize_);
 }
 
 int Vts02Vts::run()

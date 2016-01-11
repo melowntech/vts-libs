@@ -1,41 +1,41 @@
 #include "dbglog/dbglog.hpp"
 
-#include "vts-libs/vts/mesh.hpp"
+#include "vts-libs/vts/navtile.hpp"
 
 #include "./heightmap.hpp"
 
 namespace def {
 
 float Infinity(std::numeric_limits<float>::infinity());
-float InvalidHeight(-Infinity);
+float InvalidHeight(Infinity);
 
 } // namespace def
 
 HeightMap::Accumulator::Accumulator()
-    : tileSize_(vts::Mesh::coverageSize().width
-                , vts::Mesh::coverageSize().height)
+    : tileSize_(vts::NavTile::size().width
+                , vts::NavTile::size().width)
     , tileRange_(math::InvalidExtents{})
 {
 }
 
-cv::Mat* HeightMap::Accumulator::findTile(const HeightMap::Index &index)
+cv::Mat* HeightMap::Accumulator::findTile(const Index &index)
 {
-    auto fpane(pane_.find(index));
-    if (fpane == pane_.end()) { return nullptr; }
-    return &fpane->second;
+    auto ftiles(tiles_.find(index));
+    if (ftiles == tiles_.end()) { return nullptr; }
+    return &ftiles->second;
 }
 
 cv::Mat& HeightMap::Accumulator::tile(const vts::TileId &tileId)
 {
-    HeightMap::Index index(tileId.x, tileId.y);
+    Index index(tileId.x, tileId.y);
     if (auto *tile = findTile(index)) {
         return *tile;
     }
 
     // create new tile (all values set to -oo
     auto res
-        (pane_.insert
-         (Pane::value_type
+        (tiles_.insert
+         (Tiles::value_type
           (index, cv::Mat
            (tileSize_.height, tileSize_.width, CV_32F
             , cv::Scalar(def::InvalidHeight)))));
@@ -49,30 +49,27 @@ cv::Mat& HeightMap::Accumulator::tile(const vts::TileId &tileId)
 
 HeightMap::HeightMap(Accumulator &&a)
     : tileSize_(a.tileSize_)
+    , tileGrid_(tileSize_.width - 1, tileSize_.height - 1)
     , tileRange_(a.tileRange_)
     , sizeInTiles_(a.sizeInTiles_)
-    , sizeInPixels_(sizeInTiles_.width * tileSize_.width
-                    , sizeInTiles_.height * tileSize_.height)
-    , pane_(area(sizeInTiles_))
+    , sizeInPixels_(1 + sizeInTiles_.width * tileGrid_.width
+                    , 1 + sizeInTiles_.height * tileGrid_.height)
+    , pane_(sizeInPixels_.height, sizeInPixels_.width, CV_32F
+            , cv::Scalar(def::InvalidHeight))
 {
-    // copy tiles (NB: cv::Mat uses reference counting, no data are copied)
-    unsigned int i(0);
-    for (auto &t : pane_) {
-        Index index(i % sizeInTiles_.width, i / sizeInTiles_.width);
-
-        if (auto *tile = a.findTile(index)) {
-            t = *tile;
-        }
-
-        ++i;
+    LOG(info4) << "Copying heightmaps from tiles into one pane.";
+    for (const auto &item : a.tiles_) {
+        // copy tile in proper place
+        Accumulator::Index offset(item.first - tileRange_.ll);
+        offset(0) *= tileGrid_.width;
+        offset(1) *= tileGrid_.height;
+        cv::Mat tile(pane_, cv::Range(offset(1), offset(1) + tileSize_.height)
+                     , cv::Range(offset(0), offset(0) + tileSize_.width));
+        item.second.copyTo(tile);
     }
 
     // drop original pane
-    a.pane_.clear();
-
-    LOG(info4) << "Tiles in hm: " << pane_.size() << ".";
-    LOG(info4) << "Size in tiles: " << sizeInTiles_ << ".";
-    LOG(info4) << "Size in pixels: " << sizeInPixels_ << ".";
+    a.tiles_.clear();
 }
 
 namespace {
@@ -80,37 +77,19 @@ namespace {
 template <typename Operator>
 class Morphology {
 public:
-    typedef std::vector<cv::Mat> Tiles;
-
-    Morphology(Tiles &in, const math::Size2 &tileSize
-               , const math::Size2 &sizeInTiles
-               , int kernelSize)
-        : in_(in), tileSize_(tileSize), sizeInTiles_(sizeInTiles)
-        , sizeInPixels_(tileSize.width * sizeInTiles.width
-                        , tileSize.height * sizeInTiles.height)
-        , out_(in_.size())
+    Morphology(cv::Mat &data, cv::Mat &tmp, int kernelSize)
+        : in_(data), tmp_(tmp)
     {
+        tmp_ = cv::Scalar(def::InvalidHeight);
         run(kernelSize);
-        in_.swap(out_);
+        std::swap(in_, tmp_);
     }
 
 private:
     void run(int kernelSize);
 
-    inline int tileIndex(int x, int y) {
-        return ((x / tileSize_.width)
-                + ((y / tileSize_.height) * sizeInTiles_.width));
-    }
-
-    math::Point2i tilePos(int x, int y) {
-        return { x % tileSize_.width, y % tileSize_.height };
-    }
-
-    Tiles &in_;
-    const math::Size2 tileSize_;
-    const math::Size2 sizeInTiles_;
-    const math::Size2 sizeInPixels_;
-    Tiles out_;
+    cv::Mat &in_;
+    cv::Mat &tmp_;
 };
 
 template <typename Operator>
@@ -118,43 +97,28 @@ void Morphology<Operator>::run(int kernelSize)
 {
     kernelSize /= 2;
 
-    for (int y(0), ey(sizeInPixels_.height); y != ey; ++y) {
-        for (int x(0), ex(sizeInPixels_.width); x != ex; ++x) {
+    for (int y(0); y != in_.rows; ++y) {
+        for (int x(0); x != in_.cols; ++x) {
 
             Operator op;
 
             for (int j = -kernelSize; j <= kernelSize; ++j) {
                 const int yy(y + j);
-                if ((yy < 0) || (yy >= sizeInPixels_.height)) { continue; }
+                if ((yy < 0) || (yy >= in_.rows)) { continue; }
 
                 for (int i = -kernelSize; i <= kernelSize; ++i) {
                     const int xx(x + i);
-                    if ((xx < 0) || (xx >= sizeInPixels_.width)) { continue; }
+                    if ((xx < 0) || (xx >= in_.cols)) { continue; }
 
-                    const auto ti(tileIndex(xx, yy));
-                    const auto tp(tilePos(xx, yy));
-
-                    auto &mat(in_[ti]);
-                    if (mat.data) {
-                        op(mat.template at<float>(tp(1), tp(0)));
-                    }
+                    op(in_.template at<float>(yy, xx));
                 }
             }
 
             // store only valid value
             if (!op.valid()) { continue; }
 
-            const auto ti(tileIndex(x, y));
-            const auto tp(tilePos(x, y));
-            auto &mat(out_[ti]);
-            if (!mat.data) {
-                // no tile yet -> create
-                mat.create(tileSize_.height, tileSize_.width, CV_32F);
-                mat = cv::Scalar(def::InvalidHeight);
-            }
-
             // store
-            mat.template at<float>(tp(1), tp(0)) = op.get();
+            tmp_.template at<float>(y, x) = op.get();
         }
     }
 }
@@ -195,16 +159,22 @@ private:
 
 } // namespace
 
-void HeightMap::filter(int kernelSize, int count)
+void HeightMap::dtmize(int count)
 {
-    (void) kernelSize;
-    (void) count;
+    LOG(info4) << "Generating DTM from heightmap ("
+               << pane_.cols << "x" << pane_.rows << " pixels).";
 
-    for (int c(count); --c; ) {
-        Morphology<Erosion>(pane_, tileSize_, sizeInTiles_, kernelSize);
+    cv::Mat tmp(pane_.rows, pane_.cols, pane_.type());
+
+    LOG(info1) << "Eroding heightmap.";
+    for (int c(0); c < count; ++c) {
+        LOG(info1) << "Erosion iteration " << c << ".";
+        Morphology<Erosion>(pane_, tmp, 2);
     }
 
-    for (int c(count); --c; ) {
-        Morphology<Dilation>(pane_, tileSize_, sizeInTiles_, kernelSize);
+    LOG(info1) << "Dilating heightmap.";
+    for (int c(0); c < count; ++c) {
+        LOG(info1) << "Dilation iteration " << c << ".";
+        Morphology<Dilation>(pane_, tmp, 2);
     }
 }
