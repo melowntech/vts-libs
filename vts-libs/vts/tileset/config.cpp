@@ -102,7 +102,7 @@ TileSet::Properties parse1(const Json::Value &config)
     parseIdSet(properties.credits, config, "credits");
     parseIdSet(properties.boundLayers, config, "boundLayers");
 
-    properties.position = registry::fromJson(config["position"]);
+    properties.position = registry::positionFromJson(config["position"]);
 
     // load driver options
     const auto &driver(config["driver"]);
@@ -240,7 +240,7 @@ ExtraTileSetProperties parse1(const Json::Value &config)
 
     if (config.isMember("position")) {
         ep.position = boost::in_place();
-        *ep.position = registry::fromJson(config["position"]);
+        *ep.position = registry::positionFromJson(config["position"]);
     }
 
     if (config.isMember("textureLayer")) {
@@ -254,6 +254,10 @@ ExtraTileSetProperties parse1(const Json::Value &config)
 
     if (config.isMember("extraBoundLayers")) {
         detail::parseIdSet(ep.extraBoundLayers, config, "extraBoundLayers");
+    }
+
+    if (config.isMember("rois")) {
+        ep.rois = registry::roisFromJson(config["rois"]);
     }
 
     return ep;

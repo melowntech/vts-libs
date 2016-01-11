@@ -16,29 +16,16 @@
 
 #include "utility/enum-io.hpp"
 
-#include "math/geometry_core.hpp"
-
 #include "geo/srsdef.hpp"
 
 #include "../storage/error.hpp"
 #include "../storage/lod.hpp"
-#include "../storage/range.hpp"
 #include "../storage/credits.hpp"
 
+#include "./types.hpp"
 #include "./dict.hpp"
 
 namespace vadstena { namespace registry {
-
-using storage::Lod;
-using storage::LodRange;
-using storage::CreditId;
-using storage::CreditIds;
-typedef storage::Range<double> HeightRange;
-
-typedef std::set<std::string> StringIdSet;
-typedef std::set<int> IdSet;
-
-typedef math::Extents2_<unsigned int> TileRange;
 
 enum class PartitioningMode { bisection, manual, none };
 

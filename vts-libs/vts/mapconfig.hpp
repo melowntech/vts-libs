@@ -44,12 +44,6 @@ struct GlueConfig : SurfaceCommonConfig {
     typedef std::vector<GlueConfig> list;
 };
 
-struct View {
-    std::vector<std::string> surfaces;
-    registry::StringIdSet boundLayers;
-    registry::StringIdSet freeLayers;
-};
-
 struct MapConfig {
     registry::Srs::dict srs;
     registry::ReferenceFrame referenceFrame;
@@ -61,7 +55,8 @@ struct MapConfig {
     SurfaceConfig::list surfaces;
     GlueConfig::list glues;
 
-    View view;
+    registry::Roi::list rois;
+    registry::View view;
 
     static const char *contentType;
 

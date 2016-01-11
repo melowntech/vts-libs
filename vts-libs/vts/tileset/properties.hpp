@@ -57,6 +57,10 @@ struct ExtraTileSetProperties {
      */
     registry::StringIdSet extraCredits;
 
+    /** ROI server(s) definition.
+     */
+    registry::Roi::list rois;
+
     // TODO: view, freeLayers, namedViews, roi
 
     ExtraTileSetProperties() {}

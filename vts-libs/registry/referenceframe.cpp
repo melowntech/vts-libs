@@ -932,7 +932,7 @@ Json::Value asJson(const Position &position)
     return value;
 }
 
-Position fromJson(const Json::Value value)
+Position positionFromJson(const Json::Value &value)
 {
     Position p;
 
@@ -1054,6 +1054,62 @@ ReferenceFrame::Division::findSubtreeRoot(const Node::Id &nodeId) const
     }
 
     return *candidate;
+}
+
+Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
+{
+    Json::Value v(Json::objectValue);
+
+    auto &surfaces(v["surfaces"] = Json::arrayValue);
+    for (const auto &surface : view.surfaces) {
+        surfaces.append(surface);
+    }
+
+    auto &bls(v["boundLayers"] = Json::arrayValue);
+    for (const auto &bl : view.boundLayers) {
+        bls.append(bl);
+        boundLayers.add(registry::Registry::boundLayer(bl));
+    }
+
+    v["freeLayers"] = Json::arrayValue;
+
+    return v;
+}
+
+Json::Value asJson(const Roi &roi)
+{
+    Json::Value v(Json::objectValue);
+    v["exploreUrl"] = roi.exploreUrl;
+    v["roiUrl"] = roi.roiUrl;
+    v["thumbnailUrl"] = roi.thumbnailUrl;
+    return v;
+}
+
+Json::Value asJson(const Roi::list &rois)
+{
+    Json::Value a(Json::arrayValue);
+    for (const auto roi : rois) { a.append(asJson(roi)); }
+    return a;
+}
+
+Roi::list roisFromJson(const Json::Value &value)
+{
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of roi is not a list.";
+    }
+
+    Roi::list rois;
+    for (const auto &v : value) {
+        rois.emplace_back();
+        auto &roi(rois.back());
+
+        Json::get(roi.exploreUrl, v, "exploreUrl");
+        Json::get(roi.roiUrl, v, "roiUrl");
+        Json::get(roi.thumbnailUrl, v, "thumbnailUrl");
+    }
+
+    return rois;
 }
 
 namespace {

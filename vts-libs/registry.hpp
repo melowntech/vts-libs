@@ -1,5 +1,5 @@
 /**
- * \file storage/registry.hpp
+ * \file registry.hpp
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
