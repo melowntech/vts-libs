@@ -166,13 +166,13 @@ void HeightMap::dtmize(int count)
 
     cv::Mat tmp(pane_.rows, pane_.cols, pane_.type());
 
-    LOG(info1) << "Eroding heightmap.";
+    LOG(info2) << "Eroding heightmap (" << count << " iterations).";
     for (int c(0); c < count; ++c) {
         LOG(info1) << "Erosion iteration " << c << ".";
         Morphology<Erosion>(pane_, tmp, 2);
     }
 
-    LOG(info1) << "Dilating heightmap.";
+    LOG(info2) << "Dilating heightmap (" << count << " iterations).";
     for (int c(0); c < count; ++c) {
         LOG(info1) << "Dilation iteration " << c << ".";
         Morphology<Dilation>(pane_, tmp, 2);
