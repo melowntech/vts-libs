@@ -5,6 +5,7 @@
 #include <iterator>
 
 #include <boost/algorithm/string/split.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -261,35 +262,51 @@ determineNtLod(const vts0::TileIndex &ti, const vts0::Properties &prop
     return std::tuple<vs::Lod, double>(lodRange.max, lodPixelSize);
 }
 
-class Encoder : public vts::Encoder {
+struct EncoderBase {
+    EncoderBase(const Config &config, const vts0::TileSet::pointer &input
+                , const vr::ReferenceFrame &referenceFrame)
+        : ntLodRange_(input->lodRange())
+    {
+        std::tie(ntLodRange_.max, ntSourceLodPixelSize_)
+            = determineNtLod
+            (input->advancedApi().tileIndex(), input->getProperties()
+             , referenceFrame, config.ntLodPixelSize);
+
+        if ((ntLodRange_.max + 1) <= input->lodRange().max) {
+            ntSourceLod_ = ntLodRange_.max + 1;
+            ntSourceLodPixelSize_ /= 2.0;
+        } else {
+            ntSourceLod_ = ntLodRange_.max;
+        }
+
+        LOG(info2)
+            << "Navtile data are generated in LOD range: "
+            << ntLodRange_ << ".";
+        LOG(info2)
+            << "Navtile data extracted from LOD: " << ntSourceLod_
+            << " with pixel size " << ntSourceLodPixelSize_;
+    }
+
+    vs::LodRange ntLodRange_;
+    vs::Lod ntSourceLod_;
+    double ntSourceLodPixelSize_;
+};
+
+class Encoder
+    : public vts::Encoder
+    , private EncoderBase
+{
 public:
     Encoder(const boost::filesystem::path &path
             , const vts::TileSetProperties &properties, vts::CreateMode mode
             , const vts0::TileSet::pointer &input
             , const Config &config)
         : vts::Encoder(path, properties, mode)
-        , config_(config)
-        , input_(input), aa_(input_->advancedApi())
+        , EncoderBase(config, input, referenceFrame())
+        , config_(config), input_(input), aa_(input_->advancedApi())
         , ti_(aa_.tileIndex()), cti_(ti_)
+        , hma_(ntSourceLod_)
     {
-        std::tie(ntLod_, ntSourceLodPixelSize_)
-            = determineNtLod
-            (ti_, input->getProperties()
-             , referenceFrame(), config.ntLodPixelSize);
-
-        if ((ntLod_ + 1) <= input->lodRange().max) {
-            ntSourceLod_ = ntLod_ + 1;
-            ntSourceLodPixelSize_ /= 2.0;
-        } else {
-            ntSourceLod_ = ntLod_;
-        }
-
-        LOG(info2)
-            << "Navtile data stored at LOD: " << ntLod_ << " and above.";
-        LOG(info2)
-            << "Navtile data extracted from LOD: " << ntSourceLod_
-            << " with pixel size " << ntSourceLodPixelSize_;
-
         cti_.makeFull().makeComplete();
 
         // set constraints: from zero to max LOD
@@ -315,9 +332,6 @@ private:
     vts0::TileSet::AdvancedApi aa_;
     const vts0::TileIndex &ti_;
     vts0::TileIndex cti_;
-    vs::Lod ntLod_;
-    vs::Lod ntSourceLod_;
-    double ntSourceLodPixelSize_;
     HeightMap::Accumulator hma_;
 };
 
@@ -486,9 +500,6 @@ void createMeshMask(const vts::TileId &tileId, const math::Extents2 &extents
 
     const auto cms(vts::Mesh::coverageSize());
 
-    LOG(info2) << "coverage size: " << cms;
-    // NB: sourceSize covers extents, raster size are a bit bigger
-
     // build heights and mask matrices
     cv::Mat mask(cms.height, cms.width, CV_8UC1, cv::Scalar(0));
 
@@ -632,8 +643,29 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
 void Encoder::finish(vts::TileSet &ts)
 {
     (void) ts;
-    HeightMap hm(std::move(hma_));
-    hm.dtmize(config_.dtmExtractionRadius / ntSourceLodPixelSize_);
+    HeightMap hm(std::move(hma_)
+                 , config_.dtmExtractionRadius / ntSourceLodPixelSize_);
+
+    // iterate in nt lod range backwards: iterate from start and invert forward
+    // lod into backward lod
+    for (const auto fLod : ntLodRange_) {
+        const vts::Lod lod(ntLodRange_.min + ntLodRange_.max - fLod);
+
+        // resize heightmap for given lod
+        hm.resize(lod);
+
+        // generate and store navtiles
+        traverse(ts.tileIndex(), lod
+                 , [&](const vts::TileId &tileId, vts::QTree::value_type mask)
+        {
+            // process only tiles with mesh
+            if (!(mask & vts::TileIndex::Flag::mesh)) { return; }
+
+            if (auto nt = hm.navtile(tileId)) {
+                ts.setNavTile(tileId, *nt);
+            }
+        });
+    }
 }
 
 int Vts02Vts::run()
