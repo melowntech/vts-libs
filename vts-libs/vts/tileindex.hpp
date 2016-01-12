@@ -119,7 +119,11 @@ public:
 
     const QTree* tree(Lod lod) const;
 
-    void setMask(const TileId &tileId, QTree::value_type mask, bool on = true);
+    /** Sets value as a bit mask.
+     *  Affects only bits set in mask.
+     */
+    void setMask(const TileId &tileId, QTree::value_type mask
+                 , QTree::value_type value = Flag::any);
 
     struct Stat {
         storage::LodRange lodRange;
@@ -258,16 +262,29 @@ inline void TileIndex::set(const TileId &tileId, QTree::value_type value)
 }
 
 template <typename Op>
+inline void traverse(const QTree &tree, Lod lod, const Op &op)
+{
+    tree.forEach([&](long x, long y, QTree::value_type mask)
+    {
+        op(TileId(lod, x, y), mask);
+    }, QTree::Filter::white);
+}
+
+template <typename Op>
 inline void traverse(const TileIndex &ti, const Op &op)
 {
     auto lod(ti.minLod());
     for (const auto &tree : ti.trees()) {
-        tree.forEach([&](long x, long y, QTree::value_type mask)
-        {
-            op(TileId(lod, x, y), mask);
-        }, QTree::Filter::white);
-        ++lod;
+        traverse(tree, lod++, op);
     }
+}
+
+template <typename Op>
+inline void traverse(const TileIndex &ti, Lod lod, const Op &op)
+{
+    const auto *tree(ti.tree(lod));
+    if (!tree) { return; }
+    traverse(*tree, lod, op);
 }
 
 template <typename Op>

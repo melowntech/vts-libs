@@ -11,7 +11,7 @@ namespace vadstena { namespace vts {
 using storage::TileFile;
 using storage::File;
 
-TileId parent(const TileId &tileId);
+TileId parent(const TileId &tileId, Lod diff = 1);
 
 Children children(const TileId &tileId);
 
@@ -46,9 +46,9 @@ TileId local(Lod rootLod, const TileId &tileId);
 
 // inline stuff
 
-inline TileId parent(const TileId &tileId)
+inline TileId parent(const TileId &tileId, Lod diff)
 {
-    return TileId(tileId.lod - 1, tileId.x >> 1, tileId.y >> 1);
+    return TileId(tileId.lod - diff, tileId.x >> diff, tileId.y >> diff);
 }
 
 inline Children children(const TileId &tileId)

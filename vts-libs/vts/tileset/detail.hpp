@@ -90,7 +90,7 @@ struct TileSet::Detail
 
     /** Index of existing tiles.
      */
-    TileIndex tileIndex;
+    mutable TileIndex tileIndex;
 
     /** References to other datasets.
      */
@@ -124,6 +124,8 @@ struct TileSet::Detail
 
     void setTile(const TileId &tileId, const TileSource &tile
                  , const NodeInfo *nodeInfo = nullptr);
+
+    void setNavTile(const TileId &tileId, const NavTile &navtile);
 
     void setReferenceTile(const TileId &tileId, uint8_t other);
 

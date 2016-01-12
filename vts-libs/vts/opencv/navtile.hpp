@@ -28,7 +28,7 @@ public:
      * \param value all pixels in return matrix are set to given value if valid
      * \return create matrix
      */
-    static Data createData(boost::optional<double> value = boost::none);
+    static Data createData(boost::optional<float> value = boost::none);
 
 private:
     virtual multifile::Table serialize_impl(std::ostream &os) const;

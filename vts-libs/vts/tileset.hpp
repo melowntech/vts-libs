@@ -109,6 +109,11 @@ public:
     void setTile(const TileId &tileId, const TileSource &tile
                  , const NodeInfo &nodeInfo);
 
+    /** Sets tile's navtile. Tile must already have mesh.
+     *  Only navtile is stored.
+     */
+    void setNavTile(const TileId &tileId, const NavTile &navtile);
+
     /** Returns tile's navtile.
      */
     void getNavTile(const TileId &tileId, NavTile &navtile) const;

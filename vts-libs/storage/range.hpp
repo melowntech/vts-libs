@@ -2,6 +2,7 @@
 #define vadstena_libs_storage_range_hpp_included_
 
 #include <limits>
+#include <iterator>
 
 #include <boost/iterator/counting_iterator.hpp>
 #include <boost/iterator/reverse_iterator.hpp>
@@ -29,13 +30,15 @@ struct Range
 
     bool empty() const { return max < min; }
 
-    typedef boost::counting_iterator<T> const_iterator;
+    typedef boost::counting_iterator<T> iterator;
+    typedef iterator const_iterator;
 
     const_iterator begin() const { return const_iterator(min); }
     const_iterator cbegin() const { return const_iterator(min); }
 
     const_iterator end() const { return const_iterator(max + 1); }
     const_iterator cend() const { return const_iterator(max + 1); }
+
 
     bool operator==(const Range &o) const {
         return (min == o.min) && (max == o.max);

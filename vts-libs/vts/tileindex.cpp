@@ -196,13 +196,11 @@ std::size_t TileIndex::count() const
 }
 
 void TileIndex::setMask(const TileId &tileId, QTree::value_type mask
-                        , bool on)
+                        , QTree::value_type value)
 {
-    update(tileId, [&](QTree::value_type value) -> QTree::value_type
+    update(tileId, [&](QTree::value_type old) -> QTree::value_type
     {
-        return (on
-                ? (value | mask)
-                : (value & ~mask));
+        return (old & mask) | (value & mask);
     });
 }
 

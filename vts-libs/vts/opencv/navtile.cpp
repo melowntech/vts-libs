@@ -52,9 +52,9 @@ multifile::Table NavTile::serialize_impl(std::ostream &os) const
     if (coverageMask().full()) {
         // fully covered
         cv::Mat image(ts.height, ts.width, CV_8UC1);
-        std::transform(data_.begin<double>(), data_.end<double>()
+        std::transform(data_.begin<float>(), data_.end<float>()
                        , image.begin<std::uint8_t>()
-                       , [&](double value) -> std::uint8_t
+                       , [&](float value) -> std::uint8_t
         {
             return std::uint8_t
                 (std::round((255 * (value - hr.min)) / size));
@@ -72,7 +72,7 @@ multifile::Table NavTile::serialize_impl(std::ostream &os) const
     // render valid pixels and mask them out in the inpaint mask
     coverageMask().forEach([&](int x, int y, bool)
     {
-        auto value(data_.at<double>(y, x));
+        auto value(data_.at<float>(y, x));
         image.at<std::uint8_t>(y + margin, x + margin)
             = std::uint8_t(std::round((255 * (value - hr.min)) / size));
         mask.at<std::uint8_t>(y + margin, x + margin) = 0;
@@ -116,27 +116,27 @@ void NavTile::deserialize_impl(const HeightRange &heightRange
             << "has different dimensions than " << ts << ".";
     }
 
-    data_.create(ts.height, ts.width, CV_64FC1);
+    data_.create(ts.height, ts.width, CV_32FC1);
     std::transform(image.begin<std::uint8_t>(), image.end<std::uint8_t>()
-                   , data_.begin<double>()
-                   , [&](std::uint8_t value) -> double
+                   , data_.begin<float>()
+                   , [&](std::uint8_t value) -> float
     {
-        return ((double(heightRange.min) * (255.0 - value)
-                 + double(heightRange.max) * value)
-                / 255.0);
+        return ((float(heightRange.min) * (255.f - value)
+                 + float(heightRange.max) * value)
+                / 255.f);
     });
 }
 
 NavTile::HeightRange NavTile::heightRange() const
 {
     // get min/max from valid pixels
-    storage::Range<double> range(0, 0);
+    storage::Range<float> range(0, 0);
     if (!coverageMask().empty()) {
-        range = { std::numeric_limits<double>::max()
-                  , std::numeric_limits<double>::lowest() };
+        range = { std::numeric_limits<float>::max()
+                  , std::numeric_limits<float>::lowest() };
         coverageMask().forEach([&](int x, int y, bool)
         {
-            auto value(data_.at<double>(y, x));
+            auto value(data_.at<float>(y, x));
             range.min = std::min(range.min, value);
             range.max = std::max(range.max, value);
         }, CoverageMask::Filter::white);
@@ -156,20 +156,18 @@ void NavTile::data(const Data &data)
     }
 
     // check type
-    if (data.type() != CV_64FC1) {
+    if (data.channels() != 1) {
         LOGTHROW(err1, storage::FormatError)
-            << "Passed navigation data are not "
-            "a single channel double matrix.";
+            << "Passed navigation data is not a single channel matrix.";
     }
 
-    // clone
-    data_ = data.clone();
+    data.assignTo(data_, CV_32F);
 }
 
-NavTile::Data NavTile::createData(boost::optional<double> value)
+NavTile::Data NavTile::createData(boost::optional<float> value)
 {
     auto ts(NavTile::size());
-    Data data(ts.height, ts.width, CV_64FC1);
+    Data data(ts.height, ts.width, CV_32FC1);
     if (value) { data = cv::Scalar(*value); }
     return data;
 }

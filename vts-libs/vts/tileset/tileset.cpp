@@ -88,6 +88,11 @@ void TileSet::setTile(const TileId &tileId, const TileSource &tile
     detail().setTile(tileId, tile, &nodeInfo);
 }
 
+void TileSet::setNavTile(const TileId &tileId, const NavTile &navtile)
+{
+    detail().setNavTile(tileId, navtile);
+}
+
 MetaNode TileSet::getMetaNode(const TileId &tileId) const
 {
     auto *node(detail().findNode(tileId));
@@ -482,9 +487,13 @@ MetaTile* TileSet::Detail::addNewMetaTile(const TileId &tileId) const
     auto mid(metaId(tileId));
     LOG(info1) << "Creating metatile " << mid << ".";
     metadataChanged = true;
-    return &metaTiles.insert
-        (MetaTiles::value_type
-         (mid, MetaTile(mid,  metaOrder()))).first->second;
+
+    // create metatile and store it in tileindex
+    auto *meta(&metaTiles.insert
+               (MetaTiles::value_type
+                (mid, MetaTile(mid,  metaOrder()))).first->second);
+    tileIndex.setMask(mid, TileIndex::Flag::meta);
+    return meta;
 }
 
 MetaTile* TileSet::Detail::findMetaTile(const TileId &tileId, bool addNew)
@@ -584,6 +593,19 @@ void TileSet::Detail::updateProperties(const Mesh &mesh)
     }
 }
 
+namespace {
+
+std::uint8_t flagsFromNode(const MetaNode &node)
+{
+    std::uint8_t m(0);
+    if (node.geometry()) { m |= TileIndex::Flag::mesh; }
+    if (node.navtile()) { m |= TileIndex::Flag::navtile; }
+    if (node.internalTextureCount()) { m |= TileIndex::Flag::atlas; }
+    return m;
+}
+
+} // namespace
+
 TileNode* TileSet::Detail::updateNode(TileId tileId
                                       , const MetaNode &metanode
                                       , bool watertight)
@@ -594,11 +616,22 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     // update node value
     node->update(tileId, metanode);
 
-    tileIndex.setMask(tileId, TileIndex::Flag::watertight, watertight);
+    // prepare tileindex flags and mask
+    auto mask(TileIndex::Flag::content | TileIndex::Flag::watertight
+              | TileIndex::Flag::reference);
+    auto flags(flagsFromNode(*node->metanode));
+    if (watertight) {
+        flags |= TileIndex::Flag::watertight;
+    }
+
+    // process reference
     if (auto r = node->metanode->reference()) {
-        tileIndex.setMask(tileId, TileIndex::Flag::reference, true);
+        flags |= TileIndex::Flag::reference;
         references.set(tileId, r);
     }
+
+    // set tile index
+    tileIndex.setMask(tileId, mask, flags);
 
     // collect global information (i.e. credits)
     updateProperties(metanode);
@@ -846,6 +879,23 @@ void TileSet::Detail::setReferenceTile(const TileId &tileId, uint8_t other)
     updateNode(tileId, node, false);
 }
 
+void TileSet::Detail::setNavTile(const TileId &tileId, const NavTile &navtile)
+{
+
+    auto *node(findNode(tileId));
+    if (!node || !node->metanode->geometry()) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "Cannot set navtile to geometry-less tile " << tileId << ".";
+    }
+
+    LOG(info1) << "Setting navtile: " << tileId;
+
+    save(driver->output(tileId, TileFile::navtile), navtile);
+    auto metanode(*node->metanode);
+    metanode.navtile(true);
+    node->update(tileId, metanode);
+}
+
 Mesh TileSet::Detail::getMesh(const TileId &tileId, const MetaNode *node)
     const
 {
@@ -956,16 +1006,6 @@ bool TileSet::Detail::exists(const TileId &tileId) const
 
 void TileSet::Detail::saveMetadata()
 {
-    auto maskFromNode([](const TileId &tid, const MetaNode &node)
-                      -> std::uint8_t
-    {
-        (void) tid;
-        std::uint8_t m(0);
-        if (node.geometry()) { m |= TileIndex::Flag::mesh; }
-        if (node.navtile()) { m |= TileIndex::Flag::navtile; }
-        if (node.internalTextureCount()) { m |= TileIndex::Flag::atlas; }
-        return m;
-    });
 
     driver->wannaWrite("save metadata");
 
@@ -974,23 +1014,10 @@ void TileSet::Detail::saveMetadata()
         auto tileId(meta.origin());
         LOG(info1) << "Saving: " << tileId;
 
-        {
-            // save metatile to file
-            auto f(driver->output(tileId, TileFile::meta));
-            meta.save(*f);
-            f->close();
-        }
-
-        meta.for_each([&](const TileId &tileId, const MetaNode &node)
-        {
-            // mark node only if real
-            if (node.real()) {
-                tileIndex.setMask(tileId, maskFromNode(tileId, node));
-            }
-        });
-
-        // mark metatile
-        tileIndex.setMask(tileId, TileIndex::Flag::meta);
+        // save metatile to file
+        auto f(driver->output(tileId, TileFile::meta));
+        meta.save(*f);
+        f->close();
     }
 
     saveTileIndex();
