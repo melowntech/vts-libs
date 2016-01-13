@@ -5,16 +5,20 @@
 
 #include <opencv2/core/core.hpp>
 
+#include "vts-libs/registry.hpp"
 #include "vts-libs/vts/basetypes.hpp"
 #include "vts-libs/vts/navtile.hpp"
 
 namespace vts = vadstena::vts;
+namespace vr = vadstena::registry;
 
 class HeightMap {
 public:
     class Accumulator;
 
-    HeightMap(Accumulator &&accumulator, double dtmExtractionRadius);
+    HeightMap(Accumulator &&accumulator
+              , const vr::ReferenceFrame &referenceFrame
+              , double dtmExtractionRadius);
 
     math::Size2 size() const { return sizeInPixels_; };
 
@@ -34,9 +38,16 @@ public:
      */
     void dump(const boost::filesystem::path &filename) const;
 
+    /** Best position inside heightmap
+     */
+    struct BestPosition;
+
+    BestPosition bestPosition() const;
+
 private:
     math::Size2 calculateSizeInPixels(math::Size2 sizeInTiles) const;
 
+    const vr::ReferenceFrame &referenceFrame_;
     math::Size2 tileSize_;
     math::Size2 tileGrid_;
     vts::Lod lod_;
@@ -44,6 +55,19 @@ private:
     math::Size2 sizeInTiles_;
     math::Size2 sizeInPixels_;
     cv::Mat pane_;
+    math::Extents2 worldExtents_;
+};
+
+/** Best position inside heightmap
+ */
+struct HeightMap::BestPosition {
+    /** Position in navigation SRS.
+     */
+    math::Point3 location;
+
+    /** Vertical extent computed in a way that whole valid area is in view.
+     */
+    double verticalExtent;
 };
 
 /** Helper class. HeightMap can access internals.

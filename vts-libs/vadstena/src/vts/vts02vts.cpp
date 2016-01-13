@@ -416,15 +416,11 @@ private:
 
 /** Constructs transformation matrix that maps everything in extents into a grid
  *  of defined size so the grid (0, 0) matches to upper-left extents corner and
- *  grid(gridSize.width - 1, gridSize.width - 1) matches lower-rightextents
+ *  grid(gridSize.width - 1, gridSize.width - 1) matches lower-right extents
  *  corner.
- *
- *  Optional offset allows us to map grid into larger grid of same coarsenes at
- *  given position is such grid.
  */
-inline math::Matrix4 mesh2grid(const math::Extents2& extents
-                              , const math::Size2 &gridSize
-                              , const math::Size2 &offset = math::Size2())
+inline math::Matrix4 mesh2grid(const math::Extents2 &extents
+                              , const math::Size2 &gridSize)
 {
     math::Matrix4 trafo(ublas::identity_matrix<double>(4));
 
@@ -439,8 +435,8 @@ inline math::Matrix4 mesh2grid(const math::Extents2& extents
     trafo(1, 1) = -scale.height;
 
     // place zero to upper-left corner
-    trafo(0, 3) = gridSize.width / 2.0 + offset.width;
-    trafo(1, 3) = gridSize.height / 2.0 + offset.height;
+    trafo(0, 3) = gridSize.width / 2.0;
+    trafo(1, 3) = gridSize.height / 2.0;
 
     return trafo;
 }
@@ -642,9 +638,10 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
 
 void Encoder::finish(vts::TileSet &ts)
 {
-    (void) ts;
-    HeightMap hm(std::move(hma_)
+    HeightMap hm(std::move(hma_), referenceFrame()
                  , config_.dtmExtractionRadius / ntSourceLodPixelSize_);
+
+    HeightMap::BestPosition bestPosition;
 
     // iterate in nt lod range backwards: iterate from start and invert forward
     // lod into backward lod
@@ -665,6 +662,22 @@ void Encoder::finish(vts::TileSet &ts)
                 ts.setNavTile(tileId, *nt);
             }
         });
+
+        if (lod == ntLodRange_.max) {
+            bestPosition = hm.bestPosition();
+        }
+    }
+
+    {
+        vr::Position pos;
+        pos.position = bestPosition.location;
+
+        pos.type = vr::Position::Type::objective;
+        pos.heightMode = vr::Position::HeightMode::fixed;
+        pos.orientation = { 0.0, -90.0, 0.0 };
+        pos.verticalExtent = bestPosition.verticalExtent;
+        pos.verticalFov = 90;
+        ts.setPosition(pos);
     }
 }
 
@@ -677,14 +690,6 @@ int Vts02Vts::run()
         auto oldprop(input->getProperties());
         properties_.id = oldprop.id;
         properties_.referenceFrame = oldprop.referenceFrame;
-
-        auto &pos(properties_.position);
-        pos.type = vr::Position::Type::objective;
-        pos.heightMode = vr::Position::HeightMode::fixed;
-        pos.position = oldprop.defaultPosition;
-        pos.orientation = oldprop.defaultOrientation;
-        pos.verticalExtent = 1080;
-        pos.verticalFov = 90;
     }
 
     // run the encoder

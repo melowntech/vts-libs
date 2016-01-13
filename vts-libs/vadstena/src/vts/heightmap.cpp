@@ -1,3 +1,5 @@
+#include <cmath>
+
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 
@@ -178,6 +180,19 @@ void debugDump(const HeightMap &hm, const boost::filesystem::path &filename)
     hm.dump(def::DumpDir / filename);
 }
 
+math::Extents2 worldExtents(vts::Lod lod, const vts::TileRange &tileRange
+                            , const vr::ReferenceFrame &referenceFrame)
+{
+    vts::NodeInfo nodeLl
+        (referenceFrame
+         , vts::TileId(lod, tileRange.ll(0), tileRange.ur(1)));
+    vts::NodeInfo nodeUr
+        (referenceFrame
+         , vts::TileId(lod, tileRange.ur(0), tileRange.ll(1)));
+
+    return math::Extents2(nodeLl.node.extents.ll, nodeUr.node.extents.ur);
+}
+
 } // namespace
 
 math::Size2 HeightMap::calculateSizeInPixels(math::Size2 sizeInTiles) const
@@ -186,8 +201,11 @@ math::Size2 HeightMap::calculateSizeInPixels(math::Size2 sizeInTiles) const
             , 1 + sizeInTiles.height * tileGrid_.height };
 }
 
-HeightMap::HeightMap(Accumulator &&a, double dtmExtractionRadius)
-    : tileSize_(a.tileSize_)
+HeightMap::HeightMap(Accumulator &&a
+                     , const vr::ReferenceFrame &referenceFrame
+                     , double dtmExtractionRadius)
+    : referenceFrame_(referenceFrame)
+    , tileSize_(a.tileSize_)
     , tileGrid_(tileSize_.width - 1, tileSize_.height - 1)
     , lod_(a.lod_)
     , tileRange_(a.tileRange_)
@@ -195,6 +213,7 @@ HeightMap::HeightMap(Accumulator &&a, double dtmExtractionRadius)
     , sizeInPixels_(calculateSizeInPixels(sizeInTiles_))
     , pane_(sizeInPixels_.height, sizeInPixels_.width, CV_32F
             , cv::Scalar(def::InvalidHeight))
+    , worldExtents_(worldExtents(lod_, tileRange_, referenceFrame_))
 {
     LOG(info2) << "Copying heightmaps from tiles into one pane.";
     for (const auto &item : a.tiles_) {
@@ -290,7 +309,7 @@ void HeightMap::resize(vts::Lod lod)
 
     // filter heightmap from pane_ into tmp using filter
     HeightMapRaster srcRaster(pane_, def::InvalidHeight);
-     math::CatmullRom2 filter(4.0 * localId.lod, 4.0 * localId.lod);
+    math::CatmullRom2 filter(4.0 * localId.lod, 4.0 * localId.lod);
     for (int j(0); j < tmp.rows; ++j) {
         for (int i(0); i < tmp.cols; ++i) {
             // map x,y into original pane (applying scale and tile offset)
@@ -310,6 +329,7 @@ void HeightMap::resize(vts::Lod lod)
     sizeInTiles_ = sizeInTiles;
     sizeInPixels_ = sizeInPixels;
     std::swap(tmp, pane_);
+    worldExtents_ = worldExtents(lod_, tileRange_, referenceFrame_);
 
     debugDump(*this, str(boost::format("hm-%d.png") % lod_));
 }
@@ -388,4 +408,74 @@ void HeightMap::dump(const boost::filesystem::path &filename) const
 
     create_directories(filename.parent_path());
     imwrite(filename.string(), image);
+}
+
+HeightMap::BestPosition HeightMap::bestPosition() const
+{
+    // TODO: what to do if centroid is not at valid pixel?
+
+    BestPosition out;
+    auto &c(out.location);
+
+    math::Extents2i validExtents(math::InvalidExtents{});
+
+    long count(0);
+    for (int j(0); j < pane_.rows; ++j) {
+        for (int i(0); i < pane_.cols; ++i) {
+            if (pane_.at<float>(j, i) == def::InvalidHeight) { continue; }
+
+            c(0) += i;
+            c(1) += j;
+            ++count;
+            update(validExtents, math::Point2i(i, j));
+        }
+    }
+
+    if (count) {
+        c(0) /= count;
+        c(1) /= count;
+    } else {
+        auto cc(math::center(validExtents));
+        c(0) = cc(0);
+        c(1) = cc(1);
+    }
+
+    // sample height
+    c(2) = pane_.at<float>(c(1), c(0));
+
+    auto es(math::size(worldExtents_));
+    auto eul(ul(worldExtents_));
+
+    auto worldX([&](double x) {
+            return eul(0) + ((x * es.width) / sizeInPixels_.width);
+        });
+    auto worldY([&](double y) {
+            return eul(1) - ((y * es.height) / sizeInPixels_.height);
+        });
+
+    auto world([&](const math::Point3 &p) {
+            return math::Point3(worldX(p(0)), worldY(p(1)), p(2));
+        });
+
+    {
+        math::Point2 d1(c - validExtents.ll);
+        math::Point2 d2(validExtents.ur - c);
+        double distance(std::max({ d1(0), d1(1), d2(0), d2(1) }));
+
+        // vertical extent points
+        math::Point3 e1(c(0), c(1) - distance, c(2));
+        math::Point3 e2(c(0), c(1) + distance, c(2));
+
+        e1 = world(e1);
+        e2 = world(e2);
+
+        distance = boost::numeric::ublas::norm_2(e2 - e1);
+
+        out.verticalExtent = distance;
+    }
+
+    c = world(c);
+
+    // done
+    return out;
 }
