@@ -38,9 +38,6 @@ struct TileId {
     {}
 };
 
-math::Point2_<unsigned int> point(const TileId &tileId);
-TileId point(Lod lod, const math::Point2_<unsigned int> &point);
-
 struct Child : TileId {
     unsigned int index;
 
@@ -154,16 +151,6 @@ inline bool TileId::operator==(const TileId &tid) const
     return ((lod == tid.lod)
             && (x == tid.x)
             && (y == tid.y));
-}
-
-inline math::Point2_<unsigned int> point(const TileId &tileId)
-{
-    return { tileId.x, tileId.y };
-}
-
-inline TileId point(Lod lod, const math::Point2_<unsigned int> &point)
-{
-    return { lod, point(0), point(1) };
 }
 
 UTILITY_GENERATE_ENUM_IO(OpenMode,

@@ -200,7 +200,7 @@ void TileIndex::setMask(const TileId &tileId, QTree::value_type mask
 {
     update(tileId, [&](QTree::value_type old) -> QTree::value_type
     {
-        return (old & mask) | (value & mask);
+        return (old & ~mask) | (value & mask);
     });
 }
 

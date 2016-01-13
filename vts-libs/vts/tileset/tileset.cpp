@@ -894,6 +894,8 @@ void TileSet::Detail::setNavTile(const TileId &tileId, const NavTile &navtile)
     auto metanode(*node->metanode);
     metanode.navtile(true);
     node->update(tileId, metanode);
+    // mark navtile in tile index
+    tileIndex.setMask(tileId, TileIndex::Flag::navtile);
 }
 
 Mesh TileSet::Detail::getMesh(const TileId &tileId, const MetaNode *node)

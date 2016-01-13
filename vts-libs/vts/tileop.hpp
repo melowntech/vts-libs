@@ -44,6 +44,9 @@ TileId tileId(const RFNode::Id &rfNodeId);
 
 TileId local(Lod rootLod, const TileId &tileId);
 
+math::Point2_<unsigned int> point(const TileId &tileId);
+TileId tileId(Lod lod, const math::Point2_<unsigned int> &point);
+
 // inline stuff
 
 inline TileId parent(const TileId &tileId, Lod diff)
@@ -96,6 +99,16 @@ inline TileId local(Lod rootLod, const TileId &tileId)
     const auto ldiff(tileId.lod - rootLod);
     const auto mask((1 << ldiff) - 1);
     return TileId(ldiff, tileId.x & mask, tileId.y & mask);
+}
+
+inline math::Point2_<unsigned int> point(const TileId &tileId)
+{
+    return { tileId.x, tileId.y };
+}
+
+inline TileId tileId(Lod lod, const math::Point2_<unsigned int> &point)
+{
+    return { lod, point(0), point(1) };
 }
 
 } } // namespace vadstena::vts
