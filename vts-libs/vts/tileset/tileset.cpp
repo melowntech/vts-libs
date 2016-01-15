@@ -872,11 +872,15 @@ void TileSet::Detail::setTile(const TileId &tileId, const TileSource &tile
         ((nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId)));
 }
 
-void TileSet::Detail::setReferenceTile(const TileId &tileId, uint8_t other)
+void TileSet::Detail::setReferenceTile(const TileId &tileId, uint8_t other
+                                       , const NodeInfo *nodeInfo)
 {
     MetaNode node;
     node.reference(other);
     updateNode(tileId, node, false);
+
+    // add tile to valid extents
+    updateProperties(nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId));
 }
 
 void TileSet::Detail::setNavTile(const TileId &tileId, const NavTile &navtile)
@@ -1028,7 +1032,7 @@ void TileSet::Detail::saveMetadata()
 void update(TileSet::Properties &properties, const TileIndex &tileIndex)
 {
     auto stat(tileIndex.statMask(TileIndex::Flag::mesh
-                                 | TileIndex::Flag::atlas));
+                                 | TileIndex::Flag::reference));
     properties.lodRange = stat.lodRange;
     if (properties.lodRange.empty()) {
         properties.tileRange = TileRange(math::InvalidExtents{});

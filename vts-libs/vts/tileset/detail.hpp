@@ -127,7 +127,8 @@ struct TileSet::Detail
 
     void setNavTile(const TileId &tileId, const NavTile &navtile);
 
-    void setReferenceTile(const TileId &tileId, uint8_t other);
+    void setReferenceTile(const TileId &tileId, uint8_t other
+                          , const NodeInfo *nodeInfo = nullptr);
 
     std::uint8_t metaOrder() const;
     TileId metaId(TileId tileId) const;
