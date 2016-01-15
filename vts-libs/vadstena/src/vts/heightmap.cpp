@@ -231,7 +231,7 @@ HeightMap::HeightMap(Accumulator &&a
 
     debugDump(*this, "hm-plain.png");
     dtmize(pane_, std::ceil(dtmExtractionRadius));
-    debugDump(*this,"hm-dtmized.png");
+    debugDump(*this, "hm-dtmized.png");
 }
 
 namespace {
