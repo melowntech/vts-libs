@@ -260,18 +260,23 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     mapConfig.referenceFrame = referenceFrame;
     mapConfig.srs = registry::listSrs(mapConfig.referenceFrame);
 
+    // get in mapconfigs of tilesets and their glues; do not use any tileset's
+    // extra configuration
+
+    // tilesets
     for (const auto &tileset : properties.tilesets) {
         mapConfig.mergeTileSet
             (TileSet::mapConfig
-             (storage_paths::tilesetPath(root, tileset.tilesetId))
+             (storage_paths::tilesetPath(root, tileset.tilesetId), false)
              , storage_paths::tilesetRoot() / tileset.tilesetId);
     }
 
+    // glues
     for (const auto &item : properties.glues) {
         const auto &glue(item.second);
         mapConfig.mergeGlue
             (TileSet::mapConfig
-             (storage_paths::gluePath(root, glue))
+             (storage_paths::gluePath(root, glue), false)
              , glue, storage_paths::glueRoot());
     }
 
@@ -304,6 +309,17 @@ bool Storage::Detail::externallyChanged() const
             || configStat.changed(FileStat::stat(configPath))
             || extraConfigStat.changed(FileStat::stat
                                        (extraConfigPath, std::nothrow)));
+}
+
+TileSet Storage::Detail::open(const TilesetId &tilesetId)
+{
+    if (properties.hasTileset(tilesetId)) {
+        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+            << "Tileset <" << tilesetId << "> not found in storage "
+            << root << ".";
+    }
+
+    return openTileSet(storage_paths::tilesetPath(root, tilesetId));
 }
 
 std::time_t Storage::lastModified() const

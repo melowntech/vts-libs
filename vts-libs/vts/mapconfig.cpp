@@ -115,7 +115,8 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     content["freeLayers"] = Json::objectValue;
     content["rois"] = registry::asJson(mapConfig.rois);
     content["view"] = registry::asJson(mapConfig.view, boundLayers);
-    content["namedViews"] = Json::arrayValue;
+    content["namedViews"]
+        = registry::asJson(mapConfig.namedViews, boundLayers);;
 
     // dunno what to put here...
     content["params"] = Json::objectValue;
@@ -141,9 +142,9 @@ void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
 
     // merge views
     if (surface) {
-        out.view.surfaces.insert
-            (out.view.surfaces.end()
-             , in.view.surfaces.begin(), in.view.surfaces.end());
+        for (const auto &s : in.view.surfaces) {
+            out.view.surfaces.emplace_back(s.id);
+        }
 
         // TODO: find out first valid
         out.position = in.position;

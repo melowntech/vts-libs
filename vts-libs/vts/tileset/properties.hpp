@@ -61,7 +61,11 @@ struct ExtraTileSetProperties {
      */
     registry::Roi::list rois;
 
-    // TODO: view, freeLayers, namedViews, roi
+    /** Named views.
+     */
+    registry::NamedView::map namedViews;
+
+    // TODO: freeLayers
 
     ExtraTileSetProperties() {}
 };

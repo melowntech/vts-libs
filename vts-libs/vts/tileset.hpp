@@ -64,8 +64,11 @@ public:
     void addBoundLayers(const registry::IdSet &boundLayers);
 
     /** Generates map configuration for this single tile set.
+     * \param root root path of all datasets (surfaces and glues)
+     * \param includeExtra include extra configuration in the output.
+     * \return map configuration
      */
-    MapConfig mapConfig() const;
+    MapConfig mapConfig(bool includeExtra = true) const;
 
     /** Returns tile's mesh.
      */
@@ -232,8 +235,13 @@ public:
                , const boost::optional<LodRange> &lodRange = boost::none);
 
     /** Returns mapConfig for given path.
+     *
+     * \param root root path of all datasets (surfaces and glues)
+     * \param includeExtra include extra configuration in the output.
+     * \return map configuration
      */
-    static MapConfig mapConfig(const boost::filesystem::path &root);
+    static MapConfig mapConfig(const boost::filesystem::path &root
+                               , bool includeExtra = true);
 
     /** Check for tileset at given path.
      */

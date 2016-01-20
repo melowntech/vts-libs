@@ -983,7 +983,7 @@ Credit::dict creditsAsDict(const StringIdSet &credits)
 {
     Credit::dict c;
     for (const auto &id : credits) {
-        c.add(Registry::credit(id));
+        c.add(Registry::credit(id, std::nothrow));
     };
     return c;
 }
@@ -992,7 +992,7 @@ Credit::dict creditsAsDict(const IdSet &credits)
 {
     Credit::dict c;
     for (const auto &id : credits) {
-        c.add(Registry::credit(id));
+        c.add(Registry::credit(id, std::nothrow));
     };
     return c;
 }
@@ -1001,7 +1001,7 @@ BoundLayer::dict boundLayersAsDict(const StringIdSet &boundLayers)
 {
     BoundLayer::dict b;
     for (const auto &id : boundLayers) {
-        b.add(Registry::boundLayer(id));
+        b.add(Registry::boundLayer(id, std::nothrow));
     };
     return b;
 }
@@ -1010,7 +1010,7 @@ BoundLayer::dict boundLayersAsDict(const IdSet &boundLayers)
 {
     BoundLayer::dict b;
     for (const auto &id : boundLayers) {
-        b.add(Registry::boundLayer(id));
+        b.add(Registry::boundLayer(id, std::nothrow));
     };
     return b;
 }
@@ -1060,15 +1060,14 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
 {
     Json::Value v(Json::objectValue);
 
-    auto &surfaces(v["surfaces"] = Json::arrayValue);
+    auto &surfaces(v["surfaces"] = Json::objectValue);
     for (const auto &surface : view.surfaces) {
-        surfaces.append(surface);
-    }
+        auto &bls(surfaces[surface.id] = Json::arrayValue);
 
-    auto &bls(v["boundLayers"] = Json::arrayValue);
-    for (const auto &bl : view.boundLayers) {
-        bls.append(bl);
-        boundLayers.add(registry::Registry::boundLayer(bl));
+        for (const auto &bl : surface.boundLayers) {
+            bls.append(bl);
+            boundLayers.add(registry::Registry::boundLayer(bl, std::nothrow));
+        }
     }
 
     v["freeLayers"] = Json::arrayValue;
@@ -1092,6 +1091,37 @@ Json::Value asJson(const Roi::list &rois)
     return a;
 }
 
+Json::Value asJson(const NamedView::map &namedViews
+                   , BoundLayer::dict &boundLayers)
+{
+    Json::Value v(Json::objectValue);
+
+    for (const auto &item : namedViews) {
+        auto &nv(v[item.first] = Json::objectValue);
+        nv["description"] = item.second.description;
+        auto &surfaces(nv["surfaces"] = Json::objectValue);
+
+        for (const auto &surfaceItem : item.second.surfaces) {
+            auto &surface(surfaces[surfaceItem.first] = Json::arrayValue);
+            for (const auto &blp : surfaceItem.second) {
+                if (blp.isComplex()) {
+                    auto &p(surface.append(Json::objectValue));
+                    p["id"] = blp.id;
+                    if (blp.alpha) { p["alpha"] = *blp.alpha; }
+                } else {
+                    surface.append(blp.id);
+                }
+                boundLayers.add(registry::Registry::boundLayer
+                                (blp.id, std::nothrow));
+            }
+        }
+
+        nv["freeLayers"] = Json::arrayValue;
+    }
+
+    return v;
+}
+
 Roi::list roisFromJson(const Json::Value &value)
 {
     if (!value.isArray()) {
@@ -1110,6 +1140,63 @@ Roi::list roisFromJson(const Json::Value &value)
     }
 
     return rois;
+}
+
+NamedView::map namedViewsFromJson(const Json::Value &value)
+{
+    if (!value.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of named views is not an object.";
+    }
+
+    NamedView::map namedViews;
+
+    for (const auto &nvId : value.getMemberNames()) {
+        auto &nv(namedViews[nvId]);
+
+        const auto &jnv(value[nvId]);
+
+        Json::get(nv.description, jnv, "description");
+
+        const auto &surfaces(jnv["surfaces"]);
+        if (!surfaces.isObject()) {
+            LOGTHROW(err1, Json::Error)
+                << "Type of namedView[surfaces] is not an object.";
+        }
+
+        for (const auto &sId : surfaces.getMemberNames()) {
+            const auto &surface(surfaces[sId]);
+            if (!surface.isArray()) {
+                LOGTHROW(err1, Json::Error)
+                    << "Type of namedView[surfaces][" << sId
+                    << "] is not a list.";
+            }
+
+            auto &blpList(nv.surfaces[sId]);
+
+            for (const auto &blp : surface) {
+                if (blp.isObject()) {
+                    blpList.emplace_back();
+                    auto &item(blpList.back());
+                    Json::get(item.id, blp, "id");
+                    if (blp.isMember("alpha")) {
+                        item.alpha = double();
+                        Json::get(*item.alpha, blp, "alpha");
+                    }
+                } else if (blp.isString()) {
+                    blpList.push_back(blp.asString());
+                } else {
+                    LOGTHROW(err1, Json::Error)
+                        << "Type of namedView[surfaces][" << sId
+                        << "] item must be either string or object.";
+                }
+            }
+        }
+
+        // TODO: freeLayers
+    }
+
+    return namedViews;
 }
 
 namespace {

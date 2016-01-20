@@ -99,6 +99,13 @@ public:
              , const StoredTileset &info
              , const TileFilter &filter = TileFilter());
 
+    /** Readds existing tileset.
+     *  Operation fails if given tileset is not present in the storage
+     *
+     *  \param tilesetId identifier of the tileset in the storage.
+     */
+    void readd(const TilesetId &tilesetId);
+
     /** Removes given tileset from the storage.
      *
      *  \param tilesetIds Ids of tilesets to remove

@@ -260,6 +260,10 @@ ExtraTileSetProperties parse1(const Json::Value &config)
         ep.rois = registry::roisFromJson(config["rois"]);
     }
 
+    if (config.isMember("namedViews")) {
+        ep.namedViews = registry::namedViewsFromJson(config["namedViews"]);
+    }
+
     return ep;
 }
 

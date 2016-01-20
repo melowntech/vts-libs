@@ -30,6 +30,7 @@ public:
     bool has(const key_type &id) const;
 
     inline void add(const T &value) { set(value.id, value); }
+    inline void add(const T *value) { if (value) { add(*value); } }
 
     typedef typename map::const_iterator const_iterator;
     const_iterator begin() const { return map_.begin(); }

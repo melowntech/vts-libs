@@ -1094,9 +1094,9 @@ fs::path TileSet::root() const
     return detail().driver->root();
 }
 
-MapConfig TileSet::mapConfig() const
+MapConfig TileSet::mapConfig(bool includeExtra) const
 {
-    return detail().mapConfig();
+    return detail().mapConfig(includeExtra);
 }
 
 ExtraTileSetProperties TileSet::Detail::loadExtraConfig() const
@@ -1121,19 +1121,23 @@ const TileIndex& TileSet::tileIndex() const
     return detail().tileIndex;
 }
 
-MapConfig TileSet::mapConfig(const boost::filesystem::path &root)
+MapConfig TileSet::mapConfig(const boost::filesystem::path &root
+                             , bool includeExtra)
 {
-    return Detail::mapConfig(Driver(root));
+    return Detail::mapConfig(Driver(root), includeExtra);
 }
 
-MapConfig TileSet::Detail::mapConfig(const Driver &driver)
+MapConfig TileSet::Detail::mapConfig(const Driver &driver, bool includeExtra)
 {
-    return mapConfig(loadConfig(driver), loadExtraConfig(driver));
+    return mapConfig(loadConfig(driver)
+                     , (includeExtra ? loadExtraConfig(driver)
+                     : ExtraTileSetProperties()));
 }
 
-MapConfig TileSet::Detail::mapConfig() const
+MapConfig TileSet::Detail::mapConfig(bool includeExtra) const
 {
-    return mapConfig(properties, loadExtraConfig());
+    return mapConfig(properties, (includeExtra ? loadExtraConfig()
+                                  : ExtraTileSetProperties()));
 }
 
 MapConfig
@@ -1179,6 +1183,8 @@ TileSet::Detail::mapConfig(const Properties &properties
         = extra.position ? *extra.position : properties.position;
 
     mapConfig.rois = extra.rois;
+
+    mapConfig.namedViews = extra.namedViews;
 
     // just one surface in the view
     mapConfig.view.surfaces.push_back(surface.id);

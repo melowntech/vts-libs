@@ -136,9 +136,13 @@ struct Storage::Detail
 
     void saveConfig();
 
+    TileSet open(const TilesetId &tilesetId);
+
     void add(const TileSet &tileset, const Location &where
              , const StoredTileset &tilesetInfo
              , const TileFilter &filter);
+
+    void readd(const TilesetId &tilesetId);
 
     void remove(const TilesetIdList &tilesetIds);
 

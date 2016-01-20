@@ -165,9 +165,9 @@ struct TileSet::Detail
     void flush();
     void saveMetadata();
 
-    MapConfig mapConfig() const;
+    MapConfig mapConfig(bool includeExtra) const;
 
-    static MapConfig mapConfig(const Driver &driver);
+    static MapConfig mapConfig(const Driver &driver, bool includeExtra);
 
     static MapConfig mapConfig(const Properties &properties
                                , const ExtraTileSetProperties &extra);

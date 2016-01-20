@@ -51,6 +51,11 @@ void Storage::add(const boost::filesystem::path &tilesetPath
     detail().add(ts, where, useInfo, filter);
 }
 
+void Storage::readd(const TilesetId &tilesetId)
+{
+    detail().readd(tilesetId);
+}
+
 void Storage::remove(const TilesetIdList &tilesetIds)
 {
     detail().remove(tilesetIds);
@@ -261,12 +266,6 @@ struct Ts {
     {}
 
     bool notoverlaps(const Ts &other) const {
-        if (!check(set.detail().properties.spatialDivisionExtents
-                   , other.set.detail().properties.spatialDivisionExtents))
-        {
-            return true;
-        }
-
         return sphereOfInfluence().notoverlaps
             (other.sphereOfInfluence(), TileIndex::Flag::any);
     }
@@ -373,9 +372,15 @@ createGlues(Tx &tx, Storage::Properties properties
         for (auto &ts : tilesets) {
             // ignore added tileset
             if (ts.added) {continue; }
-            if (ts.notoverlaps(added)) { continue; }
+            if (ts.notoverlaps(added)) {
+                LOG(info1) << "Tileset <" << ts.id()
+                           << "> does not overlap added tileset <"
+                           << added.id() << ">.";
+                continue;
+            }
 
             // incidence between spheres of influence -> remember
+            LOG(info1) << "Adding <" << ts.id() << "> to incident set.";
             incidentSets.push_back(&ts);
         }
     }
@@ -626,6 +631,45 @@ void Storage::Detail::add(const TileSet &tileset
         // create glues only if tileset participates in any glue
         if (tilesetInfo.glueMode != StoredTileset::GlueMode::none) {
             auto tilesets(openTilesets(tx, nProperties.tilesets, dst
+                                       , StoredTileset::GlueMode::full));
+            nProperties = createGlues(tx, nProperties, tilesets);
+        }
+
+        tx.commit();
+    }
+
+    // commit properties
+    properties = nProperties;
+    saveConfig();
+}
+
+void Storage::Detail::readd(const TilesetId &tilesetId)
+{
+    vadstena::storage::TIDGuard tg
+        (str(boost::format("readd(%s)") % tilesetId));
+
+    LOG(info3) << "Readding tileset <" << tilesetId << ">.";
+
+    auto nProperties(properties);
+    {
+        Tx tx(root);
+
+        const auto &tilesetInfo([&]() -> const StoredTileset&
+        {
+            const auto *info(properties.findTileset(tilesetId));
+            if (!info) {
+                LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+                    << "Tileset <" << tilesetId << "> not found in storage "
+                    << root << ".";
+            }
+            return *info;
+        }());
+
+        auto dst(openTileSet(storage_paths::tilesetPath(root, tilesetId)));
+
+        // create glues only if tileset participates in any glue
+        if (tilesetInfo.glueMode != StoredTileset::GlueMode::none) {
+            auto tilesets(openTilesets(tx, properties.tilesets, dst
                                        , StoredTileset::GlueMode::full));
             nProperties = createGlues(tx, nProperties, tilesets);
         }

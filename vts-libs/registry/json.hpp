@@ -23,6 +23,9 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers);
 Json::Value asJson(const Roi &roi);
 Json::Value asJson(const Roi::list &rois);
 Roi::list roisFromJson(const Json::Value &value);
+Json::Value asJson(const NamedView::map &namedViews
+                   , BoundLayer::dict &boundLayers);
+NamedView::map namedViewsFromJson(const Json::Value &value);
 
 } } // namespace vadstena::registry
 
