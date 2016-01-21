@@ -21,10 +21,20 @@ vadstena_tool(storage vts02vts ${vts02vts_SOURCES})
 
 # ------------------------------------------------------------------------
 define_module(BINARY vts2vts
-  DEPENDS JPEG vadstena-libs)
+  DEPENDS JPEG vts-libs)
 
 set(vts2vts_SOURCES
   vts2vts.cpp
   )
 
 vadstena_tool(storage vts2vts ${vts2vts_SOURCES})
+
+# ------------------------------------------------------------------------
+define_module(BINARY flipmeshmask
+  DEPENDS JPEG  vts-libs)
+
+set(flipmeshmask_SOURCES
+  flipmeshmask.cpp
+  )
+
+vadstena_tool(storage flipmeshmask ${flipmeshmask_SOURCES})
