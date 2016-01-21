@@ -27,6 +27,33 @@ struct StorageProperties {
 };
 
 struct ExtraStorageProperties {
+    /** Override position.
+     */
+    boost::optional<registry::Position> position;
+
+    /** ROI server(s) definition.
+     */
+    registry::Roi::list rois;
+
+    /** Initial view.
+     */
+    registry::View view;
+
+    /** Named views.
+     */
+    registry::NamedView::map namedViews;
+
+    /** Credits definition to include in the output.
+     */
+    registry::Credit::dict credits;
+
+    /** Bound layers definition to include in the output.
+     */
+    registry::BoundLayer::dict boundLayers;
+
+    // TODO: freeLayers
+
+    ExtraStorageProperties() {}
 };
 
 struct StoredTileset {

@@ -166,6 +166,24 @@ void Storage::Detail::saveConfig()
     }
 }
 
+ExtraStorageProperties Storage::Detail::loadExtraConfig() const
+{
+    return loadExtraConfig(root);
+}
+
+ExtraStorageProperties Storage::Detail::loadExtraConfig(const fs::path &root)
+{
+    try {
+        // load config
+        const auto p(storage::loadExtraConfig(root / ExtraConfigFilename));
+        return p;
+    } catch (const std::exception &e) {
+        LOGTHROW(err2, vadstena::storage::Error)
+            << "Unable to read extra config: <" << e.what() << ">.";
+    }
+    throw;
+}
+
 bool Glue::references(const std::string &tilesetId) const
 {
     return (std::find(id.begin(), id.end(), tilesetId) != id.end());
@@ -241,16 +259,17 @@ MapConfig Storage::mapConfig(const boost::filesystem::path &path)
 
 MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &path)
 {
-    return mapConfig(path, loadConfig(path));
+    return mapConfig(path, loadConfig(path), loadExtraConfig(path));
 }
 
 MapConfig Storage::Detail::mapConfig() const
 {
-    return mapConfig(root, properties);
+    return mapConfig(root, properties, loadExtraConfig());
 }
 
 MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
-                                     , const Storage::Properties &properties)
+                                     , const Storage::Properties &properties
+                                     , const ExtraStorageProperties &extra)
 {
     auto referenceFrame(registry::Registry::referenceFrame
                         (properties.referenceFrame));
@@ -259,6 +278,10 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
 
     mapConfig.referenceFrame = referenceFrame;
     mapConfig.srs = registry::listSrs(mapConfig.referenceFrame);
+
+    // prefill extra configuration
+    mapConfig.credits = extra.credits;
+    mapConfig.boundLayers = extra.boundLayers;
 
     // get in mapconfigs of tilesets and their glues; do not use any tileset's
     // extra configuration
@@ -278,6 +301,18 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             (TileSet::mapConfig
              (storage_paths::gluePath(root, glue), false)
              , glue, storage_paths::glueRoot());
+    }
+
+    if (extra.position) {
+        mapConfig.position = *extra.position;
+    }
+
+    mapConfig.rois = extra.rois;
+    mapConfig.namedViews = extra.namedViews;
+
+    if (extra.view) {
+        // use settings from extra config
+        mapConfig.view = extra.view;
     }
 
     return mapConfig;

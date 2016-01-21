@@ -30,16 +30,26 @@ typedef math::Extents2_<unsigned int> TileRange;
 
 struct View {
     struct Surface {
-        typedef std::vector<Surface> list;
+        typedef std::map<std::string, Surface> map;
 
-        std::string id;
         registry::StringIdSet boundLayers;
 
-        Surface(const std::string &id) : id(id) {}
+        Surface() : boundLayers() {}
     };
 
-    Surface::list surfaces;
+    Surface::map surfaces;
     registry::StringIdSet freeLayers;
+
+    operator bool() const { return !surfaces.empty(); }
+
+    Surface& add(const std::string &id) {
+        return surfaces[id];
+    }
+
+    void merge(const View &view) {
+        surfaces.insert(view.surfaces.begin(), view.surfaces.end());
+        freeLayers.insert(view.freeLayers.begin(), view.freeLayers.end());
+    }
 };
 
 struct NamedView {

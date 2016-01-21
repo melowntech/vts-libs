@@ -1149,11 +1149,16 @@ TileSet::Detail::mapConfig(const Properties &properties
 
     MapConfig mapConfig;
 
+    // prefill with extra entitities
+    mapConfig.credits = extra.credits;
+    mapConfig.boundLayers = extra.boundLayers;
+
+    // build
     mapConfig.referenceFrame = referenceFrame;
     mapConfig.srs = registry::listSrs(referenceFrame);
-    mapConfig.credits = registry::creditsAsDict(properties.credits);
-    mapConfig.boundLayers
-        = registry::boundLayersAsDict(properties.boundLayers);
+    mapConfig.credits.update(registry::creditsAsDict(properties.credits));
+    mapConfig.boundLayers.update
+        (registry::boundLayersAsDict(properties.boundLayers));
 
     mapConfig.surfaces.emplace_back();
     auto &surface(mapConfig.surfaces.back());
@@ -1171,12 +1176,7 @@ TileSet::Detail::mapConfig(const Properties &properties
         surface.tileRange = properties.tileRange;
     }
 
-    // apply extra config
-    mapConfig.credits.update
-        (registry::creditsAsDict(extra.extraCredits));
-    mapConfig.boundLayers.update
-       (registry::boundLayersAsDict(extra.extraBoundLayers));
-
+    // TODO: add
     surface.textureLayer = extra.textureLayer;
 
     mapConfig.position
@@ -1186,8 +1186,13 @@ TileSet::Detail::mapConfig(const Properties &properties
 
     mapConfig.namedViews = extra.namedViews;
 
-    // just one surface in the view
-    mapConfig.view.surfaces.push_back(surface.id);
+    if (extra.view) {
+        // use settings from extra config
+        mapConfig.view = extra.view;
+    } else {
+        // just one surface in the view
+        mapConfig.view.add(surface.id);
+    }
 
     return mapConfig;
 }

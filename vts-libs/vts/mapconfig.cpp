@@ -142,9 +142,7 @@ void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
 
     // merge views
     if (surface) {
-        for (const auto &s : in.view.surfaces) {
-            out.view.surfaces.emplace_back(s.id);
-        }
+        out.view.merge(in.view);
 
         // TODO: find out first valid
         out.position = in.position;

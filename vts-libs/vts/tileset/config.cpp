@@ -248,12 +248,12 @@ ExtraTileSetProperties parse1(const Json::Value &config)
         Json::get(*ep.textureLayer, config, "textureLayer");
     }
 
-    if (config.isMember("extraCredits")) {
-        detail::parseIdSet(ep.extraCredits, config, "extraCredits");
+    if (config.isMember("credits")) {
+        ep.credits = registry::creditsFromJson(config["extraCredits"]);
     }
 
-    if (config.isMember("extraBoundLayers")) {
-        detail::parseIdSet(ep.extraBoundLayers, config, "extraBoundLayers");
+    if (config.isMember("boundLayers")) {
+        ep.boundLayers = registry::boundLayersFromJson(config["boundLayers"]);
     }
 
     if (config.isMember("rois")) {
@@ -262,6 +262,10 @@ ExtraTileSetProperties parse1(const Json::Value &config)
 
     if (config.isMember("namedViews")) {
         ep.namedViews = registry::namedViewsFromJson(config["namedViews"]);
+    }
+
+    if (config.isMember("view")) {
+        ep.view = registry::viewFromJson(config["view"]);
     }
 
     return ep;

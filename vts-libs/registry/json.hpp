@@ -15,11 +15,14 @@ namespace vadstena { namespace registry {
 Json::Value asJson(const ReferenceFrame &rf);
 Json::Value asJson(const Srs::dict &srs);
 Json::Value asJson(const Credit::dict &credits);
+Credit::dict creditsFromJson(const Json::Value &value);
 Json::Value asJson(const BoundLayer::dict &boundLayers);
+BoundLayer::dict boundLayersFromJson(const Json::Value &value);
 Json::Value asJson(const Position &position);
 Position positionFromJson(const Json::Value &value);
 
 Json::Value asJson(const View &view, BoundLayer::dict &boundLayers);
+View viewFromJson(const Json::Value &value);
 Json::Value asJson(const Roi &roi);
 Json::Value asJson(const Roi::list &rois);
 Roi::list roisFromJson(const Json::Value &value);

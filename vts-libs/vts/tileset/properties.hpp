@@ -49,21 +49,25 @@ struct ExtraTileSetProperties {
      */
     boost::optional<std::string> textureLayer;
 
-    /** Extra bound layers added to output extra bound layers in map config.
-     */
-    registry::StringIdSet extraBoundLayers;
-
-    /** Extra credits added to output extra credits in map config.
-     */
-    registry::StringIdSet extraCredits;
-
     /** ROI server(s) definition.
      */
     registry::Roi::list rois;
 
+    /** Initial view.
+     */
+    registry::View view;
+
     /** Named views.
      */
     registry::NamedView::map namedViews;
+
+    /** Credits definition to include in the output.
+     */
+    registry::Credit::dict credits;
+
+    /** Bound layers definition to include in the output.
+     */
+    registry::BoundLayer::dict boundLayers;
 
     // TODO: freeLayers
 

@@ -250,7 +250,32 @@ namespace detail_extra {
 ExtraStorageProperties parse1(const Json::Value &config)
 {
     ExtraStorageProperties ep;
-    (void) config;
+
+    if (config.isMember("position")) {
+        ep.position = boost::in_place();
+        *ep.position = registry::positionFromJson(config["position"]);
+    }
+
+    if (config.isMember("credits")) {
+        ep.credits = registry::creditsFromJson(config["extraCredits"]);
+    }
+
+    if (config.isMember("boundLayers")) {
+        ep.boundLayers = registry::boundLayersFromJson(config["boundLayers"]);
+    }
+
+    if (config.isMember("rois")) {
+        ep.rois = registry::roisFromJson(config["rois"]);
+    }
+
+    if (config.isMember("namedViews")) {
+        ep.namedViews = registry::namedViewsFromJson(config["namedViews"]);
+    }
+
+    if (config.isMember("view")) {
+        ep.view = registry::viewFromJson(config["view"]);
+    }
+
     return ep;
 }
 
@@ -296,8 +321,7 @@ ExtraStorageProperties loadExtraConfig(const boost::filesystem::path &path)
     try {
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
-        LOGTHROW(err1, vadstena::storage::NoSuchStorage)
-            << "Unable to load extra config file " << path << ".";
+        return {};
     }
     auto p(loadExtraConfig(f));
     f.close();

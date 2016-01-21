@@ -134,6 +134,11 @@ struct Storage::Detail
 
     static Storage::Properties loadConfig(const boost::filesystem::path &root);
 
+    ExtraStorageProperties loadExtraConfig() const;
+
+    static ExtraStorageProperties
+    loadExtraConfig(const boost::filesystem::path &root);
+
     void saveConfig();
 
     TileSet open(const TilesetId &tilesetId);
@@ -168,7 +173,8 @@ struct Storage::Detail
     static MapConfig mapConfig(const boost::filesystem::path &path);
 
     static MapConfig mapConfig(const boost::filesystem::path &root
-                               , const Storage::Properties &properties);
+                               , const Storage::Properties &properties
+                               , const ExtraStorageProperties &extra);
 };
 
 inline void Storage::DetailDeleter::operator()(Detail *d) { delete d; }

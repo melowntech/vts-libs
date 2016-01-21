@@ -909,11 +909,25 @@ Json::Value asJson(const Credit::dict &credits)
     return content;
 }
 
+Credit::dict creditsFromJson(const Json::Value &value)
+{
+    Credit::dict credits;
+    parse(credits, value);
+    return credits;
+}
+
 Json::Value asJson(const BoundLayer::dict &boundLayers)
 {
     Json::Value content;
     build(content, boundLayers);
     return content;
+}
+
+BoundLayer::dict boundLayersFromJson(const Json::Value &value)
+{
+    BoundLayer::dict boundLayers;
+    parse(boundLayers, value);
+    return boundLayers;
 }
 
 Json::Value asJson(const Position &position)
@@ -1061,8 +1075,9 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
     Json::Value v(Json::objectValue);
 
     auto &surfaces(v["surfaces"] = Json::objectValue);
-    for (const auto &surface : view.surfaces) {
-        auto &bls(surfaces[surface.id] = Json::arrayValue);
+    for (const auto &item : view.surfaces) {
+        const auto &surface(item.second);
+        auto &bls(surfaces[item.first] = Json::arrayValue);
 
         for (const auto &bl : surface.boundLayers) {
             bls.append(bl);
@@ -1070,9 +1085,62 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
         }
     }
 
-    v["freeLayers"] = Json::arrayValue;
+    auto &fls(v["freeLayers"] = Json::arrayValue);
+    for (const auto &fl : view.freeLayers) { fls.append(fl); }
 
     return v;
+}
+
+View viewFromJson(const Json::Value &value)
+{
+    if (!value.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of view is not an object.";
+    }
+
+    const auto &surfaces(value["surfaces"]);
+    if (!surfaces.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of view[sufraces] is not an object.";
+    }
+
+    View view;
+
+    for (const auto &sid : surfaces.getMemberNames()) {
+        auto &surface(view.add(sid));
+
+        const auto &boundLayers(surfaces[sid]);
+        if (!boundLayers.isArray()) {
+            LOGTHROW(err1, Json::Error)
+                << "Type of view[sufraces] member is not a list.";
+        }
+
+        for (const auto &bl : boundLayers) {
+            if (!bl.isString()) {
+                LOGTHROW(err1, Json::Error)
+                    << "Type of view[surfaces] bound layer is not a string.";
+            }
+            surface.boundLayers.insert(bl.asString());
+        }
+    }
+
+    const auto &freeLayers(value["freeLayers"]);
+    if (!freeLayers.isNull()) {
+        if (!freeLayers.isArray()) {
+            LOGTHROW(err1, Json::Error)
+                << "Type of view[freeLayers] member is not a list.";
+        }
+
+        for (const auto &fl : freeLayers) {
+            if (!fl.isString()) {
+                LOGTHROW(err1, Json::Error)
+                    << "Type of view[freeLayers] member is not a string.";
+            }
+            view.freeLayers.insert(fl.asString());
+        }
+    }
+
+    return view;
 }
 
 Json::Value asJson(const Roi &roi)
