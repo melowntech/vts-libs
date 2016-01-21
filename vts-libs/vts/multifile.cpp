@@ -66,7 +66,8 @@ Table readTable(std::istream &is, const std::string &expectMagic
     bin::read(is, magic.get(), expectMagic.size());
     if (std::memcmp(magic.get(), expectMagic.data(), expectMagic.size())) {
         LOGTHROW(err1, storage::BadFileFormat)
-            << "File " << path << " is not a VTS atlas file (invalid magic).";
+            << "File " << path << " is not a VTS multifile file "
+            "(invalid magic).";
     }
 
     // read version

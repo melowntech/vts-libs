@@ -35,16 +35,10 @@ class CloneOptions {
 public:
     CloneOptions()
         : mode_(CreateMode::failIfExists)
-        , allowDanglingNavtiles_(false)
     {}
 
     CreateMode mode() const { return mode_; }
     CloneOptions& mode(CreateMode mode) { mode_ = mode; return *this; }
-
-    bool allowDanglingNavtiles() const { return allowDanglingNavtiles_; }
-    CloneOptions& allowDanglingNavtiles(bool allowDanglingNavtiles) {
-        allowDanglingNavtiles_ = allowDanglingNavtiles; return *this;
-    }
 
     boost::optional<std::string> tilesetId() const {
         return tilesetId_;
@@ -62,7 +56,6 @@ public:
 
 private:
     CreateMode mode_;
-    bool allowDanglingNavtiles_;
     boost::optional<std::string> tilesetId_;
     boost::optional<LodRange> lodRange_;
 };
