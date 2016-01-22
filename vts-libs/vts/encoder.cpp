@@ -152,11 +152,16 @@ struct Encoder::Detail {
 void Encoder::Detail::setConstraints(const Constraints &c)
 {
     constraints = c;
-    if (!constraints.extents) { return; }
 
-    for (const auto &srs : referenceFrame.division.srsList()) {
-        srsExtents[srs] = CsConvertor(constraints.extents->srs, srs)
-            (constraints.extents->extents);
+    if (constraints.extents) {
+        for (const auto &srs : referenceFrame.division.srsList()) {
+            srsExtents[srs] = CsConvertor(constraints.extents->srs, srs)
+                (constraints.extents->extents);
+        }
+    } else if (constraints.extentsGenerator) {
+        for (const auto &srs : referenceFrame.division.srsList()) {
+            srsExtents[srs] = constraints.extentsGenerator(srs);
+        }
     }
 }
 

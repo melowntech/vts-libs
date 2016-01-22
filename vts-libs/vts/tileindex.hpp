@@ -33,6 +33,8 @@ public:
              // cannot be 0xff since it is reserved value!
             , any = 0x7f
         };
+
+        static bool isReal(value_type flags) { return (flags & real); };
     };
 
     TileIndex() : minLod_() {}

@@ -214,6 +214,7 @@ struct Encoder::Constraints {
     };
 
     /** Generate will be called only for tiles overlapping with given extents.
+     *  In conflict with extentsGenerator
      */
     boost::optional<Extents> extents;
 
@@ -228,11 +229,20 @@ struct Encoder::Constraints {
      */
     const TileIndex *validTree;
 
+    typedef std::function<math::Extents2(const std::string&)> ExtentsGenerator;
+
+    /** Alternative to single extents: function to generate extents in all
+     *  spatial division SRS. In conflict with extents.
+     */
+    ExtentsGenerator extentsGenerator;
+
     Constraints& setLodRange(const boost::optional<LodRange> &value);
 
     Constraints& setExtents(const boost::optional<Extents> &value);
 
     Constraints& setValidTree(const TileIndex *value);
+
+    Constraints& setExtentsGenerator(const ExtentsGenerator &value);
 
     Constraints() : useExtentsForFirstHit(true), validTree(nullptr) {}
 };
@@ -255,6 +265,14 @@ inline Encoder::Constraints&
 Encoder::Constraints::setValidTree(const TileIndex *value)
 {
     validTree = value;
+    return *this;
+}
+
+inline Encoder::Constraints&
+Encoder::Constraints::setExtentsGenerator
+(const Encoder::Constraints::ExtentsGenerator &value)
+{
+    extentsGenerator = value;
     return *this;
 }
 
