@@ -257,7 +257,7 @@ ExtraStorageProperties parse1(const Json::Value &config)
     }
 
     if (config.isMember("credits")) {
-        ep.credits = registry::creditsFromJson(config["extraCredits"]);
+        ep.credits = registry::creditsFromJson(config["credits"]);
     }
 
     if (config.isMember("boundLayers")) {
