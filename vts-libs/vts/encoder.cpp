@@ -32,7 +32,7 @@ struct ConstraintsFlag {
         type flags(0);
 
         if (c.lodRange) { flags |= useLodRange; }
-        if (c.extents) { flags |= useExtents; }
+        if (c.extents || c.extentsGenerator) { flags |= useExtents; }
         if (c.useExtentsForFirstHit) { flags |= clearExtentsOnHit; }
 
         return flags;
