@@ -38,3 +38,13 @@ set(flipmeshmask_SOURCES
   )
 
 vadstena_tool(storage flipmeshmask ${flipmeshmask_SOURCES})
+
+# ------------------------------------------------------------------------
+define_module(BINARY fixphysicalmesh
+  DEPENDS JPEG vts-libs)
+
+set(fixphysicalmesh_SOURCES
+  fixphysicalmesh.cpp
+  )
+
+vadstena_tool(storage fixphysicalmesh ${fixphysicalmesh_SOURCES})
