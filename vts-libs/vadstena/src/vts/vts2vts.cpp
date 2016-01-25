@@ -125,41 +125,6 @@ usage
     return false;
 }
 
-#if 0
-vts::TileIndex computeDstTree(const vts::TileIndex &srcTree
-                              , const vr::ReferenceFrame &srcRf
-                              , const vr::ReferenceFrame &dstRf)
-{
-    (void) dstRf;
-
-    vts::TileIndex out;
-
-    traverse(srcTree, [&](const vts::TileId &tid, vts::QTree::value_type flags)
-    {
-        if (!vts::TileIndex::Flag::isReal(flags)) { return; }
-
-        vts::NodeInfo ni(srcRf, tid);
-
-        LOG(info4) << std::fixed << "tile: " << tid << ", " << ni.node.extents;
-
-        // for each destination node
-        for (const auto &item : dstRf.division.nodes) {
-            const auto &node(item.second);
-            LOG(info4) << "    trying to convert between "
-                       << ni.node.srs << " and " << node.srs;
-            vts::CsConvertor csconv(ni.node.srs, node.srs);
-
-            auto dstExtents(csconv(ni.node.extents));
-            if (!overlaps(dstExtents, node.extents)) { continue; }
-            LOG(info4) << std::fixed << "    maps to extents: "
-                       << dstExtents << " in srs " << node.srs;
-        };
-    });
-
-    return out;
-}
-#endif
-
 std::map<std::string, math::Extents2>
 measure(const vts::TileSet &tileset, const vr::ReferenceFrame &dstRf)
 {
@@ -194,8 +159,9 @@ measure(const vts::TileSet &tileset, const vr::ReferenceFrame &dstRf)
                        << dstExtents << " in srs " << node.srs;
 
             // update extents
-            update(mapping[node.srs], dstExtents.ll);
-            update(mapping[node.srs], dstExtents.ur);
+            auto &m(mapping[node.srs]);
+            update(m, dstExtents.ll);
+            update(m, dstExtents.ur);
         };
     });
 
@@ -214,16 +180,18 @@ public:
             , const vts::TileSet &input
             , const Config &config)
         : vts::Encoder(path, properties, mode)
-        , config_(config), input_(input)
+        , config_(config), input_(input), srcRf_(input_.referenceFrame())
     {
         auto extents(measure(input, referenceFrame()));
 
         setConstraints(Constraints().setExtentsGenerator
                        ([&](const std::string &srs) -> math::Extents2
         {
-            LOG(info4) << "";
             return extents.at(srs);
-        }).setLodRange(vts::LodRange(0, 20)));
+        }).setLodRange(vts::LodRange(0, 24)));
+
+        // FIXME: what lodRange???
+        // TODO: lodRange based on data
     }
 
 private:
@@ -237,14 +205,89 @@ private:
     const Config config_;
 
     const vts::TileSet &input_;
+    const vr::ReferenceFrame srcRf_;
 };
+
+double triangleArea(const math::Point2 &a, const math::Point2 &b,
+                    const math::Point2 &c)
+{
+    return std::abs
+        (math::crossProduct(math::Point2(b - a), math::Point2(c - a)))
+        / 2.0;
+}
+
+double bestTileArea(const math::Points2 &corners)
+{
+    return (triangleArea(corners[0], corners[1], corners[2])
+            + triangleArea(corners[2], corners[3], corners[0]));
+}
+
+int bestLod(const vr::ReferenceFrame::Division::Node &node, double area)
+{
+    // compute longest of base node tile sizes
+    auto rootSize(math::size(node.extents));
+    auto rootArea(rootSize.width * rootSize.height);
+
+    // compute number of requested tiles per edge
+    auto tileCount(std::sqrt(rootArea / area));
+
+    return node.id.lod + int(std::round(std::log2(tileCount)));
+}
 
 Encoder::TileResult
 Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
                   , const TileResult&)
 {
-    (void) tileId;
-    (void) nodeInfo;
+    // grab tile corners
+    const auto &dstExtents(nodeInfo.node.extents);
+    const math::Points2 dstCorners = {
+        ul(dstExtents), ur(dstExtents), lr(dstExtents), ll(dstExtents)
+    };
+
+    // for each system in source reference frame
+    for (const auto &item : srcRf_.division.nodes) {
+        const auto &node(item.second);
+        LOG(info4) << "node conver[" << tileId
+                   << "]: " << nodeInfo.node.srs
+                   << " -> " << node.srs;
+        vts::CsConvertor csconv(nodeInfo.node.srs, node.srs);
+
+        // convert them all to src SRS
+        math::Points2 srcCorners([&]() -> math::Points2
+        {
+            math::Points2 srcCorners;
+            try {
+                for (const auto &dstCorner : dstCorners) {
+                    srcCorners.push_back(csconv(dstCorner));
+                    LOG(info4) << std::fixed << "corner: "
+                               << dstCorner << " -> "
+                               << srcCorners.back();
+                    if (!inside(node.extents, srcCorners.back())) {
+                        // projected dst tile cannot fit inside this node's
+                        // extents -> ignore
+                        return {};
+                    }
+                }
+            } catch (std::exception) {
+                // whole tile cannot be projected -> ignore
+                return {};
+            }
+
+            // OK, we could convert whole tile into this reference system
+            return srcCorners;
+        }());
+
+        // ignore tiles that cannot be transformed
+        if (srcCorners.empty()) { continue; }
+
+        // find best tile size
+        auto bta(bestTileArea(srcCorners));
+
+        // find such the closest tile to the best tile size
+        auto srcLod(bestLod(node, bta));
+        LOG(info3) << "Best tile area: " << bta << " -> lod: " << srcLod;
+    }
+
     return TileResult::Result::noDataYet;
 }
 
