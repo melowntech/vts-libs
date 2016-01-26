@@ -142,21 +142,14 @@ measure(const vts::TileSet &tileset, const vr::ReferenceFrame &dstRf)
 
         vts::NodeInfo ni(srcRf, tid);
 
-        LOG(info4) << std::fixed << "tile: " << tid << ", " << ni.node.extents;
-
         // for each destination node
         for (const auto &item : dstRf.division.nodes) {
             const auto &node(item.second);
-            LOG(info4) << "    trying to convert between "
-                       << ni.node.srs << " and " << node.srs;
             vts::CsConvertor csconv(ni.node.srs, node.srs);
 
             auto dstExtents(csconv(ni.node.extents));
             if (!overlaps(dstExtents, node.extents)) { continue; }
             dstExtents = intersect(dstExtents, node.extents);
-
-            LOG(info4) << std::fixed << "    maps to extents: "
-                       << dstExtents << " in srs " << node.srs;
 
             // update extents
             auto &m(mapping[node.srs]);
@@ -231,13 +224,111 @@ int bestLod(const vr::ReferenceFrame::Division::Node &node, double area)
     // compute number of requested tiles per edge
     auto tileCount(std::sqrt(rootArea / area));
 
-    return node.id.lod + int(std::round(std::log2(tileCount)));
+    return int(std::round(std::log2(tileCount)));
+}
+
+vts::TileRange::point_type
+tiled(const vr::ReferenceFrame::Division::Node &node
+      , vts::Lod lod, const math::Point2 &p)
+{
+    auto ts(vts::tileSize(node.extents, lod));
+
+    // NB: origin is in upper-left corner and Y grows down
+    auto origin(math::ul(node.extents));
+    math::Point2 local(p - origin);
+    return vts::TileRange::point_type(local(0) / ts.width
+                                      , -local(1) / ts.height);
+}
+
+vts::TileRange tileRange(const vr::ReferenceFrame::Division::Node &node
+                         , vts::Lod lod
+                         , const math::Points2 &points)
+{
+    vts::TileRange r(math::InvalidExtents{});
+
+    for (const auto &p : points) {
+        update(r, tiled(node, lod, p));
+    }
+
+    return r;
+}
+
+template <typename Op>
+void forEachTile(const vr::ReferenceFrame &referenceFrame
+                 , vts::Lod lod, const vts::TileRange &tileRange
+                 , Op op)
+{
+    typedef vts::TileRange::value_type Index;
+    for (Index j(tileRange.ll(1)), je(tileRange.ur(1)); j <= je; ++j) {
+        for (Index i(tileRange.ll(0)), ie(tileRange.ur(0)); i <= ie; ++i) {
+            op(vts::NodeInfo(referenceFrame, vts::TileId(lod, i, j)));
+        }
+    }
+}
+
+struct OutOfTree {};
+
+std::vector<vts::TileId>
+rasterTiles(const vr::ReferenceFrame &referenceFrame
+            , const vr::ReferenceFrame::Division::Node &rootNode
+            , vts::Lod lod, const vts::TileRange &tileRange)
+{
+    // process tile range
+    try {
+        std::vector<vts::TileId> tiles;
+        forEachTile(referenceFrame, lod, tileRange
+                    , [&](const vts::NodeInfo &ni)
+        {
+            LOG(info4)
+                << std::fixed
+                << "src tile: "
+                << ni.nodeId() << ", " << ni.node.extents;
+
+            // TODO: check for incidence with Q
+
+            // check for root
+            if (ni.subtreeRoot->id != rootNode.id) {
+                LOG(warn2)
+                    << "Node " << ni.nodeId() << " is not directly under"
+                    << " currently processed node " << rootNode.id << ".";
+                throw OutOfTree{};
+            }
+
+            tiles.push_back(vts::tileId(ni.nodeId()));
+        });
+        return tiles;
+    } catch (OutOfTree) {}
+
+    // nothing
+    return {};
 }
 
 Encoder::TileResult
 Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
                   , const TileResult&)
 {
+    /** Current implementation:
+     *
+     *  For each source space division NODE:
+     *
+     *  1) Destination tile is projected into NODE's SRS SRS. All four corners
+     *     must fit inside NODE's root extents to create a quadrilateral Q.
+     *
+     *  2) Appropriate source LOD is selected by finding tile that has closest
+     *     area to area of Q.
+     *
+     *  3) Q is sampled in source tile space at select LOD: bounding box of Q is
+     *     converted to tile range and all tiles in that range that overlap with
+     *     Q are inserted into list of source tiles SRC.
+     *
+     *  4) All tiles in SRC must have NODE as their root nodes.
+     *
+     *  First valid result from the above algorithm is taken used as destination
+     *  tile's input.
+     */
+
+    std::vector<vts::TileId> srcTiles;
+
     // grab tile corners
     const auto &dstExtents(nodeInfo.node.extents);
     const math::Points2 dstCorners = {
@@ -247,9 +338,6 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     // for each system in source reference frame
     for (const auto &item : srcRf_.division.nodes) {
         const auto &node(item.second);
-        LOG(info4) << "node conver[" << tileId
-                   << "]: " << nodeInfo.node.srs
-                   << " -> " << node.srs;
         vts::CsConvertor csconv(nodeInfo.node.srs, node.srs);
 
         // convert them all to src SRS
@@ -284,11 +372,27 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
         auto bta(bestTileArea(srcCorners));
 
         // find such the closest tile to the best tile size
-        auto srcLod(bestLod(node, bta));
-        LOG(info3) << "Best tile area: " << bta << " -> lod: " << srcLod;
+        auto srcLocalLod(bestLod(node, bta));
+        auto srcLod(node.id.lod + srcLocalLod);
+
+        LOG(info3) << "Best tile area: " << bta << " -> LOD: " << srcLod
+                   << " (node's local LOD: " << srcLocalLod << ").";
+
+        // generate tile range from corners
+        auto tr(tileRange(node, srcLocalLod, srcCorners));
+        LOG(info4) << "tile range: " << tr;
+
+        srcTiles = rasterTiles(referenceFrame(), node, srcLod, tr);
+        if (!srcTiles.empty()) { break; }
     }
 
+    if (srcTiles.empty()) { return TileResult::Result::noDataYet; }
+
+    LOG(info4) << "Source tile count: " << srcTiles.size() << ".";
+
     return TileResult::Result::noDataYet;
+
+    (void) tileId;
 }
 
 int Vts2Vts::run()
