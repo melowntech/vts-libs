@@ -115,8 +115,10 @@ public:
 
 private:
     struct Constraints : merge::MergeConstraints {
-        Constraints(const Merger &merger, bool generable)
-            : merge::MergeConstraints(generable), merger(merger)
+        Constraints(const Merger &merger, bool generable
+                    , bool generateNavtile)
+            : merge::MergeConstraints(generable, generateNavtile)
+            , merger(merger)
         {}
         virtual bool feasible(const merge::Output &result) const {
             return merger.isGlueTile(result);
@@ -130,14 +132,14 @@ private:
      */
     void mergeTile(const NodeInfo &nodeInfo
                    , const TileId &tileId = TileId()
-                   , const merge::Input::list &parentSource
-                   = merge::Input::list());
+                   , const merge::TileSource &parentSource
+                   = merge::TileSource());
 
     /** Generates new tile as a merge of tiles from other tilesets.
      */
     merge::Output processTile(const NodeInfo &nodeInfo
                               , const TileId &tileId
-                              , const merge::Input::list &parentSource
+                              , const merge::TileSource &parentSource
                               , const Constraints &constraints);
 
     bool isGlueTile(const merge::Output &tile) const;
@@ -160,14 +162,14 @@ inline bool Merger::isGlueTile(const merge::Output &tile) const
         return false;
     }
 
-    auto size(tile.source.size());
+    auto size(tile.source.mesh.size());
     auto srcSize(src_.size());
 
     // sanity check
     if (!size) { return false; }
 
     // special case
-    if (tile.source.front().id() == topId_) {
+    if (tile.source.mesh.front().id() == topId_) {
         // generated only from top set, must be derived tile to be glue tile
         return tile.derived(0);
     }
@@ -179,7 +181,7 @@ inline bool Merger::isGlueTile(const merge::Output &tile) const
 
     if ((size + 1) == srcSize) {
         // possibly generated from sets other than top set
-        if (tile.source.back().id() == topId_) {
+        if (tile.source.mesh.back().id() == topId_) {
             // contains top set -> cannot be a glue
             return false;
         }
@@ -194,7 +196,7 @@ inline bool Merger::isGlueTile(const merge::Output &tile) const
 }
 
 void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
-                       , const merge::Input::list &parentSource)
+                       , const merge::TileSource &parentSource)
 {
     if (!world_.exists(tileId)) {
         // no data below
@@ -213,15 +215,16 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     if (atBottom && !g) { return; }
 
     // process tile
+    // TODO: generate navtile only if in sane lod range
     auto tile(processTile(nodeInfo, tileId, parentSource
-                          , Constraints(*this, g)));
+                          , Constraints(*this, g, g)));
 
     if (tile) {
         // tile generated, store into glue
         self_.setTile(tileId, tile.tile(), &nodeInfo);
-    } else if (g && !tile.source.empty()) {
+    } else if (g && !tile.source.mesh.empty()) {
         // no tile generated but there are some data to generate it
-        auto topSourceId(tile.source.back().id());
+        auto topSourceId(tile.source.mesh.back().id());
         if (topSourceId != topId_) {
             // tile references single tile in other set -> store reference
             LOG(info1) << "Setting reference " << topSourceId + 1;
@@ -247,7 +250,7 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
 
 merge::Output Merger::processTile(const NodeInfo &nodeInfo
                                   , const TileId &tileId
-                                  , const merge::Input::list &parentSource
+                                  , const merge::TileSource &parentSource
                                   , const Constraints &constraints)
 {
     // fetch input

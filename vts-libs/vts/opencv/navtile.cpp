@@ -164,6 +164,23 @@ void NavTile::data(const Data &data)
     data.assignTo(data_, CV_32F);
 }
 
+void NavTile::data(const Data &data, const Data &mask)
+{
+    // set data
+    this->data(data);
+
+    // fill in mask
+    auto &cm(coverageMask());
+    cm.reset();
+    for (int j(0); j < mask.rows; ++j) {
+        for (int i(0); i < mask.cols; ++i) {
+            if (!mask.at<std::uint8_t>(j, i)) {
+                cm.set(i, j, false);
+            }
+        }
+    }
+}
+
 NavTile::Data NavTile::createData(boost::optional<float> value)
 {
     auto ts(NavTile::size());

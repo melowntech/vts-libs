@@ -91,6 +91,7 @@ struct ReferenceFrame {
 
                 bool operator<(const Id &tid) const;
                 bool operator==(const Id &tid) const;
+                bool operator!=(const Id &tid) const;
             };
 
             struct Partitioning {
@@ -306,14 +307,17 @@ UTILITY_GENERATE_ENUM_IO(BoundLayer::Type,
 
 // inlines
 
-inline bool
-ReferenceFrame::Division::Node::Id::operator==(const Id &id) const
+inline bool ReferenceFrame::Division::Node::Id::operator==(const Id &id) const
 {
-    return ((lod == id.lod) && (x == id.x) && (y < id.y));
+    return ((lod == id.lod) && (x == id.x) && (y == id.y));
 }
 
-inline bool
-ReferenceFrame::Division::Node::Id::operator<(const Id &id) const
+inline bool ReferenceFrame::Division::Node::Id::operator!=(const Id &id) const
+{
+    return ((lod != id.lod) || (x != id.x) ||(y != id.y));
+}
+
+inline bool ReferenceFrame::Division::Node::Id::operator<(const Id &id) const
 {
     if (lod < id.lod) { return true; }
     else if (id.lod < lod) { return false; }

@@ -101,6 +101,18 @@ private:
     mutable boost::optional<opencv::NavTile> navtile_;
 };
 
+struct TileSource {
+    // list of tiles this tile's mesh/atlas was generated from
+    Input::list mesh;
+
+    // source of navtile
+    Input::list navtile;
+
+    TileSource() {}
+    TileSource(const Input::list &mesh, const Input::list &navtile)
+        : mesh{mesh}, navtile{navtile} {}
+};
+
 /** Merge output.
  */
 struct Output {
@@ -111,15 +123,18 @@ struct Output {
     boost::optional<opencv::NavTile> navtile;
 
     // list of tiles this tile was generated from
-    Input::list source;
+    TileSource source;
 
     explicit Output(const TileId &tileId) : tileId(tileId) {}
 
-    Output(const TileId &tileId, const Input &input)
-        : tileId(tileId), source{input} {}
+    Output(const TileId &tileId, const Input &input
+           , const Input::list &navtileInput)
+        : tileId(tileId), source({input}, navtileInput) {}
 
-    Output(const TileId &tileId, const Input::list &input)
-        : tileId(tileId), source(input) {}
+    Output(const TileId &tileId, const Input::list &meshInput
+           , const Input::list &navtileInput)
+        : tileId(tileId), source(meshInput, navtileInput)
+    {}
 
     operator bool() const {
         return mesh || atlas || navtile;
@@ -138,8 +153,8 @@ struct Output {
         if (atlas) {tile.atlas.reset(&*atlas, [](void*) {}); }
         if (navtile) {tile.navtile.reset(&*navtile, [](void*) {}); }
 
-        // join all credits from tile source
-        for (const auto &src : source) {
+        // join all credits from tile mesh source
+        for (const auto &src : source.mesh) {
             const auto &sCredits(src.node().credits());
             tile.credits.insert(sCredits.begin(), sCredits.end());
         }
@@ -149,17 +164,22 @@ struct Output {
 
     Mesh& forceMesh();
     opencv::RawAtlas& forceAtlas();
+    opencv::NavTile& forceNavtile();
 
     bool derived(std::size_t index) const {
-        if (index >= source.size()) { return false; }
-        return (source[index].tileId().lod != tileId.lod);
+        if (index >= source.mesh.size()) { return false; }
+        return (source.mesh[index].tileId().lod != tileId.lod);
     }
 
     bool fullyDerived() const {
-        for (const auto &src : source) {
+        for (const auto &src : source.mesh) {
             if (src.tileId().lod == tileId.lod) { return false; }
         }
         return  true;
+    }
+
+    bool derived(const Input &input) const {
+        return (input.tileId().lod != tileId.lod);
     }
 };
 
@@ -167,8 +187,8 @@ struct Output {
  */
 class MergeConstraints {
 public:
-    MergeConstraints(bool generable = false)
-        : generable_(generable)
+    MergeConstraints(bool generable = false, bool generateNavtile = false)
+        : generable_(generable), generateNavtile_(generateNavtile)
     {}
 
     virtual ~MergeConstraints() {}
@@ -183,8 +203,11 @@ public:
      */
     virtual bool feasible(const Output &result) const;
 
+    bool generateNavtile() const { return generateNavtile_; }
+
 private:
     bool generable_;
+    bool generateNavtile_;
 };
 
 /** Generates new tile from given source and parent source fallback.
@@ -202,7 +225,7 @@ private:
 Output mergeTile(const TileId &tileId
                  , const NodeInfo &nodeInfo
                  , const Input::list &source
-                 , const Input::list &parentSource
+                 , const TileSource &parentSource
                  , const MergeConstraints &constraints);
 
 // inlines

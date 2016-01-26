@@ -23,6 +23,11 @@ public:
     const Data& data() const { return data_; }
     Data& data() { return data_; }
 
+    /** Fills in data and mask. Coverage mask is generated from non-zero pixels
+     *  in mask. Mask must have the same size as the coverage mask.
+     */
+    void data(const Data &data, const Data &mask);
+
     /** Helper function to create data matrix of proper size and type.
      *
      * \param value all pixels in return matrix are set to given value if valid

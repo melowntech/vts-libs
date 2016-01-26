@@ -39,6 +39,8 @@ std::string fileTemplate(TileFile type
 
 std::size_t tileCount(Lod lod);
 
+math::Size2f tileSize(const math::Extents2 &rootExtents, Lod lod);
+
 RFNode::Id rfNodeId(const TileId &tileId);
 TileId tileId(const RFNode::Id &rfNodeId);
 
@@ -85,6 +87,13 @@ inline RFNode::Id rfNodeId(const TileId &tileId)
 {
     return RFNode::Id
         (tileId.lod, tileId.x, tileId.y);
+}
+
+inline math::Size2f tileSize(const math::Extents2 &rootExtents, Lod lod)
+{
+    auto tc(tileCount(lod));
+    auto rs(math::size(rootExtents));
+    return { rs.width / tc, rs.height / tc };
 }
 
 inline TileId tileId(const RFNode::Id &rfNodeId)

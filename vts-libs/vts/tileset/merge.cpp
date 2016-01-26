@@ -210,18 +210,28 @@ const math::Matrix4 Input::coverage2Texture() const
     return coverage2EtcTrafo(Mesh::coverageSize());
 }
 
-Mesh& Output::forceMesh() {
+Mesh& Output::forceMesh()
+{
     if (!mesh) {
         mesh = boost::in_place();
     }
     return *mesh;
 }
 
-opencv::RawAtlas& Output::forceAtlas() {
+opencv::RawAtlas& Output::forceAtlas()
+{
     if (!atlas) {
         atlas = boost::in_place();
     }
     return *atlas;
+}
+
+opencv::NavTile& Output::forceNavtile()
+{
+    if (!navtile) {
+        navtile = boost::in_place();
+    }
+    return *navtile;
 }
 
 namespace {
@@ -229,8 +239,10 @@ namespace {
 /** Build uniform source by merging current and parent sources current data have
  *  precedence only tiles with mesh are used.
 */
+template <typename Include>
 Input::list mergeSource(const Input::list &currentSource
-                        , const Input::list &parentSource)
+                        , const Input::list &parentSource
+                        , Include include)
 {
     Input::list source;
     {
@@ -246,15 +258,15 @@ Input::list mergeSource(const Input::list &currentSource
             const auto &ts(*icurrentSource);
             const auto &ps(*iparentSource);
             if (ts < ps) {
-                if (ts.hasMesh()) { source.push_back(ts); }
+                if (include(ts)) { source.push_back(ts); }
                 ++icurrentSource;
             } else if (ps < ts) {
-                if (ps.hasMesh()) { source.push_back(ps); }
+                if (include(ps)) { source.push_back(ps); }
                 ++iparentSource;
             } else {
-                if (ts.hasMesh()) {
+                if (include(ts)) {
                     source.push_back(ts);
-                } else if (ps.hasMesh()) {
+                } else if (include(ps)) {
                     source.push_back(ps);
                 }
                 ++icurrentSource;
@@ -264,18 +276,42 @@ Input::list mergeSource(const Input::list &currentSource
 
         // copy tail (one or another)
         for (; icurrentSource != ecurrentSource; ++icurrentSource) {
-            if (icurrentSource->hasMesh()) {
+            if (include(*icurrentSource)) {
                 source.push_back(*icurrentSource);
             }
         }
 
         for (; iparentSource != eparentSource; ++iparentSource) {
-            if (iparentSource->hasMesh()) {
+            if (include(*iparentSource)) {
                 source.push_back(*iparentSource);
             }
         }
     }
     return source;
+}
+
+Input::list filterSources(const Input::list &reference
+                          , const Input::list &sources)
+{
+    Input::list out;
+    auto ireference(reference.begin()), ereference(reference.end());
+    auto isources(sources.begin()), esources(sources.end());
+
+    // place inputs from sources to output only when present in reference
+    while ((ireference != ereference) && (isources != esources)) {
+        const auto &r(*ireference);
+        const auto &s(*isources);
+        if (r < s) {
+            ++ireference;
+        } else if (s < r) {
+            ++isources;
+        } else {
+            out.push_back(s);
+            ++ireference;
+            ++isources;
+        }
+    }
+    return out;
 }
 
 void rasterize(const Mesh &mesh, const cv::Scalar &color
@@ -343,12 +379,14 @@ struct Coverage {
         analyze();
     }
 
-    void getSources(Output &output) const {
+    void getSources(Output &output, const Input::list &navtileSource) const {
         for (const auto &input : sources) {
             if (indices[input.id()]) {
-                output.source.push_back(input);
+                output.source.mesh.push_back(input);
             }
         }
+        output.source.navtile
+            = filterSources(output.source.mesh, navtileSource);
     }
 
     bool covered(const Face &face, const math::Points3d &vertices
@@ -664,15 +702,56 @@ private:
     math::Matrix4 coverage2Texture_;
 };
 
-Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
-                     , const Input &input)
+void renderNavtile(cv::Mat &nt, cv::Mat &ntCoverage
+                   , const opencv::NavTile &navtile)
 {
-    Output result(tileId, input);
+    const auto nts(NavTile::size());
+
+    cv::Mat coverage(nts.height, nts.width, CV_8U, cv::Scalar(0));
+
+    const cv::Scalar white(255);
+    navtile.coverageMask()
+        .forEachQuad([&](uint xstart, uint ystart, uint xsize
+                         , uint ysize, bool)
+    {
+        cv::Point2i start(xstart, ystart);
+        cv::Point2i end(xstart + xsize - 1, ystart + ysize - 1);
+
+        cv::rectangle(coverage, start, end, white, CV_FILLED, 4);
+    }, Mesh::CoverageMask::Filter::white);
+
+    navtile.data().copyTo(nt, coverage);
+    coverage.copyTo(ntCoverage, coverage);
+}
+
+void generateNavtile(Output &output)
+{
+    LOG(info4) << "Generating navtile.";
+
+    auto nt(opencv::NavTile::createData());
+    cv::Mat mask(nt.rows, nt.cols, CV_8U, cv::Scalar(0));
+    for (const auto input : output.source.navtile) {
+        if (output.derived(input)) {
+            LOG(info3) << "No support for derived navtile data yet.";
+        } else {
+            renderNavtile(nt, mask, input.navtile());
+        }
+    }
+
+    output.forceNavtile().data(nt, mask);
+}
+
+Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
+                     , const Input &input, const Input::list &navtileSource
+                     , bool shouldGenerateNavtile)
+{
+    Output result(tileId, input, navtileSource);
     if (input.tileId().lod == tileId.lod) {
         // as is -> copy
         result.mesh = input.mesh();
         if (input.hasAtlas()) { result.atlas = input.atlas(); }
         if (input.hasNavtile()) { result.navtile = input.navtile(); }
+        if (shouldGenerateNavtile) { generateNavtile(result); }
         return result;
     }
 
@@ -706,8 +785,21 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
         = input.mesh().coverageMask.subTree
         (Mesh::coverageSize(), localId.lod, localId.x, localId.y);
 
+    if (shouldGenerateNavtile) { generateNavtile(result); }
+
     // done
     return result;
+}
+
+Input::list gerNavtiles(const Input::list &sources)
+{
+    Input::list out;
+    for (const auto &source : sources) {
+        if (source.hasNavtile()) {
+            out.push_back(source);
+        }
+    }
+    return out;
 }
 
 } // namespace
@@ -715,31 +807,41 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
 Output mergeTile(const TileId &tileId
                  , const NodeInfo &nodeInfo
                  , const Input::list &currentSource
-                 , const Input::list &parentSource
+                 , const TileSource &parentSource
                  , const MergeConstraints &constraints)
 {
-    auto source(mergeSource(currentSource, parentSource));
+    // merge sources for meshes and navtiles
+    auto source
+        (mergeSource
+         (currentSource, parentSource.mesh
+          , [](const Input &input) { return input.hasMesh(); }));
+    auto navtileSource
+         (mergeSource
+          (currentSource, parentSource.navtile
+           , [](const Input &input) { return input.hasNavtile(); }));
+
     if (!constraints.generable()) {
         // just sources
-        return Output(tileId, source);
+        return Output(tileId, source, navtileSource);
     }
 
     // from here, all input tiles have geometry -> no need to check for mesh
     // presence
 
-    // merge result
-    Output result(tileId);
-
-    if (source.empty()) { return result; }
+    if (source.empty()) { return Output(tileId); }
 
     if ((source.size() == 1)) {
-        result = { tileId, source };
-
+        Output result(tileId, source, navtileSource);
         if (!constraints.feasible(result)) { return result; }
 
         // just one source
-        return singleSourced(tileId, nodeInfo, source.front());
+        return singleSourced(tileId, nodeInfo, source.front()
+                             , filterSources(source, navtileSource)
+                             , constraints.generateNavtile());
     }
+
+    // merge result
+    Output result(tileId);
 
     // analyze coverage
     Coverage coverage(tileId, nodeInfo, source);
@@ -749,7 +851,7 @@ Output mergeTile(const TileId &tileId
     }
 
     // get contributing tile sets
-    coverage.getSources(result);
+    coverage.getSources(result, navtileSource);
 
     if (!constraints.feasible(result)) {
         // nothing to merge
@@ -764,17 +866,18 @@ Output mergeTile(const TileId &tileId
         }
 
         // process single source
-        return singleSourced(tileId, nodeInfo, result.source.front());
+        return singleSourced(tileId, nodeInfo, result.source.mesh.front()
+                             , result.source.navtile
+                             , constraints.generateNavtile());
     }
 
-    // TODO: merge navtile based on navtile coverage
-
+    // merge meshes
     CsConvertor phys2sd(nodeInfo.referenceFrame->model.physicalSrs
                         , nodeInfo.node.srs);
 
     // process all input tiles from result source (i.e. only those contributing
     // to the tile)
-    for (const auto &input : result.source) {
+    for (const auto &input : result.source.mesh) {
         const auto &mesh(input.mesh());
 
         // get current mesh vertices converted to coverage coordinate system
@@ -818,6 +921,9 @@ Output mergeTile(const TileId &tileId
 
     // generate coverage mask
     coverage.fillMeshMask(result);
+
+    // generate navtile if asked to
+    if (constraints.generateNavtile()) { generateNavtile(result); }
 
     return result;
 }
