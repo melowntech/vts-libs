@@ -23,17 +23,11 @@ typedef std::vector<TileIndex> TileIndexList;
 inline TileIndexList
 tileIndices(const TileSet::const_ptrlist &sets
             , const LodRange &lodRange
-            , std::size_t size
-            = std::numeric_limits<std::size_t>::max())
+            , TileIndex::Flag::value_type mask)
 {
-    size = std::min(size, sets.size());
-
     std::vector<TileIndex> indices;
-    auto isets(sets.begin());
-    for (std::size_t i(0); i < size; ++i) {
-        indices.push_back
-            ((*isets)->tileIndex(lodRange).simplify(TileIndex::Flag::mesh));
-        ++isets;
+    for (const auto &set : sets) {
+        indices.push_back(set->tileIndex(lodRange).simplify(mask));
     }
     return indices;
 }
@@ -60,7 +54,7 @@ const char* getDumpDir()
 
 void dumpTileIndex(const char *root, const fs::path &name
                    , const TileIndex &index
-                   , const std::string &referenceFrame)
+                   , const std::string &referenceFrameId)
 {
     if (!root) { return; }
     LOG(info1) << "Dumping tileindex " << name << ".";
@@ -69,19 +63,20 @@ void dumpTileIndex(const char *root, const fs::path &name
     index.save(filename);
 
     auto rfFilename(root / utility::addExtension(name, ".rframe"));
-    utility::write(rfFilename, referenceFrame.data(), referenceFrame.size());
+    utility::write(rfFilename, referenceFrameId.data()
+                   , referenceFrameId.size());
 }
 
 inline void dump(const char *root, const boost::filesystem::path &dir
                  , const std::vector<TileIndex> &tileIndices
-                 , const std::string &referenceFrame)
+                 , const std::string &referenceFrameId)
 {
     if (!root) { return; }
 
     int i(0);
     for (const auto &ti : tileIndices) {
         dumpTileIndex(root, dir / str(boost::format("%03d") % i), ti
-                      , referenceFrame);
+                      , referenceFrameId);
         ++i;
     }
 }
@@ -101,8 +96,10 @@ DetailList details(TileSet::Detail &detail
 struct Merger {
 public:
     Merger(TileSet::Detail &self, const TileIndex &generate
+           , const TileIndex &navtileGenerate
            , const TileSet::const_ptrlist &srcSets)
         : self_(self), world_(generate), generate_(generate)
+        , navtileGenerate_(navtileGenerate)
         , src_(details(self, srcSets)), top_(*src_.back())
         , topId_(src_.size() - 1), progress_(generate_.count())
     {
@@ -147,6 +144,7 @@ private:
     TileSet::Detail &self_;
     TileIndex world_;
     const TileIndex &generate_;
+    const TileIndex &navtileGenerate_;
     const DetailList src_;
     const TileSet::Detail &top_;
     const merge::Input::Id topId_;
@@ -206,18 +204,19 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     // thread name contains tile
     vadstena::storage::TIDGuard tg(str(boost::format("%s") % tileId), true);
 
-    bool g(generate_.exists(tileId));
-    bool atBottom(tileId.lod >= generate_.maxLod());
+    const bool g(generate_.exists(tileId));
+    const bool atBottom(tileId.lod >= generate_.maxLod());
 
     LOG(info2) << "(glue) Processing tile " << tileId << ".";
 
     // terminate descent if at bottom and nothing is going to be generated
     if (atBottom && !g) { return; }
 
+    const bool ng(navtileGenerate_.exists(tileId));
+
     // process tile
-    // TODO: generate navtile only if in sane lod range
     auto tile(processTile(nodeInfo, tileId, parentSource
-                          , Constraints(*this, g, g)));
+                          , Constraints(*this, g, ng)));
 
     if (tile) {
         // tile generated, store into glue
@@ -268,29 +267,16 @@ merge::Output Merger::processTile(const NodeInfo &nodeInfo
                             , constraints);
 }
 
-} // namespace
-
-void TileSet::createGlue(const const_ptrlist &sets)
+TileIndex buildGenerateSet(const char *dumpRoot
+                           , const std::string &referenceFrameId
+                           , const LodRange &lr
+                           , const TileSet::const_ptrlist &sets
+                           , TileIndex::Flag::value_type mask)
 {
-    if (sets.size() < 2) {
-        LOG(info3) << "(glue) Too few sets to glue together ("
-                   << sets.size() << ").";
-        return;
-    }
-
-    LOG(info3) << "(glue) Calculating generate set.";
-
-    const auto *dumpRoot(getDumpDir());
-    const auto &referenceFrame(getProperties().referenceFrame);
-
-    // LOD range of all sets
-    const LodRange lr(range(sets));
-    LOG(info2) << "LOD range: " << lr;
-
     // get all indices from all sets in full LOD range
-    auto all(tileIndices(sets, lr));
+    auto all(tileIndices(sets, lr, mask));
     auto &top(all.back());
-    dumpTileIndex(dumpRoot, "top", top, referenceFrame);
+    dumpTileIndex(dumpRoot, "top", top, referenceFrameId);
 
     // make top round (i.e. quad condition is satisfied for every tile)
     top.round();
@@ -299,9 +285,9 @@ void TileSet::createGlue(const const_ptrlist &sets)
     const auto topUp(TileIndex(top).complete());
     const auto topDown(TileIndex(top).completeDown());
 
-    dumpTileIndex(dumpRoot, "top-round", top, referenceFrame);
-    dumpTileIndex(dumpRoot, "top-up", topUp, referenceFrame);
-    dumpTileIndex(dumpRoot, "top-down", topDown, referenceFrame);
+    dumpTileIndex(dumpRoot, "top-round", top, referenceFrameId);
+    dumpTileIndex(dumpRoot, "top-up", topUp, referenceFrameId);
+    dumpTileIndex(dumpRoot, "top-down", topDown, referenceFrameId);
 
     // grab all tile indices except the top one
     boost::sub_range<TileIndexList> rest(all.begin(), std::prev(all.end()));
@@ -327,18 +313,52 @@ void TileSet::createGlue(const const_ptrlist &sets)
         }
     }
 
-    dumpTileIndex(dumpRoot, "generate", *generate, referenceFrame);
-    LOG(info1) << "generate: " << generate->count();
+    // done
+    return *generate;
+}
 
-    if (generate->empty()) {
+
+} // namespace
+
+void TileSet::createGlue(const const_ptrlist &sets)
+{
+    if (sets.size() < 2) {
+        LOG(info3) << "(glue) Too few sets to glue together ("
+                   << sets.size() << ").";
+        return;
+    }
+
+    LOG(info3) << "(glue) Calculating generate set.";
+
+    const auto *dumpRoot(getDumpDir());
+    const auto &referenceFrameId(getProperties().referenceFrame);
+
+    // LOD range of all sets
+    const LodRange lr(range(sets));
+    LOG(info2) << "LOD range: " << lr;
+
+    auto generate(buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
+                                   , TileIndex::Flag::mesh));
+
+    dumpTileIndex(dumpRoot, "generate", generate, referenceFrameId);
+    LOG(info1) << "generate: " << generate.count();
+
+    if (generate.empty()) {
         LOG(warn3) << "(glue) Nothing to generate. Bailing out.";
         return;
     }
 
     LOG(info3) << "(glue) Generate set calculated.";
 
+    // calculate navtile generate set
+    auto navtileGenerate
+        (buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
+                          , TileIndex::Flag::navtile));
+    dumpTileIndex(dumpRoot, "generate-navtile", navtileGenerate
+                  , referenceFrameId);
+
     // run merge
-    Merger(detail(), *generate, sets);
+    Merger(detail(), generate, navtileGenerate, sets);
 
     // copy position from top dataset
     setPosition(sets.back()->getProperties().position);
