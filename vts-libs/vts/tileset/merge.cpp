@@ -4,6 +4,7 @@
 #include <boost/format.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include "math/transform.hpp"
 
@@ -702,11 +703,9 @@ private:
     math::Matrix4 coverage2Texture_;
 };
 
-void renderNavtile(cv::Mat &nt, cv::Mat &ntCoverage
-                   , const opencv::NavTile &navtile)
+cv::Mat renderCoverage(const opencv::NavTile &navtile)
 {
     const auto nts(NavTile::size());
-
     cv::Mat coverage(nts.height, nts.width, CV_8U, cv::Scalar(0));
 
     const cv::Scalar white(255);
@@ -720,19 +719,118 @@ void renderNavtile(cv::Mat &nt, cv::Mat &ntCoverage
         cv::rectangle(coverage, start, end, white, CV_FILLED, 4);
     }, Mesh::CoverageMask::Filter::white);
 
+    return coverage;
+}
+
+void renderNavtile(cv::Mat &nt, cv::Mat &ntCoverage
+                   , const opencv::NavTile &navtile)
+{
+    auto coverage(renderCoverage(navtile));
     navtile.data().copyTo(nt, coverage);
     coverage.copyTo(ntCoverage, coverage);
 }
 
-void generateNavtile(Output &output)
+/** This function could eat a lot of memory since it scales whole tile instead
+ *  of just sub-range.
+ *
+ *  TODO: state limit on lod difference and scale in multiple steps
+ */
+void renderNavtile(cv::Mat &nt, cv::Mat &ntCoverage
+                   , const TileId &localId
+                   , const opencv::NavTile &navtile)
 {
-    LOG(info4) << "Generating navtile.";
+    constexpr Lod processLodDifference(3);
 
+    // render coverage as usual
+    auto coverage(renderCoverage(navtile));
+
+    typedef std::tuple<cv::Mat, cv::Mat> NavData;
+
+    /** Scales navtile data/coverage mask in grid registration
+     */
+    auto scaleNavtile([&](const TileId &localId, const NavData &in)
+                      -> NavData
+    {
+        // scale size of data in grid registration
+        const auto nts(NavTile::size());
+        cv::Size scaledSize((nts.width - 1) * (1 << localId.lod) + 1
+                            , (nts.height - 1) * (1 << localId.lod) + 1);
+
+        // create column and row ranges to grab subtile
+        cv::Range cr((nts.width - 1) * localId.x, 0);
+        cr.end = cr.start + nts.width;
+
+        cv::Range rr((nts.height - 1) * localId.y, 0);
+        rr.end = rr.start + nts.height;
+
+        // this helper function scales tile data in grid registrion and returns
+        // sub-image at given indices
+        auto resizeAndCrop([&](const cv::Mat &in) -> cv::Mat
+        {
+            // placeholder
+            cv::Mat tmp;
+            // resize whole image
+            cv::resize(in, tmp, scaledSize, 0.0, 0.0, cv::INTER_LINEAR);
+            // clone subrange
+            return cv::Mat(tmp, rr, cr).clone();
+        });
+
+        // create source data for tile
+        return NavData(resizeAndCrop(std::get<0>(in))
+                       , resizeAndCrop(std::get<1>(in)));
+    });
+
+    // Splits tile id into two tile id's:
+    //
+    //     * parent of input tileId that is at most diff LODs from root (return
+    //     * value)
+    //
+    //     * new tileId under with this parent as a root (modified argument)
+    //
+    auto splitId([&](Lod diff, TileId &id) -> TileId
+    {
+        // too shallow tree -> identity
+        if (id.lod <= diff) {
+            auto nid(id);
+            id = {};
+            return nid;
+        }
+
+        // deeper tree
+
+        // create new root
+        const auto rest(id.lod - diff);
+        TileId nid(diff, id.x >> rest, id.y >> rest);
+
+        // re-root id under new root
+        id = local(diff, id);
+
+        // done
+        return nid;
+    });
+
+    // process data in parts
+    NavData nd(navtile.data(), coverage);
+    for (auto lid(localId); lid.lod; ) {
+        const auto id(splitId(processLodDifference, lid));
+        nd = scaleNavtile(id, nd);
+    }
+
+    // apply data and mask
+    const auto &subData(std::get<0>(nd));
+    const auto &subCoverage(std::get<1>(nd));
+    subData.copyTo(nt, subCoverage);
+    subCoverage.copyTo(ntCoverage, subCoverage);
+}
+
+void mergeNavtile(Output &output)
+{
     auto nt(opencv::NavTile::createData());
     cv::Mat mask(nt.rows, nt.cols, CV_8U, cv::Scalar(0));
     for (const auto input : output.source.navtile) {
         if (output.derived(input)) {
-            LOG(info3) << "No support for derived navtile data yet.";
+            renderNavtile(nt, mask, local(input.tileId().lod, output.tileId)
+                          , input.navtile());
         } else {
             renderNavtile(nt, mask, input.navtile());
         }
@@ -743,7 +841,7 @@ void generateNavtile(Output &output)
 
 Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
                      , const Input &input, const Input::list &navtileSource
-                     , bool shouldGenerateNavtile)
+                     , bool generateNavtile)
 {
     Output result(tileId, input, navtileSource);
     if (input.tileId().lod == tileId.lod) {
@@ -751,7 +849,7 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
         result.mesh = input.mesh();
         if (input.hasAtlas()) { result.atlas = input.atlas(); }
         if (input.hasNavtile()) { result.navtile = input.navtile(); }
-        if (shouldGenerateNavtile) { generateNavtile(result); }
+        if (generateNavtile) { mergeNavtile(result); }
         return result;
     }
 
@@ -785,7 +883,7 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
         = input.mesh().coverageMask.subTree
         (Mesh::coverageSize(), localId.lod, localId.x, localId.y);
 
-    if (shouldGenerateNavtile) { generateNavtile(result); }
+    if (generateNavtile) { mergeNavtile(result); }
 
     // done
     return result;
@@ -923,7 +1021,7 @@ Output mergeTile(const TileId &tileId
     coverage.fillMeshMask(result);
 
     // generate navtile if asked to
-    if (constraints.generateNavtile()) { generateNavtile(result); }
+    if (constraints.generateNavtile()) { mergeNavtile(result); }
 
     return result;
 }
