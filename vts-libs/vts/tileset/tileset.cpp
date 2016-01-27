@@ -549,7 +549,7 @@ void TileSet::Detail::save(const OStream::pointer &os, const NavTile &navtile)
 
 void TileSet::Detail::load(const IStream::pointer &os, Mesh &mesh) const
 {
-    mesh = loadMesh(*os, os->name());
+    mesh = loadMesh(os);
 }
 
 void TileSet::Detail::load(const IStream::pointer &os, Atlas &atlas) const

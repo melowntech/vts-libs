@@ -12,6 +12,8 @@
 #include "math/geometry_core.hpp"
 #include "imgproc/rastermask/quadtree.hpp"
 
+#include "../storage/streams.hpp"
+
 #include "./multifile.hpp"
 
 namespace vadstena { namespace vts {
@@ -68,6 +70,8 @@ struct SubMesh {
     /** Clones metadata (texture mod, layer etc.).
      */
     void cloneMetadataInto(SubMesh &dst) const;
+
+    bool empty() const { return vertices.empty(); }
 };
 
 /**
@@ -104,7 +108,11 @@ struct Mesh {
 
     SubMesh& operator[](std::size_t index) { return submeshes[index]; }
 
+    void add(const SubMesh &subMesh) { submeshes.push_back(subMesh); }
+
     std::size_t size() const { return submeshes.size(); }
+
+    bool empty() const { return submeshes.empty(); }
 };
 
 inline bool watertight(const Mesh &mesh) { return mesh.coverageMask.full(); }
@@ -150,6 +158,9 @@ Mesh loadMesh(std::istream &in, const boost::filesystem::path &path
               = "unknown");
 Mesh loadMesh(const boost::filesystem::path &path);
 
+void saveMesh(const storage::OStream::pointer &out, const Mesh &mesh);
+Mesh loadMesh(const storage::IStream::pointer &in);
+
 multifile::Table readMeshTable(std::istream &is
                                , const boost::filesystem::path &path
                                = "unknown");
@@ -167,6 +178,16 @@ UTILITY_GENERATE_ENUM_IO(SubMesh::TextureMode,
     ((internal))
     ((external))
 )
+
+inline void saveMesh(const storage::OStream::pointer &out, const Mesh &mesh)
+{
+    return saveMesh(*out, mesh);
+}
+
+inline Mesh loadMesh(const storage::IStream::pointer &in)
+{
+    return loadMesh(*in, in->name());
+}
 
 } } // namespace vadstena::vts
 
