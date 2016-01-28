@@ -34,6 +34,8 @@
 #include "vts-libs/vts/opencv/navtile.hpp"
 #include "vts-libs/vts/io.hpp"
 #include "vts-libs/vts/csconvertor.hpp"
+#include "vts-libs/vts/meshopinput.hpp"
+#include "vts-libs/vts/meshop.hpp"
 
 namespace po = boost::program_options;
 namespace vs = vadstena::storage;
@@ -261,7 +263,7 @@ public:
             // for each destination node
             for (const auto &item : dstRf.division.nodes) {
                 const auto &node(item.second);
-                vts::CsConvertor csconv(ni.node.srs, node.srs);
+                const vts::CsConvertor csconv(ni.node.srs, node.srs);
 
                 auto dstCorners(projectCorners(node, csconv, srcCorners));
 
@@ -337,7 +339,7 @@ private:
              , const TileResult&)
         UTILITY_OVERRIDE;
 
-    virtual void finish(vts::TileSet&) UTILITY_OVERRIDE {}
+    virtual void finish(vts::TileSet&);
 
     const Config config_;
 
@@ -347,16 +349,39 @@ private:
     SourceInfoBuilder srcInfo_;
 };
 
-vts::SubMesh warp(const vts::CsConvertor &conv, const vts::SubMesh &sm)
+void warpInPlace(const vts::CsConvertor &conv, vts::SubMesh &sm)
 {
-    (void) sm;
-    (void) conv;
+    // just convert vertices
+    for (auto &v : sm.vertices) {
+        // convert vertex in-place
+        v = conv(v);
+    }
+}
 
-    vts::SubMesh out;
+vts::VertexMask warpInPlaceWithMask(const vts::CsConvertor &conv
+                                    , vts::SubMesh &sm)
+{
+    vts::VertexMask mask(sm.vertices.size(), true);
 
-    // TODO: implement me
+    std::size_t masked(0);
+    auto imask(mask.begin());
+    for (auto &v : sm.vertices) {
+        try {
+            // convert vertex in-place
+            v = conv(v);
+        } catch (std::exception) {
+            // cannot convert vertex -> mask out
+            *imask = false;
+            ++masked;
+        }
+        ++imask;
+    }
 
-    return out;
+    // nothing masked -> no mask
+    if (!masked) { return {}; }
+
+    // something masked
+    return mask;
 }
 
 Encoder::TileResult
@@ -371,39 +396,66 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     LOG(info4) << "Source tiles(" << src.size() << "): "
                << utility::join(src, ", ") << ".";
 
-    struct Source {
-        vts::TileId tileId;
-        vts::TileSource source;
-
-        Source(const vts::TileId &tileId, const vts::TileSet &ts)
-            : tileId(tileId), source(ts.getTileSource(tileId))
-        {}
-
-        typedef std::vector<Source> list;
-    };
-
-    Source::list sources;
-    for (const auto &srcId : src) {
-        UTILITY_OMP(critical)
-            sources.emplace_back(srcId, input_);
+    vts::MeshOpInput::list source;
+    {
+        vts::MeshOpInput::Id id(0);
+        for (const auto &srcId : src) {
+            UTILITY_OMP(critical)
+            {
+                // build input for tile transformation:
+                //     * node info is generated on the fly
+                //     * this cannot be a lazy operation
+                vts::MeshOpInput t(id++, input_, srcId, nullptr, false);
+                if (t) { source.push_back(t); }
+            }
+        }
     }
 
-    vts::CsConvertor srcPhy2Sds(srcRf_.model.physicalSrs, nodeInfo.node.srs);
+    const vts::CsConvertor srcPhy2Sds
+        (srcRf_.model.physicalSrs, nodeInfo.node.srs);
+
+    const vts::CsConvertor sds2DstPhy
+        (nodeInfo.node.srs, referenceFrame().model.physicalSrs);
 
     Encoder::TileResult result;
     vts::Mesh &mesh(*(result.tile().mesh = std::make_shared<vts::Mesh>()));
+    vts::RawAtlas &atlas([&]() -> vts::RawAtlas&
+    {
+        auto atlas(std::make_shared<vts::RawAtlas>());
+        result.tile().atlas = atlas;
+        return *atlas;
+    }());
 
-    for (const auto &source : sources) {
-        auto srcMesh(vts::loadMesh(source.source.mesh));
-        for (const auto &srcSm : srcMesh) {
-            auto dstSm(warp(srcPhy2Sds, srcSm));
-            // TODO: generate external tx coordinates
-            // TODO: clip mesh by tile extents
-            // TODO: grab atlas (if any)
-            // TODO: warp navtile
+    for (const auto &input : source) {
+        const auto &inMesh(input.mesh());
+        for (std::size_t smIndex(0), esmIndex(inMesh.size());
+             smIndex != esmIndex; ++smIndex)
+        {
+            auto sm(inMesh[smIndex]);
+
+            auto mask(warpInPlaceWithMask(srcPhy2Sds, sm));
+
+            // clip submesh
+            auto dstSm(vts::clip(sm, nodeInfo.node.extents, mask));
 
             if (!dstSm.empty()) {
+                // TODO: re-generate external tx coordinates (if division node
+                // allows)
+                dstSm.etc.clear();
+
+                // TODO: set new texture layer if provided
+                dstSm.textureLayer = boost::none;
+
+                // convert mesh to destination physical SRS
+                warpInPlace(sds2DstPhy, dstSm);
+
+                // add mesh
                 mesh.add(dstSm);
+
+                // copy tecture if submesh has atlas
+                if (input.hasAtlas() && input.atlas().valid(smIndex)) {
+                    atlas.add(input.atlas().get(smIndex));
+                }
             }
         }
     }
@@ -413,18 +465,41 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
         return TileResult::Result::noDataYet;
     }
 
+    // TODO: warp navtile and its mask
     // TODO: generate mesh mask (rasterize mesh)
 
     // done:
     return result;
 }
 
+void Encoder::finish(vts::TileSet &ts)
+{
+    auto position(input_.getProperties().position);
+
+    // convert
+    const vts::CsConvertor nav2nav(input_.referenceFrame().model.navigationSrs
+                                   , referenceFrame().model.navigationSrs);
+    position.position = nav2nav(position.position);
+
+    // TODO: update position based on navtile (Z component sampled from
+    // navtiles)
+
+    // store
+    ts.setPosition(position);
+}
+
 int Vts2Vts::run()
 {
     auto input(vts::openTileSet(input_));
 
-    auto properties(input.getProperties());
+    // clone info from input tileset
+    auto oldProperties(input.getProperties());
+    vts::TileSetProperties properties;
     properties.referenceFrame = config_.referenceFrame;
+    properties.id = oldProperties.id;
+    properties.credits = oldProperties.credits;
+
+    // TODO: bound layers
 
     // run the encoder
     Encoder(output_, properties, createMode_, input, config_).run();
