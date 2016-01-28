@@ -27,8 +27,7 @@ const auto *DumpDir(::getenv("HEIGHTMAP_DUMP_DIR"));
 
 HeightMap::Accumulator::Accumulator(vts::Lod lod)
     : lod_(lod)
-    , tileSize_(vts::NavTile::size().width
-                , vts::NavTile::size().width)
+    , tileSize_(vts::NavTile::size())
     , tileRange_(math::InvalidExtents{})
 {
 }
@@ -49,18 +48,15 @@ cv::Mat& HeightMap::Accumulator::tile(const vts::TileId &tileId)
         return ftiles->second;
     }
 
-    // create new tile (all values set to -oo
+    // create new tile (all values set to +oo
     auto res
         (tiles_.insert
          (Tiles::value_type
           (index, cv::Mat
-           (tileSize_.height, tileSize_.width, CV_32F
+           (tileSize_.height, tileSize_.width, vts::opencv::NavTile::CvDataType
             , cv::Scalar(def::InvalidHeight)))));
     update(tileRange_, index);
 
-    auto s(math::size(tileRange_));
-    sizeInTiles_.width = 1 + s.width;
-    sizeInTiles_.height = 1 + s.height;
     return res.first->second;
 }
 
@@ -183,6 +179,8 @@ void debugDump(const HeightMap &hm, const boost::filesystem::path &filename)
 math::Extents2 worldExtents(vts::Lod lod, const vts::TileRange &tileRange
                             , const vr::ReferenceFrame &referenceFrame)
 {
+    if (!valid(tileRange)) { return math::Extents2(math::InvalidExtents{}); }
+
     vts::NodeInfo nodeLl
         (referenceFrame
          , vts::TileId(lod, tileRange.ll(0), tileRange.ur(1)));
@@ -193,27 +191,44 @@ math::Extents2 worldExtents(vts::Lod lod, const vts::TileRange &tileRange
     return math::Extents2(nodeLl.node.extents.ll, nodeUr.node.extents.ur);
 }
 
+math::Size2 calculateSizeInTiles(const vts::TileRange &tileRange)
+{
+    if (!valid(tileRange)) { return {}; }
+
+    math::Size2 s(math::size(tileRange));
+    ++s.width;
+    ++s.height;
+    return s;
+}
+
+math::Size2 calculateSizeInPixels(const math::Size2 &tileGrid
+                                  , const math::Size2 &sizeInTiles)
+{
+    return { 1 + sizeInTiles.width * tileGrid.width
+            , 1 + sizeInTiles.height * tileGrid.height };
+}
+
 } // namespace
 
-math::Size2 HeightMap::calculateSizeInPixels(math::Size2 sizeInTiles) const
-{
-    return { 1 + sizeInTiles.width * tileGrid_.width
-            , 1 + sizeInTiles.height * tileGrid_.height };
-}
+HeightMapBase::HeightMapBase(const vr::ReferenceFrame &referenceFrame
+                             , vts::Lod lod, vts::TileRange tileRange)
+    : referenceFrame_(referenceFrame)
+    , tileSize_(vts::NavTile::size())
+    , tileGrid_(tileSize_.width - 1, tileSize_.height - 1)
+    , lod_(lod)
+    , tileRange_(tileRange)
+    , sizeInTiles_(calculateSizeInTiles(tileRange_))
+    , sizeInPixels_(calculateSizeInPixels(tileGrid_, sizeInTiles_))
+    , pane_(sizeInPixels_.height, sizeInPixels_.width
+            , vts::opencv::NavTile::CvDataType
+            , cv::Scalar(def::InvalidHeight))
+    , worldExtents_(worldExtents(lod_, tileRange_, referenceFrame_))
+{}
 
 HeightMap::HeightMap(Accumulator &&a
                      , const vr::ReferenceFrame &referenceFrame
                      , double dtmExtractionRadius)
-    : referenceFrame_(referenceFrame)
-    , tileSize_(a.tileSize_)
-    , tileGrid_(tileSize_.width - 1, tileSize_.height - 1)
-    , lod_(a.lod_)
-    , tileRange_(a.tileRange_)
-    , sizeInTiles_(a.sizeInTiles_)
-    , sizeInPixels_(calculateSizeInPixels(sizeInTiles_))
-    , pane_(sizeInPixels_.height, sizeInPixels_.width, CV_32F
-            , cv::Scalar(def::InvalidHeight))
-    , worldExtents_(worldExtents(lod_, tileRange_, referenceFrame_))
+    : HeightMapBase(referenceFrame, a.lod_, a.tileRange_)
 {
     LOG(info2) << "Copying heightmaps from tiles into one pane.";
     for (const auto &item : a.tiles_) {
@@ -232,6 +247,55 @@ HeightMap::HeightMap(Accumulator &&a
     debugDump(*this, "hm-plain.png");
     dtmize(pane_, std::ceil(dtmExtractionRadius));
     debugDump(*this, "hm-dtmized.png");
+}
+
+namespace {
+
+HeightMap::Accumulator::Index index(const vts::TileId &tileId)
+{
+    return HeightMap::Accumulator::Index(tileId.x, tileId.y);
+}
+
+vts::Lod lod(const vts::MeshOpInput::list &source)
+{
+    return (source.empty() ? 0 : source.front().tileId().lod);
+}
+
+vts::TileRange tileRange(const vts::MeshOpInput::list &source)
+{
+    vts::TileRange tr(math::InvalidExtents{});
+    for (const auto &input : source) {
+        if (input.hasNavtile()) {
+            update(tr, index(input.tileId()));
+        }
+    }
+    return tr;
+}
+
+} // namespace
+
+HeightMap::HeightMap(const vts::TileId &tileId
+                     , const vts::MeshOpInput::list &source
+                     , const vr::ReferenceFrame &referenceFrame)
+    : HeightMapBase(referenceFrame, lod(source), tileRange(source))
+{
+    for (const auto &input : source) {
+        if (!input.hasNavtile()) { continue; }
+
+        // copy tile in proper place
+        Accumulator::Index offset(index(input.tileId()) - tileRange_.ll);
+        offset(0) *= tileGrid_.width;
+        offset(1) *= tileGrid_.height;
+        cv::Mat tile(pane_, cv::Range(offset(1), offset(1) + tileSize_.height)
+                     , cv::Range(offset(0), offset(0) + tileSize_.width));
+        LOG(info4) << "Copying navtile from: " << input.tileId();
+        // TODO: rasterize mask
+        input.navtile().data().copyTo(tile);
+    }
+
+    if (def::DumpDir) {
+        debugDump(*this, str(boost::format("src-hm-%s.png") % tileId));
+    }
 }
 
 namespace {
@@ -299,7 +363,7 @@ void HeightMap::resize(vts::Lod lod)
     vts::TileRange tileRange(ll.x, ll.y, ur.x, ur.y);
     math::Size2 sizeInTiles(math::size(tileRange));
     ++sizeInTiles.width; ++sizeInTiles.height;
-    math::Size2 sizeInPixels(calculateSizeInPixels(sizeInTiles));
+    math::Size2 sizeInPixels(calculateSizeInPixels(tileGrid_, sizeInTiles));
     math::Point2i offset(-localId.x * tileGrid_.width
                          , -localId.y * tileGrid_.height);
 

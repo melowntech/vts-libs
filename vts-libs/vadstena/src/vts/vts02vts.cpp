@@ -19,7 +19,6 @@
 #include "utility/openmp.hpp"
 
 #include "math/transform.hpp"
-#include "math/filters.hpp"
 
 #include "imgproc/scanconversion.hpp"
 #include "imgproc/jpeg.hpp"

@@ -8,17 +8,42 @@
 #include "vts-libs/registry.hpp"
 #include "vts-libs/vts/basetypes.hpp"
 #include "vts-libs/vts/navtile.hpp"
+#include "vts-libs/vts/meshopinput.hpp"
 
 namespace vts = vadstena::vts;
 namespace vr = vadstena::registry;
 
-class HeightMap {
+/** Missing delegation ctor workaround.
+ */
+struct HeightMapBase {
+    const vr::ReferenceFrame &referenceFrame_;
+    math::Size2 tileSize_;
+    math::Size2 tileGrid_;
+    vts::Lod lod_;
+    vts::TileRange tileRange_;
+    math::Size2 sizeInTiles_;
+    math::Size2 sizeInPixels_;
+    cv::Mat pane_;
+    math::Extents2 worldExtents_;
+
+    HeightMapBase(const vr::ReferenceFrame &referenceFrame
+                  , vts::Lod lod, vts::TileRange tileRange);
+};
+
+class HeightMap : private HeightMapBase {
 public:
     class Accumulator;
 
+    /** Heightmap generation constructor.
+     */
     HeightMap(Accumulator &&accumulator
               , const vr::ReferenceFrame &referenceFrame
               , double dtmExtractionRadius);
+
+    /** Existing heightmap warping constructo.
+     */
+    HeightMap(const vts::TileId &tileId, const vts::MeshOpInput::list &source
+              , const vr::ReferenceFrame &referenceFrame);
 
     math::Size2 size() const { return sizeInPixels_; };
 
@@ -43,19 +68,6 @@ public:
     struct BestPosition;
 
     BestPosition bestPosition() const;
-
-private:
-    math::Size2 calculateSizeInPixels(math::Size2 sizeInTiles) const;
-
-    const vr::ReferenceFrame &referenceFrame_;
-    math::Size2 tileSize_;
-    math::Size2 tileGrid_;
-    vts::Lod lod_;
-    vts::TileRange tileRange_;
-    math::Size2 sizeInTiles_;
-    math::Size2 sizeInPixels_;
-    cv::Mat pane_;
-    math::Extents2 worldExtents_;
 };
 
 /** Best position inside heightmap
@@ -80,9 +92,9 @@ public:
 
     const math::Size2& tileSize() const { return tileSize_; }
 
-private:
     typedef vts::TileRange::point_type Index;
 
+private:
     friend class HeightMap;
 
     vts::Lod lod_;
@@ -90,7 +102,6 @@ private:
     typedef std::map<Index, cv::Mat> Tiles;
     Tiles tiles_;
     vts::TileRange tileRange_;
-    math::Size2 sizeInTiles_;
 };
 
 #endif // vts_heightmap_hpp_included_

@@ -16,6 +16,7 @@
 #include "utility/progress.hpp"
 #include "utility/streams.hpp"
 #include "utility/openmp.hpp"
+#include "utility/progress.hpp"
 
 #include "service/cmdline.hpp"
 
@@ -37,6 +38,8 @@
 #include "vts-libs/vts/meshopinput.hpp"
 #include "vts-libs/vts/meshop.hpp"
 
+#include "./heightmap.hpp"
+
 namespace po = boost::program_options;
 namespace vs = vadstena::storage;
 namespace vr = vadstena::registry;
@@ -49,6 +52,7 @@ namespace {
 
 struct Config {
     std::string referenceFrame;
+    boost::optional<std::uint16_t> textureLayer;
 };
 
 class Vts2Vts : public service::Cmdline
@@ -98,6 +102,10 @@ void Vts2Vts::configuration(po::options_description &cmdline
         ("referenceFrame", po::value(&config_.referenceFrame)->required()
          , "Destination reference frame. Must be different from input "
          "tileset's referenceFrame.")
+
+        ("textureLayer", po::value<std::string>()
+         , "String/numeric id of bound layer to be used as external texture "
+         "in generated meshes.")
         ;
 
     pd.add("input", 1);
@@ -113,6 +121,23 @@ void Vts2Vts::configure(const po::variables_map &vars)
     createMode_ = (vars.count("overwrite")
                    ? vts::CreateMode::overwrite
                    : vts::CreateMode::failIfExists);
+
+    if (vars.count("textureLayer")) {
+        auto value(vars["textureLayer"].as<std::string>());
+
+        vr::BoundLayer layer;
+        try {
+            layer = vr::Registry::boundLayer(boost::lexical_cast<int>(value));
+        } catch (boost::bad_lexical_cast) {
+            layer = vr::Registry::boundLayer(value);
+        }
+
+        if (layer.type != vr::BoundLayer::Type::raster) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value, "textureLayer");
+        }
+        config_.textureLayer = layer.numericId;
+    }
 }
 
 bool Vts2Vts::help(std::ostream &out, const std::string &what) const
@@ -178,7 +203,6 @@ vts::TileRange tileRange(const vr::ReferenceFrame::Division::Node &node
 
     return r;
 }
-
 template <typename Op>
 void forEachTile(const vr::ReferenceFrame &referenceFrame
                  , vts::Lod lod, const vts::TileRange &tileRange
@@ -202,7 +226,7 @@ void rasterizeTiles(const vr::ReferenceFrame &referenceFrame
     forEachTile(referenceFrame, lod, tileRange
                 , [&](const vts::NodeInfo &ni)
     {
-        LOG(info4)
+        LOG(info1)
             << std::fixed << "dst tile: "
             << ni.nodeId() << ", " << ni.node.extents;
 
@@ -225,7 +249,7 @@ math::Points2 projectCorners(const vr::ReferenceFrame::Division::Node &node
     try {
         for (const auto &c : src) {
             dst.push_back(conv(c));
-            LOG(info4) << std::fixed << "corner: "
+            LOG(info1) << std::fixed << "corner: "
                        << c << " -> " << dst.back();
             if (!inside(node.extents, dst.back())) {
                 // projected dst tile cannot fit inside this node's
@@ -248,9 +272,14 @@ public:
                       , const vr::ReferenceFrame &dstRf)
     {
         const auto &srcRf(tileset.referenceFrame());
+        utility::Progress progress(tileset.tileIndex().count());
+
         traverse(tileset.tileIndex()
                  , [&](const vts::TileId &srcId, vts::QTree::value_type flags)
         {
+            (++progress).report
+                (utility::Progress::ratio_t(5, 1000)
+                 , "building tile mapping ");
             if (!vts::TileIndex::Flag::isReal(flags)) { return; }
 
             vts::NodeInfo ni(srcRf, srcId);
@@ -277,13 +306,13 @@ public:
                 auto dstLocalLod(bestLod(node, bta));
                 auto dstLod(node.id.lod + dstLocalLod);
 
-                LOG(info3)
+                LOG(info1)
                     << "Best tile area: " << bta << " -> LOD: " << dstLod
                     << " (node's local LOD: " << dstLocalLod << ").";
 
                 // generate tile range from corners
                 auto tr(tileRange(node, dstLocalLod, dstCorners));
-                LOG(info4) << "tile range: " << tr;
+                LOG(info1) << "tile range: " << tr;
 
                 rasterizeTiles(dstRf, node, dstLod, tr
                                , [&](const vts::TileId &id)
@@ -316,7 +345,7 @@ private:
     static vts::TileId::list emptySource_;
 };
 
-// keep emtpy!
+// keep empty!
 vts::TileId::list SourceInfoBuilder::emptySource_;
 
 class Encoder : public vts::Encoder {
@@ -384,6 +413,38 @@ vts::VertexMask warpInPlaceWithMask(const vts::CsConvertor &conv
     return mask;
 }
 
+math::Size2 navpaneSizeInPixels(const math::Size2 &sizeInTiles)
+{
+    // NB: navtile is in grid system, border pixels are shared between adjacent
+    // tiles
+    auto s(vts::NavTile::size());
+    return { 1 + sizeInTiles.width * (s.width - 1)
+            , 1 + sizeInTiles.height * (s.height - 1) };
+}
+
+namespace def {
+
+float Infinity(std::numeric_limits<float>::infinity());
+float InvalidHeight(Infinity);
+
+const auto *DumpDir(::getenv("HEIGHTMAP_DUMP_DIR"));
+
+} // namespace def
+
+void warpNavtiles(const vts::TileId &tileId
+                  , const vr::ReferenceFrame &referenceFrame
+                  , const vts::NodeInfo &nodeInfo
+                  , const vts::MeshOpInput::list &source)
+{
+    (void) nodeInfo;
+
+    LOG(info4) << "tileId: " << tileId;
+    (void) referenceFrame;
+    (void) source;
+     HeightMap hm(tileId, source, referenceFrame);
+     (void) hm;
+}
+
 Encoder::TileResult
 Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
                   , const TileResult&)
@@ -393,7 +454,7 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
         return TileResult::Result::noDataYet;
     }
 
-    LOG(info4) << "Source tiles(" << src.size() << "): "
+    LOG(info1) << "Source tiles(" << src.size() << "): "
                << utility::join(src, ", ") << ".";
 
     vts::MeshOpInput::list source;
@@ -411,14 +472,19 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
         }
     }
 
+    // CS convertors
+    // src physical -> dst SDS
     const vts::CsConvertor srcPhy2Sds
         (srcRf_.model.physicalSrs, nodeInfo.node.srs);
 
+    // dst SDS -> dst physical
     const vts::CsConvertor sds2DstPhy
         (nodeInfo.node.srs, referenceFrame().model.physicalSrs);
 
+    // output
     Encoder::TileResult result;
-    vts::Mesh &mesh(*(result.tile().mesh = std::make_shared<vts::Mesh>()));
+    vts::Mesh &mesh
+        (*(result.tile().mesh = std::make_shared<vts::Mesh>(false)));
     vts::RawAtlas &atlas([&]() -> vts::RawAtlas&
     {
         auto atlas(std::make_shared<vts::RawAtlas>());
@@ -439,12 +505,15 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
             auto dstSm(vts::clip(sm, nodeInfo.node.extents, mask));
 
             if (!dstSm.empty()) {
-                // TODO: re-generate external tx coordinates (if division node
-                // allows)
-                dstSm.etc.clear();
+                // re-generate external tx coordinates (if division node allows)
+                generateEtc(dstSm, nodeInfo.node.extents
+                            , nodeInfo.node.externalTexture);
 
-                // TODO: set new texture layer if provided
-                dstSm.textureLayer = boost::none;
+                // update mesh coverage mask
+                updateCoverage(mesh, dstSm, nodeInfo.node.extents);
+
+                // set new texture layer if provided
+                dstSm.textureLayer = config_.textureLayer;
 
                 // convert mesh to destination physical SRS
                 warpInPlace(sds2DstPhy, dstSm);
@@ -452,7 +521,7 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
                 // add mesh
                 mesh.add(dstSm);
 
-                // copy tecture if submesh has atlas
+                // copy texture if submesh has atlas
                 if (input.hasAtlas() && input.atlas().valid(smIndex)) {
                     atlas.add(input.atlas().get(smIndex));
                 }
@@ -466,7 +535,14 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     }
 
     // TODO: warp navtile and its mask
-    // TODO: generate mesh mask (rasterize mesh)
+    warpNavtiles(tileId, srcRf_, nodeInfo, source);
+
+    // TODO: merge submeshes
+
+    if (atlas.empty()) {
+        // no atlas -> disable
+        result.tile().atlas.reset();
+    }
 
     // done:
     return result;
