@@ -87,11 +87,16 @@ struct Mesh {
         return math::Size2i(256, 256);
     };
 
+    /** Index inside multifile where mesh is stored.
+     */
     static constexpr unsigned int meshIndex() { return 0; }
 
-    Mesh()
-        : coverageMask(coverageSize(), CoverageMask::InitMode::FULL)
-    {}
+    /** Creates new (emtpty) mesh.
+     *
+     *  \param fullyCovered specifies how to initialize coverage mask (true ->
+     *  full, false -> empty)
+     */
+    Mesh(bool fullyCovered = true);
 
     typedef SubMesh::list::iterator iterator;
     typedef SubMesh::list::const_iterator const_iterator;
@@ -121,14 +126,9 @@ struct Mesh {
     bool empty() const { return submeshes.empty(); }
 };
 
-inline bool watertight(const Mesh &mesh) { return mesh.coverageMask.full(); }
-inline bool watertight(const Mesh *mesh) {
-    return mesh ? watertight(*mesh) : false;
-}
-inline bool watertight(const Mesh::pointer &mesh) {
-    return watertight(mesh.get());
-}
-
+bool watertight(const Mesh &mesh);
+bool watertight(const Mesh *mesh);
+bool watertight(const Mesh::pointer &mesh);
 math::Extents3 extents(const SubMesh &submesh);
 math::Extents3 extents(const Mesh &mesh);
 
@@ -157,6 +157,29 @@ struct MeshArea {
 
 MeshArea area(const Mesh &mesh);
 
+/** Generates external texture coordinates from vertices. Submesh must be in
+ *  spatial division SRS.
+ *
+ *  If external texture is not allowed any existing etc are removed.
+ *
+ * \param sm submesh to update (must be in SDS)
+ * \param sdsExtents extents of tile in SDS
+ * \param allowed flags whether exteranl texture is allowed for this submesh
+ */
+void generateEtc(SubMesh &sm, const math::Extents2 &sdsExtents
+                 , bool allowed = true);
+
+/** Updates coverage mask by rendering given submeshe (must be in spatial
+ *  division SRS).
+ *
+ * \param mesh coverage mask of this mesh is updated
+ * \param sm submesh to render (must be in SDS)
+ * \param sdsExtents extents of tile in SDS
+ */
+void updateCoverage(Mesh &mesh, const SubMesh &sm
+                    , const math::Extents2 &sdsExtents);
+
+// IO
 void saveMesh(std::ostream &out, const Mesh &mesh);
 void saveMesh(const boost::filesystem::path &path, const Mesh &mesh);
 
@@ -172,6 +195,21 @@ multifile::Table readMeshTable(std::istream &is
                                = "unknown");
 
 // inlines
+
+inline bool watertight(const Mesh &mesh) { return mesh.coverageMask.full(); }
+inline bool watertight(const Mesh *mesh) {
+    return mesh ? watertight(*mesh) : false;
+}
+inline bool watertight(const Mesh::pointer &mesh) {
+    return watertight(mesh.get());
+}
+
+inline Mesh::Mesh(bool fullyCovered)
+    : coverageMask(coverageSize()
+                   , (fullyCovered
+                      ? CoverageMask::InitMode::FULL
+                      : CoverageMask::InitMode::EMPTY))
+{}
 
 inline void SubMesh::cloneMetadataInto(SubMesh &dst) const
 {

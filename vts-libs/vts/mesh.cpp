@@ -4,6 +4,9 @@
 
 #include "math/math.hpp"
 #include "math/geometry.hpp"
+#include "math/transform.hpp"
+
+#include "imgproc/scanconversion.hpp"
 
 #include "half/half.hpp"
 
@@ -470,14 +473,92 @@ SubMesh& Mesh::add(const SubMesh &subMesh)
     return *isubmeshes;
 }
 
-SubMesh::list::iterator firstNonTextured(SubMesh::list &submeshes)
+class TextureNormalizer {
+public:
+    TextureNormalizer(const math::Extents2 &divisionExtents)
+        : size_(size(divisionExtents))
+        , origin_(divisionExtents.ll)
+    {}
+
+    math::Point2 operator()(const math::Point3 &p) const {
+        // NB: origin is in the upper-left corner
+        return { (p(0) - origin_(0)) / size_.width
+                , (p(1) - origin_(1)) / size_.height };
+    };
+
+private:
+    math::Size2f size_;
+    math::Point2 origin_;
+};
+
+void generateEtc(SubMesh &sm, const math::Extents2 &sdsExtents, bool allowed)
 {
-    return std::find_if(submeshes.begin(), submeshes.end()
-                        , [](const SubMesh &sm)
-    {
-        return sm.tc.empty();
-    });
+    sm.etc.clear();
+    if (!allowed) { return; }
+
+    TextureNormalizer tn(sdsExtents);
+
+    // generate from vertices
+    for (const auto &v : sm.vertices) {
+        sm.etc.push_back(tn(v));
+    }
+}
+
+namespace {
+
+/** Geo coordinates to coverage mask mapping.
+ * NB: result is in pixel system: pixel centers have integral indices
+ */
+math::Matrix4 geo2mask(const math::Extents2 &extents
+                              , const math::Size2 &gridSize)
+{
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
+
+    auto es(size(extents));
+
+    // scales
+    math::Size2f scale(gridSize.width / es.width
+                       , gridSize.height / es.height);
+
+    // scale to grid
+    trafo(0, 0) = scale.width;
+    trafo(1, 1) = -scale.height;
+
+    // move to origin and also move pixel centers to integral indices
+    trafo(0, 3) = -extents.ll(0) * scale.width - 0.5;
+    trafo(1, 3) = extents.ur(1) * scale.height - 0.5;
+
+    return trafo;
+}
+
+} // namespace
+
+void updateCoverage(Mesh &mesh, const SubMesh &sm
+                    , const math::Extents2 &sdsExtents)
+{
+    auto &cm(mesh.coverageMask);
+    const auto rasterSize(cm.size());
+    auto trafo(geo2mask(sdsExtents, rasterSize));
+
+    std::vector<imgproc::Scanline> scanlines;
+    cv::Point3f tri[3];
+    for (const auto &face : sm.faces) {
+        for (int i : { 0, 1, 2 }) {
+            auto p(transform(trafo, sm.vertices[face[i]]));
+            tri[i].x = p(0); tri[i].y = p(1); tri[i].z = p(2);
+        }
+
+        scanlines.clear();
+        imgproc::scanConvertTriangle(tri, 0, rasterSize.height, scanlines);
+
+        for (const auto &sl : scanlines) {
+            imgproc::processScanline
+                (sl, 0, rasterSize.width, [&](int x, int y, float)
+            {
+                cm.set(x, y);
+            });
+        }
+    }
 }
 
 } } // namespace vadstena::vts
-

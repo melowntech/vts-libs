@@ -12,6 +12,7 @@ namespace vadstena { namespace vts { namespace opencv {
 class NavTile : public vts::NavTile {
 public:
     typedef cv::Mat Data;
+    static constexpr int CvDataType = CV_32F;
     typedef std::shared_ptr<NavTile> pointer;
 
     NavTile() : data_(createData()) {}
