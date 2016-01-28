@@ -438,5 +438,46 @@ Mesh loadMesh(const fs::path &path)
     return mesh;
 }
 
+SubMesh& Mesh::add(const SubMesh &subMesh)
+{
+    bool simpleAdd(false);
+    if (subMesh.tc.empty()) {
+        // new submesh is texture-less
+        simpleAdd = true;
+    } else if (submeshes.empty()) {
+        // empty mesh
+        simpleAdd = true;
+    } else if (!submeshes.back().tc.empty()) {
+        // last submesh is textured
+        simpleAdd = true;
+    }
+
+    if (simpleAdd) {
+        submeshes.push_back(subMesh);
+        return submeshes.back();
+    }
+
+    // ok, we have to insert new submesh before first non-textured existing
+    // submesh
+
+    auto isubmeshes(std::find_if(submeshes.begin(), submeshes.end()
+                                 , [](const SubMesh &sm)
+    {
+        return sm.tc.empty();
+    }));
+
+    isubmeshes = submeshes.insert(isubmeshes, subMesh);
+    return *isubmeshes;
+}
+
+SubMesh::list::iterator firstNonTextured(SubMesh::list &submeshes)
+{
+    return std::find_if(submeshes.begin(), submeshes.end()
+                        , [](const SubMesh &sm)
+    {
+        return sm.tc.empty();
+    });
+}
+
 } } // namespace vadstena::vts
 

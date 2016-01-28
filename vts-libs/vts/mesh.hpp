@@ -108,7 +108,13 @@ struct Mesh {
 
     SubMesh& operator[](std::size_t index) { return submeshes[index]; }
 
-    void add(const SubMesh &subMesh) { submeshes.push_back(subMesh); }
+    /** Adds submesh to this mesh. If mesh is textured (i.e. it has internal
+     *  texture coordinates then it is added before first non-textured mesh.
+     *
+     * \param subMesh submesh to add
+     * \return reference to newly added submesh inside this mesh
+     */
+    SubMesh& add(const SubMesh &subMesh);
 
     std::size_t size() const { return submeshes.size(); }
 

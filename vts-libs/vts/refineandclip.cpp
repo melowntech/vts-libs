@@ -1,6 +1,6 @@
 #include "dbglog/dbglog.hpp"
 
-#include "./refineandclip.hpp"
+#include "./meshop.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -112,36 +112,45 @@ private:
 
 class Clipper {
 public:
-    Clipper(const EnhancedSubMesh &mesh)
-        : mesh_(mesh)
-        , fpmap_(mesh_.projected), ftpmap_(mesh_.mesh.tc)
+    Clipper(const EnhancedSubMesh &mesh, const VertexMask &mask)
+        : mesh_(mesh.mesh), fpmap_(mesh.projected), ftpmap_(mesh_.tc)
     {
         extractFaces();
+        // TODO: apply mask
+        (void) mask;
+    }
+
+    Clipper(const SubMesh &mesh, const VertexMask &mask)
+        : mesh_(mesh), fpmap_(mesh.vertices), ftpmap_(mesh_.tc)
+    {
+        extractFaces();
+        // TODO: apply mask
+        (void) mask;
     }
 
     void refine(int lodDiff);
 
     void clip(const ClipPlane &line);
 
-    EnhancedSubMesh mesh(const MeshVertexConvertor &convertor);
+    EnhancedSubMesh mesh(const MeshVertexConvertor *convertor = nullptr);
 
 private:
     void extractFaces() {
-        bool hasTc(!mesh_.mesh.facesTc.empty());
-        for (std::size_t i(0), e(mesh_.mesh.faces.size()); i != e; ++i) {
-            faces_.emplace_back(mesh_.mesh.faces[i]);
-            if (hasTc) { faces_.back().faceTc = mesh_.mesh.facesTc[i]; }
+        bool hasTc(!mesh_.facesTc.empty());
+        for (std::size_t i(0), e(mesh_.faces.size()); i != e; ++i) {
+            faces_.emplace_back(mesh_.faces[i]);
+            if (hasTc) { faces_.back().faceTc = mesh_.facesTc[i]; }
         }
     }
 
-    const EnhancedSubMesh &mesh_;
+    const SubMesh &mesh_;
 
     ClipFace::list faces_;
 
-    // face points and  map
+    // face points map
     PointMapper<math::Point3d> fpmap_;
 
-    // face texture points and map
+    // face texture points map
     PointMapper<math::Point2d> ftpmap_;
 };
 
@@ -299,7 +308,7 @@ void Clipper::refine(int lodDiff)
     // TODO: implement me
 }
 
-EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor &convertor)
+EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor *convertor)
 {
     /** Generate new mesh.
      */
@@ -309,7 +318,7 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor &convertor)
         const math::Points3d &vertices;
         const math::Points3d &projected;
         const math::Points2d &tc;
-        const MeshVertexConvertor &convertor;
+        const MeshVertexConvertor *convertor;
 
         std::vector<int> vertexMap;
         std::vector<int> tcMap;
@@ -319,7 +328,7 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor &convertor)
 
         Filter(const SubMesh &original, const ClipFace::list &faces
                , const math::Points3d &projected, const math::Points2d &tc
-               , const MeshVertexConvertor &convertor)
+               , const MeshVertexConvertor *convertor)
             : original(original), faces(faces), vertices(original.vertices)
             , projected(projected), tc(tc), convertor(convertor)
             , vertexMap(projected.size(), -1)
@@ -351,16 +360,18 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor &convertor)
                 m = mesh.vertices.size();
 
                 const auto newPoint(i >= vertices.size());
-                const auto generateEtc(!original.etc.empty());
+                const auto generateEtc(convertor && !original.etc.empty());
                 const auto &v(projected[i]);
 
                 if (newPoint) {
                     // must unproject
-                    mesh.vertices.push_back(convertor.vertex(v));
+                    mesh.vertices.push_back(convertor
+                                            ? convertor->vertex(v)
+                                            : v);
 
                     // etc
                     if (generateEtc) {
-                        mesh.etc.push_back(convertor.etc(v));
+                        mesh.etc.push_back(convertor->etc(v));
                         LOG(debug) << v << ": etc from vertex: " << v << " -> "
                                    << mesh.etc.back();
                     }
@@ -369,7 +380,7 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor &convertor)
                     mesh.vertices.push_back(vertices[i]);
 
                     if (generateEtc) {
-                        mesh.etc.push_back(convertor.etc(original.etc[i]));
+                        mesh.etc.push_back(convertor->etc(original.etc[i]));
                         LOG(debug) << v << ": etc from old: "
                                    << original.etc[i]
                                    << " -> " << mesh.etc.back();
@@ -394,7 +405,7 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor &convertor)
     };
 
     // run the machinery
-    return Filter(mesh_.mesh, faces_, fpmap_.points(), ftpmap_.points()
+    return Filter(mesh_, faces_, fpmap_.points(), ftpmap_.points()
                   , convertor).emesh;
 }
 
@@ -403,7 +414,8 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor &convertor)
 EnhancedSubMesh refineAndClip(const EnhancedSubMesh &mesh
                               , const math::Extents2 &projectedExtents
                               , storage::Lod lodDiff
-                              , const MeshVertexConvertor &convertor)
+                              , const MeshVertexConvertor &convertor
+                              , const VertexMask &mask)
 {
     LOG(debug) << std::fixed << "Clipping mesh to: " << projectedExtents;
     const ClipPlane clipPlanes[4] = {
@@ -413,13 +425,33 @@ EnhancedSubMesh refineAndClip(const EnhancedSubMesh &mesh
         , { 0., -1., .0, projectedExtents.ur(1) }
     };
 
-    Clipper clipper(mesh);
+    Clipper clipper(mesh, mask);
 
     clipper.refine(lodDiff);
 
     for (const auto &cp : clipPlanes) { clipper.clip(cp); }
 
-    return clipper.mesh(convertor);
+    return clipper.mesh(&convertor);
+}
+
+SubMesh clip(const SubMesh &projectedMesh
+             , const math::Extents2 &projectedExtents
+             , const VertexMask &mask)
+{
+    LOG(debug) << std::fixed << "Clipping mesh to: " << projectedExtents;
+    const ClipPlane clipPlanes[4] = {
+        { 1.,  .0, .0, -projectedExtents.ll(0) }
+        , { -1., .0, .0, projectedExtents.ur(0) }
+        , { .0,  1., .0, -projectedExtents.ll(1) }
+        , { 0., -1., .0, projectedExtents.ur(1) }
+    };
+
+    Clipper clipper(projectedMesh, mask);
+
+    for (const auto &cp : clipPlanes) { clipper.clip(cp); }
+
+    // no convertor
+    return clipper.mesh().mesh;
 }
 
 } } // namespace vadstena::vts

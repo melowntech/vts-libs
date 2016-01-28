@@ -35,31 +35,6 @@ private:
     Images images_;
 };
 
-class RawAtlas : public Atlas {
-public:
-    virtual std::size_t size() const { return images_.size(); }
-
-    typedef std::vector<unsigned char> Image;
-
-    const Image& get(std::size_t index) const { return images_[index]; }
-
-    void add(const Image &image);
-
-    void add(const RawAtlas &other);
-
-private:
-    virtual multifile::Table serialize_impl(std::ostream &os) const;
-
-    virtual void deserialize_impl(std::istream &is
-                                  , const boost::filesystem::path &path
-                                  , const multifile::Table &table);
-
-    virtual math::Size2 imageSize_impl(std::size_t index) const;
-
-    typedef std::vector<Image> Images;
-    Images images_;
-};
-
 } } } // namespace vadstena::vts::opencv
 
 #endif // vadstena_libs_vts_opencv_atlas_hpp

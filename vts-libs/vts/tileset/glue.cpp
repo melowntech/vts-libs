@@ -257,7 +257,7 @@ merge::Output Merger::processTile(const NodeInfo &nodeInfo
     {
         merge::Input::Id id(0);
         for (const auto *ts : src_) {
-            merge::Input t(id++, *ts, tileId, nodeInfo);
+            merge::Input t(id++, *ts, tileId, &nodeInfo);
             if (t) { input.push_back(t); }
         }
     }

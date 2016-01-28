@@ -204,7 +204,7 @@ set(vts_SOURCES
   vts/opencv/navtile.hpp vts/opencv/navtile.cpp
   vts/tileset/glue.cpp
   vts/tileset/merge.hpp vts/tileset/merge.cpp
-  vts/refineandclip.hpp vts/refineandclip.cpp
+  vts/meshop.hpp vts/refineandclip.cpp
   vts/storage/change.cpp
 
   # dump support

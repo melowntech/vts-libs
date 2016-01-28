@@ -15,11 +15,11 @@
 
 #include "./merge.hpp"
 #include "../io.hpp"
-#include "../refineandclip.hpp"
+#include "../meshop.hpp"
 
 namespace fs = boost::filesystem;
 
-namespace vadstena { namespace vts { namespace merge {
+namespace vadstena { namespace vts {
 
 namespace {
 
@@ -125,29 +125,61 @@ math::Extents2 coverageExtents(double margin = .0)
 
 } // namespace
 
-Input::Input(Id id, const TileSet::Detail &owner, const TileId &tileId
-             , const NodeInfo &nodeInfo)
+MeshOpInput::MeshOpInput(Id id, const TileSet::Detail &owner
+                         , const TileId &tileId
+                         , const NodeInfo *nodeInfo, bool lazy)
     : id_(id), tileId_(tileId), owner_(&owner)
-    , node_(owner.findMetaNode(tileId)), nodeInfo_(&nodeInfo)
+    , node_(owner_->findMetaNode(tileId))
+    , nodeInfo_(nodeInfo)
 {
+    prepare(lazy);
 }
 
-bool Input::hasMesh() const
+MeshOpInput::MeshOpInput(Id id, const TileSet &owner, const TileId &tileId
+             , const NodeInfo *nodeInfo, bool lazy)
+    : id_(id), tileId_(tileId), owner_(&owner.detail())
+    , node_(owner_->findMetaNode(tileId))
+    , nodeInfo_(nodeInfo)
+{
+    prepare(lazy);
+}
+
+void MeshOpInput::prepare(bool lazy)
+{
+    if (!lazy) {
+        // preload stuff if not lazy
+        if (hasMesh()) { mesh(); }
+        if (hasAtlas()) { atlas(); }
+        if (hasNavtile()) { navtile(); }
+    }
+
+    if (!nodeInfo_) {
+        ownNodeInfo_ = NodeInfo(owner_->referenceFrame, tileId_);
+        nodeInfo_ = &*ownNodeInfo_;
+    }
+}
+
+const std::string& MeshOpInput::name() const
+{
+    return owner_->properties.id;
+}
+
+bool MeshOpInput::hasMesh() const
 {
     return node_ && node_->geometry();
 }
 
-bool Input::hasAtlas() const
+bool MeshOpInput::hasAtlas() const
 {
     return node_ && node_->internalTextureCount();
 }
 
-bool Input::hasNavtile() const
+bool MeshOpInput::hasNavtile() const
 {
     return node_ && node_->navtile();
 }
 
-const Mesh& Input::mesh() const
+const Mesh& MeshOpInput::mesh() const
 {
     if (!mesh_) {
         mesh_ = owner_->getMesh(tileId_, node_);
@@ -156,7 +188,7 @@ const Mesh& Input::mesh() const
     return *mesh_;
 }
 
-const opencv::RawAtlas& Input::atlas() const
+const RawAtlas& MeshOpInput::atlas() const
 {
     if (!atlas_) {
         atlas_ = boost::in_place();
@@ -166,7 +198,7 @@ const opencv::RawAtlas& Input::atlas() const
     return *atlas_;
 }
 
-const opencv::NavTile& Input::navtile() const
+const opencv::NavTile& MeshOpInput::navtile() const
 {
     if (!navtile_) {
         navtile_ = boost::in_place();
@@ -175,6 +207,23 @@ const opencv::NavTile& Input::navtile() const
 
     return *navtile_;
 }
+
+const math::Matrix4 MeshOpInput::sd2Coverage(const NodeInfo &nodeInfo) const
+{
+    return geo2mask(nodeInfo.node.extents, Mesh::coverageSize());
+}
+
+const math::Matrix4 MeshOpInput::coverage2Sd(const NodeInfo &nodeInfo) const
+{
+    return mask2geo(nodeInfo.node.extents, Mesh::coverageSize());
+}
+
+const math::Matrix4 MeshOpInput::coverage2Texture() const
+{
+    return coverage2EtcTrafo(Mesh::coverageSize());
+}
+
+namespace merge {
 
 /** Returns mesh vertices (vector per submesh) converted to coverage space.
  */
@@ -196,21 +245,6 @@ Vertices3List inputCoverageVertices(const Input &input
     return out;
 }
 
-const math::Matrix4 Input::sd2Coverage(const NodeInfo &nodeInfo) const
-{
-    return geo2mask(nodeInfo.node.extents, Mesh::coverageSize());
-}
-
-const math::Matrix4 Input::coverage2Sd(const NodeInfo &nodeInfo) const
-{
-    return mask2geo(nodeInfo.node.extents, Mesh::coverageSize());
-}
-
-const math::Matrix4 Input::coverage2Texture() const
-{
-    return coverage2EtcTrafo(Mesh::coverageSize());
-}
-
 Mesh& Output::forceMesh()
 {
     if (!mesh) {
@@ -219,7 +253,7 @@ Mesh& Output::forceMesh()
     return *mesh;
 }
 
-opencv::RawAtlas& Output::forceAtlas()
+RawAtlas& Output::forceAtlas()
 {
     if (!atlas) {
         atlas = boost::in_place();
@@ -617,39 +651,21 @@ private:
     std::vector<int> tcMap_;
 };
 
-namespace {
-
-SubMesh::list::iterator firstNonTextured(SubMesh::list &submeshes)
-{
-    return std::find_if(submeshes.begin(), submeshes.end()
-                        , [](const SubMesh &sm)
-    {
-        return sm.tc.empty();
-    });
-}
-
-} // namespace
-
 void addInputToOutput(Output &out, const Input &input
                       , SubMesh mesh
                       , int submeshIndex
                       , double uvAreaScale)
 {
-    bool textured(false);
+    // add atlas if present
     if (input.hasAtlas() && input.atlas().valid(submeshIndex)) {
         out.forceAtlas().add(input.atlas().get(submeshIndex));
-        textured = true;
     }
 
-    // find place where to put new submesh
-    auto &submeshes(out.forceMesh().submeshes);
-    auto fsubmeshes(!textured ? submeshes.end()
-                    : firstNonTextured(submeshes));
-    // insert submesh
-    fsubmeshes = submeshes.insert(fsubmeshes, mesh);
+    // add submesh
+    auto &added(out.forceMesh().add(mesh));
 
     // update scale (TODO: multiply?)
-    fsubmeshes->uvAreaScale = uvAreaScale;
+    added.uvAreaScale = uvAreaScale;
 }
 
 void MeshFilter::addTo(Output &out, double uvAreaScale)
