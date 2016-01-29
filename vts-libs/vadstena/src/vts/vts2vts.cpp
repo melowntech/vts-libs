@@ -487,12 +487,13 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
 
     // output
     Encoder::TileResult result;
+    auto &tile(result.tile());
     vts::Mesh &mesh
-        (*(result.tile().mesh = std::make_shared<vts::Mesh>(false)));
+        (*(tile.mesh = std::make_shared<vts::Mesh>(false)));
     vts::RawAtlas &atlas([&]() -> vts::RawAtlas&
     {
         auto atlas(std::make_shared<vts::RawAtlas>());
-        result.tile().atlas = atlas;
+        tile.atlas = atlas;
         return *atlas;
     }());
 
@@ -539,13 +540,14 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     }
 
     // warp navtile and its mask
-    result.tile().navtile = warpNavtiles(tileId, srcRf_, nodeInfo, source);
+    tile.navtile = warpNavtiles(tileId, srcRf_, nodeInfo, source);
 
-    // TODO: merge submeshes
+    // merge submeshes if allowed
+    std::tie(tile.mesh, tile.atlas) = mergeSubmeshes(tile.mesh, tile.atlas);
 
     if (atlas.empty()) {
         // no atlas -> disable
-        result.tile().atlas.reset();
+        tile.atlas.reset();
     }
 
     // done:
@@ -556,13 +558,10 @@ void Encoder::finish(vts::TileSet &ts)
 {
     auto position(input_.getProperties().position);
 
-    // convert
+    // convert initial position -- should work
     const vts::CsConvertor nav2nav(input_.referenceFrame().model.navigationSrs
                                    , referenceFrame().model.navigationSrs);
     position.position = nav2nav(position.position);
-
-    // TODO: update position based on navtile (Z component sampled from
-    // navtiles)
 
     // store
     ts.setPosition(position);
