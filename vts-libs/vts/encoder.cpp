@@ -1,6 +1,7 @@
 #include <atomic>
 
 #include <boost/format.hpp>
+#include <boost/io/ios_state.hpp>
 
 #include "dbglog/dbglog.hpp"
 
@@ -81,7 +82,7 @@ struct Encoder::Detail {
                       (referenceFrame.model.physicalSrs))
         , navigationSrs(registry::Registry::srs
                       (referenceFrame.model.navigationSrs))
-        , generated_(0)
+        , generated_(0), expected_(0)
     {}
 
     Detail(Encoder *owner, TileSet &tileset, const Options &options)
@@ -147,6 +148,7 @@ struct Encoder::Detail {
     SrsExtentsMap srsExtents;
 
     std::atomic<std::size_t> generated_;
+    std::atomic<std::size_t> expected_;
 };
 
 void Encoder::Detail::setConstraints(const Constraints &c)
@@ -175,6 +177,29 @@ Encoder::Detail::getExtents(const std::string &srs) const
             << " <" << srs << ">.";
     }
     return fsrsExtents->second;
+}
+
+struct Expected {
+    Expected(std::size_t count, std::size_t expected)
+        : count(count), expected(expected)
+    {}
+
+    std::size_t count;
+    std::size_t expected;
+};
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const Expected &e)
+{
+    if (e.expected) {
+        double percentage((100.0 * e.count) / e.expected);
+        boost::io::ios_precision_saver ps(os);
+        return os << '#' << e.count << " of " << e.expected << " ("
+                  << std::fixed << std::setprecision(2) << percentage
+                  << " % done)";
+    }
+    return os << '#' << e.count;
 }
 
 void Encoder::Detail::process(const TileId &tileId
@@ -238,7 +263,7 @@ void Encoder::Detail::process(const TileId &tileId
             auto number(++generated_);
 
             LOGR(options.level())
-                << "Generated tile #" << number << ": "
+                << "Generated tile " << Expected(number, expected_) << ": "
                 << tileId << " (extents: " << std::fixed << extents << ") ["
                 << TileFlags{tile} << "].";
 
@@ -342,6 +367,27 @@ TileSet Encoder::run()
 std::size_t Encoder::threadIndex() const
 {
     return omp_get_thread_num();
+}
+
+void Encoder::setExpectedTileCount(std::size_t count)
+{
+    detail_->expected_ = count;
+}
+
+void Encoder::updateExpectedTileCount(int diff)
+{
+    if (!diff) { return; }
+
+    if (diff > 0) {
+        detail_->expected_ += diff;
+    } else {
+        std::size_t d(-diff);
+        if (detail_->expected_ > d) {
+            detail_->expected_ -= d;
+        } else {
+            detail_->expected_ = 0;
+        }
+    }
 }
 
 } } // namespace vadstena::vts
