@@ -95,15 +95,7 @@ private:
 
 void MeshAtlasBuilder::merge(const Range::list &ranges)
 {
-    for (const auto &range : ranges) {
-        LOG(info4)
-            << "Processing range ["
-            << range.start << ", " << range.end
-            << "]: surface=" << int(range.surface) << ", textured="
-            << std::boolalpha << range.textured << ".";
-
-        merge(range);
-    }
+    for (const auto &range : ranges) { merge(range); }
 }
 
 void MeshAtlasBuilder::merge(const Range &range)
