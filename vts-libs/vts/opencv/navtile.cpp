@@ -52,9 +52,9 @@ multifile::Table NavTile::serialize_impl(std::ostream &os) const
     if (coverageMask().full()) {
         // fully covered
         cv::Mat image(ts.height, ts.width, CV_8UC1);
-        std::transform(data_.begin<float>(), data_.end<float>()
+        std::transform(data_.begin<DataType>(), data_.end<DataType>()
                        , image.begin<std::uint8_t>()
-                       , [&](float value) -> std::uint8_t
+                       , [&](DataType value) -> std::uint8_t
         {
             return std::uint8_t
                 (std::round((255 * (value - hr.min)) / size));
@@ -72,7 +72,7 @@ multifile::Table NavTile::serialize_impl(std::ostream &os) const
     // render valid pixels and mask them out in the inpaint mask
     coverageMask().forEach([&](int x, int y, bool)
     {
-        auto value(data_.at<float>(y, x));
+        auto value(data_.at<DataType>(y, x));
         image.at<std::uint8_t>(y + margin, x + margin)
             = std::uint8_t(std::round((255 * (value - hr.min)) / size));
         mask.at<std::uint8_t>(y + margin, x + margin) = 0;
@@ -116,13 +116,13 @@ void NavTile::deserialize_impl(const HeightRange &heightRange
             << "has different dimensions than " << ts << ".";
     }
 
-    data_.create(ts.height, ts.width, CV_32FC1);
+    data_.create(ts.height, ts.width, CvDataType);
     std::transform(image.begin<std::uint8_t>(), image.end<std::uint8_t>()
-                   , data_.begin<float>()
-                   , [&](std::uint8_t value) -> float
+                   , data_.begin<DataType>()
+                   , [&](std::uint8_t value) -> DataType
     {
-        return ((float(heightRange.min) * (255.f - value)
-                 + float(heightRange.max) * value)
+        return ((DataType(heightRange.min) * (255.f - value)
+                 + DataType(heightRange.max) * value)
                 / 255.f);
     });
 }
@@ -130,13 +130,13 @@ void NavTile::deserialize_impl(const HeightRange &heightRange
 NavTile::HeightRange NavTile::heightRange() const
 {
     // get min/max from valid pixels
-    storage::Range<float> range(0, 0);
+    storage::Range<DataType> range(0, 0);
     if (!coverageMask().empty()) {
-        range = { std::numeric_limits<float>::max()
-                  , std::numeric_limits<float>::lowest() };
+        range = { std::numeric_limits<DataType>::max()
+                  , std::numeric_limits<DataType>::lowest() };
         coverageMask().forEach([&](int x, int y, bool)
         {
-            auto value(data_.at<float>(y, x));
+            auto value(data_.at<DataType>(y, x));
             range.min = std::min(range.min, value);
             range.max = std::max(range.max, value);
         }, CoverageMask::Filter::white);
@@ -161,7 +161,7 @@ void NavTile::data(const Data &data)
             << "Passed navigation data is not a single channel matrix.";
     }
 
-    data.assignTo(data_, CV_32F);
+    data.assignTo(data_, CvDataType);
 }
 
 void NavTile::data(const Data &data, const Data &mask)
@@ -181,12 +181,31 @@ void NavTile::data(const Data &data, const Data &mask)
     }
 }
 
-NavTile::Data NavTile::createData(boost::optional<float> value)
+NavTile::Data NavTile::createData(boost::optional<DataType> value)
 {
     auto ts(NavTile::size());
-    Data data(ts.height, ts.width, CV_32FC1);
+    Data data(ts.height, ts.width, CvDataType);
     if (value) { data = cv::Scalar(*value); }
     return data;
+}
+
+cv::Mat renderCoverage(const NavTile &navtile)
+{
+    const auto nts(NavTile::size());
+    cv::Mat coverage(nts.height, nts.width, CV_8U, cv::Scalar(0));
+
+    const cv::Scalar white(255);
+    navtile.coverageMask()
+        .forEachQuad([&](uint xstart, uint ystart, uint xsize
+                         , uint ysize, bool)
+    {
+        cv::Point2i start(xstart, ystart);
+        cv::Point2i end(xstart + xsize - 1, ystart + ysize - 1);
+
+        cv::rectangle(coverage, start, end, white, CV_FILLED, 4);
+    }, NavTile::CoverageMask::Filter::white);
+
+    return coverage;
 }
 
 } } } // namespace vadstena::vts::opencv

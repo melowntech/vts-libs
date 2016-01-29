@@ -43,11 +43,13 @@ math::Size2f tileSize(const math::Extents2 &rootExtents, Lod lod);
 
 RFNode::Id rfNodeId(const TileId &tileId);
 TileId tileId(const RFNode::Id &rfNodeId);
+TileId tileId(const NodeInfo &nodeInfo);
 
 TileId local(Lod rootLod, const TileId &tileId);
 
 math::Point2_<unsigned int> point(const TileId &tileId);
 TileId tileId(Lod lod, const math::Point2_<unsigned int> &point);
+math::Point2_<unsigned int> point(const NodeInfo &nodeInfo);
 
 // inline stuff
 
@@ -101,6 +103,11 @@ inline TileId tileId(const RFNode::Id &rfNodeId)
     return TileId(rfNodeId.lod, rfNodeId.x, rfNodeId.y);
 }
 
+inline TileId tileId(const NodeInfo &nodeInfo)
+{
+    return tileId(nodeInfo.nodeId());
+}
+
 inline TileId local(Lod rootLod, const TileId &tileId)
 {
     if (rootLod >= tileId.lod) { return {}; }
@@ -118,6 +125,11 @@ inline math::Point2_<unsigned int> point(const TileId &tileId)
 inline TileId tileId(Lod lod, const math::Point2_<unsigned int> &point)
 {
     return { lod, point(0), point(1) };
+}
+
+inline math::Point2_<unsigned int> point(const NodeInfo &nodeInfo)
+{
+    return { nodeInfo.node.id.x, nodeInfo.node.id.y };
 }
 
 } } // namespace vadstena::vts

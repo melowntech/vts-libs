@@ -896,8 +896,14 @@ void TileSet::Detail::setNavTile(const TileId &tileId, const NavTile &navtile)
 
     save(driver->output(tileId, TileFile::navtile), navtile);
     auto metanode(*node->metanode);
+
+    // mark as having navtile and update height range
     metanode.navtile(true);
+    metanode.heightRange = navtile.heightRange();
+
+    // update the tree
     node->update(tileId, metanode);
+
     // mark navtile in tile index
     tileIndex.setMask(tileId, TileIndex::Flag::navtile);
 }

@@ -719,25 +719,6 @@ private:
     math::Matrix4 coverage2Texture_;
 };
 
-cv::Mat renderCoverage(const opencv::NavTile &navtile)
-{
-    const auto nts(NavTile::size());
-    cv::Mat coverage(nts.height, nts.width, CV_8U, cv::Scalar(0));
-
-    const cv::Scalar white(255);
-    navtile.coverageMask()
-        .forEachQuad([&](uint xstart, uint ystart, uint xsize
-                         , uint ysize, bool)
-    {
-        cv::Point2i start(xstart, ystart);
-        cv::Point2i end(xstart + xsize - 1, ystart + ysize - 1);
-
-        cv::rectangle(coverage, start, end, white, CV_FILLED, 4);
-    }, Mesh::CoverageMask::Filter::white);
-
-    return coverage;
-}
-
 void renderNavtile(cv::Mat &nt, cv::Mat &ntCoverage
                    , const opencv::NavTile &navtile)
 {

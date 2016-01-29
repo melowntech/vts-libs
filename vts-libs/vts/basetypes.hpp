@@ -116,6 +116,11 @@ struct NodeInfo {
     NodeInfo child(Child child) const;
 };
 
+/** Checks compatibility of two nodes.
+ *  Both nodes must be in the same subtree
+ */
+bool compatible(const NodeInfo &ni1, const NodeInfo &ni2);
+
 typedef std::string TilesetId;
 typedef std::vector<TilesetId> TilesetIdList;
 
@@ -153,6 +158,11 @@ inline bool TileId::operator==(const TileId &tid) const
     return ((lod == tid.lod)
             && (x == tid.x)
             && (y == tid.y));
+}
+
+inline bool compatible(const NodeInfo &ni1, const NodeInfo &ni2)
+{
+    return (ni1.subtreeRoot == ni2.subtreeRoot);
 }
 
 UTILITY_GENERATE_ENUM_IO(OpenMode,

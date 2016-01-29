@@ -12,6 +12,7 @@ namespace vadstena { namespace vts { namespace opencv {
 class NavTile : public vts::NavTile {
 public:
     typedef cv::Mat Data;
+    typedef float DataType;
     static constexpr int CvDataType = CV_32F;
     typedef std::shared_ptr<NavTile> pointer;
 
@@ -34,7 +35,7 @@ public:
      * \param value all pixels in return matrix are set to given value if valid
      * \return create matrix
      */
-    static Data createData(boost::optional<float> value = boost::none);
+    static Data createData(boost::optional<DataType> value = boost::none);
 
 private:
     virtual multifile::Table serialize_impl(std::ostream &os) const;
@@ -46,6 +47,8 @@ private:
 
     Data data_;
 };
+
+cv::Mat renderCoverage(const NavTile &navtile);
 
 } } } // namespace vadstena::vts::opencv
 
