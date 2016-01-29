@@ -431,18 +431,22 @@ const auto *DumpDir(::getenv("HEIGHTMAP_DUMP_DIR"));
 
 } // namespace def
 
-void warpNavtiles(const vts::TileId &tileId
-                  , const vr::ReferenceFrame &referenceFrame
-                  , const vts::NodeInfo &nodeInfo
-                  , const vts::MeshOpInput::list &source)
+vts::NavTile::pointer
+warpNavtiles(const vts::TileId &tileId
+             , const vr::ReferenceFrame &referenceFrame
+             , const vts::NodeInfo &nodeInfo
+             , const vts::MeshOpInput::list &source)
 {
-    (void) nodeInfo;
+    // TODO: Check for different lodding/SDS and process accordingly
 
-    LOG(info4) << "tileId: " << tileId;
-    (void) referenceFrame;
-    (void) source;
-     HeightMap hm(tileId, source, referenceFrame);
-     (void) hm;
+    HeightMap hm(tileId, source, referenceFrame);
+    if (hm.empty()) { return {}; }
+    hm.warp(nodeInfo);
+
+    auto navtile(hm.navtile(tileId));
+    if (navtile->coverageMask().empty()) { return {}; }
+
+    return navtile;
 }
 
 Encoder::TileResult
@@ -534,8 +538,8 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
         return TileResult::Result::noDataYet;
     }
 
-    // TODO: warp navtile and its mask
-    warpNavtiles(tileId, srcRf_, nodeInfo, source);
+    // warp navtile and its mask
+    result.tile().navtile = warpNavtiles(tileId, srcRf_, nodeInfo, source);
 
     // TODO: merge submeshes
 

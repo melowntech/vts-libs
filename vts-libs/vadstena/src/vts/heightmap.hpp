@@ -24,6 +24,7 @@ struct HeightMapBase {
     math::Size2 sizeInTiles_;
     math::Size2 sizeInPixels_;
     cv::Mat pane_;
+    std::string srs_; // registry srs
     math::Extents2 worldExtents_;
 
     HeightMapBase(const vr::ReferenceFrame &referenceFrame
@@ -47,12 +48,24 @@ public:
 
     math::Size2 size() const { return sizeInPixels_; };
 
+    bool empty() const { return math::empty(sizeInPixels_); };
+
     /** Resizes this heightmap.
      *  (lod < lod_): heightmap is shrinked to fit tiles at given LOD
      *  (lod == lod_) no-op
      *  (lod > lod_): error
      */
     void resize(vts::Lod lod);
+
+    /** Warps heightmap to given node.
+     *  Works for single destination tile.
+     */
+    void warp(const vts::NodeInfo &nodeInfo);
+
+    /** Generic warper.
+     */
+    void warp(const vr::ReferenceFrame &referenceFrame
+              , vts::Lod lod, const vts::TileRange &tileRange);
 
     /** Returns navtile for given tile.
      *  Throws when tileId.lod != lod_.

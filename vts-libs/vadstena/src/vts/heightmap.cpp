@@ -7,8 +7,12 @@
 
 #include "dbglog/dbglog.hpp"
 
+#include "utility/format.hpp"
+
 #include "imgproc/filtering.hpp"
 #include "imgproc/reconstruct.hpp"
+
+#include "geo/geodataset.hpp"
 
 #include "vts-libs/vts/io.hpp"
 #include "vts-libs/vts/tileop.hpp"
@@ -16,10 +20,12 @@
 
 #include "./heightmap.hpp"
 
+typedef vts::opencv::NavTile::DataType NTDataType;
+
 namespace def {
 
-float Infinity(std::numeric_limits<float>::infinity());
-float InvalidHeight(Infinity);
+constexpr NTDataType Infinity(std::numeric_limits<NTDataType>::max());
+constexpr NTDataType InvalidHeight(Infinity);
 
 const auto *DumpDir(::getenv("HEIGHTMAP_DUMP_DIR"));
 
@@ -88,7 +94,7 @@ void Morphology<Operator>::run(int kernelSize)
     for (int y(0); y != in_.rows; ++y) {
         for (int x(0); x != in_.cols; ++x) {
             // skip invalid data
-            if (in_.template at<float>(y, x) == def::InvalidHeight) {
+            if (in_.template at<NTDataType>(y, x) == def::InvalidHeight) {
                 continue;
             }
 
@@ -102,7 +108,7 @@ void Morphology<Operator>::run(int kernelSize)
                     const int xx(x + i);
                     if ((xx < 0) || (xx >= in_.cols)) { continue; }
 
-                    op(in_.template at<float>(yy, xx));
+                    op(in_.template at<NTDataType>(yy, xx));
                 }
             }
 
@@ -110,7 +116,7 @@ void Morphology<Operator>::run(int kernelSize)
             if (!op.valid()) { continue; }
 
             // store
-            tmp_.template at<float>(y, x) = op.get();
+            tmp_.template at<NTDataType>(y, x) = op.get();
         }
     }
 }
@@ -119,34 +125,34 @@ class Erosion {
 public:
     Erosion() : value_(def::Infinity) {}
 
-    inline void operator()(float value) {
+    inline void operator()(NTDataType value) {
         if (value != def::InvalidHeight) {
             value_ = std::min(value_, value);
         }
     }
 
     inline bool valid() const { return value_ != def::Infinity; }
-    inline float get() const { return value_; }
+    inline NTDataType get() const { return value_; }
 
 private:
-    float value_;
+    NTDataType value_;
 };
 
 class Dilation {
 public:
     inline Dilation() : value_(-def::Infinity) {}
 
-    inline void operator()(float value) {
+    inline void operator()(NTDataType value) {
         if (value != def::InvalidHeight) {
             value_ = std::max(value_, value);
         }
     }
 
     inline bool valid() const { return value_ != -def::Infinity; }
-    inline float get() const { return value_; }
+    inline NTDataType get() const { return value_; }
 
 private:
-    float value_;
+    NTDataType value_;
 };
 
 void dtmize(cv::Mat &pane, int count)
@@ -169,15 +175,18 @@ void dtmize(cv::Mat &pane, int count)
     }
 }
 
-void debugDump(const HeightMap &hm, const boost::filesystem::path &filename)
+template <typename ...Args>
+void debugDump(const HeightMap &hm, const std::string &format, Args &&...args)
 {
-    if (!def::DumpDir) { return; }
+    if (!def::DumpDir || hm.empty()) { return; }
 
-    hm.dump(def::DumpDir / filename);
+    hm.dump(boost::filesystem::path(def::DumpDir)
+            / utility::format(format, std::forward<Args>(args)...));
 }
 
 math::Extents2 worldExtents(vts::Lod lod, const vts::TileRange &tileRange
-                            , const vr::ReferenceFrame &referenceFrame)
+                            , const vr::ReferenceFrame &referenceFrame
+                            , std::string &srs)
 {
     if (!valid(tileRange)) { return math::Extents2(math::InvalidExtents{}); }
 
@@ -187,6 +196,14 @@ math::Extents2 worldExtents(vts::Lod lod, const vts::TileRange &tileRange
     vts::NodeInfo nodeUr
         (referenceFrame
          , vts::TileId(lod, tileRange.ur(0), tileRange.ll(1)));
+
+    if (!compatible(nodeLl, nodeUr)) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Heightmap can be constructed from nodes in the "
+            "same node subtree.";
+    }
+    srs = nodeLl.node.srs;
+    LOG(info4) << "World extents srs: <" << srs << ">.";
 
     return math::Extents2(nodeLl.node.extents.ll, nodeUr.node.extents.ur);
 }
@@ -204,6 +221,7 @@ math::Size2 calculateSizeInTiles(const vts::TileRange &tileRange)
 math::Size2 calculateSizeInPixels(const math::Size2 &tileGrid
                                   , const math::Size2 &sizeInTiles)
 {
+    if (empty(sizeInTiles)) { return {}; }
     return { 1 + sizeInTiles.width * tileGrid.width
             , 1 + sizeInTiles.height * tileGrid.height };
 }
@@ -222,7 +240,7 @@ HeightMapBase::HeightMapBase(const vr::ReferenceFrame &referenceFrame
     , pane_(sizeInPixels_.height, sizeInPixels_.width
             , vts::opencv::NavTile::CvDataType
             , cv::Scalar(def::InvalidHeight))
-    , worldExtents_(worldExtents(lod_, tileRange_, referenceFrame_))
+    , worldExtents_(worldExtents(lod_, tileRange_, referenceFrame_, srs_))
 {}
 
 HeightMap::HeightMap(Accumulator &&a
@@ -288,14 +306,13 @@ HeightMap::HeightMap(const vts::TileId &tileId
         offset(1) *= tileGrid_.height;
         cv::Mat tile(pane_, cv::Range(offset(1), offset(1) + tileSize_.height)
                      , cv::Range(offset(0), offset(0) + tileSize_.width));
-        LOG(info4) << "Copying navtile from: " << input.tileId();
-        // TODO: rasterize mask
-        input.navtile().data().copyTo(tile);
+
+        const auto &nt(input.navtile());
+        nt.data().copyTo(tile, renderCoverage(nt));
     }
 
-    if (def::DumpDir) {
-        debugDump(*this, str(boost::format("src-hm-%s.png") % tileId));
-    }
+    // debug
+    debugDump(*this, "src-hm-%s.png", tileId);
 }
 
 namespace {
@@ -304,10 +321,10 @@ class HeightMapRaster
     : public imgproc::BoundsValidator<HeightMapRaster>
 {
 public:
-    typedef cv::Vec<float, 1> value_type;
-    typedef float channel_type;
+    typedef cv::Vec<NTDataType, 1> value_type;
+    typedef NTDataType channel_type;
 
-    explicit HeightMapRaster(const cv::Mat &mat, float invalidValue)
+    explicit HeightMapRaster(const cv::Mat &mat, NTDataType invalidValue)
         : mat_(mat), invalidValue_(invalidValue)
     {}
 
@@ -329,12 +346,12 @@ public:
 
     bool valid(int x, int y) const {
         return (imgproc::BoundsValidator<HeightMapRaster>::valid(x, y)
-                && (mat_.at<float>(y, x) != invalidValue_));
+                && (mat_.at<NTDataType>(y, x) != invalidValue_));
     }
 
 private:
     const cv::Mat &mat_;
-    float invalidValue_;
+    NTDataType invalidValue_;
 };
 
 } // namespace
@@ -368,7 +385,8 @@ void HeightMap::resize(vts::Lod lod)
                          , -localId.y * tileGrid_.height);
 
     // create new pane
-    cv::Mat tmp(sizeInPixels.height, sizeInPixels.width, CV_32F
+    cv::Mat tmp(sizeInPixels.height, sizeInPixels.width
+                , vts::opencv::NavTile::CvDataType
                 , cv::Scalar(def::InvalidHeight));
 
     // filter heightmap from pane_ into tmp using filter
@@ -382,7 +400,7 @@ void HeightMap::resize(vts::Lod lod)
 
             if (srcRaster.valid(srcPos(0), srcPos(1))) {
                 auto nval(imgproc::reconstruct(srcRaster, filter, srcPos)[0]);
-                tmp.at<float>(j, i) = nval;
+                tmp.at<NTDataType>(j, i) = nval;
             }
         }
     }
@@ -393,9 +411,9 @@ void HeightMap::resize(vts::Lod lod)
     sizeInTiles_ = sizeInTiles;
     sizeInPixels_ = sizeInPixels;
     std::swap(tmp, pane_);
-    worldExtents_ = worldExtents(lod_, tileRange_, referenceFrame_);
+    worldExtents_ = worldExtents(lod_, tileRange_, referenceFrame_, srs_);
 
-    debugDump(*this, str(boost::format("hm-%d.png") % lod_));
+    debugDump(*this, "hm-%d.png", lod_);
 }
 
 vts::NavTile::pointer HeightMap::navtile(const vts::TileId &tileId) const
@@ -432,7 +450,7 @@ vts::NavTile::pointer HeightMap::navtile(const vts::TileId &tileId) const
     auto &cm(nt->coverageMask());
     for (auto j(0); j < tile.rows; ++j) {
         for (auto i(0); i < tile.cols; ++i) {
-            if (tile.at<float>(j, i) == def::InvalidHeight) {
+            if (tile.at<NTDataType>(j, i) == def::InvalidHeight) {
                 cm.set(i, j, false);
             }
         }
@@ -444,12 +462,12 @@ vts::NavTile::pointer HeightMap::navtile(const vts::TileId &tileId) const
 
 void HeightMap::dump(const boost::filesystem::path &filename) const
 {
-    float min(def::Infinity);
-    float max(-def::Infinity);
+    NTDataType min(def::Infinity);
+    NTDataType max(-def::Infinity);
 
     for (auto j(0); j < pane_.rows; ++j) {
         for (auto i(0); i < pane_.cols; ++i) {
-            auto value(pane_.at<float>(j, i));
+            auto value(pane_.at<NTDataType>(j, i));
             if (value == def::InvalidHeight) { continue; }
             min = std::min(min, value);
             max = std::max(max, value);
@@ -462,7 +480,7 @@ void HeightMap::dump(const boost::filesystem::path &filename) const
     if (size >= 1e-6) {
         for (auto j(0); j < pane_.rows; ++j) {
             for (auto i(0); i < pane_.cols; ++i) {
-                auto value(pane_.at<float>(j, i));
+                auto value(pane_.at<NTDataType>(j, i));
                 if (value == def::InvalidHeight) { continue; }
                 auto v(std::uint8_t(std::round((255 * (value - min)) / size)));
                 image.at<cv::Vec3b>(j, i) = cv::Vec3b(v, v, v);
@@ -486,7 +504,7 @@ HeightMap::BestPosition HeightMap::bestPosition() const
     long count(0);
     for (int j(0); j < pane_.rows; ++j) {
         for (int i(0); i < pane_.cols; ++i) {
-            if (pane_.at<float>(j, i) == def::InvalidHeight) { continue; }
+            if (pane_.at<NTDataType>(j, i) == def::InvalidHeight) { continue; }
 
             c(0) += i;
             c(1) += j;
@@ -505,7 +523,7 @@ HeightMap::BestPosition HeightMap::bestPosition() const
     }
 
     // sample height
-    c(2) = pane_.at<float>(c(1), c(0));
+    c(2) = pane_.at<NTDataType>(c(1), c(0));
 
     auto es(math::size(worldExtents_));
     auto eul(ul(worldExtents_));
@@ -542,4 +560,97 @@ HeightMap::BestPosition HeightMap::bestPosition() const
 
     // done
     return out;
+}
+
+namespace {
+
+math::Extents2 addHalfPixel(const math::Extents2 &e
+                            , const math::Size2 gs)
+{
+    auto es(size(e));
+    const math::Size2f pixelSize(es.width / gs.width, es.height / gs.height);
+    const math::Point2 halfPixel(pixelSize.width / 2.0
+                                 , pixelSize.height / 2.0);
+    return math::Extents2(e.ll - halfPixel, e.ur + halfPixel);
+}
+
+} // namespace
+
+void HeightMap::warp(const vr::ReferenceFrame &referenceFrame
+                     , vts::Lod lod, const vts::TileRange &tileRange)
+{
+    if (empty()) { return; }
+
+    // TODO: work with native type inside GeoDataset when GeoDataset interface
+    // is ready
+
+    math::Size2 sizeInTiles(calculateSizeInTiles(tileRange));
+    math::Size2 sizeInPixels(calculateSizeInPixels(tileGrid_, sizeInTiles));
+
+    std::string srs;
+    auto extents(worldExtents(lod, tileRange, referenceFrame, srs));
+
+    LOG(info4) << "Convert: <" << srs_ << "> -> <" << srs << ">.";
+    auto srcSrs(vr::Registry::srs(srs_));
+    auto dstSrs(vr::Registry::srs(srs));
+
+    // create source dataset (extents are inflate by half pixel in each
+    // direction to facilitate grid registry)
+    auto srcDs(geo::GeoDataset::create
+               ("", srcSrs.srsDef
+                , addHalfPixel(worldExtents_, sizeInPixels_)
+                , sizeInPixels_
+                , geo::GeoDataset::Format::dsm
+                (geo::GeoDataset::Format::Storage::memory)
+                , def::InvalidHeight));
+
+    // prepare mask
+    {
+        auto &cm(srcDs.mask());
+        // optimistic approach: start with full mask, unset invalid nodes
+        cm.reset(true);
+        for (auto j(0); j < pane_.rows; ++j) {
+            for (auto i(0); i < pane_.cols; ++i) {
+                if (pane_.at<NTDataType>(j, i) == def::InvalidHeight) {
+                    cm.set(i, j, false);
+                }
+            }
+        }
+    }
+
+    // copy data inside dataset
+    pane_.convertTo(srcDs.data(), srcDs.data().type());
+    srcDs.flush();
+
+    // create destination dataset (extents are inflate by half pixel in each
+    // direction to facilitate grid registry)
+    auto dstDs(geo::GeoDataset::deriveInMemory
+               (srcDs, dstSrs.srsDef, sizeInPixels
+                , addHalfPixel(extents, sizeInPixels)));
+
+    // warp
+    srcDs.warpInto(dstDs);
+
+    // fetch pane (via temporary)
+    cv::Mat tmp(sizeInPixels.height, sizeInPixels.width
+                , vts::opencv::NavTile::CvDataType);
+    dstDs.cdata().convertTo(tmp, tmp.type());
+    std::swap(tmp, pane_);
+
+    // TODO: convert heights
+
+    // set new content
+    lod_ = lod;
+    tileRange_ = tileRange;
+    sizeInTiles_ = sizeInTiles_;
+    sizeInPixels_ = sizeInPixels_;
+    srs_ = srs;
+    worldExtents_ = extents;
+}
+
+void HeightMap::warp(const vts::NodeInfo &nodeInfo)
+{
+    warp(*nodeInfo.referenceFrame, nodeInfo.node.id.lod
+         , vts::TileRange(point(nodeInfo)));
+    debugDump(*this, "hm-warped-%s-%s.png", srs_, nodeInfo.nodeId());
 }
