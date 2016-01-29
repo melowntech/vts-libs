@@ -82,7 +82,7 @@ struct Encoder::Detail {
                       (referenceFrame.model.physicalSrs))
         , navigationSrs(registry::Registry::srs
                       (referenceFrame.model.navigationSrs))
-        , generated_(0), expected_(0)
+        , generated_(0), estimated_(0)
     {}
 
     Detail(Encoder *owner, TileSet &tileset, const Options &options)
@@ -148,7 +148,7 @@ struct Encoder::Detail {
     SrsExtentsMap srsExtents;
 
     std::atomic<std::size_t> generated_;
-    std::atomic<std::size_t> expected_;
+    std::atomic<std::size_t> estimated_;
 };
 
 void Encoder::Detail::setConstraints(const Constraints &c)
@@ -179,23 +179,23 @@ Encoder::Detail::getExtents(const std::string &srs) const
     return fsrsExtents->second;
 }
 
-struct Expected {
-    Expected(std::size_t count, std::size_t expected)
-        : count(count), expected(expected)
+struct Estimated {
+    Estimated(std::size_t count, std::size_t estimated)
+        : count(count), estimated(estimated)
     {}
 
     std::size_t count;
-    std::size_t expected;
+    std::size_t estimated;
 };
 
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
-operator<<(std::basic_ostream<CharT, Traits> &os, const Expected &e)
+operator<<(std::basic_ostream<CharT, Traits> &os, const Estimated &e)
 {
-    if (e.expected) {
-        double percentage((100.0 * e.count) / e.expected);
+    if (e.estimated) {
+        double percentage((100.0 * e.count) / e.estimated);
         boost::io::ios_precision_saver ps(os);
-        return os << '#' << e.count << " of " << e.expected << " ("
+        return os << '#' << e.count << " of " << e.estimated << " ("
                   << std::fixed << std::setprecision(2) << percentage
                   << " % done)";
     }
@@ -263,7 +263,7 @@ void Encoder::Detail::process(const TileId &tileId
             auto number(++generated_);
 
             LOGR(options.level())
-                << "Generated tile " << Expected(number, expected_) << ": "
+                << "Generated tile " << Estimated(number, estimated_) << ": "
                 << tileId << " (extents: " << std::fixed << extents << ") ["
                 << TileFlags{tile} << "].";
 
@@ -369,23 +369,23 @@ std::size_t Encoder::threadIndex() const
     return omp_get_thread_num();
 }
 
-void Encoder::setExpectedTileCount(std::size_t count)
+void Encoder::setEstimatedTileCount(std::size_t count)
 {
-    detail_->expected_ = count;
+    detail_->estimated_ = count;
 }
 
-void Encoder::updateExpectedTileCount(int diff)
+void Encoder::updateEstimatedTileCount(int diff)
 {
     if (!diff) { return; }
 
     if (diff > 0) {
-        detail_->expected_ += diff;
+        detail_->estimated_ += diff;
     } else {
         std::size_t d(-diff);
-        if (detail_->expected_ > d) {
-            detail_->expected_ -= d;
+        if (detail_->estimated_ > d) {
+            detail_->estimated_ -= d;
         } else {
-            detail_->expected_ = 0;
+            detail_->estimated_ = 0;
         }
     }
 }

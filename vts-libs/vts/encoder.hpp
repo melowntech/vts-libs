@@ -157,17 +157,17 @@ protected:
 
     std::size_t threadIndex() const;
 
-    /** Notifies encoder about expected number of tiles to be generated.
+    /** Notifies encoder about estimated number of tiles to be generated.
      *
      *  Number is used in logging.
      *
-     *  \param count expected number of tiles to generate, 0 turn off
+     *  \param count estimated number of tiles to generate, 0 turn off
      */
-    void setExpectedTileCount(std::size_t count = 0);
+    void setEstimatedTileCount(std::size_t count = 0);
 
-    /** Updates expected tile count by given number.
+    /** Updates estimated tile count by given number.
      */
-    void updateExpectedTileCount(int diff);
+    void updateEstimatedTileCount(int diff);
 
 private:
     /** Called from run to generate mesh, atlas and navtile for every tile in
