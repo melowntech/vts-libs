@@ -337,6 +337,8 @@ public:
         return fsourceInfo->second;
     }
 
+    std::size_t size() const { return sourceInfo_.size(); }
+
 private:
     SourceInfo sourceInfo_;
     vts::TileIndex dstTi_;
@@ -360,6 +362,7 @@ public:
         , srcInfo_(input_, referenceFrame())
     {
         setConstraints(Constraints().setValidTree(srcInfo_.validTree()));
+        setEstimatedTileCount(srcInfo_.size());
     }
 
 private:
@@ -535,7 +538,10 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     }
 
     if (mesh.empty()) {
-        // hm, nothing generated... tell that there is nothing yet
+        // no mesh
+        // decrement number of estimated tiles
+        updateEstimatedTileCount(-1);
+        // tell that there is nothing yet
         return TileResult::Result::noDataYet;
     }
 

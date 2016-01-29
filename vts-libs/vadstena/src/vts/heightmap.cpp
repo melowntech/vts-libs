@@ -203,7 +203,6 @@ math::Extents2 worldExtents(vts::Lod lod, const vts::TileRange &tileRange
             "same node subtree.";
     }
     srs = nodeLl.node.srs;
-    LOG(info4) << "World extents srs: <" << srs << ">.";
 
     return math::Extents2(nodeLl.node.extents.ll, nodeUr.node.extents.ur);
 }
@@ -590,7 +589,6 @@ void HeightMap::warp(const vr::ReferenceFrame &referenceFrame
     std::string srs;
     auto extents(worldExtents(lod, tileRange, referenceFrame, srs));
 
-    LOG(info4) << "Convert: <" << srs_ << "> -> <" << srs << ">.";
     auto srcSrs(vr::Registry::srs(srs_));
     auto dstSrs(vr::Registry::srs(srs));
 
