@@ -1,6 +1,6 @@
 #include "dbglog/dbglog.hpp"
 
-#include "./meshop.hpp"
+#include "../meshop.hpp"
 
 namespace vadstena { namespace vts {
 

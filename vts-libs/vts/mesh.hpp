@@ -57,6 +57,11 @@ struct SubMesh {
      */
     boost::optional<std::uint16_t> textureLayer;
 
+    typedef std::uint8_t SurfaceReference;
+    /** Surface reference. One-based. Defaults to 1.
+     */
+    SurfaceReference surfaceReference;
+
     /** UV area scaling factor to artificially scale UV mesh area, i.e. to make
      *  it look bigger.
      *
@@ -65,7 +70,10 @@ struct SubMesh {
     double uvAreaScale;
 
     typedef std::vector<SubMesh> list;
-    SubMesh() : textureMode(TextureMode::internal), uvAreaScale(1.0) {}
+    SubMesh()
+        : textureMode(TextureMode::internal), surfaceReference(1)
+        , uvAreaScale(1.0)
+    {}
 
     /** Clones metadata (texture mod, layer etc.).
      */

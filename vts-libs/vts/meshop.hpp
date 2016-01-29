@@ -4,6 +4,7 @@
 #include <functional>
 
 #include "./mesh.hpp"
+#include "./atlas.hpp"
 #include "./basetypes.hpp"
 
 namespace vadstena { namespace vts {
@@ -72,6 +73,15 @@ refineAndClip(const EnhancedSubMesh &mesh
 SubMesh clip(const SubMesh &projectedMesh
              , const math::Extents2 &projectedExtents
              , const VertexMask &mask = VertexMask());
+
+/** Tries to merge submeshes.
+ *  Returns original if no merge cannot be performed.
+ *  Only submeshes from same source are merged.
+ *  Atlas is repacked when merging textured submeshes.
+ *  In case of atlas repacking, returned atlas is image based one.
+ */
+std::tuple<Mesh::pointer, Atlas::pointer>
+mergeSubmeshes(const Mesh::pointer &mesh, const Atlas::pointer &atlas);
 
 } } // namespace vadstena::vts
 
