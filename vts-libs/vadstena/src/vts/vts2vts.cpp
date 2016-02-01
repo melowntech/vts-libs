@@ -493,12 +493,13 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     auto &tile(result.tile());
     vts::Mesh &mesh
         (*(tile.mesh = std::make_shared<vts::Mesh>(false)));
-    vts::RawAtlas &atlas([&]() -> vts::RawAtlas&
+    vts::RawAtlas::pointer patlas([&]() -> vts::RawAtlas::pointer
     {
         auto atlas(std::make_shared<vts::RawAtlas>());
         tile.atlas = atlas;
-        return *atlas;
+        return atlas;
     }());
+    auto &atlas(*patlas);
 
     for (const auto &input : source) {
         const auto &inMesh(input.mesh());
@@ -549,7 +550,7 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     tile.navtile = warpNavtiles(tileId, srcRf_, nodeInfo, source);
 
     // merge submeshes if allowed
-    std::tie(tile.mesh, tile.atlas) = mergeSubmeshes(tile.mesh, tile.atlas);
+    std::tie(tile.mesh, tile.atlas) = mergeSubmeshes(tile.mesh, patlas);
 
     if (atlas.empty()) {
         // no atlas -> disable
