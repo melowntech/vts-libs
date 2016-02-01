@@ -196,7 +196,8 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const Estimated &e)
         double percentage((100.0 * e.count) / e.estimated);
         boost::io::ios_precision_saver ps(os);
         return os << '#' << e.count << " of " << e.estimated << " ("
-                  << std::fixed << std::setprecision(2) << percentage
+                  << std::fixed << std::setprecision(2)
+                  << std::setw(6) << percentage
                   << " % done)";
     }
     return os << '#' << e.count;
