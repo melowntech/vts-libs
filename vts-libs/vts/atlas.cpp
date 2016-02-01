@@ -24,6 +24,7 @@ multifile::Table Atlas::readTable(std::istream &is
 {
     return multifile::readTable(is, MAGIC, path).versionAtMost(VERSION, path);
 }
+
 void Atlas::serialize(std::ostream &os) const
 {
     auto table(serialize_impl(os).set(VERSION, MAGIC));

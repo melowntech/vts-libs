@@ -81,7 +81,7 @@ SubMesh clip(const SubMesh &projectedMesh
  *  In case of atlas repacking, returned atlas is image based one.
  */
 std::tuple<Mesh::pointer, Atlas::pointer>
-mergeSubmeshes(const Mesh::pointer &mesh, const Atlas::pointer &atlas);
+mergeSubmeshes(const Mesh::pointer &mesh, const RawAtlas::pointer &atlas);
 
 } } // namespace vadstena::vts
 

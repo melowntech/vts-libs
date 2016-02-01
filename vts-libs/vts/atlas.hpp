@@ -57,6 +57,8 @@ private:
 
 class RawAtlas : public Atlas {
 public:
+    typedef std::shared_ptr<RawAtlas> pointer;
+
     virtual std::size_t size() const { return images_.size(); }
 
     typedef std::vector<unsigned char> Image;

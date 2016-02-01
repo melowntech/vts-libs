@@ -1,10 +1,12 @@
+#include "../opencv/atlas.hpp"
+
 #include "../meshop.hpp"
 
 namespace vadstena { namespace vts {
 
-typedef std::tuple<Mesh::pointer, Atlas::pointer> MeshAtlas;
-
 namespace {
+
+typedef std::tuple<Mesh::pointer, Atlas::pointer> MeshAtlas;
 
 /** TODO: observe other differences in submeshes (texture mode, external
  *  texture coordinates, texture layer, UV area factor etc.
@@ -62,35 +64,38 @@ Range::list groupSubmeshes(const SubMesh::list &sms, std::size_t textured)
 class MeshAtlasBuilder {
 public:
     MeshAtlasBuilder(const Mesh::pointer &mesh
-                     , const Atlas::pointer &atlas)
-        : original_(mesh, atlas)
+                     , const RawAtlas::pointer &atlas)
+        : originalMesh_(mesh), originalAtlas_(atlas)
         , oSubmeshes_(mesh->submeshes)
-        , end_(0)
+        , meshEnd_(0), atlasEnd_(0)
     {
         merge(groupSubmeshes(mesh->submeshes, atlas->size()));
     }
 
     MeshAtlas result() const {
-        if (changed()) {
-            return MeshAtlas(mesh_, std::get<1>(original_));
-        }
-        return original_;
+        return MeshAtlas
+            (changedMesh() ? mesh_ : originalMesh_
+             , changedAtlas() ? atlas_ : Atlas::pointer(originalAtlas_));
     }
 
 private:
     void merge(const Range::list &ranges);
     void merge(const Range &range);
-    void ensureChanged();
-    bool changed() const { return bool(mesh_); }
+    void ensureChanged(const Range &range);
+    bool changedMesh() const { return bool(mesh_); }
+    bool changedAtlas() const { return bool(atlas_); }
 
     void pass(const Range &range);
     void mergeNonTextured(const Range &range);
+    void mergeTextured(const Range &range);
 
-    const MeshAtlas original_;
+    const Mesh::pointer originalMesh_;
+    const RawAtlas::pointer originalAtlas_;
     const SubMesh::list oSubmeshes_;
     Mesh::pointer mesh_;
-    Atlas::pointer atlas_;
-    std::size_t end_;
+    opencv::HybridAtlas::pointer atlas_;
+    std::size_t meshEnd_;
+    std::size_t atlasEnd_;
 };
 
 void MeshAtlasBuilder::merge(const Range::list &ranges)
@@ -107,35 +112,48 @@ void MeshAtlasBuilder::merge(const Range &range)
     }
 
     if (range.textured) {
-        // no support for textured meshes now
-        pass(range);
+        mergeTextured(range);
         return;
     }
 
     mergeNonTextured(range);
 }
 
-void MeshAtlasBuilder::ensureChanged()
+void MeshAtlasBuilder::ensureChanged(const Range &range)
 {
-    if (changed()) { return; }
-    // copy mesh and trim submeshes
-    mesh_ = std::make_shared<Mesh>(*std::get<0>(original_));
-    mesh_->submeshes.resize(end_);
+    if (!changedMesh()) {
+        // copy mesh and trim submeshes
+        mesh_ = std::make_shared<Mesh>(*originalMesh_);
+        mesh_->submeshes.resize(meshEnd_);
+    }
 
-    // no touching atlas
+    if (range.textured && !changedAtlas()) {
+        // convert atlas
+        atlas_ = std::make_shared<opencv::HybridAtlas>
+            (atlasEnd_, *originalAtlas_);
+    }
 }
 
 void MeshAtlasBuilder::pass(const Range &range)
 {
-    if (changed()) {
+    if (changedMesh()) {
         // copy submeshes
-        mesh_->submeshes.insert(mesh_->submeshes.end()
-                                , &mesh_->submeshes[range.start]
-                                , &mesh_->submeshes[range.end]);
+        mesh_->submeshes.insert
+            (mesh_->submeshes.end()
+             , &originalMesh_->submeshes[range.start]
+             , &originalMesh_->submeshes[range.end]);
     }
 
-    // move marker
-    end_ += range.size();
+    if (range.textured && changedAtlas()) {
+        // copy atlas
+        for (auto i(range.start); i != range.end; ++i) {
+            atlas_->add(originalAtlas_->get(i));
+        }
+    }
+
+    // move markers
+    meshEnd_ += range.size();
+    if (range.textured) { atlasEnd_ += range.size(); }
 }
 
 template <typename T>
@@ -154,12 +172,11 @@ void appendFaces(Faces &out, const Faces &in, std::size_t shift)
 void MeshAtlasBuilder::mergeNonTextured(const Range &range)
 {
     // more than one submeshes that can be joined -> join them
-    ensureChanged();
+    ensureChanged(range);
 
     // clone first submesh to join
     mesh_->submeshes.push_back(oSubmeshes_[range.start]);
     auto &sm(mesh_->submeshes.back());
-    ++end_;
 
     for (auto i(range.start + 1); i < range.end; ++i) {
         auto &src(oSubmeshes_[i]);
@@ -171,12 +188,23 @@ void MeshAtlasBuilder::mergeNonTextured(const Range &range)
 
         // no texture coordinates nor texture faces -> cool
     }
+
+    meshEnd_ += range.size();
+}
+
+void MeshAtlasBuilder::mergeTextured(const Range &range)
+{
+    // more than one submeshes that can be joined -> join them
+    ensureChanged(range);
+
+    // no support for textured meshes now
+    pass(range);
 }
 
 } // namespace
 
 MeshAtlas mergeSubmeshes(const Mesh::pointer &mesh
-                         , const Atlas::pointer &atlas)
+                         , const RawAtlas::pointer &atlas)
 {
     return MeshAtlasBuilder(mesh, atlas).result();
 }
