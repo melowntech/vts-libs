@@ -344,11 +344,11 @@ private:
     vts::TileIndex dstTi_;
     vts::TileIndex validTree_;
 
-    static vts::TileId::list emptySource_;
+    static const vts::TileId::list emptySource_;
 };
 
-// keep empty!
-vts::TileId::list SourceInfoBuilder::emptySource_;
+// keep empty, used as placeholder!
+const vts::TileId::list SourceInfoBuilder::emptySource_;
 
 class Encoder : public vts::Encoder {
 public:

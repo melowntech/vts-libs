@@ -7,7 +7,7 @@
 
 #include "vts-libs/registry.hpp"
 #include "vts-libs/vts/basetypes.hpp"
-#include "vts-libs/vts/navtile.hpp"
+#include "vts-libs/vts/opencv/navtile.hpp"
 #include "vts-libs/vts/meshopinput.hpp"
 
 namespace vts = vadstena::vts;
@@ -16,7 +16,7 @@ namespace vr = vadstena::registry;
 /** Missing delegation ctor workaround.
  */
 struct HeightMapBase {
-    const vr::ReferenceFrame &referenceFrame_;
+    const vr::ReferenceFrame *referenceFrame_;
     math::Size2 tileSize_;
     math::Size2 tileGrid_;
     vts::Lod lod_;

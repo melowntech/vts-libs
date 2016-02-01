@@ -577,7 +577,7 @@ void Encoder::generateHeightMap(const vts::TileId &tileId
     }());
 
     // invalid heightmap value (i.e. initial value) is +oo and we take minimum
-    // of all rasterized heights in given placeq
+    // of all rasterized heights in given place
     rasterizeMesh(mesh, mesh2grid(extents, hma_.tileSize())
                   , hma_.tileSize()
                   , [&](int x, int y, float z)

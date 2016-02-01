@@ -16,6 +16,7 @@
 
 #include "vts-libs/vts/io.hpp"
 #include "vts-libs/vts/tileop.hpp"
+#include "vts-libs/vts/csconvertor.hpp"
 #include "vts-libs/vts/opencv/navtile.hpp"
 
 #include "./heightmap.hpp"
@@ -229,7 +230,7 @@ math::Size2 calculateSizeInPixels(const math::Size2 &tileGrid
 
 HeightMapBase::HeightMapBase(const vr::ReferenceFrame &referenceFrame
                              , vts::Lod lod, vts::TileRange tileRange)
-    : referenceFrame_(referenceFrame)
+    : referenceFrame_(&referenceFrame)
     , tileSize_(vts::NavTile::size())
     , tileGrid_(tileSize_.width - 1, tileSize_.height - 1)
     , lod_(lod)
@@ -239,7 +240,7 @@ HeightMapBase::HeightMapBase(const vr::ReferenceFrame &referenceFrame
     , pane_(sizeInPixels_.height, sizeInPixels_.width
             , vts::opencv::NavTile::CvDataType
             , cv::Scalar(def::InvalidHeight))
-    , worldExtents_(worldExtents(lod_, tileRange_, referenceFrame_, srs_))
+    , worldExtents_(worldExtents(lod_, tileRange_, *referenceFrame_, srs_))
 {}
 
 HeightMap::HeightMap(Accumulator &&a
@@ -410,7 +411,7 @@ void HeightMap::resize(vts::Lod lod)
     sizeInTiles_ = sizeInTiles;
     sizeInPixels_ = sizeInPixels;
     std::swap(tmp, pane_);
-    worldExtents_ = worldExtents(lod_, tileRange_, referenceFrame_, srs_);
+    worldExtents_ = worldExtents(lod_, tileRange_, *referenceFrame_, srs_);
 
     debugDump(*this, "hm-%d.png", lod_);
 }
@@ -629,13 +630,48 @@ void HeightMap::warp(const vr::ReferenceFrame &referenceFrame
     // warp
     srcDs.warpInto(dstDs);
 
-    // fetch pane (via temporary)
-    cv::Mat tmp(sizeInPixels.height, sizeInPixels.width
-                , vts::opencv::NavTile::CvDataType);
-    dstDs.cdata().convertTo(tmp, tmp.type());
-    std::swap(tmp, pane_);
+    /** fix Z component
+     * for each valid point XY in navtile:
+     *     X'Y' = conv2d(XY, srs -> referenceFrame_.model.navigationSrs)
+     *     Z' = conv3d(X'Y'Z, referenceFrame_.model.navigationSrs
+     *                , referenceFrame.model.navigationSrs).Z
+     */
+    {
+        // temporary pane
+        cv::Mat tmp(sizeInPixels.height, sizeInPixels.width
+                    , vts::opencv::NavTile::CvDataType
+                    , cv::Scalar(def::InvalidHeight));
+        // 2d convertor between srs and referenceFrame_.model.navigationSrs
+        const vts::CsConvertor sds2srcNav
+            (srs, referenceFrame_->model.navigationSrs);
 
-    // TODO: convert heights
+        const vts::CsConvertor srcNav2dstNav
+            (referenceFrame_->model.navigationSrs
+             , referenceFrame.model.navigationSrs);
+
+        const auto &hf(dstDs.cdata());
+        dstDs.cmask().forEach([&](int x, int y, bool)
+        {
+            // compose 2D point in srs
+            const math::Point2 sdsXY
+                (dstDs.raster2geo(math::Point2(x, y), 0.0));
+            // height from current heightmap
+            const auto srcZ(hf.at<double>(y, x));
+
+            // convert to source nav system
+            const auto mavXY(sds2srcNav(sdsXY));
+
+            // nox, compose 3D point in source nav system and convert to
+            // destination nav system and store Z component into destination
+            // heightmap
+            const auto dstZ
+                (srcNav2dstNav(math::Point3(mavXY(0), mavXY(1), srcZ))(2));
+            tmp.at<float>(y, x) = dstZ;
+        }, geo::GeoDataset::Mask::Filter::white);
+
+        // done, swap panes
+        std::swap(tmp, pane_);
+    }
 
     // set new content
     lod_ = lod;
@@ -644,6 +680,7 @@ void HeightMap::warp(const vr::ReferenceFrame &referenceFrame
     sizeInPixels_ = sizeInPixels_;
     srs_ = srs;
     worldExtents_ = extents;
+    referenceFrame_ = &referenceFrame;
 }
 
 void HeightMap::warp(const vts::NodeInfo &nodeInfo)
