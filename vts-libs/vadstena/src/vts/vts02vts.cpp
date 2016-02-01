@@ -312,6 +312,7 @@ public:
         setConstraints(Constraints()
                        .setLodRange
                        (vs::LodRange(0, input->lodRange().max)));
+        setEstimatedTileCount(ti_.count());
     }
 
 private:
