@@ -23,9 +23,11 @@ namespace half = half_float::detail;
 namespace vadstena { namespace vts {
 
 namespace {
+    // mesh proper
     const char MAGIC[2] = { 'M', 'E' };
-    const std::uint16_t VERSION = 1;
+    const std::uint16_t VERSION = 2;
 
+    // mesh binary file
     const std::string MF_MAGIC("ME");
     const std::uint16_t MF_VERSION = 1;
 
@@ -164,6 +166,9 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
             flags |= SubMeshFlag::textureMode;
         }
         bin::write(out, flags);
+
+        // surface reference (defaults to 1)
+        bin::write(out, std::uint8_t(sm.surfaceReference));
 
         // write (external) texture layer information
         if (sm.textureLayer) {
@@ -310,6 +315,13 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
     for (auto &sm : mesh) {
         std::uint8_t flags;
         bin::read(in, flags);
+
+        if (version >= 2) {
+            // submesh surface reference was added in version=2
+            std::uint8_t surfaceReference;
+            bin::read(in, surfaceReference);
+            sm.surfaceReference = surfaceReference;
+        }
 
         // load (external) texture layer information
         std::uint16_t u16;

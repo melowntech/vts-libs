@@ -666,6 +666,8 @@ void addInputToOutput(Output &out, const Input &input
 
     // update scale (TODO: multiply?)
     added.uvAreaScale = uvAreaScale;
+    // set surface reference to input tileset index + 1
+    added.surfaceReference = input.id() + 1;
 }
 
 void MeshFilter::addTo(Output &out, double uvAreaScale)
