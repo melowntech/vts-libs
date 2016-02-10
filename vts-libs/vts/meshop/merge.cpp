@@ -396,6 +396,7 @@ void MeshAtlasBuilder::merge(const Range::list &ranges)
 void MeshAtlasBuilder::merge(const Range &range)
 {
     // simple range, nothing to do
+    // FIXME: textured range of size 1 must processed as well!
     if (range.size() <= 1) {
         pass(range);
         return;
@@ -524,7 +525,7 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
         patchesList.push_back(findPatches(tx, inflate));
     }
 
-    // pack the rectangles
+    // pack the patches
     imgproc::RectPacker packer;
     for (auto &patches : patchesList) {
         for (auto &r : patches.rects) {
@@ -537,7 +538,7 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
     tex.create(packer.height(), packer.width(), CV_8UC3);
     tex = cv::Scalar(0, 0, 0);
 
-    // valid triangles mask
+    // validity mask
     cv::Mat mask(tex.rows, tex.cols, CV_8U, cv::Scalar(0));
 
     {
@@ -552,7 +553,7 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
 
             // transform texturing coordinates from source texture into new
             // texture
-            auto itcAssignment(patches.tcAssignment.begin());
+            auto itcAssignment(patches.tcAssignment.cbegin());
             for (const auto &oldUv : tx.tc()) {
                 auto &rect(patches.rects[*itcAssignment++]);
                 imgproc::UVCoord uv(oldUv(0), oldUv(1));
@@ -564,6 +565,8 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
             appendFaces(faces, tx.faces(), faces.size());
         }
     }
+
+    // TODO: inpainting
 
     // done
     return res;
