@@ -188,10 +188,10 @@ void Clipper::clip(const ClipPlane &line)
             , (line.signedDistance(tri[2]) >= .0)
         };
 
-        LOG(debug) << "cutting face:";
-        LOG(debug) << "    " << tri[0] << ", " << inside[0];
-        LOG(debug) << "    " << tri[1] << ", " << inside[1];
-        LOG(debug) << "    " << tri[2] << ", " << inside[2];
+        LOG(debug) << "cutting face " << tri << ":";
+        LOG(debug) << std::fixed << "    " << tri[0] << ", " << inside[0];
+        LOG(debug) << std::fixed << "    " << tri[1] << ", " << inside[1];
+        LOG(debug) << std::fixed << "    " << tri[2] << ", " << inside[2];
 
         int count(inside[0] + inside[1] + inside[2]);
         if (!count) {
@@ -249,12 +249,12 @@ void Clipper::clip(const ClipPlane &line)
                 out.emplace_back(vi1, cf.face[vm.c], vi2);
 
                 LOG(debug) << "    -> one vertex outside, new faces:";
-                LOG(debug) << "    " << p1;
-                LOG(debug) << "    " << tri[vm.b];
-                LOG(debug) << "    " << tri[vm.c];
-                LOG(debug) << "    " << p1;
-                LOG(debug) << "    " << tri[vm.c];
-                LOG(debug) << "    " << p2;
+                LOG(debug) << std::fixed << "    " << p1;
+                LOG(debug) << std::fixed << "    " << tri[vm.b];
+                LOG(debug) << std::fixed << "    " << tri[vm.c];
+                LOG(debug) << std::fixed << "    " << p1;
+                LOG(debug) << std::fixed << "    " << tri[vm.c];
+                LOG(debug) << std::fixed << "    " << p2;
             }
         }
 
@@ -262,10 +262,13 @@ void Clipper::clip(const ClipPlane &line)
             // texture face
             auto face(*cf.faceTc);
 
-            LOG(debug) << "cutting texture face:";
-            LOG(debug) << "    " << tc[face[0]] << ", " << inside[0];
-            LOG(debug) << "    " << tc[face[1]] << ", " << inside[1];
-            LOG(debug) << "    " << tc[face[2]] << ", " << inside[2];
+            LOG(debug) << "cutting texture face " << face << ":";
+            LOG(debug)
+                << std::fixed << "    " << tc[face[0]] << ", " << inside[0];
+            LOG(debug)
+                << std::fixed << "    " << tc[face[1]] << ", " << inside[1];
+            LOG(debug)
+                << std::fixed << "    " << tc[face[2]] << ", " << inside[2];
 
             // calculate new point
             auto tp1(Segment2(tc[face[vm.a]], tc[face[vm.b]]).point(t1));
@@ -278,7 +281,8 @@ void Clipper::clip(const ClipPlane &line)
                 // one vertex inside: just one face:
                 out.back().faceTc = Face(face[vm.a], ti1, ti2);
 
-                LOG(debug) << "    -> one vertex inside, new face:";
+                LOG(debug) << "    -> one vertex inside, new face "
+                           << *out.back().faceTc << ":";
                 LOG(debug) << "    " << tc[face[vm.a]];
                 LOG(debug) << "    " << tp1;
                 LOG(debug) << "    " << tp2;
@@ -287,7 +291,9 @@ void Clipper::clip(const ClipPlane &line)
                 out[out.size() - 2].faceTc = Face(ti1, face[vm.b], face[vm.c]);
                 out[out.size() - 1].faceTc = Face(ti1, face[vm.c], ti2);
 
-                LOG(debug) << "    -> one vertex outside, new faces:";
+                LOG(debug) << "    -> one vertex outside, new faces "
+                           << *out[out.size() - 2].faceTc << ", "
+                           << *out[out.size() - 1].faceTc << ":";
                 LOG(debug) << "    " << tp1;
                 LOG(debug) << "    " << tc[face[vm.b]];
                 LOG(debug) << "    " << tc[face[vm.c]];
@@ -346,10 +352,15 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor *convertor)
             mesh.faces.emplace_back(addVertex(cf.face(0))
                                     , addVertex(cf.face(1))
                                     , addVertex(cf.face(2)));
+            // LOG(debug) << "Added tc face: " << cf.face << " -> "
+            //            << mesh.faces.back();
+
             if (cf.faceTc) {
                 mesh.facesTc.emplace_back(addTc((*cf.faceTc)(0))
                                           , addTc((*cf.faceTc)(1))
                                           , addTc((*cf.faceTc)(2)));
+                // LOG(debug) << "Added tc face: " << *cf.faceTc << " -> "
+                //            << mesh.facesTc.back();
             }
         }
 
@@ -451,7 +462,20 @@ SubMesh clip(const SubMesh &projectedMesh
     for (const auto &cp : clipPlanes) { clipper.clip(cp); }
 
     // no convertor
-    return clipper.mesh().mesh;
+    auto out(clipper.mesh().mesh);
+
+    LOG(debug) << "Mesh clipped: vertices="
+               << projectedMesh.vertices.size() << "->" << out.vertices.size()
+               << ", tc=" << projectedMesh.tc.size() << "->" << out.tc.size()
+               << ", etc=" << projectedMesh.etc.size()
+               << "->" << out.etc.size()
+               << ", faces=" << projectedMesh.faces.size()
+               << "->" << out.faces.size()
+               << ", facesTc=" << projectedMesh.facesTc.size()
+               << "->" << out.facesTc.size()
+               << ".";
+
+    return out;
 }
 
 } } // namespace vadstena::vts
