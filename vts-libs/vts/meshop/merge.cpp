@@ -267,38 +267,6 @@ void Component::copy(cv::Mat &tex, const cv::Mat &texture)
     }
 }
 
-#if 0
-Patches findPatches(const TextureInfo &tx, float inflate = 0.f)
-{
-    Patches patches(tx.texture());
-
-    cv::Point3f tri[3];
-    for (const auto &face : tx.faces()) {
-        for (int i : { 0, 1, 2 }) {
-            const auto &p(tx.uv(face, i));
-            tri[i] = { float(p(0)), float(p(1)), 0.f };
-            // make sure the vertices are always marked
-            int x(round(tri[i].x)), y(round(tri[i].y));
-            if (inside(x, y, patches.mask)) {
-                patches.mask.at<std::uint8_t>(y, x) = 0xff;
-            }
-        }
-
-        // rasterize triangle
-        std::vector<imgproc::Scanline> scanlines;
-        imgproc::scanConvertTriangle(tri, 0, patches.mask.rows, scanlines);
-
-        for (const auto &sl : scanlines) {
-            imgproc::processScanline(sl, 0, patches.mask.cols
-                                     , [&](int x, int y, float)
-            {
-                patches.mask.at<std::uint8_t>(y, x) = 0xff;
-            });
-        }
-    }
-}
-#endif
-
 } // namespace
 
 /** Joins textures into single texture.
