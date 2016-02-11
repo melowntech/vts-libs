@@ -7,6 +7,7 @@
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/photo/photo.hpp>
 
 #include "utility/streams.hpp"
 
@@ -128,9 +129,7 @@ struct Component {
         indices.insert(other.indices.begin(), other.indices.end());
     }
 
-    void copy(cv::Mat &tex, cv::Mat &mask
-              , const cv::Mat &texture
-              , const cv::Vec3b &debugColor) const;
+    void copy(cv::Mat &tex, const cv::Mat &texture) const;
 
     imgproc::UVCoord adjustUV(const math::Point2 &p) const {
         imgproc::UVCoord uv(p(0), p(1));
@@ -149,7 +148,7 @@ struct ComponentInfo {
 
     ComponentInfo(const TextureInfo &tx, float inflate);
 
-    void copy(cv::Mat &tex, cv::Mat &mask, const cv::Vec3b &debugColor) const;
+    void copy(cv::Mat &tex) const;
 };
 
 ComponentInfo::ComponentInfo(const TextureInfo &tx, float inflate)
@@ -242,17 +241,14 @@ ComponentInfo::ComponentInfo(const TextureInfo &tx, float inflate)
     }
 }
 
-void ComponentInfo::copy(cv::Mat &tex, cv::Mat &mask
-                         , const cv::Vec3b &debugColor)
-    const
+void ComponentInfo::copy(cv::Mat &tex) const
 {
     for (const auto &c : components) {
-        c->copy(tex, mask, tx->texture(), debugColor);
+        c->copy(tex, tx->texture());
     }
 }
 
-void Component::copy(cv::Mat &tex, cv::Mat &mask, const cv::Mat &texture
-                     , const cv::Vec3b &debugColor)
+void Component::copy(cv::Mat &tex, const cv::Mat &texture)
     const
 {
     // TODO: block copy via Mat::copyTo
@@ -266,16 +262,9 @@ void Component::copy(cv::Mat &tex, cv::Mat &mask, const cv::Mat &texture
                 continue;
             }
 
-#if 1
             tex.at<cv::Vec3b>(dy, dx) = texture.at<cv::Vec3b>(sy, sx);
-            (void) debugColor;
-#else
-            tex.at<cv::Vec3b>(dy, dx) = cv::Vec3b(debugColor);
-#endif
         }
     }
-
-    (void) mask;
 }
 
 #if 0
@@ -548,6 +537,35 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
     atlasEnd_ += range.size();
 }
 
+void rasterizeMask(cv::Mat &mask, const Faces &faces
+                   , const math::Points2d &tc)
+{
+    cv::Point3f tri[3];
+    for (const auto &face : faces) {
+        for (int i : { 0, 1, 2 }) {
+            const auto &p(tc[face(i)]);
+            tri[i] = { float(p(0)), float(p(1)), 0.f };
+            // make sure the vertices are always marked
+            int x(round(tri[i].x)), y(round(tri[i].y));
+            if (inside(x, y, mask)) {
+                mask.at<std::uint8_t>(y, x) = 0x00;
+            }
+        }
+
+        // rasterize triangle
+        std::vector<imgproc::Scanline> scanlines;
+        imgproc::scanConvertTriangle(tri, 0, mask.rows, scanlines);
+
+        for (const auto &sl : scanlines) {
+            imgproc::processScanline(sl, 0, mask.cols
+                                     , [&](int x, int y, float)
+            {
+                mask.at<std::uint8_t>(y, x) = 0x00;
+            });
+        }
+    }
+}
+
 } // namespace
 
 MeshAtlas mergeSubmeshes(const Mesh::pointer &mesh
@@ -560,6 +578,8 @@ MeshAtlas mergeSubmeshes(const Mesh::pointer &mesh
 std::tuple<cv::Mat, math::Points2d, Faces>
 joinTextures(const TextureInfo::list &texturing, float inflate)
 {
+    const int inpaintMargin(4);
+
     std::tuple<cv::Mat, math::Points2d, Faces> res;
     auto &tex(std::get<0>(res));
     auto &tc(std::get<1>(res));
@@ -580,43 +600,42 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
     }
     packer.pack();
 
-    // create texture
-    tex.create(packer.height(), packer.width(), CV_8UC3);
-    tex = cv::Scalar(0, 0, 0);
+    // create temporary texture a bit larger due to inpaint bug
+    cv::Mat tmpTex(packer.height() + 2 * inpaintMargin
+                    , packer.width() + 2 * inpaintMargin, CV_8UC3
+                    , cv::Scalar(0x80, 0x80, 0x80));
 
-    (void) tc;
-    (void) faces;
+    // fixes texture to point to proper matrix
+    auto fixTexture([&](cv::Mat &ref)
+    {
+        // real texture
+        tex = cv::Mat
+            (ref, cv::Range(inpaintMargin, packer.height() + inpaintMargin)
+             , cv::Range(inpaintMargin, packer.width() + inpaintMargin));
+    });
 
-    // validity mask
-    cv::Mat mask(tex.rows, tex.cols, CV_8U, cv::Scalar(0));
+    fixTexture(tmpTex);
 
-    const std::vector<cv::Vec3b> colors = {
-        { 255, 0, 0 }
-        , { 0, 255, 0 }
-        , { 0, 0, 255 }
-        , { 255, 255, 0 }
-        , { 0, 255, 255 }
-        , { 255, 0, 255 }
-    };
+    // denormalized result texture coordinates
+    math::Points2d dnTc;
 
+    // process patches
     {
         auto ts(tex.size());
-
-        auto icolors(colors.cbegin());
 
         for (const auto &cinfo : cinfoList) {
             const auto &tx(*cinfo.tx);
 
             // copy patches from this texture
-            cinfo.copy(tex, mask, *icolors++);
+            cinfo.copy(tex);
 
-            (void) tx;
             auto itcMap(cinfo.tcMap.cbegin());
             auto tcOffset(tc.size());
 
             for (const auto &oldUv : tx.tc()) {
-                imgproc::UVCoord uv(oldUv(0), oldUv(1));
-                tc.push_back(normalize((*itcMap++)->adjustUV(oldUv), ts));
+                auto uv((*itcMap++)->adjustUV(oldUv));
+                dnTc.emplace_back(double(uv.x), double(uv.y));
+                tc.push_back(normalize(uv, ts));
             }
 
             // add texture faces from this texture
@@ -625,7 +644,23 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
         }
     }
 
-    // TODO: inpainting
+    // TODO: make faster, then make default
+    if (0) {
+        // create temporary mask a bit larger due to inpaint bug
+        cv::Mat tmpMask(tmpTex.rows, tmpTex.cols, CV_8U,cv::Scalar(0xff));
+
+        // real mask
+        cv::Mat mask
+            (tmpMask, cv::Range(inpaintMargin, packer.height() + inpaintMargin)
+             , cv::Range(inpaintMargin, packer.width() + inpaintMargin));
+
+        // rasterize valid triangles
+        rasterizeMask(mask, faces, dnTc);
+
+        cv::Mat tmp(tmpTex.rows, tmpTex.cols, CV_8UC3);
+        cv::inpaint(tmpTex, tmpMask, tmp, 3, cv::INPAINT_TELEA);
+        fixTexture(tmp);
+    }
 
     // done
     return res;
