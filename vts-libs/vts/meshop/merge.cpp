@@ -1,3 +1,8 @@
+#include <memory>
+#include <array>
+#include <set>
+#include <algorithm>
+
 #include <boost/format.hpp>
 
 #include <opencv2/imgproc/imgproc.hpp>
@@ -98,107 +103,183 @@ bool inside(int x, int y, const cv::Mat &mat)
     return (x >= 0) && (x < mat.cols) && (y >= 0) && (y < mat.rows);
 }
 
-typedef std::vector<imgproc::UVRect> UVRects;
-typedef std::vector<int> Assigment;
-typedef std::vector<cv::Point> CvPoints;
+struct Component {
+    std::set<int> faces;
+    std::set<int> indices;
+    imgproc::UVRect rect;
 
-typedef std::vector<CvPoints> CvContours;
+    typedef std::shared_ptr<Component> pointer;
+    typedef std::vector<pointer> list;
+    typedef std::set<pointer> set;
 
-class Patches {
-public:
-    cv::Mat mask;
-    UVRects rects;
-    Assigment faceAssignment;
-    Assigment tcAssignment;
-    const cv::Mat& texture() const { return *texture_; }
+    Component() {}
 
-    Patches(const cv::Mat &texture)
-        : mask(texture.rows + 1, texture.cols + 1, CV_8U, cv::Scalar(0))
-        , texture_(&texture)
+    Component(int findex, const Face &face)
+        : faces{findex}, indices{face(0), face(1), face(2)}
     {}
 
-    void copy(cv::Mat &tex, cv::Mat &mask, const cv::Vec3b &debugColor) const;
+    void add(int findex, const Face &face) {
+        faces.insert(findex);
+        indices.insert({face(0), face(1), face(2)});
+    }
 
-    typedef std::vector<Patches> list;
+    void add(const Component &other) {
+        faces.insert(other.faces.begin(), other.faces.end());
+        indices.insert(other.indices.begin(), other.indices.end());
+    }
 
-private:
-    const cv::Mat *texture_;
+    void copy(cv::Mat &tex, cv::Mat &mask
+              , const cv::Mat &texture
+              , const cv::Vec3b &debugColor) const;
+
+    imgproc::UVCoord adjustUV(const math::Point2 &p) const {
+        imgproc::UVCoord uv(p(0), p(1));
+        rect.adjustUV(uv);
+        return uv;
+    }
 };
 
-CvContours findContours(const cv::Mat &mat)
+struct ComponentInfo {
+    Component::set components;
+    Component::list tcMap;
+    Component::list fMap;
+    const TextureInfo *tx;
+
+    typedef std::vector<ComponentInfo> list;
+
+    ComponentInfo(const TextureInfo &tx, float inflate);
+
+    void copy(cv::Mat &tex, cv::Mat &mask, const cv::Vec3b &debugColor) const;
+};
+
+ComponentInfo::ComponentInfo(const TextureInfo &tx, float inflate)
+    : tcMap(tx.tc().size()), fMap(tx.faces().size())
+    , tx(&tx)
 {
-    cv::Mat tmp(mat.rows + 2, mat.cols + 2, mat.type(), cv::Scalar(0));
-    cv::Rect rect(1, 1, mat.cols, mat.rows);
-    mat.copyTo(cv::Mat(tmp, rect));
+    const auto &tc(tx.tc());
+    const auto &faces(tx.faces());
 
-    CvContours contours;
-    cv::findContours(tmp, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE,
-                     cv::Point(-1, -1));
+    typedef std::array<Component::pointer*, 3> FaceComponents;
 
-    return contours;
+    // sorts face per-vertex components by number of faces
+    // no components are considered empty
+    auto sortBySize([](FaceComponents &fc)
+    {
+        std::sort(fc.begin(), fc.end()
+                  , [](const Component::pointer *l, Component::pointer *r)
+                  -> bool
+        {
+            // prefer non-null
+            if (!*l) { return !*r; }
+            if (!*r) { return true; }
+
+            // both are non-null; prefer longer
+            return ((**l).faces.size() > (**r).faces.size());
+        });
+    });
+
+    // NB: fc starts with valid data
+
+    for (std::size_t i(0), e(faces.size()); i != e; ++i) {
+        const auto &face(faces[i]);
+
+        FaceComponents fc =
+            { { &tcMap[face(0)], &tcMap[face(1)], &tcMap[face(2)] } };
+        sortBySize(fc);
+
+        auto assign([&](Component::pointer &owner, Component::pointer &owned)
+                    -> void
+        {
+            // no-op
+            if (owned == owner) { return; }
+
+            if (!owned) {
+                // no component assigned yet
+                owned = owner;
+                return;
+            }
+
+            // forget this component beforehand
+            components.erase(owned);
+
+            // grab owned by value to prevent overwrite
+            const auto old(*owned);
+
+            // merge components
+            owner->add(old);
+
+            // move everything to owner
+            for (auto index : old.faces) { fMap[index] = owner; }
+            for (auto index : old.indices) { tcMap[index] = owner; }
+        });
+
+        if (*fc[0] || *fc[1] || *fc[2]) {
+            auto &owner(*fc[0]);
+            fMap[i] = owner;
+            owner->add(i, face);
+            assign(owner, *fc[1]);
+            assign(owner, *fc[2]);
+        } else {
+            // create new component
+            components.insert
+                (fMap[i] = *fc[0] = *fc[1] = *fc[2]
+                 = std::make_shared<Component>(i, face));
+        }
+    }
+
+    // compute bounding boxes
+    {
+        auto itcMap(tcMap.begin());
+        for (const auto &p : tc) {
+            (*itcMap++)->rect.update(imgproc::UVCoord(p(0), p(1)));
+        }
+    }
+
+    if (inflate) {
+        for (auto &c : components) {
+            c->rect.inflate(inflate);
+        }
+    }
 }
 
-void Patches::copy(cv::Mat &tex, cv::Mat &mask, const cv::Vec3b &debugColor)
+void ComponentInfo::copy(cv::Mat &tex, cv::Mat &mask
+                         , const cv::Vec3b &debugColor)
     const
 {
-    for (const auto &rect : rects) {
-        // TODO: block copy via Mat::copyTo
-        for (int y = 0; y < rect.height(); y++) {
-            for (int x = 0; x < rect.width(); x++) {
-                int sx(rect.x() + x), sy(rect.y() + y);
-                clampMatPos(sx, sy, *texture_);
+    for (const auto &c : components) {
+        c->copy(tex, mask, tx->texture(), debugColor);
+    }
+}
 
-                int dx(rect.packX + x), dy(rect.packY + y);
-                if (!validMatPos(dx, dy, tex)) {
-                    continue;
-                }
+void Component::copy(cv::Mat &tex, cv::Mat &mask, const cv::Mat &texture
+                     , const cv::Vec3b &debugColor)
+    const
+{
+    // TODO: block copy via Mat::copyTo
+    for (int y = 0; y < rect.height(); y++) {
+        for (int x = 0; x < rect.width(); x++) {
+            int sx(rect.x() + x), sy(rect.y() + y);
+            clampMatPos(sx, sy, texture);
+
+            int dx(rect.packX + x), dy(rect.packY + y);
+            if (!validMatPos(dx, dy, tex)) {
+                continue;
+            }
 
 #if 1
-                tex.at<cv::Vec3b>(dy, dx) = texture_->at<cv::Vec3b>(sy, sx);
-                (void) debugColor;
+            tex.at<cv::Vec3b>(dy, dx) = texture.at<cv::Vec3b>(sy, sx);
+            (void) debugColor;
 #else
-                tex.at<cv::Vec3b>(dy, dx) = cv::Vec3b(debugColor);
+            tex.at<cv::Vec3b>(dy, dx) = cv::Vec3b(debugColor);
 #endif
-            }
         }
     }
 
     (void) mask;
 }
 
-imgproc::UVRect makeRect(const CvPoints &points)
-{
-    imgproc::UVRect rect;
-    for (const auto &pt : points) {
-        rect.update(imgproc::UVCoord(pt.x, pt.y));
-    }
-    return rect;
-}
-
-std::size_t findRect(const TextureInfo &tx, const Face &face
-                     , const UVRects &rects)
-{
-    const auto &pt(tx.uv(face, 0));
-    for (unsigned i = 0; i < rects.size(); ++i) {
-        const auto &r(rects[i]);
-        const float safety(0.51);
-
-        if (pt(0) > (r.min.x - safety)
-            && pt(0) < (r.max.x + safety)
-            && pt(1) > (r.min.y - safety)
-            && pt(1) < (r.max.y + safety))
-        {
-            return i;
-        }
-    }
-
-    LOG(err2) << "Rectangle not found (pt = " << pt << ").";
-    return 0;
-}
-
-std::atomic<int> gen(0);
-
-Patches findPatches(const TextureInfo &tx, float inflate = 0)
+#if 0
+Patches findPatches(const TextureInfo &tx, float inflate = 0.f)
 {
     Patches patches(tx.texture());
 
@@ -226,59 +307,8 @@ Patches findPatches(const TextureInfo &tx, float inflate = 0)
             });
         }
     }
-
-    {
-        auto fname(str(boost::format("dump/mask-%d.png") % gen++));
-        LOG(info4) << "Writing mask into: " << fname;
-        imwrite(fname, patches.mask);
-    }
-
-    // find contrours of patches
-    for (const auto &contour : findContours(patches.mask)) {
-        patches.rects.push_back(makeRect(contour));
-    }
-    LOG(info4) << "rects: " << patches.rects.size();
-
-    // assign triangles and texture coordinates to patches
-    {
-        patches.tcAssignment.resize(tx.tc().size(), -1);
-        for (const auto &face : tx.faces()) {
-            auto rindex(findRect(tx, face, patches.rects));
-            patches.faceAssignment.push_back(rindex);
-            for (int i : { 0, 1, 2 }) {
-                patches.tcAssignment[face(i)] = rindex;
-            }
-        }
-    }
-
-    LOG(info4) << "assignment: " << utility::join(patches.tcAssignment, ",");
-
-    // update rectangles
-
-    // make room
-    for (auto &r : patches.rects) {
-        r.clear();
-    }
-
-    // update
-    {
-        auto ifaceAssignment(patches.faceAssignment.begin());
-        for (const auto &face : tx.faces()) {
-            auto &rect(patches.rects[*ifaceAssignment++]);
-            for (int i : { 0, 1, 2 }) {
-                rect.update(tx.uvCoord(face, i));
-            }
-        }
-    }
-
-    if (inflate) {
-        for (auto &r : patches.rects) {
-            r.inflate(inflate);
-        }
-    }
-
-    return patches;
 }
+#endif
 
 } // namespace
 
@@ -348,8 +378,10 @@ Range::list groupSubmeshes(const SubMesh::list &sms, std::size_t textured)
 class MeshAtlasBuilder {
 public:
     MeshAtlasBuilder(const Mesh::pointer &mesh
-                     , const RawAtlas::pointer &atlas)
-        : originalMesh_(mesh), originalAtlas_(atlas)
+                     , const RawAtlas::pointer &atlas
+                     , int textureQuality)
+        : textureQuality_(textureQuality)
+        , originalMesh_(mesh), originalAtlas_(atlas)
         , oSubmeshes_(mesh->submeshes)
         , meshEnd_(0), atlasEnd_(0)
     {
@@ -375,6 +407,7 @@ private:
 
     TextureInfo::list texturing(const Range &range) const;
 
+    const int textureQuality_;
     const Mesh::pointer originalMesh_;
     const RawAtlas::pointer originalAtlas_;
     const SubMesh::list oSubmeshes_;
@@ -433,7 +466,7 @@ void MeshAtlasBuilder::ensureChanged(const Range &range)
     if (range.textured && !changedAtlas()) {
         // convert atlas
         atlas_ = std::make_shared<opencv::HybridAtlas>
-            (atlasEnd_, *originalAtlas_);
+            (atlasEnd_, *originalAtlas_, textureQuality_);
     }
 }
 
@@ -518,9 +551,10 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
 } // namespace
 
 MeshAtlas mergeSubmeshes(const Mesh::pointer &mesh
-                         , const RawAtlas::pointer &atlas)
+                         , const RawAtlas::pointer &atlas
+                         , int textureQuality)
 {
-    return MeshAtlasBuilder(mesh, atlas).result();
+    return MeshAtlasBuilder(mesh, atlas, textureQuality).result();
 }
 
 std::tuple<cv::Mat, math::Points2d, Faces>
@@ -532,16 +566,16 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
     auto &faces(std::get<2>(res));
 
     // rasterize faces to masks
-    Patches::list patchesList;
+    ComponentInfo::list cinfoList;
     for (const auto &tx : texturing) {
-        patchesList.push_back(findPatches(tx, inflate));
+        cinfoList.emplace_back(tx, inflate);
     }
 
     // pack the patches
     imgproc::RectPacker packer;
-    for (auto &patches : patchesList) {
-        for (auto &r : patches.rects) {
-            packer.addRect(&r);
+    for (const auto &cinfo : cinfoList) {
+        for (auto &c : cinfo.components) {
+            packer.addRect(&c->rect);
         }
     }
     packer.pack();
@@ -549,6 +583,9 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
     // create texture
     tex.create(packer.height(), packer.width(), CV_8UC3);
     tex = cv::Scalar(0, 0, 0);
+
+    (void) tc;
+    (void) faces;
 
     // validity mask
     cv::Mat mask(tex.rows, tex.cols, CV_8U, cv::Scalar(0));
@@ -565,28 +602,26 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
     {
         auto ts(tex.size());
 
-        auto ipatchesList(patchesList.cbegin());
         auto icolors(colors.cbegin());
 
-        for (const auto &tx : texturing) {
-            const auto &patches(*ipatchesList++);
+        for (const auto &cinfo : cinfoList) {
+            const auto &tx(*cinfo.tx);
 
             // copy patches from this texture
-            patches.copy(tex, mask, *icolors++);
+            cinfo.copy(tex, mask, *icolors++);
 
-            // transform texturing coordinates from source texture into new
-            // texture
-            auto itcAssignment(patches.tcAssignment.cbegin());
+            (void) tx;
+            auto itcMap(cinfo.tcMap.cbegin());
             auto tcOffset(tc.size());
+
             for (const auto &oldUv : tx.tc()) {
-                auto &rect(patches.rects[*itcAssignment++]);
                 imgproc::UVCoord uv(oldUv(0), oldUv(1));
-                rect.adjustUV(uv);
-                tc.push_back(normalize(uv, ts));
+                tc.push_back(normalize((*itcMap++)->adjustUV(oldUv), ts));
             }
 
             // add texture faces from this texture
             appendFaces(faces, tx.faces(), tcOffset);
+
         }
     }
 
