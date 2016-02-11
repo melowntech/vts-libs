@@ -117,7 +117,7 @@ public:
         , texture_(&texture)
     {}
 
-    void copy(cv::Mat &tex, cv::Mat &mask) const;
+    void copy(cv::Mat &tex, cv::Mat &mask, const cv::Vec3b &debugColor) const;
 
     typedef std::vector<Patches> list;
 
@@ -138,7 +138,8 @@ CvContours findContours(const cv::Mat &mat)
     return contours;
 }
 
-void Patches::copy(cv::Mat &tex, cv::Mat &mask) const
+void Patches::copy(cv::Mat &tex, cv::Mat &mask, const cv::Vec3b &debugColor)
+    const
 {
     for (const auto &rect : rects) {
         // TODO: block copy via Mat::copyTo
@@ -152,7 +153,12 @@ void Patches::copy(cv::Mat &tex, cv::Mat &mask) const
                     continue;
                 }
 
+#if 1
                 tex.at<cv::Vec3b>(dy, dx) = texture_->at<cv::Vec3b>(sy, sx);
+                (void) debugColor;
+#else
+                tex.at<cv::Vec3b>(dy, dx) = cv::Vec3b(debugColor);
+#endif
             }
         }
     }
@@ -297,6 +303,7 @@ struct Range {
     bool textured;
 
     std::size_t size() const { return end - start; }
+    bool empty() const { return !size(); }
 
     typedef std::vector<Range> list;
 
@@ -395,18 +402,23 @@ void MeshAtlasBuilder::merge(const Range::list &ranges)
 
 void MeshAtlasBuilder::merge(const Range &range)
 {
-    // simple range, nothing to do
-    // FIXME: textured range of size 1 must processed as well!
-    if (range.size() <= 1) {
-        pass(range);
-        return;
-    }
+    // sanity check
+    if (range.empty()) { return; }
 
+    // textured range - always merge
     if (range.textured) {
         mergeTextured(range);
         return;
     }
 
+    // non textured
+    if (range.size() == 1) {
+        // just one, pass as is
+        pass(range);
+        return;
+    }
+
+    // merge non-textured submeshes
     mergeNonTextured(range);
 }
 
@@ -541,19 +553,31 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
     // validity mask
     cv::Mat mask(tex.rows, tex.cols, CV_8U, cv::Scalar(0));
 
+    const std::vector<cv::Vec3b> colors = {
+        { 255, 0, 0 }
+        , { 0, 255, 0 }
+        , { 0, 0, 255 }
+        , { 255, 255, 0 }
+        , { 0, 255, 255 }
+        , { 255, 0, 255 }
+    };
+
     {
         auto ts(tex.size());
 
         auto ipatchesList(patchesList.cbegin());
+        auto icolors(colors.cbegin());
+
         for (const auto &tx : texturing) {
             const auto &patches(*ipatchesList++);
 
             // copy patches from this texture
-            patches.copy(tex, mask);
+            patches.copy(tex, mask, *icolors++);
 
             // transform texturing coordinates from source texture into new
             // texture
             auto itcAssignment(patches.tcAssignment.cbegin());
+            auto tcOffset(tc.size());
             for (const auto &oldUv : tx.tc()) {
                 auto &rect(patches.rects[*itcAssignment++]);
                 imgproc::UVCoord uv(oldUv(0), oldUv(1));
@@ -562,7 +586,7 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
             }
 
             // add texture faces from this texture
-            appendFaces(faces, tx.faces(), faces.size());
+            appendFaces(faces, tx.faces(), tcOffset);
         }
     }
 
