@@ -53,6 +53,9 @@ namespace {
 struct Config {
     std::string referenceFrame;
     boost::optional<std::uint16_t> textureLayer;
+    int textureQuality;
+
+    Config() : textureQuality(85) {}
 };
 
 class Vts2Vts : public service::Cmdline
@@ -103,6 +106,10 @@ void Vts2Vts::configuration(po::options_description &cmdline
          , "Destination reference frame. Must be different from input "
          "tileset's referenceFrame.")
 
+        ("textureQuality", po::value(&config_.textureQuality)
+         ->default_value(config_.textureQuality)->required()
+         , "Texture quality for JPEG texture encoding (0-100).")
+
         ("textureLayer", po::value<std::string>()
          , "String/numeric id of bound layer to be used as external texture "
          "in generated meshes.")
@@ -137,6 +144,11 @@ void Vts2Vts::configure(const po::variables_map &vars)
                 (po::validation_error::invalid_option_value, "textureLayer");
         }
         config_.textureLayer = layer.numericId;
+    }
+
+    if ((config_.textureQuality < 0) || (config_.textureQuality > 100)) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value, "textureQuality");
     }
 }
 
@@ -550,7 +562,8 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     tile.navtile = warpNavtiles(tileId, srcRf_, nodeInfo, source);
 
     // merge submeshes if allowed
-    std::tie(tile.mesh, tile.atlas) = mergeSubmeshes(tile.mesh, patlas);
+    std::tie(tile.mesh, tile.atlas)
+        = mergeSubmeshes(tile.mesh, patlas, config_.textureQuality);
 
     if (atlas.empty()) {
         // no atlas -> disable
