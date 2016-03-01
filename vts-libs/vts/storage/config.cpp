@@ -220,15 +220,17 @@ void saveConfig(std::ostream &out, const Storage::Properties &properties)
 
 Storage::Properties loadConfig(const boost::filesystem::path &path)
 {
-    LOG(info1) << "Loading config from " << path  << ".";
+    LOG(info1) << "Loading storage config from " << path  << ".";
     std::ifstream f;
     f.exceptions(std::ios::badbit | std::ios::failbit);
     try {
         f.open(path.string(), std::ios_base::in);
+        f.peek();
     } catch (const std::exception &e) {
         LOGTHROW(err1, vadstena::storage::NoSuchStorage)
             << "Unable to load config file " << path << ".";
     }
+    LOG(info4) << "storage opening";
     auto p(loadConfig(f));
     f.close();
     return p;
@@ -237,7 +239,7 @@ Storage::Properties loadConfig(const boost::filesystem::path &path)
 void saveConfig(const boost::filesystem::path &path
                 , const Storage::Properties &properties)
 {
-    LOG(info1) << "Saving config to " << path  << ".";
+    LOG(info1) << "Saving storage config to " << path  << ".";
     std::ofstream f;
     f.exceptions(std::ios::badbit | std::ios::failbit);
     f.open(path.string(), std::ios_base::out);
@@ -327,7 +329,7 @@ ExtraStorageProperties loadExtraConfig(std::istream &in)
 
 ExtraStorageProperties loadExtraConfig(const boost::filesystem::path &path)
 {
-    LOG(info1) << "Loading extra config from " << path  << ".";
+    LOG(info1) << "Loading storage extra config from " << path  << ".";
     std::ifstream f;
     f.exceptions(std::ios::badbit | std::ios::failbit);
     try {

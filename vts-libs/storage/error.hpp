@@ -33,6 +33,10 @@ struct NoSuchStorage : Error {
     NoSuchStorage(const std::string &message) : Error(message) {}
 };
 
+struct NoSuchStorageView : Error {
+    NoSuchStorageView(const std::string &message) : Error(message) {}
+};
+
 struct TileSetAlreadyExists : Error {
     TileSetAlreadyExists(const std::string &message) : Error(message) {}
 };

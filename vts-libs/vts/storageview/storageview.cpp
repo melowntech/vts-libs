@@ -94,7 +94,7 @@ StorageView::Detail::~Detail()
 
 StorageView::Detail::Detail(const boost::filesystem::path &root)
     : configPath(root)
-    , properties(loadConfig(root))
+    , properties(storageview::loadConfig(root))
     , configStat(FileStat::stat(configPath))
     , lastModified(configStat.lastModified)
     , storage(properties.storagePath, OpenMode::readOnly)
@@ -109,12 +109,7 @@ StorageView::Properties StorageView::Detail::loadConfig(const fs::path &path)
 {
     try {
         // load config
-        auto p(storageview::loadConfig(path));
-
-        // fix path
-        p.storagePath = fs::absolute
-            (p.storagePath, fs::absolute(path).parent_path());
-        return p;
+        return storageview::loadConfig(path);
     } catch (const std::exception &e) {
         LOGTHROW(err1, vadstena::storage::Error)
             << "Unable to read config: <" << e.what() << ">.";
