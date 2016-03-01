@@ -12,6 +12,8 @@
 
 #include "../storage.hpp"
 
+namespace Json { class Value; }
+
 namespace vadstena { namespace vts { namespace storage {
 
 Storage::Properties loadConfig(std::istream &in);
@@ -26,6 +28,9 @@ void saveConfig(const boost::filesystem::path &path
 ExtraStorageProperties loadExtraConfig(std::istream &in);
 
 ExtraStorageProperties loadExtraConfig(const boost::filesystem::path &path);
+
+ExtraStorageProperties
+extraStorageConfigFromJson(int version, const Json::Value &config);
 
 } } } // namespace vadstena::vts::storage
 

@@ -173,8 +173,11 @@ struct Storage::Detail
     static MapConfig mapConfig(const boost::filesystem::path &path);
 
     static MapConfig mapConfig(const boost::filesystem::path &root
-                               , const Storage::Properties &properties
-                               , const ExtraStorageProperties &extra);
+                               , const Properties &properties
+                               , const ExtraStorageProperties &extra
+                               , const TilesetIdSet *subset = nullptr
+                               , const boost::filesystem::path &prefix
+                               = boost::filesystem::path());
 };
 
 inline void Storage::DetailDeleter::operator()(Detail *d) { delete d; }

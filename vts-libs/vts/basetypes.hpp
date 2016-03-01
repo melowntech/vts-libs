@@ -123,6 +123,7 @@ bool compatible(const NodeInfo &ni1, const NodeInfo &ni2);
 
 typedef std::string TilesetId;
 typedef std::vector<TilesetId> TilesetIdList;
+typedef std::set<TilesetId> TilesetIdSet;
 
 struct Glue {
     typedef TilesetIdList Id;

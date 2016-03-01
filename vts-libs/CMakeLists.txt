@@ -196,6 +196,11 @@ set(vts-core_SOURCES
   vts/storage/storage.cpp
   vts/storage/config.hpp vts/storage/config.cpp
 
+  vts/storageview.hpp
+  vts/storageview/detail.hpp
+  vts/storageview/storageview.cpp
+  vts/storageview/config.hpp vts/storageview/config.cpp
+
   vts/mapconfig.hpp vts/mapconfig.cpp
   )
 

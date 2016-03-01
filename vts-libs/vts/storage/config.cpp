@@ -281,21 +281,10 @@ ExtraStorageProperties parse1(const Json::Value &config)
 
 } // namespace detail_extra
 
-ExtraStorageProperties loadExtraConfig(std::istream &in)
+ExtraStorageProperties
+extraStorageConfigFromJson(int version, const Json::Value &config)
 {
-    // load json
-    Json::Value config;
-    Json::Reader reader;
-    if (!reader.parse(in, config)) {
-        LOGTHROW(err2, vadstena::storage::FormatError)
-            << "Unable to parse extra config: "
-            << reader.getFormattedErrorMessages() << ".";
-    }
-
     try {
-        int version(0);
-        Json::get(version, config, "version");
-
         switch (version) {
         case 1:
             return detail_extra::parse1(config);
@@ -311,6 +300,29 @@ ExtraStorageProperties loadExtraConfig(std::istream &in)
             << "); Unable to work with this config.";
     }
     throw;
+}
+
+ExtraStorageProperties loadExtraConfig(std::istream &in)
+{
+    // load json
+    Json::Value config;
+    Json::Reader reader;
+    if (!reader.parse(in, config)) {
+        LOGTHROW(err2, vadstena::storage::FormatError)
+            << "Unable to parse extra config: "
+            << reader.getFormattedErrorMessages() << ".";
+    }
+
+    int version(0);
+    try {
+        Json::get(version, config, "version");
+    } catch (const Json::Error &e) {
+        LOGTHROW(err1, vadstena::storage::FormatError)
+            << "Invalid extra config format (" << e.what()
+            << "); Unable to work with this config.";
+    }
+
+    return extraStorageConfigFromJson(version, config);
 }
 
 ExtraStorageProperties loadExtraConfig(const boost::filesystem::path &path)

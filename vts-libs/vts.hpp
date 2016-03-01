@@ -18,10 +18,11 @@
 
 #include "./vts/tileset.hpp"
 #include "./vts/storage.hpp"
+#include "./vts/storageview.hpp"
 
 namespace vadstena { namespace vts {
 
-enum class DatasetType { Unknown, TileSet, Storage };
+enum class DatasetType { Unknown, TileSet, Storage, StorageView };
 
 DatasetType datasetType(const boost::filesystem::path &path);
 
@@ -73,6 +74,8 @@ Storage openStorage(const boost::filesystem::path &path
 Storage createStorage(const boost::filesystem::path &path
                       , const StorageProperties &properties
                       , CreateMode mode);
+
+StorageView openStorageView(const boost::filesystem::path &path);
 
 } } // namespace vadstena::vts
 

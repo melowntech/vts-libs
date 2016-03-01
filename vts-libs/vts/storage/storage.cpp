@@ -149,7 +149,7 @@ Storage::Properties Storage::Detail::loadConfig(const fs::path &root)
         const auto p(storage::loadConfig(root / ConfigFilename));
         return p;
     } catch (const std::exception &e) {
-        LOGTHROW(err2, vadstena::storage::Error)
+        LOGTHROW(err1, vadstena::storage::Error)
             << "Unable to read config: <" << e.what() << ">.";
     }
     throw;
@@ -267,9 +267,31 @@ MapConfig Storage::Detail::mapConfig() const
     return mapConfig(root, properties, loadExtraConfig());
 }
 
+namespace {
+
+inline bool allowed(const TilesetIdSet *subset, const TilesetId &id)
+{
+    if (!subset) { return true; }
+    if (!subset->count(id)) { return false; }
+    return true;
+}
+
+inline bool allowed(const TilesetIdSet *subset, const Glue::Id &id)
+{
+    if (!subset) { return true; }
+    for (const auto &tileset : id) {
+        if (!subset->count(tileset)) { return false; }
+    }
+    return true;
+}
+
+} // namespace
+
 MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
                                      , const Storage::Properties &properties
-                                     , const ExtraStorageProperties &extra)
+                                     , const ExtraStorageProperties &extra
+                                     , const TilesetIdSet *subset
+                                     , const fs::path &prefix)
 {
     auto referenceFrame(registry::Registry::referenceFrame
                         (properties.referenceFrame));
@@ -288,19 +310,25 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
 
     // tilesets
     for (const auto &tileset : properties.tilesets) {
+        // limit to tileset subset
+        if (!allowed(subset, tileset.tilesetId)) { continue; }
+
         mapConfig.mergeTileSet
             (TileSet::mapConfig
              (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-             , storage_paths::tilesetRoot() / tileset.tilesetId);
+             , prefix / storage_paths::tilesetRoot() / tileset.tilesetId);
     }
 
     // glues
     for (const auto &item : properties.glues) {
+        // limit to tileset subset
+        if (!allowed(subset, item.first)) { continue; }
+
         const auto &glue(item.second);
         mapConfig.mergeGlue
             (TileSet::mapConfig
              (storage_paths::gluePath(root, glue), false)
-             , glue, storage_paths::glueRoot());
+             , glue, prefix / storage_paths::glueRoot());
     }
 
     if (extra.position) {
@@ -316,6 +344,15 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     }
 
     return mapConfig;
+}
+
+MapConfig Storage::mapConfig(const boost::filesystem::path &root
+                             , const ExtraStorageProperties &extra
+                             , const TilesetIdSet &subset
+                             , const fs::path &prefix)
+{
+    return Detail::mapConfig(root, Detail::loadConfig(root), extra, &subset
+                             , prefix);
 }
 
 bool Storage::check(const boost::filesystem::path &root)

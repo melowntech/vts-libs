@@ -172,6 +172,14 @@ public:
      */
     static MapConfig mapConfig(const boost::filesystem::path &path);
 
+    /** Special mapconfig generator to get subset (i.e. storage view) map
+     *  configuration.
+     */
+    static MapConfig mapConfig(const boost::filesystem::path &path
+                               , const ExtraStorageProperties &extra
+                               , const TilesetIdSet &subset
+                               , const boost::filesystem::path &prefix);
+
     /** Check for storage at given path.
      */
     static bool check(const boost::filesystem::path &path);

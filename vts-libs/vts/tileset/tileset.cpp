@@ -394,7 +394,7 @@ TileSet::Properties TileSet::Detail::loadConfig(const Driver &driver)
         // set
         return p;
     } catch (const std::exception &e) {
-        LOGTHROW(err2, storage::Error)
+        LOGTHROW(err1, storage::Error)
             << "Unable to read config: <" << e.what() << ">.";
     }
     throw;

@@ -165,6 +165,8 @@ struct ReferenceFrame {
     math::Extents2 rootExtents() const;
     math::Size2f tileSize(Lod lod) const;
     std::string rootSrs() const;
+
+    ReferenceFrame() : metaBinaryOrder(5) {}
 };
 
 struct Position {

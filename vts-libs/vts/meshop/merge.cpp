@@ -131,6 +131,8 @@ struct Component {
 
     void copy(cv::Mat &tex, const cv::Mat &texture) const;
 
+    void mask(cv::Mat &mask, int block) const;
+
     imgproc::UVCoord adjustUV(const math::Point2 &p) const {
         imgproc::UVCoord uv(p(0), p(1));
         rect.adjustUV(uv);
@@ -149,6 +151,8 @@ struct ComponentInfo {
     ComponentInfo(const TextureInfo &tx, float inflate);
 
     void copy(cv::Mat &tex) const;
+
+    void mask(cv::Mat &mask, int block) const;
 };
 
 ComponentInfo::ComponentInfo(const TextureInfo &tx, float inflate)
@@ -265,6 +269,22 @@ void Component::copy(cv::Mat &tex, const cv::Mat &texture)
             tex.at<cv::Vec3b>(dy, dx) = texture.at<cv::Vec3b>(sy, sx);
         }
     }
+}
+
+void ComponentInfo::mask(cv::Mat &mask, int block) const
+{
+    for (const auto &c : components) {
+        c->mask(mask, block);
+    }
+}
+
+void Component::mask(cv::Mat &mask, int block)
+    const
+{
+    (void) mask;
+    (void) block;
+
+    // TODO: implement me
 }
 
 } // namespace
@@ -587,7 +607,15 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
     // denormalized result texture coordinates
     math::Points2d dnTc;
 
-    // process patches
+    // create temporary mask a bit larger due to inpaint bug
+    cv::Mat tmpMask(tmpTex.rows, tmpTex.cols, CV_8U,cv::Scalar(0x00));
+
+    // real mask
+    cv::Mat mask
+        (tmpMask, cv::Range(inpaintMargin, packer.height() + inpaintMargin)
+         , cv::Range(inpaintMargin, packer.width() + inpaintMargin));
+
+        // process patches
     {
         auto ts(tex.size());
 
@@ -596,6 +624,7 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
 
             // copy patches from this texture
             cinfo.copy(tex);
+            cinfo.mask(mask, 16);
 
             auto itcMap(cinfo.tcMap.cbegin());
             auto tcOffset(tc.size());
@@ -608,20 +637,11 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
 
             // add texture faces from this texture
             appendFaces(faces, tx.faces(), tcOffset);
-
         }
     }
 
     // TODO: make faster, then make default
     if (0) {
-        // create temporary mask a bit larger due to inpaint bug
-        cv::Mat tmpMask(tmpTex.rows, tmpTex.cols, CV_8U,cv::Scalar(0xff));
-
-        // real mask
-        cv::Mat mask
-            (tmpMask, cv::Range(inpaintMargin, packer.height() + inpaintMargin)
-             , cv::Range(inpaintMargin, packer.width() + inpaintMargin));
-
         // rasterize valid triangles
         rasterizeMask(mask, faces, dnTc);
 
