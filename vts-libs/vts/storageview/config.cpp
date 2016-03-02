@@ -1,4 +1,6 @@
 #include <boost/lexical_cast.hpp>
+#include <boost/filesystem.hpp>
+
 #include "dbglog/dbglog.hpp"
 #include "jsoncpp/as.hpp"
 
@@ -81,16 +83,20 @@ StorageView::Properties loadConfig(std::istream &in)
 
 StorageView::Properties loadConfig(const boost::filesystem::path &path)
 {
-    LOG(info1) << "Loading config from " << path  << ".";
+    LOG(info1) << "Loading storage view config from " << path  << ".";
     std::ifstream f;
     f.exceptions(std::ios::badbit | std::ios::failbit);
     try {
         f.open(path.string(), std::ios_base::in);
+        f.peek();
     } catch (const std::exception &e) {
-        LOGTHROW(err1, vadstena::storage::NoSuchStorage)
-            << "Unable to load config file " << path << ".";
+        LOGTHROW(err1, vadstena::storage::NoSuchStorageView)
+            << "Unable to load storage view config file " << path << ".";
     }
     auto p(loadConfig(f));
+    // fix path
+    p.storagePath = boost::filesystem::absolute
+        (p.storagePath, boost::filesystem::absolute(path).parent_path());
     f.close();
     return p;
 }

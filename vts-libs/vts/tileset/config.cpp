@@ -212,6 +212,7 @@ TileSet::Properties loadConfig(const boost::filesystem::path &path)
     f.exceptions(std::ios::badbit | std::ios::failbit);
     try {
         f.open(path.string(), std::ios_base::in);
+        f.peek();
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::NoSuchTileSet)
             << "Unable to load config file " << path << ".";
