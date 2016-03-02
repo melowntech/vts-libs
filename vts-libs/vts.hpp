@@ -77,6 +77,24 @@ Storage createStorage(const boost::filesystem::path &path
 
 StorageView openStorageView(const boost::filesystem::path &path);
 
+/** Creates aggreagated tileset from storage subset.
+ */
+TileSet aggregateTileSets(const boost::filesystem::path &path
+                          , const Storage &storage
+                          , const CloneOptions &createOptions
+                          , const TilesetIdList &tilesets);
+
+/** Creates aggreagated tileset from storage view.
+ */
+TileSet aggregateTileSets(const boost::filesystem::path &path
+                          , const StorageView &storageView
+                          , const CloneOptions &createOptions);
+
+TileSet aggregateTileSets(const boost::filesystem::path &path
+                          , const Storage &storage
+                          , const CloneOptions &co
+                          , const TilesetIdSet &tilesets);
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_hpp_included_

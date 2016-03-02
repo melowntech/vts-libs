@@ -230,7 +230,6 @@ Storage::Properties loadConfig(const boost::filesystem::path &path)
         LOGTHROW(err1, vadstena::storage::NoSuchStorage)
             << "Unable to load config file " << path << ".";
     }
-    LOG(info4) << "storage opening";
     auto p(loadConfig(f));
     f.close();
     return p;

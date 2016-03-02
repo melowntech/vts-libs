@@ -60,6 +60,10 @@ public:
      */
     MapConfig mapConfig() const;
 
+    const Storage& storage() const;
+
+    const TilesetIdSet& tilesets() const;
+
     /** Generates map configuration for storage view at given path.
      */
     static MapConfig mapConfig(const boost::filesystem::path &path);

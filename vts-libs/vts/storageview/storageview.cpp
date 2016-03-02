@@ -175,6 +175,16 @@ std::time_t StorageView::lastModified() const
     return detail().lastModified;
 }
 
+const Storage& StorageView::storage() const
+{
+    return detail().storage;
+}
+
+const TilesetIdSet& StorageView::tilesets() const
+{
+    return detail().properties.tilesets;
+}
+
 StorageView openStorageView(const boost::filesystem::path &path)
 {
     return { path };

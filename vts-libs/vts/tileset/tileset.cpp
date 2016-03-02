@@ -158,7 +158,7 @@ struct TileSet::Factory
                           , CreateMode mode)
     {
         // we are using binaryOrder = 5 :)
-        auto driver(Driver::create(path, driver::PlainDriverOptions(5), mode));
+        auto driver(Driver::create(path, properties.driverOptions, mode));
         return TileSet(driver, properties);
     }
 
@@ -310,7 +310,9 @@ TileSet createTileSet(const boost::filesystem::path &path
                       , const TileSetProperties &properties
                       , CreateMode mode)
 {
-    return TileSet::Factory::create(path, properties, mode);
+    TileSet::Properties tsprop(properties);
+    tsprop.driverOptions = driver::PlainDriverOptions(5);
+    return TileSet::Factory::create(path, tsprop, mode);
 }
 
 TileSet openTileSet(const boost::filesystem::path &path)

@@ -15,4 +15,40 @@ DatasetType datasetType(const boost::filesystem::path &path)
     return DatasetType::Unknown;
 }
 
+/** Creates aggreagated tileset from storage subset.
+ */
+TileSet aggregateTileSets(const boost::filesystem::path &path
+                          , const Storage &storage
+                          , const CloneOptions &co
+                          , const TilesetIdList &tilesets)
+{
+    return aggregateTileSets(path, storage, co
+                             , TilesetIdSet(tilesets.begin(), tilesets.end()));
+}
+
+/** Creates aggreagated tileset from storage view.
+ */
+TileSet aggregateTileSets(const boost::filesystem::path &path
+                          , const StorageView &storageView
+                          , const CloneOptions &co)
+{
+    return aggregateTileSets(path, storageView.storage(), co
+                             , storageView.tilesets());
+}
+
+/** Core implementation.
+ */
+TileSet aggregateTileSets(const boost::filesystem::path &path
+                          , const Storage &storage
+                          , const CloneOptions &co
+                          , const TilesetIdSet &tilesets)
+{
+    (void) path;
+    (void) storage;
+    (void) co;
+    (void) tilesets;
+
+    return createTileSet(path, TileSetProperties(), co.mode());
+}
+
 } } // namespace vadstena::vts
