@@ -171,7 +171,8 @@ vadstena::storage::Resources StorageView::resources() const
 
 bool StorageView::Detail::externallyChanged() const
 {
-    return configStat.changed(FileStat::stat(configPath));
+    return (configStat.changed(FileStat::stat(configPath))
+            || storage.externallyChanged());
 }
 
 std::time_t StorageView::lastModified() const
