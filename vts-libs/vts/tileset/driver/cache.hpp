@@ -29,7 +29,8 @@ namespace fs = boost::filesystem;
 
 class Cache : boost::noncopyable {
 public:
-    Cache(const fs::path &root, const Options &options, bool readOnly);
+    Cache(const fs::path &root, const PlainDriverOptions &options
+          , bool readOnly);
 
     ~Cache();
 
@@ -53,7 +54,7 @@ private:
     Archives& getArchives(TileFile type);
 
     const fs::path &root_;
-    const Options &options_;
+    const PlainDriverOptions &options_;
     const bool readOnly_;
 
     std::unique_ptr<Archives> tiles_;

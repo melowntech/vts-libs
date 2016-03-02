@@ -8,6 +8,8 @@
 #ifndef vadstena_libs_vts_tileset_detail_hpp_included_
 #define vadstena_libs_vts_tileset_detail_hpp_included_
 
+#include <boost/any.hpp>
+
 #include "../tileset.hpp"
 #include "../tileindex.hpp"
 #include "./driver.hpp"
@@ -24,8 +26,8 @@ struct TileSet::Properties : TileSetProperties {
      */
     unsigned int revision;
 
-    // driver options
-    driver::Options driverOptions;
+    // driver options (interpreted by driver)
+    boost::any driverOptions;
 
     /** Range of lods where are tiles with mesh and/or atlas.
      */

@@ -14,17 +14,17 @@ namespace vadstena { namespace vts { namespace driver {
 
 using storage::Tilar;
 
-class Options {
+class PlainDriverOptions {
 public:
-    Options() : binaryOrder_(0), tileMask_(0) {}
+    PlainDriverOptions() : binaryOrder_(0), tileMask_(0) {}
 
-    Options(std::uint8_t binaryOrder)
+    PlainDriverOptions(std::uint8_t binaryOrder)
         : binaryOrder_(binaryOrder)
         , uuid_(generateUuid())
         , tileMask_(calculateMask(binaryOrder))
     {}
 
-    Options(std::uint8_t binaryOrder, boost::uuids::uuid uuid)
+    PlainDriverOptions(std::uint8_t binaryOrder, boost::uuids::uuid uuid)
         : binaryOrder_(binaryOrder)
         , uuid_(uuid)
         , tileMask_(calculateMask(binaryOrder))
@@ -80,12 +80,14 @@ private:
 
 // inlines
 
-inline Tilar::Options Options::tilar(unsigned int filesPerTile) const
+inline Tilar::Options PlainDriverOptions::tilar(unsigned int filesPerTile)
+    const
 {
     return { binaryOrder_, filesPerTile, uuid_ };
 }
 
-inline Options::Index Options::index(const TileId &i, int type) const
+inline PlainDriverOptions::Index
+PlainDriverOptions::index(const TileId &i, int type) const
 {
     return {
         TileId(i.lod, i.x >> binaryOrder_, i.y >> binaryOrder_)

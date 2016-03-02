@@ -11,7 +11,6 @@
 #include "../../storage/resources.hpp"
 
 #include "./driver/options.hpp"
-#include "./driver/cache.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -26,17 +25,12 @@ class Driver {
 public:
     typedef std::shared_ptr<Driver> pointer;
 
-    /** Creates new storage. Existing storage is overwritten only if mode ==
-     *  CreateMode::overwrite.
-     */
-    Driver(const boost::filesystem::path &root, CreateMode mode
-           , const driver::Options &options);
+    virtual ~Driver();
 
-    /** Opens storage.
-     */
-    Driver(const boost::filesystem::path &root);
+    static pointer create(const boost::filesystem::path &root
+                          , const boost::any &options, CreateMode mode);
 
-    ~Driver();
+    static pointer open(const boost::filesystem::path &root);
 
     OStream::pointer output(File type);
 
@@ -56,7 +50,15 @@ public:
 
     bool externallyChanged() const;
 
-    driver::Options options() const { return options_; }
+    const boost::any& options() const { return options_; }
+
+    template <typename T>
+    const T& options() const { return boost::any_cast<const T&>(options_); }
+
+    template <typename T>
+    static const T& options(const boost::any &options) {
+        return boost::any_cast<const T&>(options);
+    }
 
     void wannaWrite(const std::string &what) const;
 
@@ -84,7 +86,40 @@ public:
 
     bool readOnly() const;
 
+protected:
+    /** Creates new storage. Existing storage is overwritten only if mode ==
+     *  CreateMode::overwrite.
+     */
+    Driver(const boost::filesystem::path &root, const boost::any &options
+           , CreateMode mode);
+
+    /** Opens storage.
+     */
+    Driver(const boost::filesystem::path &root
+           , const boost::any &options);
+
 private:
+    virtual OStream::pointer output_impl(const File type) = 0;
+
+    virtual IStream::pointer input_impl(File type) const = 0;
+
+    virtual OStream::pointer
+    output_impl(const TileId tileId, TileFile type) = 0;
+
+    virtual IStream::pointer
+    input_impl(const TileId tileId, TileFile type) const = 0;
+
+    virtual void drop_impl() = 0;
+
+    virtual void flush_impl() = 0;
+
+    virtual FileStat stat_impl(File type) const = 0;
+
+    virtual FileStat stat_impl(const TileId tileId, TileFile type)
+        const = 0;
+
+    virtual Resources resources_impl() const = 0;
+
     void checkRunning() const;
 
     void notRunning() const;
@@ -92,6 +127,8 @@ private:
     /** Backing root.
      */
     const boost::filesystem::path root_;
+
+    bool readOnly_;
 
     /** Path to config
      */
@@ -101,9 +138,7 @@ private:
      */
     boost::filesystem::path extraConfigPath_;
 
-    driver::Options options_;
-
-    mutable driver::Cache cache_;
+    boost::any options_;
 
     /** Information about root when tileset was open in read-only mode.
      */
@@ -139,6 +174,59 @@ inline void Driver::checkRunning() const
 {
     if (!runnable_ || *runnable_) { return; }
     notRunning();
+}
+
+inline OStream::pointer Driver::output(File type)
+{
+    checkRunning();
+    return output_impl(type);
+}
+
+inline IStream::pointer Driver::input(File type) const
+{
+    checkRunning();
+    return input_impl(type);
+}
+
+inline OStream::pointer Driver::output(const TileId tileId, TileFile type)
+{
+    checkRunning();
+    return output_impl(tileId, type);
+}
+
+inline IStream::pointer Driver::input(const TileId tileId, TileFile type)
+    const
+{
+    checkRunning();
+    return input_impl(tileId, type);
+}
+
+inline FileStat Driver::stat(File type) const
+{
+    checkRunning();
+    return stat_impl(type);
+}
+
+inline FileStat Driver::stat(const TileId tileId, TileFile type) const
+{
+    checkRunning();
+    return stat_impl(tileId, type);
+}
+
+inline storage::Resources Driver::resources() const
+{
+    return resources_impl();
+}
+
+inline void Driver::drop()
+{
+    checkRunning();
+    return drop_impl();
+}
+
+inline void Driver::flush()
+{
+    return flush_impl();
 }
 
 } } // namespace vadstena::vts

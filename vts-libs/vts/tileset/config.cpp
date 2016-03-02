@@ -6,6 +6,7 @@
 
 #include "./config.hpp"
 #include "./detail.hpp"
+#include "./driver/options.hpp"
 #include "../../storage/error.hpp"
 #include "../../registry/json.hpp"
 
@@ -91,6 +92,52 @@ void build(Json::Value &value
     }
 }
 
+boost::any parsePlainDriver(const Json::Value &value)
+{
+    driver::PlainDriverOptions driverOptions;
+
+    int binaryOrder;
+    Json::get(binaryOrder, value, "binaryOrder");
+    driverOptions.binaryOrder(binaryOrder);
+
+    std::string uuid;
+    Json::get(uuid, value, "uuid");
+    driverOptions.uuid(boost::uuids::string_generator()(uuid));
+
+    return driverOptions;
+}
+
+boost::any parseDriver(const Json::Value &value)
+{
+    if (!value.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of driver is not an object.";
+    }
+
+    if (value.isMember("binaryOrder")) {
+        return parsePlainDriver(value);
+    }
+
+    LOGTHROW(err1, Json::Error)
+        << "Unrecognized driver options.";
+    throw;
+}
+
+Json::Value buildDriver(const boost::any &d)
+{
+    Json::Value value(Json::objectValue);
+
+    if (auto opts = boost::any_cast<const driver::PlainDriverOptions>(&d)) {
+        value["binaryOrder"] = opts->binaryOrder();
+        value["uuid"] = to_string(opts->uuid());
+        return value;
+    }
+
+    LOGTHROW(err1, Json::Error)
+        << "Dunno how to serialize driver options.";
+    throw;
+}
+
 TileSet::Properties parse1(const Json::Value &config)
 {
     TileSet::Properties properties;
@@ -107,13 +154,7 @@ TileSet::Properties parse1(const Json::Value &config)
     // load driver options
     const auto &driver(config["driver"]);
 
-    int binaryOrder;
-    Json::get(binaryOrder, driver, "binaryOrder");
-    properties.driverOptions.binaryOrder(binaryOrder);
-
-    std::string uuid;
-    Json::get(uuid, driver, "uuid");
-    properties.driverOptions.uuid(boost::uuids::string_generator()(uuid));
+    properties.driverOptions = parseDriver(driver);
 
     Json::get(properties.lodRange.min, config, "lodRange", 0);
     Json::get(properties.lodRange.max, config, "lodRange", 1);
@@ -145,9 +186,7 @@ void build(Json::Value &config, const TileSet::Properties &properties)
 
     config["position"] = registry::asJson(properties.position);
 
-    auto &driver(config["driver"]);
-    driver["binaryOrder"] = properties.driverOptions.binaryOrder();
-    driver["uuid"] = to_string(properties.driverOptions.uuid());
+    config["driver"] = buildDriver(properties.driverOptions);
 
     auto &lodRange(config["lodRange"] = Json::arrayValue);
     lodRange.append(properties.lodRange.min);
@@ -172,7 +211,7 @@ TileSet::Properties loadConfig(std::istream &in
     Json::Reader reader;
     if (!reader.parse(in, config)) {
         LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse config: "
+            << "Unable to parse config " << path << ": "
             << reader.getFormattedErrorMessages() << ".";
     }
 

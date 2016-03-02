@@ -158,13 +158,13 @@ struct TileSet::Factory
                           , CreateMode mode)
     {
         // we are using binaryOrder = 5 :)
-        auto driver(std::make_shared<Driver>(path, mode, 5));
+        auto driver(Driver::create(path, driver::PlainDriverOptions(5), mode));
         return TileSet(driver, properties);
     }
 
     static TileSet open(const fs::path &path)
     {
-        auto driver(std::make_shared<Driver>(path));
+        auto driver(Driver::open(path));
         return TileSet(driver);
     }
 
@@ -354,7 +354,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
 
     if (auto oldConfig = driver->oldConfig()) {
         try {
-            // try to old config and grab old revision
+            // try to read old config and grab old revision
             std::istringstream is(*oldConfig);
             const auto p(tileset::loadConfig(is));
             this->properties.revision = p.revision + 1;
@@ -1130,7 +1130,7 @@ const TileIndex& TileSet::tileIndex() const
 MapConfig TileSet::mapConfig(const boost::filesystem::path &root
                              , bool includeExtra)
 {
-    return Detail::mapConfig(Driver(root), includeExtra);
+    return Detail::mapConfig(*Driver::open(root), includeExtra);
 }
 
 MapConfig TileSet::Detail::mapConfig(const Driver &driver, bool includeExtra)
@@ -1240,7 +1240,7 @@ TileIndex TileSet::tileIndex(const LodRange &lodRange) const
 bool TileSet::check(const boost::filesystem::path &root)
 {
     try {
-        Detail::loadConfig(Driver(root));
+        Detail::loadConfig(*Driver::open(root));
     } catch (const storage::Error&) {
         return false;
     }

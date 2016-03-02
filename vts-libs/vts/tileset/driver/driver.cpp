@@ -22,6 +22,9 @@
 #include "../driver.hpp"
 #include "../detail.hpp"
 
+// drivers:
+#include "./plain.hpp"
+
 namespace vadstena { namespace vts {
 
 namespace fs = boost::filesystem;
@@ -50,31 +53,13 @@ namespace {
     }
 } // namespace
 
-namespace driver {
-
-long Options::calculateMask(std::uint8_t order)
-{
-    long value(0);
-    for (long bit(1l); order; --order, bit <<= 1) {
-        value |= bit;
-    }
-    return value;
-}
-
-boost::uuids::uuid Options::generateUuid() {
-    // generate random uuid
-    return boost::uuids::random_generator()();
-}
-
-} // namespace driver
-
 Driver::Driver(const boost::filesystem::path &root
-               , CreateMode mode, const driver::Options &options)
+               , const boost::any &options, CreateMode mode)
     : root_(absolute(root))
+    , readOnly_(false)
     , configPath_(root_ / filePath(File::config))
     , extraConfigPath_(root_ / filePath(File::extraConfig))
-    , options_(options.binaryOrder()) // we have to generate new UUID
-    , cache_(root_, options_, false)
+    , options_(options)
     , runnable_(), lastModified_()
 {
     if (!create_directories(root_)) {
@@ -91,12 +76,13 @@ Driver::Driver(const boost::filesystem::path &root
     }
 }
 
-Driver::Driver(const boost::filesystem::path &root)
+Driver::Driver(const boost::filesystem::path &root
+               , const boost::any &options)
     : root_(absolute(root))
+    , readOnly_(true)
     , configPath_(root_ / filePath(File::config))
     , extraConfigPath_(root_ / filePath(File::extraConfig))
-    , options_(tileset::loadConfig(configPath_).driverOptions)
-    , cache_(root_, options_, true)
+    , options_(options)
     , rootStat_(FileStat::stat(root_))
     , configStat_(FileStat::stat(configPath_))
     , extraConfigStat_(FileStat::stat(extraConfigPath_, std::nothrow))
@@ -110,65 +96,6 @@ Driver::~Driver()
 {
 }
 
-OStream::pointer Driver::output(File type)
-{
-    checkRunning();
-
-    const auto path(root_ / filePath(type));
-    LOG(info1) << "Saving to " << path << ".";
-    return fileOStream(type, path);
-}
-
-IStream::pointer Driver::input(File type) const
-{
-    checkRunning();
-
-    auto path(root_ / filePath(type));
-    LOG(info1) << "Loading from " << path << ".";
-    return fileIStream(type, path);
-}
-
-OStream::pointer Driver::output(const TileId tileId, TileFile type)
-{
-    checkRunning();
-
-    return cache_.output(tileId, type);
-}
-
-IStream::pointer Driver::input(const TileId tileId, TileFile type)
-    const
-{
-    return cache_.input(tileId, type);
-}
-
-FileStat Driver::stat(File type) const
-{
-    checkRunning();
-
-    const auto name(filePath(type));
-    const auto path(root_ / name);
-    LOG(info1) << "Statting " << path << ".";
-    return FileStat::stat(path);
-}
-
-FileStat Driver::stat(const TileId tileId, TileFile type) const
-{
-    checkRunning();
-
-    return cache_.stat(tileId, type);
-}
-
-storage::Resources Driver::resources() const
-{
-    return cache_.resources();
-}
-
-
-void Driver::flush()
-{
-    cache_.flush();
-}
-
 bool Driver::externallyChanged() const
 {
     return (rootStat_.changed(FileStat::stat(root_))
@@ -179,27 +106,41 @@ bool Driver::externallyChanged() const
 
 bool Driver::readOnly() const
 {
-    return cache_.readOnly();
+    return readOnly_;
 }
 
 void Driver::wannaWrite(const std::string &what) const
 {
-    if (cache_.readOnly()) {
+    if (readOnly()) {
         LOGTHROW(err2, storage::ReadOnlyError)
             << "Cannot " << what << ": storage is read-only.";
     }
-}
-
-void Driver::drop()
-{
-    // remove whole root directory
-    remove_all(root_);
 }
 
 void Driver::notRunning() const
 {
     LOGTHROW(warn2, storage::Interrupted)
         << "Operation has been interrupted.";
+}
+
+Driver::pointer Driver::create(const boost::filesystem::path &root
+                               , const boost::any &options
+                               , CreateMode mode)
+{
+    // TODO: return proper one
+    return std::make_shared<driver::PlainDriver>
+        (root, Driver::options<driver::PlainDriverOptions>(options)
+         , mode);
+}
+
+Driver::pointer Driver::open(const boost::filesystem::path &root)
+{
+    auto options(tileset::loadConfig(root / filePath(File::config))
+                 .driverOptions);
+
+    // TODO: return proper one
+    return std::make_shared<driver::PlainDriver>
+        (root, Driver::options<driver::PlainDriverOptions>(options));
 }
 
 } } // namespace vadstena::vts

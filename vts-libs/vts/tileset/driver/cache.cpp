@@ -109,7 +109,8 @@ struct Cache::Archives
     const Tilar::ContentTypes &contentTypes;
 
     Archives(const fs::path &root, const std::string &extension
-             , bool readOnly, int filesPerTile, const Options &options
+             , bool readOnly, int filesPerTile
+             , const PlainDriverOptions &options
              , const Tilar::ContentTypes &contentTypes);
 
     Tilar& open(const TileId &archive);
@@ -144,7 +145,7 @@ private:
 
 Cache::Archives::Archives(const fs::path &root, const std::string &extension
                           , bool readOnly, int filesPerTile
-                          , const Options &options
+                          , const PlainDriverOptions &options
                           , const Tilar::ContentTypes &contentTypes)
     : root(root), extension(extension)
     , options(options.tilar(filesPerTile))
@@ -164,7 +165,7 @@ fs::path Cache::Archives::filePath(const TileId &index) const
     return parent / filename;
 }
 
-Cache::Cache(const fs::path &root, const Options &options
+Cache::Cache(const fs::path &root, const PlainDriverOptions &options
              , bool readOnly)
     : root_(root), options_(options), readOnly_(readOnly)
     , tiles_(new Archives(root, "tiles", readOnly, 2, options
