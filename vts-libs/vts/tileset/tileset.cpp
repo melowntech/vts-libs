@@ -157,18 +157,15 @@ struct TileSet::Factory
                           , const TileSet::Properties &properties
                           , CreateMode mode)
     {
-        auto driver(Driver::create(path, properties.driverOptions, mode));
+        auto driver(Driver::create(path, properties.driverOptions, mode
+                                   , properties.id));
         return TileSet(driver, properties);
     }
 
-    /** Complex tileset creation: creates driver and then opens result tileset.
-     *  Driver has responsibility for generating all the configuration stuff.
+    /** Open using created driver.
      */
-    static TileSet createComplex(const fs::path &path
-                                 , const boost::any &driverOptions
-                                 , CreateMode mode)
+    static TileSet open(const Driver::pointer &driver)
     {
-        auto driver(Driver::create(path, driverOptions, mode));
         return TileSet(driver);
     }
 
@@ -321,7 +318,7 @@ TileSet createTileSet(const boost::filesystem::path &path
                       , CreateMode mode)
 {
     TileSet::Properties tsprop(properties);
-    tsprop.driverOptions = driver::PlainDriverOptions(5);
+    tsprop.driverOptions = driver::PlainOptions(5);
     return TileSet::Factory::create(path, tsprop, mode);
 }
 
@@ -350,12 +347,15 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
                           , const CloneOptions &co
                           , const TilesetIdSet &tilesets)
 {
-    driver::AggregatedDriverOptions dopts;
+    driver::AggregatedOptions dopts;
     dopts.storagePath = storage.path();
     dopts.tilesets = tilesets;
 
-    // TODO: pass tileset id!
-    return TileSet::Factory::createComplex(path, dopts, co.mode());
+    // TODO: use first non-empty path element
+    TilesetId tilesetId(co.tilesetId() ? *co.tilesetId()
+                        : path.filename().string());
+    auto driver(Driver::create(path, dopts, co.mode(), tilesetId));
+    return TileSet::Factory::open(driver);
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver)

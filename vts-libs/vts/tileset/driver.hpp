@@ -28,7 +28,8 @@ public:
     virtual ~Driver();
 
     static pointer create(const boost::filesystem::path &root
-                          , const boost::any &options, CreateMode mode);
+                          , const boost::any &options, CreateMode mode
+                          , const TilesetId &tilesetId);
 
     static pointer open(const boost::filesystem::path &root);
 

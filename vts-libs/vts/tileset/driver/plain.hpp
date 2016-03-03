@@ -18,13 +18,13 @@ public:
      *  CreateMode::overwrite.
      */
     PlainDriver(const boost::filesystem::path &root
-                , const PlainDriverOptions &options
-                , CreateMode mode);
+                , const PlainOptions &options
+                , CreateMode mode, const TilesetId &tilesetId);
 
     /** Opens storage.
      */
     PlainDriver(const boost::filesystem::path &root
-                , const PlainDriverOptions &options);
+                , const PlainOptions &options);
 
     virtual ~PlainDriver();
 

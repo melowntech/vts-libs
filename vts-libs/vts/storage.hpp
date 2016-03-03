@@ -168,6 +168,8 @@ public:
 
     const StorageProperties& getProperties() const;
 
+    TileSet open(const TilesetId &tilesetId) const;
+
     /** Generates map configuration for this storage.
      */
     MapConfig mapConfig() const;

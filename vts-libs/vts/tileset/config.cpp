@@ -123,7 +123,7 @@ Json::Value buildIdArray(InputIterator b, InputIterator e)
 
 boost::any parsePlainDriver(const Json::Value &value)
 {
-    driver::PlainDriverOptions driverOptions;
+    driver::PlainOptions driverOptions;
 
     int binaryOrder;
     Json::get(binaryOrder, value, "binaryOrder");
@@ -138,7 +138,7 @@ boost::any parsePlainDriver(const Json::Value &value)
 
 boost::any parseAggregatedDriver(const Json::Value &value)
 {
-    driver::AggregatedDriverOptions driverOptions;
+    driver::AggregatedOptions driverOptions;
 
     std::string storagePath;
     Json::get(storagePath, value, "storage");
@@ -173,12 +173,12 @@ Json::Value buildDriver(const boost::any &d)
 {
     Json::Value value(Json::objectValue);
 
-    if (auto opts = boost::any_cast<const driver::PlainDriverOptions>(&d)) {
+    if (auto opts = boost::any_cast<const driver::PlainOptions>(&d)) {
         value["binaryOrder"] = opts->binaryOrder();
         value["uuid"] = to_string(opts->uuid());
         return value;
     } else if (auto opts = boost::any_cast
-               <const driver::AggregatedDriverOptions>(&d))
+               <const driver::AggregatedOptions>(&d))
     {
         value["storage"] = opts->storagePath.string();
         value["tilesets"] = buildIdArray(opts->tilesets.begin()

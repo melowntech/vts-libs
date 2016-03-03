@@ -383,15 +383,20 @@ bool Storage::Detail::externallyChanged() const
                                        (extraConfigPath, std::nothrow)));
 }
 
-TileSet Storage::Detail::open(const TilesetId &tilesetId)
+TileSet Storage::Detail::open(const TilesetId &tilesetId) const
 {
-    if (properties.hasTileset(tilesetId)) {
+    if (!properties.hasTileset(tilesetId)) {
         LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
             << "Tileset <" << tilesetId << "> not found in storage "
             << root << ".";
     }
 
     return openTileSet(storage_paths::tilesetPath(root, tilesetId));
+}
+
+TileSet Storage::open(const TilesetId &tilesetId) const
+{
+    return detail().open(tilesetId);
 }
 
 std::time_t Storage::lastModified() const

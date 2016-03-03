@@ -18,13 +18,13 @@ public:
      *  CreateMode::overwrite.
      */
     AggregatedDriver(const boost::filesystem::path &root
-                     , const AggregatedDriverOptions &options
-                     , CreateMode mode);
+                     , const AggregatedOptions &options
+                     , CreateMode mode, const TilesetId &tilesetId);
 
     /** Opens storage.
      */
     AggregatedDriver(const boost::filesystem::path &root
-                     , const AggregatedDriverOptions &options);
+                     , const AggregatedOptions &options);
 
     virtual ~AggregatedDriver();
 
@@ -49,8 +49,8 @@ private:
 
     virtual Resources resources_impl() const;
 
-    inline const AggregatedDriverOptions& options() const {
-        return Driver::options<const AggregatedDriverOptions&>();
+    inline const AggregatedOptions& options() const {
+        return Driver::options<const AggregatedOptions&>();
     }
 
     Storage storage_;

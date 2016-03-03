@@ -124,16 +124,19 @@ void Driver::notRunning() const
 
 Driver::pointer Driver::create(const boost::filesystem::path &root
                                , const boost::any &genericOptions
-                               , CreateMode mode)
+                               , CreateMode mode
+                               , const TilesetId &tilesetId)
 {
-    if (auto o = boost::any_cast<const driver::PlainDriverOptions>
+    if (auto o = boost::any_cast<const driver::PlainOptions>
         (&genericOptions))
     {
-        return std::make_shared<driver::PlainDriver>(root, *o, mode);
-    } else if (auto o = boost::any_cast<const driver::AggregatedDriverOptions>
+        return std::make_shared<driver::PlainDriver>
+            (root, *o, mode, tilesetId);
+    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&genericOptions))
     {
-        return std::make_shared<driver::AggregatedDriver> (root, *o, mode);
+        return std::make_shared<driver::AggregatedDriver>
+            (root, *o, mode, tilesetId);
     }
 
     LOGTHROW(err2, storage::BadFileFormat)
@@ -148,11 +151,11 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
     auto genericOptions(tileset::loadConfig(root / filePath(File::config))
                         .driverOptions);
 
-    if (auto o = boost::any_cast<const driver::PlainDriverOptions>
+    if (auto o = boost::any_cast<const driver::PlainOptions>
         (&genericOptions))
     {
         return std::make_shared<driver::PlainDriver>(root, *o);
-    } else if (auto o = boost::any_cast<const driver::AggregatedDriverOptions>
+    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&genericOptions))
     {
         return std::make_shared<driver::AggregatedDriver> (root, *o);

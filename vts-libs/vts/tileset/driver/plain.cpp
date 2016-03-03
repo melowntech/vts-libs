@@ -49,7 +49,7 @@ namespace {
     }
 } // namespace
 
-long PlainDriverOptions::calculateMask(std::uint8_t order)
+long PlainOptions::calculateMask(std::uint8_t order)
 {
     long value(0);
     for (long bit(1l); order; --order, bit <<= 1) {
@@ -58,23 +58,23 @@ long PlainDriverOptions::calculateMask(std::uint8_t order)
     return value;
 }
 
-boost::uuids::uuid PlainDriverOptions::generateUuid() {
+boost::uuids::uuid PlainOptions::generateUuid() {
     // generate random uuid
     return boost::uuids::random_generator()();
 }
 
 PlainDriver::PlainDriver(const boost::filesystem::path &root
-                         , const PlainDriverOptions &options
-                         , CreateMode mode)
-    : Driver(root, PlainDriverOptions(options.binaryOrder()), mode)
-    , cache_(this->root(), this->options<PlainDriverOptions>()
+                         , const PlainOptions &options
+                         , CreateMode mode, const TilesetId&)
+    : Driver(root, PlainOptions(options.binaryOrder()), mode)
+    , cache_(this->root(), this->options<PlainOptions>()
              , false)
 {}
 
 PlainDriver::PlainDriver(const boost::filesystem::path &root
-                         , const PlainDriverOptions &options)
+                         , const PlainOptions &options)
     : Driver(root, options)
-    , cache_(this->root(), this->options<PlainDriverOptions>(), true)
+    , cache_(this->root(), this->options<PlainOptions>(), true)
 {
 }
 

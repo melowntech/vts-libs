@@ -14,17 +14,17 @@ namespace vadstena { namespace vts { namespace driver {
 
 using storage::Tilar;
 
-class PlainDriverOptions {
+class PlainOptions {
 public:
-    PlainDriverOptions() : binaryOrder_(0), tileMask_(0) {}
+    PlainOptions() : binaryOrder_(0), tileMask_(0) {}
 
-    PlainDriverOptions(std::uint8_t binaryOrder)
+    PlainOptions(std::uint8_t binaryOrder)
         : binaryOrder_(binaryOrder)
         , uuid_(generateUuid())
         , tileMask_(calculateMask(binaryOrder))
     {}
 
-    PlainDriverOptions(std::uint8_t binaryOrder, boost::uuids::uuid uuid)
+    PlainOptions(std::uint8_t binaryOrder, boost::uuids::uuid uuid)
         : binaryOrder_(binaryOrder)
         , uuid_(uuid)
         , tileMask_(calculateMask(binaryOrder))
@@ -78,21 +78,21 @@ private:
     static boost::uuids::uuid generateUuid();
 };
 
-struct AggregatedDriverOptions {
+struct AggregatedOptions {
     boost::filesystem::path storagePath;
     TilesetIdSet tilesets;
 };
 
 // inlines
 
-inline Tilar::Options PlainDriverOptions::tilar(unsigned int filesPerTile)
+inline Tilar::Options PlainOptions::tilar(unsigned int filesPerTile)
     const
 {
     return { binaryOrder_, filesPerTile, uuid_ };
 }
 
-inline PlainDriverOptions::Index
-PlainDriverOptions::index(const TileId &i, int type) const
+inline PlainOptions::Index
+PlainOptions::index(const TileId &i, int type) const
 {
     return {
         TileId(i.lod, i.x >> binaryOrder_, i.y >> binaryOrder_)

@@ -27,31 +27,41 @@ namespace vadstena { namespace vts { namespace driver {
 namespace fs = boost::filesystem;
 
 namespace {
-    const std::string ConfigName("tileset.conf");
-    const std::string ExtraConfigName("extra.conf");
-    const std::string TileIndexName("tileset.index");
 
-    const std::string filePath(File type)
-    {
-        switch (type) {
-        case File::config: return ConfigName;
-        case File::extraConfig: return ExtraConfigName;
-        case File::tileIndex: return TileIndexName;
-        default: break;
-        }
-        throw "unknown file type";
+const std::string ConfigName("tileset.conf");
+const std::string ExtraConfigName("extra.conf");
+const std::string TileIndexName("tileset.index");
+
+const std::string filePath(File type)
+{
+    switch (type) {
+    case File::config: return ConfigName;
+    case File::extraConfig: return ExtraConfigName;
+    case File::tileIndex: return TileIndexName;
+    default: break;
     }
+    throw "unknown file type";
+}
+
+void unite(registry::IdSet &out, const registry::IdSet &in)
+{
+    out.insert(in.begin(), in.end());
+}
+
 } // namespace
 
 AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
-                                   , const AggregatedDriverOptions &options
-                                   , CreateMode mode)
+                                   , const AggregatedOptions &options
+                                   , CreateMode mode
+                                   , const TilesetId &tilesetId)
     : Driver(root, options, mode)
     , storage_(this->options().storagePath, OpenMode::readOnly)
 {
     // compose tileset configuration
+    const auto &tilesets(this->options().tilesets);
 
     TileSet::Properties properties;
+    properties.id = tilesetId;
     properties.driverOptions = options;
 
     // try to get previous revision (and reuse)
@@ -61,17 +71,46 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
 
     // get reference frame
     properties.referenceFrame = storage_.getProperties().referenceFrame;
+    properties.tileRange = TileRange(math::InvalidExtents{});
+
+    // compose tile index and other properties
+    TileIndex ti;
+    bool first(true);
+    for (const auto &tilesetId : tilesets) {
+        LOG(info4) << "Adding tileset <" << tilesetId << ">.";
+
+        auto ts(storage_.open(tilesetId));
+        ti = unite(ti, ts.tileIndex());
+        const auto &detail(ts.detail());
+        const auto &tsProp(detail.properties);
+
+        // TODO: unite all glues' tile indices as well
+
+        // unite referenced registry entities
+        unite(properties.credits, tsProp.credits);
+        unite(properties.boundLayers, tsProp.boundLayers);
+
+        // join various service data
+        properties.lodRange = unite(properties.lodRange, tsProp.lodRange);
+        properties.tileRange = unite(properties.tileRange, tsProp.tileRange);
+
+        // TODO: spatial division extents
+
+        // copy position from fist tileset
+        if (first) {
+            properties.position = tsProp.position;
+            first = false;
+        }
+    }
 
     // save properties
     tileset::saveConfig(this->root() / filePath(File::config), properties);
-
-    TileIndex ti;
     TileSet::Detail::saveTileIndex(this->root() / filePath(File::tileIndex)
                                    , ti, {});
 }
 
 AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
-                                   , const AggregatedDriverOptions &options)
+                                   , const AggregatedOptions &options)
     : Driver(root, options)
     , storage_(this->options().storagePath, OpenMode::readOnly)
 {
@@ -129,13 +168,14 @@ storage::Resources AggregatedDriver::resources_impl() const
 
 
 void AggregatedDriver::flush_impl() {
-    // readonly -> fail
+    LOGTHROW(err2, storage::ReadOnlyError)
+        << "This driver supports read access only.";
 }
 
 void AggregatedDriver::drop_impl()
 {
-    // remove whole root directory
-    remove_all(root());
+    LOGTHROW(err2, storage::ReadOnlyError)
+        << "This driver supports read access only.";
 }
 
 } } } // namespace vadstena::vts::driver
