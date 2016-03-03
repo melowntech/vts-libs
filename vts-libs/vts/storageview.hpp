@@ -64,6 +64,8 @@ public:
 
     const TilesetIdSet& tilesets() const;
 
+    boost::filesystem::path storagePath() const;
+
     /** Generates map configuration for storage view at given path.
      */
     static MapConfig mapConfig(const boost::filesystem::path &path);

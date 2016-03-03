@@ -164,6 +164,10 @@ public:
 
     vadstena::storage::Resources resources() const;
 
+    boost::filesystem::path path() const;
+
+    const StorageProperties& getProperties() const;
+
     /** Generates map configuration for this storage.
      */
     MapConfig mapConfig() const;

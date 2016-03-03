@@ -36,13 +36,13 @@ public:
 
     IStream::pointer input(File type) const;
 
-    OStream::pointer output(const TileId tileId, TileFile type);
+    OStream::pointer output(const TileId &tileId, TileFile type);
 
-    IStream::pointer input(const TileId tileId, TileFile type) const;
+    IStream::pointer input(const TileId &tileId, TileFile type) const;
 
     FileStat stat(File type) const;
 
-    FileStat stat(const TileId tileId, TileFile type) const;
+    FileStat stat(const TileId &tileId, TileFile type) const;
 
     Resources resources() const;
 
@@ -72,10 +72,10 @@ public:
      */
     void watch(utility::Runnable *runnable);
 
-    /** Gets old config file content and removes any notion about it.
+    /** Gets old revision (if any)
      */
-    boost::optional<std::string> oldConfig() {
-        auto c(oldConfig_); oldConfig_= boost::none; return c;
+    boost::optional<unsigned int> oldRevision() {
+        return oldRevision_;
     }
 
     const boost::filesystem::path& root() const { return root_; }
@@ -104,10 +104,10 @@ private:
     virtual IStream::pointer input_impl(File type) const = 0;
 
     virtual OStream::pointer
-    output_impl(const TileId tileId, TileFile type) = 0;
+    output_impl(const TileId &tileId, TileFile type) = 0;
 
     virtual IStream::pointer
-    input_impl(const TileId tileId, TileFile type) const = 0;
+    input_impl(const TileId &tileId, TileFile type) const = 0;
 
     virtual void drop_impl() = 0;
 
@@ -115,7 +115,7 @@ private:
 
     virtual FileStat stat_impl(File type) const = 0;
 
-    virtual FileStat stat_impl(const TileId tileId, TileFile type)
+    virtual FileStat stat_impl(const TileId &tileId, TileFile type)
         const = 0;
 
     virtual Resources resources_impl() const = 0;
@@ -156,9 +156,9 @@ private:
      */
     utility::Runnable *runnable_;
 
-    /** Content of old config file.
+    /** Revision read from old config (if any).
      */
-    boost::optional<std::string> oldConfig_;
+    boost::optional<unsigned int> oldRevision_;
 
     /** Time of last modification (recorded at read-only open)
      */
@@ -188,13 +188,13 @@ inline IStream::pointer Driver::input(File type) const
     return input_impl(type);
 }
 
-inline OStream::pointer Driver::output(const TileId tileId, TileFile type)
+inline OStream::pointer Driver::output(const TileId &tileId, TileFile type)
 {
     checkRunning();
     return output_impl(tileId, type);
 }
 
-inline IStream::pointer Driver::input(const TileId tileId, TileFile type)
+inline IStream::pointer Driver::input(const TileId &tileId, TileFile type)
     const
 {
     checkRunning();
@@ -207,7 +207,7 @@ inline FileStat Driver::stat(File type) const
     return stat_impl(type);
 }
 
-inline FileStat Driver::stat(const TileId tileId, TileFile type) const
+inline FileStat Driver::stat(const TileId &tileId, TileFile type) const
 {
     checkRunning();
     return stat_impl(tileId, type);

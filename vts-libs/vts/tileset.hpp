@@ -272,6 +272,12 @@ public:
     class Factory; friend class Factory;
 };
 
+/** Low-level create operation.
+ */
+TileSet createTileSet(const boost::filesystem::path &path
+                      , const TileSet::Properties &properties
+                      , CreateMode mode);
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_tileset_hpp_included_

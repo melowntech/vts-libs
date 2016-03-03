@@ -94,12 +94,12 @@ IStream::pointer PlainDriver::input_impl(File type) const
     return fileIStream(type, path);
 }
 
-OStream::pointer PlainDriver::output_impl(const TileId tileId, TileFile type)
+OStream::pointer PlainDriver::output_impl(const TileId &tileId, TileFile type)
 {
     return cache_.output(tileId, type);
 }
 
-IStream::pointer PlainDriver::input_impl(const TileId tileId, TileFile type)
+IStream::pointer PlainDriver::input_impl(const TileId &tileId, TileFile type)
     const
 {
     return cache_.input(tileId, type);
@@ -113,7 +113,7 @@ FileStat PlainDriver::stat_impl(File type) const
     return FileStat::stat(path);
 }
 
-FileStat PlainDriver::stat_impl(const TileId tileId, TileFile type) const
+FileStat PlainDriver::stat_impl(const TileId &tileId, TileFile type) const
 {
     return cache_.stat(tileId, type);
 }

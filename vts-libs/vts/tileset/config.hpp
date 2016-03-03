@@ -8,6 +8,7 @@
 
 #include <iostream>
 
+#include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include "../tileset.hpp"
@@ -28,6 +29,11 @@ void saveConfig(const boost::filesystem::path &path
 ExtraTileSetProperties loadExtraConfig(std::istream &in);
 
 ExtraTileSetProperties loadExtraConfig(const boost::filesystem::path &path);
+
+boost::optional<unsigned int> loadRevision(std::istream &in);
+
+boost::optional<unsigned int>
+loadRevision(const boost::filesystem::path &path);
 
 } } } // namespace vadstena::vts::tileset
 

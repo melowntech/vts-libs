@@ -1,3 +1,5 @@
+#include <iterator>
+
 #include <boost/uuid/string_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
@@ -92,6 +94,33 @@ void build(Json::Value &value
     }
 }
 
+template <typename OutputIterator>
+void parseIdArray(OutputIterator out, const Json::Value &object
+                  , const char *name)
+{
+    const Json::Value &value(object[name]);
+
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of " << name << " is not a list.";
+    }
+
+    for (const auto &element : value) {
+        Json::check(element, Json::stringValue);
+        *out++ = element.asString();
+    }
+}
+
+template <typename InputIterator>
+Json::Value buildIdArray(InputIterator b, InputIterator e)
+{
+    Json::Value value(Json::arrayValue);
+    for (; b != e; ++b) {
+        value.append(*b);
+    }
+    return value;
+}
+
 boost::any parsePlainDriver(const Json::Value &value)
 {
     driver::PlainDriverOptions driverOptions;
@@ -107,6 +136,21 @@ boost::any parsePlainDriver(const Json::Value &value)
     return driverOptions;
 }
 
+boost::any parseAggregatedDriver(const Json::Value &value)
+{
+    driver::AggregatedDriverOptions driverOptions;
+
+    std::string storagePath;
+    Json::get(storagePath, value, "storage");
+    driverOptions.storagePath = storagePath;
+
+    parseIdArray(std::inserter(driverOptions.tilesets
+                               , driverOptions.tilesets.begin())
+                 , value, "tilesets");
+
+    return driverOptions;
+}
+
 boost::any parseDriver(const Json::Value &value)
 {
     if (!value.isObject()) {
@@ -116,6 +160,8 @@ boost::any parseDriver(const Json::Value &value)
 
     if (value.isMember("binaryOrder")) {
         return parsePlainDriver(value);
+    } else if (value.isMember("storage")) {
+        return parseAggregatedDriver(value);
     }
 
     LOGTHROW(err1, Json::Error)
@@ -130,6 +176,13 @@ Json::Value buildDriver(const boost::any &d)
     if (auto opts = boost::any_cast<const driver::PlainDriverOptions>(&d)) {
         value["binaryOrder"] = opts->binaryOrder();
         value["uuid"] = to_string(opts->uuid());
+        return value;
+    } else if (auto opts = boost::any_cast
+               <const driver::AggregatedDriverOptions>(&d))
+    {
+        value["storage"] = opts->storagePath.string();
+        value["tilesets"] = buildIdArray(opts->tilesets.begin()
+                                         , opts->tilesets.end());
         return value;
     }
 
@@ -359,6 +412,32 @@ ExtraTileSetProperties loadExtraConfig(const boost::filesystem::path &path)
     auto p(loadExtraConfig(f));
     f.close();
     return p;
+}
+
+boost::optional<unsigned int> loadRevision(std::istream &in)
+{
+    // load json
+    Json::Value config;
+    Json::Reader reader;
+    if (!reader.parse(in, config)) { return boost::none; }
+
+    auto r(config["revision"]);
+    if (!r.isUInt()) { return boost::none; }
+    return r.asUInt();
+}
+
+boost::optional<unsigned int> loadRevision(const boost::filesystem::path &path)
+{
+    LOG(info1) << "Loading extra revision from " << path  << ".";
+    std::ifstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    try {
+        f.open(path.string(), std::ios_base::in);
+        auto r(loadRevision(f));
+        f.close();
+        return r;
+    } catch (const std::exception &) {}
+    return boost::none;
 }
 
 } } } // namespace vadstena::vts::tileset

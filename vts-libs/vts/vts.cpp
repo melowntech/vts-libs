@@ -36,19 +36,4 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
                              , storageView.tilesets());
 }
 
-/** Core implementation.
- */
-TileSet aggregateTileSets(const boost::filesystem::path &path
-                          , const Storage &storage
-                          , const CloneOptions &co
-                          , const TilesetIdSet &tilesets)
-{
-    (void) path;
-    (void) storage;
-    (void) co;
-    (void) tilesets;
-
-    return createTileSet(path, TileSetProperties(), co.mode());
-}
-
 } } // namespace vadstena::vts

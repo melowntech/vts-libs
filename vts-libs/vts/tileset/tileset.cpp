@@ -157,9 +157,19 @@ struct TileSet::Factory
                           , const TileSet::Properties &properties
                           , CreateMode mode)
     {
-        // we are using binaryOrder = 5 :)
         auto driver(Driver::create(path, properties.driverOptions, mode));
         return TileSet(driver, properties);
+    }
+
+    /** Complex tileset creation: creates driver and then opens result tileset.
+     *  Driver has responsibility for generating all the configuration stuff.
+     */
+    static TileSet createComplex(const fs::path &path
+                                 , const boost::any &driverOptions
+                                 , CreateMode mode)
+    {
+        auto driver(Driver::create(path, driverOptions, mode));
+        return TileSet(driver);
     }
 
     static TileSet open(const fs::path &path)
@@ -315,6 +325,13 @@ TileSet createTileSet(const boost::filesystem::path &path
     return TileSet::Factory::create(path, tsprop, mode);
 }
 
+TileSet createTileSet(const boost::filesystem::path &path
+                      , const TileSet::Properties &properties
+                      , CreateMode mode)
+{
+    return TileSet::Factory::create(path, properties, mode);
+}
+
 TileSet openTileSet(const boost::filesystem::path &path)
 {
     return TileSet::Factory::open(path);
@@ -324,6 +341,21 @@ TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src
                      , const CloneOptions &cloneOptions)
 {
     return TileSet::Factory::clone(path, src, cloneOptions);
+}
+
+/** Core implementation.
+ */
+TileSet aggregateTileSets(const boost::filesystem::path &path
+                          , const Storage &storage
+                          , const CloneOptions &co
+                          , const TilesetIdSet &tilesets)
+{
+    driver::AggregatedDriverOptions dopts;
+    dopts.storagePath = storage.path();
+    dopts.tilesets = tilesets;
+
+    // TODO: pass tileset id!
+    return TileSet::Factory::createComplex(path, dopts, co.mode());
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver)
@@ -354,13 +386,9 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     this->properties = properties;
     this->properties.driverOptions = driver->options();
 
-    if (auto oldConfig = driver->oldConfig()) {
-        try {
-            // try to read old config and grab old revision
-            std::istringstream is(*oldConfig);
-            const auto p(tileset::loadConfig(is));
-            this->properties.revision = p.revision + 1;
-        } catch (...) {}
+    // if there was some old file here, update revision
+    if (auto oldRevision = driver->oldRevision()) {
+        this->properties.revision = *oldRevision + 1;
     }
 
     // save config and (empty) tile index and reference
@@ -441,9 +469,37 @@ void TileSet::Detail::saveTileIndex()
 {
     try {
         auto f(driver->output(File::tileIndex));
-        tileIndex.save(*f);
-        references.save(*f);
+        saveTileIndex(*f, tileIndex, references);
         f->close();
+    } catch (const std::exception &e) {
+        LOGTHROW(err2, storage::Error)
+            << "Unable to save tile index: " << e.what() << ".";
+    }
+}
+
+void TileSet::Detail::saveTileIndex(std::ostream &f
+                                    , const TileIndex &tileIndex
+                                    , const TileIndex &references)
+{
+    try {
+        tileIndex.save(f);
+        references.save(f);
+    } catch (const std::exception &e) {
+        LOGTHROW(err2, storage::Error)
+            << "Unable to save tile index: " << e.what() << ".";
+    }
+}
+
+void TileSet::Detail::saveTileIndex(const boost::filesystem::path &path
+                                    , const TileIndex &tileIndex
+                                    , const TileIndex &references)
+{
+    try {
+        std::ofstream f;
+        f.exceptions(std::ios::badbit | std::ios::failbit);
+        f.open(path.string(), std::ios_base::out);
+        saveTileIndex(f, tileIndex, references);
+        f.close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
             << "Unable to save tile index: " << e.what() << ".";

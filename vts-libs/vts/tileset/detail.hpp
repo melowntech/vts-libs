@@ -121,6 +121,13 @@ struct TileSet::Detail
     void loadTileIndex();
     void saveTileIndex();
 
+    static void saveTileIndex(std::ostream &f
+                              , const TileIndex &tileIndex
+                              , const TileIndex &references);
+    static void saveTileIndex(const boost::filesystem::path &path
+                              , const TileIndex &tileIndex
+                              , const TileIndex &references);
+
     void setTile(const TileId &tileId, const Tile &tile
                  , const NodeInfo *nodeInfo = nullptr);
 

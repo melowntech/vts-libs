@@ -90,10 +90,10 @@ Storage::Detail::~Detail()
 {
 }
 
-Storage::Detail::Detail(const boost::filesystem::path &root
+Storage::Detail::Detail(const boost::filesystem::path &iroot
                         , const StorageProperties &properties
                         , CreateMode mode)
-    : root(root)
+    : root(fs::absolute(iroot))
     , configPath(root / ConfigFilename)
     , extraConfigPath(root / ExtraConfigFilename)
     , referenceFrame(registry::Registry::referenceFrame
@@ -397,6 +397,16 @@ TileSet Storage::Detail::open(const TilesetId &tilesetId)
 std::time_t Storage::lastModified() const
 {
     return detail().lastModified;
+}
+
+boost::filesystem::path Storage::path() const
+{
+    return detail().root;
+}
+
+const StorageProperties& Storage::getProperties() const
+{
+    return detail().properties;
 }
 
 TilesetIdList tilesetIdList(const StoredTileset::list &tilesets)

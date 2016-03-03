@@ -24,6 +24,7 @@
 
 // drivers:
 #include "./plain.hpp"
+#include "./aggregated.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -70,9 +71,7 @@ Driver::Driver(const boost::filesystem::path &root
         }
 
         // OK, we can overwrite; cache contents of old config (if any)
-        try {
-            oldConfig_ = utility::read(root_ / filePath(File::config));
-        } catch (...) {}
+        oldRevision_ = tileset::loadRevision(root_ / filePath(File::config));
     }
 }
 
@@ -124,23 +123,46 @@ void Driver::notRunning() const
 }
 
 Driver::pointer Driver::create(const boost::filesystem::path &root
-                               , const boost::any &options
+                               , const boost::any &genericOptions
                                , CreateMode mode)
 {
-    // TODO: return proper one
-    return std::make_shared<driver::PlainDriver>
-        (root, Driver::options<driver::PlainDriverOptions>(options)
-         , mode);
+    if (auto o = boost::any_cast<const driver::PlainDriverOptions>
+        (&genericOptions))
+    {
+        return std::make_shared<driver::PlainDriver>(root, *o, mode);
+    } else if (auto o = boost::any_cast<const driver::AggregatedDriverOptions>
+               (&genericOptions))
+    {
+        return std::make_shared<driver::AggregatedDriver> (root, *o, mode);
+    }
+
+    LOGTHROW(err2, storage::BadFileFormat)
+        << "Cannot create tileset at " << root
+        << ": Invalid type of driver options: <"
+        << genericOptions.type().name() << ">.";
+    throw;
 }
 
 Driver::pointer Driver::open(const boost::filesystem::path &root)
 {
-    auto options(tileset::loadConfig(root / filePath(File::config))
-                 .driverOptions);
+    auto genericOptions(tileset::loadConfig(root / filePath(File::config))
+                        .driverOptions);
 
-    // TODO: return proper one
-    return std::make_shared<driver::PlainDriver>
-        (root, Driver::options<driver::PlainDriverOptions>(options));
+    if (auto o = boost::any_cast<const driver::PlainDriverOptions>
+        (&genericOptions))
+    {
+        return std::make_shared<driver::PlainDriver>(root, *o);
+    } else if (auto o = boost::any_cast<const driver::AggregatedDriverOptions>
+               (&genericOptions))
+    {
+        return std::make_shared<driver::AggregatedDriver> (root, *o);
+    }
+
+    LOGTHROW(err2, storage::BadFileFormat)
+        << "Cannot open tileset at " << root
+        << ": Invalid type of driver options: <"
+        << genericOptions.type().name() << ">.";
+    throw;
 }
 
 } } // namespace vadstena::vts

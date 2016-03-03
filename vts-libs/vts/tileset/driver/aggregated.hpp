@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileset_driver_plain_hpp_included_
-#define vadstena_libs_vts_tileset_driver_plain_hpp_included_
+#ifndef vadstena_libs_vts_tileset_driver_aggregated_hpp_included_
+#define vadstena_libs_vts_tileset_driver_aggregated_hpp_included_
 
 #include <set>
 #include <map>
@@ -10,23 +10,23 @@
 
 namespace vadstena { namespace vts { namespace driver {
 
-class PlainDriver : public Driver {
+class AggregatedDriver : public Driver {
 public:
     typedef std::shared_ptr<Driver> pointer;
 
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.
      */
-    PlainDriver(const boost::filesystem::path &root
-                , const PlainDriverOptions &options
-                , CreateMode mode);
+    AggregatedDriver(const boost::filesystem::path &root
+                     , const AggregatedDriverOptions &options
+                     , CreateMode mode);
 
     /** Opens storage.
      */
-    PlainDriver(const boost::filesystem::path &root
-                , const PlainDriverOptions &options);
+    AggregatedDriver(const boost::filesystem::path &root
+                     , const AggregatedDriverOptions &options);
 
-    virtual ~PlainDriver();
+    virtual ~AggregatedDriver();
 
 private:
     virtual OStream::pointer output_impl(const File type);
@@ -49,9 +49,13 @@ private:
 
     virtual Resources resources_impl() const;
 
-    mutable driver::Cache cache_;
+    inline const AggregatedDriverOptions& options() const {
+        return Driver::options<const AggregatedDriverOptions&>();
+    }
+
+    Storage storage_;
 };
 
 } } } // namespace vadstena::vts::driver
 
-#endif // vadstena_libs_vts_tileset_driver_plain_hpp_included_
+#endif // vadstena_libs_vts_tileset_driver_aggregated_hpp_included_

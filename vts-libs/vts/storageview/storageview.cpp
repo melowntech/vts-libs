@@ -185,6 +185,11 @@ const TilesetIdSet& StorageView::tilesets() const
     return detail().properties.tilesets;
 }
 
+boost::filesystem::path StorageView::storagePath() const
+{
+    return detail().properties.storagePath;
+}
+
 StorageView openStorageView(const boost::filesystem::path &path)
 {
     return { path };

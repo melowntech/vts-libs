@@ -78,6 +78,11 @@ private:
     static boost::uuids::uuid generateUuid();
 };
 
+struct AggregatedDriverOptions {
+    boost::filesystem::path storagePath;
+    TilesetIdSet tilesets;
+};
+
 // inlines
 
 inline Tilar::Options PlainDriverOptions::tilar(unsigned int filesPerTile)
