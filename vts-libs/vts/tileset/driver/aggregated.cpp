@@ -165,11 +165,11 @@ buildMeta(const TileSetInfo::list &tsil, const fs::path &root
             if (!gi.tsi.check(tileId, TileFile::meta)) { continue; }
 
             // apply metatile from glue
-            ometa.update(loadMeta(tileId, gi.driver), &references, idx);
+            ometa.update(loadMeta(tileId, gi.driver), references, idx);
         }
 
         // apply metatile from tileset
-        ometa.update(loadMeta(tileId, tsi.driver));
+        ometa.update(loadMeta(tileId, tsi.driver), references, idx);
     }
 
     // create stream and serialize metatile

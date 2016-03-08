@@ -198,8 +198,7 @@ public:
     /** Updates this metatile with data from input metatile.
      *  Existing real nodes are not touched.
      */
-    void update(const MetaTile &in, References *references = nullptr
-                , int index = 0);
+    void update(const MetaTile &in, References &references, int index);
 
     References makeReferences() const;
 

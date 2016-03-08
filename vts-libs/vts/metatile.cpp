@@ -550,7 +550,7 @@ MetaTile::References MetaTile::makeReferences() const
     return References(size_ * size_, 0);
 }
 
-void MetaTile::update(const MetaTile &in, References *references
+void MetaTile::update(const MetaTile &in, References &references
                       , int surfaceIndex)
 {
     // sanity check
@@ -573,21 +573,19 @@ void MetaTile::update(const MetaTile &in, References *references
             // check for reference
             if (auto reference = inn.reference()) {
                 // we have reference, store if we can
-                if (references) {
-                    if (auto &outr = (*references)[idx]) {
-                        // unset output references -> store
-                        outr = reference;
-                    }
+                auto &outr(references[idx]);
+                if (!outr) {
+                    // unset output references -> store
+                    outr = reference;
                 }
                 continue;
             }
 
             // check for tileset skip
-            if (references && surfaceIndex
-                && ((*references)[idx] != surfaceIndex))
-             {
-                 // skip
-                 continue;
+            auto storedReference(references[idx]);
+            if (storedReference && (storedReference != surfaceIndex)) {
+                // valid stored reference differes from current index -> skip
+                continue;
             }
 
             // update valid extents
@@ -599,10 +597,11 @@ void MetaTile::update(const MetaTile &in, References *references
                 continue;
             }
 
-            // virtual node
-
-            // just update extents
+            // both are virtual nodes:
+            // update extents
             outn.mergeExtents(inn);
+            // update child flags
+            outn.flags(outn.flags() | inn.childFlags());
         }
     }
 }
