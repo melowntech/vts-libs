@@ -412,24 +412,7 @@ TileSet::~TileSet() = default;
 
 void TileSet::Detail::loadConfig()
 {
-    properties = loadConfig(*driver);
-}
-
-TileSet::Properties TileSet::Detail::loadConfig(const Driver &driver)
-{
-    try {
-        // load config
-        auto f(driver.input(File::config));
-        const auto p(tileset::loadConfig(*f));
-        f->close();
-
-        // set
-        return p;
-    } catch (const std::exception &e) {
-        LOGTHROW(err1, storage::Error)
-            << "Unable to read config: <" << e.what() << ">.";
-    }
-    throw;
+    properties = tileset::loadConfig(*driver);
 }
 
 void TileSet::Detail::saveConfig()
@@ -1147,7 +1130,7 @@ MapConfig TileSet::mapConfig(const boost::filesystem::path &root
 
 MapConfig TileSet::Detail::mapConfig(const Driver &driver, bool includeExtra)
 {
-    return mapConfig(loadConfig(driver)
+    return mapConfig(tileset::loadConfig(driver)
                      , (includeExtra ? loadExtraConfig(driver)
                      : ExtraTileSetProperties()));
 }
@@ -1252,7 +1235,7 @@ TileIndex TileSet::tileIndex(const LodRange &lodRange) const
 bool TileSet::check(const boost::filesystem::path &root)
 {
     try {
-        Detail::loadConfig(*Driver::open(root));
+        tileset::loadConfig(*Driver::open(root));
     } catch (const storage::Error&) {
         return false;
     }

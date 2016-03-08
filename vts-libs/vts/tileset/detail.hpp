@@ -105,7 +105,6 @@ struct TileSet::Detail
     ~Detail();
 
     void loadConfig();
-    static Properties loadConfig(const Driver &driver);
 
     void saveConfig();
 

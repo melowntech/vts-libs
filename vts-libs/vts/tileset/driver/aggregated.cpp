@@ -305,22 +305,18 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     TileIndex &ti(tsi_.tileIndex);
 
     bool first(true);
-    for (const auto &tsg : tilesetInfo_) {
+    for (const auto &tsg : boost::adaptors::reverse(tilesetInfo_)) {
         const auto &tilesetId(tsg.tilesetId);
-        LOG(info4) << "Adding tileset <" << tilesetId << ">.";
+        LOG(info2) << "Adding tileset <" << tilesetId << ">.";
 
         // TODO: we have to verify that this stuff generates proper tile index!
         for (const auto &glue : tsg.glues) {
-            LOG(info4) << "    adding glue: " << utility::join(glue.id, ",");
-            auto gts(storage_.open(glue));
+            LOG(info2) << "    adding glue: " << glue.name;
             ti = unite(ti, glue.tsi.tileIndex);
         }
 
-        auto ts(storage_.open(tilesetId));
+        const auto tsProp(tileset::loadConfig(*tsg.driver));
         ti = unite(ti, tsg.tsi.tileIndex);
-
-        const auto &detail(ts.detail());
-        const auto &tsProp(detail.properties);
 
         // unite referenced registry entities
         unite(properties.credits, tsProp.credits);

@@ -2,7 +2,7 @@
 
 namespace vadstena { namespace vts { namespace tileset {
 
-void loadTileSetIndex(Index &tsi, Driver &driver)
+void loadTileSetIndex(Index &tsi, const Driver &driver)
 {
     try {
         tsi.tileIndex = {};

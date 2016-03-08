@@ -35,6 +35,8 @@ boost::optional<unsigned int> loadRevision(std::istream &in);
 boost::optional<unsigned int>
 loadRevision(const boost::filesystem::path &path);
 
+TileSet::Properties loadConfig(const Driver &driver);
+
 } } } // namespace vadstena::vts::tileset
 
 #endif // vadstena_libs_vts_tileset_config_hpp_included_

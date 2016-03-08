@@ -29,7 +29,7 @@ struct Index {
     int getReference(const TileId &tileId) const;
 };
 
-void loadTileSetIndex(Index &tsi, Driver &driver);
+void loadTileSetIndex(Index &tsi, const Driver &driver);
 
 void saveTileSetIndex(const Index &tsi, Driver &driver);
 

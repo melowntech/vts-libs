@@ -8,7 +8,7 @@
 
 #include "./config.hpp"
 #include "./detail.hpp"
-#include "./driver/options.hpp"
+#include "./driver.hpp"
 #include "../../storage/error.hpp"
 #include "../../registry/json.hpp"
 
@@ -438,6 +438,23 @@ boost::optional<unsigned int> loadRevision(const boost::filesystem::path &path)
         return r;
     } catch (const std::exception &) {}
     return boost::none;
+}
+
+TileSet::Properties loadConfig(const Driver &driver)
+{
+    try {
+        // load config
+        auto f(driver.input(File::config));
+        const auto p(tileset::loadConfig(*f));
+        f->close();
+
+        // set
+        return p;
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::Error)
+            << "Unable to read config: <" << e.what() << ">.";
+    }
+    throw;
 }
 
 } } } // namespace vadstena::vts::tileset
