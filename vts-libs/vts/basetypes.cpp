@@ -1,3 +1,7 @@
+#include <algorithm>
+
+#include <boost/range/adaptor/reversed.hpp>
+
 #include "./basetypes.hpp"
 #include "./tileop.hpp"
 
@@ -125,6 +129,55 @@ NodeInfo NodeInfo::child(Child childDef) const
     }
 
     return child;
+}
+
+TileSetGlues::list glueOrder(const TileSetGlues::list &in)
+{
+    // creata tileset alphabet
+    std::map<TilesetId, int> alphabet;
+    {
+        int d(0);
+        for (const auto &tsg : boost::adaptors::reverse(in)) {
+            alphabet[tsg.tilesetId] = d;
+            LOG(info2) << "Depth <" << tsg.tilesetId << ">: " << d << ".";
+            ++d;
+        }
+    }
+
+    TileSetGlues::list out;
+
+    for (const auto &tsg : in) {
+        auto compareGlues([&](const Glue &l, const Glue &r) -> bool
+        {
+            auto lr(boost::adaptors::reverse(l.id));
+            auto rr(boost::adaptors::reverse(r.id));
+            auto lrb(begin(lr)), lre(end(lr));
+            auto rrb(begin(rr)), rre(end(rr));
+
+            while ((lrb != lre) && (rrb != rre)) {
+                // grab characters
+                auto lc(alphabet[*lrb++]);
+                auto rc(alphabet[*rrb++]);
+
+                if (rc < lc) {
+                    return true;
+                } else if (lc < rc) {
+                    return false;
+                }
+                // same character at the same position -> next one
+            }
+
+            // one id is prefix or the other (or both are the same, which is
+            // unlikely) -> longest is less
+            return r.id.size() <= l.id.size();
+        });
+
+        out.push_back(tsg);
+        std::sort(out.back().glues.begin(), out.back().glues.end()
+                  , compareGlues);
+    }
+
+    return out;
 }
 
 } } // namespace vadstena::vts

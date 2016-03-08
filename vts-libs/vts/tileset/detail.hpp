@@ -13,6 +13,7 @@
 #include "../tileset.hpp"
 #include "../tileindex.hpp"
 #include "./driver.hpp"
+#include "./tilesetindex.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -92,11 +93,9 @@ struct TileSet::Detail
 
     /** Index of existing tiles.
      */
-    mutable TileIndex tileIndex;
-
-    /** References to other datasets.
-     */
-    TileIndex references;
+    mutable tileset::Index tsi;
+    TileIndex &tileIndex;
+    TileIndex &references;
 
     LodRange lodRange;
 
@@ -120,13 +119,6 @@ struct TileSet::Detail
 
     void loadTileIndex();
     void saveTileIndex();
-
-    static void saveTileIndex(std::ostream &f
-                              , const TileIndex &tileIndex
-                              , const TileIndex &references);
-    static void saveTileIndex(const boost::filesystem::path &path
-                              , const TileIndex &tileIndex
-                              , const TileIndex &references);
 
     void setTile(const TileId &tileId, const Tile &tile
                  , const NodeInfo *nodeInfo = nullptr);

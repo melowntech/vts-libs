@@ -361,6 +361,7 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
 TileSet::Detail::Detail(const Driver::pointer &driver)
     : readOnly(true), driver(driver)
     , propertiesChanged(false), metadataChanged(false)
+    , tileIndex(tsi.tileIndex), references(tsi.references)
 {
     loadConfig();
     referenceFrame = registry::Registry::referenceFrame
@@ -375,6 +376,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     , propertiesChanged(false), metadataChanged(false)
     , referenceFrame(registry::Registry::referenceFrame
                      (properties.referenceFrame))
+    , tileIndex(tsi.tileIndex), references(tsi.references)
     , lodRange(LodRange::emptyRange())
 {
     if (properties.id.empty()) {
@@ -446,64 +448,16 @@ void TileSet::Detail::saveConfig()
 
 void TileSet::Detail::loadTileIndex()
 {
-    try {
-        tileIndex = {};
-        auto f(driver->input(File::tileIndex));
-        tileIndex.load(*f);
-
-        if (f->get().peek() != std::istream::traits_type::eof()) {
-            references.load(*f);
-        }
-        f->close();
-    } catch (const std::exception &e) {
-        LOGTHROW(err2, storage::Error)
-            << "Unable to read tile index: " << e.what() << ".";
-    }
+    tileset::loadTileSetIndex(tsi, *driver);
 
     // new extents
     lodRange = tileIndex.lodRange();
-    LOG(debug) << "Loaded tile index: " << tileIndex;
+    LOG(debug) << "Loaded tile index: " << tsi.tileIndex;
 }
 
 void TileSet::Detail::saveTileIndex()
 {
-    try {
-        auto f(driver->output(File::tileIndex));
-        saveTileIndex(*f, tileIndex, references);
-        f->close();
-    } catch (const std::exception &e) {
-        LOGTHROW(err2, storage::Error)
-            << "Unable to save tile index: " << e.what() << ".";
-    }
-}
-
-void TileSet::Detail::saveTileIndex(std::ostream &f
-                                    , const TileIndex &tileIndex
-                                    , const TileIndex &references)
-{
-    try {
-        tileIndex.save(f);
-        references.save(f);
-    } catch (const std::exception &e) {
-        LOGTHROW(err2, storage::Error)
-            << "Unable to save tile index: " << e.what() << ".";
-    }
-}
-
-void TileSet::Detail::saveTileIndex(const boost::filesystem::path &path
-                                    , const TileIndex &tileIndex
-                                    , const TileIndex &references)
-{
-    try {
-        std::ofstream f;
-        f.exceptions(std::ios::badbit | std::ios::failbit);
-        f.open(path.string(), std::ios_base::out);
-        saveTileIndex(f, tileIndex, references);
-        f.close();
-    } catch (const std::exception &e) {
-        LOGTHROW(err2, storage::Error)
-            << "Unable to save tile index: " << e.what() << ".";
-    }
+    tileset::saveTileSetIndex(tsi, *driver);
 }
 
 void TileSet::Detail::watch(utility::Runnable *runnable)

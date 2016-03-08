@@ -12,7 +12,7 @@ namespace vadstena { namespace vts { namespace driver {
 
 class PlainDriver : public Driver {
 public:
-    typedef std::shared_ptr<Driver> pointer;
+    typedef std::shared_ptr<PlainDriver> pointer;
 
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.

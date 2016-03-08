@@ -193,6 +193,16 @@ public:
      */
     template <typename F> void for_each(F f) const;
 
+    typedef std::vector<int> References;
+
+    /** Updates this metatile with data from input metatile.
+     *  Existing real nodes are not touched.
+     */
+    void update(const MetaTile &in, References *references = nullptr
+                , int index = 0);
+
+    References makeReferences() const;
+
 private:
     size_type index(const TileId &tileId, bool checkValidity = true) const;
 

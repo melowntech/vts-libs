@@ -99,6 +99,10 @@ protected:
     Driver(const boost::filesystem::path &root
            , const boost::any &options);
 
+    void readOnly(bool value);
+
+    const FileStat& configStat() const { return configStat_; }
+
 private:
     virtual OStream::pointer output_impl(const File type) = 0;
 

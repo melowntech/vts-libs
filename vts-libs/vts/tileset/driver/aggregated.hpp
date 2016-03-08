@@ -6,13 +6,12 @@
 #include <memory>
 
 #include "../driver.hpp"
-#include "./cache.hpp"
 
 namespace vadstena { namespace vts { namespace driver {
 
 class AggregatedDriver : public Driver {
 public:
-    typedef std::shared_ptr<Driver> pointer;
+    typedef std::shared_ptr<AggregatedDriver> pointer;
 
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.
@@ -27,6 +26,29 @@ public:
                      , const AggregatedOptions &options);
 
     virtual ~AggregatedDriver();
+
+    struct TileSetInfo {
+        struct GlueInfo : Glue {
+            GlueInfo(const Glue &glue) : Glue(glue) {}
+            Driver::pointer driver;
+            tileset::Index tsi;
+
+            typedef std::vector<GlueInfo> list;
+        };
+
+        TilesetId tilesetId;
+        Driver::pointer driver;
+        tileset::Index tsi;
+
+        GlueInfo::list glues;
+
+        TileSetInfo(const TileSetGlues &tsg)
+            : tilesetId(tsg.tilesetId)
+            , glues{tsg.glues.begin(), tsg.glues.end()}
+        {}
+
+        typedef std::vector<TileSetInfo> list;
+    };
 
 private:
     virtual OStream::pointer output_impl(const File type);
@@ -53,8 +75,26 @@ private:
         return Driver::options<const AggregatedOptions&>();
     }
 
+    TileSetInfo::list buildTilesetInfo() const;
+
+    TileId metaId(TileId tileId) const;
+
     Storage storage_;
+
+    registry::ReferenceFrame referenceFrame_;
+
+    tileset::Index tsi_;
+
+    /** Stuff ripe for delivery.
+     */
+    TileSetInfo::list tilesetInfo_;
 };
+
+inline TileId AggregatedDriver::metaId(TileId tileId) const {
+    tileId.x &= ~((1 << referenceFrame_.metaBinaryOrder) - 1);
+    tileId.y &= ~((1 << referenceFrame_.metaBinaryOrder) - 1);
+    return tileId;
+}
 
 } } } // namespace vadstena::vts::driver
 

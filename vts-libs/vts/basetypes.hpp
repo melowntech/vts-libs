@@ -132,6 +132,7 @@ struct Glue {
 
     typedef std::map<Id, Glue> map;
     typedef std::vector<Glue> list;
+    typedef std::vector<Id> Ids;
 
     Glue() {}
     Glue(const Id &id, const std::string &path) : id(id), path(path) {}
@@ -140,6 +141,26 @@ struct Glue {
      */
     bool references(const std::string &tilesetId) const;
 };
+
+/** Tileset with its glues.
+ */
+struct TileSetGlues {
+    TilesetId tilesetId;
+    Glue::list glues;
+
+    TileSetGlues(const TilesetId &tilesetId, const Glue::list glues)
+        : tilesetId(tilesetId), glues(glues) {}
+
+    typedef std::vector<TileSetGlues> list;
+};
+
+/** Calculates glue priority order for given set of tilesets.
+ *
+ * Tile set order is given by order of input list!
+ *
+ * \param mapping between tilesets and their glues.
+ */
+TileSetGlues::list glueOrder(const TileSetGlues::list &in);
 
 // inline stuff
 

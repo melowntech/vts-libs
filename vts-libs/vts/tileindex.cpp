@@ -523,4 +523,19 @@ TileIndex& TileIndex::complete(Flag::value_type type)
     return *this;
 }
 
+TileIndex& TileIndex::unset(Flag::value_type type)
+{
+    if (!type) { return *this; }
+
+    // unset all occurences of type
+    auto translator
+        ([type](QTree::value_type value) { return (value & ~type); });
+
+    for (auto &tree : trees_) {
+        tree.translateEachNode(translator);
+    }
+
+    return *this;
+}
+
 } } // namespace vadstena::vts

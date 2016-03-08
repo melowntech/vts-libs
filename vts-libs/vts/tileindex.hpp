@@ -24,14 +24,17 @@ public:
             , meta = 0x10
             , reference = 0x20
 
-             // tile is real if it contains mesh
-             , real = mesh
+            // tile is real if it contains mesh
+            , real = mesh
 
-             // content: tile has some content
-             , content = (mesh | atlas | navtile)
+            // content: tile has some content
+            , content = (mesh | atlas | navtile)
 
-             // cannot be 0xff since it is reserved value!
+            // cannot be 0xff since it is reserved value!
             , any = 0x7f
+
+            // no flag set
+            , none = 0x00
         };
 
         static bool isReal(value_type flags) { return (flags & real); };
@@ -196,6 +199,10 @@ public:
     /** Ensures that quad-tree comdition is met: every tile has its sibling.
      */
     TileIndex& round(Flag::value_type type = Flag::any);
+
+    /** Unsets every occurence of given flag(s).
+     */
+    TileIndex& unset(Flag::value_type type = Flag::none);
 
 private:
     QTree* tree(Lod lod, bool create = false);

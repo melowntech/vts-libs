@@ -143,6 +143,8 @@ struct Storage::Detail
 
     TileSet open(const TilesetId &tilesetId) const;
 
+    TileSet open(const Glue &glue) const;
+
     void add(const TileSet &tileset, const Location &where
              , const StoredTileset &tilesetInfo
              , const TileFilter &filter);

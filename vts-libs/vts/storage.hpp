@@ -158,6 +158,18 @@ public:
      */
     Glue::map glues() const;
 
+    /** Return list of tileset's glues (glues that have given tileset at the top
+     *  of the stack).
+     */
+    Glue::list glues(const TilesetId &tilesetId) const;
+
+    /** Return list of tileset's glues (glues that have given tileset at the top
+     *  of the stack).
+     */
+    Glue::list glues(const TilesetId &tilesetId
+                     , const std::function<bool(const Glue::Id&)> &filter)
+        const;
+
     bool externallyChanged() const;
 
     std::time_t lastModified() const;
@@ -168,7 +180,15 @@ public:
 
     const StorageProperties& getProperties() const;
 
+    const registry::ReferenceFrame& referenceFrame() const;
+
     TileSet open(const TilesetId &tilesetId) const;
+
+    TileSet open(const Glue &glue) const;
+
+    boost::filesystem::path path(const TilesetId &tilesetId) const;
+
+    boost::filesystem::path path(const Glue &glue) const;
 
     /** Generates map configuration for this storage.
      */

@@ -399,6 +399,23 @@ TileSet Storage::open(const TilesetId &tilesetId) const
     return detail().open(tilesetId);
 }
 
+TileSet Storage::Detail::open(const Glue &glue) const
+{
+    if (!properties.hasGlue(glue.id)) {
+        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+            << "Glue <" << utility::join(glue.id, ",")
+            << "> not found in storage "
+            << root << ".";
+    }
+
+    return openTileSet(storage_paths::gluePath(root, glue));
+}
+
+TileSet Storage::open(const Glue &glue) const
+{
+    return detail().open(glue);
+}
+
 std::time_t Storage::lastModified() const
 {
     return detail().lastModified;
@@ -412,6 +429,11 @@ boost::filesystem::path Storage::path() const
 const StorageProperties& Storage::getProperties() const
 {
     return detail().properties;
+}
+
+const registry::ReferenceFrame& Storage::referenceFrame() const
+{
+    return detail().referenceFrame;
 }
 
 TilesetIdList tilesetIdList(const StoredTileset::list &tilesets)
@@ -444,6 +466,62 @@ GlueIndices buildGlueIndices(const TilesetIdList &world, const Glue::Id &id)
         }
     }
     return indices;
+}
+
+Glue::list Storage::glues(const TilesetId &tilesetId) const
+{
+    Glue::list glues;
+
+    for (const auto &item : detail().properties.glues) {
+        const auto &glue(item.second);
+        if (glue.id.back() == tilesetId) {
+            glues.push_back(glue);
+        }
+    }
+
+    return glues;
+}
+
+Glue::list
+Storage::glues(const TilesetId &tilesetId
+               , const std::function<bool(const Glue::Id&)> &filter) const
+{
+    Glue::list glues;
+
+    for (const auto &item : detail().properties.glues) {
+        const auto &glue(item.second);
+        if (glue.id.back() == tilesetId) {
+            if (!filter(glue.id)) { continue; }
+            glues.push_back(glue);
+        }
+    }
+
+    return glues;
+}
+
+boost::filesystem::path Storage::path(const TilesetId &tilesetId) const
+{
+    const auto &root(detail().root);
+    if (!detail().properties.hasTileset(tilesetId)) {
+        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+            << "Tileset <" << tilesetId << "> not found in storage "
+            << root << ".";
+    }
+
+    return storage_paths::tilesetPath(root, tilesetId);
+}
+
+boost::filesystem::path Storage::path(const Glue &glue) const
+{
+    const auto &root(detail().root);
+    if (!detail().properties.hasGlue(glue.id)) {
+        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+            << "Glue <" << utility::join(glue.id, ",")
+            << "> not found in storage "
+            << root << ".";
+    }
+
+    return storage_paths::gluePath(root, glue);
 }
 
 } } // namespace vadstena::vts

@@ -108,6 +108,11 @@ bool Driver::readOnly() const
     return readOnly_;
 }
 
+void Driver::readOnly(bool value)
+{
+    readOnly_ = value;
+}
+
 void Driver::wannaWrite(const std::string &what) const
 {
     if (readOnly()) {

@@ -545,4 +545,66 @@ MetaTile::extents_type MetaTile::validExtents() const
                         , origin_.y + valid_.ur(1));
 }
 
+MetaTile::References MetaTile::makeReferences() const
+{
+    return References(size_ * size_, 0);
+}
+
+void MetaTile::update(const MetaTile &in, References *references
+                      , int surfaceIndex)
+{
+    // sanity check
+    if ((origin_ != in.origin_) || (binaryOrder_ != in.binaryOrder_)) {
+        LOGTHROW(err1, storage::Error)
+            << "Incompatible metatiles.";
+    }
+
+    for (auto j(in.valid_.ll(1)); j <= in.valid_.ur(1); ++j) {
+        for (auto i(in.valid_.ll(0)); i <= in.valid_.ur(0); ++i) {
+            // first, skip real output tiles
+            auto idx(j * in.size_ + i);
+            auto &outn(grid_[idx]);
+            if (outn.real()) { continue; }
+
+            // get input stuff
+            const auto &inn(in.grid_[idx]);
+            point_type gi(i, j);
+
+            // check for reference
+            if (auto reference = inn.reference()) {
+                // we have reference, store if we can
+                if (references) {
+                    if (auto &outr = (*references)[idx]) {
+                        // unset output references -> store
+                        outr = reference;
+                    }
+                }
+                continue;
+            }
+
+            // check for tileset skip
+            if (references && surfaceIndex
+                && ((*references)[idx] != surfaceIndex))
+             {
+                 // skip
+                 continue;
+            }
+
+            // update valid extents
+            math::update(valid_, gi);
+
+            if (inn.real()) {
+                // found new real tile, copy node and we are done here
+                outn = inn;
+                continue;
+            }
+
+            // virtual node
+
+            // just update extents
+            outn.mergeExtents(inn);
+        }
+    }
+}
+
 } } // namespace vadstena::vts
