@@ -32,6 +32,7 @@ public:
     struct EnhancedInfo {
         Driver::pointer driver;
         tileset::Index tsi;
+        std::string name;
     };
 
     struct TileSetInfo : EnhancedInfo {

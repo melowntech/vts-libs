@@ -180,6 +180,7 @@ const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
 {
     auto trySet([&](const EnhancedInfo &info) -> const EnhancedInfo*
     {
+        LOG(debug) << "Trying set <" << info.name << ">.";
         if (info.tsi.real(tileId)) {
             return &info;
         }
@@ -195,15 +196,18 @@ const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
             if (const auto *result = trySet(glue)) {
                 return GlueResult(result, 0);
             } if (auto reference = glue.tsi.getReference(tileId)) {
-                LOG(info2) << "Redirected to <" << glue.id[reference] << ">.";
+                LOG(debug)
+                    << "Redirected to <" << glue.id[reference - 1]
+                    << ">.";
                 return GlueResult(nullptr, glue.indices[reference - 1] + 1);
             }
         }
+
         return GlueResult(nullptr, -1);
     });
 
-    for (std::size_t idx(tsil.size()); idx; --idx) {
-        const auto &tsi(tsil[idx - 1]);
+    for (std::size_t idx(tsil.size()); idx;) {
+        const auto &tsi(tsil[--idx]);
 
         // try glues first
         const EnhancedInfo *glueResult;
@@ -260,11 +264,14 @@ AggregatedDriver::buildTilesetInfo() const
         // open tileset
         tsi.driver = Driver::open(storage_.path(tsi.tilesetId));
         tileset::loadTileSetIndex(tsi.tsi, *tsi.driver);
+        tsi.name = tsi.tilesetId;
 
         // open glues
         for (auto &glue : tsi.glues) {
             glue.driver = Driver::open(storage_.path(glue));
             tileset::loadTileSetIndex(glue.tsi, *glue.driver);
+            glue.name = boost::lexical_cast<std::string>
+                (utility::join(glue.id, ","));
         }
     }
 
