@@ -102,6 +102,7 @@ void updateRanges(TileSet::Properties &out, const TileSet::Properties &in)
 
 typedef AggregatedDriver::TileSetInfo TileSetInfo;
 typedef TileSetInfo::GlueInfo GlueInfo;
+typedef AggregatedDriver::EnhancedInfo EnhancedInfo;
 
 class StringIStream : public vs::IStream {
 public:
@@ -126,21 +127,6 @@ private:
 };
 
 
-// auto tryGlues([&](const GlueInfo::list &glues) -> int
-// {
-//     for (const auto &glue : glues) {
-//         if (applyMetatile) {
-//             return 0;
-//         } if (auto reference = glue.tsi.getReference(tileId)) {
-//             LOG(info2) << "Redirected to <" << glue.id[reference] << ">.";
-//             // TODO: make proper index!
-//             return reference + 1;
-//             // return glue.indices[reference - 1] + 1;
-//         }
-//     }
-//     return -1;
-// });
-
 IStream::pointer
 buildMeta(const TileSetInfo::list &tsil, const fs::path &root
           , const registry::ReferenceFrame &referenceFrame
@@ -162,14 +148,16 @@ buildMeta(const TileSetInfo::list &tsil, const fs::path &root
     for (std::size_t idx(tsil.size()); idx; --idx) {
         const auto &tsi(tsil[idx - 1]);
         for (const auto &gi : tsi.glues) {
-            if (!gi.tsi.check(tileId, TileFile::meta)) { continue; }
-
             // apply metatile from glue
-            ometa.update(loadMeta(tileId, gi.driver), references, idx);
+            if (gi.tsi.check(tileId, TileFile::meta)) {
+                ometa.update(loadMeta(tileId, gi.driver), references, idx);
+            }
         }
 
         // apply metatile from tileset
-        ometa.update(loadMeta(tileId, tsi.driver), references, idx);
+        if (tsi.tsi.check(tileId, TileFile::meta)) {
+            ometa.update(loadMeta(tileId, tsi.driver), references, idx);
+        }
     }
 
     // create stream and serialize metatile
@@ -187,28 +175,57 @@ buildMeta(const TileSetInfo::list &tsil, const fs::path &root
     return s;
 }
 
-IStream::pointer
-findMesh(const TileSetInfo::list &tsil, const fs::path &root
-         , const TileId &tileId)
+const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
+                                , const TileId &tileId)
 {
-    (void) tsil; (void) tileId; (void) root;
-    throw std::runtime_error("not-implemented-yet");
-}
+    auto trySet([&](const EnhancedInfo &info) -> const EnhancedInfo*
+    {
+        if (info.tsi.real(tileId)) {
+            return &info;
+        }
 
-IStream::pointer
-findAtlas(const TileSetInfo::list &tsil, const fs::path &root
-          , const TileId &tileId)
-{
-    (void) tsil; (void) tileId; (void) root;
-    throw std::runtime_error("not-implemented-yet");
-}
+        return nullptr;
+    });
 
-IStream::pointer
-findNavtile(const TileSetInfo::list &tsil, const fs::path &root
-            , const TileId &tileId)
-{
-    (void) tsil; (void) tileId; (void) root;
-    throw std::runtime_error("not-implemented-yet");
+    typedef std::tuple<const EnhancedInfo*, int> GlueResult;
+
+    auto tryGlues([&](const GlueInfo::list &glues) -> GlueResult
+    {
+        for (const auto &glue : glues) {
+            if (const auto *result = trySet(glue)) {
+                return GlueResult(result, 0);
+            } if (auto reference = glue.tsi.getReference(tileId)) {
+                LOG(info2) << "Redirected to <" << glue.id[reference] << ">.";
+                return GlueResult(nullptr, glue.indices[reference - 1] + 1);
+            }
+        }
+        return GlueResult(nullptr, -1);
+    });
+
+    for (std::size_t idx(tsil.size()); idx; --idx) {
+        const auto &tsi(tsil[idx - 1]);
+
+        // try glues first
+        const EnhancedInfo *glueResult;
+        int reference;
+        std::tie(glueResult, reference) = tryGlues(tsi.glues);
+
+        if (glueResult) {
+            // found tile in one of glues
+            return glueResult;
+        } else if (reference > 0) {
+            // found reference in one of glues -> redirect
+            idx = reference;
+        } else {
+            // nothing found in glues, try tileset itself
+            if (const auto *result = trySet(tsi)) {
+                return result;
+            }
+        }
+    }
+
+    // nothing found
+    return nullptr;
 }
 
 } // namespace
@@ -366,30 +383,22 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
                                               , TileFile type)
     const
 {
-    /* TODO:
-     *  * determine the file to return:
-     *    * metatile -> join all metatiles
-     *    * mesh/atlas/navtile: select metatile
-     */
-
     if (!tsi_.check(tileId, type)) {
         LOGTHROW(err1, vs::NoSuchFile)
             << "There is no " << type << " for " << tileId << ".";
     }
 
-    switch (type) {
-    case TileFile::meta:
+    if (type == TileFile::meta) {
         return buildMeta(tilesetInfo_, root(), referenceFrame_
                          , configStat().lastModified, tileId);
-    case TileFile::mesh:
-        return findMesh(tilesetInfo_, root(), tileId);
-    case TileFile::atlas:
-        return findAtlas(tilesetInfo_, root(), tileId);
-    case TileFile::navtile:
-        return findNavtile(tilesetInfo_, root(), tileId);
     }
 
-    // never reached
+    if (const auto *tsi = findTileSet(tilesetInfo_, tileId)) {
+        return tsi->driver->input(tileId, type);
+    }
+
+    LOGTHROW(err1, vs::NoSuchFile)
+        << "There is no " << type << " for " << tileId << ".";
     throw;
 }
 

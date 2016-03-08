@@ -564,11 +564,15 @@ void MetaTile::update(const MetaTile &in, References &references
             // first, skip real output tiles
             auto idx(j * in.size_ + i);
             auto &outn(grid_[idx]);
-            if (outn.real()) { continue; }
 
-            // get input stuff
+            // get input
             const auto &inn(in.grid_[idx]);
-            point_type gi(i, j);
+
+            if (outn.real()) {
+                // we need to update child flags!
+                outn.flags(outn.flags() | inn.childFlags());
+                continue;
+            }
 
             // check for reference
             if (auto reference = inn.reference()) {
@@ -589,7 +593,7 @@ void MetaTile::update(const MetaTile &in, References &references
             }
 
             // update valid extents
-            math::update(valid_, gi);
+            math::update(valid_, point_type(i, j));
 
             if (inn.real()) {
                 // found new real tile, copy node and we are done here

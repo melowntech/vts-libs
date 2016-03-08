@@ -145,11 +145,22 @@ struct Glue {
 /** Tileset with its glues.
  */
 struct TileSetGlues {
+    struct EnhancedGlue : Glue {
+        template <typename ...Args>
+        EnhancedGlue(Args &&...args) : Glue(std::forward<Args>(args)...) {}
+
+        typedef std::vector<int> Indices;
+        Indices indices;
+
+        typedef std::vector<EnhancedGlue> list;
+    };
+
     TilesetId tilesetId;
-    Glue::list glues;
+
+    EnhancedGlue::list glues;
 
     TileSetGlues(const TilesetId &tilesetId, const Glue::list glues)
-        : tilesetId(tilesetId), glues(glues) {}
+        : tilesetId(tilesetId), glues(glues.begin(), glues.end()) {}
 
     typedef std::vector<TileSetGlues> list;
 };

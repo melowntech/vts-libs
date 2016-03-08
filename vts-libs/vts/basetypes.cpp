@@ -144,6 +144,10 @@ TileSetGlues::list glueOrder(const TileSetGlues::list &in)
         }
     }
 
+    // build tileset stack
+    TilesetIdList stack;
+    for (const auto &tsg : in) { stack.push_back(tsg.tilesetId); }
+
     TileSetGlues::list out;
 
     for (const auto &tsg : in) {
@@ -175,6 +179,28 @@ TileSetGlues::list glueOrder(const TileSetGlues::list &in)
         out.push_back(tsg);
         std::sort(out.back().glues.begin(), out.back().glues.end()
                   , compareGlues);
+
+        for (auto &glue : out.back().glues) {
+            std::size_t i(0);
+            for (const auto &id : glue.id) {
+                if (i >= stack.size()) {
+                    LOGTHROW(err2, vadstena::storage::Error)
+                        << "Glue <" << utility::join(id, ", ")
+                        << "> doesn't belong into tileset stack stack <"
+                        << utility::join(stack, ",") << ">.";
+                }
+
+                while (i < stack.size()) {
+                    if (stack[i] == id) {
+                        glue.indices.push_back(i);
+                        ++i;
+                        break;
+                    } else {
+                        ++i;
+                    }
+                }
+            }
+        }
     }
 
     return out;

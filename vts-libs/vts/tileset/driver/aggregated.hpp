@@ -27,18 +27,22 @@ public:
 
     virtual ~AggregatedDriver();
 
-    struct TileSetInfo {
-        struct GlueInfo : Glue {
-            GlueInfo(const Glue &glue) : Glue(glue) {}
-            Driver::pointer driver;
-            tileset::Index tsi;
+    /** Base class for tileset and glue info.
+     */
+    struct EnhancedInfo {
+        Driver::pointer driver;
+        tileset::Index tsi;
+    };
+
+    struct TileSetInfo : EnhancedInfo {
+        struct GlueInfo : TileSetGlues::EnhancedGlue, EnhancedInfo {
+            GlueInfo(const TileSetGlues::EnhancedGlue &glue)
+                : EnhancedGlue(glue) {}
 
             typedef std::vector<GlueInfo> list;
         };
 
         TilesetId tilesetId;
-        Driver::pointer driver;
-        tileset::Index tsi;
 
         GlueInfo::list glues;
 

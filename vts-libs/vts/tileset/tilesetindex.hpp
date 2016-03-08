@@ -24,12 +24,21 @@ struct Index {
 
     bool check(const TileId &tileId, TileFile type) const;
 
+    bool real(const TileId &tileId) const;
+
     int getReference(const TileId &tileId) const;
 };
 
 void loadTileSetIndex(Index &tsi, Driver &driver);
 
 void saveTileSetIndex(const Index &tsi, Driver &driver);
+
+// inlines
+
+inline bool Index::real(const TileId &tileId) const
+{
+    return check(tileId, TileFile::mesh);
+}
 
 } } } // namespace vadstena::vts::tileset
 
