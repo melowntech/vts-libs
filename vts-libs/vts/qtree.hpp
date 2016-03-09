@@ -93,6 +93,14 @@ public:
     template <typename FilterOp>
     void simplify(const FilterOp &filter);
 
+    /** Incorporates another tree into this one.
+     *
+     * \param other tree to combine with
+     * \param combiner functor taking two node values and returning new value
+     */
+    template <typename Combiner>
+    void combine(const QTree &other, const Combiner &combiner);
+
 private:
     /** Re-calculates number of non-zero elements.
      */
@@ -173,6 +181,12 @@ private:
             if (children) { return Type::gray; }
             return filter(value) ? Type::white : Type::black;
         }
+
+        /** Combines other node into this one.
+         *  Can result in node split.
+         */
+        template <typename Combiner>
+        void combine(const Node &other, const Combiner &combiner);
     };
 
     unsigned int order_;
@@ -508,6 +522,62 @@ bool QTree::Node::find(const FilterOp &filter) const
     }
 
     return filter(value);
+}
+
+template <typename Combiner>
+void QTree::combine(const QTree &other, const Combiner &combiner)
+{
+    root_.combine(other.root_, combiner);
+    recount();
+}
+
+template <typename Combiner>
+void QTree::Node::combine(const Node &other, const Combiner &combiner)
+{
+    if (children) {
+        // inner node
+        if (other.children) {
+            // also inner node: descend in both trees
+            children->nodes[0].combine(other.children->nodes[0], combiner);
+            children->nodes[1].combine(other.children->nodes[1], combiner);
+            children->nodes[2].combine(other.children->nodes[2], combiner);
+            children->nodes[3].combine(other.children->nodes[3], combiner);
+
+            contract();
+            return;
+        }
+
+        // leaf node: virtually split and descend
+        children->nodes[0].combine(other, combiner);
+        children->nodes[1].combine(other, combiner);
+        children->nodes[2].combine(other, combiner);
+        children->nodes[3].combine(other, combiner);
+
+        contract();
+        return;
+    }
+
+
+    // leaf node
+    if (other.children) {
+        // inner node: we to physically split this node
+        children.reset(new Children(value));
+
+        // and descend
+        children->nodes[0].combine(other.children->nodes[0], combiner);
+        children->nodes[1].combine(other.children->nodes[1], combiner);
+        children->nodes[2].combine(other.children->nodes[2], combiner);
+        children->nodes[3].combine(other.children->nodes[3], combiner);
+
+        contract();
+        return;
+    }
+
+
+    // leafs finally meet together
+    value = combiner(value, other.value);
+
+    // nothing to contract here since we are at a leaf :)
 }
 
 } } // namespace vadstena::vts

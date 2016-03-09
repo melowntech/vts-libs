@@ -301,6 +301,25 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     properties.tileRange = TileRange(math::InvalidExtents{});
     properties.lodRange = LodRange::emptyRange();
 
+    auto combiner([&](TileIndex::Flag::value_type o
+                      , TileIndex::Flag::value_type n)
+                  -> TileIndex::Flag::value_type
+    {
+        if (o & TileIndex::Flag::real) {
+            // already occupied by existing tile
+            return o;
+        }
+
+        // TODO: properly process reference in the future
+        if (n & TileIndex::Flag::reference) {
+            // this is a reference tile -> ignore
+            return TileIndex::Flag::none;
+        }
+
+        // new tile data (whatever it is)
+        return n;
+    });
+
     // compose tile index and other properties
     TileIndex &ti(tsi_.tileIndex);
 
@@ -312,11 +331,11 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
         // TODO: we have to verify that this stuff generates proper tile index!
         for (const auto &glue : tsg.glues) {
             LOG(info2) << "    adding glue: " << glue.name;
-            ti = unite(ti, glue.tsi.tileIndex);
+            ti.combine(glue.tsi.tileIndex, combiner);
         }
 
         const auto tsProp(tileset::loadConfig(*tsg.driver));
-        ti = unite(ti, tsg.tsi.tileIndex);
+        ti.combine(tsg.tsi.tileIndex, combiner);
 
         // unite referenced registry entities
         unite(properties.credits, tsProp.credits);

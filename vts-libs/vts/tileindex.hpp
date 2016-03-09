@@ -204,6 +204,9 @@ public:
      */
     TileIndex& unset(Flag::value_type type = Flag::none);
 
+    template <typename Combiner>
+    TileIndex& combine(const TileIndex &other, Combiner &combiner);
+
 private:
     QTree* tree(Lod lod, bool create = false);
 
@@ -336,6 +339,21 @@ inline TileIndex::TileIndex(LodRange lodRange, const TileIndex &other
 
         fill(lod, other, filter);
     }
+}
+
+template <typename Combiner>
+TileIndex& TileIndex::combine(const TileIndex &other
+                              , Combiner &combiner)
+{
+    // process all lods from the input
+    auto lod(other.minLod());
+    for (const auto &input : other.trees()) {
+        // tree for this LOD is created if non-existent
+        tree(lod++, true)->combine(input, combiner);
+    }
+
+    // done
+    return *this;
 }
 
 } } // namespace vadstena::vts
