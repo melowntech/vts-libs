@@ -205,7 +205,7 @@ public:
     TileIndex& unset(Flag::value_type type = Flag::none);
 
     template <typename Combiner>
-    TileIndex& combine(const TileIndex &other, Combiner &combiner);
+    TileIndex& combine(const TileIndex &other, const Combiner &combiner);
 
 private:
     QTree* tree(Lod lod, bool create = false);
@@ -343,7 +343,7 @@ inline TileIndex::TileIndex(LodRange lodRange, const TileIndex &other
 
 template <typename Combiner>
 TileIndex& TileIndex::combine(const TileIndex &other
-                              , Combiner &combiner)
+                              , const Combiner &combiner)
 {
     // process all lods from the input
     auto lod(other.minLod());

@@ -568,12 +568,6 @@ void MetaTile::update(const MetaTile &in, References &references
             // get input
             const auto &inn(in.grid_[idx]);
 
-            if (outn.real()) {
-                // we need to update child flags!
-                outn.flags(outn.flags() | inn.childFlags());
-                continue;
-            }
-
             // check for reference
             if (auto reference = inn.reference()) {
                 // we have reference, store if we can
@@ -589,6 +583,12 @@ void MetaTile::update(const MetaTile &in, References &references
             auto storedReference(references[idx]);
             if (storedReference && (storedReference != surfaceIndex)) {
                 // valid stored reference differes from current index -> skip
+                continue;
+            }
+
+            if (outn.real()) {
+                // we need to update child flags!
+                outn.flags(outn.flags() | inn.childFlags());
                 continue;
             }
 
