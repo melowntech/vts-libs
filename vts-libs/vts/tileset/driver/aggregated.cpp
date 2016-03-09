@@ -266,12 +266,15 @@ AggregatedDriver::buildTilesetInfo() const
         tileset::loadTileSetIndex(tsi.tsi, *tsi.driver);
         tsi.name = tsi.tilesetId;
 
+        LOG(debug) << "    <" << tsi.name << ">";
+
         // open glues
         for (auto &glue : tsi.glues) {
             glue.driver = Driver::open(storage_.path(glue));
             tileset::loadTileSetIndex(glue.tsi, *glue.driver);
             glue.name = boost::lexical_cast<std::string>
                 (utility::join(glue.id, ","));
+            LOG(debug) << "        <" << glue.name << ">";
         }
     }
 

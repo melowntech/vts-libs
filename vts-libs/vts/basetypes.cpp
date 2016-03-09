@@ -151,7 +151,7 @@ TileSetGlues::list glueOrder(const TileSetGlues::list &in)
     TileSetGlues::list out;
 
     for (const auto &tsg : in) {
-        auto compareGlues([&](const Glue &l, const Glue &r) -> bool
+        auto compareGlues([&](const Glue &l, const Glue &r)-> bool
         {
             auto lr(boost::adaptors::reverse(l.id));
             auto rr(boost::adaptors::reverse(r.id));
@@ -163,9 +163,9 @@ TileSetGlues::list glueOrder(const TileSetGlues::list &in)
                 auto lc(alphabet[*lrb++]);
                 auto rc(alphabet[*rrb++]);
 
-                if (rc < lc) {
+                if (lc < rc) {
                     return true;
-                } else if (lc < rc) {
+                } else if (rc < lc) {
                     return false;
                 }
                 // same character at the same position -> next one
