@@ -14,8 +14,11 @@ namespace vadstena { namespace vts {
 class TileIndex {
 public:
     struct Flag {
-        typedef std::uint8_t value_type;
+        typedef std::uint32_t value_type;
 
+        /** NB: we can use only 7 since only byte from value is serialized and
+         *  0xff has special meaning.
+         */
         enum : value_type {
             mesh = 0x01
             , watertight = 0x02

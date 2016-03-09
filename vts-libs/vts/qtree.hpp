@@ -17,7 +17,7 @@ namespace vadstena { namespace vts {
 
 class QTree {
 public:
-    typedef std::uint8_t value_type;
+    typedef std::uint32_t value_type;
 
     QTree(unsigned int order = 0, value_type value = 0);
 

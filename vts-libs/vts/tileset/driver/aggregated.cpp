@@ -234,79 +234,6 @@ const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
     return nullptr;
 }
 
-/** Stores references that have to be erased from tile index before processing.
- *
- * TODO: make better -- this may still fail if there are two reference skips
- * for one tile like this:
- *
- *      A----------->D
- *          B--->C
- *
- * In this case we store result of C instead of D.
- *
- * Solution: single tile index which contains global tileset reference.
- * Obstacle: tile index can hold values of 8 bits only
- */
-class ReferenceEraser {
-public:
-    void apply(int idx, TileIndex &ti) {
-        LOG(info2) << "    applying tileset " << idx << ".";
-        auto feraser(eraser_.find(idx));
-        if (feraser == eraser_.end()) { return; }
-
-        // erase filter
-        auto filter([&](TileIndex::Flag::value_type value
-                        , TileIndex::Flag::value_type erase)
-                    -> TileIndex::Flag::value_type
-        {
-            if (erase && (value & TileIndex::Flag::reference)) {
-                // tile marked as reference and should be removed here -> remove
-                return 0;
-            }
-
-            // otherwise keep value
-            return value;
-        });
-
-        ti.combine(feraser->second, filter);
-        eraser_.erase(feraser);
-    };
-
-    void remember(const GlueInfo &gi) {
-        for (int localIndex(1), le(gi.indices.size());
-             localIndex <= le; ++localIndex)
-        {
-            auto globalIndex(gi.indices[localIndex - 1]);
-
-            auto feraser(eraser_.find(globalIndex));
-            if (feraser == eraser_.end()) {
-                feraser = eraser_.insert(Eraser::value_type(globalIndex, {}))
-                    .first;
-            }
-
-            // combine tile indices
-            auto filter([&](TileIndex::Flag::value_type o
-                            , TileIndex::Flag::value_type n)
-                        -> TileIndex::Flag::value_type
-            {
-                return (o || (n == localIndex));
-            });
-
-            feraser->second.combine(gi.tsi.references, filter);
-
-            LOG(info2) << "ReferenceEraser remember(<" << gi.name << ">): "
-                       << localIndex << "(<"
-                       << gi.id[localIndex - 1]
-                       << ">) -> " << globalIndex << ": total count: "
-                       << feraser->second.count() << ".";
-        }
-    }
-
-private:
-    typedef std::map<int, TileIndex> Eraser;
-    Eraser eraser_;
-};
-
 } // namespace
 
 AggregatedDriver::TileSetInfo::list
@@ -379,37 +306,79 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     properties.tileRange = TileRange(math::InvalidExtents{});
     properties.lodRange = LodRange::emptyRange();
 
-    auto combiner([&](TileIndex::Flag::value_type o
-                      , TileIndex::Flag::value_type n)
-                  -> TileIndex::Flag::value_type
-    {
-        if (o & (TileIndex::Flag::real | TileIndex::Flag::reference)) {
-            // already occupied by existing tile or non-removed reference
-            return o;
-        }
-
-        // new tile data (whatever it is)
-        return n;
-    });
-
     // compose tile index and other properties
     TileIndex &ti(tsi_.tileIndex);
-    ReferenceEraser eraser;
+
+    auto addFlags([](TileIndex::Flag::value_type &value
+                   , TileIndex::Flag::value_type flags)
+    {
+        value &= 0xffff0000u;
+        value |= (flags & 0xff);
+    });
+
+    auto getFlags([](TileIndex::Flag::value_type value)
+    {
+        return (value & 0xff);
+    });
+
+    auto addIdx([](TileIndex::Flag::value_type &value
+                   , TileIndex::Flag::value_type idx)
+    {
+        value &= 0x0000ffffu;
+        value |= (idx << 16);
+    });
+
+    auto getIdx([](TileIndex::Flag::value_type value)
+    {
+        return (value >> 16);
+    });
 
     bool first(true);
-    for (std::size_t idx(tilesetInfo_.size()); idx; ) {
-        const auto &tsg(tilesetInfo_[--idx]);
-        const auto &tilesetId(tsg.tilesetId);
-        LOG(info2) << "Adding tileset <" << tilesetId << ">.";
+    for (std::size_t idx(tilesetInfo_.size()); idx; --idx) {
+        auto combiner([&](TileIndex::Flag::value_type o
+                          , TileIndex::Flag::value_type n)
+                      -> TileIndex::Flag::value_type
+        {
+            if (o & TileIndex::Flag::real) {
+                // already occupied by existing tile
+                return o;
+            }
 
-        // make room for referenced entities before any processing
-        eraser.apply(idx, ti);
+            if (auto reference = getIdx(o)) {
+                // we have valid reference here
+                if (reference != idx) {
+                    // but it is not what we should use
+                    return o;
+                }
+            }
+
+            // ok, store flags (whatever they are) inside the value and return
+            // them
+            addFlags(o, n);
+            return o;
+        });
+
+        const auto &tsg(tilesetInfo_[idx - 1]);
+        const auto &tilesetId(tsg.tilesetId);
+        LOG(info2) << "Adding tileset <" << tilesetId << "> (" << idx << ").";
 
         for (const auto &glue : tsg.glues) {
             LOG(info2) << "    adding glue: " << glue.name;
             // remember references to be applied when referenced tileset is
             // processed
-            eraser.remember(glue);
+            auto storeReferences([&](TileIndex::Flag::value_type o
+                                     , TileIndex::Flag::value_type n)
+                                 -> TileIndex::Flag::value_type
+            {
+                // valid reference + no real tile stored + no reference marked
+                // -> mark reference
+                if (n && !(o & TileIndex::Flag::real) && !getIdx(o)) {
+                    addIdx(o, glue.indices[n - 1] + 1);
+                }
+                return o;
+            });
+
+            ti.combine(glue.tsi.references, storeReferences);
             ti.combine(glue.tsi.tileIndex, combiner);
         }
 
@@ -432,8 +401,8 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
         }
     }
 
-    // remove any reference flag from tile index
-    ti.unset(TileIndex::Flag::reference);
+    // remove nonsense flags
+    ti.unset(TileIndex::Flag::reference | 0xffff0000u);
 
     // save stuff (allow write for a brief moment)
     readOnly(false);
