@@ -155,10 +155,9 @@ struct TileSet::Factory
 {
     static TileSet create(const fs::path &path
                           , const TileSet::Properties &properties
-                          , CreateMode mode)
+                          , const CloneOptions &co)
     {
-        auto driver(Driver::create(path, properties.driverOptions, mode
-                                   , properties.id));
+        auto driver(Driver::create(path, properties.driverOptions, co));
         return TileSet(driver, properties);
     }
 
@@ -294,8 +293,19 @@ struct TileSet::Factory
         if (cloneOptions.tilesetId()) {
             properties.id = *cloneOptions.tilesetId();
         }
-        auto dst(TileSet::Factory::create(path, properties
-                                          , cloneOptions.mode()));
+
+        if (cloneOptions.sameType()) {
+            if (auto driver = src.driver().clone(path, cloneOptions)) {
+                return open(driver);
+            }
+        }
+
+        // assisted cloning must be performed
+
+        // regular type
+        properties.driverOptions = driver::PlainOptions(5);
+
+        auto dst(TileSet::Factory::create(path, properties, cloneOptions));
 
         const auto reportName(str(boost::format("Cloning <%s> ")
                                   % src.detail().properties.id));
@@ -319,14 +329,18 @@ TileSet createTileSet(const boost::filesystem::path &path
 {
     TileSet::Properties tsprop(properties);
     tsprop.driverOptions = driver::PlainOptions(5);
-    return TileSet::Factory::create(path, tsprop, mode);
+    return TileSet::Factory::create
+        (path, tsprop
+         , CloneOptions().mode(mode).tilesetId(properties.id));
 }
 
 TileSet createTileSet(const boost::filesystem::path &path
                       , const TileSet::Properties &properties
                       , CreateMode mode)
 {
-    return TileSet::Factory::create(path, properties, mode);
+    return TileSet::Factory::create
+        (path, properties
+         , CloneOptions().mode(mode).tilesetId(properties.id));
 }
 
 TileSet openTileSet(const boost::filesystem::path &path)
@@ -352,9 +366,10 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
     dopts.tilesets = tilesets;
 
     // TODO: use first non-empty path element
-    TilesetId tilesetId(co.tilesetId() ? *co.tilesetId()
-                        : path.filename().string());
-    auto driver(Driver::create(path, dopts, co.mode(), tilesetId));
+    CloneOptions useCo(co);
+    if (!useCo.tilesetId()) { useCo.tilesetId(path.filename().string()); }
+
+    auto driver(Driver::create(path, dopts, useCo));
     return TileSet::Factory::open(driver);
 }
 

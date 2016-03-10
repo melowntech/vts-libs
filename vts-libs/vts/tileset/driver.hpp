@@ -10,6 +10,7 @@
 #include "../../storage/streams.hpp"
 #include "../../storage/resources.hpp"
 
+#include "../options.hpp"
 #include "./driver/options.hpp"
 
 namespace vadstena { namespace vts {
@@ -27,11 +28,20 @@ public:
 
     virtual ~Driver();
 
+    /** Creates driver for new dataset.
+     */
     static pointer create(const boost::filesystem::path &root
-                          , const boost::any &options, CreateMode mode
-                          , const TilesetId &tilesetId);
+                          , const boost::any &options
+                          , const CloneOptions &cloneOptions);
 
+    /** Opens driver for existing dataset.
+     */
     static pointer open(const boost::filesystem::path &root);
+
+    /** Creates driver for new dataset as exact copy of the original one.
+     */
+    pointer clone(const boost::filesystem::path &root
+                  , const CloneOptions &cloneOptions) const;
 
     OStream::pointer output(File type);
 
@@ -124,6 +134,9 @@ private:
         const = 0;
 
     virtual Resources resources_impl() const = 0;
+
+    virtual pointer clone_impl(const boost::filesystem::path &root
+                               , const CloneOptions &cloneOptions) const = 0;
 
     void checkRunning() const;
 
@@ -232,6 +245,13 @@ inline void Driver::drop()
 inline void Driver::flush()
 {
     return flush_impl();
+}
+
+inline Driver::pointer Driver::clone(const boost::filesystem::path &root
+                                     , const CloneOptions &cloneOptions)
+    const
+{
+    return clone_impl(root, cloneOptions);
 }
 
 } } // namespace vadstena::vts

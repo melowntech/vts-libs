@@ -16,6 +16,7 @@
 #include "./storage/lod.hpp"
 #include "./storage/range.hpp"
 
+#include "./vts/options.hpp"
 #include "./vts/tileset.hpp"
 #include "./vts/storage.hpp"
 #include "./vts/storageview.hpp"
@@ -31,35 +32,6 @@ TileSet createTileSet(const boost::filesystem::path &path
                       , CreateMode mode = CreateMode::failIfExists);
 
 TileSet openTileSet(const boost::filesystem::path &path);
-
-class CloneOptions {
-public:
-    CloneOptions()
-        : mode_(CreateMode::failIfExists)
-    {}
-
-    CreateMode mode() const { return mode_; }
-    CloneOptions& mode(CreateMode mode) { mode_ = mode; return *this; }
-
-    boost::optional<std::string> tilesetId() const {
-        return tilesetId_;
-    }
-
-    CloneOptions& tilesetId(boost::optional<std::string> tilesetId) {
-        tilesetId_ = tilesetId; return *this;
-    }
-
-    boost::optional<LodRange> lodRange() const { return lodRange_; }
-
-    CloneOptions& lodRange(const boost::optional<LodRange> &lodRange) {
-        lodRange_ = lodRange;  return *this;
-    }
-
-private:
-    CreateMode mode_;
-    boost::optional<std::string> tilesetId_;
-    boost::optional<LodRange> lodRange_;
-};
 
 TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src
                      , const CloneOptions &cloneOptions);

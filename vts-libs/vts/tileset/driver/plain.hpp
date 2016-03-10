@@ -19,7 +19,7 @@ public:
      */
     PlainDriver(const boost::filesystem::path &root
                 , const PlainOptions &options
-                , CreateMode mode, const TilesetId &tilesetId);
+                , const CloneOptions &cloneOptions);
 
     /** Opens storage.
      */
@@ -48,6 +48,10 @@ private:
     virtual FileStat stat_impl(const TileId &tileId, TileFile type) const;
 
     virtual Resources resources_impl() const;
+
+    virtual Driver::pointer
+    clone_impl(const boost::filesystem::path &root
+               , const CloneOptions &cloneOptions) const;
 
     mutable driver::Cache cache_;
 };

@@ -9,7 +9,14 @@
 
 namespace vadstena { namespace vts { namespace driver {
 
-class AggregatedDriver : public Driver {
+/** Helper class.
+ */
+struct AggregatedDriverBase {
+    AggregatedDriverBase() {}
+    AggregatedDriverBase(const CloneOptions &cloneOptions);
+};
+
+class AggregatedDriver : private AggregatedDriverBase, public Driver {
 public:
     typedef std::shared_ptr<AggregatedDriver> pointer;
 
@@ -18,12 +25,19 @@ public:
      */
     AggregatedDriver(const boost::filesystem::path &root
                      , const AggregatedOptions &options
-                     , CreateMode mode, const TilesetId &tilesetId);
+                     , const CloneOptions &cloneOptions);
 
     /** Opens storage.
      */
     AggregatedDriver(const boost::filesystem::path &root
                      , const AggregatedOptions &options);
+
+    /** Cloner
+     */
+    AggregatedDriver(const boost::filesystem::path &root
+                     , const AggregatedOptions &options
+                     , const CloneOptions &cloneOptions
+                     , const AggregatedDriver &src);
 
     virtual ~AggregatedDriver();
 
@@ -75,6 +89,9 @@ private:
     virtual FileStat stat_impl(const TileId &tileId, TileFile type) const;
 
     virtual Resources resources_impl() const;
+
+    Driver::pointer clone_impl(const boost::filesystem::path &root
+                               , const CloneOptions &cloneOptions) const;
 
     inline const AggregatedOptions& options() const {
         return Driver::options<const AggregatedOptions&>();

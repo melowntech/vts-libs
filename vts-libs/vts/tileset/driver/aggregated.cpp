@@ -52,54 +52,6 @@ void unite(registry::IdSet &out, const registry::IdSet &in)
     out.insert(in.begin(), in.end());
 }
 
-void updateRanges(TileSet::Properties &out, const TileSet::Properties &in)
-{
-    // sanity check
-    if (in.lodRange.empty()) { return; }
-
-    // first hit
-    if (out.lodRange.empty()) {
-        out.lodRange = in.lodRange;
-        out.tileRange = in.tileRange;
-        return;
-    }
-
-    if (out.lodRange.min < in.lodRange.min) {
-        // input is below current min lod
-
-        // get tile ids for input
-        auto min(tileId(in.lodRange.min, in.tileRange.ll));
-        auto max(tileId(in.lodRange.min, in.tileRange.ur));
-
-        // move input to current lod
-        min = parent(min, (in.lodRange.min - out.lodRange.min));
-        max = parent(max, (in.lodRange.min - out.lodRange.min));
-
-        // output range plus re-lodded input range
-        out.tileRange = unite
-            (out.tileRange, TileRange(point(min), point(max)));
-    } else if (in.lodRange.min < out.lodRange.min) {
-        // input is above current min lod
-
-        // get tile ids for output
-        auto min(tileId(out.lodRange.min, out.tileRange.ll));
-        auto max(tileId(out.lodRange.min, out.tileRange.ur));
-
-        // move out to new lod
-        min = parent(min, (out.lodRange.min - in.lodRange.min));
-        max = parent(max, (out.lodRange.min - in.lodRange.min));
-
-        // input range plus re-lodded output range
-        out.tileRange = unite
-            (TileRange(point(min), point(max)), in.tileRange);
-    } else {
-        out.tileRange = unite(out.tileRange, in.tileRange);
-    }
-
-    // unite ranges
-    out.lodRange = unite(out.lodRange, in.lodRange);
-}
-
 typedef AggregatedDriver::TileSetInfo TileSetInfo;
 typedef TileSetInfo::GlueInfo GlueInfo;
 typedef AggregatedDriver::EnhancedInfo EnhancedInfo;
@@ -283,17 +235,26 @@ AggregatedDriver::buildTilesetInfo() const
     return out;
 }
 
+AggregatedDriverBase::AggregatedDriverBase(const CloneOptions &cloneOptions)
+{
+    if (!cloneOptions.tilesetId()) {
+        LOGTHROW(err2, storage::NoSuchTileSet)
+            << "Attempt to create aggregated driver without providing "
+            "tilesetId.";
+    }
+}
+
 AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                                    , const AggregatedOptions &options
-                                   , CreateMode mode
-                                   , const TilesetId &tilesetId)
-    : Driver(root, options, mode)
+                                   , const CloneOptions &cloneOptions)
+    : AggregatedDriverBase(cloneOptions)
+    , Driver(root, options, cloneOptions.mode())
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , tilesetInfo_(buildTilesetInfo())
 {
     TileSet::Properties properties;
-    properties.id = tilesetId;
+    properties.id = *cloneOptions.tilesetId();
     properties.driverOptions = options;
 
     // try to get previous revision (and reuse)
@@ -389,9 +350,6 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
         unite(properties.credits, tsProp.credits);
         unite(properties.boundLayers, tsProp.boundLayers);
 
-        // join various service data
-        updateRanges(properties, tsProp);
-
         // TODO: spatial division extents
 
         // copy position from fist tileset
@@ -404,8 +362,17 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     // remove nonsense flags
     ti.unset(TileIndex::Flag::reference | 0xffff0000u);
 
+    {
+        auto stat(ti.statMask(TileIndex::Flag::mesh));
+        properties.lodRange = stat.lodRange;
+        if (properties.lodRange.empty()) {
+            properties.tileRange = TileRange(math::InvalidExtents{});
+        } else {
+            properties.tileRange = stat.tileRanges.front();
+        }
+    }
+
     // save stuff (allow write for a brief moment)
-    readOnly(false);
     tileset::saveConfig(this->root() / filePath(File::config), properties);
     tileset::saveTileSetIndex(tsi_, *this);
     readOnly(true);
@@ -419,6 +386,45 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     , tilesetInfo_(buildTilesetInfo())
 {
     tileset::loadTileSetIndex(tsi_, *this);
+}
+
+AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
+                                   , const AggregatedOptions &options
+                                   , const CloneOptions &cloneOptions
+                                   , const AggregatedDriver &src)
+    : Driver(root, options, cloneOptions.mode())
+    , storage_(this->options().storagePath, OpenMode::readOnly)
+    , referenceFrame_(storage_.referenceFrame())
+    , tilesetInfo_(buildTilesetInfo())
+{
+    // update and save properties
+    {
+        auto properties(tileset::loadConfig(src));
+        if (cloneOptions.tilesetId()) {
+            properties.id = *cloneOptions.tilesetId();
+        }
+        properties.driverOptions = options;
+        tileset::saveConfig(this->root() / filePath(File::config)
+                            , properties);
+    }
+
+    // clone tile index
+    copyFile(src.input(File::tileIndex), output(File::tileIndex));
+
+    // and load it
+    tileset::loadTileSetIndex(tsi_, *this);
+
+    // make me read-only
+    readOnly(true);
+}
+
+Driver::pointer
+AggregatedDriver::clone_impl(const boost::filesystem::path &root
+                             , const CloneOptions &cloneOptions)
+    const
+{
+    return std::make_shared<AggregatedDriver>
+        (root, options(), cloneOptions, *this);
 }
 
 AggregatedDriver::~AggregatedDriver() {}

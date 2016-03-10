@@ -65,8 +65,8 @@ boost::uuids::uuid PlainOptions::generateUuid() {
 
 PlainDriver::PlainDriver(const boost::filesystem::path &root
                          , const PlainOptions &options
-                         , CreateMode mode, const TilesetId&)
-    : Driver(root, PlainOptions(options.binaryOrder()), mode)
+                         , const CloneOptions &cloneOptions)
+    : Driver(root, PlainOptions(options.binaryOrder()), cloneOptions.mode())
     , cache_(this->root(), this->options<PlainOptions>()
              , false)
 {}
@@ -133,6 +133,14 @@ void PlainDriver::drop_impl()
 {
     // remove whole root directory
     remove_all(root());
+}
+
+Driver::pointer PlainDriver::clone_impl(const boost::filesystem::path&
+                                        , const CloneOptions&)
+    const
+{
+    // this driver cannot clone dataset by itself
+    return {};
 }
 
 } } } // namespace vadstena::vts::driver

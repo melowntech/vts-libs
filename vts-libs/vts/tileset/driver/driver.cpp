@@ -129,19 +129,18 @@ void Driver::notRunning() const
 
 Driver::pointer Driver::create(const boost::filesystem::path &root
                                , const boost::any &genericOptions
-                               , CreateMode mode
-                               , const TilesetId &tilesetId)
+                               , const CloneOptions &cloneOptions)
 {
     if (auto o = boost::any_cast<const driver::PlainOptions>
         (&genericOptions))
     {
         return std::make_shared<driver::PlainDriver>
-            (root, *o, mode, tilesetId);
+            (root, *o, cloneOptions);
     } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&genericOptions))
     {
         return std::make_shared<driver::AggregatedDriver>
-            (root, *o, mode, tilesetId);
+            (root, *o, cloneOptions);
     }
 
     LOGTHROW(err2, storage::BadFileFormat)
