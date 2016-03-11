@@ -47,7 +47,7 @@ set(flipmeshmask_SOURCES
   flipmeshmask.cpp
   )
 
-vadstena_tool(storage flipmeshmask ${flipmeshmask_SOURCES})
+#vadstena_tool(storage flipmeshmask ${flipmeshmask_SOURCES})
 
 # ------------------------------------------------------------------------
 # Helper program to fix wrong grand (to be decomissioned)
@@ -59,4 +59,4 @@ set(fixphysicalmesh_SOURCES
   fixphysicalmesh.cpp
   )
 
-vadstena_tool(storage fixphysicalmesh ${fixphysicalmesh_SOURCES})
+#vadstena_tool(storage fixphysicalmesh ${fixphysicalmesh_SOURCES})
