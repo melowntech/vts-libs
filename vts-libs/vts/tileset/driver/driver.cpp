@@ -25,6 +25,7 @@
 // drivers:
 #include "./plain.hpp"
 #include "./aggregated.hpp"
+#include "./http.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -141,6 +142,11 @@ Driver::pointer Driver::create(const boost::filesystem::path &root
     {
         return std::make_shared<driver::AggregatedDriver>
             (root, *o, cloneOptions);
+    } else if (auto o = boost::any_cast<const driver::HttpOptions>
+               (&genericOptions))
+    {
+        return std::make_shared<driver::HttpDriver>
+            (root, *o, cloneOptions);
     }
 
     LOGTHROW(err2, storage::BadFileFormat)
@@ -162,7 +168,11 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
     } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&genericOptions))
     {
-        return std::make_shared<driver::AggregatedDriver> (root, *o);
+        return std::make_shared<driver::AggregatedDriver>(root, *o);
+    } else if (auto o = boost::any_cast<const driver::HttpOptions>
+               (&genericOptions))
+    {
+        return std::make_shared<driver::HttpDriver>(root, *o);
     }
 
     LOGTHROW(err2, storage::BadFileFormat)

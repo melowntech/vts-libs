@@ -101,6 +101,10 @@ struct ReferenceFrame {
                 boost::optional<math::Extents2> n01;
                 boost::optional<math::Extents2> n10;
                 boost::optional<math::Extents2> n11;
+
+                Partitioning(PartitioningMode mode
+                             = PartitioningMode::bisection)
+                    : mode(mode) {}
             };
 
             Id id;
@@ -112,6 +116,13 @@ struct ReferenceFrame {
             typedef std::map<Id, Node> map;
 
             Node() : externalTexture(false) {}
+            Node(const Id &id) : id(id), externalTexture(false) {}
+            Node(const Id &id, PartitioningMode mode)
+                : id(id), partitioning(mode), externalTexture(false) {}
+
+            bool valid() const {
+                return (partitioning.mode != PartitioningMode::none);
+            }
         };
 
         math::Extents3 extents;
@@ -159,6 +170,8 @@ struct ReferenceFrame {
     {
         return division.findSubtreeRoot(nodeId);
     }
+
+    void invalidate(const Division::Node::Id &nodeId);
 
     /** For vts0 only:
      */
@@ -231,7 +244,9 @@ struct BoundLayer {
 
 // general I/O
 
-ReferenceFrame::dict loadReferenceFrames(std::istream &in);
+ReferenceFrame::dict loadReferenceFrames(std::istream &in
+                                         , const boost::filesystem::path &path
+                                         = "UNKNOWN");
 
 ReferenceFrame::dict loadReferenceFrames(const boost::filesystem::path &path);
 

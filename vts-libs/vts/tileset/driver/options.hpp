@@ -83,6 +83,10 @@ struct AggregatedOptions {
     TilesetIdSet tilesets;
 };
 
+struct HttpOptions {
+    std::string url;
+};
+
 // inlines
 
 inline Tilar::Options PlainOptions::tilar(unsigned int filesPerTile)

@@ -50,6 +50,11 @@ NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
 
 NodeInfo NodeInfo::child(Child childDef) const
 {
+    if (!node.valid()) {
+        LOGTHROW(err2, storage::Error)
+            << "Node " << node.id << " has no children.";
+    }
+
     // build child id from this node and index
     RFNode::Id childId(node.id);
     ++childId.lod;
@@ -89,6 +94,7 @@ NodeInfo NodeInfo::child(Child childDef) const
             << node.id << ".";
     }
 
+    // NB: this works only for manual division
     if (const auto *childNode = referenceFrame->find(childId, std::nothrow)) {
         // we have new subtree root
         return { *referenceFrame, *childNode };

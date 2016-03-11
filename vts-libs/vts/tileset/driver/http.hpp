@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileset_driver_aggregated_hpp_included_
-#define vadstena_libs_vts_tileset_driver_aggregated_hpp_included_
+#ifndef vadstena_libs_vts_tileset_driver_http_hpp_included_
+#define vadstena_libs_vts_tileset_driver_http_hpp_included_
 
 #include <set>
 #include <map>
@@ -9,37 +9,30 @@
 
 namespace vadstena { namespace vts { namespace driver {
 
-/** Helper class.
- */
-struct AggregatedDriverBase {
-    AggregatedDriverBase() {}
-    AggregatedDriverBase(const CloneOptions &cloneOptions);
-};
-
-class AggregatedDriver : private AggregatedDriverBase, public Driver {
+class HttpDriver : public Driver {
 public:
-    typedef std::shared_ptr<AggregatedDriver> pointer;
+    typedef std::shared_ptr<HttpDriver> pointer;
 
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.
      */
-    AggregatedDriver(const boost::filesystem::path &root
-                     , const AggregatedOptions &options
+    HttpDriver(const boost::filesystem::path &root
+                     , const HttpOptions &options
                      , const CloneOptions &cloneOptions);
 
     /** Opens storage.
      */
-    AggregatedDriver(const boost::filesystem::path &root
-                     , const AggregatedOptions &options);
+    HttpDriver(const boost::filesystem::path &root
+                     , const HttpOptions &options);
 
     /** Cloner
      */
-    AggregatedDriver(const boost::filesystem::path &root
-                     , const AggregatedOptions &options
+    HttpDriver(const boost::filesystem::path &root
+                     , const HttpOptions &options
                      , const CloneOptions &cloneOptions
-                     , const AggregatedDriver &src);
+                     , const HttpDriver &src);
 
-    virtual ~AggregatedDriver();
+    virtual ~HttpDriver();
 
     /** Base class for tileset and glue info.
      */
@@ -93,23 +86,13 @@ private:
     Driver::pointer clone_impl(const boost::filesystem::path &root
                                , const CloneOptions &cloneOptions) const;
 
-    inline const AggregatedOptions& options() const {
-        return Driver::options<const AggregatedOptions&>();
+    inline const HttpOptions& options() const {
+        return Driver::options<const HttpOptions&>();
     }
 
-    TileSetInfo::list buildTilesetInfo() const;
-
-    Storage storage_;
-
-    registry::ReferenceFrame referenceFrame_;
-
     tileset::Index tsi_;
-
-    /** Stuff ripe for delivery.
-     */
-    TileSetInfo::list tilesetInfo_;
 };
 
 } } } // namespace vadstena::vts::driver
 
-#endif // vadstena_libs_vts_tileset_driver_aggregated_hpp_included_
+#endif // vadstena_libs_vts_tileset_driver_http_hpp_included_

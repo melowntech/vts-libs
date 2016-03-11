@@ -190,7 +190,118 @@ void parse(ReferenceFrame &rf, const Json::Value &content)
 
 } // namespace v1
 
-void parse(ReferenceFrame::dict &rfs, const Json::Value &content)
+
+ReferenceFrame::Division::Node::Id
+child(const ReferenceFrame::Division::Node::Id &id, bool x, bool y)
+{
+    return ReferenceFrame::Division::Node::Id
+        (id.lod + 1, id.x + x, id.y + y);
+}
+
+/** Checks whether node is under root.
+ */
+bool isUnder(const ReferenceFrame::Division::Node::Id &root
+             , const ReferenceFrame::Division::Node::Id &node)
+{
+    if (node.lod <= root.lod) {
+        // not bellow LOD-wise
+        return false;
+    }
+    auto diff(node.lod - root.lod);
+
+    // check x and y transformed to root's LOD
+    if (root.x != (node.x >> diff)) { return false; }
+    if (root.y != (node.y >> diff)) { return false; }
+
+    // node is in root's subtree
+    return true;
+}
+
+void sanitize(const boost::filesystem::path &path
+              , ReferenceFrame &rf)
+{
+    typedef ReferenceFrame::Division::Node Node;
+
+    std::vector<Node::Id> invalid;
+
+    auto &div(rf.division);
+    for (const auto &item : div.nodes) {
+        const auto &id(item.first);
+        const auto &part(item.second.partitioning);
+
+        auto c00(child(id, 0, 0));
+        auto c01(child(id, 0, 1));
+        auto c10(child(id, 1, 0));
+        auto c11(child(id, 1, 1));
+
+        // find all node children
+        const auto *n00(div.find(c00, std::nothrow));
+        const auto *n01(div.find(c01, std::nothrow));
+        const auto *n10(div.find(c10, std::nothrow));
+        const auto *n11(div.find(c11, std::nothrow));
+
+        if (part.mode != PartitioningMode::manual) {
+            // bisection of nothing at all -- there must be mothing inside
+            // partitioning and no physical node
+            if (part.n00 || n00 || part.n01 || n01
+                || part.n10 || n10 || part.n11 || n11)
+            {
+                LOGTHROW(err2, storage::FormatError)
+                    << "Unable to parse reference frame file " << path
+                    << ": reference frame <" << rf.id
+                    << "> has invalid partitioning of node " << id
+                    << " (either child node or paritioning definition exists "
+                    "for non-manual node).";
+            }
+            continue;
+        }
+
+        // manual partitioning -> check that at least child node exists, every
+        // child node from partitioning exists and remember invalid children
+
+        int left(4);
+        auto check([&](const Node::Id &child, bool hasPart, bool hasNode)
+            mutable
+        {
+            if (hasPart != hasNode) {
+                LOGTHROW(err2, storage::FormatError)
+                    << "Unable to parse reference frame file " << path
+                    << ": reference frame <" << rf.id
+                    << "> has invalid partitioning of node " << id
+                    << " (mismatch in definition of child node "
+                    << child << ").";
+            }
+
+            if (!hasPart) {
+                invalid.push_back(child);
+                --left;
+            }
+        });
+
+        check(c00, part.n00, n00);
+        check(c01, part.n01, n01);
+        check(c10, part.n10, n10);
+        check(c11, part.n11, n11);
+
+        if (!left) {
+            LOGTHROW(err2, storage::FormatError)
+                << "Unable to parse reference frame file " << path
+                << ": reference frame <" << rf.id
+                << "> has invalid partitioning of node " << id
+                << " (no child node defined).";
+        }
+    }
+
+    // insert invalid nodes
+    for (const auto &id : invalid) {
+        LOG(debug) << rf.id << ": generating invalid node " << id << ".";
+        div.nodes.insert(Node::map::value_type
+                         (id, Node(id, PartitioningMode::none)));
+    }
+}
+
+void parse(const boost::filesystem::path &path
+           , ReferenceFrame::dict &rfs, const Json::Value &content)
 {
     for (const auto &element : Json::check(content, Json::arrayValue)) {
         ReferenceFrame rf;
@@ -216,6 +327,8 @@ void parse(ReferenceFrame::dict &rfs, const Json::Value &content)
                 << "Invalid reference frame file format (" << e.what()
                 << ").";
         }
+
+        sanitize(path, rf);
         rfs.add(rf);
     }
 }
@@ -312,7 +425,10 @@ void build(Json::Value &content, const ReferenceFrame::Division &division)
 
     auto &nodes(content["nodes"]);
     for (const auto &node : division.nodes) {
-        build(nodes.append(Json::nullValue), node.second);
+        // only valid nodes are serialized
+        if (node.second.valid()) {
+            build(nodes.append(Json::nullValue), node.second);
+        }
     }
 }
 
@@ -617,19 +733,20 @@ void build(Json::Value &content, const Credit::dict &credits)
 
 } // namesapce
 
-ReferenceFrame::dict loadReferenceFrames(std::istream &in)
+ReferenceFrame::dict loadReferenceFrames(std::istream &in
+                                         , const boost::filesystem::path &path)
 {
     // load json
     Json::Value content;
     Json::Reader reader;
     if (!reader.parse(in, content)) {
         LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse reference frame file: "
+            << "Unable to parse reference frame file " << path << ": "
             << reader.getFormattedErrorMessages() << ".";
     }
 
     ReferenceFrame::dict rfs;
-    parse(rfs, content);
+    parse(path, rfs, content);
     return rfs;
 }
 
@@ -644,7 +761,7 @@ ReferenceFrame::dict loadReferenceFrames(const boost::filesystem::path &path)
         LOGTHROW(err1, storage::IOError)
             << "Unable to load reference frame file file " << path << ".";
     }
-    auto rfs(loadReferenceFrames(f));
+    auto rfs(loadReferenceFrames(f, path));
     f.close();
     return rfs;
 }
@@ -865,7 +982,9 @@ std::set<std::string> ReferenceFrame::Division::srsList() const
 {
     std::set<std::string> list;
     for (const auto &item : nodes) {
-        list.insert(item.second.srs);
+        if (item.second.valid()) {
+            list.insert(item.second.srs);
+        }
     }
     return list;
 }
@@ -1287,5 +1406,26 @@ const char* guessContentType(const boost::filesystem::path &path)
 DataFile::DataFile(const boost::filesystem::path &path)
     : path(path), contentType(guessContentType(path))
 {}
+
+void ReferenceFrame::invalidate(const Division::Node::Id &nodeId)
+{
+    typedef ReferenceFrame::Division::Node Node;
+
+    auto &nodes(division.nodes);
+    for (auto inodes(nodes.begin()), enodes(nodes.end());
+         inodes != enodes; )
+    {
+        if (isUnder(nodeId, inodes->first)) {
+            // this node will be shielded by invalidated node, remove
+            inodes = nodes.erase(inodes);
+        } else {
+            // skip
+            ++inodes;
+        }
+    }
+
+    // force invalid node
+    nodes[nodeId] = Node(nodeId, PartitioningMode::none);
+}
 
 } } // namespace vadstena::registry

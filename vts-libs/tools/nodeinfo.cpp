@@ -78,6 +78,12 @@ int NodeInfo::run()
     const auto referenceFrame(vr::Registry::referenceFrame(referenceFrame_));
     vts::NodeInfo ni(referenceFrame, tileId_);
 
+    if (!ni.node.valid()) {
+        std::cout << "Node: " << tileId_ << " is not a valid node in "
+            "this division space" << std::endl;
+        return EXIT_FAILURE;
+    };
+
     std::cout << "Node: " << tileId_ << std::endl;
     std::cout << "Division SRS: " << ni.node.srs << std::endl;
     std::cout << "Division extents: "
@@ -91,7 +97,10 @@ int NodeInfo::run()
     std::cout << "Parent: " << parent(tileId_) << std::endl;
     std::cout << "Children:" << std::endl;
     for (auto child : children(tileId_)) {
-        std::cout << "    " << ni.child(child).nodeId() << std::endl;
+        auto childNode(ni.child(child));
+        if (childNode.node.valid()) {
+            std::cout << "    " << ni.child(child).nodeId() << std::endl;
+        }
     }
 
     return EXIT_SUCCESS;

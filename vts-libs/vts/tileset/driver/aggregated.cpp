@@ -1,3 +1,8 @@
+/** Aggregated driver: on the fly surface aggregator
+ *
+ * TODO: cache stuff to make it a bit faster
+ */
+
 #include <stdexcept>
 #include <limits>
 #include <type_traits>
@@ -480,22 +485,46 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
 
 FileStat AggregatedDriver::stat_impl(File type) const
 {
-    (void) type;
-    return {};
+    const auto name(filePath(type));
+    const auto path(root() / name);
+    LOG(info1) << "Statting " << path << ".";
+    return FileStat::stat(path);
 }
 
 FileStat AggregatedDriver::stat_impl(const TileId &tileId, TileFile type) const
 {
-    (void) tileId;
-    (void) type;
-    return {};
+    if (!tsi_.check(tileId, type)) {
+        LOGTHROW(err1, vs::NoSuchFile)
+            << "There is no " << type << " for " << tileId << ".";
+    }
+
+    if (type == TileFile::meta) {
+        // TODO: make better
+        return buildMeta(tilesetInfo_, root(), referenceFrame_
+                         , configStat().lastModified, tileId)->stat();
+    }
+
+    if (const auto *tsi = findTileSet(tilesetInfo_, tileId)) {
+        return tsi->driver->stat(tileId, type);
+    }
+
+    LOGTHROW(err1, vs::NoSuchFile)
+        << "There is no " << type << " for " << tileId << ".";
+    throw;
 }
 
 storage::Resources AggregatedDriver::resources_impl() const
 {
-    return {};
+    // accumulate resources
+    storage::Resources resources;
+    for (const auto &tsi : tilesetInfo_) {
+        resources += tsi.driver->resources();
+        for (const auto &glue : tsi.glues) {
+            resources += glue.driver->resources();
+        }
+    }
+    return resources;
 }
-
 
 void AggregatedDriver::flush_impl() {
     LOGTHROW(err2, storage::ReadOnlyError)

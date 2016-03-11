@@ -241,6 +241,11 @@ struct Encoder::Constraints {
      */
     const TileIndex *validTree;
 
+    /** These nodes will be invalidated in the descend tree before launching
+     *  encoding algorithm.
+     */
+    TileId::list invalidNodes;
+
     typedef std::function<math::Extents2(const std::string&)> ExtentsGenerator;
 
     /** Alternative to single extents: function to generate extents in all
@@ -255,6 +260,8 @@ struct Encoder::Constraints {
     Constraints& setValidTree(const TileIndex *value);
 
     Constraints& setExtentsGenerator(const ExtentsGenerator &value);
+
+    Constraints& setInvalidNodes(const TileId::list &value);
 
     Constraints() : useExtentsForFirstHit(true), validTree(nullptr) {}
 };
@@ -285,6 +292,13 @@ Encoder::Constraints::setExtentsGenerator
 (const Encoder::Constraints::ExtentsGenerator &value)
 {
     extentsGenerator = value;
+    return *this;
+}
+
+inline Encoder::Constraints&
+Encoder::Constraints::setInvalidNodes(const TileId::list &value)
+{
+    invalidNodes = value;
     return *this;
 }
 

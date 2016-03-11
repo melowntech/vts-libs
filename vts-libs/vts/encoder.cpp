@@ -155,6 +155,10 @@ void Encoder::Detail::setConstraints(const Constraints &c)
 {
     constraints = c;
 
+    for (const auto &tileId : c.invalidNodes) {
+        referenceFrame.invalidate(rfNodeId(tileId));
+    }
+
     if (constraints.extents) {
         for (const auto &srs : referenceFrame.division.srsList()) {
             srsExtents[srs] = CsConvertor(constraints.extents->srs, srs)
@@ -218,6 +222,9 @@ void Encoder::Detail::process(const TileId &tileId
 
         const std::string old;
     };
+
+    // skip invalid node
+    if (!nodeInfo.valid()) { return; }
 
     if (constraints.validTree && !constraints.validTree->get(tileId)) {
         // tile not in valid tree-> stop

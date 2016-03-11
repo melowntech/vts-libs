@@ -193,6 +193,7 @@ set(vts-core_SOURCES
   vts/tileset/driver/cache.hpp vts/tileset/driver/cache.cpp
   vts/tileset/driver/plain.hpp vts/tileset/driver/plain.cpp
   vts/tileset/driver/aggregated.hpp vts/tileset/driver/aggregated.cpp
+  vts/tileset/driver/http.hpp vts/tileset/driver/http.cpp
 
   vts/storage.hpp
   vts/storage/detail.hpp
@@ -227,6 +228,7 @@ define_module(LIBRARY vts-libs-core DEPENDS
   geo imgproc math utility dbglog jsoncpp half
   Boost_IOSTREAMS
   Boost_FILESYSTEM
+  CURL
   )
 
 add_library(vts-libs-core STATIC

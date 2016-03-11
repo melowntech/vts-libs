@@ -13,22 +13,22 @@ struct Resources {
         : openFiles(openFiles), memory(memory)
     {}
 
-    Resources& operator+=(Resources &o);
-    Resources& operator-=(Resources &o);
+    Resources& operator+=(const Resources &o);
+    Resources& operator-=(const Resources &o);
     bool operator<(const Resources &o) const;
     bool operator>(const Resources &o) const;
 };
 
 // inlines
 
-inline Resources& Resources::operator+=(Resources &o)
+inline Resources& Resources::operator+=(const Resources &o)
 {
     openFiles += o.openFiles;
     memory += o.memory;
     return *this;
 }
 
-inline Resources& Resources::operator-=(Resources &o)
+inline Resources& Resources::operator-=(const Resources &o)
 {
     openFiles -= o.openFiles;
     memory -= o.memory;

@@ -114,6 +114,8 @@ struct NodeInfo {
      *  children() from tileop.
      */
     NodeInfo child(Child child) const;
+
+    bool valid() const { return node.valid(); }
 };
 
 /** Checks compatibility of two nodes.
