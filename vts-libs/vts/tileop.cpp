@@ -16,6 +16,9 @@ namespace {
     const std::string MeshExt("bin");
     const std::string AtlasExt("jpg");
     const std::string NavTileExt("nav");
+    const std::string RawMeshExt("rmesh");
+    const std::string RawAtlasExt("ratlas");
+    const std::string RawNavTileExt("rnavtile");
 
     inline const std::string& extension(TileFile type) {
         switch (type) {
@@ -28,7 +31,9 @@ namespace {
         throw;
     }
 
-    inline const char* tileFile(const char *p, TileFile &type) {
+    inline const char* tileFile(const char *p, TileFile &type, bool *raw) {
+        if (raw) {*raw = false; }
+
         if (!MetaExt.compare(p)) {
             type = TileFile::meta;
             return p + MetaExt.size();
@@ -41,16 +46,35 @@ namespace {
         } else if (!NavTileExt.compare(p)) {
             type = TileFile::navtile;
             return p + NavTileExt.size();
+        } else if (!raw) {
+            return nullptr;
         }
+
+        // raw part follows
+        if (!RawMeshExt.compare(p)) {
+            type = TileFile::mesh;
+            *raw = true;
+            return p + RawMeshExt.size();
+        } else  if (!RawAtlasExt.compare(p)) {
+            type = TileFile::atlas;
+            *raw = true;
+            return p + RawAtlasExt.size();
+        } else  if (!RawNavTileExt.compare(p)) {
+            type = TileFile::navtile;
+            *raw = true;
+            return p + RawNavTileExt.size();
+        }
+
         return nullptr;
     }
 
-    inline const char* tileFile(const char *p, TileFile &type, bool hasSubFile)
+    inline const char* tileFile(const char *p, TileFile &type, bool hasSubFile
+                                , bool *raw)
     {
-        auto pp(tileFile(p, type));
+        auto pp(tileFile(p, type, raw));
         if (!pp) { return pp; }
-        if (hasSubFile && (type != TileFile::atlas)) { return nullptr; }
-        if (!hasSubFile && (type == TileFile::atlas)) { return nullptr; }
+        bool mustHaveSubFile((type == TileFile::atlas) && (!raw || *raw));
+        if (hasSubFile != mustHaveSubFile) { return nullptr; }
         return pp;
     }
 }
@@ -119,7 +143,7 @@ inline const char* parsePart(const char *p, T &value)
 
 bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileFile
                   , const std::string &str
-                  , std::string::size_type offset)
+                  , std::string::size_type offset, bool *raw)
 {
     if (str.size() <= offset) { return false; }
 
@@ -144,7 +168,7 @@ bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileFile
     if (*p++ != '.') { return false; }
 
     if (!*p) { return false; }
-    auto pp(tileFile(p, type, hasSubFile));
+    auto pp(tileFile(p, type, hasSubFile, raw));
 
     if (!pp) { return false; }
     return !*pp;

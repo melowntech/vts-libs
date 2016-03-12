@@ -15,7 +15,8 @@ public:
 
     IStream::pointer input(File type) const;
 
-    IStream::pointer input(const TileId &tileId, TileFile type) const;
+    IStream::pointer input(const TileId &tileId, TileFile type
+                           , unsigned int revision) const;
 
 private:
     const std::string &rootUrl_;

@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iterator>
 
+#include <boost/format.hpp>
 #include <boost/iostreams/device/array.hpp>
 
 #include <curl/curl.h>
@@ -160,6 +161,25 @@ const std::string filePath(File type)
     throw "unknown file type";
 }
 
+const std::string remotePath(const TileId &tileId, TileFile type
+                             , unsigned int revision)
+{
+    const char *ext([&]() -> const char*
+    {
+        switch (type) {
+        case TileFile::meta: return ".meta";
+        case TileFile::mesh: return ".rmesh";
+        case TileFile::atlas: return ".ratlas";
+        case TileFile::navtile: return ".rnavtile";
+        default: throw "Unexpected TileFile value. Go fix your program.";
+        }
+        throw;
+    }());
+
+    return str(boost::format("%d-%d-%d%s?%d")
+               % tileId.lod % tileId.x % tileId.y % ext % revision);
+}
+
 IStream::pointer fetchAsStream(::CURL *handle
                                , const std::string rootUrl
                                , const std::string &filename
@@ -191,9 +211,9 @@ IStream::pointer fetchAsStream(::CURL *handle
 
 } // namespace
 
-HttpFetcher::HttpFetcher(const std::string &rootUrl, const Options &options)
-    : rootUrl_(rootUrl), options_(options)
-    , handle_(createCurl())
+HttpFetcher::HttpFetcher(const std::string &rootUrl
+                         , const Options &options)
+    : rootUrl_(rootUrl), options_(options), handle_(createCurl())
 {}
 
 IStream::pointer HttpFetcher::input(File type)
@@ -203,10 +223,12 @@ IStream::pointer HttpFetcher::input(File type)
                          , contentType(type));
 }
 
-IStream::pointer HttpFetcher::input(const TileId &tileId, TileFile type)
+IStream::pointer HttpFetcher::input(const TileId &tileId, TileFile type
+                                    , unsigned int revision)
     const
 {
-    return fetchAsStream(handle(handle_), rootUrl_, asFilename(tileId, type)
+    return fetchAsStream(handle(handle_), rootUrl_
+                         , remotePath(tileId, type, revision)
                          , contentType(type));
 }
 

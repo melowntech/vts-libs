@@ -31,7 +31,8 @@ std::string asFilename(const TileId &tileId, TileFile type);
 
 bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileIndex
                   , const std::string &str
-                  , std::string::size_type offset = 0);
+                  , std::string::size_type offset = 0
+                  , bool *raw = nullptr);
 
 std::string fileTemplate(TileFile type
                          , boost::optional<unsigned int> revision

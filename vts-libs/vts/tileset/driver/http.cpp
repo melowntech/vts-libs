@@ -54,6 +54,7 @@ HttpDriver::HttpDriver(const boost::filesystem::path &root
                                    , const CloneOptions &cloneOptions)
     : Driver(root, options, cloneOptions.mode())
     , fetcher_(this->options().url, {})
+    , revision_()
 {
     {
         auto properties(tileset::loadConfig(fetcher_.input(File::config)));
@@ -63,6 +64,7 @@ HttpDriver::HttpDriver(const boost::filesystem::path &root
         properties.driverOptions = options;
         tileset::saveConfig(this->root() / filePath(File::config)
                             , properties);
+        revision_ = properties.revision;
     }
 
     // clone tile index
@@ -76,10 +78,15 @@ HttpDriver::HttpDriver(const boost::filesystem::path &root
 }
 
 HttpDriver::HttpDriver(const boost::filesystem::path &root
-                                   , const HttpOptions &options)
+                       , const HttpOptions &options)
     : Driver(root, options)
     , fetcher_(this->options().url, {})
+    , revision_()
 {
+    {
+        auto properties(tileset::loadConfig(*this));
+        revision_ = properties.revision;
+    }
     tileset::loadTileSetIndex(tsi_, *this);
 }
 
@@ -99,6 +106,7 @@ HttpDriver::HttpDriver(const boost::filesystem::path &root
         properties.driverOptions = options;
         tileset::saveConfig(this->root() / filePath(File::config)
                             , properties);
+        revision_ = properties.revision;
     }
 
     // clone tile index
@@ -152,7 +160,7 @@ IStream::pointer HttpDriver::input_impl(const TileId &tileId
                                         , TileFile type)
     const
 {
-    return fetcher_.input(tileId, type);
+    return fetcher_.input(tileId, type, revision_);
 }
 
 FileStat HttpDriver::stat_impl(File type) const

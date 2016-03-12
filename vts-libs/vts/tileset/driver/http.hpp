@@ -64,7 +64,7 @@ private:
     }
 
     HttpFetcher fetcher_;
-
+    unsigned int revision_;
     tileset::Index tsi_;
 };
 
