@@ -73,7 +73,7 @@ namespace {
     {
         auto pp(tileFile(p, type, raw));
         if (!pp) { return pp; }
-        bool mustHaveSubFile((type == TileFile::atlas) && (!raw || *raw));
+        bool mustHaveSubFile((type == TileFile::atlas) && !(raw && *raw));
         if (hasSubFile != mustHaveSubFile) { return nullptr; }
         return pp;
     }
