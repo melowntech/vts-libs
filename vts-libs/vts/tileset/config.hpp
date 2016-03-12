@@ -37,6 +37,8 @@ loadRevision(const boost::filesystem::path &path);
 
 TileSet::Properties loadConfig(const Driver &driver);
 
+TileSet::Properties loadConfig(const IStream::pointer &file);
+
 } } } // namespace vadstena::vts::tileset
 
 #endif // vadstena_libs_vts_tileset_config_hpp_included_

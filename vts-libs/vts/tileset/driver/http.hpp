@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "../driver.hpp"
+#include "./httpfetcher.hpp"
 
 namespace vadstena { namespace vts { namespace driver {
 
@@ -34,34 +35,6 @@ public:
 
     virtual ~HttpDriver();
 
-    /** Base class for tileset and glue info.
-     */
-    struct EnhancedInfo {
-        Driver::pointer driver;
-        tileset::Index tsi;
-        std::string name;
-    };
-
-    struct TileSetInfo : EnhancedInfo {
-        struct GlueInfo : TileSetGlues::EnhancedGlue, EnhancedInfo {
-            GlueInfo(const TileSetGlues::EnhancedGlue &glue)
-                : EnhancedGlue(glue) {}
-
-            typedef std::vector<GlueInfo> list;
-        };
-
-        TilesetId tilesetId;
-
-        GlueInfo::list glues;
-
-        TileSetInfo(const TileSetGlues &tsg)
-            : tilesetId(tsg.tilesetId)
-            , glues{tsg.glues.begin(), tsg.glues.end()}
-        {}
-
-        typedef std::vector<TileSetInfo> list;
-    };
-
 private:
     virtual OStream::pointer output_impl(const File type);
 
@@ -89,6 +62,8 @@ private:
     inline const HttpOptions& options() const {
         return Driver::options<const HttpOptions&>();
     }
+
+    HttpFetcher fetcher_;
 
     tileset::Index tsi_;
 };

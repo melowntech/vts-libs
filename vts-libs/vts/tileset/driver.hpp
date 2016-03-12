@@ -5,6 +5,8 @@
 #include <map>
 #include <memory>
 
+#include <boost/noncopyable.hpp>
+
 #include "utility/runnable.hpp"
 
 #include "../../storage/streams.hpp"
@@ -22,7 +24,7 @@ using storage::TileFile;
 using storage::FileStat;
 using storage::Resources;
 
-class Driver {
+class Driver : boost::noncopyable {
 public:
     typedef std::shared_ptr<Driver> pointer;
 

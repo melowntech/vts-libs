@@ -67,6 +67,12 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
                           , const CloneOptions &co
                           , const TilesetIdSet &tilesets);
 
+/** Creates adapter for remove (HTTP) tileset.
+ */
+TileSet createRemoveTileSet(const boost::filesystem::path &path
+                            , const std::string &url
+                            , const CloneOptions &createOptions);
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_hpp_included_

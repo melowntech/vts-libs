@@ -151,6 +151,15 @@ boost::any parseAggregatedDriver(const Json::Value &value)
     return driverOptions;
 }
 
+boost::any parseHttpDriver(const Json::Value &value)
+{
+    driver::HttpOptions driverOptions;
+
+    Json::get(driverOptions.url, value, "url");
+
+    return driverOptions;
+}
+
 boost::any parseDriver(const Json::Value &value)
 {
     if (!value.isObject()) {
@@ -162,6 +171,8 @@ boost::any parseDriver(const Json::Value &value)
         return parsePlainDriver(value);
     } else if (value.isMember("storage")) {
         return parseAggregatedDriver(value);
+    } else if (value.isMember("url")) {
+        return parseHttpDriver(value);
     }
 
     LOGTHROW(err1, Json::Error)
@@ -183,6 +194,11 @@ Json::Value buildDriver(const boost::any &d)
         value["storage"] = opts->storagePath.string();
         value["tilesets"] = buildIdArray(opts->tilesets.begin()
                                          , opts->tilesets.end());
+        return value;
+    } else if (auto opts = boost::any_cast
+               <const driver::HttpOptions>(&d))
+    {
+        value["url"] = opts->url;
         return value;
     }
 
@@ -447,6 +463,22 @@ TileSet::Properties loadConfig(const Driver &driver)
         auto f(driver.input(File::config));
         const auto p(tileset::loadConfig(*f));
         f->close();
+
+        // set
+        return p;
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::Error)
+            << "Unable to read config: <" << e.what() << ">.";
+    }
+    throw;
+}
+
+TileSet::Properties loadConfig(const IStream::pointer &file)
+{
+    try {
+        // load config
+        const auto p(tileset::loadConfig(*file));
+        file->close();
 
         // set
         return p;

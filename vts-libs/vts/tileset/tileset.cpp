@@ -373,6 +373,18 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
     return TileSet::Factory::open(driver);
 }
 
+TileSet createRemoveTileSet(const boost::filesystem::path &path
+                            , const std::string &url
+                            , const CloneOptions &createOptions)
+
+{
+    driver::HttpOptions dopts;
+    dopts.url = url;
+
+    auto driver(Driver::create(path, dopts, createOptions));
+    return TileSet::Factory::open(driver);
+}
+
 TileSet::Detail::Detail(const Driver::pointer &driver)
     : readOnly(true), driver(driver)
     , propertiesChanged(false), metadataChanged(false)

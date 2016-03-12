@@ -47,158 +47,38 @@ const std::string filePath(File type)
     throw "unknown file type";
 }
 
-void unite(registry::IdSet &out, const registry::IdSet &in)
-{
-    out.insert(in.begin(), in.end());
-}
-
-typedef HttpDriver::TileSetInfo TileSetInfo;
-typedef TileSetInfo::GlueInfo GlueInfo;
-typedef HttpDriver::EnhancedInfo EnhancedInfo;
-
-class StringIStream : public vs::IStream {
-public:
-    StringIStream(TileFile type, const std::string &name
-                  , std::time_t lastModified)
-        : vs::IStream(type), stat_(0, lastModified), name_(name)
-    {}
-
-    std::stringstream& sink() { return ss_; }
-
-    void updateSize() { stat_.size = ss_.tellp(); }
-
-private:
-    virtual std::istream& get() { return ss_; }
-    virtual vs::FileStat stat_impl() const { return stat_; }
-    virtual void close() {};
-    virtual std::string name() const { return name_; }
-
-    vs::FileStat stat_;
-    std::string name_;
-    std::stringstream ss_;
-};
-
-
-IStream::pointer
-buildMeta(const TileSetInfo::list &tsil, const fs::path &root
-          , const registry::ReferenceFrame &referenceFrame
-          , std::time_t lastModified, const TileId &tileId)
-{
-    // output metatile
-    auto bo(referenceFrame.metaBinaryOrder);
-    MetaTile ometa(tileId, bo);
-    MetaTile::References references(ometa.makeReferences());
-
-    auto loadMeta([&](const TileId &tileId, const Driver::pointer &driver)
-                  -> MetaTile
-    {
-        auto ms(driver->input(tileId, TileFile::meta));
-        return loadMetaTile(*ms, bo, ms->name());
-    });
-
-    // process whole input
-    for (std::size_t idx(tsil.size()); idx; --idx) {
-        const auto &tsi(tsil[idx - 1]);
-
-        // process all glues
-        for (const auto &gi : tsi.glues) {
-            // apply metatile from glue
-            if (gi.tsi.check(tileId, TileFile::meta)) {
-                ometa.update(loadMeta(tileId, gi.driver), references, idx);
-            }
-        }
-
-        // apply metatile from tileset
-        if (tsi.tsi.check(tileId, TileFile::meta)) {
-            ometa.update(loadMeta(tileId, tsi.driver), references, idx);
-        }
-    }
-
-    // create stream and serialize metatile
-
-    // create in-memory stream
-    auto fname(root / str(boost::format("%s.%s") % tileId % TileFile::meta));
-    auto s(std::make_shared<StringIStream>
-           (TileFile::meta, fname.string(), lastModified));
-
-    // and serialize metatile
-    ometa.save(s->sink());
-    s->updateSize();
-
-    // done
-    return s;
-}
-
-const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
-                                , const TileId &tileId)
-{
-    auto trySet([&](const EnhancedInfo &info) -> const EnhancedInfo*
-    {
-        LOG(debug) << "Trying set <" << info.name << ">.";
-        if (info.tsi.real(tileId)) {
-            return &info;
-        }
-
-        return nullptr;
-    });
-
-    typedef std::tuple<const EnhancedInfo*, int> GlueResult;
-
-    auto tryGlues([&](const GlueInfo::list &glues) -> GlueResult
-    {
-        for (const auto &glue : glues) {
-            if (const auto *result = trySet(glue)) {
-                return GlueResult(result, 0);
-            } if (auto reference = glue.tsi.getReference(tileId)) {
-                LOG(debug)
-                    << "Redirected to <" << glue.id[reference - 1]
-                    << ">.";
-                return GlueResult(nullptr, glue.indices[reference - 1] + 1);
-            }
-        }
-
-        return GlueResult(nullptr, -1);
-    });
-
-    for (std::size_t idx(tsil.size()); idx;) {
-        const auto &tsi(tsil[--idx]);
-
-        // try glues first
-        const EnhancedInfo *glueResult;
-        int reference;
-        std::tie(glueResult, reference) = tryGlues(tsi.glues);
-
-        if (glueResult) {
-            // found tile in one of glues
-            return glueResult;
-        } else if (reference > 0) {
-            // found reference in one of glues -> redirect
-            idx = reference;
-        } else {
-            // nothing found in glues, try tileset itself
-            if (const auto *result = trySet(tsi)) {
-                return result;
-            }
-        }
-    }
-
-    // nothing found
-    return nullptr;
-}
-
 } // namespace
 
 HttpDriver::HttpDriver(const boost::filesystem::path &root
                                    , const HttpOptions &options
                                    , const CloneOptions &cloneOptions)
     : Driver(root, options, cloneOptions.mode())
+    , fetcher_(this->options().url, {})
 {
-    // TODO: fetch data from server
+    {
+        auto properties(tileset::loadConfig(fetcher_.input(File::config)));
+        if (cloneOptions.tilesetId()) {
+            properties.id = *cloneOptions.tilesetId();
+        }
+        properties.driverOptions = options;
+        tileset::saveConfig(this->root() / filePath(File::config)
+                            , properties);
+    }
+
+    // clone tile index
+    copyFile(fetcher_.input(File::tileIndex), output(File::tileIndex));
+
+    // and load it
+    tileset::loadTileSetIndex(tsi_, *this);
+
+    // make me read-only
+    readOnly(true);
 }
 
 HttpDriver::HttpDriver(const boost::filesystem::path &root
                                    , const HttpOptions &options)
     : Driver(root, options)
+    , fetcher_(this->options().url, {})
 {
     tileset::loadTileSetIndex(tsi_, *this);
 }
@@ -208,6 +88,7 @@ HttpDriver::HttpDriver(const boost::filesystem::path &root
                                    , const CloneOptions &cloneOptions
                                    , const HttpDriver &src)
     : Driver(root, options, cloneOptions.mode())
+    , fetcher_(this->options().url, {})
 {
     // update and save properties
     {
@@ -219,6 +100,9 @@ HttpDriver::HttpDriver(const boost::filesystem::path &root
         tileset::saveConfig(this->root() / filePath(File::config)
                             , properties);
     }
+
+    // clone tile index
+    copyFile(src.input(File::tileIndex), output(File::tileIndex));
 
     // and load it
     tileset::loadTileSetIndex(tsi_, *this);
@@ -268,9 +152,7 @@ IStream::pointer HttpDriver::input_impl(const TileId &tileId
                                         , TileFile type)
     const
 {
-    (void) tileId;
-    (void) type;
-    return {};
+    return fetcher_.input(tileId, type);
 }
 
 FileStat HttpDriver::stat_impl(File type) const
