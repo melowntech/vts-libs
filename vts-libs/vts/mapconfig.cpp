@@ -162,7 +162,8 @@ void MapConfig::mergeTileSet(const MapConfig &tilesetMapConfig
     }
 
     SurfaceConfig s(tilesetMapConfig.surfaces.front());
-    s.root = root;
+    // set root if not set so far
+    if (s.root.empty()) { s.root = root; }
     surfaces.push_back(s);
 
     mergeRest(*this, tilesetMapConfig, true);

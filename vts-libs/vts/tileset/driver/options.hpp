@@ -12,6 +12,16 @@
 
 namespace vadstena { namespace vts { namespace driver {
 
+/** Map configuration override.
+ */
+struct MapConfigOverride {
+    /** Root override.
+     */
+    std::string root;
+
+    MapConfigOverride(const boost::any &options);
+};
+
 using storage::Tilar;
 
 class PlainOptions {

@@ -1193,8 +1193,10 @@ TileSet::Detail::mapConfig(const Properties &properties
     surface.id = properties.id;
     surface.revision = properties.revision;
 
-    // local path
-    surface.root = fs::path();
+    {
+        driver::MapConfigOverride mco(properties.driverOptions);
+        surface.root = mco.root;
+    }
 
     if (!properties.lodRange.empty()) {
         surface.lodRange = properties.lodRange;

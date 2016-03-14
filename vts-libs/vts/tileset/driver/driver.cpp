@@ -182,4 +182,19 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
     throw;
 }
 
+namespace driver {
+
+MapConfigOverride::MapConfigOverride(const boost::any &options)
+{
+    if (auto o = boost::any_cast<const driver::HttpOptions>
+        (&options))
+    {
+        // force remote URL as a template prefix and since URL is not a local
+        // path mark it as unchangeable
+        root = o->url;
+    }
+}
+
+} // namespace driver
+
 } } // namespace vadstena::vts
