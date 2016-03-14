@@ -49,10 +49,19 @@ const std::string filePath(File type)
 
 } // namespace
 
+HttpDriverBase::HttpDriverBase(const CloneOptions &cloneOptions)
+{
+    if (cloneOptions.lodRange()) {
+        LOGTHROW(err2, storage::Error)
+            << "HTTP tileset driver doesn't support LOD sub ranging.";
+    }
+}
+
 HttpDriver::HttpDriver(const boost::filesystem::path &root
                                    , const HttpOptions &options
                                    , const CloneOptions &cloneOptions)
-    : Driver(root, options, cloneOptions.mode())
+    : HttpDriverBase(cloneOptions)
+    , Driver(root, options, cloneOptions.mode())
     , fetcher_(this->options().url, {})
     , revision_()
 {
@@ -94,7 +103,8 @@ HttpDriver::HttpDriver(const boost::filesystem::path &root
                                    , const HttpOptions &options
                                    , const CloneOptions &cloneOptions
                                    , const HttpDriver &src)
-    : Driver(root, options, cloneOptions.mode())
+    : HttpDriverBase(cloneOptions)
+    , Driver(root, options, cloneOptions.mode())
     , fetcher_(this->options().url, {})
 {
     // update and save properties

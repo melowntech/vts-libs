@@ -1106,7 +1106,9 @@ Srs::dict listSrs(const ReferenceFrame &referenceFrame)
     add(referenceFrame.model.publicSrs);
 
     for (const auto &node : referenceFrame.division.nodes) {
-        add(node.second.srs);
+        if (node.second.valid()) {
+            add(node.second.srs);
+        }
     }
 
     return srs;

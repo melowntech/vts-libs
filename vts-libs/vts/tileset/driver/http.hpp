@@ -10,7 +10,14 @@
 
 namespace vadstena { namespace vts { namespace driver {
 
-class HttpDriver : public Driver {
+/** Helper class.
+ */
+struct HttpDriverBase {
+    HttpDriverBase() {}
+    HttpDriverBase(const CloneOptions &cloneOptions);
+};
+
+class HttpDriver : private HttpDriverBase, public Driver {
 public:
     typedef std::shared_ptr<HttpDriver> pointer;
 
