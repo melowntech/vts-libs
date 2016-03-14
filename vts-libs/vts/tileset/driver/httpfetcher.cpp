@@ -16,6 +16,26 @@ namespace {
 std::streamsize IOBufferSize(1 << 16);
 typedef std::vector<char> Buffer;
 
+/** Let the CURL machinery initialize here
+ */
+class CurlInitializer {
+public:
+    ~CurlInitializer() { ::curl_global_cleanup(); }
+
+private:
+    CurlInitializer() {
+        if (::curl_global_init(CURL_GLOBAL_ALL)) {
+            storage::IOError e("Global CURL initialization failed!");
+            std::cerr << e.what() << std::endl;
+            throw e;
+        }
+    };
+
+    static CurlInitializer instance_;
+};
+
+CurlInitializer CurlInitializer::instance_;
+
 std::shared_ptr< ::CURL> createCurl()
 {
     auto c(::curl_easy_init());
@@ -25,11 +45,16 @@ std::shared_ptr< ::CURL> createCurl()
     }
 
     // switch off SIGALARM
-    ::curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1);
+    ::curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
+
+    // cache DNS query results during lifetime of this object
+    ::curl_easy_setopt(c, CURLOPT_DNS_CACHE_TIMEOUT, -1L);
 
     return std::shared_ptr< ::CURL>
         (c, [](::CURL *c) { if (c) { ::curl_easy_cleanup(c); } });
 }
+
+CurlInitializer::CurlInitializer();
 
 } // namespace
 
@@ -183,7 +208,8 @@ const std::string remotePath(const TileId &tileId, TileFile type
 IStream::pointer fetchAsStream(::CURL *handle
                                , const std::string rootUrl
                                , const std::string &filename
-                               , const char *contentType)
+                               , const char *contentType
+                               , const HttpFetcher::Options &options)
 {
     std::string url(rootUrl + "/" + filename);
 
@@ -192,21 +218,37 @@ IStream::pointer fetchAsStream(::CURL *handle
     Buffer buffer;
     long int httpCode;
     std::time_t lastModified;
-    std::tie(httpCode, lastModified) = fetchUrl(handle, url, buffer);
 
-    if (httpCode == 404) {
-        LOGTHROW(err2, storage::NoSuchFile)
-            << "File at URL <" << url << "> doesn't exist.";
+    auto tryFetch([&]() -> IStream::pointer
+    {
+        std::tie(httpCode, lastModified) = fetchUrl(handle, url, buffer);
+
+        if (httpCode == 404) {
+            LOGTHROW(err2, storage::NoSuchFile)
+                << "File at URL <" << url << "> doesn't exist.";
+        }
+
+        if (httpCode != 200) {
+            LOGTHROW(err2, storage::IOError)
+                << "Failed to download tile data from <"
+                << url << ">: Unexpected HTTP status code: <"
+                << httpCode << ">.";
+        }
+
+        return std::make_shared<BufferIStream>
+            (std::move(buffer), contentType, url, lastModified);
+    });
+
+    for (auto tries(options.tries); tries > 0; (tries > 0) ? --tries : 0) {
+        try {
+            return tryFetch();
+        } catch (const std::exception &e) {
+            LOG(warn2) << "Failed to fetch file from <" << url
+                       << ">; retrying in a while.";
+            ::sleep(1);
+        }
     }
-
-    if (httpCode != 200) {
-        LOGTHROW(err2, storage::IOError)
-            << "Failed to download tile data from <"
-            << url << ">: Unexpected HTTP status code: <" << httpCode << ">.";
-    }
-
-    return std::make_shared<BufferIStream>
-        (std::move(buffer), contentType, url, lastModified);
+    return tryFetch();
 }
 
 } // namespace
@@ -220,7 +262,7 @@ IStream::pointer HttpFetcher::input(File type)
     const
 {
     return fetchAsStream(handle(handle_), rootUrl_, filePath(type)
-                         , contentType(type));
+                         , contentType(type), options_);
 }
 
 IStream::pointer HttpFetcher::input(const TileId &tileId, TileFile type
@@ -229,7 +271,7 @@ IStream::pointer HttpFetcher::input(const TileId &tileId, TileFile type
 {
     return fetchAsStream(handle(handle_), rootUrl_
                          , remotePath(tileId, type, revision)
-                         , contentType(type));
+                         , contentType(type), options_);
 }
 
 } } } // namespace vadstena::vts::driver

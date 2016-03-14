@@ -160,6 +160,13 @@ struct TileSet::Detail
     void getNavTile(const TileId &tileId, NavTile &navtile
                     , const MetaNode *node) const;
 
+    /** Trusts that tileindex flags yield the same information.
+     */
+    Mesh getMesh(const TileId &tileId, TileIndex::Flag::value_type flags)
+        const;
+    void getAtlas(const TileId &tileId, Atlas &atlas
+                  , TileIndex::Flag::value_type flags) const;
+
     TileSource getTileSource(const TileId &metaId) const;
 
     void flush();

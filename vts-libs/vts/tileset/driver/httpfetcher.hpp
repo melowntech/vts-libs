@@ -9,7 +9,14 @@ namespace vadstena { namespace vts { namespace driver {
 
 class HttpFetcher {
 public:
-    struct Options {};
+    struct Options {
+        /** Number of attempts to do before failing.
+         *  Negative number means forever (default).
+         */
+        int tries;
+
+        Options() : tries(-1) {}
+    };
 
     HttpFetcher(const std::string &rootUrl, const Options &options);
 

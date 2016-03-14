@@ -953,6 +953,25 @@ Mesh TileSet::Detail::getMesh(const TileId &tileId) const
     return getMesh(tileId, findMetaNode(tileId));
 }
 
+Mesh TileSet::Detail::getMesh(const TileId &tileId
+                              , TileIndex::Flag::value_type flags)
+    const
+{
+    if (!TileIndex::Flag::isReal(flags)) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "There is no tile at " << tileId << ".";
+    }
+
+    if (!(flags & TileIndex::Flag::mesh)) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "Tile " << tileId << " has no mesh.";
+    }
+
+    Mesh mesh;
+    load(driver->input(tileId, TileFile::mesh), mesh);
+    return mesh;
+}
+
 void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas
                                , const MetaNode *node) const
 {
@@ -972,6 +991,22 @@ void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas
 void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas) const
 {
     return getAtlas(tileId, atlas, findMetaNode(tileId));
+}
+
+void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas
+                               , TileIndex::Flag::value_type flags) const
+{
+    if (!TileIndex::Flag::isReal(flags)) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "There is no tile at " << tileId << ".";
+    }
+
+    if (!(flags & TileIndex::Flag::atlas)) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "Tile " << tileId << " has no atlas.";
+    }
+
+    load(driver->input(tileId, TileFile::atlas), atlas);
 }
 
 void TileSet::Detail::getNavTile(const TileId &tileId, NavTile &navtile

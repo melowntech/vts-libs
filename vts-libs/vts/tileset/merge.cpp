@@ -129,8 +129,9 @@ MeshOpInput::MeshOpInput(Id id, const TileSet::Detail &owner
                          , const TileId &tileId
                          , const NodeInfo *nodeInfo, bool lazy)
     : id_(id), tileId_(tileId), owner_(&owner)
-    , node_(owner_->findMetaNode(tileId))
+    , flags_(owner_->tileIndex.get(tileId))
     , nodeInfo_(nodeInfo)
+    , nodeLoaded_(false), node_()
 {
     prepare(lazy);
 }
@@ -138,19 +139,31 @@ MeshOpInput::MeshOpInput(Id id, const TileSet::Detail &owner
 MeshOpInput::MeshOpInput(Id id, const TileSet &owner, const TileId &tileId
              , const NodeInfo *nodeInfo, bool lazy)
     : id_(id), tileId_(tileId), owner_(&owner.detail())
-    , node_(owner_->findMetaNode(tileId))
+    , flags_(owner_->tileIndex.get(tileId))
     , nodeInfo_(nodeInfo)
+    , nodeLoaded_(false), node_()
 {
     prepare(lazy);
+}
+
+bool MeshOpInput::loadNode() const
+{
+    if (!nodeLoaded_) {
+        node_ = owner_->findMetaNode(tileId_);
+        nodeLoaded_ = true;
+    }
+    return node_;
 }
 
 void MeshOpInput::prepare(bool lazy)
 {
     if (!lazy) {
         // preload stuff if not lazy
-        if (hasMesh()) { mesh(); }
-        if (hasAtlas()) { atlas(); }
-        if (hasNavtile()) { navtile(); }
+        if (loadNode()) {
+            if (hasMesh()) { mesh(); }
+            if (hasAtlas()) { atlas(); }
+            if (hasNavtile()) { navtile(); }
+        }
     }
 
     if (!nodeInfo_) {
@@ -164,25 +177,36 @@ const std::string& MeshOpInput::name() const
     return owner_->properties.id;
 }
 
+const MetaNode& MeshOpInput::node() const
+{
+    loadNode();
+    return *node_;
+}
+
+bool MeshOpInput::watertight() const
+{
+    return (flags_ & TileIndex::Flag::watertight);
+}
+
 bool MeshOpInput::hasMesh() const
 {
-    return node_ && node_->geometry();
+    return (flags_ & TileIndex::Flag::mesh);
 }
 
 bool MeshOpInput::hasAtlas() const
 {
-    return node_ && node_->internalTextureCount();
+    return (flags_ & TileIndex::Flag::atlas);
 }
 
 bool MeshOpInput::hasNavtile() const
 {
-    return node_ && node_->navtile();
+    return (flags_ & TileIndex::Flag::navtile);
 }
 
 const Mesh& MeshOpInput::mesh() const
 {
     if (!mesh_) {
-        mesh_ = owner_->getMesh(tileId_, node_);
+        mesh_ = owner_->getMesh(tileId_, flags_);
     }
 
     return *mesh_;
@@ -192,7 +216,7 @@ const RawAtlas& MeshOpInput::atlas() const
 {
     if (!atlas_) {
         atlas_ = boost::in_place();
-        owner_->getAtlas(tileId_, *atlas_, node_);
+        owner_->getAtlas(tileId_, *atlas_, flags_);
     }
 
     return *atlas_;
@@ -200,7 +224,8 @@ const RawAtlas& MeshOpInput::atlas() const
 
 const opencv::NavTile& MeshOpInput::navtile() const
 {
-    if (!navtile_) {
+    // navtile must have valid node to work properly
+    if (!navtile_ && loadNode()) {
         navtile_ = boost::in_place();
         owner_->getNavTile(tileId_, *navtile_, node_);
     }
@@ -349,7 +374,7 @@ Input::list filterSources(const Input::list &reference
     return out;
 }
 
-void rasterize(const Mesh &mesh, const cv::Scalar &color
+void rasterize(const MeshOpInput &input, const cv::Scalar &color
                , cv::Mat &coverage
                , const TileId &diff = TileId())
 {
@@ -359,8 +384,8 @@ void rasterize(const Mesh &mesh, const cv::Scalar &color
     // offset in destination pixels
     cv::Point2i offset(diff.x * coverage.cols, diff.y * coverage.rows);
 
-    mesh.coverageMask.forEachQuad([&](uint xstart, uint ystart, uint xsize
-                                      , uint ysize, bool)
+    auto draw([&](uint xstart, uint ystart
+                  , uint xsize, uint ysize, bool)
     {
         // scale
         xstart *= pixelSize;
@@ -376,15 +401,25 @@ void rasterize(const Mesh &mesh, const cv::Scalar &color
         cv::Point2i end(xstart + xsize - 1, ystart + ysize - 1);
 
         cv::rectangle(coverage, start, end, color, CV_FILLED, 4);
-    }, Mesh::CoverageMask::Filter::white);
+    });
+
+    if (input.watertight()) {
+        // fully covered -> simulate full coverage
+        auto s(Mesh::coverageSize());
+        draw(0, 0, s.width, s.height, true);
+        return;
+    }
+
+    input.mesh().coverageMask.forEachQuad
+        (draw, Mesh::CoverageMask::Filter::white);
 }
 
-void rasterize(const Mesh &mesh, const cv::Scalar &color
+void rasterize(const MeshOpInput &input, const cv::Scalar &color
                , cv::Mat &coverage
                , const NodeInfo &srcNodeInfo
                , const NodeInfo &dstNodeInfo)
 {
-    (void) mesh;
+    (void) input;
     (void) color;
     (void) coverage;
     (void) srcNodeInfo;
@@ -521,10 +556,10 @@ private:
         for (const auto &input : sources) {
             if (nodeInfo.node.srs == input.nodeInfo().node.srs) {
                 // same SRS -> mask is rendered as is (possible scale and shift)
-                rasterize(input.mesh(), input.id(), coverage
+                rasterize(input, input.id(), coverage
                           , local(input.tileId().lod, tileId));
             } else {
-                rasterize(input.mesh(), input.id(), coverage
+                rasterize(input, input.id(), coverage
                           , input.nodeInfo(), nodeInfo);
             }
         }

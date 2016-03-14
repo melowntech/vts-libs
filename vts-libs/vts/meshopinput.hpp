@@ -33,7 +33,7 @@ public:
      *  \param lazy loads data on demand
      */
     MeshOpInput(Id id, const TileSet::Detail &owner, const TileId &tileId
-          , const NodeInfo *nodeInfo = nullptr, bool lazy = true);
+                , const NodeInfo *nodeInfo = nullptr, bool lazy = true);
 
     /** Create meshop input.
      *
@@ -44,18 +44,16 @@ public:
      *  \param lazy loads data on demand
      */
     MeshOpInput(Id id, const TileSet &owner, const TileId &tileId
-          , const NodeInfo *nodeInfo = nullptr, bool lazy = true);
+                , const NodeInfo *nodeInfo = nullptr, bool lazy = true);
 
     /** Input is valid only if there is node with geometry
      */
-    operator bool() const { return node_ && node_->geometry(); }
+    operator bool() const { return hasMesh(); }
 
-    /** Must not be called when operator bool() returns false!
-     */
-    const MetaNode& node() const { return *node_; }
-
+    const MetaNode& node() const;
     const NodeInfo& nodeInfo() const { return *nodeInfo_; }
 
+    bool watertight() const;
     bool hasMesh() const;
     bool hasAtlas() const;
     bool hasNavtile() const;
@@ -95,6 +93,8 @@ public:
 private:
     void prepare(bool lazy);
 
+    bool loadNode() const;
+
     Id id_;
 
     /** Tile's ID
@@ -106,9 +106,11 @@ private:
      */
     TileId tileDiff_;
     const TileSet::Detail *owner_;
-
-    const MetaNode *node_;
+    TileIndex::Flag::value_type flags_;
     const NodeInfo *nodeInfo_;
+
+    mutable bool nodeLoaded_;
+    mutable const MetaNode *node_;
     mutable boost::optional<Mesh> mesh_;
     mutable boost::optional<RawAtlas> atlas_;
     mutable boost::optional<opencv::NavTile> navtile_;
