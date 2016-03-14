@@ -192,9 +192,9 @@ int bestLod(const vr::ReferenceFrame::Division::Node &node, double area)
 
 vts::TileRange::point_type
 tiled(const vr::ReferenceFrame::Division::Node &node
-      , vts::Lod lod, const math::Point2 &p)
+      , vts::Lod localLod, const math::Point2 &p)
 {
-    auto ts(vts::tileSize(node.extents, lod));
+    auto ts(vts::tileSize(node.extents, localLod));
 
     // NB: origin is in upper-left corner and Y grows down
     auto origin(math::ul(node.extents));
@@ -204,13 +204,13 @@ tiled(const vr::ReferenceFrame::Division::Node &node
 }
 
 vts::TileRange tileRange(const vr::ReferenceFrame::Division::Node &node
-                         , vts::Lod lod
+                         , vts::Lod localLod
                          , const math::Points2 &points)
 {
     vts::TileRange r(math::InvalidExtents{});
 
     for (const auto &p : points) {
-        update(r, tiled(node, lod, p));
+        update(r, tiled(node, localLod, p));
     }
 
     return r;
