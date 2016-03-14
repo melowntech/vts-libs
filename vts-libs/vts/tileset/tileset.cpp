@@ -1462,4 +1462,9 @@ TileSet concatTileSets(const boost::filesystem::path &path
     return dst;
 }
 
+std::string TileSet::typeInfo() const
+{
+    return driver().info();
+}
+
 } } // namespace vadstena::vts

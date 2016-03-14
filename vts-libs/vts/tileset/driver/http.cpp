@@ -194,7 +194,6 @@ storage::Resources HttpDriver::resources_impl() const
     return {};
 }
 
-
 void HttpDriver::flush_impl() {
     LOGTHROW(err2, storage::ReadOnlyError)
         << "This driver supports read access only.";
@@ -204,6 +203,14 @@ void HttpDriver::drop_impl()
 {
     LOGTHROW(err2, storage::ReadOnlyError)
         << "This driver supports read access only.";
+}
+
+std::string HttpDriver::info_impl() const
+{
+    auto o(options());
+    std::ostringstream os;
+    os << "remote (URL=" << o.url << ")";
+    return os.str();
 }
 
 } } } // namespace vadstena::vts::driver

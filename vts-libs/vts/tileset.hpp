@@ -234,6 +234,10 @@ public:
     void paste(const TileSet &src
                , const boost::optional<LodRange> &lodRange = boost::none);
 
+    /** Returns type information.
+     */
+    std::string typeInfo() const;
+
     /** Returns mapConfig for given path.
      *
      * \param root root path of all datasets (surfaces and glues)

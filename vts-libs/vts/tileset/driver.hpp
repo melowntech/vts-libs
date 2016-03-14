@@ -99,6 +99,10 @@ public:
 
     bool readOnly() const;
 
+    /** Information.
+     */
+    std::string info() const;
+
 protected:
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.
@@ -139,6 +143,8 @@ private:
 
     virtual pointer clone_impl(const boost::filesystem::path &root
                                , const CloneOptions &cloneOptions) const = 0;
+
+    virtual std::string info_impl() const = 0;
 
     void checkRunning() const;
 
@@ -254,6 +260,11 @@ inline Driver::pointer Driver::clone(const boost::filesystem::path &root
     const
 {
     return clone_impl(root, cloneOptions);
+}
+
+inline std::string Driver::info() const
+{
+    return info_impl();
 }
 
 } } // namespace vadstena::vts

@@ -143,4 +143,13 @@ Driver::pointer PlainDriver::clone_impl(const boost::filesystem::path&
     return {};
 }
 
+std::string PlainDriver::info_impl() const
+{
+    auto o(options<PlainOptions>());
+    std::ostringstream os;
+    os << "plain (UUID=" << to_string(o.uuid()) << ", binaryOrder="
+       << int(o.binaryOrder()) << ")";
+    return os.str();
+}
+
 } } } // namespace vadstena::vts::driver

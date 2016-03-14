@@ -66,6 +66,8 @@ private:
     Driver::pointer clone_impl(const boost::filesystem::path &root
                                , const CloneOptions &cloneOptions) const;
 
+    virtual std::string info_impl() const;
+
     inline const HttpOptions& options() const {
         return Driver::options<const HttpOptions&>();
     }

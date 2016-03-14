@@ -53,6 +53,8 @@ private:
     clone_impl(const boost::filesystem::path &root
                , const CloneOptions &cloneOptions) const;
 
+    virtual std::string info_impl() const;
+
     mutable driver::Cache cache_;
 };
 

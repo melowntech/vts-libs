@@ -537,4 +537,13 @@ void AggregatedDriver::drop_impl()
         << "This driver supports read access only.";
 }
 
+std::string AggregatedDriver::info_impl() const
+{
+    auto o(options());
+    std::ostringstream os;
+    os << "aggregated (storare=" << o.storagePath
+       << ", tilesets=[" << utility::join(o.tilesets, ", ") << "])";
+    return os.str();
+}
+
 } } } // namespace vadstena::vts::driver
