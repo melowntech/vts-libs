@@ -295,6 +295,7 @@ public:
             if (!vts::TileIndex::Flag::isReal(flags)) { return; }
 
             vts::NodeInfo ni(srcRf, srcId);
+            if (!ni.valid()) { return; }
 
             const auto &srcExtents(ni.node.extents);
             const math::Points2 srcCorners = {
@@ -304,6 +305,7 @@ public:
             // for each destination node
             for (const auto &item : dstRf.division.nodes) {
                 const auto &node(item.second);
+                if (!node.valid()) { continue; }
                 const vts::CsConvertor csconv(ni.node.srs, node.srs);
 
                 auto dstCorners(projectCorners(node, csconv, srcCorners));
