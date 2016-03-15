@@ -35,28 +35,3 @@ set(vts2vts_SOURCES
   )
 
 vadstena_tool(storage vts2vts ${vts2vts_SOURCES})
-
-# ------------------------------------------------------------------------
-# Helper program to fix flipped mask from vadstena-heightfield
-# (to be decomissioned)
-# ------------------------------------------------------------------------
-define_module(BINARY flipmeshmask
-  DEPENDS JPEG  vts-libs)
-
-set(flipmeshmask_SOURCES
-  flipmeshmask.cpp
-  )
-
-#vadstena_tool(storage flipmeshmask ${flipmeshmask_SOURCES})
-
-# ------------------------------------------------------------------------
-# Helper program to fix wrong grand (to be decomissioned)
-# ------------------------------------------------------------------------
-define_module(BINARY fixphysicalmesh
-  DEPENDS JPEG vts-libs)
-
-set(fixphysicalmesh_SOURCES
-  fixphysicalmesh.cpp
-  )
-
-#vadstena_tool(storage fixphysicalmesh ${fixphysicalmesh_SOURCES})
