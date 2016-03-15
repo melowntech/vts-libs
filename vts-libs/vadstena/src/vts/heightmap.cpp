@@ -203,9 +203,9 @@ math::Extents2 worldExtents(vts::Lod lod, const vts::TileRange &tileRange
             << "Heightmap can be constructed from nodes in the "
             "same node subtree.";
     }
-    srs = nodeLl.node.srs;
+    srs = nodeLl.srs();
 
-    return math::Extents2(nodeLl.node.extents.ll, nodeUr.node.extents.ur);
+    return math::Extents2(nodeLl.extents().ll, nodeUr.extents().ur);
 }
 
 math::Size2 calculateSizeInTiles(const vts::TileRange &tileRange)
@@ -685,7 +685,7 @@ void HeightMap::warp(const vr::ReferenceFrame &referenceFrame
 
 void HeightMap::warp(const vts::NodeInfo &nodeInfo)
 {
-    warp(*nodeInfo.referenceFrame, nodeInfo.node.id.lod
+    warp(nodeInfo.referenceFrame(), nodeInfo.nodeId().lod
          , vts::TileRange(point(nodeInfo)));
     debugDump(*this, "hm-warped-%s-%s.png", srs_, nodeInfo.nodeId());
 }

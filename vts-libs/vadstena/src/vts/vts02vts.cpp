@@ -621,9 +621,9 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     // use original atlas (file is piped)
     tile.atlas = std::make_shared<Atlas>(atlasStream);
 
-    // convert mesh from old one
-    tile.mesh = createMesh(tileId, mesh, nodeInfo.node.extents
-                           , nodeInfo.node.externalTexture
+    // convert mesh from old on
+    tile.mesh = createMesh(tileId, mesh, nodeInfo.extents()
+                           , nodeInfo.node().externalTexture
                            , config_.textureLayer);
 
     // set credits
@@ -631,7 +631,7 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
 
     if (tileId.lod == ntSourceLod_) {
         // we have to generate source data for navtiles
-        generateHeightMap(tileId, mesh, nodeInfo.node.extents);
+        generateHeightMap(tileId, mesh, nodeInfo.extents());
     }
 
     return result;

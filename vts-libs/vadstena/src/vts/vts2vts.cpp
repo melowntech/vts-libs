@@ -240,12 +240,12 @@ void rasterizeTiles(const vr::ReferenceFrame &referenceFrame
     {
         LOG(info1)
             << std::fixed << "dst tile: "
-            << ni.nodeId() << ", " << ni.node.extents;
+            << ni.nodeId() << ", " << ni.extents();
 
         // TODO: check for incidence with Q
 
         // check for root
-        if (ni.subtreeRoot->id == rootNode.id) {
+        if (ni.subtree().root().id == rootNode.id) {
             op(vts::tileId(ni.nodeId()));
         }
     });
@@ -297,7 +297,7 @@ public:
             vts::NodeInfo ni(srcRf, srcId);
             if (!ni.valid()) { return; }
 
-            const auto &srcExtents(ni.node.extents);
+            const auto &srcExtents(ni.extents());
             const math::Points2 srcCorners = {
                 ul(srcExtents), ur(srcExtents), lr(srcExtents), ll(srcExtents)
             };
@@ -306,7 +306,7 @@ public:
             for (const auto &item : dstRf.division.nodes) {
                 const auto &node(item.second);
                 if (!node.valid()) { continue; }
-                const vts::CsConvertor csconv(ni.node.srs, node.srs);
+                const vts::CsConvertor csconv(ni.srs(), node.srs);
 
                 auto dstCorners(projectCorners(node, csconv, srcCorners));
 
@@ -496,11 +496,11 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     // CS convertors
     // src physical -> dst SDS
     const vts::CsConvertor srcPhy2Sds
-        (srcRf_.model.physicalSrs, nodeInfo.node.srs);
+        (srcRf_.model.physicalSrs, nodeInfo.srs());
 
     // dst SDS -> dst physical
     const vts::CsConvertor sds2DstPhy
-        (nodeInfo.node.srs, referenceFrame().model.physicalSrs);
+        (nodeInfo.srs(), referenceFrame().model.physicalSrs);
 
     // output
     Encoder::TileResult result;
@@ -525,15 +525,15 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
             auto mask(warpInPlaceWithMask(srcPhy2Sds, sm));
 
             // clip submesh
-            auto dstSm(vts::clip(sm, nodeInfo.node.extents, mask));
+            auto dstSm(vts::clip(sm, nodeInfo.extents(), mask));
 
             if (!dstSm.empty()) {
                 // re-generate external tx coordinates (if division node allows)
-                generateEtc(dstSm, nodeInfo.node.extents
-                            , nodeInfo.node.externalTexture);
+                generateEtc(dstSm, nodeInfo.extents()
+                            , nodeInfo.node().externalTexture);
 
                 // update mesh coverage mask
-                updateCoverage(mesh, dstSm, nodeInfo.node.extents);
+                updateCoverage(mesh, dstSm, nodeInfo.extents());
 
                 // set new texture layer if provided
                 dstSm.textureLayer = config_.textureLayer;
