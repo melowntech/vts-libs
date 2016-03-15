@@ -18,6 +18,8 @@
 #include "utility/streams.hpp"
 #include "utility/openmp.hpp"
 
+#include "service/cmdline.hpp"
+
 #include "math/transform.hpp"
 
 #include "imgproc/scanconversion.hpp"
@@ -26,7 +28,7 @@
 #include "geo/csconvertor.hpp"
 #include "geo/coordinates.hpp"
 
-#include "vadstena-libs/utility.hpp"
+#include "vts-libs/registry/po.hpp"
 
 // old stuff
 #include "geometry/binmesh.hpp"
@@ -48,7 +50,6 @@ namespace vs = vadstena::storage;
 namespace vr = vadstena::registry;
 namespace vts0 = vadstena::vts0;
 namespace vts = vadstena::vts;
-namespace va = vadstena;
 namespace ba = boost::algorithm;
 namespace fs = boost::filesystem;
 namespace ublas = boost::numeric::ublas;
@@ -64,11 +65,11 @@ struct Config {
     Config() : ntLodPixelSize(1.0), dtmExtractionRadius(40.0) {}
 };
 
-class Vts02Vts : public va::UtilityBase
+class Vts02Vts : public service::Cmdline
 {
 public:
     Vts02Vts()
-        : UtilityBase("vts02vts", BUILD_TARGET_VERSION)
+        : service::Cmdline("vts02vts", BUILD_TARGET_VERSION)
         , createMode_(vts::CreateMode::failIfExists)
     {
     }
@@ -101,6 +102,8 @@ void Vts02Vts::configuration(po::options_description &cmdline
                              , po::options_description &config
                              , po::positional_options_description &pd)
 {
+    vr::registryConfiguration(cmdline, vr::defaultPath());
+
     cmdline.add_options()
         ("input", po::value(&input_)->required()
          , "Path to input (vts0) tile set.")
@@ -128,8 +131,6 @@ void Vts02Vts::configuration(po::options_description &cmdline
          , "Radius (in meters) of DTM extraction element (in meters).")
         ;
 
-    registryConfiguration(cmdline);
-
     pd.add("input", 1);
     pd.add("output", 1);
 
@@ -138,7 +139,7 @@ void Vts02Vts::configuration(po::options_description &cmdline
 
 void Vts02Vts::configure(const po::variables_map &vars)
 {
-    registryConfigure(vars);
+    vr::registryConfigure(vars);
 
     createMode_ = (vars.count("overwrite")
                    ? vts::CreateMode::overwrite
