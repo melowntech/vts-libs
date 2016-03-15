@@ -25,7 +25,7 @@
 // drivers:
 #include "./plain.hpp"
 #include "./aggregated.hpp"
-#include "./http.hpp"
+#include "./remote.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -142,10 +142,10 @@ Driver::pointer Driver::create(const boost::filesystem::path &root
     {
         return std::make_shared<driver::AggregatedDriver>
             (root, *o, cloneOptions);
-    } else if (auto o = boost::any_cast<const driver::HttpOptions>
+    } else if (auto o = boost::any_cast<const driver::RemoteOptions>
                (&genericOptions))
     {
-        return std::make_shared<driver::HttpDriver>
+        return std::make_shared<driver::RemoteDriver>
             (root, *o, cloneOptions);
     }
 
@@ -169,10 +169,10 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
                (&genericOptions))
     {
         return std::make_shared<driver::AggregatedDriver>(root, *o);
-    } else if (auto o = boost::any_cast<const driver::HttpOptions>
+    } else if (auto o = boost::any_cast<const driver::RemoteOptions>
                (&genericOptions))
     {
-        return std::make_shared<driver::HttpDriver>(root, *o);
+        return std::make_shared<driver::RemoteDriver>(root, *o);
     }
 
     LOGTHROW(err2, storage::BadFileFormat)
@@ -186,7 +186,7 @@ namespace driver {
 
 MapConfigOverride::MapConfigOverride(const boost::any &options)
 {
-    if (auto o = boost::any_cast<const driver::HttpOptions>
+    if (auto o = boost::any_cast<const driver::RemoteOptions>
         (&options))
     {
         // force remote URL as a template prefix and since URL is not a local

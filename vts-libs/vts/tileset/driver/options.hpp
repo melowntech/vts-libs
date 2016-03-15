@@ -93,7 +93,7 @@ struct AggregatedOptions {
     TilesetIdSet tilesets;
 };
 
-struct HttpOptions {
+struct RemoteOptions {
     std::string url;
 };
 

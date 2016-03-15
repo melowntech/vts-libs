@@ -22,7 +22,7 @@
 #include "../../io.hpp"
 #include "../config.hpp"
 #include "../detail.hpp"
-#include "./http.hpp"
+#include "./remote.hpp"
 
 namespace vadstena { namespace vts { namespace driver {
 
@@ -49,18 +49,18 @@ const std::string filePath(File type)
 
 } // namespace
 
-HttpDriverBase::HttpDriverBase(const CloneOptions &cloneOptions)
+RemoteDriverBase::RemoteDriverBase(const CloneOptions &cloneOptions)
 {
     if (cloneOptions.lodRange()) {
         LOGTHROW(err2, storage::Error)
-            << "HTTP tileset driver doesn't support LOD sub ranging.";
+            << "REMOTE tileset driver doesn't support LOD sub ranging.";
     }
 }
 
-HttpDriver::HttpDriver(const boost::filesystem::path &root
-                                   , const HttpOptions &options
+RemoteDriver::RemoteDriver(const boost::filesystem::path &root
+                                   , const RemoteOptions &options
                                    , const CloneOptions &cloneOptions)
-    : HttpDriverBase(cloneOptions)
+    : RemoteDriverBase(cloneOptions)
     , Driver(root, options, cloneOptions.mode())
     , fetcher_(this->options().url, {})
     , revision_()
@@ -86,8 +86,8 @@ HttpDriver::HttpDriver(const boost::filesystem::path &root
     readOnly(true);
 }
 
-HttpDriver::HttpDriver(const boost::filesystem::path &root
-                       , const HttpOptions &options)
+RemoteDriver::RemoteDriver(const boost::filesystem::path &root
+                       , const RemoteOptions &options)
     : Driver(root, options)
     , fetcher_(this->options().url, {})
     , revision_()
@@ -99,11 +99,11 @@ HttpDriver::HttpDriver(const boost::filesystem::path &root
     tileset::loadTileSetIndex(tsi_, *this);
 }
 
-HttpDriver::HttpDriver(const boost::filesystem::path &root
-                                   , const HttpOptions &options
+RemoteDriver::RemoteDriver(const boost::filesystem::path &root
+                                   , const RemoteOptions &options
                                    , const CloneOptions &cloneOptions
-                                   , const HttpDriver &src)
-    : HttpDriverBase(cloneOptions)
+                                   , const RemoteDriver &src)
+    : RemoteDriverBase(cloneOptions)
     , Driver(root, options, cloneOptions.mode())
     , fetcher_(this->options().url, {})
 {
@@ -130,17 +130,17 @@ HttpDriver::HttpDriver(const boost::filesystem::path &root
 }
 
 Driver::pointer
-HttpDriver::clone_impl(const boost::filesystem::path &root
+RemoteDriver::clone_impl(const boost::filesystem::path &root
                              , const CloneOptions &cloneOptions)
     const
 {
-    return std::make_shared<HttpDriver>
+    return std::make_shared<RemoteDriver>
         (root, options(), cloneOptions, *this);
 }
 
-HttpDriver::~HttpDriver() {}
+RemoteDriver::~RemoteDriver() {}
 
-OStream::pointer HttpDriver::output_impl(File type)
+OStream::pointer RemoteDriver::output_impl(File type)
 {
     if (readOnly()) {
         LOGTHROW(err2, storage::ReadOnlyError)
@@ -152,28 +152,28 @@ OStream::pointer HttpDriver::output_impl(File type)
     return fileOStream(type, path);
 }
 
-IStream::pointer HttpDriver::input_impl(File type) const
+IStream::pointer RemoteDriver::input_impl(File type) const
 {
     auto path(root() / filePath(type));
     LOG(info1) << "Loading from " << path << ".";
     return fileIStream(type, path);
 }
 
-OStream::pointer HttpDriver::output_impl(const TileId&, TileFile)
+OStream::pointer RemoteDriver::output_impl(const TileId&, TileFile)
 {
     LOGTHROW(err2, storage::ReadOnlyError)
         << "This driver supports read access only.";
     return {};
 }
 
-IStream::pointer HttpDriver::input_impl(const TileId &tileId
+IStream::pointer RemoteDriver::input_impl(const TileId &tileId
                                         , TileFile type)
     const
 {
     return fetcher_.input(tileId, type, revision_);
 }
 
-FileStat HttpDriver::stat_impl(File type) const
+FileStat RemoteDriver::stat_impl(File type) const
 {
     const auto name(filePath(type));
     const auto path(root() / name);
@@ -181,31 +181,31 @@ FileStat HttpDriver::stat_impl(File type) const
     return FileStat::stat(path);
 }
 
-FileStat HttpDriver::stat_impl(const TileId &tileId, TileFile type) const
+FileStat RemoteDriver::stat_impl(const TileId &tileId, TileFile type) const
 {
     (void) tileId;
     (void) type;
     return {};
 }
 
-storage::Resources HttpDriver::resources_impl() const
+storage::Resources RemoteDriver::resources_impl() const
 {
     // nothing
     return {};
 }
 
-void HttpDriver::flush_impl() {
+void RemoteDriver::flush_impl() {
     LOGTHROW(err2, storage::ReadOnlyError)
         << "This driver supports read access only.";
 }
 
-void HttpDriver::drop_impl()
+void RemoteDriver::drop_impl()
 {
     LOGTHROW(err2, storage::ReadOnlyError)
         << "This driver supports read access only.";
 }
 
-std::string HttpDriver::info_impl() const
+std::string RemoteDriver::info_impl() const
 {
     auto o(options());
     std::ostringstream os;

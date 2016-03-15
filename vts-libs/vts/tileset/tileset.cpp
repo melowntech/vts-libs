@@ -378,7 +378,7 @@ TileSet createRemoveTileSet(const boost::filesystem::path &path
                             , const CloneOptions &createOptions)
 
 {
-    driver::HttpOptions dopts;
+    driver::RemoteOptions dopts;
     dopts.url = url;
 
     auto driver(Driver::create(path, dopts, createOptions));

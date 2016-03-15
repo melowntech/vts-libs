@@ -151,9 +151,9 @@ boost::any parseAggregatedDriver(const Json::Value &value)
     return driverOptions;
 }
 
-boost::any parseHttpDriver(const Json::Value &value)
+boost::any parseRemoteDriver(const Json::Value &value)
 {
-    driver::HttpOptions driverOptions;
+    driver::RemoteOptions driverOptions;
 
     Json::get(driverOptions.url, value, "url");
 
@@ -167,12 +167,21 @@ boost::any parseDriver(const Json::Value &value)
             << "Type of driver is not an object.";
     }
 
-    if (value.isMember("binaryOrder")) {
+    auto type([&]() -> std::string
+    {
+        if (!value.isMember("type")) { return "plain"; }
+
+        std::string type;
+        Json::get(type, value, "type");
+        return type;
+    }());
+
+    if (type == "plain") {
         return parsePlainDriver(value);
-    } else if (value.isMember("storage")) {
+    } else if (type == "aggregated") {
         return parseAggregatedDriver(value);
-    } else if (value.isMember("url")) {
-        return parseHttpDriver(value);
+    } else if (type == "remote") {
+        return parseRemoteDriver(value);
     }
 
     LOGTHROW(err1, Json::Error)
@@ -185,19 +194,22 @@ Json::Value buildDriver(const boost::any &d)
     Json::Value value(Json::objectValue);
 
     if (auto opts = boost::any_cast<const driver::PlainOptions>(&d)) {
+        value["type"] = "plain";
         value["binaryOrder"] = opts->binaryOrder();
         value["uuid"] = to_string(opts->uuid());
         return value;
     } else if (auto opts = boost::any_cast
                <const driver::AggregatedOptions>(&d))
     {
+        value["type"] = "aggregated";
         value["storage"] = opts->storagePath.string();
         value["tilesets"] = buildIdArray(opts->tilesets.begin()
                                          , opts->tilesets.end());
         return value;
     } else if (auto opts = boost::any_cast
-               <const driver::HttpOptions>(&d))
+               <const driver::RemoteOptions>(&d))
     {
+        value["type"] = "remote";
         value["url"] = opts->url;
         return value;
     }

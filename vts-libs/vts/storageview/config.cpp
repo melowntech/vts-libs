@@ -69,12 +69,12 @@ StorageView::Properties loadConfig(std::istream &in)
             return detail::parse1(config);
         }
 
-        LOGTHROW(err2, vadstena::storage::FormatError)
+        LOGTHROW(err1, vadstena::storage::FormatError)
             << "Invalid storageview config format: unsupported version "
             << version << ".";
 
     } catch (const Json::Error &e) {
-        LOGTHROW(err2, vadstena::storage::FormatError)
+        LOGTHROW(err1, vadstena::storage::FormatError)
             << "Invalid storageview config format (" << e.what()
             << "); Unable to work with this storageview.";
     }

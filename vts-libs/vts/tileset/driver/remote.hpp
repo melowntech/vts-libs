@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileset_driver_http_hpp_included_
-#define vadstena_libs_vts_tileset_driver_http_hpp_included_
+#ifndef vadstena_libs_vts_tileset_driver_remote_hpp_included_
+#define vadstena_libs_vts_tileset_driver_remote_hpp_included_
 
 #include <set>
 #include <map>
@@ -12,35 +12,35 @@ namespace vadstena { namespace vts { namespace driver {
 
 /** Helper class.
  */
-struct HttpDriverBase {
-    HttpDriverBase() {}
-    HttpDriverBase(const CloneOptions &cloneOptions);
+struct RemoteDriverBase {
+    RemoteDriverBase() {}
+    RemoteDriverBase(const CloneOptions &cloneOptions);
 };
 
-class HttpDriver : private HttpDriverBase, public Driver {
+class RemoteDriver : private RemoteDriverBase, public Driver {
 public:
-    typedef std::shared_ptr<HttpDriver> pointer;
+    typedef std::shared_ptr<RemoteDriver> pointer;
 
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.
      */
-    HttpDriver(const boost::filesystem::path &root
-                     , const HttpOptions &options
+    RemoteDriver(const boost::filesystem::path &root
+                     , const RemoteOptions &options
                      , const CloneOptions &cloneOptions);
 
     /** Opens storage.
      */
-    HttpDriver(const boost::filesystem::path &root
-                     , const HttpOptions &options);
+    RemoteDriver(const boost::filesystem::path &root
+                     , const RemoteOptions &options);
 
     /** Cloner
      */
-    HttpDriver(const boost::filesystem::path &root
-                     , const HttpOptions &options
+    RemoteDriver(const boost::filesystem::path &root
+                     , const RemoteOptions &options
                      , const CloneOptions &cloneOptions
-                     , const HttpDriver &src);
+                     , const RemoteDriver &src);
 
-    virtual ~HttpDriver();
+    virtual ~RemoteDriver();
 
 private:
     virtual OStream::pointer output_impl(const File type);
@@ -68,8 +68,8 @@ private:
 
     virtual std::string info_impl() const;
 
-    inline const HttpOptions& options() const {
-        return Driver::options<const HttpOptions&>();
+    inline const RemoteOptions& options() const {
+        return Driver::options<const RemoteOptions&>();
     }
 
     HttpFetcher fetcher_;
@@ -79,4 +79,4 @@ private:
 
 } } } // namespace vadstena::vts::driver
 
-#endif // vadstena_libs_vts_tileset_driver_http_hpp_included_
+#endif // vadstena_libs_vts_tileset_driver_remote_hpp_included_
