@@ -400,7 +400,7 @@ class TextureNormalizer {
 public:
     TextureNormalizer(const math::Extents2 &divisionExtents)
         : size_(size(divisionExtents))
-        , origin_(divisionExtents.ll)
+        , origin_(-size_.width / 2.0, -size_.height / 2.0)
     {}
 
     math::Point2 operator()(const math::Point3 &p) const {
