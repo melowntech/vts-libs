@@ -235,12 +235,12 @@ const opencv::NavTile& MeshOpInput::navtile() const
 
 const math::Matrix4 MeshOpInput::sd2Coverage(const NodeInfo &nodeInfo) const
 {
-    return geo2mask(nodeInfo.node.extents, Mesh::coverageSize());
+    return geo2mask(nodeInfo.extents(), Mesh::coverageSize());
 }
 
 const math::Matrix4 MeshOpInput::coverage2Sd(const NodeInfo &nodeInfo) const
 {
-    return mask2geo(nodeInfo.node.extents, Mesh::coverageSize());
+    return mask2geo(nodeInfo.extents(), Mesh::coverageSize());
 }
 
 const math::Matrix4 MeshOpInput::coverage2Texture() const
@@ -554,7 +554,7 @@ private:
         coverage = cv::Scalar(-1);
 
         for (const auto &input : sources) {
-            if (nodeInfo.node.srs == input.nodeInfo().node.srs) {
+            if (nodeInfo.srs() == input.nodeInfo().srs()) {
                 // same SRS -> mask is rendered as is (possible scale and shift)
                 rasterize(input, input.id(), coverage
                           , local(input.tileId().lod, tileId));
@@ -715,8 +715,8 @@ public:
     SdMeshConvertor(const Input &input, const NodeInfo &nodeInfo
                     , const TileId &tileId)
         : geoTrafo_(input.coverage2Sd(nodeInfo))
-        , geoConv_(nodeInfo.node.srs
-                   , nodeInfo.referenceFrame->model.physicalSrs)
+        , geoConv_(nodeInfo.srs()
+                   , nodeInfo.referenceFrame().model.physicalSrs)
         , etcNCTrafo_(etcNCTrafo(tileId))
         , coverage2Texture_(input.coverage2Texture())
     {}
@@ -891,8 +891,8 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
 
     // clip source mesh/navtile
 
-    CsConvertor phys2sd(nodeInfo.referenceFrame->model.physicalSrs
-                        , nodeInfo.node.srs);
+    CsConvertor phys2sd(nodeInfo.referenceFrame().model.physicalSrs
+                        , nodeInfo.srs());
 
     const auto coverageVertices
         (inputCoverageVertices(input, nodeInfo, phys2sd));
@@ -1004,8 +1004,8 @@ Output mergeTile(const TileId &tileId
     }
 
     // merge meshes
-    CsConvertor phys2sd(nodeInfo.referenceFrame->model.physicalSrs
-                        , nodeInfo.node.srs);
+    CsConvertor phys2sd(nodeInfo.referenceFrame().model.physicalSrs
+                        , nodeInfo.srs());
 
     // process all input tiles from result source (i.e. only those contributing
     // to the tile)

@@ -598,10 +598,10 @@ void TileSet::Detail::updateProperties(const NodeInfo &nodeInfo)
 {
     auto res(properties.spatialDivisionExtents.insert
              (SpatialDivisionExtents::value_type
-              (nodeInfo.subtreeRoot->srs, nodeInfo.node.extents)));
+              (nodeInfo.srs(), nodeInfo.extents())));
     if (!res.second) {
         res.first->second
-            = math::unite(res.first->second, nodeInfo.node.extents);
+            = math::unite(res.first->second, nodeInfo.extents());
         propertiesChanged = true;
     }
 }
@@ -775,7 +775,7 @@ void sanityCheck(const TileId &tileId, const Mesh *mesh, const Atlas *atlas
                 "texture coordinates.";
         }
 
-        if (!nodeInfo.node.externalTexture) {
+        if (!nodeInfo.node().externalTexture) {
             LOGTHROW(err1, storage::InconsistentInput)
                 << "Tile " << tileId
                 << ": reference frame node doesn't allow external texture.";
@@ -1329,9 +1329,9 @@ bool TileSet::Detail::fullyCovered(const TileId &tileId) const
 bool TileSet::canContain(const NodeInfo &nodeInfo) const
 {
     const auto &sde(detail().properties.spatialDivisionExtents);
-    auto fsde(sde.find(nodeInfo.node.srs));
+    auto fsde(sde.find(nodeInfo.srs()));
     if (fsde == sde.end()) { return false; }
-    return overlaps(fsde->second, nodeInfo.node.extents);
+    return overlaps(fsde->second, nodeInfo.extents());
 }
 
 int TileSet::getReference(const TileId &tileId) const

@@ -4,6 +4,7 @@
 #include "../storage/filetypes.hpp"
 
 #include "./basetypes.hpp"
+#include "./nodeinfo.hpp"
 #include "./types.hpp"
 
 namespace vadstena { namespace vts {
@@ -47,9 +48,11 @@ TileId tileId(const RFNode::Id &rfNodeId);
 TileId tileId(const NodeInfo &nodeInfo);
 
 TileId local(Lod rootLod, const TileId &tileId);
+RFNode::Id local(Lod rootLod, const RFNode::Id &rfNodeId);
 
 math::Point2_<unsigned int> point(const TileId &tileId);
 TileId tileId(Lod lod, const math::Point2_<unsigned int> &point);
+math::Point2_<unsigned int> point(const RFNode::Id &rfnodeId);
 math::Point2_<unsigned int> point(const NodeInfo &nodeInfo);
 
 // inline stuff
@@ -118,6 +121,15 @@ inline TileId local(Lod rootLod, const TileId &tileId)
     return TileId(ldiff, tileId.x & mask, tileId.y & mask);
 }
 
+inline RFNode::Id local(Lod rootLod, const RFNode::Id &rfNodeId)
+{
+    if (rootLod >= rfNodeId.lod) { return {}; }
+
+    const auto ldiff(rfNodeId.lod - rootLod);
+    const auto mask((1 << ldiff) - 1);
+    return RFNode::Id(ldiff, rfNodeId.x & mask, rfNodeId.y & mask);
+}
+
 inline math::Point2_<unsigned int> point(const TileId &tileId)
 {
     return { tileId.x, tileId.y };
@@ -128,9 +140,14 @@ inline TileId tileId(Lod lod, const math::Point2_<unsigned int> &point)
     return { lod, point(0), point(1) };
 }
 
+inline math::Point2_<unsigned int> point(const RFNode::Id &rfnodeId)
+{
+    return { rfnodeId.x, rfnodeId.y };
+}
+
 inline math::Point2_<unsigned int> point(const NodeInfo &nodeInfo)
 {
-    return { nodeInfo.node.id.x, nodeInfo.node.id.y };
+    return point(nodeInfo.nodeId());
 }
 
 } } // namespace vadstena::vts

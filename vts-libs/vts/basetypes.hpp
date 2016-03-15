@@ -66,63 +66,6 @@ enum class CreateMode {
     , overwrite  //!< existing tile set/storage is replace with new one
 };
 
-/** Reference frame node information.
- */
-struct NodeInfo {
-    /** Associated reference frame
-     */
-    const registry::ReferenceFrame *referenceFrame;
-
-    /** Root of this subtree.
-     */
-    const RFNode *subtreeRoot;
-
-    /** Node.
-     */
-    RFNode node;
-
-    /** Creates node info from reference frame and tileId.
-     *
-     * Root node is found in reference frame and then current node is derived.
-     */
-    NodeInfo(const registry::ReferenceFrame &referenceFrame
-             , const TileId &tileId);
-
-    /** Root node info.
-     */
-    NodeInfo(const registry::ReferenceFrame &referenceFrame)
-        : referenceFrame(&referenceFrame), subtreeRoot(&referenceFrame.root())
-        , node(*subtreeRoot)
-    {}
-
-    /** Root node info.
-     */
-    NodeInfo(const registry::ReferenceFrame &referenceFrame
-             , const RFNode &node)
-        : referenceFrame(&referenceFrame), subtreeRoot(&node), node(node)
-    {}
-
-    /** Node id.
-     */
-    RFNode::Id nodeId() const { return node.id; }
-
-    /** Distance from root.
-     */
-    Lod distanceFromRoot() const { return node.id.lod - subtreeRoot->id.lod; }
-
-    /** Returns child node. Uses same child assignment as children() functiom
-     *  children() from tileop.
-     */
-    NodeInfo child(Child child) const;
-
-    bool valid() const { return node.valid(); }
-};
-
-/** Checks compatibility of two nodes.
- *  Both nodes must be in the same subtree
- */
-bool compatible(const NodeInfo &ni1, const NodeInfo &ni2);
-
 typedef std::string TilesetId;
 typedef std::vector<TilesetId> TilesetIdList;
 typedef std::set<TilesetId> TilesetIdSet;
@@ -193,11 +136,6 @@ inline bool TileId::operator==(const TileId &tid) const
     return ((lod == tid.lod)
             && (x == tid.x)
             && (y == tid.y));
-}
-
-inline bool compatible(const NodeInfo &ni1, const NodeInfo &ni2)
-{
-    return (ni1.subtreeRoot == ni2.subtreeRoot);
 }
 
 UTILITY_GENERATE_ENUM_IO(OpenMode,

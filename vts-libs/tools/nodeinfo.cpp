@@ -78,27 +78,27 @@ int NodeInfo::run()
     const auto referenceFrame(vr::Registry::referenceFrame(referenceFrame_));
     vts::NodeInfo ni(referenceFrame, tileId_);
 
-    if (!ni.node.valid()) {
+    if (!ni.valid()) {
         std::cout << "Node: " << tileId_ << " is not a valid node in "
             "this division space" << std::endl;
         return EXIT_FAILURE;
     };
 
     std::cout << "Node: " << tileId_ << std::endl;
-    std::cout << "Division SRS: " << ni.node.srs << std::endl;
+    std::cout << "Division SRS: " << ni.srs() << std::endl;
     std::cout << "Division extents: "
-              << std::fixed << ni.node.extents << std::endl;
+              << std::fixed << ni.extents() << std::endl;
     std::cout << "Tile size: "
-              << std::fixed << size(ni.node.extents) << std::endl;
-    std::cout << "Subtree root node: " << ni.subtreeRoot->id << std::endl;
+              << std::fixed << size(ni.extents()) << std::endl;
+    std::cout << "Subtree root node: " << ni.subtree().id() << std::endl;
     std::cout << "Subtree root division extents: "
-              << ni.subtreeRoot->extents << std::endl;
+              << ni.subtree().root().extents << std::endl;
 
     std::cout << "Parent: " << parent(tileId_) << std::endl;
     std::cout << "Children:" << std::endl;
     for (auto child : children(tileId_)) {
         auto childNode(ni.child(child));
-        if (childNode.node.valid()) {
+        if (childNode.valid()) {
             std::cout << "    " << ni.child(child).nodeId() << std::endl;
         }
     }

@@ -12,14 +12,15 @@ namespace {
 math::Extents2 makeExtents(const RFNode &rootNode, const RFNode::Id &nodeId)
 {
     // determine tile extents
-    auto tc(tileCount(nodeId.lod - rootNode.id.lod));
+    auto lid(local(rootNode.id.lod, nodeId));
+    auto tc(tileCount(lid.lod));
     auto rs(size(rootNode.extents));
     math::Size2f ts(rs.width / tc, rs.height / tc);
     return  math::Extents2
-        (rootNode.extents.ll(0) + nodeId.x * ts.width
-         , rootNode.extents.ur(1) - (nodeId.y + 1) * ts.height
-         , rootNode.extents.ll(0) + (nodeId.x + 1) * ts.width
-         , rootNode.extents.ur(1) - nodeId.y * ts.height);
+        (rootNode.extents.ll(0) + lid.x * ts.width
+         , rootNode.extents.ur(1) - (lid.y + 1) * ts.height
+         , rootNode.extents.ll(0) + (lid.x + 1) * ts.width
+         , rootNode.extents.ur(1) - lid.y * ts.height);
 }
 
 RFNode makeNode(const RFNode &subtreeRoot
@@ -43,20 +44,22 @@ RFNode makeNode(const RFNode &subtreeRoot
 
 NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
                    , const TileId &tileId)
-    : referenceFrame(&referenceFrame)
-    , subtreeRoot(&referenceFrame.findSubtreeRoot(rfNodeId(tileId)))
-    , node(makeNode(*subtreeRoot, tileId))
-{}
+    : referenceFrame_(&referenceFrame)
+    , subtree_(referenceFrame_->findSubtreeRoot(rfNodeId(tileId)))
+    , node_(makeNode(subtree_.root(), tileId))
+{
+    // TODO: extents-based validity check here
+}
 
 NodeInfo NodeInfo::child(Child childDef) const
 {
-    if (!node.valid()) {
+    if (!node_.valid()) {
         LOGTHROW(err2, storage::Error)
-            << "Node " << node.id << " has no children.";
+            << "Node " << node_.id << " has no children.";
     }
 
     // build child id from this node and index
-    RFNode::Id childId(node.id);
+    RFNode::Id childId(node_.id);
     ++childId.lod;
     childId.x <<= 1;
     childId.y <<= 1;
@@ -91,27 +94,27 @@ NodeInfo NodeInfo::child(Child childDef) const
     {
         LOGTHROW(err2, storage::Error)
             << "Node " << childId << " is not a child of "
-            << node.id << ".";
+            << node_.id << ".";
     }
 
     // NB: this works only for manual division
-    if (const auto *childNode = referenceFrame->find(childId, std::nothrow)) {
+    if (const auto *childNode = referenceFrame_->find(childId, std::nothrow)) {
         // we have new subtree root
-        return { *referenceFrame, *childNode };
+        return { *referenceFrame_, *childNode };
     }
 
     // divide current node's extents in half in both directions
     NodeInfo child(*this);
-    child.node.id = childId;
+    child.node_.id = childId;
 
     // size of extents
-    auto es(size(node.extents));
+    auto es(size(node_.extents));
     // and halve it
     es.width /= 2.0;
     es.height /= 2.0;
 
     // no need to check childNum since it was checked above
-    auto &extents(child.node.extents);
+    auto &extents(child.node_.extents);
     switch (childDef.index) {
     case 0: // upper-left
         extents.ur(0) -= es.width;

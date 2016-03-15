@@ -248,9 +248,9 @@ void Encoder::Detail::process(const TileId &tileId
 
     TIDGuard tg(str(boost::format("tile:%s") % tileId));
 
-    const auto &extents(nodeInfo.node.extents);
+    const auto &extents(nodeInfo.extents());
     if (useConstraints & ConstraintsFlag::useExtents) {
-        if (!overlaps(getExtents(nodeInfo.node.srs), extents)) {
+        if (!overlaps(getExtents(nodeInfo.srs()), extents)) {
             // nothing can live out here -> done
             // * equivalent to TileResult::noData
             return;
