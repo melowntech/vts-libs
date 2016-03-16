@@ -235,10 +235,10 @@ void sanitize(const boost::filesystem::path &path
         auto c11(child(id, 1, 1));
 
         // find all node children
-        const auto *n00(div.find(c00, std::nothrow));
-        const auto *n01(div.find(c01, std::nothrow));
-        const auto *n10(div.find(c10, std::nothrow));
-        const auto *n11(div.find(c11, std::nothrow));
+        auto *n00(div.find(c00, std::nothrow));
+        auto *n01(div.find(c01, std::nothrow));
+        auto *n10(div.find(c10, std::nothrow));
+        auto *n11(div.find(c11, std::nothrow));
 
         if (part.mode != PartitioningMode::manual) {
             // bisection of nothing at all -- there must be mothing inside
@@ -260,10 +260,12 @@ void sanitize(const boost::filesystem::path &path
         // child node from partitioning exists and remember invalid children
 
         int left(4);
-        auto check([&](const Node::Id &child, bool hasPart, bool hasNode)
+        auto check([&](const Node::Id &child
+                       , const boost::optional<math::Extents2> &extents
+                       , Node *node)
             mutable
         {
-            if (hasPart != hasNode) {
+            if (bool(extents) != bool(node)) {
                 LOGTHROW(err2, storage::FormatError)
                     << "Unable to parse reference frame file " << path
                     << ": reference frame <" << rf.id
@@ -272,9 +274,13 @@ void sanitize(const boost::filesystem::path &path
                     << child << ").";
             }
 
-            if (!hasPart) {
+            if (!extents) {
                 invalid.push_back(child);
                 --left;
+            } else {
+                // create manual partition information
+                node->constraints
+                    = boost::in_place(*extents, item.second.srs);
             }
         });
 
@@ -961,6 +967,14 @@ void saveCredits(const boost::filesystem::path &path
 
 const ReferenceFrame::Division::Node*
 ReferenceFrame::Division::find(const Node::Id &id, std::nothrow_t) const
+{
+    auto fnodes(nodes.find(id));
+    if (fnodes == nodes.end()) { return nullptr; }
+    return &fnodes->second;
+}
+
+ReferenceFrame::Division::Node*
+ReferenceFrame::Division::find(const Node::Id &id, std::nothrow_t)
 {
     auto fnodes(nodes.find(id));
     if (fnodes == nodes.end()) { return nullptr; }

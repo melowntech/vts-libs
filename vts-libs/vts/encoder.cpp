@@ -261,7 +261,8 @@ void Encoder::Detail::process(const TileId &tileId
     if (processTile) {
         LOG(info2)
             << "Trying to generate " << tileId << " (extents: "
-            << std::fixed << extents << ").";
+            << std::fixed << extents << ")"
+            << (nodeInfo.partial() ? " (partial)." : ".");
 
         tile = owner->generate(tileId, nodeInfo, parentTile);
         switch (auto result = tile.result()) {
@@ -272,8 +273,9 @@ void Encoder::Detail::process(const TileId &tileId
 
             LOGR(options.level())
                 << "Generated tile " << Estimated(number, estimated_) << ": "
-                << tileId << " (extents: " << std::fixed << extents << ") ["
-                << TileFlags{tile} << "].";
+                << tileId << " (extents: " << std::fixed << extents << ")"
+                << (nodeInfo.partial() ? " (partial) " : " ")
+                << "[" << TileFlags{tile} << "].";
 
             bool hasMesh(false);
             if (result == TileResult::Result::tile) {
@@ -309,7 +311,8 @@ void Encoder::Detail::process(const TileId &tileId
     } else {
         LOG(info3)
             << "Falling through " << tileId << " (extents: "
-            << std::fixed << extents << ").";
+            << std::fixed << extents << ")"
+            << (nodeInfo.partial() ? " (partial). " : ".");
     }
 
     // we can proces children -> go down

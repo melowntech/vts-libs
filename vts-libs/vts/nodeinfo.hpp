@@ -1,6 +1,10 @@
 #ifndef vadstena_libs_vts_nodeinfo_hpp_included_
 #define vadstena_libs_vts_nodeinfo_hpp_included_
 
+#include <boost/logic/tribool.hpp>
+
+#include "imgproc/rastermask/quadtree.hpp"
+
 #include "./basetypes.hpp"
 
 namespace vadstena { namespace vts {
@@ -19,8 +23,31 @@ public:
         return (root_ == other.root_);
     }
 
+    /** Calculates node validity:
+     *    * false: node is completely outside subtree's valid area
+     *    * true: node is completely inside subtree's valid area
+     *    * indeterminate: node is partially inside subtree's valid area
+     */
+    boost::tribool valid(const RFNode &node) const;
+
+    /** Node coverage mask.
+     */
+    typedef imgproc::quadtree::RasterMask CoverageMask;
+
+    /** Node coverage mask type: pixel or grid.
+     */
+    enum class CoverageType { pixel, grid };
+
+    CoverageMask coverageMask(CoverageType type, const math::Size2 &size
+                              , const RFNode &node) const;
+
 private:
+    bool initSampler() const;
+
+    struct Sampler;
+
     const RFNode *root_;
+    mutable std::shared_ptr<Sampler> sampler_;
 };
 
 /** Reference frame node information.
@@ -67,6 +94,23 @@ public:
         return *referenceFrame_;
     }
 
+    /** Partial node is not fully inside valid bounds.
+     *
+     *  NB: node that is fully outside valid bounds is marked as invalid.
+     */
+    bool partial() const { return partial_; }
+
+    typedef RFTreeSubtree::CoverageMask CoverageMask;
+    typedef RFTreeSubtree::CoverageType CoverageType;
+
+    /** Computes coverage mask:
+     *    * invalid node: fully black
+     *    * non-partial valid node: fully white
+     *    * partial valid node: generated mask based on node constraints
+     */
+    CoverageMask coverageMask(CoverageType type, const math::Size2 &size)
+        const;
+
 private:
     /** Node info.
      */
@@ -84,6 +128,12 @@ private:
     /** Node.
      */
     RFNode node_;
+
+    /** Partial node is partially inside valid bounds.
+     *
+     *  NB: node that is fully outside valid bounds is marked as invalid!
+     */
+    bool partial_;
 };
 
 /** Checks compatibility of two nodes.
@@ -95,12 +145,7 @@ bool compatible(const NodeInfo &ni1, const NodeInfo &ni2);
 
 inline NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame)
     : referenceFrame_(&referenceFrame), subtree_(referenceFrame.root())
-    , node_(subtree_.root())
-{}
-
-inline NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
-                          , const RFNode &node)
-    : referenceFrame_(&referenceFrame), subtree_(node), node_(node)
+    , node_(subtree_.root()), partial_(false)
 {}
 
 inline bool compatible(const NodeInfo &ni1, const NodeInfo &ni2)

@@ -107,11 +107,33 @@ struct ReferenceFrame {
                     : mode(mode) {}
             };
 
+            /** Constraints on a node.
+             */
+            struct Constraints {
+                /** Extra extents to apply.
+                 */
+                math::Extents2 extents;
+
+                /** SRS of extra constraints
+                 */
+                std::string extentsSrs;
+
+                Constraints(const math::Extents2 &extents
+                            , const std::string &extentsSrs)
+                    : extents(extents), extentsSrs(extentsSrs)
+                {}
+            };
+
             Id id;
             std::string srs;
             math::Extents2 extents;
             Partitioning partitioning;
             bool externalTexture;
+
+            /** Extra constraints applied on this node. Copied from parent node
+             *  in case of manual partitioning.
+             */
+            boost::optional<Constraints> constraints;
 
             typedef std::map<Id, Node> map;
 
@@ -123,6 +145,10 @@ struct ReferenceFrame {
             bool valid() const {
                 return (partitioning.mode != PartitioningMode::none);
             }
+
+            void invalidate() {
+                partitioning.mode = PartitioningMode::none;
+            }
         };
 
         math::Extents3 extents;
@@ -130,6 +156,8 @@ struct ReferenceFrame {
 
         const Node& find(const Node::Id &id) const;
         const Node* find(const Node::Id &id, std::nothrow_t) const;
+
+        Node* find(const Node::Id &id, std::nothrow_t);
 
         const Node& root() const { return find({}); }
 
@@ -283,7 +311,7 @@ void saveCredits(std::ostream &out, const Credit::dict &credits);
 void saveCredits(const boost::filesystem::path &path
                  , const Credit::dict &credits);
 
-// extra sstuff
+// extra stuff
 
 math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
                                  , const math::Extents3 &extents);
