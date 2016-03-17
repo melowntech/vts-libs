@@ -384,6 +384,15 @@ void rasterize(const MeshOpInput &input, const cv::Scalar &color
     // offset in destination pixels
     cv::Point2i offset(diff.x * coverage.cols, diff.y * coverage.rows);
 
+    LOG(info1) << "Rasterize coverage " << input.tileId()
+               << " (diff: " << diff
+               << "): pixel size: " << pixelSize
+               << ", offset " << offset
+               << (input.watertight() ? " (watertight)" : "")
+               << ".";
+
+    cv::Rect bounds(0, 0, coverage.cols, coverage.rows);
+
     auto draw([&](uint xstart, uint ystart
                   , uint xsize, uint ysize, bool)
     {
@@ -397,10 +406,10 @@ void rasterize(const MeshOpInput &input, const cv::Scalar &color
         xstart -= offset.x;
         ystart -= offset.y;
 
-        cv::Point2i start(xstart, ystart);
-        cv::Point2i end(xstart + xsize - 1, ystart + ysize - 1);
-
-        cv::rectangle(coverage, start, end, color, CV_FILLED, 4);
+        // construct rectangle and intersect it with bounds
+        cv::Rect r(xstart, ystart, xsize, ysize);
+        auto rr(r & bounds);
+        cv::rectangle(coverage, rr, color, CV_FILLED, 4);
     });
 
     if (input.watertight()) {
@@ -954,13 +963,32 @@ Output mergeTile(const TileId &tileId
 
     if (!constraints.generable()) {
         // just sources
+        LOG(info1) << "(merge) Constraits prohibit generation.";
         return Output(tileId, source, navtileSource);
     }
 
     // from here, all input tiles have geometry -> no need to check for mesh
     // presence
 
-    if (source.empty()) { return Output(tileId); }
+    if (source.empty()) {
+        LOG(info1) << "(merge) No sources at all.";
+        return Output(tileId);
+    }
+
+    LOG(info1)
+        << "(merge) Sources to merge: "
+        << utility::LManip([&](std::ostream &os) -> void
+           {
+               bool first = true;
+               for (const auto &src : source) {
+                   if (!first) { os << ", "; }
+                   os << src.name();
+                   if (src.tileId() != tileId) {
+                       os << "(" << src.tileId() << ")";
+                   }
+                   first = false;
+               }
+           }) << ".";
 
     if ((source.size() == 1)) {
         Output result(tileId, source, navtileSource);

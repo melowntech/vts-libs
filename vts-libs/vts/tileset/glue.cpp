@@ -207,10 +207,15 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     const bool g(generate_.exists(tileId));
     const bool atBottom(tileId.lod >= generate_.maxLod());
 
-    LOG(info2) << "(glue) Processing tile " << tileId << ".";
+    LOG(info2) << "(glue) Processing tile " << tileId
+               << " (" << (g ? 'G': 'g')
+               << (atBottom ? 'B': 'b') << ").";
 
     // terminate descent if at bottom and nothing is going to be generated
-    if (atBottom && !g) { return; }
+    if (atBottom && !g) {
+        LOG(info1) << "Bottom and nothing to generate there.";
+        return;
+    }
 
     const bool ng(navtileGenerate_.exists(tileId));
 
