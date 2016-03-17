@@ -282,7 +282,7 @@ TileIndex buildGenerateSet(const char *dumpRoot
     top.round();
     // make complete up and down trees for top (up: every tile has parent, down:
     // every tile has all children)
-    const auto topUp(TileIndex(top).complete());
+    const auto topUp(TileIndex(top).growUp());
     const auto topDown(TileIndex(top).completeDown());
 
     dumpTileIndex(dumpRoot, "top-round", top, referenceFrameId);
