@@ -29,6 +29,24 @@ constexpr char Credit::typeName[];
 constexpr char BoundLayer::typeName[];
 constexpr char DataFile::typeName[];
 
+TileRange tileRangeFromJson(const Json::Value &value)
+{
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of tileRange is not a list.";
+    }
+    if (value.size() != 2) {
+        LOGTHROW(err1, Json::Error)
+            << "tileRange must have two elements.";
+    }
+    TileRange tileRange;
+    Json::get(tileRange.ll(0), value[0], 0, "tileRange[0][0]");
+    Json::get(tileRange.ll(1), value[0], 1, "tileRange[0][1]");
+    Json::get(tileRange.ur(0), value[1], 0, "tileRange[1][0]");
+    Json::get(tileRange.ur(1), value[1], 1, "tileRange[1][1]");
+    return tileRange;
+}
+
 namespace {
 
 constexpr int DEFAULT_RF_VERSION(1);
@@ -608,19 +626,7 @@ void parse(BoundLayer &bl, const Json::Value &content)
     Json::get(bl.lodRange.min, content, "lodRange", 0);
     Json::get(bl.lodRange.max, content, "lodRange", 1);
 
-    const auto &tileRange(content["tileRange"]);
-    if (!tileRange.isArray()) {
-        LOGTHROW(err1, Json::Error)
-            << "Type of boundLayer[tileRange] is not a list.";
-    }
-    if (tileRange.size() != 2) {
-        LOGTHROW(err1, Json::Error)
-            << "boundLayer[tileRange] must have two elements.";
-    }
-    Json::get(bl.tileRange.ll(0), tileRange[0], 0, "tileRange[0][0]");
-    Json::get(bl.tileRange.ll(1), tileRange[0], 1, "tileRange[0][1]");
-    Json::get(bl.tileRange.ur(0), tileRange[1], 0, "tileRange[1][0]");
-    Json::get(bl.tileRange.ur(1), tileRange[1], 1, "tileRange[1][1]");
+    bl.tileRange = tileRangeFromJson(content["tileRange"]);
 
     const auto &credits(content["credits"]);
     if (!credits.isArray()) {

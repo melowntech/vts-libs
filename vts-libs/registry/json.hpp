@@ -20,6 +20,7 @@ Json::Value asJson(const BoundLayer::dict &boundLayers);
 BoundLayer::dict boundLayersFromJson(const Json::Value &value);
 Json::Value asJson(const Position &position);
 Position positionFromJson(const Json::Value &value);
+TileRange tileRangeFromJson(const Json::Value &value);
 
 Json::Value asJson(const View &view, BoundLayer::dict &boundLayers);
 View viewFromJson(const Json::Value &value);
