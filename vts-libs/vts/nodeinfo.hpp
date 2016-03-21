@@ -39,7 +39,8 @@ public:
     enum class CoverageType { pixel, grid };
 
     CoverageMask coverageMask(CoverageType type, const math::Size2 &size
-                              , const RFNode &node) const;
+                              , unsigned int dilation, const RFNode &node)
+        const;
 
 private:
     bool initSampler() const;
@@ -107,9 +108,13 @@ public:
      *    * invalid node: fully black
      *    * non-partial valid node: fully white
      *    * partial valid node: generated mask based on node constraints
+     *
+     * \param type pixel or grid registration
+     * \param size size of mask in pixels
+     * \param dilation number of dilation pixels, uses square element
      */
-    CoverageMask coverageMask(CoverageType type, const math::Size2 &size)
-        const;
+    CoverageMask coverageMask(CoverageType type, const math::Size2 &size
+                              , unsigned int dilation = 0) const;
 
 private:
     /** Node info.

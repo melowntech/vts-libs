@@ -262,7 +262,8 @@ boost::tribool RFTreeSubtree::valid(const RFNode &node) const
 }
 
 NodeInfo::CoverageMask
-NodeInfo::coverageMask(CoverageType type, const math::Size2 &size) const
+NodeInfo::coverageMask(CoverageType type, const math::Size2 &size
+                       , unsigned int dilation) const
 {
     if (!valid()) {
         return CoverageMask(size, CoverageMask::InitMode::EMPTY);
@@ -272,19 +273,17 @@ NodeInfo::coverageMask(CoverageType type, const math::Size2 &size) const
         return CoverageMask(size, CoverageMask::InitMode::FULL);
     }
 
-    return subtree_.coverageMask(type, size, node_);
+    return subtree_.coverageMask(type, size, dilation, node_);
 }
 
 RFTreeSubtree::CoverageMask
 RFTreeSubtree::coverageMask(CoverageType type, const math::Size2 &size
-                            , const RFNode &node) const
+                            , unsigned int dilation, const RFNode &node) const
 {
     if (!initSampler()) {
         // no sampler -> no constraints -> full mask
         return CoverageMask(size, CoverageMask::InitMode::FULL);
     }
-
-    CoverageMask mask(size, CoverageMask::InitMode::EMPTY);
 
     // extents to process
     const auto grid([&]() -> math::Extents2
@@ -304,26 +303,53 @@ RFTreeSubtree::coverageMask(CoverageType type, const math::Size2 &size
         return grid;
     }());
 
-    // number of steps in each direction
-    const auto steps([&]() -> math::Size2
-    {
-        // pixel coordinates: leave
-        if (type == CoverageType::pixel) { return size; }
-
-        // grid: add one more step
-        return { size.width + 1, size.height + 1 };
-    }());
-
+    // get grid size and calculate pixel size (i.e. step)
     const auto gs(math::size(grid));
-    math::Size2f ps(gs.width / size.width, gs.height / size.height);
+    math::Size2f ps(gs.width / (size.width - 1)
+                    , gs.height / (size.height - 1));
     const auto ref(ul(grid));
 
-    // sample whole mask
+    // NB: we cannot use OpenCV here, this is core lib functionality
+    std::vector<std::uint8_t> pane(area(size), false);
+
+    auto clip([](int v, int limit) -> int
+    {
+        if (v < 0) { return 0; }
+        if (v > limit) { return limit; }
+        return v;
+    });
+
+    // sample tile in grid
     const auto &sampler(*sampler_);
-    for (int j(0); j < steps.height; ++j) {
+    for (int j(0), gp(0); j < size.height; ++j) {
         double y(ref(1) - j * ps.height);
-        for (int i(0); i < steps.width; ++i) {
-            if (sampler.inside(math::Point2(ref(0) + i * ps.width, y))) {
+        for (int i(0); i < size.width; ++i, ++gp) {
+            double x(ref(0) + i * ps.width);
+            if (sampler.inside(math::Point2(x, y))) {
+                if (!dilation) {
+                    pane[gp] = true;
+                }
+
+                // some dilation -> apply
+                for (int jj(clip(j - dilation, size.height))
+                         , je(clip(j + dilation, size.height - 1))
+                         , gy(jj * size.width);
+                     jj <= je; ++jj, gy += size.width) {
+                    for (int ii(clip(i - dilation, size.width))
+                             , ie(clip(i + dilation, size.width));
+                         ii <= ie; ++ii)
+                    {
+                        pane[gy + ii] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    CoverageMask mask(size, CoverageMask::InitMode::EMPTY);
+    for (int j(0), gp(0); j < size.height; ++j) {
+        for (int i(0); i < size.width; ++i, ++gp) {
+            if (pane[gp]) {
                 mask.set(i, j, true);
             }
         }
