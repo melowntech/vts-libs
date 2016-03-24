@@ -82,6 +82,13 @@ struct MapConfig {
     void mergeGlue(const MapConfig &tilesetMapConfig
                    , const Glue &glue
                    , const boost::filesystem::path &root);
+
+    /** Merges in other map config.
+     *
+     *  Copies reference frame from other configuration if not set yet;
+     *  otherwise check for same reference frame (only ID, not content).
+     */
+    void merge(const MapConfig &other);
 };
 
 /** Save map config into stream.

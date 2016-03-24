@@ -148,7 +148,7 @@ void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
         out.position = in.position;
     }
 
-    // all inputs mas be texture-atlas-ready
+    // all inputs must be texture-atlas-ready
     out.textureAtlasReady &= in.textureAtlasReady;
 }
 
@@ -185,6 +185,31 @@ void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
     glues.push_back(g);
 
     mergeRest(*this, tilesetMapConfig, false);
+}
+
+void MapConfig::merge(const MapConfig &other)
+{
+    if (referenceFrame.id.empty()) {
+        // assign reference frame
+        if (other.referenceFrame.id.empty()) {
+            LOGTHROW(err1, storage::InconsistentInput)
+                << "Missing referenceFrame while merging "
+                "map configuration.";
+        }
+        referenceFrame = other.referenceFrame;
+    } else if (referenceFrame.id != other.referenceFrame.id) {
+        // mismatch
+        LOGTHROW(err1, storage::InconsistentInput)
+            << "Cannot merge map configuration for reference frame <"
+            << referenceFrame.id
+            << "> with map configuration for reference frame <"
+            << other.referenceFrame.id << ">.";
+    }
+
+    surfaces.insert(surfaces.end(), other.surfaces.begin()
+                    , other.surfaces.end());
+    glues.insert(glues.end(), other.glues.begin(), other.glues.end());
+    mergeRest(*this, other, true);
 }
 
 } } // namespace vadstena::vts
