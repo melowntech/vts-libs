@@ -1381,6 +1381,8 @@ void TileSet::paste(const TileSet &srcSet
             return;
         }
 
+        if (!metanode->real()) { return; }
+
         if (mask & TileIndex::Flag::mesh) {
             // copy mesh
             copyFile(sd.input(tid, storage::TileFile::mesh)
