@@ -163,6 +163,8 @@ void parse(ReferenceFrame::Division &division, const Json::Value &content)
             << "Type of division[extents] is not an object.";
     }
     parse(division.extents, extents);
+    Json::get(division.heightRange.min, content, "heightRange", 0);
+    Json::get(division.heightRange.max, content, "heightRange", 1);
 
     const auto &nodes(content["nodes"]);
     if (!nodes.isArray()) {
@@ -446,6 +448,10 @@ void build(Json::Value &content, const ReferenceFrame::Division &division)
     content = Json::objectValue;
 
     build(content["extents"], division.extents);
+
+    auto &heightRange(content["heightRange"] = Json::arrayValue);
+    heightRange.append(division.heightRange.min);
+    heightRange.append(division.heightRange.max);
 
     auto &nodes(content["nodes"]);
     for (const auto &node : division.nodes) {

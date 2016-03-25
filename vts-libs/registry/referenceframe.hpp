@@ -152,6 +152,7 @@ struct ReferenceFrame {
         };
 
         math::Extents3 extents;
+        HeightRange heightRange;
         Node::map nodes;
 
         const Node& find(const Node::Id &id) const;
