@@ -709,7 +709,7 @@ void parse(Credit &c, const Json::Value &content)
     if (content.isMember("copyrighted")) {
         get(c.copyrighted, content, "copyrighted");
     } else {
-        c.copyrighted = false;
+        c.copyrighted = true;
     }
 }
 
@@ -737,7 +737,7 @@ void build(Json::Value &content, const Credit &c)
     content["id"] = c.numericId;
     content["notice"] = c.notice;
     if (c.url) { content["url"] = *c.url; }
-    if (!c.copyrighted) { content["url"] = c.copyrighted; }
+    if (!c.copyrighted) { content["copyrighted"] = c.copyrighted; }
 }
 
 void build(Json::Value &content, const Credit::dict &credits)
