@@ -548,6 +548,10 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
                 if (input.hasAtlas() && input.atlas().valid(smIndex)) {
                     atlas.add(input.atlas().get(smIndex));
                 }
+
+                // update credits
+                const auto &credits(input.node().credits());
+                tile.credits.insert(credits.begin(), credits.end());
             }
         }
     }
