@@ -629,6 +629,10 @@ void parse(BoundLayer &bl, const Json::Value &content)
         (Json::get(s, content, "type"));
 
     Json::get(bl.url, content, "url");
+    if (content.isMember("maskUrl")) {
+        bl.maskUrl = boost::in_place();
+        Json::get(*bl.maskUrl, content, "maskUrl");
+    }
     Json::get(bl.lodRange.min, content, "lodRange", 0);
     Json::get(bl.lodRange.max, content, "lodRange", 1);
 
@@ -669,6 +673,7 @@ void build(Json::Value &content, const BoundLayer &bl)
     content["id"] = bl.numericId;
     content["type"] = boost::lexical_cast<std::string>(bl.type);
     content["url"] = bl.url;
+    if (bl.maskUrl) { content["maskUrl"] = *bl.maskUrl; }
 
     auto &lodRange(content["lodRange"] = Json::arrayValue);
     lodRange.append(bl.lodRange.min);
