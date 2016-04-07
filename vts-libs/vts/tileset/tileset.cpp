@@ -1094,14 +1094,10 @@ void TileSet::Detail::saveMetadata()
 
 void update(TileSet::Properties &properties, const TileIndex &tileIndex)
 {
-    auto stat(tileIndex.statMask(TileIndex::Flag::mesh
+    auto ranges(tileIndex.ranges(TileIndex::Flag::mesh
                                  | TileIndex::Flag::reference));
-    properties.lodRange = stat.lodRange;
-    if (properties.lodRange.empty()) {
-        properties.tileRange = TileRange(math::InvalidExtents{});
-    } else {
-        properties.tileRange = stat.tileRanges.front();
-    }
+    properties.lodRange = ranges.first;
+    properties.tileRange = ranges.second;
 }
 
 void TileSet::Detail::flush()

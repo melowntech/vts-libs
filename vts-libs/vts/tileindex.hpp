@@ -141,11 +141,21 @@ public:
         Stat()
             : lodRange(LodRange::emptyRange()), count()
         {}
+
+        /** Computes tile range (extents) at topmost LOD taking lower LODs into
+         *  account.
+         */
+        TileRange computeTileRange() const;
     };
 
     /** Get statistics for all tiles with given mask.
      */
     Stat statMask(QTree::value_type mask) const;
+
+    /** Compute tile and lod range for given for all tiles satisfying given
+     *  mask. Uses statMask(mask) internally.
+     */
+    std::pair<LodRange, TileRange> ranges(QTree::value_type mask) const;
 
     /** Translates node values.
      */

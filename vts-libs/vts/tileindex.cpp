@@ -538,4 +538,33 @@ TileIndex& TileIndex::unset(Flag::value_type type)
     return *this;
 }
 
+TileRange TileIndex::Stat::computeTileRange() const
+{
+    if (lodRange.empty()) { return TileRange(math::InvalidExtents{}); }
+
+    // grab bottommost lod
+    TileRange range(tileRanges.back());
+
+    // process all others
+    for (auto irange(std::next(tileRanges.rbegin()))
+             , erange(tileRanges.rend()); irange != erange; ++irange)
+    {
+        // make parent range
+        range = parent(range);
+
+        // and update
+        math::update(range, irange->ll);
+        math::update(range, irange->ur);
+    }
+
+    // done
+    return range;
+}
+
+std::pair<LodRange, TileRange> TileIndex::ranges(QTree::value_type mask) const
+{
+    auto stat(statMask(mask));
+    return { stat.lodRange, stat.computeTileRange() };
+}
+
 } } // namespace vadstena::vts

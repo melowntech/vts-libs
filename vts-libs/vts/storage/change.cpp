@@ -623,8 +623,8 @@ void Storage::Detail::add(const TileSet &tileset
 
         // create tileset at work path (overwrite any existing stuff here)
         // NB: we have to clone original tileset's content as-is!
-        auto dst(cloneTileSet(tx.addTileset(tilesetInfo.tilesetId), tileset,
-                              CloneOptions()
+        auto dst(cloneTileSet(tx.addTileset(tilesetInfo.tilesetId), tileset
+                              , CloneOptions()
                               .mode(CreateMode::overwrite)
                               .sameType(true)
                               .tilesetId(tilesetInfo.tilesetId)

@@ -13,6 +13,8 @@ using storage::TileFile;
 using storage::File;
 
 TileId parent(const TileId &tileId, Lod diff = 1);
+TileRange::point_type parent(const TileRange::point_type &point, Lod diff = 1);
+TileRange parent(const TileRange &tileRange, Lod diff = 1);
 
 Children children(const TileId &tileId);
 
@@ -50,16 +52,27 @@ TileId tileId(const NodeInfo &nodeInfo);
 TileId local(Lod rootLod, const TileId &tileId);
 RFNode::Id local(Lod rootLod, const RFNode::Id &rfNodeId);
 
-math::Point2_<unsigned int> point(const TileId &tileId);
-TileId tileId(Lod lod, const math::Point2_<unsigned int> &point);
-math::Point2_<unsigned int> point(const RFNode::Id &rfnodeId);
-math::Point2_<unsigned int> point(const NodeInfo &nodeInfo);
+TileRange::point_type point(const TileId &tileId);
+TileId tileId(Lod lod, const TileRange::point_type &point);
+TileRange::point_type point(const RFNode::Id &rfnodeId);
+TileRange::point_type point(const NodeInfo &nodeInfo);
 
 // inline stuff
 
 inline TileId parent(const TileId &tileId, Lod diff)
 {
     return TileId(tileId.lod - diff, tileId.x >> diff, tileId.y >> diff);
+}
+
+inline TileRange::point_type parent(const TileRange::point_type &point
+                                    , Lod diff)
+{
+    return { point(0) >> diff, point(1) >> diff };
+}
+
+inline TileRange parent(const TileRange &tileRange, Lod diff)
+{
+    return { parent(tileRange.ll, diff), parent(tileRange.ur, diff) };
 }
 
 inline Children children(const TileId &tileId)
@@ -130,22 +143,22 @@ inline RFNode::Id local(Lod rootLod, const RFNode::Id &rfNodeId)
     return RFNode::Id(ldiff, rfNodeId.x & mask, rfNodeId.y & mask);
 }
 
-inline math::Point2_<unsigned int> point(const TileId &tileId)
+inline TileRange::point_type point(const TileId &tileId)
 {
     return { tileId.x, tileId.y };
 }
 
-inline TileId tileId(Lod lod, const math::Point2_<unsigned int> &point)
+inline TileId tileId(Lod lod, const TileRange::point_type &point)
 {
     return { lod, point(0), point(1) };
 }
 
-inline math::Point2_<unsigned int> point(const RFNode::Id &rfnodeId)
+inline TileRange::point_type point(const RFNode::Id &rfnodeId)
 {
     return { rfnodeId.x, rfnodeId.y };
 }
 
-inline math::Point2_<unsigned int> point(const NodeInfo &nodeInfo)
+inline TileRange::point_type point(const NodeInfo &nodeInfo)
 {
     return point(nodeInfo.nodeId());
 }

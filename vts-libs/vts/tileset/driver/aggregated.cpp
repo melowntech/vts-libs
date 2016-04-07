@@ -367,14 +367,12 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     // remove nonsense flags
     ti.unset(TileIndex::Flag::reference | 0xffff0000u);
 
+    // update extents
     {
-        auto stat(ti.statMask(TileIndex::Flag::mesh));
-        properties.lodRange = stat.lodRange;
-        if (properties.lodRange.empty()) {
-            properties.tileRange = TileRange(math::InvalidExtents{});
-        } else {
-            properties.tileRange = stat.tileRanges.front();
-        }
+        auto ranges(ti.ranges(TileIndex::Flag::mesh
+                              | TileIndex::Flag::reference));
+        properties.lodRange = ranges.first;
+        properties.tileRange = ranges.second;
     }
 
     // save stuff (allow write for a brief moment)
