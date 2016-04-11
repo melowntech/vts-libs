@@ -17,6 +17,10 @@ TileRange::point_type parent(const TileRange::point_type &point, Lod diff = 1);
 TileRange parent(const TileRange &tileRange, Lod diff = 1);
 
 Children children(const TileId &tileId);
+TileId lowestChild(const TileId &tileId, Lod diff = 1);
+TileRange::point_type lowestChild(const TileRange::point_type &point
+                                  , Lod diff = 1);
+TileRange childRange(const TileRange &tileRange, Lod diff = 1);
 
 /** Check whether super tile is above (or exactly the same tile) as tile.
  */
@@ -85,6 +89,34 @@ inline Children children(const TileId &tileId)
         , { base.lod, base.x, base.y + 1, 2 }        // lower-left
         , { base.lod, base.x + 1, base.y + 1, 3}  // lower-right
     }};
+}
+
+inline TileId lowestChild(const TileId &tileId, Lod diff)
+{
+    return TileId(tileId.lod + diff, tileId.x << diff, tileId.y << diff);
+}
+
+inline TileRange::point_type lowestChild(const TileRange::point_type &point
+                                         , Lod diff)
+{
+    return { point(0) << diff, point(1) << diff };
+}
+
+inline TileRange childRange(const TileRange &tileRange, Lod diff)
+{
+    // lowest child of lower left point + original upper right point
+    TileRange tr(lowestChild(tileRange.ll, diff), tileRange.ur);
+    // move upper right one tile away
+    ++tr.ur(0); ++tr.ur(1);
+
+    // calculate lowest child of this point
+    tr.ur = lowestChild(tr.ur, diff);
+
+    // and move back inside original tile
+    --tr.ur(0); --tr.ur(1);
+
+    // fine
+    return tr;
 }
 
 inline int child(const TileId &tileId)
