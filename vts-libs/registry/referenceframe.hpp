@@ -257,6 +257,7 @@ struct BoundLayer {
     Type type;
     std::string url;
     boost::optional<std::string> maskUrl;
+    boost::optional<std::string> metaUrl;
     LodRange lodRange;
     TileRange tileRange;
     StringIdSet credits;
