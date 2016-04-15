@@ -4,6 +4,7 @@
 #include <system_error>
 #include <algorithm>
 #include <sstream>
+#include <array>
 
 #include <sys/types.h>
 #include <sys/stat.h>
