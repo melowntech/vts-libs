@@ -61,6 +61,10 @@ TileId tileId(Lod lod, const TileRange::point_type &point);
 TileRange::point_type point(const RFNode::Id &rfnodeId);
 TileRange::point_type point(const NodeInfo &nodeInfo);
 
+bool tileRangesOverlap(const TileRange &a, const TileRange &b);
+TileRange tileRangesIntersect(const TileRange &a, const TileRange &b);
+math::Size2_<TileRange::value_type> tileRangesSize(const TileRange &tr);
+
 // inline stuff
 
 inline TileId parent(const TileId &tileId, Lod diff)
@@ -193,6 +197,34 @@ inline TileRange::point_type point(const RFNode::Id &rfnodeId)
 inline TileRange::point_type point(const NodeInfo &nodeInfo)
 {
     return point(nodeInfo.nodeId());
+}
+
+inline bool tileRangesOverlap(const TileRange &a, const TileRange &b)
+{
+    // range is inclusive -> operator<=
+    return ((a.ll(0) <= b.ur(0)) && (b.ll(0) <= a.ur(0))
+             && (a.ll(1) <= b.ur(1)) && (b.ll(1) <= a.ur(1)));
+}
+
+inline TileRange tileRangesIntersect(const TileRange &a, const TileRange &b)
+{
+    if (!tileRangesOverlap(a, b)) {
+        throw math::NoIntersectError
+            ("Tile ranges do not overlap, cannot compute intersection");
+    }
+
+    return TileRange(TileRange::point_type
+                     (std::max(a.ll[0], b.ll[0])
+                      , std::max(a.ll[1], b.ll[1]))
+                     , TileRange::point_type
+                     (std::min(a.ur[0], b.ur[0])
+                      , std::min(a.ur[1], b.ur[1])));
+}
+
+inline math::Size2_<TileRange::value_type> tileRangesSize(const TileRange &tr)
+{
+    return math::Size2_<TileRange::value_type>
+        (tr.ur(0) - tr.ll(0) + 1, tr.ur(1) - tr.ll(1) + 1);
 }
 
 } } // namespace vadstena::vts
