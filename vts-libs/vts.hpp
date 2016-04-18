@@ -67,11 +67,17 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
                           , const CloneOptions &co
                           , const TilesetIdSet &tilesets);
 
-/** Creates adapter for remove (HTTP) tileset.
+/** Creates adapter for remote (HTTP) tileset.
  */
-TileSet createRemoveTileSet(const boost::filesystem::path &path
+TileSet createRemoteTileSet(const boost::filesystem::path &path
                             , const std::string &url
                             , const CloneOptions &createOptions);
+
+/** Creates adapter for local (filesystem) tileset.
+ */
+TileSet createLocalTileSet(const boost::filesystem::path &path
+                           , const boost::filesystem::path &localPath
+                           , const CloneOptions &createOptions);
 
 } } // namespace vadstena::vts
 

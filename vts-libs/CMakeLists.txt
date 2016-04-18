@@ -196,6 +196,7 @@ set(vts-core_SOURCES
   vts/tileset/driver/aggregated.hpp vts/tileset/driver/aggregated.cpp
   vts/tileset/driver/remote.hpp vts/tileset/driver/remote.cpp
   vts/tileset/driver/httpfetcher.hpp vts/tileset/driver/httpfetcher.cpp
+  vts/tileset/driver/local.hpp vts/tileset/driver/local.cpp
 
   vts/storage.hpp
   vts/storage/detail.hpp

@@ -26,6 +26,7 @@
 #include "./plain.hpp"
 #include "./aggregated.hpp"
 #include "./remote.hpp"
+#include "./local.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -147,6 +148,11 @@ Driver::pointer Driver::create(const boost::filesystem::path &root
     {
         return std::make_shared<driver::RemoteDriver>
             (root, *o, cloneOptions);
+    } else if (auto o = boost::any_cast<const driver::LocalOptions>
+               (&genericOptions))
+    {
+        return std::make_shared<driver::LocalDriver>
+            (root, *o, cloneOptions);
     }
 
     LOGTHROW(err2, storage::BadFileFormat)
@@ -173,6 +179,10 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
                (&genericOptions))
     {
         return std::make_shared<driver::RemoteDriver>(root, *o);
+    } else if (auto o = boost::any_cast<const driver::LocalOptions>
+               (&genericOptions))
+    {
+        return std::make_shared<driver::LocalDriver>(root, *o);
     }
 
     LOGTHROW(err2, storage::BadFileFormat)

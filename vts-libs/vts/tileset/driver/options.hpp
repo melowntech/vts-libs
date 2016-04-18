@@ -97,6 +97,10 @@ struct RemoteOptions {
     std::string url;
 };
 
+struct LocalOptions {
+    boost::filesystem::path path;
+};
+
 // inlines
 
 inline Tilar::Options PlainOptions::tilar(unsigned int filesPerTile)
