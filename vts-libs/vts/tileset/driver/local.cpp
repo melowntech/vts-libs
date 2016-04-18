@@ -59,7 +59,9 @@ LocalDriver::LocalDriver(const boost::filesystem::path &root
         if (cloneOptions.tilesetId()) {
             properties.id = *cloneOptions.tilesetId();
         }
-        properties.driverOptions = options;
+        auto opts(options);
+        opts.path = fs::absolute(opts.path);
+        properties.driverOptions = opts;
         tileset::saveConfig(this->root() / filePath(File::config)
                             , properties);
     }
@@ -80,8 +82,10 @@ LocalDriver::clone_impl(const boost::filesystem::path &root
     const
 {
     // create new tileset with the same configuration
-    return std::make_shared<LocalDriver>
-        (root, this->options(), cloneOptions);
+    auto opts(this->options());
+    opts.path = fs::absolute(opts.path);
+
+    return std::make_shared<LocalDriver>(root, opts, cloneOptions);
 }
 
 LocalDriver::~LocalDriver() {}
