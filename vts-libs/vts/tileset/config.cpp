@@ -160,6 +160,17 @@ boost::any parseRemoteDriver(const Json::Value &value)
     return driverOptions;
 }
 
+boost::any parseLocalDriver(const Json::Value &value)
+{
+    driver::LocalOptions driverOptions;
+
+    std::string str;
+    Json::get(str, value, "path");
+    driverOptions.path = str;
+
+    return driverOptions;
+}
+
 boost::any parseDriver(const Json::Value &value)
 {
     // support for driver-less tileset (using by remote definition)
@@ -185,6 +196,8 @@ boost::any parseDriver(const Json::Value &value)
         return parseAggregatedDriver(value);
     } else if (type == "remote") {
         return parseRemoteDriver(value);
+    } else if (type == "local") {
+        return parseLocalDriver(value);
     }
 
     LOGTHROW(err1, Json::Error)
@@ -214,6 +227,12 @@ Json::Value buildDriver(const boost::any &d)
     {
         value["type"] = "remote";
         value["url"] = opts->url;
+        return value;
+    } else if (auto opts = boost::any_cast
+               <const driver::LocalOptions>(&d))
+    {
+        value["type"] = "local";
+        value["path"] = opts->path.string();
         return value;
     }
 

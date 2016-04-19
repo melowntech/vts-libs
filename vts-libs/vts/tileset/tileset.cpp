@@ -373,13 +373,25 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
     return TileSet::Factory::open(driver);
 }
 
-TileSet createRemoveTileSet(const boost::filesystem::path &path
+TileSet createRemoteTileSet(const boost::filesystem::path &path
                             , const std::string &url
                             , const CloneOptions &createOptions)
 
 {
     driver::RemoteOptions dopts;
     dopts.url = url;
+
+    auto driver(Driver::create(path, dopts, createOptions));
+    return TileSet::Factory::open(driver);
+}
+
+TileSet createLocalTileSet(const boost::filesystem::path &path
+                           , const boost::filesystem::path &localPath
+                           , const CloneOptions &createOptions)
+
+{
+    driver::LocalOptions dopts;
+    dopts.path = localPath;
 
     auto driver(Driver::create(path, dopts, createOptions));
     return TileSet::Factory::open(driver);
