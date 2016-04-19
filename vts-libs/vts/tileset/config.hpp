@@ -15,16 +15,16 @@
 
 namespace vadstena { namespace vts { namespace tileset {
 
-TileSet::Properties loadConfig(std::istream &in
-                               , const boost::filesystem::path &path
-                               = "unknown");
+FullTileSetProperties loadConfig(std::istream &in
+                                 , const boost::filesystem::path &path
+                                 = "unknown");
 
-void saveConfig(std::ostream &out, const TileSet::Properties &properties);
+void saveConfig(std::ostream &out, const FullTileSetProperties &properties);
 
-TileSet::Properties loadConfig(const boost::filesystem::path &path);
+FullTileSetProperties loadConfig(const boost::filesystem::path &path);
 
 void saveConfig(const boost::filesystem::path &path
-                , const TileSet::Properties &properties);
+                , const FullTileSetProperties &properties);
 
 ExtraTileSetProperties loadExtraConfig(std::istream &in);
 
@@ -35,9 +35,9 @@ boost::optional<unsigned int> loadRevision(std::istream &in);
 boost::optional<unsigned int>
 loadRevision(const boost::filesystem::path &path);
 
-TileSet::Properties loadConfig(const Driver &driver);
+FullTileSetProperties loadConfig(const Driver &driver);
 
-TileSet::Properties loadConfig(const IStream::pointer &file);
+FullTileSetProperties loadConfig(const IStream::pointer &file);
 
 } } } // namespace vadstena::vts::tileset
 

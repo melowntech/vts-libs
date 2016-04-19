@@ -258,7 +258,7 @@ public:
 
     /** Full tileset properties.
      */
-    struct Properties;
+    typedef FullTileSetProperties Properties;
 
 private:
     TileSet(const std::shared_ptr<Driver> &driver

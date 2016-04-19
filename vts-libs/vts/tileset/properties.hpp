@@ -6,12 +6,20 @@
 #ifndef vadstena_libs_vts_tileset_properties_hpp_included_
 #define vadstena_libs_vts_tileset_properties_hpp_included_
 
+#include <map>
+
+#include <boost/any.hpp>
+#include <boost/optional.hpp>
+#include <boost/filesystem/path.hpp>
+
 #include "../../storage/credits.hpp"
 #include "../../registry.hpp"
 
-#include "../basetypes.hpp"
+#include "../mapconfig.hpp"
 
 namespace vadstena { namespace vts {
+
+typedef std::map<std::string, math::Extents2> SpatialDivisionExtents;
 
 /** Tile set properties that must be specified during creation. They cannot be
  *  changed later.
@@ -38,6 +46,34 @@ struct TileSetProperties {
     registry::Position position;
 
     TileSetProperties() {}
+};
+
+struct FullTileSetProperties : TileSetProperties {
+    /** Data version/revision. Should be increment anytime the data change.
+     *  Used in template URL's to push through caches.
+     */
+    unsigned int revision;
+
+    // driver options (interpreted by driver)
+    boost::any driverOptions;
+
+    /** Range of lods where are tiles with mesh and/or atlas.
+     */
+    storage::LodRange lodRange;
+
+    /** Extents (inclusive) of tiles with mesh and/or atlas at lodRange.min
+     */
+    TileRange tileRange;
+
+    /** Occupied extents for each spatial division SRS
+     */
+    SpatialDivisionExtents spatialDivisionExtents;
+
+    FullTileSetProperties() : revision(0) {}
+
+    FullTileSetProperties(const TileSetProperties &slice)
+        : TileSetProperties(slice), revision(0)
+    {}
 };
 
 struct ExtraTileSetProperties {
@@ -73,6 +109,12 @@ struct ExtraTileSetProperties {
 
     ExtraTileSetProperties() {}
 };
+
+MapConfig mapConfig(const FullTileSetProperties &properties
+                    , const ExtraTileSetProperties &extra
+                    = ExtraTileSetProperties()
+                    , const boost::optional<boost::filesystem::path> &root
+                    = boost::none);
 
 } } // namespace vadstena::vts
 

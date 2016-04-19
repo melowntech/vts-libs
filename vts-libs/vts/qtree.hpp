@@ -31,6 +31,11 @@ public:
 
     void set(unsigned int x, unsigned int y, value_type value);
 
+    /** Set given range.
+     */
+    void set(unsigned int x1, unsigned int y1
+             , unsigned int x2, unsigned int y2, value_type value);
+
     void reset(value_type value);
 
     void save(std::ostream &os) const;

@@ -1,4 +1,9 @@
+#include "utility/streams.hpp"
+
+#include "./driver.hpp"
 #include "./tilesetindex.hpp"
+
+namespace fs = boost::filesystem;
 
 namespace vadstena { namespace vts { namespace tileset {
 
@@ -28,6 +33,37 @@ void saveTileSetIndex(const Index &tsi, Driver &driver)
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
+            << "Unable to save tile index: " << e.what() << ".";
+    }
+}
+
+void loadTileSetIndex(Index &tsi, const fs::path &path)
+{
+    try {
+        utility::ifstreambuf f(path.c_str());
+
+        tsi.tileIndex = {};
+        tsi.tileIndex.load(f, path);
+
+        if (f.peek() != std::istream::traits_type::eof()) {
+            tsi.references.load(f, path);
+        }
+        f.close();
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::Error)
+            << "Unable to read tile index: " << e.what() << ".";
+    }
+}
+
+void saveTileSetIndex(const Index &tsi, const fs::path &path)
+{
+    try {
+        utility::ofstreambuf f(path.c_str());
+        tsi.tileIndex.save(f);
+        tsi.references.save(f);
+        f.close();
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::Error)
             << "Unable to save tile index: " << e.what() << ".";
     }
 }

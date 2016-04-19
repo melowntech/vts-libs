@@ -26,6 +26,7 @@ public:
             , navtile = 0x08
             , meta = 0x10
             , reference = 0x20
+            , ortho = 0x40
 
             // tile is real if it contains mesh
             , real = mesh
@@ -83,6 +84,14 @@ public:
     void fill(const TileIndex &other, const Op &op);
 
     void set(const TileId &tileId, QTree::value_type value);
+
+    /** Set whole lod to given value.
+     */
+    void set(Lod lod, QTree::value_type value);
+
+    /** Set all tiles in given range
+     */
+    void set(Lod lod, const TileRange &range, QTree::value_type value);
 
     QTree::value_type get(const TileId &tileId) const;
 
@@ -283,6 +292,21 @@ inline void TileIndex::set(const TileId &tileId, QTree::value_type value)
 {
     if (auto *m = tree(tileId.lod, true)) {
         m->set(tileId.x, tileId.y, value);
+    }
+}
+
+inline void TileIndex::set(Lod lod, QTree::value_type value)
+{
+    if (auto *m = tree(lod, true)) {
+        m->reset(value);
+    }
+}
+
+inline void TileIndex::set(Lod lod, const TileRange &range
+                           , QTree::value_type value)
+{
+    if (auto *m = tree(lod, true)) {
+        m->set(range.ll(0), range.ll(1), range.ur(0), range.ur(1), value);
     }
 }
 

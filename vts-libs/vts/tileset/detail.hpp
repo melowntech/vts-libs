@@ -17,37 +17,7 @@
 
 namespace vadstena { namespace vts {
 
-typedef std::map<std::string, math::Extents2> SpatialDivisionExtents;
-
 bool check(const SpatialDivisionExtents &l, const SpatialDivisionExtents &r);
-
-struct TileSet::Properties : TileSetProperties {
-    /** Data version/revision. Should be increment anytime the data change.
-     *  Used in template URL's to push through caches.
-     */
-    unsigned int revision;
-
-    // driver options (interpreted by driver)
-    boost::any driverOptions;
-
-    /** Range of lods where are tiles with mesh and/or atlas.
-     */
-    storage::LodRange lodRange;
-
-    /** Extents (inclusive) of tiles with mesh and/or atlas at lodRange.min
-     */
-    TileRange tileRange;
-
-    /** Occupied extents for each spatial division SRS
-     */
-    SpatialDivisionExtents spatialDivisionExtents;
-
-    Properties() : revision(0) {}
-
-    Properties(const TileSetProperties &slice)
-        : TileSetProperties(slice), revision(0)
-    {}
-};
 
 struct TileNode {
     MetaTile *metatile;
@@ -175,9 +145,6 @@ struct TileSet::Detail
     MapConfig mapConfig(bool includeExtra) const;
 
     static MapConfig mapConfig(const Driver &driver, bool includeExtra);
-
-    static MapConfig mapConfig(const Properties &properties
-                               , const ExtraTileSetProperties &extra);
 
     ExtraTileSetProperties loadExtraConfig() const;
     static ExtraTileSetProperties loadExtraConfig(const Driver &driver);

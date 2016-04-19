@@ -59,6 +59,18 @@ void QTree::set(unsigned int x, unsigned int y, value_type value)
     count_ += root_.set(size_ >> 1, x, y, value);
 }
 
+void QTree::set(unsigned int x1, unsigned int y1
+                , unsigned int x2, unsigned int y2, value_type value)
+{
+    (void) x1;
+    (void) y1;
+    (void) x2;
+    (void) y2;
+    (void) value;
+    LOGTHROW(err1, std::runtime_error)
+        << "Set(range) not implemented yet.";
+}
+
 void QTree::reset(value_type value)
 {
     root_ = Node(value);

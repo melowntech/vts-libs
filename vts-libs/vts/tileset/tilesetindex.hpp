@@ -9,9 +9,12 @@
 #define vadstena_libs_vts_tileset_tilesetindex_hpp_included_
 
 #include "../tileindex.hpp"
-#include "./driver.hpp"
 
-namespace vadstena { namespace vts { namespace tileset {
+namespace vadstena { namespace vts {
+
+class Driver;
+
+namespace tileset {
 
 struct Index {
     /** Tile index (tile data presence flags)
@@ -32,6 +35,10 @@ struct Index {
 void loadTileSetIndex(Index &tsi, const Driver &driver);
 
 void saveTileSetIndex(const Index &tsi, Driver &driver);
+
+void loadTileSetIndex(Index &tsi, const boost::filesystem::path &path);
+
+void saveTileSetIndex(const Index &tsi, const boost::filesystem::path &path);
 
 // inlines
 

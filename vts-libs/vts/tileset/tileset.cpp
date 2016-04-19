@@ -1188,20 +1188,20 @@ MapConfig TileSet::mapConfig(const boost::filesystem::path &root
 
 MapConfig TileSet::Detail::mapConfig(const Driver &driver, bool includeExtra)
 {
-    return mapConfig(tileset::loadConfig(driver)
+    return vts::mapConfig(tileset::loadConfig(driver)
                      , (includeExtra ? loadExtraConfig(driver)
                      : ExtraTileSetProperties()));
 }
 
 MapConfig TileSet::Detail::mapConfig(bool includeExtra) const
 {
-    return mapConfig(properties, (includeExtra ? loadExtraConfig()
-                                  : ExtraTileSetProperties()));
+    return vts::mapConfig(properties, (includeExtra ? loadExtraConfig()
+                                       : ExtraTileSetProperties()));
 }
 
-MapConfig
-TileSet::Detail::mapConfig(const Properties &properties
-                           , const ExtraTileSetProperties &extra)
+MapConfig mapConfig(const FullTileSetProperties &properties
+                    , const ExtraTileSetProperties &extra
+                    , const boost::optional<boost::filesystem::path> &root)
 {
     auto referenceFrame(registry::Registry::referenceFrame
                         (properties.referenceFrame));
@@ -1224,7 +1224,9 @@ TileSet::Detail::mapConfig(const Properties &properties
     surface.id = properties.id;
     surface.revision = properties.revision;
 
-    {
+    if (root) {
+        surface.root = *root;
+    } else {
         driver::MapConfigOverride mco(properties.driverOptions);
         surface.root = mco.root;
     }

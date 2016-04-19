@@ -162,6 +162,9 @@ boost::any parseRemoteDriver(const Json::Value &value)
 
 boost::any parseDriver(const Json::Value &value)
 {
+    // support for driver-less tileset (using by remote definition)
+    if (value.isNull()) { return {}; }
+
     if (!value.isObject()) {
         LOGTHROW(err1, Json::Error)
             << "Type of driver is not an object.";
@@ -219,9 +222,9 @@ Json::Value buildDriver(const boost::any &d)
     throw;
 }
 
-TileSet::Properties parse1(const Json::Value &config)
+FullTileSetProperties parse1(const Json::Value &config)
 {
-    TileSet::Properties properties;
+    FullTileSetProperties properties;
     Json::get(properties.id, config, "id");
 
     Json::get(properties.referenceFrame, config, "referenceFrame");
@@ -233,9 +236,7 @@ TileSet::Properties parse1(const Json::Value &config)
     properties.position = registry::positionFromJson(config["position"]);
 
     // load driver options
-    const auto &driver(config["driver"]);
-
-    properties.driverOptions = parseDriver(driver);
+    properties.driverOptions = parseDriver(config["driver"]);
 
     Json::get(properties.lodRange.min, config, "lodRange", 0);
     Json::get(properties.lodRange.max, config, "lodRange", 1);
@@ -251,7 +252,7 @@ TileSet::Properties parse1(const Json::Value &config)
     return properties;
 }
 
-void build(Json::Value &config, const TileSet::Properties &properties)
+void build(Json::Value &config, const FullTileSetProperties &properties)
 {
     config["version"]
         = Json::Int64(detail::CURRENT_JSON_FORMAT_VERSION);
@@ -267,7 +268,9 @@ void build(Json::Value &config, const TileSet::Properties &properties)
 
     config["position"] = registry::asJson(properties.position);
 
-    config["driver"] = buildDriver(properties.driverOptions);
+    if (!properties.driverOptions.empty()) {
+        config["driver"] = buildDriver(properties.driverOptions);
+    }
 
     auto &lodRange(config["lodRange"] = Json::arrayValue);
     lodRange.append(properties.lodRange.min);
@@ -284,8 +287,8 @@ void build(Json::Value &config, const TileSet::Properties &properties)
 
 } // namespace detail
 
-TileSet::Properties loadConfig(std::istream &in
-                               , const boost::filesystem::path &path)
+FullTileSetProperties loadConfig(std::istream &in
+                                     , const boost::filesystem::path &path)
 {
     // load json
     Json::Value config;
@@ -317,7 +320,7 @@ TileSet::Properties loadConfig(std::istream &in
     throw;
 }
 
-void saveConfig(std::ostream &out, const TileSet::Properties &properties)
+void saveConfig(std::ostream &out, const FullTileSetProperties &properties)
 {
     Json::Value config;
     detail::build(config, properties);
@@ -325,7 +328,7 @@ void saveConfig(std::ostream &out, const TileSet::Properties &properties)
     Json::StyledStreamWriter().write(out, config);
 }
 
-TileSet::Properties loadConfig(const boost::filesystem::path &path)
+FullTileSetProperties loadConfig(const boost::filesystem::path &path)
 {
     LOG(info1) << "Loading config from " << path  << ".";
     std::ifstream f;
@@ -343,7 +346,7 @@ TileSet::Properties loadConfig(const boost::filesystem::path &path)
 }
 
 void saveConfig(const boost::filesystem::path &path
-                , const TileSet::Properties &properties)
+                , const FullTileSetProperties &properties)
 {
     LOG(info1) << "Saving config to " << path  << ".";
     std::ofstream f;
@@ -468,7 +471,7 @@ boost::optional<unsigned int> loadRevision(const boost::filesystem::path &path)
     return boost::none;
 }
 
-TileSet::Properties loadConfig(const Driver &driver)
+FullTileSetProperties loadConfig(const Driver &driver)
 {
     try {
         // load config
@@ -485,7 +488,7 @@ TileSet::Properties loadConfig(const Driver &driver)
     throw;
 }
 
-TileSet::Properties loadConfig(const IStream::pointer &file)
+FullTileSetProperties loadConfig(const IStream::pointer &file)
 {
     try {
         // load config
