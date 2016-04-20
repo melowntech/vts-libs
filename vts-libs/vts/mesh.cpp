@@ -14,6 +14,7 @@
 
 #include "./mesh.hpp"
 #include "./multifile.hpp"
+#include "./math.hpp"
 
 namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;
@@ -53,24 +54,6 @@ math::Extents3 extents(const Mesh &mesh)
     return e;
 }
 
-namespace detail {
-
-double triangleArea(const math::Point3 &a, const math::Point3 &b,
-                    const math::Point3 &c)
-{
-    return norm_2(math::crossProduct(b - a, c - a)) / 2.0;
-}
-
-double triangleArea(const math::Point2 &a, const math::Point2 &b,
-                    const math::Point2 &c)
-{
-    return std::abs
-        (math::crossProduct(math::Point2(b - a), math::Point2(c - a)))
-        / 2.0;
-}
-
-}
-
 SubMeshArea area(const SubMesh &sm)
 {
     if (sm.faces.empty()) { return {}; }
@@ -79,26 +62,26 @@ SubMeshArea area(const SubMesh &sm)
 
     // calculate the total area of the faces
     for (const auto &face : sm.faces) {
-        a.mesh += detail::triangleArea(sm.vertices[face[0]]
-                                       , sm.vertices[face[1]]
-                                       , sm.vertices[face[2]]);
+        a.mesh += triangleArea(sm.vertices[face[0]]
+                               , sm.vertices[face[1]]
+                               , sm.vertices[face[2]]);
     }
 
     // internal texture
     if (!sm.tc.empty()) {
         for (const auto &face : sm.facesTc) {
-            a.internalTexture += detail::triangleArea(sm.tc[face[0]]
-                                                      , sm.tc[face[1]]
-                                                      , sm.tc[face[2]]);
+            a.internalTexture += triangleArea(sm.tc[face[0]]
+                                              , sm.tc[face[1]]
+                                              , sm.tc[face[2]]);
         }
     }
 
     // external texture
     if (!sm.etc.empty()) {
         for (const auto &face : sm.faces) {
-            a.externalTexture += detail::triangleArea(sm.etc[face[0]]
-                                                      , sm.etc[face[1]]
-                                                      , sm.etc[face[2]]);
+            a.externalTexture += triangleArea(sm.etc[face[0]]
+                                              , sm.etc[face[1]]
+                                              , sm.etc[face[2]]);
         }
     }
 
@@ -119,8 +102,6 @@ MeshArea area(const Mesh &mesh)
     }
     return out;
 }
-
-namespace {
 
 void saveMeshProper(std::ostream &out, const Mesh &mesh)
 {
@@ -230,6 +211,8 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
         }
     }
 }
+
+namespace {
 
 void saveMeshProperties(std::uint16_t version, std::ostream &out
                         , const Mesh &mesh)

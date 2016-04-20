@@ -175,6 +175,7 @@ set(vts-core_SOURCES
   vts/navtile.hpp vts/navtile.cpp
   vts/encoder.hpp vts/encoder.cpp
   vts/csconvertor.hpp vts/csconvertor.cpp
+  vts/math.hpp
 
   vts/maskfwd.hpp
   vts/qtree.hpp vts/qtree.cpp
