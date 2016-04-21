@@ -15,6 +15,8 @@
 
 #include "./fstreams.hpp"
 
+namespace bio = boost::iostreams;
+
 namespace vadstena { namespace storage {
 
 namespace detail {
@@ -30,11 +32,11 @@ public:
     template <typename Type>
     FileOStream(Type type, const boost::filesystem::path &path
                 , OnClose onClose)
-        : OStream(type), path_(path), stream_(&buffer_), onClose_(onClose)
+        : OStream(type), path_(path)
+        , stream_(&buffer_)
+        , onClose_(onClose)
     {
         stream_.exceptions(std::ios::badbit | std::ios::failbit);
-        buf_.reset(new char[IOBufferSize]);
-        buffer_.pubsetbuf(buf_.get(), IOBufferSize);
         open();
     }
 
@@ -73,18 +75,19 @@ private:
     void open() {
         try {
             stream_.exceptions(std::ios::badbit | std::ios::failbit);
-            buffer_.open(path_.string()
-                         , std::ios_base::out | std::ios_base::trunc);
+            buffer_.open(bio::file_descriptor_sink
+                         (path_.string()
+                          , std::ios_base::out | std::ios_base::trunc)
+                         , IOBufferSize);
         } catch (const std::exception &e) {
             LOGTHROW(err1, std::runtime_error)
-                << "Unable to open file " << path_ << " for writing.";
+                << "Unable to open file " << path_ << " for writing: <"
+                << e.what() << ">.";
         }
     }
 
     boost::filesystem::path path_;
-    std::unique_ptr<char[]> buf_;
-    boost::iostreams::stream_buffer
-    <boost::iostreams::file_descriptor_sink> buffer_;
+    bio::stream_buffer<bio::file_descriptor_sink> buffer_;
     std::ostream stream_;
     OnClose onClose_;
 };
@@ -95,11 +98,10 @@ class FileIStream
 public:
     template <typename Type>
     FileIStream(Type type, const boost::filesystem::path &path)
-        : IStream(type), path_(path), stream_(&buffer_)
+        : IStream(type), path_(path)
+        , stream_(&buffer_)
     {
         stream_.exceptions(std::ios::badbit | std::ios::failbit);
-        buf_.reset(new char[IOBufferSize]);
-        buffer_.pubsetbuf(buf_.get(), IOBufferSize);
         open();
     }
 
@@ -128,21 +130,22 @@ private:
     void open() {
         try {
             stream_.exceptions(std::ios::badbit | std::ios::failbit);
-            buffer_.open(path_.string());
+            buffer_.open
+                (bio::file_descriptor_source(path_.string())
+                 , IOBufferSize);
         } catch (const std::exception &e) {
             if (!exists(path_)) {
                 LOGTHROW(err1, NoSuchFile)
                     << "Unable to open file " << path_ << " for reading.";
             }
             LOGTHROW(err1, std::runtime_error)
-                << "Unable to open file " << path_ << " for reading.";
+                << "Unable to open file " << path_ << " for reading: <"
+                << e.what() << ">.";
         }
     }
 
     boost::filesystem::path path_;
-    std::unique_ptr<char[]> buf_;
-    boost::iostreams::stream_buffer
-    <boost::iostreams::file_descriptor_source> buffer_;
+    bio::stream_buffer<bio::file_descriptor_source> buffer_;
     std::istream stream_;
 };
 

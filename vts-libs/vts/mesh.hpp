@@ -198,6 +198,10 @@ Mesh loadMesh(const boost::filesystem::path &path);
 void saveMesh(const storage::OStream::pointer &out, const Mesh &mesh);
 Mesh loadMesh(const storage::IStream::pointer &in);
 
+/** Saves mesh as is.
+ */
+void saveMeshProper(std::ostream &out, const Mesh &mesh);
+
 multifile::Table readMeshTable(std::istream &is
                                , const boost::filesystem::path &path
                                = "unknown");
