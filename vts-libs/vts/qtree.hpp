@@ -191,7 +191,8 @@ private:
          *  Can result in node split.
          */
         template <typename Combiner>
-        void combine(const Node &other, const Combiner &combiner);
+        void combine(// unsigned int size, unsigned int x, unsigned int y,
+                     const Node &other, const Combiner &combiner);
     };
 
     unsigned int order_;
@@ -532,31 +533,41 @@ bool QTree::Node::find(const FilterOp &filter) const
 template <typename Combiner>
 void QTree::combine(const QTree &other, const Combiner &combiner)
 {
-    root_.combine(other.root_, combiner);
+    root_.combine(/*size_, 0, 0,*/ other.root_, combiner);
     recount();
 }
 
 template <typename Combiner>
-void QTree::Node::combine(const Node &other, const Combiner &combiner)
+void QTree::Node::combine(//unsigned int size, unsigned int x, unsigned int y,
+                          const Node &other, const Combiner &combiner)
 {
+    // auto hsize(size >> 1);
     if (children) {
         // inner node
         if (other.children) {
             // also inner node: descend in both trees
-            children->nodes[0].combine(other.children->nodes[0], combiner);
-            children->nodes[1].combine(other.children->nodes[1], combiner);
-            children->nodes[2].combine(other.children->nodes[2], combiner);
-            children->nodes[3].combine(other.children->nodes[3], combiner);
+            children->nodes[0].combine(//hsize, x, y,
+                                       other.children->nodes[0], combiner);
+            children->nodes[1].combine(//hsize, x + hsize, y,
+                                       other.children->nodes[1], combiner);
+            children->nodes[2].combine(//hsize, x, y + hsize,
+                                       other.children->nodes[2], combiner);
+            children->nodes[3].combine(//hsize, x + hsize, y + hsize,
+                                       other.children->nodes[3], combiner);
 
             contract();
             return;
         }
 
         // leaf node: virtually split and descend
-        children->nodes[0].combine(other, combiner);
-        children->nodes[1].combine(other, combiner);
-        children->nodes[2].combine(other, combiner);
-        children->nodes[3].combine(other, combiner);
+        children->nodes[0].combine(//hsize, x, y,
+                                   other, combiner);
+        children->nodes[1].combine(//hsize, x + hsize, y,
+                                   other, combiner);
+        children->nodes[2].combine(//hsize, x, y + hsize,
+                                   other, combiner);
+        children->nodes[3].combine(//hsize, x + hsize, y + hsize,
+                                   other, combiner);
 
         contract();
         return;
@@ -569,10 +580,14 @@ void QTree::Node::combine(const Node &other, const Combiner &combiner)
         children.reset(new Children(value));
 
         // and descend
-        children->nodes[0].combine(other.children->nodes[0], combiner);
-        children->nodes[1].combine(other.children->nodes[1], combiner);
-        children->nodes[2].combine(other.children->nodes[2], combiner);
-        children->nodes[3].combine(other.children->nodes[3], combiner);
+        children->nodes[0].combine(//hsize, x, y,
+                                   other.children->nodes[0], combiner);
+        children->nodes[1].combine(//hsize, x + hsize, y,
+                                   other.children->nodes[1], combiner);
+        children->nodes[2].combine(//hsize, x, y + hsize,
+                                   other.children->nodes[2], combiner);
+        children->nodes[3].combine(//hsize, x + hsize, y + hsize,
+                                   other.children->nodes[3], combiner);
 
         contract();
         return;
@@ -580,7 +595,7 @@ void QTree::Node::combine(const Node &other, const Combiner &combiner)
 
 
     // leafs finally meet together
-    value = combiner(value, other.value);
+    value = combiner(/*size, x, y,*/ value, other.value);
 
     // nothing to contract here since we are at a leaf :)
 }

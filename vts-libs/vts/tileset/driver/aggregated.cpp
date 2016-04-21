@@ -25,6 +25,7 @@
 #include "../../../storage/fstreams.hpp"
 #include "../../../storage/io.hpp"
 #include "../../io.hpp"
+#include "../../tileflags.hpp"
 #include "../config.hpp"
 #include "../detail.hpp"
 #include "./aggregated.hpp"
@@ -278,7 +279,8 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     auto addFlags([](TileIndex::Flag::value_type &value
                    , TileIndex::Flag::value_type flags)
     {
-        value &= 0xffff0000u;
+        // clear flags, keep reference and metatile (which is shared)
+        value &= (0xffff0000u | TileIndex::Flag::meta);
         value |= (flags & 0xff);
     });
 
@@ -301,12 +303,17 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
 
     bool first(true);
     for (std::size_t idx(tilesetInfo_.size()); idx; --idx) {
-        auto combiner([&](TileIndex::Flag::value_type o
+        auto combiner([&](//unsigned int s, unsigned int x, unsigned int y,
+                          TileIndex::Flag::value_type o
                           , TileIndex::Flag::value_type n)
                       -> TileIndex::Flag::value_type
         {
             if (o & TileIndex::Flag::real) {
                 // already occupied by existing tile
+                // LOG(info4) << "combine(" << s << ", " << x << ", " << y
+                //            << "): <"
+                //            << TileFlags(o) << "> + <" << TileFlags(n)
+                //            << "> -> <" << TileFlags(o) << ">";
                 return o;
             }
 
@@ -314,13 +321,22 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                 // we have valid reference here
                 if (reference != idx) {
                     // but it is not what we should use
+                    // LOG(info4) << "combine(" << s << ", " << x << ", " << y
+                    //            << "): <"
+                    //            << TileFlags(o) << "> + <" << TileFlags(n)
+                    //            << "> -> <" << TileFlags(o) << ">";
                     return o;
                 }
             }
 
             // ok, store flags (whatever they are) inside the value and return
             // them
+            // auto old(o);
             addFlags(o, n);
+            // LOG(info4) << "combine(" << s << ", " << x << ", " << y
+            //            << "): <"
+            //            << TileFlags(old) << "> + <" << TileFlags(n)
+            //            << "> -> <" << TileFlags(o) << ">";
             return o;
         });
 
@@ -332,7 +348,8 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
             LOG(info2) << "    adding glue: " << glue.name;
             // remember references to be applied when referenced tileset is
             // processed
-            auto storeReferences([&](TileIndex::Flag::value_type o
+            auto storeReferences([&](//unsigned int , unsigned int , unsigned int,
+                                     TileIndex::Flag::value_type o
                                      , TileIndex::Flag::value_type n)
                                  -> TileIndex::Flag::value_type
             {
@@ -357,7 +374,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
 
         // TODO: spatial division extents
 
-        // copy position from fist tileset
+        // copy position from first tileset
         if (first) {
             properties.position = tsProp.position;
             first = false;
