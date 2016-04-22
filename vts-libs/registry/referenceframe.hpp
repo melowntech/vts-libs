@@ -262,6 +262,16 @@ struct BoundLayer {
     TileRange tileRange;
     StringIdSet credits;
 
+    struct Availability {
+        enum Type { negativeType, negativeCode };
+        Type type;
+
+        std::string mime;
+        std::set<int> codes;
+    };
+
+    boost::optional<Availability> availability;
+
     BoundLayer() : numericId() {}
 
     static constexpr char typeName[] = "bound layer";
@@ -351,6 +361,11 @@ UTILITY_GENERATE_ENUM_IO(Position::HeightMode,
 UTILITY_GENERATE_ENUM_IO(BoundLayer::Type,
     ((raster))
     ((vector))
+)
+
+UTILITY_GENERATE_ENUM_IO(BoundLayer::Availability::Type,
+    ((negativeType)("negative-type"))
+    ((negativeCode)("negative-code"))
 )
 
 // inlines

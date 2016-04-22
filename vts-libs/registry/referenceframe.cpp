@@ -53,6 +53,23 @@ constexpr int DEFAULT_RF_VERSION(1);
 
 namespace v1 {
 
+void parseIntSet(std::set<int> &set, const Json::Value &value
+                 , const char *name)
+{
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of " << name << " is not a list.";
+    }
+
+    for (const auto &number : value) {
+        if (!number.isIntegral()) {
+            LOGTHROW(err1, Json::Error)
+                << "Type of " << name << " element is not an number.";
+        }
+        set.insert(number.asInt());
+    }
+}
+
 void parse(ReferenceFrame::Model &model, const Json::Value &content)
 {
     Json::get(model.physicalSrs, content, "physicalSrs");
@@ -651,6 +668,32 @@ void parse(BoundLayer &bl, const Json::Value &content)
     for (const auto &element : credits) {
         bl.credits.insert(element.asString());
     }
+
+    if (content.isMember("availability")) {
+        const auto &availability(content["availability"]);
+
+        if (!availability.isObject()) {
+            LOGTHROW(err1, Json::Error)
+                << "Type of boundLayer[availability] is not an object.";
+        }
+
+        bl.availability = boost::in_place();
+        auto &bla(*bl.availability);
+
+        bla.type = boost::lexical_cast<BoundLayer::Availability::Type>
+            (Json::get(s, availability, "type"));
+
+        switch (bla.type) {
+        case BoundLayer::Availability::Type::negativeType:
+            Json::get(bla.mime, availability, "mime");
+            break;
+
+        case BoundLayer::Availability::Type::negativeCode:
+            v1::parseIntSet(bla.codes, availability["codes"]
+                            , "boundLayer[availability[codes]]");
+            break;
+        }
+    }
 }
 
 void parse(BoundLayer::dict &bls, const Json::Value &content)
@@ -665,7 +708,7 @@ void parse(BoundLayer::dict &bls, const Json::Value &content)
             bls.set(id, bl);
         } catch (const Json::Error &e) {
             LOGTHROW(err1, storage::FormatError)
-                << "Invalid srs file format (" << e.what()
+                << "Invalid bound layers file format (" << e.what()
                 << ").";
         }
     }
@@ -696,6 +739,25 @@ void build(Json::Value &content, const BoundLayer &bl)
     for (const auto &credit : bl.credits) {
         credits.append(credit);
     };
+
+    if (bl.availability) {
+        auto &availability(content["availability"] = Json::objectValue);
+        const auto &bla(*bl.availability);
+        availability["type"] = boost::lexical_cast<std::string>(bla.type);
+
+        switch (bla.type) {
+        case BoundLayer::Availability::Type::negativeType:
+            availability["mime"] = bla.mime;
+            break;
+
+        case BoundLayer::Availability::Type::negativeCode:
+            {
+                auto &codes(availability["codes"] = Json::arrayValue);
+                for (auto code : bla.codes) { codes.append(code); }
+            }
+            break;
+        }
+    }
 }
 
 void build(Json::Value &content, const BoundLayer::dict &bls)

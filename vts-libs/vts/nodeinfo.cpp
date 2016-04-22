@@ -41,9 +41,9 @@ RFNode makeNode(const RFNode &subtreeRoot
     return node;
 }
 
-bool checkPartial(const RFTreeSubtree &subtree_, RFNode &node)
+bool checkPartial(const RFTreeSubtree &subtree, RFNode &node)
 {
-    auto valid(subtree_.valid(node));
+    auto valid(subtree.valid(node));
     if (valid) {
         return false;
     } else if (!valid) {
