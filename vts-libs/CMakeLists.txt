@@ -182,6 +182,9 @@ set(vts-core_SOURCES
   vts/tileindex.hpp vts/tileindex.cpp vts/tileindex-io.hpp
   vts/tileop.hpp vts/tileop.cpp
 
+  vts/tileflags.hpp vts/tileflags.cpp
+  vts/metaflags.hpp vts/metaflags.cpp
+
   vts/tileset.hpp
   vts/tileset/detail.hpp
   vts/tileset/properties.hpp
