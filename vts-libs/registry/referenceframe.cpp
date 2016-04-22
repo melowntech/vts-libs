@@ -1339,7 +1339,7 @@ View viewFromJson(const Json::Value &value)
                 LOGTHROW(err1, Json::Error)
                     << "Type of view[surfaces] bound layer is not a string.";
             }
-            surface.boundLayers.insert(bl.asString());
+            surface.boundLayers.push_back(bl.asString());
         }
     }
 
