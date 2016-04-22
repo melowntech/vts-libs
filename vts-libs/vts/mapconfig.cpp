@@ -10,7 +10,7 @@ namespace {
     const int VERSION = 1;
 } // namespace
 
-const char* MapConfig::contentType("application/json");
+const char* MapConfig::contentType("application/json; charset=utf-8");
 
 Json::Value asJson(const Glue::Id &id)
 {
