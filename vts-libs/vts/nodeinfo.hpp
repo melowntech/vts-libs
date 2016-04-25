@@ -58,9 +58,13 @@ public:
     /** Creates node info from reference frame and tileId.
      *
      * Root node is found in reference frame and then current node is derived.
+     *
+     * \param referenceFrame reference frame
+     * \param tileId ID of node/tile
+     * \param invalidateWhenMasked masked node is automatically invalidated
      */
     NodeInfo(const registry::ReferenceFrame &referenceFrame
-             , const TileId &tileId);
+             , const TileId &tileId, bool invalidateWhenMasked = true);
 
     /** Root node info.
      */

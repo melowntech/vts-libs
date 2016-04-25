@@ -41,13 +41,14 @@ RFNode makeNode(const RFNode &subtreeRoot
     return node;
 }
 
-bool checkPartial(const RFTreeSubtree &subtree, RFNode &node)
+bool checkPartial(const RFTreeSubtree &subtree, RFNode &node
+                  , bool invalidateWhenMasked = true)
 {
     auto valid(subtree.valid(node));
     if (valid) {
         return false;
-    } else if (!valid) {
-        // invalid node -> invalidate
+    } else if (!valid && invalidateWhenMasked) {
+        // masked node -> invalidate if allowed
         node.invalidate();
         return false;
     }
@@ -65,11 +66,11 @@ inline NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
 {}
 
 NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
-                   , const TileId &tileId)
+                   , const TileId &tileId, bool invalidateWhenMasked)
     : referenceFrame_(&referenceFrame)
     , subtree_(referenceFrame_->findSubtreeRoot(rfNodeId(tileId)))
     , node_(makeNode(subtree_.root(), tileId))
-    , partial_(checkPartial(subtree_, node_))
+    , partial_(checkPartial(subtree_, node_, invalidateWhenMasked))
 {}
 
 NodeInfo NodeInfo::child(Child childDef) const
