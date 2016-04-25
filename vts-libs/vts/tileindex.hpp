@@ -73,6 +73,10 @@ public:
         return (get(tileId) & Flag::real);
     }
 
+    bool navtile(const TileId &tileId) const {
+        return (get(tileId) & Flag::navtile);
+    }
+
     void fill(Lod lod, const TileIndex &other);
 
     void fill(const TileIndex &other);

@@ -57,13 +57,13 @@ multifile::Table NavTile::serialize_impl(std::ostream &os) const
                        , [&](DataType value) -> std::uint8_t
         {
             return std::uint8_t
-                (std::round((255 * (value - hr.min)) / size));
+                (std::round((255 * (clamp(hr, value) - hr.min)) / size));
         });
         return writeImage(image, os);
     }
 
-    // partially covered: process only valid part and then then inpaint
-    // invalid part to get something smooth
+    // partially covered: process only valid part and then inpaint invalid part
+    // to get something smooth
     int margin(2);
     math::Size2 mts(ts.width + 2 * margin, ts.height + 2 * margin);
     cv::Mat image(mts.height, mts.width, CV_8UC1, cv::Scalar(128));
@@ -74,7 +74,8 @@ multifile::Table NavTile::serialize_impl(std::ostream &os) const
     {
         auto value(data_.at<DataType>(y, x));
         image.at<std::uint8_t>(y + margin, x + margin)
-            = std::uint8_t(std::round((255 * (value - hr.min)) / size));
+            = std::uint8_t
+            (std::round((255 * (clamp(hr, value) - hr.min)) / size));
         mask.at<std::uint8_t>(y + margin, x + margin) = 0;
     }, CoverageMask::Filter::white);
 
@@ -127,8 +128,16 @@ void NavTile::deserialize_impl(const HeightRange &heightRange
     });
 }
 
+void NavTile::heightRange(const HeightRange &heightRange)
+{
+    heightRange_ = heightRange;
+}
+
 NavTile::HeightRange NavTile::heightRange() const
 {
+    // override
+    if (heightRange_) { return *heightRange_; }
+
     // get min/max from valid pixels
     storage::Range<DataType> range(0, 0);
     if (!coverageMask().empty()) {

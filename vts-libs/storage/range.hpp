@@ -57,6 +57,14 @@ inline Range<T> range(const T min, const T max)
     return { min, max };
 }
 
+template <typename T, typename Q>
+inline Q clamp(const Range<T> &range, Q value)
+{
+    if (value < range.min) { return range.min; }
+    if (value > range.max) { return range.max; }
+    return value;
+}
+
 template<typename T>
 inline Range<T> unite(const Range<T> &l, const Range<T> &r)
 {
