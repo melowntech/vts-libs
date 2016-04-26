@@ -6,6 +6,7 @@
 #ifndef vadstena_libs_vts_mapconfig_hpp_included_
 #define vadstena_libs_vts_mapconfig_hpp_included_
 
+#include <memory>
 #include <iostream>
 
 #include <boost/filesystem/path.hpp>
@@ -44,6 +45,10 @@ struct GlueConfig : SurfaceCommonConfig {
     typedef std::vector<GlueConfig> list;
 };
 
+/** Opaque to outer world.
+ */
+struct BrowserCoreOptions;
+
 struct MapConfig {
     registry::Srs::dict srs;
     registry::ReferenceFrame referenceFrame;
@@ -58,6 +63,10 @@ struct MapConfig {
     registry::Roi::list rois;
     registry::View view;
     registry::View::map namedViews;
+
+    /** Opaque structure holding browser setup.
+     */
+    std::shared_ptr<BrowserCoreOptions> browserCoreOptions;
 
     static const char *contentType;
 

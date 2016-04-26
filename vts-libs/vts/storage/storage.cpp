@@ -343,6 +343,9 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
         mapConfig.view = extra.view;
     }
 
+    // browser setup if present
+    mapConfig.browserCoreOptions = extra.browserCoreOptions;
+
     return mapConfig;
 }
 

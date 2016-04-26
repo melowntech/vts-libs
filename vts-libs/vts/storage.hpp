@@ -51,6 +51,10 @@ struct ExtraStorageProperties {
      */
     registry::BoundLayer::dict boundLayers;
 
+    /** Browser core options. Opaque structure.
+     */
+    std::shared_ptr<BrowserCoreOptions> browserCoreOptions;
+
     // TODO: freeLayers
 
     ExtraStorageProperties() {}

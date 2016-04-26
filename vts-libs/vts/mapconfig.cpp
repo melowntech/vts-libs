@@ -1,6 +1,7 @@
 #include "../registry/json.hpp"
 #include "../storage/error.hpp"
 
+#include "./json.hpp"
 #include "./tileop.hpp"
 #include "./mapconfig.hpp"
 
@@ -129,6 +130,11 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     content["boundLayers"] = registry::asJson(boundLayers);
 
     content["textureAtlasReady"] = mapConfig.textureAtlasReady;
+
+    // add browser core options if present
+    if (mapConfig.browserCoreOptions) {
+        content["browserCoreOptions"] = mapConfig.browserCoreOptions->value;
+    }
 
     os.precision(15);
     Json::StyledStreamWriter().write(os, content);

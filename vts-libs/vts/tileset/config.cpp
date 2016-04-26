@@ -9,6 +9,7 @@
 #include "./config.hpp"
 #include "./detail.hpp"
 #include "./driver.hpp"
+#include "../json.hpp"
 #include "../../storage/error.hpp"
 #include "../../registry/json.hpp"
 
@@ -409,6 +410,13 @@ ExtraTileSetProperties parse1(const Json::Value &config)
 
     if (config.isMember("view")) {
         ep.view = registry::viewFromJson(config["view"]);
+    }
+
+    // browser config options -- whole JSON object held in opaque pointer.
+    if (config.isMember("browserCoreOptions")) {
+        const auto &bco(config["browserCoreOptions"]);
+        Json::check(bco, Json::objectValue);
+        ep.browserCoreOptions = std::make_shared<BrowserCoreOptions>(bco);
     }
 
     return ep;
