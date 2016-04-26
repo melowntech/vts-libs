@@ -639,7 +639,9 @@ void build(Json::Value &content, const Srs::dict &srs)
 
 void parse(BoundLayer &bl, const Json::Value &content)
 {
-    Json::get(bl.numericId, content, "id");
+    if (content.isMember("id")) {
+        Json::get(bl.numericId, content, "id");
+    }
 
     std::string s;
     bl.type = boost::lexical_cast<BoundLayer::Type>
@@ -704,7 +706,14 @@ void parse(BoundLayer::dict &bls, const Json::Value &content)
         try {
             BoundLayer bl;
             bl.id = id;
-            parse(bl, Json::check(content[id], Json::objectValue));
+            const auto &value(content[id]);
+            if (value.isString()) {
+                // special case: external url
+                bl.type = BoundLayer::Type::external;
+                bl.url = value.asString();
+            } else {
+                parse(bl, Json::check(value, Json::objectValue));
+            }
             bls.set(id, bl);
         } catch (const Json::Error &e) {
             LOGTHROW(err1, storage::FormatError)
@@ -717,7 +726,10 @@ void parse(BoundLayer::dict &bls, const Json::Value &content)
 void build(Json::Value &content, const BoundLayer &bl)
 {
     content = Json::objectValue;
-    content["id"] = bl.numericId;
+    if (bl.numericId > 0) {
+        // numeric id is optional
+        content["id"] = bl.numericId;
+    }
     content["type"] = boost::lexical_cast<std::string>(bl.type);
     content["url"] = bl.url;
     if (bl.maskUrl) { content["maskUrl"] = *bl.maskUrl; }
@@ -764,8 +776,17 @@ void build(Json::Value &content, const BoundLayer::dict &bls)
 {
     content = Json::objectValue;
 
-    for (const auto &bl : bls) {
-        build(content[bl.first], bl.second);
+    for (const auto &item : bls) {
+        const auto &id(item.first);
+        const auto &bl(item.second);
+
+        if (bl.type == BoundLayer::Type::external) {
+            // external bound layer: just URL
+            content[id] = bl.url;
+        } else {
+            // regular bound layer
+            build(content[id], bl);
+        }
     }
 }
 
@@ -991,6 +1012,14 @@ void saveBoundLayers(const boost::filesystem::path &path
     }
     saveBoundLayers(f, boundLayers);
     f.close();
+}
+
+void saveBoundLayer(std::ostream &out, const BoundLayer &boundLayer)
+{
+    Json::Value content;
+    build(content, boundLayer);
+    out.precision(15);
+    Json::StyledStreamWriter().write(out, content);
 }
 
 Credit::dict loadCredits(std::istream &in)

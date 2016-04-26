@@ -151,14 +151,22 @@ void Registry::init(const boost::filesystem::path &confRoot)
     detail::referenceFrames
         = loadReferenceFrames(confRoot / "referenceframes.json");
 
+    // load bound layers and create numeric dictionary (only for valid numeric
+    // ID's)
     detail::boundLayers = loadBoundLayers(confRoot / "boundlayers.json");
     for (auto const &bl : detail::boundLayers) {
-        detail::nBoundLayers.set(bl.second.numericId, bl.second);
+        if (bl.second.numericId) {
+            detail::nBoundLayers.set(bl.second.numericId, bl.second);
+        }
     }
 
+    // load credits and create numeric dictionary (only for valid numeric
+    // ID's)
     detail::credits = loadCredits(confRoot / "credits.json");
     for (auto const &c : detail::credits) {
-        detail::nCredits.set(c.second.numericId, c.second);
+        if (c.second.numericId) {
+            detail::nCredits.set(c.second.numericId, c.second);
+        }
     }
 
     // grab geoid grid files from srs

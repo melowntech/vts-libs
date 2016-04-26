@@ -248,12 +248,13 @@ struct Credit {
 };
 
 struct BoundLayer {
-    enum Type { raster, vector };
+    enum Type { raster, vector, external };
 
     typedef std::uint16_t NumericId;
 
     std::string id;
     NumericId numericId;
+
     Type type;
     std::string url;
     boost::optional<std::string> maskUrl;
@@ -315,6 +316,8 @@ void saveBoundLayers(std::ostream &out, const BoundLayer::dict &bls);
 void saveBoundLayers(const boost::filesystem::path &path
                      , const BoundLayer::dict &bls);
 
+void saveBoundLayer(std::ostream &out, const BoundLayer &bl);
+
 Credit::dict loadCredits(std::istream &in);
 
 Credit::dict loadCredits(const boost::filesystem::path &path);
@@ -361,6 +364,7 @@ UTILITY_GENERATE_ENUM_IO(Position::HeightMode,
 UTILITY_GENERATE_ENUM_IO(BoundLayer::Type,
     ((raster))
     ((vector))
+    ((external))
 )
 
 UTILITY_GENERATE_ENUM_IO(BoundLayer::Availability::Type,
