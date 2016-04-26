@@ -30,30 +30,6 @@ typedef std::vector<std::string> StringIdList;
 typedef math::Extents2_<unsigned int> TileRange;
 
 struct View {
-    struct Surface {
-        typedef std::map<std::string, Surface> map;
-
-        registry::StringIdList boundLayers;
-
-        Surface() : boundLayers() {}
-    };
-
-    Surface::map surfaces;
-    registry::StringIdSet freeLayers;
-
-    operator bool() const { return !surfaces.empty(); }
-
-    Surface& add(const std::string &id) {
-        return surfaces[id];
-    }
-
-    void merge(const View &view) {
-        surfaces.insert(view.surfaces.begin(), view.surfaces.end());
-        freeLayers.insert(view.freeLayers.begin(), view.freeLayers.end());
-    }
-};
-
-struct NamedView {
     struct BoundLayerParams {
         std::string id;
         boost::optional<double> alpha;
@@ -70,11 +46,19 @@ struct NamedView {
     };
     typedef std::map<std::string, BoundLayerParams::list> Surfaces;
 
-
-    std::string description;
+    boost::optional<std::string> description;
     Surfaces surfaces;
+    registry::StringIdSet freeLayers;
 
-    typedef std::map<std::string, NamedView> map;
+    operator bool() const { return !surfaces.empty(); }
+
+    void add(const std::string &id) {
+        surfaces[id];
+    }
+
+    /** So-called named views
+     */
+    typedef std::map<std::string, View> map;
 };
 
 struct Roi {

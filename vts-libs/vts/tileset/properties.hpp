@@ -95,7 +95,7 @@ struct ExtraTileSetProperties {
 
     /** Named views.
      */
-    registry::NamedView::map namedViews;
+    registry::View::map namedViews;
 
     /** Credits definition to include in the output.
      */

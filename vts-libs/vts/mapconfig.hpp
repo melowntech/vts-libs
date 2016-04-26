@@ -57,7 +57,7 @@ struct MapConfig {
 
     registry::Roi::list rois;
     registry::View view;
-    registry::NamedView::map namedViews;
+    registry::View::map namedViews;
 
     static const char *contentType;
 
