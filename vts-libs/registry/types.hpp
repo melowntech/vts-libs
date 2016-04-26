@@ -56,6 +56,11 @@ struct View {
         surfaces[id];
     }
 
+    void merge(const View &view) {
+        surfaces.insert(view.surfaces.begin(), view.surfaces.end());
+        freeLayers.insert(view.freeLayers.begin(), view.freeLayers.end());
+    }
+
     /** So-called named views
      */
     typedef std::map<std::string, View> map;
