@@ -8,14 +8,14 @@ const storage::SupportFile::Files supportFiles =
             browser::index_html
             , sizeof(browser::index_html)
             , browser::index_html_attr_lastModified
-            , "text/html"
+            , "text/html; charset=utf-8"
         }
     }, { "index-offline.html"
          , {
             browser::index_offline_html
             , sizeof(browser::index_offline_html)
             , browser::index_offline_html_attr_lastModified
-            , "text/html"
+            , "text/html; charset=utf-8"
         }
     }, {
         "skydome.jpg"

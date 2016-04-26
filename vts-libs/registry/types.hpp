@@ -25,6 +25,7 @@ typedef storage::Range<double> HeightRange;
 
 typedef std::set<std::string> StringIdSet;
 typedef std::set<int> IdSet;
+typedef std::vector<std::string> StringIdList;
 
 typedef math::Extents2_<unsigned int> TileRange;
 
@@ -32,7 +33,7 @@ struct View {
     struct Surface {
         typedef std::map<std::string, Surface> map;
 
-        registry::StringIdSet boundLayers;
+        registry::StringIdList boundLayers;
 
         Surface() : boundLayers() {}
     };

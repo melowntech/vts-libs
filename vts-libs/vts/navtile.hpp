@@ -36,6 +36,8 @@ public:
 
     void serialize(std::ostream &os) const;
 
+    void serializeNavtileProper(std::ostream &os) const;
+
     void deserialize(const HeightRange &heightRange
                      , std::istream &is, const boost::filesystem::path &path
                      = "unknown");

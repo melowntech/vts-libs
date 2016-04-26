@@ -231,8 +231,11 @@ inline void MetaNode::save(std::ostream &out, Lod lod) const
                      ? std::uint8_t(internalTextureCount_)
                      : std::uint8_t(reference_)));
 
+    // limit texel size to fit inside half float
+    // TODO: make better
+    auto ts((texelSize > 65000.0) ? 65000.0 : texelSize);
     bin::write(out, std::uint16_t
-               (half::float2half<std::round_to_nearest>(texelSize)));
+               (half::float2half<std::round_to_nearest>(ts)));
     bin::write(out, std::uint16_t(displaySize));
 
     bin::write(out, std::int16_t(heightRange.min));

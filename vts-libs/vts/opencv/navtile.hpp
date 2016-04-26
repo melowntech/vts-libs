@@ -21,6 +21,10 @@ public:
 
     virtual HeightRange heightRange() const;
 
+    /** Force height range.
+     */
+    void heightRange(const HeightRange &heightRange);
+
     void data(const Data &d);
     const Data& data() const { return data_; }
     Data& data() { return data_; }
@@ -45,7 +49,12 @@ private:
                                   , const boost::filesystem::path &path
                                   , const multifile::Table &table);
 
+    // Bavtile data
     Data data_;
+
+    /** Height range override
+     */
+    boost::optional<HeightRange> heightRange_;
 };
 
 cv::Mat renderCoverage(const NavTile &navtile);

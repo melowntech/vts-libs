@@ -90,7 +90,7 @@ FileStat FileStat::stat(int fd, std::nothrow_t)
 const char* contentType(File type)
 {
     if (type == File::config) {
-        return "application/json";
+        return "application/json; charset=utf-8";
     }
     return "application/octet-stream";
 }

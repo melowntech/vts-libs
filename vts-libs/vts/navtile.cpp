@@ -42,6 +42,12 @@ void NavTile::serialize(std::ostream &os) const
     multifile::writeTable(table, os);
 }
 
+void NavTile::serializeNavtileProper(std::ostream &os) const
+{
+    checkMaskSize(coverageMask_);
+    serialize_impl(os).set(VERSION, MAGIC);
+}
+
 void NavTile::deserialize(const HeightRange &heightRange, std::istream &is
                         , const boost::filesystem::path &path)
 {
