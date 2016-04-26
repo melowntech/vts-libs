@@ -23,9 +23,7 @@ struct TileNode {
     MetaTile *metatile;
     const MetaNode *metanode;
 
-    typedef std::map<TileId, TileNode> map;
-
-    TileNode() : metanode() {}
+    TileNode() : metatile(), metanode() {}
     TileNode(MetaTile *metatile, const MetaNode *metanode)
         : metatile(metatile), metanode(metanode)
     {}
@@ -39,6 +37,8 @@ struct TileNode {
     {
         metatile->set(tileId, mn);
     }
+
+    operator bool() const { return metanode; }
 };
 
 typedef std::map<TileId, MetaTile> MetaTiles;
@@ -58,7 +58,6 @@ struct TileSet::Detail
 
     registry::ReferenceFrame referenceFrame;
 
-    mutable TileNode::map tileNodes;
     mutable MetaTiles metaTiles;
 
     /** Index of existing tiles.
@@ -83,7 +82,7 @@ struct TileSet::Detail
     void checkValidity() const;
 
     MetaTile* findMetaTile(const TileId &tileId, bool addNew = false) const;
-    TileNode* findNode(const TileId &tileId, bool addNew = false) const;
+    TileNode findNode(const TileId &tileId, bool addNew = false) const;
     const MetaNode* findMetaNode(const TileId &tileId) const;
 
     void loadTileIndex();
@@ -114,8 +113,8 @@ struct TileSet::Detail
 
     MetaTile* addNewMetaTile(const TileId &tileId) const;
 
-    TileNode* updateNode(TileId tileId, const MetaNode &metanode
-                         , bool watertight);
+    void updateNode(TileId tileId, const MetaNode &metanode
+                    , bool watertight);
 
     bool exists(const TileId &tileId) const;
     Mesh getMesh(const TileId &tileId) const;
@@ -191,8 +190,8 @@ inline TileId TileSet::Detail::metaId(TileId tileId) const
 inline const MetaNode* TileSet::Detail::findMetaNode(const TileId &tileId)
     const
 {
-    if (auto *node = findNode(tileId)) { return node->metanode; }
-    return nullptr;
+    // metanode is nullptr if non-existent
+    return findNode(tileId).metanode;
 }
 
 } } // namespace vadstena::vts

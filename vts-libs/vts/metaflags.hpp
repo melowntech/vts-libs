@@ -9,10 +9,14 @@ namespace vadstena { namespace vts {
 
 struct MetaFlags {
     MetaNode::Flag::value_type value;
+    bool reference;
+    const MetaNode *node;
 
-    MetaFlags(MetaNode::Flag::value_type value = 0) : value(value) {}
+    MetaFlags(MetaNode::Flag::value_type value = 0)
+        : value(value), reference(false) {}
 
-    operator MetaNode::Flag::value_type() const { return value; }
+    MetaFlags(const MetaNode &node)
+        : value(node.flags()), reference(node.reference()) {}
 
     typedef std::pair<MetaNode::Flag::value_type, const char*> MetaFlag;
     static std::vector<MetaFlag> mapping;
@@ -28,6 +32,9 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const MetaFlags &f)
             os << prefix << flag.second;
             prefix = ",";
         }
+    }
+    if (f.reference) {
+        os << prefix << "reference";
     }
     return os;
 }

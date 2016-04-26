@@ -95,12 +95,12 @@ void TileSet::setNavTile(const TileId &tileId, const NavTile &navtile)
 
 MetaNode TileSet::getMetaNode(const TileId &tileId) const
 {
-    auto *node(detail().findNode(tileId));
+    auto node(detail().findNode(tileId));
     if (!node) {
         LOGTHROW(err2, storage::NoSuchTile)
             << "There is no tile at " << tileId << ".";
     }
-    return *node->metanode;
+    return *node.metanode;
 }
 
 MetaTile TileSet::getMetaTile(const TileId &metaId) const
@@ -487,33 +487,22 @@ void TileSet::Detail::watch(utility::Runnable *runnable)
     driver->watch(runnable);
 }
 
-TileNode* TileSet::Detail::findNode(const TileId &tileId, bool addNew)
+TileNode TileSet::Detail::findNode(const TileId &tileId, bool addNew)
     const
 {
-    auto ftileNodes(tileNodes.find(tileId));
-    if (ftileNodes == tileNodes.end()) {
-        // not found in memory -> load from disk
-        auto *meta(findMetaTile(tileId, addNew));
-        if (!meta) { return nullptr; }
+    // not found in memory -> load from disk
+    auto *meta(findMetaTile(tileId, addNew));
+    if (!meta) { return {}; }
 
-        // now, find node in the metatile
-        const MetaNode *node(nullptr);
-        if (!addNew) {
-            node = meta->get(tileId, std::nothrow);
-            if (!node) { return nullptr; }
-        } else {
-            // add new node
-            node = meta->set(tileId, {});
-        }
-
-        // add node to the tree
-        return &tileNodes.insert
-            (TileNode::map::value_type
-             (tileId, TileNode(meta, node)))
-            .first->second;
+    // now, find node in the metatile
+    const MetaNode *node(meta->get(tileId, std::nothrow));
+    if (!node && addNew) {
+        // no node -> add new
+        node = meta->set(tileId, {});
     }
 
-    return &ftileNodes->second;
+    // return tile node
+    return { meta, node };
 }
 
 MetaTile* TileSet::Detail::addNewMetaTile(const TileId &tileId) const
@@ -640,26 +629,26 @@ std::uint8_t flagsFromNode(const MetaNode &node)
 
 } // namespace
 
-TileNode* TileSet::Detail::updateNode(TileId tileId
-                                      , const MetaNode &metanode
-                                      , bool watertight)
+void TileSet::Detail::updateNode(TileId tileId
+                                 , const MetaNode &metanode
+                                 , bool watertight)
 {
     // get node (create if necessary)
-    auto *node(findNode(tileId, true));
+    auto node(findNode(tileId, true));
 
     // update node value
-    node->update(tileId, metanode);
+    node.update(tileId, metanode);
 
     // prepare tileindex flags and mask
     auto mask(TileIndex::Flag::content | TileIndex::Flag::watertight
               | TileIndex::Flag::reference);
-    auto flags(flagsFromNode(*node->metanode));
+    auto flags(flagsFromNode(*node.metanode));
     if (watertight) {
         flags |= TileIndex::Flag::watertight;
     }
 
     // process reference
-    if (auto r = node->metanode->reference()) {
+    if (auto r = node.metanode->reference()) {
         flags |= TileIndex::Flag::reference;
         references.set(tileId, r);
     }
@@ -673,18 +662,16 @@ TileNode* TileSet::Detail::updateNode(TileId tileId
     // go up the tree
     while (tileId.lod) {
         auto parentId(parent(tileId));
-        auto *parentNode = findNode(parentId, true);
+        auto parentNode(findNode(parentId, true));
 
-        auto mn(*parentNode->metanode);
-        parentNode->set(parentId, mn.setChildFromId(tileId)
-                        .mergeExtents(*node->metanode));
+        auto mn(*parentNode.metanode);
+        parentNode.set(parentId, mn.setChildFromId(tileId)
+                       .mergeExtents(*node.metanode));
 
         // next round
         tileId = parentId;
         node = parentNode;
     }
-
-    return node;
 }
 
 bool check(const SpatialDivisionExtents &l, const SpatialDivisionExtents &r)
@@ -920,8 +907,8 @@ void TileSet::Detail::setReferenceTile(const TileId &tileId, uint8_t other
 void TileSet::Detail::setNavTile(const TileId &tileId, const NavTile &navtile)
 {
 
-    auto *node(findNode(tileId));
-    if (!node || !node->metanode->geometry()) {
+    auto node(findNode(tileId));
+    if (!node || !node.metanode->geometry()) {
         LOGTHROW(err2, storage::NoSuchTile)
             << "Cannot set navtile to geometry-less tile " << tileId << ".";
     }
@@ -929,14 +916,14 @@ void TileSet::Detail::setNavTile(const TileId &tileId, const NavTile &navtile)
     LOG(info1) << "Setting navtile: " << tileId;
 
     save(driver->output(tileId, TileFile::navtile), navtile);
-    auto metanode(*node->metanode);
+    auto metanode(*node.metanode);
 
     // mark as having navtile and update height range
     metanode.navtile(true);
     metanode.heightRange = navtile.heightRange();
 
     // update the tree
-    node->update(tileId, metanode);
+    node.update(tileId, metanode);
 
     // mark navtile in tile index
     tileIndex.setMask(tileId, TileIndex::Flag::navtile);
@@ -1077,12 +1064,11 @@ bool TileSet::Detail::exists(const TileId &tileId) const
         return tileIndex.real(tileId);
     }
 
-    // rw -> no tileindex generated -> find metatile
-    auto ftileNodes(tileNodes.find(tileId));
-    if (ftileNodes == tileNodes.end()) { return false; }
-
-    // tile must be real
-    return ftileNodes->second.metanode->real();
+    // rw -> no tileindex generated -> find metatile's node
+    if (auto node = findNode(tileId)) {
+        return node.metanode->real();
+    }
+    return false;
 }
 
 void TileSet::Detail::saveMetadata()
