@@ -3,6 +3,7 @@
 
 #include <boost/logic/tribool.hpp>
 
+#include "utility/enum-io.hpp"
 #include "imgproc/rastermask/quadtree.hpp"
 
 #include "./basetypes.hpp"
@@ -161,6 +162,11 @@ inline bool compatible(const NodeInfo &ni1, const NodeInfo &ni2)
 {
     return (ni1.subtree() == ni2.subtree());
 }
+
+UTILITY_GENERATE_ENUM_IO(RFTreeSubtree::CoverageType,
+    ((pixel))
+    ((grid))
+)
 
 } } // namespace vadstena::vts
 

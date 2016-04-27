@@ -337,7 +337,7 @@ RFTreeSubtree::coverageMask(CoverageType type, const math::Size2 &size
                          , gy(jj * size.width);
                      jj <= je; ++jj, gy += size.width) {
                     for (int ii(clip(i - dilation, size.width))
-                             , ie(clip(i + dilation, size.width));
+                             , ie(clip(i + dilation, size.width - 1));
                          ii <= ie; ++ii)
                     {
                         pane[gy + ii] = true;
