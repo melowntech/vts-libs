@@ -128,6 +128,11 @@ void TileSet::flush()
     detail().flush();
 }
 
+void TileSet::emptyCache() const
+{
+    detail().emptyCache();
+}
+
 void TileSet::watch(utility::Runnable *runnable)
 {
     detail().checkValidity();
@@ -1100,6 +1105,7 @@ void update(TileSet::Properties &properties, const TileIndex &tileIndex)
 
 void TileSet::Detail::flush()
 {
+    LOG(info2) << "Flushing <" << properties.id << ">.";
     driver->wannaWrite("flush");
 
     if (metadataChanged) {
@@ -1139,6 +1145,23 @@ void TileSet::Detail::flush()
 
     // flush driver
     driver->flush();
+
+    // drop all metatiles from memory cache
+    metaTiles.clear();
+}
+
+void TileSet::Detail::emptyCache() const
+{
+    LOG(info1) << "Emptying cache in <" << properties.id << ">.";
+
+    if (metadataChanged || propertiesChanged) {
+        LOGTHROW(err2, storage::PendingTransaction)
+            << "Cannot empty cached data due to unflushed changes. "
+            << "Use flush instead.";
+    }
+
+    // drop all metatiles from memory cache
+    metaTiles.clear();
 }
 
 const Driver& TileSet::driver() const

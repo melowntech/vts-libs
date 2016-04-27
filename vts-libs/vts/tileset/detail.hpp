@@ -140,6 +140,7 @@ struct TileSet::Detail
 
     void flush();
     void saveMetadata();
+    void emptyCache() const;
 
     MapConfig mapConfig(bool includeExtra) const;
 

@@ -484,7 +484,13 @@ createGlues(Tx &tx, Storage::Properties properties
                 auto gts(createTileSet(tmpPath, gprop
                                        , CreateMode::overwrite));
 
+                // create glue
                 gts.createGlue(combination);
+
+                // empty cached input data (no need for them now)
+                for (const auto *ts : combination) {
+                    ts->emptyCache();
+                }
 
                 if (gts.empty()) {
                     // unusable

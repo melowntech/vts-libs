@@ -152,6 +152,10 @@ public:
      */
     void flush();
 
+    /** Empties any cached content at once. Fails if there are any modified data.
+     */
+    void emptyCache() const;
+
     /** Starts watching runnable without entering a transaction.
      */
     void watch(utility::Runnable *runnable);
