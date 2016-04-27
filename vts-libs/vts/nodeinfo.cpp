@@ -322,9 +322,9 @@ RFTreeSubtree::coverageMask(CoverageType type, const math::Size2 &size
 
     // sample tile in grid
     const auto &sampler(*sampler_);
-    for (int j(0), gp(0); j < size.height; ++j) {
+    for (int j(-dilation), je(size.height + dilation), gp(0); j < je; ++j) {
         double y(ref(1) - j * ps.height);
-        for (int i(0); i < size.width; ++i, ++gp) {
+        for (int i(-dilation), ie(size.width + dilation); i < ie; ++i, ++gp) {
             double x(ref(0) + i * ps.width);
             if (sampler.inside(math::Point2(x, y))) {
                 if (!dilation) {
@@ -332,13 +332,13 @@ RFTreeSubtree::coverageMask(CoverageType type, const math::Size2 &size
                 }
 
                 // some dilation -> apply
-                for (int jj(clip(j - dilation, size.height))
-                         , je(clip(j + dilation, size.height - 1))
+                for (int jj(clip(j - dilation, size.height - 1))
+                         , jje(clip(j + dilation, size.height - 1))
                          , gy(jj * size.width);
-                     jj <= je; ++jj, gy += size.width) {
-                    for (int ii(clip(i - dilation, size.width))
-                             , ie(clip(i + dilation, size.width - 1));
-                         ii <= ie; ++ii)
+                     jj <= jje; ++jj, gy += size.width) {
+                    for (int ii(clip(i - dilation, size.width - 1))
+                             , iie(clip(i + dilation, size.width - 1));
+                         ii <= iie; ++ii)
                     {
                         pane[gy + ii] = true;
                     }
