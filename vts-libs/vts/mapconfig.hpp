@@ -47,7 +47,7 @@ struct GlueConfig : SurfaceCommonConfig {
 
 /** Opaque to outer world.
  */
-struct BrowserCoreOptions;
+struct BrowserOptions;
 
 struct MapConfig {
     registry::Srs::dict srs;
@@ -66,7 +66,7 @@ struct MapConfig {
 
     /** Opaque structure holding browser setup.
      */
-    std::shared_ptr<BrowserCoreOptions> browserCoreOptions;
+    std::shared_ptr<BrowserOptions> browserOptions;
 
     static const char *contentType;
 

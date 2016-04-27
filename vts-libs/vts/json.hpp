@@ -14,10 +14,10 @@ namespace vadstena { namespace vts {
 
 /** Wrapper around value.
  */
-struct BrowserCoreOptions {
+struct BrowserOptions {
     Json::Value value;
 
-    BrowserCoreOptions(const Json::Value &value) : value(value) {}
+    BrowserOptions(const Json::Value &value) : value(value) {}
 };
 
 } } // namespace vadstena::vts

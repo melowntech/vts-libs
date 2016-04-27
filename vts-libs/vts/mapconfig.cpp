@@ -132,8 +132,8 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     content["textureAtlasReady"] = mapConfig.textureAtlasReady;
 
     // add browser core options if present
-    if (mapConfig.browserCoreOptions) {
-        content["browserCoreOptions"] = mapConfig.browserCoreOptions->value;
+    if (mapConfig.browserOptions) {
+        content["browserOptions"] = mapConfig.browserOptions->value;
     }
 
     os.precision(15);

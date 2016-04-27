@@ -107,7 +107,7 @@ struct ExtraTileSetProperties {
 
     /** Browser core options. Opaque structure.
      */
-    std::shared_ptr<BrowserCoreOptions> browserCoreOptions;
+    std::shared_ptr<BrowserOptions> browserOptions;
 
     // TODO: freeLayers
 

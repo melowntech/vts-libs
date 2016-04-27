@@ -1255,7 +1255,7 @@ MapConfig mapConfig(const FullTileSetProperties &properties
         mapConfig.view.add(surface.id);
     }
 
-    mapConfig.browserCoreOptions = extra.browserCoreOptions;
+    mapConfig.browserOptions = extra.browserOptions;
 
     return mapConfig;
 }

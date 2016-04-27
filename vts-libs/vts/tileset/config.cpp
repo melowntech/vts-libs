@@ -416,7 +416,7 @@ ExtraTileSetProperties parse1(const Json::Value &config)
     if (config.isMember("browserCoreOptions")) {
         const auto &bco(config["browserCoreOptions"]);
         Json::check(bco, Json::objectValue);
-        ep.browserCoreOptions = std::make_shared<BrowserCoreOptions>(bco);
+        ep.browserOptions = std::make_shared<BrowserOptions>(bco);
     }
 
     return ep;
