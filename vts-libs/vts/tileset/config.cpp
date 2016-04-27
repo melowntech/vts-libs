@@ -413,8 +413,8 @@ ExtraTileSetProperties parse1(const Json::Value &config)
     }
 
     // browser config options -- whole JSON object held in opaque pointer.
-    if (config.isMember("browserCoreOptions")) {
-        const auto &bco(config["browserCoreOptions"]);
+    if (config.isMember("browserOptions")) {
+        const auto &bco(config["browserOptions"]);
         Json::check(bco, Json::objectValue);
         ep.browserOptions = std::make_shared<BrowserOptions>(bco);
     }
