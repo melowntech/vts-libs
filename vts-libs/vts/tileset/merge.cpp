@@ -444,7 +444,7 @@ struct Coverage {
 
     const TileId tileId;
     const Input::list &sources;
-    cv::Mat coverage;
+    cv::Mat_<pixel_type> coverage;
     bool hasHoles;
     std::vector<bool> indices;
     boost::optional<Input::Id> single;
@@ -490,7 +490,7 @@ struct Coverage {
                                      , [&](int x, int y, float)
             {
                 // TODO: early exit
-                if (coverage.at<pixel_type>(y, x) == id) {
+                if (coverage(y, x) == id) {
                     covered = true;
                 }
             });
@@ -519,7 +519,7 @@ struct Coverage {
             for (int j(0); j < coverage.rows; ++j) {
                 for (int i(0); i < coverage.cols; ++i) {
                     // non-hole -> set in mask
-                    if (coverage.at<pixel_type>(j, i) >= 0) {
+                    if (coverage(j, i) >= 0) {
                         cm.set(j, i);
                     }
                 }
@@ -542,11 +542,9 @@ struct Coverage {
             , { 255, 255, 255 }
         };
 
-        cv::Mat img(coverage.rows, coverage.cols, CV_8UC3);
+        cv::Mat_<cv::Vec3b> img(coverage.rows, coverage.cols);
 
-        std::transform(coverage.begin<pixel_type>()
-                       , coverage.end<pixel_type>()
-                       , img.begin<cv::Vec3b>()
+        std::transform(coverage.begin(), coverage.end(), img.begin()
                        , [&](pixel_type v) { return colors[v + 1]; });
 
         const auto filename
@@ -557,12 +555,53 @@ struct Coverage {
 
 private:
     void generateCoverage(const NodeInfo &nodeInfo) {
-        // prepare coverage map (set to invalid index)
+        // prepare coverage map
         auto coverageSize(Mesh::coverageSize());
-        coverage.create(coverageSize.height, coverageSize.width, CV_16S);
-        coverage = cv::Scalar(-1);
+        coverage.create(coverageSize.height, coverageSize.width);
 
-        for (const auto &input : sources) {
+        // BEGIN OPTIMIZATION {
+
+        // analyze input and skipp all sets masked by first watertight tile
+        auto iinput([&]() -> Input::list::const_iterator
+        {
+            for (auto rinput(sources.rbegin()), reinput(sources.rend());
+                 rinput != reinput; ++rinput)
+            {
+                if (rinput->watertight()) {
+                    return std::prev(rinput.base());
+                }
+            }
+
+            // not found -> just from start
+            return sources.begin();
+        }());
+
+        // single source set to true if we are left with just one tile
+        if ((std::distance(iinput, sources.end()) == 1)
+            && iinput->watertight())
+        {
+            // one source tile and it is watertight -> fully covered by this
+            // tile
+            static_cast<cv::Mat&>(coverage) = cv::Scalar(iinput->id());
+
+            // single sourced and marked in indices
+            indices[*(single = iinput->id())] = true;
+
+            // tile is watertight -> there are no holes at all
+
+            // done
+            return;
+        }
+
+        // } END OPTIMIZATION
+
+        // set coverage to invalid index
+        static_cast<cv::Mat&>(coverage) = cv::Scalar(-1);
+
+        // process all sources from (limited) bottom to the top
+        for (auto einput(sources.end()); iinput != einput; ++iinput) {
+            const auto &input(*iinput);
+
             if (nodeInfo.srs() == input.nodeInfo().srs()) {
                 // same SRS -> mask is rendered as is (possible scale and shift)
                 rasterize(input, input.id(), coverage
@@ -575,9 +614,16 @@ private:
     }
 
     void analyze() {
+        // BEGIN OPTIMIZATION {
+        if (single) {
+            // already analyzed during coverage generation
+            return;
+        }
+        // } END OPTIMIZATION
+
         for (auto j(0); j < coverage.rows; ++j) {
             for (auto i(0); i < coverage.cols; ++i) {
-                auto v(coverage.at<pixel_type>(j, i));
+                auto v(coverage(j, i));
                 if (v == -1) {
                     hasHoles = true;
                 } else {
@@ -594,10 +640,11 @@ private:
             }
             ++count;
         }
-        if (count > 1) { single = boost::none; }
 
-        // convert special negative value back to no value
-        if (single && (single < 0)) { single = boost::none; }
+        if (count > 1) {
+            // more than one dataset -> reset single
+            single = boost::none;
+        }
     }
 
     bool check(float x, float y, Input::Id id) const {
@@ -605,7 +652,7 @@ private:
         int yy(std::round(y));
         if ((xx < 0) || (xx >= coverage.cols)) { return false; }
         if ((yy < 0) || (yy >= coverage.rows)) { return false; }
-        return (coverage.at<pixel_type>(yy, xx) == id);
+        return (coverage(yy, xx) == id);
     }
 };
 
@@ -828,7 +875,7 @@ void renderNavtile(cv::Mat &nt, cv::Mat &ntCoverage
     //     * parent of input tileId that is at most diff LODs from root (return
     //     * value)
     //
-    //     * new tileId under with this parent as a root (modified argument)
+    //     * new tileId under whitch this parent as a root (modified argument)
     //
     auto splitId([&](Lod diff, TileId &id) -> TileId
     {

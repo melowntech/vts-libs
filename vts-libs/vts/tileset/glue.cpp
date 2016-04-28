@@ -313,8 +313,8 @@ TileIndex buildGenerateSet(const char *dumpRoot
             // first iteration -> just unite both trees
             generate = unite(i1, i2);
         } else {
-            // next iteration -> unite up, down and intermediate result
-            generate = unite(TileIndices{&*generate, &i1, &i2});
+            // next iteration -> unite up, down and intersect with the result
+            generate = generate->intersect(unite(i1, i2));
         }
     }
 
