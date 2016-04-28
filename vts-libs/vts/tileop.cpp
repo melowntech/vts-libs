@@ -174,4 +174,20 @@ bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileFile
     return !*pp;
 }
 
+TileId commonAncestor(Lod lod, TileRange range)
+{
+    // sanity check
+    if (!valid(range)) { return {}; }
+
+    // iterative approach: go the tree up until we hit the same point
+    while (!empty(range)) {
+        range.ll(0) >>= 1;
+        range.ll(1) >>= 1;
+        range.ur(0) >>= 1;
+        range.ur(1) >>= 1;
+        --lod;
+    }
+    return { lod, range.ll(0), range.ll(1) };
+}
+
 } } // namespace vadstena::vts

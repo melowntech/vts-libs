@@ -30,6 +30,10 @@ int child(const TileId &tileId);
 
 bool in(const LodRange &range, const TileId &tileId);
 
+/** Finds lowest common ancestor of two tiles defined as a lod and a range.
+ */
+TileId commonAncestor(Lod lod, TileRange range);
+
 /** Calculates area of tile's mesh (m^2) and atlas (pixel^2).
  */
 std::pair<double, double> area(const Tile &tile);
