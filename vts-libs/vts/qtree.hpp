@@ -134,6 +134,10 @@ private:
         long set(unsigned int mask, unsigned int x, unsigned int y
                  , value_type value);
 
+        long set(unsigned int size, unsigned int x, unsigned int y
+                 , unsigned int x1, unsigned int y1
+                 , unsigned int x2, unsigned int y2, value_type value);
+
         void contract();
 
         void save(std::ostream &os) const;

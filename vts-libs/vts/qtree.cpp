@@ -62,13 +62,18 @@ void QTree::set(unsigned int x, unsigned int y, value_type value)
 void QTree::set(unsigned int x1, unsigned int y1
                 , unsigned int x2, unsigned int y2, value_type value)
 {
-    (void) x1;
-    (void) y1;
-    (void) x2;
-    (void) y2;
-    (void) value;
-    LOGTHROW(err1, std::runtime_error)
-        << "Set(range) not implemented yet.";
+    // NB: left/top boundary not checked since we use unsigned numbers
+
+    // check for block completely outside the pane
+    if ((x1 >= size_) || (y1 >= size_)) { return; }
+    if (value == detail::GrayNode) { return; }
+
+    // clip to pane
+    if (x2 >= size_) { x1 = size_ - 1; }
+    if (y2 >= size_) { y2 = size_ - 1; }
+
+    // and go down
+    count_ += root_.set(size_, 0, 0, x1, y1, x2, y2, value);
 }
 
 void QTree::reset(value_type value)
@@ -135,6 +140,84 @@ long QTree::Node::set(unsigned int mask, unsigned int x, unsigned int y
     auto res(children->nodes[index].set(mask >> 1, x, y, value));
     contract();
 
+    return res;
+}
+
+long QTree::Node::set(unsigned int size, unsigned int x, unsigned int y
+                      , unsigned int x1, unsigned int y1
+                      , unsigned int x2, unsigned int y2, value_type value)
+{
+    if ((x2 < x) || (x1 >= (x + size))
+        || (y2 < y) || (y1 >= (y + size)))
+    {
+        // outside of given range -> nothing to do
+        return 0;
+    }
+
+    if ((x1 <= x) && ((x + size) > x2)
+        && (y1 <= y) && ((y + size) > y2))
+    {
+        // we are inside given range, set full value
+        if (children) {
+            // some subtree, calculate total color
+
+            // accumulate area to destroy
+            std::size_t removedCount(0);
+            descend(size >> 1, x, y, [&](unsigned int, unsigned int
+                                         , unsigned int size, value_type)
+            {
+                removedCount += size * size;
+            }, Filter::white);
+
+            // destroy children
+            children.reset();
+
+            // set new value
+            this->value = value;
+
+            if (value) {
+                // setting to value, set value is full node without removed
+                // count
+                return (size * size) - removedCount;
+            }
+
+            // setting to no value -> everything was removed
+            return -removedCount;
+        }
+
+        // this is just one node, almost same as one pixel setting
+        auto old(this->value);
+        this->value = value;
+        if ((old && value) || (!old && !value)) { return 0; }
+        if (old && !value) { return -(size * size); }
+        return (size * size);
+    }
+
+    // not at the bottom of the tree, split into four child nodes
+    if (!children) {
+        if (this->value == value) {
+            // no-op
+            return 0;
+        }
+
+        // split
+        children.reset(new Children(this->value));
+    }
+
+    // go down to all four children
+    size >>= 1;
+    long res(0);
+    res += children->nodes[0].set
+        (size, x, y, x1, y1, x2, y2, value);
+    res += children->nodes[1].set
+        (size, x + size, y, x1, y1, x2, y2, value);
+    res += children->nodes[2].set
+        (size, x, y + size, x1, y1, x2, y2, value);
+    res += children->nodes[3].set
+        (size, x + size, y + size, x1, y1, x2, y2, value);
+
+    // contract nodes of same value
+    contract();
     return res;
 }
 
