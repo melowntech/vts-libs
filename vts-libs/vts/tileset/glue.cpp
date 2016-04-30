@@ -196,8 +196,8 @@ inline bool Merger::isGlueTile(const merge::Output &tile) const
 void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
                        , const merge::TileSource &parentSource)
 {
-    if (!world_.exists(tileId)) {
-        // no data below
+    if (!nodeInfo.valid() || !world_.exists(tileId)) {
+        // no data here and below
         return;
     }
 
