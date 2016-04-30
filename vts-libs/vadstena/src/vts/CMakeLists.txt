@@ -1,16 +1,4 @@
 # ------------------------------------------------------------------------
-# VTS query and manipulation tool
-# ------------------------------------------------------------------------
-define_module(BINARY vts
-  DEPENDS vts-libs)
-
-set(vts_SOURCES
-  vts.cpp
-  )
-
-vadstena_tool(storage vts ${vts_SOURCES})
-
-# ------------------------------------------------------------------------
 # VTS0 to VTS conversion tool
 # ------------------------------------------------------------------------
 define_module(BINARY vts02vts
@@ -35,3 +23,9 @@ set(vts2vts_SOURCES
   )
 
 vadstena_tool(storage vts2vts ${vts2vts_SOURCES})
+
+# force build of vts tool
+add_custom_target(.vts ALL DEPENDS vts)
+# and install it to along other storage tools
+install(TARGETS vts RUNTIME DESTINATION bin
+  COMPONENT storage)
