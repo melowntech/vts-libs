@@ -11,12 +11,12 @@
 
 #include "service/cmdline.hpp"
 
-#include "vts-libs/registry/po.hpp"
-#include "vts-libs/vts.hpp"
-#include "vts-libs/vts/io.hpp"
-#include "vts-libs/vts/atlas.hpp"
-#include "vts-libs/vts/tileflags.hpp"
-#include "vts-libs/vts/metaflags.hpp"
+#include "../registry/po.hpp"
+#include "../vts.hpp"
+#include "../vts/io.hpp"
+#include "../vts/atlas.hpp"
+#include "../vts/tileflags.hpp"
+#include "../vts/metaflags.hpp"
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;

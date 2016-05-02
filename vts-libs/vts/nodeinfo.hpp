@@ -24,12 +24,20 @@ public:
         return (root_ == other.root_);
     }
 
+    bool operator!=(const RFTreeSubtree &other) const {
+        return !operator==(other);
+    }
+
     /** Calculates node validity:
      *    * false: node is completely outside subtree's valid area
      *    * true: node is completely inside subtree's valid area
      *    * indeterminate: node is partially inside subtree's valid area
      */
     boost::tribool valid(const RFNode &node) const;
+
+    /** Check whether point is inside.
+     */
+    bool inside(const math::Point2 &point) const;
 
     /** Node coverage mask.
      */
@@ -120,6 +128,12 @@ public:
      */
     CoverageMask coverageMask(CoverageType type, const math::Size2 &size
                               , unsigned int dilation = 0) const;
+
+    /** Queries whether given point is inside node's valid area.  Point must be
+     *  in node's SRS. Performs extra check to extents in parents SRS in case of
+     *  partial node.
+     */
+    bool inside(const math::Point2 &point) const;
 
 private:
     /** Node info.

@@ -26,5 +26,11 @@ if (TARGET service)
     target_link_libraries(vts ${MODULE_LIBRARIES})
     buildsys_target_compile_definitions(vts PRIVATE ${MODULE_DEFINITIONS})
     buildsys_binary(vts)
+
+    add_executable(vts-measure-dataset EXCLUDE_FROM_ALL measure-dataset.cpp)
+    target_link_libraries(vts-measure-dataset ${MODULE_LIBRARIES})
+    buildsys_target_compile_definitions(vts-measure-dataset
+      PRIVATE ${MODULE_DEFINITIONS})
+    buildsys_binary(vts-measure-dataset)
   endif()
 endif()

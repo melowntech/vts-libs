@@ -146,6 +146,18 @@ struct ReferenceFrame {
                 return (partitioning.mode != PartitioningMode::none);
             }
 
+            /** Real node is a node whose subtree can contain tile. So far, only
+             *  invalid nodes are not real nodes.
+             */
+            bool real() const {
+                switch (partitioning.mode) {
+                case PartitioningMode::manual:
+                case PartitioningMode::bisection:
+                    return true;
+                default: return false;
+                }
+            }
+
             void invalidate() {
                 partitioning.mode = PartitioningMode::none;
             }

@@ -262,6 +262,15 @@ boost::tribool RFTreeSubtree::valid(const RFNode &node) const
     return check.result();
 }
 
+bool RFTreeSubtree::inside(const math::Point2 &point) const
+{
+    // try to init sampler; if sampler cannot be initialized, we are fully
+    // inside
+    if (!initSampler()) { return true; }
+
+    return sampler_->inside(point);
+}
+
 NodeInfo::CoverageMask
 NodeInfo::coverageMask(CoverageType type, const math::Size2 &size
                        , unsigned int dilation) const
@@ -357,6 +366,19 @@ RFTreeSubtree::coverageMask(CoverageType type, const math::Size2 &size
     }
 
     return mask;
+}
+
+bool NodeInfo::inside(const math::Point2 &point) const
+{
+    // outside -> not inside
+    if (!math::inside(node_.extents, point)) { return false; }
+    // inside and not partial -> inside
+    if (!partial_) { return true; }
+
+    // OK, check
+
+    // check for validty
+    return subtree_.inside(point);
 }
 
 } } // namespace vadstena::vts
