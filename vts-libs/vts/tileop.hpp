@@ -24,6 +24,8 @@ TileRange::point_type lowestChild(const TileRange::point_type &point
                                   , Lod diff = 1);
 TileRange childRange(const TileRange &tileRange, Lod diff = 1);
 
+TileRange shiftRange(Lod srcLod, const TileRange &tileRange, Lod dstLod);
+
 /** Check whether super tile is above (or exactly the same tile) as tile.
  */
 bool above(const TileId &tile, const TileId &super);
@@ -133,6 +135,24 @@ inline TileRange childRange(const TileRange &tileRange, Lod diff)
 
     // fine
     return tr;
+}
+
+inline TileRange shiftRange(Lod srcLod, const TileRange &tileRange, Lod dstLod)
+{
+    if (srcLod == dstLod) {
+        // no-op
+        return tileRange;
+    }
+
+    if (dstLod > srcLod) {
+        // child range
+        return childRange(tileRange, dstLod - srcLod);
+    }
+
+    // parent range
+    return { parent(tileRange.ll, srcLod - dstLod)
+            , parent(tileRange.ur, srcLod - dstLod) };
+
 }
 
 inline int child(const TileId &tileId)

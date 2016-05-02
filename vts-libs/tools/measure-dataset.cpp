@@ -48,6 +48,8 @@ private:
 
     std::string referenceFrame_;
     std::string dataset_;
+    math::Extents2 extents_;
+    geo::SrsDefinition srs_;
     vts::Lod lod_;
     int samples_;
 };
@@ -61,8 +63,12 @@ void MeasureDataset::configuration(po::options_description &cmdline
     cmdline.add_options()
         ("referenceFrame", po::value(&referenceFrame_)->required()
          , "Reference frame to query.")
-        ("dataset", po::value(&dataset_)->required()
+        ("dataset", po::value(&dataset_)
          , "Path to geo dataset (anything GDAL can handle).")
+        ("srs", po::value(&srs_)
+         , "Dataset's SRS. Conflicts with dataset.")
+        ("extents", po::value(&extents_)
+         , "Overrides dataset's extents.")
         ("lod", po::value(&lod_)->required()
          , "Lod to work with.")
         ("samples", po::value(&samples_)->default_value(samples_)->required()
@@ -70,7 +76,6 @@ void MeasureDataset::configuration(po::options_description &cmdline
     ;
 
     pd.add("referenceFrame", 1)
-        .add("dataset", 1)
         .add("lod", 1);
 
     (void) config;
@@ -79,12 +84,26 @@ void MeasureDataset::configuration(po::options_description &cmdline
 void MeasureDataset::configure(const po::variables_map &vars)
 {
     vr::registryConfigure(vars);
+
+    if (vars.count("dataset")) {
+        if (vars.count("srs")) {
+            throw po::error("conflicting options dataset+srs");
+        }
+
+        auto ds(geo::GeoDataset::open(dataset_));
+        srs_ = ds.srs();
+        if (!vars.count("extents")) {
+            extents_ = ds.extents();
+        }
+    } else if (!vars.count("srs") && !vars.count("extents")) {
+        throw po::required_option("srs+extents");
+    }
 }
 
 bool MeasureDataset::help(std::ostream &out, const std::string &what) const
 {
     if (what.empty()) {
-        out << R"RAW(vts-measure-dataset: referenceFrame dataset lod [options]
+        out << R"RAW(vts-measure-dataset: referenceFrame lod [options]
 )RAW";
     }
     return false;
@@ -93,8 +112,6 @@ bool MeasureDataset::help(std::ostream &out, const std::string &what) const
 int MeasureDataset::run()
 {
     const auto referenceFrame(vr::Registry::referenceFrame(referenceFrame_));
-
-    auto ds(geo::GeoDataset::open(dataset_));
 
     vts::TileRange overall(math::InvalidExtents{});
 
@@ -121,16 +138,15 @@ int MeasureDataset::run()
 
         math::Extents2 extents(math::InvalidExtents{});
 
-        const vts::CsConvertor conv(ds.srs(), node.srs);
-        const auto dse(ds.extents());
-        const auto dss(math::size(dse));
+        const vts::CsConvertor conv(srs_, node.srs);
+        const auto dss(math::size(extents_));
         math::Size2f px(dss.width / samples_, dss.height / samples_);
 
         // convert dataset's extents into node's SRS
         for (int j(0); j <= samples_; ++j) {
-            auto y(dse.ll(1) + j * px.height);
+            auto y(extents_.ll(1) + j * px.height);
             for (int i(0); i <= samples_; ++i) {
-                math::Point2 p(dse.ll(0) + i * px.width, y);
+                math::Point2 p(extents_.ll(0) + i * px.width, y);
                 try {
                     // try to convert point from dataset's SRS into node
                     auto pp(conv(p));
@@ -196,7 +212,7 @@ int MeasureDataset::run()
         math::update(overall, r.ll);
         math::update(overall, r.ur);
 
-        std::cout << nid << ": " << r << std::endl;
+        std::cout << "node " << nid << ": " << r << std::endl;
     }
 
     if (math::valid(overall)) {
