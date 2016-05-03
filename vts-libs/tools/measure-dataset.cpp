@@ -216,7 +216,7 @@ int MeasureDataset::run()
     }
 
     if (math::valid(overall)) {
-        std::cout << "overall : " << overall << std::endl;
+        std::cout << "overall: " << overall << std::endl;
     }
 
     return EXIT_SUCCESS;
