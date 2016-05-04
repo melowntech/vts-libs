@@ -103,7 +103,14 @@ void TileIndex::load(const fs::path &path)
 {
     std::ifstream f;
     f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-    f.open(path.string(), std::ifstream::in | std::ifstream::binary);
+
+    try {
+        f.open(path.string(), std::ios_base::in | std::ifstream::binary);
+        f.peek();
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::Error)
+            << "Unable to open tileindex " << path << ".";
+    }
 
     load(f, path);
 
