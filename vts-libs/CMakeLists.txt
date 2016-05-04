@@ -176,6 +176,7 @@ set(vts-core_SOURCES
   vts/encoder.hpp vts/encoder.cpp
   vts/csconvertor.hpp vts/csconvertor.cpp
   vts/math.hpp
+  vts/subtrees.hpp vts/subtrees.cpp
 
   vts/maskfwd.hpp
   vts/qtree.hpp vts/qtree.cpp
