@@ -574,4 +574,17 @@ std::pair<LodRange, TileRange> TileIndex::ranges(QTree::value_type mask) const
     return { stat.lodRange, stat.computeTileRange() };
 }
 
+void TileIndex::set(const LodRange &lodRange, const TileRange &range
+                    , QTree::value_type value)
+{
+    TileRange r(range);
+    for (auto lod : lodRange) {
+        if (auto *m = tree(lod, true)) {
+            m->set(r.ll(0), r.ll(1), r.ur(0), r.ur(1), value);
+        }
+        // move to child range
+        r = childRange(r);
+    }
+}
+
 } } // namespace vadstena::vts

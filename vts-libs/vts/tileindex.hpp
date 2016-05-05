@@ -97,6 +97,12 @@ public:
      */
     void set(Lod lod, const TileRange &range, QTree::value_type value);
 
+    /** Set all tiles in given tile range at lodRange.min and all tiles under
+     *  them up to lodRange.max
+     */
+    void set(const LodRange &lodRange, const TileRange &range
+             , QTree::value_type value);
+
     QTree::value_type get(const TileId &tileId) const;
 
     QTree::value_type checkMask(const TileId &tileId, QTree::value_type mask)

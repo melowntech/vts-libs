@@ -381,4 +381,9 @@ bool NodeInfo::inside(const math::Point2 &point) const
     return subtree_.inside(point);
 }
 
+const geo::SrsDefinition& NodeInfo::srsDef() const
+{
+    return registry::Registry::srs(node_.srs).srsDef;
+}
+
 } } // namespace vadstena::vts

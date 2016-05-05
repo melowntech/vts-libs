@@ -17,6 +17,7 @@ using storage::File;
 TileId parent(const TileId &tileId, Lod diff = 1);
 TileRange::point_type parent(const TileRange::point_type &point, Lod diff = 1);
 TileRange parent(const TileRange &tileRange, Lod diff = 1);
+TileRange tileRange(const TileId &tileId);
 
 Children children(const TileId &tileId);
 TileId lowestChild(const TileId &tileId, Lod diff = 1);
@@ -57,16 +58,14 @@ std::size_t tileCount(Lod lod);
 
 math::Size2f tileSize(const math::Extents2 &rootExtents, Lod lod);
 
-RFNode::Id rfNodeId(const TileId &tileId);
-TileId tileId(const RFNode::Id &rfNodeId);
-TileId tileId(const NodeInfo &nodeInfo);
+const RFNode::Id& rfNodeId(const TileId &tileId);
+const TileId& tileId(const RFNode::Id &rfNodeId);
+const TileId& tileId(const NodeInfo &nodeInfo);
 
 TileId local(Lod rootLod, const TileId &tileId);
-RFNode::Id local(Lod rootLod, const RFNode::Id &rfNodeId);
 
 TileRange::point_type point(const TileId &tileId);
 TileId tileId(Lod lod, const TileRange::point_type &point);
-TileRange::point_type point(const RFNode::Id &rfnodeId);
 TileRange::point_type point(const NodeInfo &nodeInfo);
 
 bool tileRangesOverlap(const TileRange &a, const TileRange &b);
@@ -95,6 +94,11 @@ inline TileRange::point_type parent(const TileRange::point_type &point
 inline TileRange parent(const TileRange &tileRange, Lod diff)
 {
     return { parent(tileRange.ll, diff), parent(tileRange.ur, diff) };
+}
+
+inline TileRange tileRange(const TileId &tileId)
+{
+    return { tileId.x, tileId.y, tileId.x, tileId.y };
 }
 
 inline Children children(const TileId &tileId)
@@ -170,10 +174,9 @@ inline std::size_t tileCount(Lod lod)
     return std::size_t(1) << lod;
 }
 
-inline RFNode::Id rfNodeId(const TileId &tileId)
+inline const RFNode::Id& rfNodeId(const TileId &tileId)
 {
-    return RFNode::Id
-        (tileId.lod, tileId.x, tileId.y);
+    return tileId;
 }
 
 inline math::Size2f tileSize(const math::Extents2 &rootExtents, Lod lod)
@@ -183,14 +186,14 @@ inline math::Size2f tileSize(const math::Extents2 &rootExtents, Lod lod)
     return { rs.width / tc, rs.height / tc };
 }
 
-inline TileId tileId(const RFNode::Id &rfNodeId)
+inline const TileId& tileId(const RFNode::Id &rfNodeId)
 {
-    return TileId(rfNodeId.lod, rfNodeId.x, rfNodeId.y);
+    return rfNodeId;
 }
 
-inline TileId tileId(const NodeInfo &nodeInfo)
+inline const TileId& tileId(const NodeInfo &nodeInfo)
 {
-    return tileId(nodeInfo.nodeId());
+    return nodeInfo.nodeId();
 }
 
 inline TileId local(Lod rootLod, const TileId &tileId)
@@ -202,15 +205,6 @@ inline TileId local(Lod rootLod, const TileId &tileId)
     return TileId(ldiff, tileId.x & mask, tileId.y & mask);
 }
 
-inline RFNode::Id local(Lod rootLod, const RFNode::Id &rfNodeId)
-{
-    if (rootLod >= rfNodeId.lod) { return {}; }
-
-    const auto ldiff(rfNodeId.lod - rootLod);
-    const auto mask((1 << ldiff) - 1);
-    return RFNode::Id(ldiff, rfNodeId.x & mask, rfNodeId.y & mask);
-}
-
 inline TileRange::point_type point(const TileId &tileId)
 {
     return { tileId.x, tileId.y };
@@ -219,11 +213,6 @@ inline TileRange::point_type point(const TileId &tileId)
 inline TileId tileId(Lod lod, const TileRange::point_type &point)
 {
     return { lod, point(0), point(1) };
-}
-
-inline TileRange::point_type point(const RFNode::Id &rfnodeId)
-{
-    return { rfnodeId.x, rfnodeId.y };
 }
 
 inline TileRange::point_type point(const NodeInfo &nodeInfo)

@@ -91,6 +91,8 @@ public:
 
     const std::string& srs() const { return node_.srs; }
 
+    const geo::SrsDefinition& srsDef() const;
+
     /** Distance from root.
      */
     Lod distanceFromRoot() const { return node_.id.lod - subtree_.id().lod; }

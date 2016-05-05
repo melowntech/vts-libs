@@ -856,7 +856,7 @@ int VtsStorage::tileInfo()
 
     std::cout
         << "Node info:"
-        << "\n    parent: " << parent(tileId_)
+        << "\n    parent: " << vts::parent(tileId_)
         << "\n    extents: " << ni.extents()
         << "\n    srs: " << ni.srs()
         << std::endl;

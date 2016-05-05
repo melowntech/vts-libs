@@ -15,6 +15,7 @@
 #include "dbglog/dbglog.hpp"
 
 #include "utility/enum-io.hpp"
+#include "utility/streams.hpp"
 
 #include "geo/srsdef.hpp"
 
@@ -92,6 +93,8 @@ struct ReferenceFrame {
                 bool operator<(const Id &tid) const;
                 bool operator==(const Id &tid) const;
                 bool operator!=(const Id &tid) const;
+
+                typedef std::vector<Id> list;
             };
 
             struct Partitioning {
@@ -413,6 +416,16 @@ operator<<(std::basic_ostream<CharT, Traits> &os
            , const ReferenceFrame::Division::Node::Id &node)
 {
     return os << node.lod << '-' << node.x << '-' << node.y;
+}
+
+template<typename CharT, typename Traits>
+inline std::basic_istream<CharT, Traits>&
+operator>>(std::basic_istream<CharT, Traits> &is
+           , ReferenceFrame::Division::Node::Id &node)
+{
+    return is >> node.lod
+              >> utility::expect('-') >> node.x
+              >> utility::expect('-') >> node.y;
 }
 
 inline math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame

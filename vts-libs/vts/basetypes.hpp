@@ -23,22 +23,10 @@ typedef registry::ReferenceFrame::Division::Node RFNode;
 
 /** Tile identifier (index in 3D space): LOD + tile index from upper-left corner
  *  in tile grid.
+ *
+ *  Works as an empty wrapper around reference frame node's ID
  */
-struct TileId {
-    Lod lod;
-    unsigned int x;
-    unsigned int y;
-
-    bool operator<(const TileId &tid) const;
-    bool operator==(const TileId &tid) const;
-    bool operator!=(const TileId &tid) const { return !operator==(tid); }
-
-    TileId(Lod lod = 0, unsigned int x = 0, unsigned int y = 0)
-        : lod(lod), x(x), y(y)
-    {}
-
-    typedef std::vector<TileId> list;
-};
+typedef RFNode::Id TileId;
 
 struct Child : TileId {
     unsigned int index;
@@ -119,24 +107,6 @@ struct TileSetGlues {
 TileSetGlues::list glueOrder(const TileSetGlues::list &in);
 
 // inline stuff
-
-inline bool TileId::operator<(const TileId &tileId) const
-{
-    if (lod < tileId.lod) { return true; }
-    else if (tileId.lod < lod) { return false; }
-
-    if (x < tileId.x) { return true; }
-    else if (tileId.x < x) { return false; }
-
-    return y < tileId.y;
-}
-
-inline bool TileId::operator==(const TileId &tid) const
-{
-    return ((lod == tid.lod)
-            && (x == tid.x)
-            && (y == tid.y));
-}
 
 UTILITY_GENERATE_ENUM_IO(OpenMode,
     ((readOnly))
