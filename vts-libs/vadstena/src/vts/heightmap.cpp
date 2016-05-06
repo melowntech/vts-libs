@@ -372,10 +372,10 @@ void HeightMap::resize(vts::Lod lod)
     // go up in the tile tree
     vts::TileId ll(lod_, tileRange_.ll(0), tileRange_.ll(1));
     vts::TileId ur(lod_, tileRange_.ur(0), tileRange_.ur(1));
-    auto localId(local(lod, ll));
+    auto localId(vts::local(lod, ll));
     int scale(1 << localId.lod);
-    ll = parent(ll, localId.lod);
-    ur = parent(ur, localId.lod);
+    ll = vts::parent(ll, localId.lod);
+    ur = vts::parent(ur, localId.lod);
 
     vts::TileRange tileRange(ll.x, ll.y, ur.x, ur.y);
     math::Size2 sizeInTiles(math::size(tileRange));
@@ -425,7 +425,7 @@ vts::NavTile::pointer HeightMap::navtile(const vts::TileId &tileId) const
     }
 
     // find place for tile data and copy if in valid range
-    if (!inside(tileRange_, point(tileId))) {
+    if (!inside(tileRange_, vts::point(tileId))) {
         LOG(info1) << "No navtile data for tile " << tileId << ".";
         return {};
     }
