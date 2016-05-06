@@ -82,6 +82,8 @@ math::Size2_<TileRange::value_type> tileRangesSize(const TileRange &tr);
 
 inline TileId parent(const TileId &tileId, Lod diff)
 {
+    // do not let new id to go above root
+    if (diff > tileId.lod) { return {}; }
     return TileId(tileId.lod - diff, tileId.x >> diff, tileId.y >> diff);
 }
 

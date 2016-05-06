@@ -50,6 +50,23 @@ QTree::value_type QTree::get(unsigned int x, unsigned int y) const
     return root_.get(size_ >> 1, x, y);
 }
 
+QTree::value_type QTree::get(unsigned int depth
+                             , unsigned int x, unsigned int y)
+    const
+{
+    // not trimming -> regular get
+    if (depth >= order_) {
+        // too deep, move up
+        get(x >> (depth - order_), y >> (depth - order_));
+    }
+
+    // calculate size in of a trimmed tree
+    unsigned int size(1 << depth);
+
+    if ((x >= size) || (y >= size)) { return 0; }
+    return root_.get(size >> 1, x, y);
+}
+
 void QTree::set(unsigned int x, unsigned int y, value_type value)
 {
     // size check and value
@@ -105,6 +122,9 @@ QTree::value_type QTree::Node::get(unsigned int mask, unsigned int x
     if (!children) {
         // no children -> get value of this node
         return value;
+    } else if (!mask) {
+        // too deep
+        return ~value_type(0);
     }
 
     // find child and go there
@@ -319,6 +339,45 @@ void QTree::recount()
         count += size * size;
     }, Filter::white);
     count_ = count;
+}
+
+void QTree::shrink(unsigned int depth)
+{
+    LOG(info4) << "Shrinking tree with order " << order_
+               << " to " << depth;
+    // sanity check
+    if (depth >= order_) { return; }
+
+    root_.shrink(depth);
+
+    // update dimensions
+    order_ = depth;
+    size_ = 1 << order_;
+
+    // recount
+    recount();
+}
+
+void QTree::Node::shrink(unsigned int depth)
+{
+    if (!children) { return; }
+
+    if (!depth) {
+        // contract inner node to just one leaf
+        children.reset();
+        value = ~value_type(0);
+        return;
+    }
+
+    // non leaf -> descend
+    --depth;
+    children->nodes[0].shrink(depth);
+    children->nodes[1].shrink(depth);
+    children->nodes[2].shrink(depth);
+    children->nodes[3].shrink(depth);
+
+    // contract if possible
+    contract();
 }
 
 } } // namespace vadstena::vts

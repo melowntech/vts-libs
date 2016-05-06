@@ -188,8 +188,11 @@ struct TileSet::Factory
         copyFile(sd.input(storage::File::tileIndex)
                  , dd.output(storage::File::tileIndex));
 
+        auto metaIndex(src.tsi.deriveMetaIndex());
+
         const utility::Progress::ratio_t reportRatio(1, 100);
-        utility::Progress progress(src.tileIndex.count());
+        utility::Progress progress(src.tileIndex.count()
+                                   + metaIndex.count());
         auto report([&]() { (++progress).report(reportRatio, reportName); });
 
         traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
@@ -206,12 +209,6 @@ struct TileSet::Factory
                          , dd.output(tid, storage::TileFile::atlas));
             }
 
-            if (mask & TileIndex::Flag::meta) {
-                // copy meta
-                copyFile(sd.input(tid, storage::TileFile::meta)
-                         , dd.output(tid, storage::TileFile::meta));
-            }
-
             if (mask & TileIndex::Flag::navtile)
             {
                 // copy navtile if allowed
@@ -220,6 +217,22 @@ struct TileSet::Factory
             }
 
             LOG(info1) << "Stored tile " << tid << ".";
+            report();
+        });
+
+        // clone metatiles
+        auto mbo(src.referenceFrame.metaBinaryOrder);
+        traverse(metaIndex, [&](TileId tid, QTree::value_type)
+        {
+            // expand shrinked metatile identifiers
+            tid.x <<= mbo;
+            tid.y <<= mbo;
+
+            // copy metatile
+            copyFile(sd.input(tid, storage::TileFile::meta)
+                     , dd.output(tid, storage::TileFile::meta));
+
+            LOG(info1) << "Stored metatile " << tid << ".";
             report();
         });
 
@@ -420,6 +433,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     , propertiesChanged(false), metadataChanged(false)
     , referenceFrame(registry::Registry::referenceFrame
                      (properties.referenceFrame))
+    , tsi(referenceFrame.metaBinaryOrder)
     , tileIndex(tsi.tileIndex), references(tsi.references)
     , lodRange(LodRange::emptyRange())
 {
@@ -475,6 +489,8 @@ void TileSet::Detail::saveConfig()
 
 void TileSet::Detail::loadTileIndex()
 {
+    // initialize tileset index with proper settings
+    tsi = { referenceFrame.metaBinaryOrder };
     tileset::loadTileSetIndex(tsi, *driver);
 
     // new extents
@@ -520,7 +536,6 @@ MetaTile* TileSet::Detail::addNewMetaTile(const TileId &tileId) const
     auto *meta(&metaTiles.insert
                (MetaTiles::value_type
                 (mid, MetaTile(mid,  metaOrder()))).first->second);
-    tileIndex.setMask(mid, TileIndex::Flag::meta);
     return meta;
 }
 
@@ -535,7 +550,7 @@ MetaTile* TileSet::Detail::findMetaTile(const TileId &tileId, bool addNew)
     // load metatile if not found
     if (fmetaTiles == metaTiles.end()) {
         // does this metatile exist in the index?
-        if (!tileIndex.checkMask(mid, TileIndex::Flag::meta)) {
+        if (!tsi.meta(mid)) {
             if (addNew) { return addNewMetaTile(tileId); }
             return nullptr;
         }

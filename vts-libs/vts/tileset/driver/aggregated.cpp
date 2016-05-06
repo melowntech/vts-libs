@@ -280,7 +280,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                    , TileIndex::Flag::value_type flags)
     {
         // clear flags, keep reference and metatile (which is shared)
-        value &= (0xffff0000u | TileIndex::Flag::meta);
+        value &= (0xffff0000u);
         value |= (flags & 0xff);
     });
 

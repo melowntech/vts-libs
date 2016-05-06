@@ -24,7 +24,6 @@ public:
             , watertight = 0x02
             , atlas = 0x04
             , navtile = 0x08
-            , meta = 0x10
             , reference = 0x20
             , ortho = 0x40
 
@@ -68,6 +67,15 @@ public:
     void save(const boost::filesystem::path &path) const;
 
     bool exists(const TileId &tileId) const { return get(tileId); }
+
+    /** Returns true if there is any non-zero record in subtree rooted by
+     *  tileId.
+     */
+    bool validSubtree(const TileId &tileId) const;
+
+    /** Alternative version of validSubtree. Starts at given lod.
+     */
+    bool validSubtree(Lod lod, const TileId &tileId) const;
 
     bool real(const TileId &tileId) const {
         return (get(tileId) & Flag::real);
@@ -238,6 +246,10 @@ public:
 
     template <typename Combiner>
     TileIndex& combine(const TileIndex &other, const Combiner &combiner);
+
+    /** Trims trim levels from each lod and makes the tree complete.
+     */
+    TileIndex& shrinkAndComplete(unsigned int trim);
 
 private:
     QTree* tree(Lod lod, bool create = false);

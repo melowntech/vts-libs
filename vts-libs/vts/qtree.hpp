@@ -27,7 +27,16 @@ public:
     QTree(QTree&&) = default;
     QTree& operator=(QTree&&) = default;
 
+    /** Read value from pixel at (x, y).
+     */
     value_type get(unsigned int x, unsigned int y) const;
+
+    /** Read value from pixel from node (x, y) in tree reduced to given depth.
+     *  Coordinates (x, y) are interpreted as if they point into trimmed tree.
+     *  Returns either value from first valid node or value_type(~0) if internal
+     *  node is hit first
+     */
+    value_type get(unsigned int depth, unsigned int x, unsigned int y) const;
 
     void set(unsigned int x, unsigned int y, value_type value);
 
@@ -105,6 +114,15 @@ public:
      */
     template <typename Combiner>
     void combine(const QTree &other, const Combiner &combiner);
+
+    /** Shrinks tree to given depth.
+     *  If depth is >= current depth nothing happens.
+     *  Original inner nodes become leafs with value_type(~0).
+     *
+     *  This function is equivalent to reconstructing tree from results of
+     *  get(depth, ?, ?).
+     */
+    void shrink(unsigned int depth);
 
 private:
     /** Re-calculates number of non-zero elements.
@@ -197,6 +215,8 @@ private:
         template <typename Combiner>
         void combine(// unsigned int size, unsigned int x, unsigned int y,
                      const Node &other, const Combiner &combiner);
+
+        void shrink(unsigned int depth);
     };
 
     unsigned int order_;
@@ -405,7 +425,7 @@ void QTree::Node::coarsen(unsigned int size, const FilterOp &filter)
     if (size == 2) {
         if (!children) { return; }
 
-        // 2-pixel non-leaf node -> copy value of first while (or last black)
+        // 2-pixel non-leaf node -> copy value of first white (or last black)
         // node into this one
         for (const auto &child : children->nodes) {
             value = child.value;
@@ -580,7 +600,7 @@ void QTree::Node::combine(//unsigned int size, unsigned int x, unsigned int y,
 
     // leaf node
     if (other.children) {
-        // inner node: we to physically split this node
+        // inner node: we need to physically split this node
         children.reset(new Children(value));
 
         // and descend

@@ -7,7 +7,6 @@ std::vector<TileFlags::TileFlag> TileFlags::mapping = {
     , TileFlag(TileIndex::Flag::watertight, "watertight")
     , TileFlag(TileIndex::Flag::atlas, "atlas")
     , TileFlag(TileIndex::Flag::navtile, "navtile")
-    , TileFlag(TileIndex::Flag::meta, "meta")
     , TileFlag(TileIndex::Flag::reference, "reference")
 };
 

@@ -68,11 +68,17 @@ void saveTileSetIndex(const Index &tsi, const fs::path &path)
     }
 }
 
+bool Index::meta(const TileId &tileId) const
+{
+    return tileIndex.validSubtree
+        (tileId.lod, parent(tileId, metaBinaryOrder_));
+}
+
 bool Index::check(const TileId &tileId, TileFile type) const
 {
     switch (type) {
     case TileFile::meta:
-        return tileIndex.checkMask(tileId, TileIndex::Flag::meta);
+        return meta(tileId);
     case TileFile::mesh:
         return tileIndex.checkMask(tileId, TileIndex::Flag::mesh);
     case TileFile::atlas:
@@ -90,6 +96,14 @@ int Index::getReference(const TileId &tileId) const
         return 0;
     }
     return references.get(tileId);
+}
+
+TileIndex Index::deriveMetaIndex() const
+{
+    if (tileIndex.empty()) { return {}; }
+
+    TileIndex out(tileIndex);
+    return out.shrinkAndComplete(metaBinaryOrder_);
 }
 
 } } } // namespace vadstena::vts::tileset

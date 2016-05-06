@@ -587,4 +587,64 @@ void TileIndex::set(const LodRange &lodRange, const TileRange &range
     }
 }
 
+bool TileIndex::validSubtree(Lod lod, const TileId &tileId) const
+{
+    if (trees_.empty()) { return false; }
+
+    // check all tileindex layers from tileId's lod to the bottom
+    for (auto elod(maxLod()); lod <= elod; ++lod) {
+        if (auto *m = tree(lod)) {
+            // existing layer -> check if there is something in the layer's tree
+            // trimmed to tileId's lod depth
+            if (m->get(tileId.lod, tileId.x, tileId.y)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool TileIndex::validSubtree(const TileId &tileId) const
+{
+    return validSubtree(tileId.lod, tileId);
+}
+
+TileIndex& TileIndex::shrinkAndComplete(unsigned int trim)
+{
+    if (empty()) { return *this; }
+
+    auto applyTrim([&](Lod l) { return (l > trim) ? (l - trim) : 0; });
+    auto any([&](QTree::value_type value) { return value; });
+
+    // grab last tree and shrink it by trim-levels
+    auto lod(lodRange().max);
+    auto ctrees(trees_.rbegin());
+    ctrees->shrink(applyTrim(lod));
+    --lod;
+
+    // process lods in reverse order
+    for (auto itrees(ctrees + 1), etrees(trees_.rend());
+         itrees != etrees; ++itrees, ++ctrees, --lod)
+    {
+        auto &tree(*itrees);
+
+        // shrink
+        tree.shrink(applyTrim(lod));
+
+        // and make complete by merging-in lower level
+
+        // make copy of child
+        auto child(*ctrees);
+
+        // coarsen child (do not change child!)
+        child.coarsen(any);
+
+        // merge in coarsened child -> all parents are set
+        tree.merge(child, any);
+    }
+
+    // done
+    return *this;
+}
+
 } } // namespace vadstena::vts

@@ -16,7 +16,12 @@ class Driver;
 
 namespace tileset {
 
-struct Index {
+class Index {
+public:
+    Index(unsigned int metaBinaryOrder = 0)
+        : metaBinaryOrder_(metaBinaryOrder)
+    {}
+
     /** Tile index (tile data presence flags)
      */
     TileIndex tileIndex;
@@ -30,6 +35,13 @@ struct Index {
     bool real(const TileId &tileId) const;
 
     int getReference(const TileId &tileId) const;
+
+    bool meta(const TileId &tileId) const;
+
+    TileIndex deriveMetaIndex() const;
+
+private:
+    unsigned int metaBinaryOrder_;
 };
 
 void loadTileSetIndex(Index &tsi, const Driver &driver);

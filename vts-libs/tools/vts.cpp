@@ -609,7 +609,6 @@ int tilesetInfo(const std::string &prefix, const fs::path &path)
     for (auto flag : { vts::TileIndex::Flag::mesh
                 , vts::TileIndex::Flag::atlas
                 , vts::TileIndex::Flag::navtile
-                    , vts::TileIndex::Flag::meta
                 , vts::TileIndex::Flag::reference })
     {
         auto stat(ts.tileIndex().statMask(flag));
@@ -1051,7 +1050,6 @@ int VtsStorage::tileIndexInfo()
     for (auto flag : { vts::TileIndex::Flag::mesh
                 , vts::TileIndex::Flag::atlas
                 , vts::TileIndex::Flag::navtile
-                , vts::TileIndex::Flag::meta
                 , vts::TileIndex::Flag::reference })
     {
         auto stat(ti.statMask(flag));
