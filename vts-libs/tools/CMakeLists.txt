@@ -22,15 +22,24 @@ if (TARGET service)
     buildsys_target_compile_definitions(vts-nodemask PRIVATE ${MODULE_DEFINITIONS})
     buildsys_binary(vts-nodemask)
 
-    add_executable(vts EXCLUDE_FROM_ALL vts.cpp)
-    target_link_libraries(vts ${MODULE_LIBRARIES})
-    buildsys_target_compile_definitions(vts PRIVATE ${MODULE_DEFINITIONS})
-    buildsys_binary(vts)
-
     add_executable(vts-measure-dataset EXCLUDE_FROM_ALL measure-dataset.cpp)
     target_link_libraries(vts-measure-dataset ${MODULE_LIBRARIES})
     buildsys_target_compile_definitions(vts-measure-dataset
       PRIVATE ${MODULE_DEFINITIONS})
     buildsys_binary(vts-measure-dataset)
+
+    set(vts_SOURCES vts.cpp)
+    if (vts-libs_vts-install_component)
+      add_executable(vts ${vts_SOURCES})
+      # and install it to along other storage tools
+      install(TARGETS vts RUNTIME DESTINATION bin
+        COMPONENT ${vts-libs_vts-install_component})
+    else()
+      add_executable(vts EXCLUDE_FROM_ALL ${vts_SOURCES})
+    endif()
+
+    target_link_libraries(vts ${MODULE_LIBRARIES})
+    buildsys_target_compile_definitions(vts PRIVATE ${MODULE_DEFINITIONS})
+    buildsys_binary(vts)
   endif()
 endif()
