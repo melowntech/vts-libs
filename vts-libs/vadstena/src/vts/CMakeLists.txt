@@ -26,6 +26,3 @@ vadstena_tool(storage vts2vts ${vts2vts_SOURCES})
 
 # force build of vts tool
 add_custom_target(.vts ALL DEPENDS vts)
-# and install it to along other storage tools
-install(TARGETS vts RUNTIME DESTINATION bin
-  COMPONENT storage)
