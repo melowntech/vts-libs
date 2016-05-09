@@ -244,8 +244,23 @@ public:
      */
     TileIndex& unset(Flag::value_type type = Flag::none);
 
+    /** Combines this tile index with other.
+     *
+     * Combiner prototype:
+     *
+     *     Flag::value_type combiner(Flag::value_type o, Flag::value_type n)
+     *
+     *     \param o value currently stored in this tile index
+     *     \param n value read from other tile index
+     *     \return value to store
+     *
+     * \param other tile index to combine with
+     * \param combiner combining function
+     * \param lodRange limit to lod range
+     */
     template <typename Combiner>
-    TileIndex& combine(const TileIndex &other, const Combiner &combiner);
+    TileIndex& combine(const TileIndex &other, const Combiner &combiner
+                       , const LodRange &lodRange = LodRange::emptyRange());
 
     /** Trims trim levels from each lod and makes the tree complete.
      */
@@ -402,13 +417,20 @@ inline TileIndex::TileIndex(LodRange lodRange, const TileIndex &other
 
 template <typename Combiner>
 TileIndex& TileIndex::combine(const TileIndex &other
-                              , const Combiner &combiner)
+                              , const Combiner &combiner
+                              , const LodRange &lodRange)
 {
+    // use provided range unless empty
+    auto lr(lodRange.empty() ? other.lodRange() : lodRange);
+
     // process all lods from the input
     auto lod(other.minLod());
     for (const auto &input : other.trees()) {
-        // tree for this LOD is created if non-existent
-        tree(lod++, true)->combine(input, combiner);
+        if (in(lod, lr)) {
+            // tree for this LOD is created if non-existent
+            tree(lod, true)->combine(input, combiner);
+        }
+        ++lod;
     }
 
     // done

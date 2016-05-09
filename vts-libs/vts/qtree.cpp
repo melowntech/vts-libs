@@ -86,7 +86,7 @@ void QTree::set(unsigned int x1, unsigned int y1
     if (value == detail::GrayNode) { return; }
 
     // clip to pane
-    if (x2 >= size_) { x1 = size_ - 1; }
+    if (x2 >= size_) { x2 = size_ - 1; }
     if (y2 >= size_) { y2 = size_ - 1; }
 
     // and go down
@@ -174,17 +174,15 @@ long QTree::Node::set(unsigned int size, unsigned int x, unsigned int y
         return 0;
     }
 
-    if ((x1 <= x) && ((x + size) > x2)
-        && (y1 <= y) && ((y + size) > y2))
+    if ((x1 <= x) && (x2 >= (x + size - 1))
+        && (y1 <= y) && (y2 >= (y + size - 1)))
     {
         // we are inside given range, set full value
         if (children) {
-            // some subtree, calculate total color
-
             // accumulate area to destroy
             std::size_t removedCount(0);
-            descend(size >> 1, x, y, [&](unsigned int, unsigned int
-                                         , unsigned int size, value_type)
+            descend(size, x, y, [&](unsigned int, unsigned int
+                                    , unsigned int size, value_type)
             {
                 removedCount += size * size;
             }, Filter::white);
