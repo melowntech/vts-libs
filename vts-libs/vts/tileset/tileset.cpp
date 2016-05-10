@@ -555,11 +555,29 @@ MetaTile* TileSet::Detail::findMetaTile(const TileId &tileId, bool addNew)
             return nullptr;
         }
 
-        // it should be on the disk!
-        auto f(driver->input(mid, TileFile::meta));
-        fmetaTiles = metaTiles.insert
-            (MetaTiles::value_type
-             (mid, loadMetaTile(*f, metaOrder(), f->name()))).first;
+        // load metatile from driver
+        auto load([&]()
+        {
+            auto f(driver->input(mid, TileFile::meta));
+            fmetaTiles = metaTiles.insert
+                (MetaTiles::value_type
+                 (mid, loadMetaTile(*f, metaOrder(), f->name()))).first;
+        });
+
+        // some child nodes exist therefore this metatile can exist:
+        //     * read-only mode: error if non-existent
+        //     * read-write mode (addNew == true): add on failure
+        if (addNew) {
+            try {
+                load();
+            } catch (const storage::NoSuchFile&) {
+                // metatile doesn't exist -> Create
+                return addNewMetaTile(tileId);
+            }
+        } else {
+            // try to load and let fail
+            load();
+        }
     }
 
     return &fmetaTiles->second;
@@ -1503,6 +1521,11 @@ TileSet concatTileSets(const boost::filesystem::path &path
 std::string TileSet::typeInfo() const
 {
     return driver().info();
+}
+
+TileId TileSet::metaId(const TileId &tileId) const
+{
+    return detail().metaId(tileId);
 }
 
 } } // namespace vadstena::vts

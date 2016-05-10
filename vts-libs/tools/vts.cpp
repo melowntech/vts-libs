@@ -745,6 +745,9 @@ int VtsStorage::dumpMetatile()
 
     std::cout << "Metatile ID: " << meta.origin() << std::endl;
 
+    std::cout << "Parent metatile ID: "
+              << ts.metaId(vts::parent(meta.origin())) << std::endl;
+
     {
         auto e(meta.validExtents());
         std::cout << "Covered global tile extents: " << e << std::endl;

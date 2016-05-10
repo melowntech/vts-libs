@@ -341,7 +341,7 @@ void QTree::recount()
 
 void QTree::shrink(unsigned int depth)
 {
-    LOG(info4) << "Shrinking tree with order " << order_
+    LOG(info1) << "Shrinking tree with order " << order_
                << " to " << depth;
     // sanity check
     if (depth >= order_) { return; }

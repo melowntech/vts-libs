@@ -129,6 +129,10 @@ public:
      */
     MetaTile getMetaTile(const TileId &metaId) const;
 
+    /** Returns ID of metatile tileId belongs to.
+     */
+    TileId metaId(const TileId &tileId) const;
+
     /** Returns tile's content source.
      */
     TileSource getTileSource(const TileId &tileId) const;
