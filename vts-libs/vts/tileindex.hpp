@@ -128,6 +128,20 @@ public:
         set(tileId, op(get(tileId)));
     }
 
+    /** Updates values in given tile range.
+     *
+     * \param lod lod to work with
+     * \param range tile range to work with
+     * \param op all nodes are set to result of op(oldValue)
+
+     * \param adding tells that result will probably set some nonzero value;
+     *               used as a hint for implementation to not generate tree for
+     *               given lod if we are only removing some values
+     */
+    template <typename Op>
+    void update(Lod lod, const TileRange &range, Op op
+                , bool adding = true);
+
     TileId tileId(Lod lod, long x, long y) const;
 
     math::Size2 rasterSize(Lod lod) const {
@@ -327,14 +341,14 @@ inline QTree::value_type TileIndex::get(const TileId &tileId) const
 
 inline void TileIndex::set(const TileId &tileId, QTree::value_type value)
 {
-    if (auto *m = tree(tileId.lod, true)) {
+    if (auto *m = tree(tileId.lod, value)) {
         m->set(tileId.x, tileId.y, value);
     }
 }
 
 inline void TileIndex::set(Lod lod, QTree::value_type value)
 {
-    if (auto *m = tree(lod, true)) {
+    if (auto *m = tree(lod, value)) {
         m->reset(value);
     }
 }
@@ -342,7 +356,7 @@ inline void TileIndex::set(Lod lod, QTree::value_type value)
 inline void TileIndex::set(Lod lod, const TileRange &range
                            , QTree::value_type value)
 {
-    if (auto *m = tree(lod, true)) {
+    if (auto *m = tree(lod, value)) {
         m->set(range.ll(0), range.ll(1), range.ur(0), range.ur(1), value);
     }
 }
@@ -435,6 +449,15 @@ TileIndex& TileIndex::combine(const TileIndex &other
 
     // done
     return *this;
+}
+
+template <typename Op>
+void TileIndex::update(Lod lod, const TileRange &range, Op op
+                       , bool adding)
+{
+    if (auto *m = tree(lod, adding)) {
+        m->update(range.ll(0), range.ll(1), range.ur(0), range.ur(1), op);
+    }
 }
 
 } } // namespace vadstena::vts

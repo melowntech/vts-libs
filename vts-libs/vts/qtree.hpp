@@ -45,6 +45,12 @@ public:
     void set(unsigned int x1, unsigned int y1
              , unsigned int x2, unsigned int y2, value_type value);
 
+    /** Update given range.
+     */
+    template <typename Op>
+    void update(unsigned int x1, unsigned int y1
+                , unsigned int x2, unsigned int y2, Op op);
+
     void reset(value_type value);
 
     void save(std::ostream &os) const;
@@ -155,6 +161,11 @@ private:
         long set(unsigned int size, unsigned int x, unsigned int y
                  , unsigned int x1, unsigned int y1
                  , unsigned int x2, unsigned int y2, value_type value);
+
+        template <typename Op>
+        long update(unsigned int size, unsigned int x, unsigned int y
+                    , unsigned int x1, unsigned int y1
+                    , unsigned int x2, unsigned int y2, Op op);
 
         void contract();
 
@@ -622,6 +633,77 @@ void QTree::Node::combine(//unsigned int size, unsigned int x, unsigned int y,
     value = combiner(/*size, x, y,*/ value, other.value);
 
     // nothing to contract here since we are at a leaf :)
+}
+
+template <typename Op>
+void QTree::update(unsigned int x1, unsigned int y1
+                   , unsigned int x2, unsigned int y2, Op op)
+{
+    // NB: left/top boundary not checked since we use unsigned numbers
+
+    // check for block completely outside the pane
+    if ((x1 >= size_) || (y1 >= size_)) { return; }
+
+    // clip to pane
+    if (x2 >= size_) { x2 = size_ - 1; }
+    if (y2 >= size_) { y2 = size_ - 1; }
+
+    // and go down
+    count_ += root_.update(size_, 0, 0, x1, y1, x2, y2, op);
+}
+
+template <typename Op>
+long QTree::Node::update(unsigned int size, unsigned int x, unsigned int y
+                         , unsigned int x1, unsigned int y1
+                         , unsigned int x2, unsigned int y2, Op op)
+{
+    if ((x2 < x) || (x1 >= (x + size))
+        || (y2 < y) || (y1 >= (y + size)))
+    {
+        // outside of given range -> nothing to do
+        return 0;
+    }
+
+    if (!children) {
+        if ((x1 <= x) && (x2 >= (x + size - 1))
+            && (y1 <= y) && (y2 >= (y + size - 1)))
+        {
+            // found leaf node inside range: update and leave
+            auto oldValue(this->value);
+            auto newValue(op(this->value));
+            if (oldValue == newValue) {
+                // nothing to change
+                return 0;
+            }
+
+            // apply change
+            this->value = newValue;
+            if ((oldValue && newValue) || (!oldValue && !newValue)) {
+                return 0;
+            }
+            if (oldValue && !newValue) { return -(size * size); }
+            return (size * size);
+        }
+
+        // not at the leaf node -> we have to split this node and descend
+        children.reset(new Children(this->value));
+    }
+
+    // go down to all four children
+    size >>= 1;
+    long res(0);
+    res += children->nodes[0].update
+        (size, x, y, x1, y1, x2, y2, op);
+    res += children->nodes[1].update
+        (size, x + size, y, x1, y1, x2, y2, op);
+    res += children->nodes[2].update
+        (size, x, y + size, x1, y1, x2, y2, op);
+    res += children->nodes[3].update
+        (size, x + size, y + size, x1, y1, x2, y2, op);
+
+    // contract nodes of same value
+    contract();
+    return res;
 }
 
 } } // namespace vadstena::vts

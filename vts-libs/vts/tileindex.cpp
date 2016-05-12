@@ -579,7 +579,7 @@ void TileIndex::set(const LodRange &lodRange, const TileRange &range
 {
     TileRange r(range);
     for (auto lod : lodRange) {
-        if (auto *m = tree(lod, true)) {
+        if (auto *m = tree(lod, value)) {
             m->set(r.ll(0), r.ll(1), r.ur(0), r.ur(1), value);
         }
         // move to child range
