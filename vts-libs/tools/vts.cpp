@@ -604,6 +604,8 @@ int tilesetInfo(const std::string &prefix, const fs::path &path)
     auto prop(ts.getProperties());
     std::cout << prefix << "Id: " << prop.id << std::endl;
     std::cout << prefix << "Type: " << ts.typeInfo() << std::endl;
+    std::cout << prefix << "Reference frame: " << ts.referenceFrame().id
+              << std::endl;
 
     std::cout << prefix << "Tile type info:" << std::endl;
     for (auto flag : { vts::TileIndex::Flag::mesh
