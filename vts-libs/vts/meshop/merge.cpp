@@ -11,8 +11,14 @@
 
 #include "utility/streams.hpp"
 
+#include "math/math.hpp"
+#include "math/transform.hpp"
+#include "math/filters.hpp"
+
 #include "imgproc/uvpack.hpp"
 #include "imgproc/scanconversion.hpp"
+#include "imgproc/const-raster.hpp"
+#include "imgproc/reconstruct.hpp"
 
 #include "../opencv/atlas.hpp"
 
@@ -66,6 +72,10 @@ public:
         return imgproc::UVCoord(p(0), p(1));
     }
 
+    const math::Point2d& uv(int index) const {
+        return tc_[index];
+    }
+
     typedef std::vector<TextureInfo> list;
 
 private:
@@ -104,10 +114,28 @@ bool inside(int x, int y, const cv::Mat &mat)
     return (x >= 0) && (x < mat.cols) && (y >= 0) && (y < mat.rows);
 }
 
+/** Continuous mesh component.
+ */
 struct Component {
+    /** Set of components's indices to faces
+     */
     std::set<int> faces;
+
+    /** Set of components's indices to texture coordinates
+     */
     std::set<int> indices;
+
+    /** UV rectangle.
+     */
     imgproc::UVRect rect;
+
+    /** Best rectangle circumscribed around this component.
+     */
+    cv::RotatedRect rrect;
+
+    /** Transformation from rrect to output atlas.
+     */
+    math::Matrix4 rrectTrafo;
 
     typedef std::shared_ptr<Component> pointer;
     typedef std::vector<pointer> list;
@@ -117,11 +145,12 @@ struct Component {
 
     Component(int findex, const Face &face)
         : faces{findex}, indices{face(0), face(1), face(2)}
+        , rrectTrafo(boost::numeric::ublas::identity_matrix<double>(4))
     {}
 
     void add(int findex, const Face &face) {
         faces.insert(findex);
-        indices.insert({face(0), face(1), face(2)});
+        indices.insert({ face(0), face(1), face(2) });
     }
 
     void add(const Component &other) {
@@ -134,33 +163,42 @@ struct Component {
     void mask(cv::Mat &mask, int block) const;
 
     imgproc::UVCoord adjustUV(const math::Point2 &p) const {
-        imgproc::UVCoord uv(p(0), p(1));
-        rect.adjustUV(uv);
-        return uv;
+        auto pos(math::transform(rrectTrafo, p));
+        return imgproc::UVCoord(p(0) + rect.packX, p(1) + rect.packY);
     }
+
+    void bestRect(const TextureInfo &tx);
 };
 
+/** Mesh broken to components.
+ */
 struct ComponentInfo {
+    /** Mesh broken to continuous components.
+     */
     Component::set components;
+
+    /** Mapping between texture coordinate index to owning component.
+     */
     Component::list tcMap;
-    Component::list fMap;
+
+    /** Texturing information, i.e. the context of the problem.
+     */
     const TextureInfo *tx;
 
     typedef std::vector<ComponentInfo> list;
 
-    ComponentInfo(const TextureInfo &tx, float inflate);
+    ComponentInfo(const TextureInfo &tx);
 
     void copy(cv::Mat &tex) const;
 
     void mask(cv::Mat &mask, int block) const;
 };
 
-ComponentInfo::ComponentInfo(const TextureInfo &tx, float inflate)
-    : tcMap(tx.tc().size()), fMap(tx.faces().size())
-    , tx(&tx)
+ComponentInfo::ComponentInfo(const TextureInfo &tx)
+    : tcMap(tx.tc().size()), tx(&tx)
 {
-    const auto &tc(tx.tc());
     const auto &faces(tx.faces());
+    Component::list fMap(tx.faces().size());
 
     typedef std::array<Component::pointer*, 3> FaceComponents;
 
@@ -230,18 +268,9 @@ ComponentInfo::ComponentInfo(const TextureInfo &tx, float inflate)
         }
     }
 
-    // compute bounding boxes
-    {
-        auto itcMap(tcMap.begin());
-        for (const auto &p : tc) {
-            (*itcMap++)->rect.update(imgproc::UVCoord(p(0), p(1)));
-        }
-    }
-
-    if (inflate) {
-        for (auto &c : components) {
-            c->rect.inflate(inflate);
-        }
+    // compute best fiting circumscribed rectangle for each component
+    for (auto &c : components) {
+        c->bestRect(tx);
     }
 }
 
@@ -252,21 +281,84 @@ void ComponentInfo::copy(cv::Mat &tex) const
     }
 }
 
+void Component::bestRect(const TextureInfo &tx) {
+    std::vector<cv::Point2f> points;
+    points.reserve(indices.size());
+
+    // TODO: remove
+    math::Extents2 e(math::InvalidExtents{});
+
+    // process all points
+    for (const auto i : indices) {
+        const auto &p(tx.uv(i));
+        points.emplace_back(p(0), p(1));
+        update(e, p);
+    }
+
+    if (0) {
+        rrect = cv::minAreaRect(points);
+    } else {
+        auto c(math::center(e));
+        auto s(math::size(e));
+
+        rrect = cv::RotatedRect(cv::Point2f(c(0), c(1))
+                                , cv::Size2f(s.width, s.height)
+                                , 0.f);
+    }
+
+    {
+        // calculate transformation matrix from original atlas to best
+        // rectangle
+        rrectTrafo = boost::numeric::ublas::identity_matrix<double>(4);
+
+        const double a(rrect.angle * M_PI / 180.);
+        rrectTrafo(0, 0) = rrectTrafo(1, 1) = std::cos(a);
+        rrectTrafo(1, 0) = -(rrectTrafo(0, 1) = std::sin(a));
+
+        const auto shift(math::transform
+                         (rrectTrafo, math::Point2
+                          (rrect.center.x, rrect.center.y)));
+
+        rrectTrafo(0, 3) = -shift(0) + rrect.size.width / 2.0;
+        rrectTrafo(1, 3) = -shift(1) + rrect.size.height / 2.0;
+
+        LOG(info4)
+            << "shift: " << shift
+            << ", rrect.size: " << rrect.size
+            << ", trafo: " << rrectTrafo;
+    }
+
+    // create rectangle
+    rect = {};
+    rect.update({ 0.f, 0.f });
+    rect.update({ rrect.size.width - 2.f, rrect.size.height - 2.f });
+}
+
 void Component::copy(cv::Mat &tex, const cv::Mat &texture)
     const
 {
-    // TODO: block copy via Mat::copyTo
-    for (int y = 0; y < rect.height(); y++) {
-        for (int x = 0; x < rect.width(); x++) {
-            int sx(rect.x() + x), sy(rect.y() + y);
-            clampMatPos(sx, sy, texture);
+    const math::CatmullRom2 filter(2.0, 2.0);
 
-            int dx(rect.packX + x), dy(rect.packY + y);
-            if (!validMatPos(dx, dy, tex)) {
-                continue;
-            }
+    namespace gil = boost::gil;
 
-            tex.at<cv::Vec3b>(dy, dx) = texture.at<cv::Vec3b>(sy, sx);
+    const auto raster(imgproc::cvConstRaster<cv::Vec3b>(texture));
+
+    // and invert: patch to original atlas
+    math::Matrix4 trafo(math::matrixInvert(rrectTrafo));
+
+    // copy texture from source best rectangle to output uv rectangle
+    for (int y = 0; y < rrect.size.height; ++y) {
+        for (int x = 0; x < rrect.size.width; ++x) {
+            // compute destination point
+            auto pos(math::transform
+                     (trafo, math::Point2(x + 0.5, y + 0.5)));
+
+            // reconstruct point using filter
+            auto res(imgproc::reconstruct(raster, filter, pos));
+
+            // store result
+            tex.at<cv::Vec3b>(y + rect.packY, x + rect.packX)
+                = cv::Vec3b(res[0], res[1], res[2]);
         }
     }
 }
@@ -289,10 +381,14 @@ void Component::mask(cv::Mat &mask, int block)
 
 } // namespace
 
+// TexPatch::list breakToPatches(const ComponentInfo &ci)
+// {
+// }
+
 /** Joins textures into single texture.
  */
 std::tuple<cv::Mat, math::Points2d, Faces>
-joinTextures(const TextureInfo::list &texturing, float inflate = 0);
+joinTextures(const TextureInfo::list &texturing);
 
 namespace {
 
@@ -518,7 +614,7 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
 
     // and join textures
     cv::Mat texture;
-    std::tie(texture, sm.tc, sm.facesTc) = joinTextures(texturing(range), 2);
+    std::tie(texture, sm.tc, sm.facesTc) = joinTextures(texturing(range));
     atlas_->add(texture);
 
     // housekeeping
@@ -564,7 +660,7 @@ MeshAtlas mergeSubmeshes(const Mesh::pointer &mesh
 }
 
 std::tuple<cv::Mat, math::Points2d, Faces>
-joinTextures(const TextureInfo::list &texturing, float inflate)
+joinTextures(const TextureInfo::list &texturing)
 {
     const int inpaintMargin(4);
 
@@ -576,7 +672,7 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
     // rasterize faces to masks
     ComponentInfo::list cinfoList;
     for (const auto &tx : texturing) {
-        cinfoList.emplace_back(tx, inflate);
+        cinfoList.emplace_back(tx);
     }
 
     // pack the patches
@@ -588,10 +684,15 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
     }
     packer.pack();
 
+    // background color
+    const auto background(0
+                          ? cv::Scalar(0x80, 0x80, 0x80)
+                          : cv::Scalar(0x0, 0x0, 0x0));
+
     // create temporary texture a bit larger due to inpaint bug
     cv::Mat tmpTex(packer.height() + 2 * inpaintMargin
                     , packer.width() + 2 * inpaintMargin, CV_8UC3
-                    , cv::Scalar(0x80, 0x80, 0x80));
+                    , background);
 
     // fixes texture to point to proper matrix
     auto fixTexture([&](cv::Mat &ref)
@@ -615,7 +716,7 @@ joinTextures(const TextureInfo::list &texturing, float inflate)
         (tmpMask, cv::Range(inpaintMargin, packer.height() + inpaintMargin)
          , cv::Range(inpaintMargin, packer.width() + inpaintMargin));
 
-        // process patches
+    // process patches
     {
         auto ts(tex.size());
 
