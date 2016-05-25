@@ -54,6 +54,7 @@ struct Config {
     std::string referenceFrame;
     boost::optional<std::uint16_t> textureLayer;
     int textureQuality;
+    std::set<vts::TileId> debugTileIds;
 
     Config() : textureQuality(85) {}
 };
@@ -113,6 +114,10 @@ void Vts2Vts::configuration(po::options_description &cmdline
         ("textureLayer", po::value<std::string>()
          , "String/numeric id of bound layer to be used as external texture "
          "in generated meshes.")
+
+        ("debug.tileId", po::value<std::vector<vts::TileId>>()
+         , "Limits output only to given set of tiles. "
+         "Used for debugging purposes.")
         ;
 
     pd.add("input", 1);
@@ -149,6 +154,12 @@ void Vts2Vts::configure(const po::variables_map &vars)
     if ((config_.textureQuality < 0) || (config_.textureQuality > 100)) {
             throw po::validation_error
                 (po::validation_error::invalid_option_value, "textureQuality");
+    }
+
+    if (vars.count("debug.tileId")) {
+        const auto &debugTileIds(vars["debug.tileId"]
+                                 .as<std::vector<vts::TileId>>());
+        config_.debugTileIds.insert(debugTileIds.begin(), debugTileIds.end());
     }
 }
 
@@ -374,6 +385,8 @@ public:
         : vts::Encoder(path, properties, mode)
         , config_(config), input_(input), srcRf_(input_.referenceFrame())
         , srcInfo_(input_, referenceFrame())
+        , debugTileIds_(config.debugTileIds.empty() ? nullptr
+                        : &config.debugTileIds)
     {
         setConstraints(Constraints().setValidTree(srcInfo_.validTree()));
         setEstimatedTileCount(srcInfo_.size());
@@ -393,6 +406,8 @@ private:
     const vr::ReferenceFrame srcRf_;
 
     SourceInfoBuilder srcInfo_;
+
+    const std::set<vts::TileId> *debugTileIds_;
 };
 
 void warpInPlace(const vts::CsConvertor &conv, vts::SubMesh &sm)
@@ -470,6 +485,11 @@ Encoder::TileResult
 Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
                   , const TileResult&)
 {
+    // check for debug
+    if (debugTileIds_ && !debugTileIds_->count(tileId)) {
+        return TileResult::Result::noDataYet;
+    }
+
     const auto &src(srcInfo_.source(tileId));
     if (src.empty()) {
         return TileResult::Result::noDataYet;

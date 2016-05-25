@@ -24,6 +24,40 @@
 
 #include "../meshop.hpp"
 
+/** Altas transformation background
+ *
+ * NB: patches in original textures are intended for OpenGL texturing which uses
+ * bilinear interpolation thus we have no extra space around them. We need to
+ * keep this in mind when transforming patches from one atlas space to the
+ * another.
+ *
+ * Each patch is transformed from source atlas to destination atlas using map
+ * from rotated rectangle to upright rectangle (using eclidean transformation
+ * matrix).
+ *
+ * Trafo matrix is constructed in denormalized texture coordinates (i.e. grid
+ * coordinates in the atlases.
+ *
+ * When mapping texture coordinates they are used as is.
+ *
+ * When mapping imagery coordinates are first converted from pixel registration
+ * to grid registration and after convertion they are converted
+ * back. I.e. shifted by 1/2 pixel to the bottom right and back again.
+ *
+ * Imagery is filtered by Catmul-Rom filter using information about source pixel
+ * validity. Validity is established by rendering original texturing 2D mesh
+ * into a binary mask which is dilated by one pixel.
+ *
+ * Since `scanconvert' algorithm is right-bottom bound we intentionally dilate
+ * mesh only to the top and left side only.
+ *
+ * Face vertices are rendered into mask explicitly due to scanconvert's
+ * deficiencies as well.
+ *
+ * NB: Reconstruct treats positive and negative weights from filter differently:
+ * if full kernel are is not valid only positives are taken into account.
+ */
+
 namespace vadstena { namespace vts {
 
 // TODO: move this stuff to own header
@@ -52,16 +86,58 @@ inline math::Point2d normalize(const imgproc::UVCoord &uv
             , 1.0 - uv.y / texSize.height };
 }
 
+/** Rasterizes triangle mesh into mask. Each pixel is dilated by one pixel to
+ *  the left and top (because it is automatically dilated to the opposite side
+ *  by scan convert rasterization algo.
+ */
+void rasterizeMask(cv::Mat &mask, const Faces &faces
+                   , const math::Points2d &tc)
+{
+    const auto white(cv::Scalar(0xff));
+    const cv::Rect bounds(0, 0, mask.cols, mask.rows);
+
+    auto paint([&](int x, int y, int w, int h) -> void
+    {
+        cv::Rect r(x, y, w, h);
+        cv::rectangle(mask, r & bounds, white, CV_FILLED, 4);
+    });
+
+    cv::Point3f tri[3];
+    for (const auto &face : faces) {
+        for (int i : { 0, 1, 2 }) {
+            const auto &p(tc[face(i)]);
+            tri[i] = { float(p(0)), float(p(1)), 0.f };
+            paint(p(0), p(1), 1, 1);
+        }
+
+        // rasterize triangle
+        std::vector<imgproc::Scanline> scanlines;
+        imgproc::scanConvertTriangle(tri, 0, mask.rows, scanlines);
+
+        for (const auto &sl : scanlines) {
+            imgproc::processScanline(sl, 0, mask.cols
+                                     , [&](int x, int y, float)
+            {
+                paint(x - 1, y - 1, 2, 2);
+            });
+        }
+    }
+}
+
 class TextureInfo {
 public:
     TextureInfo(const SubMesh &sm, const cv::Mat &texture)
         : tc_(denormalize(sm.tc, texture.size()))
-              , faces_(&sm.facesTc), texture_(texture)
-    {}
+        , faces_(&sm.facesTc), texture_(texture)
+        , mask_(texture.rows, texture.cols, CV_8U, cv::Scalar(0x00))
+    {
+        rasterizeMask(mask_, *faces_, tc_);
+    }
 
     const math::Points2d& tc() const { return tc_; }
     const Faces& faces() const { return *faces_; }
     const cv::Mat& texture() const { return texture_; }
+    const cv::Mat& mask() const { return mask_; }
 
     const math::Point2d& uv(const Face &face, int index) const {
         return tc_[face(index)];
@@ -82,6 +158,7 @@ private:
     math::Points2d tc_;
     const Faces *faces_;
     cv::Mat texture_;
+    cv::Mat mask_;
 };
 
 namespace {
@@ -103,15 +180,6 @@ void clampMatPos(int &x, int &y, const cv::Mat &mat)
     } else if (y >= mat.rows) {
         y = mat.rows - 1;
     }
-}
-
-} // namespace
-
-namespace {
-
-bool inside(int x, int y, const cv::Mat &mat)
-{
-    return (x >= 0) && (x < mat.cols) && (y >= 0) && (y < mat.rows);
 }
 
 /** Continuous mesh component.
@@ -145,7 +213,6 @@ struct Component {
 
     Component(int findex, const Face &face)
         : faces{findex}, indices{face(0), face(1), face(2)}
-        , rrectTrafo(boost::numeric::ublas::identity_matrix<double>(4))
     {}
 
     void add(int findex, const Face &face) {
@@ -158,19 +225,20 @@ struct Component {
         indices.insert(other.indices.begin(), other.indices.end());
     }
 
-    void copy(cv::Mat &tex, const cv::Mat &texture) const;
+    void copy(cv::Mat &tex, const cv::Mat &texture
+              , const cv::Mat &mask) const;
 
     void mask(cv::Mat &mask, int block) const;
 
     imgproc::UVCoord adjustUV(const math::Point2 &p) const {
-        auto pos(math::transform(rrectTrafo, p));
-        return imgproc::UVCoord(p(0) + rect.packX, p(1) + rect.packY);
+        auto np(math::transform(rrectTrafo, p));
+        return imgproc::UVCoord(np(0) + rect.packX, np(1) + rect.packY);
     }
 
     void bestRect(const TextureInfo &tx);
 };
 
-/** Mesh broken to components.
+/** Single submesh broken into components.
  */
 struct ComponentInfo {
     /** Mesh broken to continuous components.
@@ -277,7 +345,7 @@ ComponentInfo::ComponentInfo(const TextureInfo &tx)
 void ComponentInfo::copy(cv::Mat &tex) const
 {
     for (const auto &c : components) {
-        c->copy(tex, tx->texture());
+        c->copy(tex, tx->texture(), tx->mask());
     }
 }
 
@@ -285,7 +353,8 @@ void Component::bestRect(const TextureInfo &tx) {
     std::vector<cv::Point2f> points;
     points.reserve(indices.size());
 
-    // TODO: remove
+    rect = {};
+
     math::Extents2 e(math::InvalidExtents{});
 
     // process all points
@@ -295,7 +364,7 @@ void Component::bestRect(const TextureInfo &tx) {
         update(e, p);
     }
 
-    if (0) {
+    if (1) {
         rrect = cv::minAreaRect(points);
     } else {
         auto c(math::center(e));
@@ -305,6 +374,9 @@ void Component::bestRect(const TextureInfo &tx) {
                                 , cv::Size2f(s.width, s.height)
                                 , 0.f);
     }
+
+    rrect.size.width = std::ceil(rrect.size.width + 1.0);
+    rrect.size.height = std::ceil(rrect.size.height + 1.0);
 
     {
         // calculate transformation matrix from original atlas to best
@@ -319,29 +391,41 @@ void Component::bestRect(const TextureInfo &tx) {
                          (rrectTrafo, math::Point2
                           (rrect.center.x, rrect.center.y)));
 
-        rrectTrafo(0, 3) = -shift(0) + rrect.size.width / 2.0;
-        rrectTrafo(1, 3) = -shift(1) + rrect.size.height / 2.0;
-
-        LOG(info4)
-            << "shift: " << shift
-            << ", rrect.size: " << rrect.size
-            << ", trafo: " << rrectTrafo;
+        rrectTrafo(0, 3) = -shift(0) + double(rrect.size.width) / 2.0;
+        rrectTrafo(1, 3) = -shift(1) + double(rrect.size.height) / 2.0;
     }
 
     // create rectangle
     rect = {};
     rect.update({ 0.f, 0.f });
+    // -2 due to: +-1 pixels added by packer for integral rectangles
     rect.update({ rrect.size.width - 2.f, rrect.size.height - 2.f });
 }
 
-void Component::copy(cv::Mat &tex, const cv::Mat &texture)
+/** Const raster for texture with mask.
+ */
+class TextureRaster : public imgproc::CvConstRaster<cv::Vec3b>
+{
+public:
+    TextureRaster(const cv::Mat &texture, const cv::Mat &mask)
+        : imgproc::CvConstRaster<cv::Vec3b>(texture), mask_(mask)
+    {}
+
+    bool valid(int x, int y) const {
+        return (imgproc::CvConstRaster<cv::Vec3b>::valid(x, y)
+                && mask_.at<std::uint8_t>(y, x));
+    }
+
+private:
+    const cv::Mat &mask_;
+};
+
+void Component::copy(cv::Mat &tex, const cv::Mat &texture, const cv::Mat &mask)
     const
 {
     const math::CatmullRom2 filter(2.0, 2.0);
 
-    namespace gil = boost::gil;
-
-    const auto raster(imgproc::cvConstRaster<cv::Vec3b>(texture));
+    TextureRaster raster(texture, mask);
 
     // and invert: patch to original atlas
     math::Matrix4 trafo(math::matrixInvert(rrectTrafo));
@@ -352,6 +436,7 @@ void Component::copy(cv::Mat &tex, const cv::Mat &texture)
             // compute destination point
             auto pos(math::transform
                      (trafo, math::Point2(x + 0.5, y + 0.5)));
+            pos(0) -= 0.5; pos(1) -= 0.5;
 
             // reconstruct point using filter
             auto res(imgproc::reconstruct(raster, filter, pos));
@@ -380,10 +465,6 @@ void Component::mask(cv::Mat &mask, int block)
 }
 
 } // namespace
-
-// TexPatch::list breakToPatches(const ComponentInfo &ci)
-// {
-// }
 
 /** Joins textures into single texture.
  */
@@ -497,6 +578,10 @@ TextureInfo::list MeshAtlasBuilder::texturing(const Range &range) const
         tx.emplace_back
             (originalMesh_->submeshes[i]
              , opencv::HybridAtlas::imageFromRaw(originalAtlas_->get(i)));
+        cv::imwrite(str(boost::format("%d-texture.png") % i)
+                    , tx.back().texture());
+        cv::imwrite(str(boost::format("%d-mask.png") % i)
+                    , tx.back().mask());
     }
     return tx;
 }
@@ -584,6 +669,7 @@ SubMesh& MeshAtlasBuilder::mergeNonTextured(const Range &range)
     ensureChanged(range);
 
     // clone first submesh to join
+    // mesh_->submeshes.push_back(oSubmeshes_[range.start]);
     mesh_->submeshes.push_back(oSubmeshes_[range.start]);
     auto &sm(mesh_->submeshes.back());
 
@@ -619,35 +705,6 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
 
     // housekeeping
     atlasEnd_ += range.size();
-}
-
-void rasterizeMask(cv::Mat &mask, const Faces &faces
-                   , const math::Points2d &tc)
-{
-    cv::Point3f tri[3];
-    for (const auto &face : faces) {
-        for (int i : { 0, 1, 2 }) {
-            const auto &p(tc[face(i)]);
-            tri[i] = { float(p(0)), float(p(1)), 0.f };
-            // make sure the vertices are always marked
-            int x(round(tri[i].x)), y(round(tri[i].y));
-            if (inside(x, y, mask)) {
-                mask.at<std::uint8_t>(y, x) = 0x00;
-            }
-        }
-
-        // rasterize triangle
-        std::vector<imgproc::Scanline> scanlines;
-        imgproc::scanConvertTriangle(tri, 0, mask.rows, scanlines);
-
-        for (const auto &sl : scanlines) {
-            imgproc::processScanline(sl, 0, mask.cols
-                                     , [&](int x, int y, float)
-            {
-                mask.at<std::uint8_t>(y, x) = 0x00;
-            });
-        }
-    }
 }
 
 } // namespace
@@ -705,16 +762,16 @@ joinTextures(const TextureInfo::list &texturing)
 
     fixTexture(tmpTex);
 
-    // denormalized result texture coordinates
-    math::Points2d dnTc;
-
     // create temporary mask a bit larger due to inpaint bug
-    cv::Mat tmpMask(tmpTex.rows, tmpTex.cols, CV_8U,cv::Scalar(0x00));
+    cv::Mat tmpMask(tmpTex.rows, tmpTex.cols, CV_8U, cv::Scalar(0x00));
 
     // real mask
     cv::Mat mask
         (tmpMask, cv::Range(inpaintMargin, packer.height() + inpaintMargin)
          , cv::Range(inpaintMargin, packer.width() + inpaintMargin));
+
+    // denormalized result texture coordinates
+    math::Points2d dnTc;
 
     // process patches
     {
