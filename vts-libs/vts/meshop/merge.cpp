@@ -1,5 +1,6 @@
 #include <memory>
 #include <array>
+#include <stack>
 #include <set>
 #include <algorithm>
 
@@ -23,6 +24,7 @@
 #include "../opencv/atlas.hpp"
 
 #include "../meshop.hpp"
+#include "../math.hpp"
 
 /** Altas transformation background
  *
@@ -59,6 +61,8 @@
  */
 
 namespace vadstena { namespace vts {
+
+namespace {
 
 // TODO: move this stuff to own header
 typedef std::vector<cv::Mat> MatList;
@@ -128,14 +132,14 @@ class TextureInfo {
 public:
     TextureInfo(const SubMesh &sm, const cv::Mat &texture)
         : tc_(denormalize(sm.tc, texture.size()))
-        , faces_(&sm.facesTc), texture_(texture)
+        , faces_(sm.facesTc), texture_(texture)
         , mask_(texture.rows, texture.cols, CV_8U, cv::Scalar(0x00))
     {
-        rasterizeMask(mask_, *faces_, tc_);
+        rasterizeMask(mask_, faces_, tc_);
     }
 
     const math::Points2d& tc() const { return tc_; }
-    const Faces& faces() const { return *faces_; }
+    const Faces& faces() const { return faces_; }
     const cv::Mat& texture() const { return texture_; }
     const cv::Mat& mask() const { return mask_; }
 
@@ -154,14 +158,41 @@ public:
 
     typedef std::vector<TextureInfo> list;
 
+    double area(int faceIndex) const {
+        const auto &face((faces_)[faceIndex]);
+        return triangleArea(tc_[face(0)], tc_[face(1)], tc_[face(2)]);
+    }
+
+    /** Face barycenter.
+     */
+    math::Point2 center(int faceIndex) const {
+        const auto &face((faces_)[faceIndex]);
+        return ((tc_[face(0)] + tc_[face(1)] + tc_[face(2)]) / 3.0);
+    }
+
+    const Face& face(int faceIndex) const {
+        return (faces_)[faceIndex];
+    }
+
+    Face& ncface(int faceIndex) {
+        return (faces_)[faceIndex];
+    }
+
+    // Duplicates existing texture coordinates in the systemand returns new
+    // index.
+    int duplicateTc(int index) {
+        auto ni(tc_.size());
+        tc_.push_back(tc_[index]);
+        return ni;
+    }
+
 private:
     math::Points2d tc_;
-    const Faces *faces_;
+    Faces faces_;
     cv::Mat texture_;
     cv::Mat mask_;
 };
 
-namespace {
 bool validMatPos(int x, int y, const cv::Mat &mat)
 {
     return (x >= 0) && (x < mat.cols) && (y >= 0) && (y < mat.rows);
@@ -228,14 +259,14 @@ struct Component {
     void copy(cv::Mat &tex, const cv::Mat &texture
               , const cv::Mat &mask) const;
 
-    void mask(cv::Mat &mask, int block) const;
-
     imgproc::UVCoord adjustUV(const math::Point2 &p) const {
         auto np(math::transform(rrectTrafo, p));
         return imgproc::UVCoord(np(0) + rect.packX, np(1) + rect.packY);
     }
 
-    void bestRect(const TextureInfo &tx);
+    void bestRectangle(const TextureInfo &tx);
+
+    double area(const TextureInfo &tx) const;
 };
 
 /** Single submesh broken into components.
@@ -251,22 +282,32 @@ struct ComponentInfo {
 
     /** Texturing information, i.e. the context of the problem.
      */
-    const TextureInfo *tx;
+    TextureInfo *tx;
 
     typedef std::vector<ComponentInfo> list;
 
-    ComponentInfo(const TextureInfo &tx);
+    ComponentInfo(TextureInfo &tx);
 
     void copy(cv::Mat &tex) const;
 
-    void mask(cv::Mat &mask, int block) const;
+    void debug(int id, const cv::Mat &outAtlas) const;
+
+private:
+    /** Breaks component into best fitting parts.
+     */
+    void breakComponent(const Component::pointer &c);
+
+    /** Adds new components.
+     */
+    void addComponent(const Component::pointer &c);
 };
 
-ComponentInfo::ComponentInfo(const TextureInfo &tx)
+ComponentInfo::ComponentInfo(TextureInfo &tx)
     : tcMap(tx.tc().size()), tx(&tx)
 {
     const auto &faces(tx.faces());
     Component::list fMap(tx.faces().size());
+    Component::list tMap(tx.tc().size());
 
     typedef std::array<Component::pointer*, 3> FaceComponents;
 
@@ -287,13 +328,14 @@ ComponentInfo::ComponentInfo(const TextureInfo &tx)
         });
     });
 
-    // NB: fc starts with valid data
+    // temporary toplevel components, broken into smalled ones afterwars
+    Component::set tlComponents;
 
     for (std::size_t i(0), e(faces.size()); i != e; ++i) {
         const auto &face(faces[i]);
 
         FaceComponents fc =
-            { { &tcMap[face(0)], &tcMap[face(1)], &tcMap[face(2)] } };
+            { { &tMap[face(0)], &tMap[face(1)], &tMap[face(2)] } };
         sortBySize(fc);
 
         auto assign([&](Component::pointer &owner, Component::pointer &owned)
@@ -309,7 +351,7 @@ ComponentInfo::ComponentInfo(const TextureInfo &tx)
             }
 
             // forget this component beforehand
-            components.erase(owned);
+            tlComponents.erase(owned);
 
             // grab owned by value to prevent overwrite
             const auto old(*owned);
@@ -319,7 +361,7 @@ ComponentInfo::ComponentInfo(const TextureInfo &tx)
 
             // move everything to owner
             for (auto index : old.faces) { fMap[index] = owner; }
-            for (auto index : old.indices) { tcMap[index] = owner; }
+            for (auto index : old.indices) { tMap[index] = owner; }
         });
 
         if (*fc[0] || *fc[1] || *fc[2]) {
@@ -330,16 +372,235 @@ ComponentInfo::ComponentInfo(const TextureInfo &tx)
             assign(owner, *fc[2]);
         } else {
             // create new component
-            components.insert
+            tlComponents.insert
                 (fMap[i] = *fc[0] = *fc[1] = *fc[2]
                  = std::make_shared<Component>(i, face));
         }
     }
 
-    // compute best fiting circumscribed rectangle for each component
-    for (auto &c : components) {
-        c->bestRect(tx);
+    // cut components to best fitting subcomponets
+    for (const auto &c : tlComponents) {
+        breakComponent(c);
     }
+}
+
+class BrokenComponent {
+public:
+    Component::pointer component;
+    double margin;
+
+    typedef std::stack<BrokenComponent> stack;
+
+    BrokenComponent(const TextureInfo &tx
+                    , const Component::pointer &component
+                    , double margin = -1.0)
+        : component(component), margin(margin)
+        , area_(component->area(tx))
+    {
+        component->bestRectangle(tx);
+    }
+
+    BrokenComponent()
+        : component(std::make_shared<Component>())
+        , margin(-1.0), area_(0.0)
+    {}
+
+    bool cuttable() const {
+        return (component->faces.size() > 2);
+    }
+
+    const cv::RotatedRect& rrect() const { return component->rrect; }
+
+    void cut(const TextureInfo &tx
+             , bool vertical, double distance
+             , BrokenComponent &best1, BrokenComponent &best2)
+        const;
+
+    bool empty() const { return component->faces.empty(); }
+
+    double marginArea() const {
+        const auto &cr(rrect());
+        return ((cr.size.width + 2.0 * margin)
+                * (cr.size.height + 2.0 * margin));
+    }
+
+    double efficiency() const {
+        if (empty()) { return 0; }
+        return (area_ / marginArea());
+    }
+
+    static double efficiency(const BrokenComponent &bc1
+                             , const BrokenComponent &bc2)
+    {
+        if (bc1.empty() || bc2.empty()) { return 0.0; }
+
+        return ((bc1.area_ + bc2.area_) /
+                (bc1.marginArea() + bc2.marginArea()));
+    }
+
+private:
+    double area_;
+};
+
+void BrokenComponent::cut(const TextureInfo &tx
+                          , bool vertical, double distance
+                          , BrokenComponent &best1, BrokenComponent &best2)
+    const
+{
+    const auto &cr(rrect());
+
+    // angle in radians
+    const auto a((cr.angle * M_PI / 180.) + (vertical ? 0 : M_PI_2));
+    const auto sa(std::sin(a));
+    const auto ca(std::cos(a));
+    const auto &rc(cr.center);
+    const auto &rs(cr.size);
+    const double xline(distance - ((vertical ? rs.width : rs.height) / 2.0));
+
+    auto c1(std::make_shared<Component>());
+    auto c2(std::make_shared<Component>());
+
+    for (auto findex : component->faces) {
+        auto barycenter(tx.center(findex));
+        // rotate barycenter and check at which side it resides
+        if ((ca * (barycenter(0) - rc.x) - sa * (barycenter(1) - rc.y))
+            < xline)
+        {
+            c1->add(findex, tx.face(findex));
+        } else {
+            c2->add(findex, tx.face(findex));
+        }
+    }
+
+    // construct components from cuts
+    BrokenComponent cut1(tx, c1, margin);
+    BrokenComponent cut2(tx, c2, margin);
+
+    if (efficiency(cut1, cut2) > efficiency(best1, best2)) {
+        // better cuts, reassign
+        best1 = cut1;
+        best2 = cut2;
+    }
+}
+
+void ComponentInfo::breakComponent(const Component::pointer &start)
+{
+    const double margin(0.5);
+    const double cutDistance(7.0);
+
+    BrokenComponent::stack cuttable;
+    cuttable.emplace(*tx, start, margin);
+
+    while (!cuttable.empty()) {
+        // get top of the stack
+        const auto &top(cuttable.top());
+        const auto &cr(top.rrect());
+
+        auto add([&]()
+        {
+            LOG(info1) << "---- Patch uncuttable";
+            addComponent(top.component);
+            cuttable.pop();
+        });
+
+        if (!top.cuttable()) {
+            add();
+            continue;
+        }
+
+        unsigned int vCuts(std::floor(cr.size.width / cutDistance));
+        unsigned int hCuts(std::floor(cr.size.height / cutDistance));
+        double vCutDist(cr.size.width / vCuts);
+        double hCutDist(cr.size.height / hCuts);
+
+        if (!vCuts && !hCuts) {
+            // patch is uncuttable -> move to output
+            add();
+            continue;
+        }
+
+        BrokenComponent best1, best2;
+
+        // vertical cuts
+        for (uint i = 1; i < vCuts; ++i) {
+            top.cut(*tx, true, i * vCutDist, best1, best2);
+        }
+
+        // horizontal cuts
+        for (uint i = 1; i < hCuts; ++i) {
+            top.cut(*tx, false, i * hCutDist, best1, best2);
+        }
+
+        auto ne(BrokenComponent::efficiency(best1, best2));
+        if (ne > top.efficiency()) {
+            // split patches have better efficiency than original patch ->
+            // replace it with them and go on
+            LOG(info1) << "---- Patches with better efficiency found: " << ne;
+            cuttable.pop();
+            cuttable.push(best1);
+            cuttable.push(best2);
+        } else {
+            // patch is uncuttable -> move to output
+            add();
+            continue;
+        }
+    }
+}
+
+void ComponentInfo::addComponent(const Component::pointer &c)
+{
+    LOG(info4) << "Adding component " << c << " (" << c->faces.size() << ").";
+    components.insert(c);
+
+    typedef std::map<int, int> Remap;
+    Remap tcRemap;
+
+    // process component's faces
+    for (auto findex : c->faces) {
+        auto &face(tx->ncface(findex));
+        LOG(info4) << "in face " << findex << ": " << face;
+
+        // process all face's vertices
+        for (auto &index : face) {
+            auto &currentComponent(tcMap[index]);
+
+            if (currentComponent && (currentComponent != c)) {
+                // vertex shared with another component
+
+                // check whether we have already remapped it
+                int ni;
+                auto ftcRemap(tcRemap.find(index));
+                if (ftcRemap == tcRemap.end()) {
+                    // duplicate and remember
+                    ni = tx->duplicateTc(index);
+                    tcRemap.insert(Remap::value_type(index, ni));
+                    tcMap.push_back(c);
+                } else {
+                    // alredy remapped -> reuse
+                    ni = ftcRemap->second;
+                }
+                LOG(info4) << "remapped tc " << index << " to " << ni << ".";
+
+                // update (NB: index is a reference!)
+                index = ni;
+            }
+
+            // map component to texture coordinate
+            tcMap[index] = c;
+            LOG(info4) << "mapping[" << index << "]: " << tcMap[index];
+        }
+    }
+
+    auto remap([&](std::set<int> &set, const Remap &r)
+    {
+        for (const auto &item : r) {
+            set.erase(item.first);
+            set.insert(item.second);
+        }
+    });
+
+    // remap faces and tc (if any were changed
+    remap(c->indices, tcRemap);
 }
 
 void ComponentInfo::copy(cv::Mat &tex) const
@@ -349,34 +610,23 @@ void ComponentInfo::copy(cv::Mat &tex) const
     }
 }
 
-void Component::bestRect(const TextureInfo &tx) {
-    std::vector<cv::Point2f> points;
-    points.reserve(indices.size());
+void Component::bestRectangle(const TextureInfo &tx) {
+    // find best rectangle
+    if (indices.size()) {
+        std::vector<cv::Point2f> points;
+        points.reserve(indices.size());
 
-    rect = {};
+        // process all points
+        for (const auto i : indices) {
+            const auto &p(tx.uv(i));
+            points.emplace_back(p(0), p(1));
+        }
 
-    math::Extents2 e(math::InvalidExtents{});
-
-    // process all points
-    for (const auto i : indices) {
-        const auto &p(tx.uv(i));
-        points.emplace_back(p(0), p(1));
-        update(e, p);
-    }
-
-    if (1) {
+        // find best rectangle fitting around this patch
         rrect = cv::minAreaRect(points);
-    } else {
-        auto c(math::center(e));
-        auto s(math::size(e));
-
-        rrect = cv::RotatedRect(cv::Point2f(c(0), c(1))
-                                , cv::Size2f(s.width, s.height)
-                                , 0.f);
+        rrect.size.width = std::ceil(rrect.size.width + 1.0);
+        rrect.size.height = std::ceil(rrect.size.height + 1.0);
     }
-
-    rrect.size.width = std::ceil(rrect.size.width + 1.0);
-    rrect.size.height = std::ceil(rrect.size.height + 1.0);
 
     {
         // calculate transformation matrix from original atlas to best
@@ -395,14 +645,23 @@ void Component::bestRect(const TextureInfo &tx) {
         rrectTrafo(1, 3) = -shift(1) + double(rrect.size.height) / 2.0;
     }
 
-    // create rectangle
+    // create uv rectangle
     rect = {};
     rect.update({ 0.f, 0.f });
     // -2 due to: +-1 pixels added by packer for integral rectangles
     rect.update({ rrect.size.width - 2.f, rrect.size.height - 2.f });
 }
 
-/** Const raster for texture with mask.
+double Component::area(const TextureInfo &tx) const
+{
+    double area(0.0);
+    for (const auto &face : faces) {
+        area += tx.area(face);
+    }
+    return area;
+}
+
+/** Const raster for texture with cv::Mat-based mask.
  */
 class TextureRaster : public imgproc::CvConstRaster<cv::Vec3b>
 {
@@ -412,6 +671,7 @@ public:
     {}
 
     bool valid(int x, int y) const {
+        // queries matrix for bounds and mask for pixel validity
         return (imgproc::CvConstRaster<cv::Vec3b>::valid(x, y)
                 && mask_.at<std::uint8_t>(y, x));
     }
@@ -448,30 +708,10 @@ void Component::copy(cv::Mat &tex, const cv::Mat &texture, const cv::Mat &mask)
     }
 }
 
-void ComponentInfo::mask(cv::Mat &mask, int block) const
-{
-    for (const auto &c : components) {
-        c->mask(mask, block);
-    }
-}
-
-void Component::mask(cv::Mat &mask, int block)
-    const
-{
-    (void) mask;
-    (void) block;
-
-    // TODO: implement me
-}
-
-} // namespace
-
 /** Joins textures into single texture.
  */
 std::tuple<cv::Mat, math::Points2d, Faces>
-joinTextures(const TextureInfo::list &texturing);
-
-namespace {
+joinTextures(TextureInfo::list texturing);
 
 typedef std::tuple<Mesh::pointer, Atlas::pointer> MeshAtlas;
 
@@ -669,7 +909,6 @@ SubMesh& MeshAtlasBuilder::mergeNonTextured(const Range &range)
     ensureChanged(range);
 
     // clone first submesh to join
-    // mesh_->submeshes.push_back(oSubmeshes_[range.start]);
     mesh_->submeshes.push_back(oSubmeshes_[range.start]);
     auto &sm(mesh_->submeshes.back());
 
@@ -707,17 +946,8 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
     atlasEnd_ += range.size();
 }
 
-} // namespace
-
-MeshAtlas mergeSubmeshes(const Mesh::pointer &mesh
-                         , const RawAtlas::pointer &atlas
-                         , int textureQuality)
-{
-    return MeshAtlasBuilder(mesh, atlas, textureQuality).result();
-}
-
 std::tuple<cv::Mat, math::Points2d, Faces>
-joinTextures(const TextureInfo::list &texturing)
+joinTextures(TextureInfo::list texturing)
 {
     const int inpaintMargin(4);
 
@@ -726,20 +956,25 @@ joinTextures(const TextureInfo::list &texturing)
     auto &tc(std::get<1>(res));
     auto &faces(std::get<2>(res));
 
-    // rasterize faces to masks
+    // break texturing mesh into components
     ComponentInfo::list cinfoList;
-    for (const auto &tx : texturing) {
+    for (auto &tx : texturing) {
         cinfoList.emplace_back(tx);
     }
 
-    // pack the patches
-    imgproc::RectPacker packer;
-    for (const auto &cinfo : cinfoList) {
-        for (auto &c : cinfo.components) {
-            packer.addRect(&c->rect);
+    // pack patches into new atlas
+    auto packedSize([&]() -> math::Size2
+    {
+        // pack the patches
+        imgproc::RectPacker packer;
+        for (const auto &cinfo : cinfoList) {
+            for (auto &c : cinfo.components) {
+                packer.addRect(&c->rect);
+            }
         }
-    }
-    packer.pack();
+        packer.pack();
+        return math::Size2(packer.width(), packer.height());
+    }());
 
     // background color
     const auto background(0
@@ -747,8 +982,8 @@ joinTextures(const TextureInfo::list &texturing)
                           : cv::Scalar(0x0, 0x0, 0x0));
 
     // create temporary texture a bit larger due to inpaint bug
-    cv::Mat tmpTex(packer.height() + 2 * inpaintMargin
-                    , packer.width() + 2 * inpaintMargin, CV_8UC3
+    cv::Mat tmpTex(packedSize.height + 2 * inpaintMargin
+                    , packedSize.width + 2 * inpaintMargin, CV_8UC3
                     , background);
 
     // fixes texture to point to proper matrix
@@ -756,8 +991,8 @@ joinTextures(const TextureInfo::list &texturing)
     {
         // real texture
         tex = cv::Mat
-            (ref, cv::Range(inpaintMargin, packer.height() + inpaintMargin)
-             , cv::Range(inpaintMargin, packer.width() + inpaintMargin));
+            (ref, cv::Range(inpaintMargin, packedSize.height + inpaintMargin)
+             , cv::Range(inpaintMargin, packedSize.width + inpaintMargin));
     });
 
     fixTexture(tmpTex);
@@ -767,8 +1002,8 @@ joinTextures(const TextureInfo::list &texturing)
 
     // real mask
     cv::Mat mask
-        (tmpMask, cv::Range(inpaintMargin, packer.height() + inpaintMargin)
-         , cv::Range(inpaintMargin, packer.width() + inpaintMargin));
+        (tmpMask, cv::Range(inpaintMargin, packedSize.height + inpaintMargin)
+         , cv::Range(inpaintMargin, packedSize.width + inpaintMargin));
 
     // denormalized result texture coordinates
     math::Points2d dnTc;
@@ -778,23 +1013,32 @@ joinTextures(const TextureInfo::list &texturing)
         auto ts(tex.size());
 
         for (const auto &cinfo : cinfoList) {
+            LOG(info4) << "Processing patches from component info "
+                       << &cinfo << ".";
             const auto &tx(*cinfo.tx);
 
             // copy patches from this texture
             cinfo.copy(tex);
-            cinfo.mask(mask, 16);
 
             auto itcMap(cinfo.tcMap.cbegin());
             auto tcOffset(tc.size());
 
+            int idx(0);
             for (const auto &oldUv : tx.tc()) {
+                LOG(info4) << "tcMap[" << idx << "]: " << *itcMap;
                 auto uv((*itcMap++)->adjustUV(oldUv));
                 dnTc.emplace_back(double(uv.x), double(uv.y));
                 tc.push_back(normalize(uv, ts));
+                ++idx;
             }
 
             // add texture faces from this texture
             appendFaces(faces, tx.faces(), tcOffset);
+        }
+
+        int ci(0);
+        for (const auto &cinfo : cinfoList) {
+            cinfo.debug(ci++, tex);
         }
     }
 
@@ -810,6 +1054,60 @@ joinTextures(const TextureInfo::list &texturing)
 
     // done
     return res;
+}
+
+void ComponentInfo::debug(int id, const cv::Mat &outAtlas) const
+{
+    int border(16);
+
+    const auto &texture(tx->texture());
+
+    cv::Mat dr(texture.rows + outAtlas.rows + 3 * border
+               , std::max(texture.cols, outAtlas.cols) + 2 * border, CV_8UC3
+               , cv::Scalar(0x00, 0x00, 0x00));
+
+    cv::Mat drTx(dr, cv::Rect(border, border, texture.cols, texture.rows));
+    texture.convertTo(drTx, -1, 0.5);
+
+    cv::Mat drAt(dr, cv::Rect
+                 (border, texture.rows + 2 * border
+                  , outAtlas.cols, outAtlas.rows));
+    outAtlas.convertTo(drAt, -1, 0.5);
+
+    auto &rng(cv::theRNG());
+
+    for (const auto &c : components) {
+        cv::Scalar color(rng(223) + 32, rng(223) + 32, rng(223) + 32);
+
+        cv::Point2f pts[4];
+        c->rrect.points(pts);
+
+        std::vector<std::vector<cv::Point2i>> contours;
+        {
+            contours.emplace_back();
+            auto &contour(contours.back());
+            for (int i : { 0, 1, 2, 3 }) {
+                contour.emplace_back(int(pts[i].x), int(pts[i].y));
+            }
+        }
+
+        cv::drawContours(drTx, contours, 0, color, 1); //CV_FILLED);
+
+        const auto &pr(c->rect);
+        cv::Rect r(pr.packX, pr.packY, pr.width(), pr.height());
+        cv::rectangle(drAt, r, color, 1); //CV_FILLED);
+    }
+
+    cv::imwrite(str(boost::format("debug-%d.png") % id), dr);
+}
+
+} // namespace
+
+MeshAtlas mergeSubmeshes(const Mesh::pointer &mesh
+                         , const RawAtlas::pointer &atlas
+                         , int textureQuality)
+{
+    return MeshAtlasBuilder(mesh, atlas, textureQuality).result();
 }
 
 } } // namespace vadstena::vts
