@@ -6,9 +6,24 @@
 #include "utility/streams.hpp"
 
 #include "./basetypes.hpp"
-#include "./storage.hpp"
 
 namespace vadstena { namespace vts {
+
+template<typename CharT, typename Traits>
+inline std::basic_istream<CharT, Traits>&
+operator>>(std::basic_istream<CharT, Traits> &is
+           , LodTileRange &ltr)
+{
+    return is >> ltr.lod >> utility::expect('/') >> ltr.range;
+}
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os
+           , const LodTileRange &ltr)
+{
+    return os << ltr.lod << '/' << ltr.range;
+}
 
 } } // namespace vadstena::vts
 

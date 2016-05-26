@@ -190,4 +190,55 @@ TileId commonAncestor(Lod lod, TileRange range)
     return { lod, range.ll(0), range.ll(1) };
 }
 
+BorderCondition inside(const LodTileRange &range, const TileId &tileId
+                       , bool above)
+{
+    if (tileId.lod < range.lod) {
+        // TODO: handle above flag
+        (void) above;
+        return false;
+    }
+
+    auto tr((tileId.lod == range.lod)
+            ? range.range
+            : childRange(range.range, tileId.lod - range.lod));
+
+    // outside?
+    if ((tileId.x < tr.ll(0)) || (tileId.x > tr.ur(0))
+        || (tileId.y < tr.ll(1)) || (tileId.y > tr.ur(1)))
+    {
+        return false;
+    }
+
+    int flags(BorderCondition::inside);
+
+    // border?
+    if (tileId.x == tr.ll(0)) { flags |= BorderCondition::left; }
+    if (tileId.x == tr.ur(0)) { flags |= BorderCondition::right; }
+    if (tileId.y == tr.ll(1)) { flags |= BorderCondition::top; }
+    if (tileId.y == tr.ur(1)) { flags |= BorderCondition::bottom; }
+
+    return { flags };
+}
+
+math::Extents2
+inflateTileExtents(const math::Extents2 &extents
+                   , double margin
+                   , const BorderCondition &borderCondition
+                   , double borderMargin)
+{
+    auto choose([&](int flag)
+    {
+        return (borderCondition.check(flag) ? borderMargin : margin);
+    });
+
+    // tile size
+    auto ts(math::size(extents));
+    return math::Extents2
+        (extents.ll(0) - ts.width * choose(BorderCondition::left)
+         , extents.ll(1) - ts.height * choose(BorderCondition::bottom)
+         , extents.ur(0) + ts.width * choose(BorderCondition::right)
+         ,  extents.ur(1) + ts.height * choose(BorderCondition::top));
+}
+
 } } // namespace vadstena::vts

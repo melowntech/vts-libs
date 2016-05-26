@@ -56,8 +56,14 @@ struct Config {
     int textureQuality;
     std::set<vts::TileId> debugTileIds;
     bool forceWatertight;
+    boost::optional<vts::LodTileRange> tileExtents;
+    double clipMargin;
+    double borderClipMargin;
 
-    Config() : textureQuality(85), forceWatertight(false) {}
+    Config()
+        : textureQuality(85), forceWatertight(false)
+        , clipMargin(1.0 / 128.), borderClipMargin(1.0 / 128.)
+    {}
 };
 
 class Vts2Vts : public service::Cmdline
@@ -121,6 +127,21 @@ void Vts2Vts::configuration(po::options_description &cmdline
          , "Enforces full coverage mask to every generated tile even "
          "when it is holey.")
 
+        ("clipMargin", po::value(&config_.clipMargin)
+         ->default_value(config_.clipMargin)
+         , "Margin (in fraction of tile dimensions) added to tile extents in "
+         "all 4 directions")
+
+        ("tileExtents", po::value<vts::LodTileRange>()
+         , "Optional tile extents specidied in form lod/llx,lly:urx,ury. "
+         "When set, only tiles in that range and below are added to "
+         "the output.")
+
+        ("borderClipMargin", po::value(&config_.borderClipMargin)
+         ->default_value(config_.borderClipMargin)
+         , "Margin (in fraction of tile dimensions) added to tile extents "
+         "where tile touches artificial border definied by tileExtents.")
+
         ("debug.tileId", po::value<std::vector<vts::TileId>>()
          , "Limits output only to given set of tiles. "
          "Used for debugging purposes.")
@@ -158,8 +179,15 @@ void Vts2Vts::configure(const po::variables_map &vars)
     }
 
     if ((config_.textureQuality < 0) || (config_.textureQuality > 100)) {
-            throw po::validation_error
-                (po::validation_error::invalid_option_value, "textureQuality");
+        throw po::validation_error
+            (po::validation_error::invalid_option_value, "textureQuality");
+    }
+
+    if (vars.count("tileExtents")) {
+        config_.tileExtents = vars["tileExtents"].as<vts::LodTileRange>();
+    } else if (vars.count("borderClipMargin")) {
+        throw po::validation_error
+            (po::validation_error::invalid_option, "borderClipMargin");
     }
 
     if (vars.count("debug.tileId")) {
@@ -496,6 +524,16 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
         return TileResult::Result::noDataYet;
     }
 
+    vts::BorderCondition borderCondition;
+
+    if (config_.tileExtents) {
+        borderCondition = vts::inside(*config_.tileExtents, tileId);
+        if (!borderCondition) {
+            // outside of range
+            return TileResult::Result::noDataYet;
+        }
+    }
+
     const auto &src(srcInfo_.source(tileId));
     if (src.empty()) {
         return TileResult::Result::noDataYet;
@@ -528,6 +566,10 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     const vts::CsConvertor sds2DstPhy
         (nodeInfo.srs(), referenceFrame().model.physicalSrs);
 
+    auto clipExtents(vts::inflateTileExtents
+                     (nodeInfo.extents(), config_.clipMargin
+                      , borderCondition, config_.borderClipMargin));
+
     // output
     Encoder::TileResult result;
     auto &tile(result.tile());
@@ -551,7 +593,7 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
             auto mask(warpInPlaceWithMask(srcPhy2Sds, sm));
 
             // clip submesh
-            auto dstSm(vts::clip(sm, nodeInfo.extents(), mask));
+            auto dstSm(vts::clip(sm, clipExtents, mask));
 
             if (!dstSm.empty()) {
                 // re-generate external tx coordinates (if division node allows)

@@ -42,6 +42,16 @@ struct Child : TileId {
 
 typedef std::array<Child, 4> Children;
 
+/** Combination of LOD and tile range in one package.
+ */
+struct LodTileRange {
+    Lod lod;
+    TileRange range;
+
+    LodTileRange(Lod lod = 0) : lod(lod) {}
+    LodTileRange(Lod lod, const TileRange &range) : lod(lod), range(range) {}
+};
+
 /** Open mode
  */
 enum class OpenMode {

@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "../driver.hpp"
+#include "../../storage.hpp"
 
 namespace vadstena { namespace vts { namespace driver {
 

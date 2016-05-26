@@ -78,6 +78,57 @@ TileRange tileRangesIntersect(const TileRange &a, const TileRange &b
                               , const std::nothrow_t&);
 math::Size2_<TileRange::value_type> tileRangesSize(const TileRange &tr);
 
+class BorderCondition {
+public:
+    enum {
+        top = 0x00001
+        , bottom = 0x00010
+        , left = 0x00100
+        , right = 0x01000
+
+        , outside = 0x00000
+        , inside = 0x10000
+        , flags = 0x01111
+    };
+
+    BorderCondition(int value = outside) : value_(value) {}
+
+    operator bool() const { return value_; }
+
+    bool check(int flags) const { return value_ & flags; }
+
+private:
+    int value_;
+};
+
+/** Determines whether tile is inside given tile range.
+ *
+ *  Returns:
+ *      outside: 0
+ *      inside: BorderingFlags::none
+ *      border: bitmask composed by bitwise ORing of flags in BorderingFlags.
+ *
+ *  Only tiles with lod >= range.lod are considered to be inside the range
+ *  unless above is true.
+ *
+ * NB: above functionaliy is unimplemented so far.
+ */
+BorderCondition inside(const LodTileRange &range, const TileId &tileId
+                       , bool above = false);
+
+/** Inflates tile extents by given margin in all 4 directions.
+ *
+ *  On bordering edges (defined by borderCondition) borderMargin is used
+ *  instead.
+ *
+ *  Margins are defined as a fraction of tile width/height.
+ */
+math::Extents2
+inflateTileExtents(const math::Extents2 &extents
+                   , double margin
+                   , const BorderCondition &borderCondition = BorderCondition()
+                   , double borderMargin = 0);
+
 // inline stuff
 
 inline TileId parent(const TileId &tileId, Lod diff)
