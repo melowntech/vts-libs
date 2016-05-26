@@ -280,6 +280,17 @@ public:
      */
     TileIndex& shrinkAndComplete(unsigned int trim);
 
+    /** Makes given lod range available.
+     */
+    TileIndex& makeAvailable(const LodRange &lodRange);
+
+    /** Makes tile index an absolute tree, i.e. starting from LOD 0;
+     *  equivalent to:
+     *
+     *      makeAvailable({ 0, maxLod });
+     */
+    TileIndex& makeAbsolute();
+
 private:
     QTree* tree(Lod lod, bool create = false);
 

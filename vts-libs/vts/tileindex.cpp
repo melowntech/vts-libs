@@ -647,4 +647,20 @@ TileIndex& TileIndex::shrinkAndComplete(unsigned int trim)
     return *this;
 }
 
+TileIndex& TileIndex::makeAvailable(const LodRange &lodRange)
+{
+    for (auto lod : lodRange) {
+        // force tree creation
+        tree(lod, true);
+    }
+
+    // done
+    return *this;
+}
+
+TileIndex& TileIndex::makeAbsolute()
+{
+    return makeAvailable(LodRange(0, maxLod()));
+}
+
 } } // namespace vadstena::vts

@@ -130,7 +130,7 @@ void Vts2Vts::configuration(po::options_description &cmdline
         ("clipMargin", po::value(&config_.clipMargin)
          ->default_value(config_.clipMargin)
          , "Margin (in fraction of tile dimensions) added to tile extents in "
-         "all 4 directions")
+         "all 4 directions.")
 
         ("tileExtents", po::value<vts::LodTileRange>()
          , "Optional tile extents specidied in form lod/llx,lly:urx,ury. "

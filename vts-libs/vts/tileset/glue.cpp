@@ -34,10 +34,11 @@ tileIndices(const TileSet::const_ptrlist &sets
 
 LodRange range(const TileSet::const_ptrlist &sets)
 {
-    // start with invalid range
-    LodRange r(LodRange::emptyRange());
+    // no set -> no lod range
+    if (sets.empty()) { return LodRange::emptyRange(); }
 
-    if (sets.empty()) { return r; }
+    // start with LOD 0
+    LodRange r(0, 0);
 
     for (const auto &set : sets) {
         r = unite(r, set->lodRange());

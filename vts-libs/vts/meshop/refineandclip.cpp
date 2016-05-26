@@ -438,9 +438,11 @@ EnhancedSubMesh refineAndClip(const EnhancedSubMesh &mesh
 
     Clipper clipper(mesh, mask);
 
-    clipper.refine(lodDiff);
-
+    // clip by clipping planes
     for (const auto &cp : clipPlanes) { clipper.clip(cp); }
+
+    // refine trinagle mesh by lod difference
+    clipper.refine(lodDiff);
 
     return clipper.mesh(&convertor);
 }

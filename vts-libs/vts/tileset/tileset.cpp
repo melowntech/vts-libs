@@ -209,8 +209,7 @@ struct TileSet::Factory
                          , dd.output(tid, storage::TileFile::atlas));
             }
 
-            if (mask & TileIndex::Flag::navtile)
-            {
+            if (mask & TileIndex::Flag::navtile) {
                 // copy navtile if allowed
                 copyFile(sd.input(tid, storage::TileFile::navtile)
                          , dd.output(tid, storage::TileFile::navtile));

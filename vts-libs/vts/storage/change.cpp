@@ -945,7 +945,7 @@ Flattener::GlueTs::map Flattener::openGlues(Tx &tx, Lod depth
 
 TileIndex Flattener::soi(Lod depth, Ts::list &sets)
 {
-    // get sphere of inlfuence of all meshes
+    // get sphere of influence of all meshes
     LodRange lr(0, depth);
     vts::TileIndices sois;
     for (auto &ts : sets) {
@@ -961,20 +961,6 @@ Encoder::TileResult
 Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo
                     , const TileResult&)
 {
-#if 0
-    // TODO: optimization
-    Ts::const_ptrlist sets;
-    Glue::Id glueId;
-
-    // get list of tilesets that can be source of given tile
-    for (const auto &ts : tilesets_) {
-        if (ts.soi.get(tileId)) {
-            sets.push_back(&ts);
-            glueId.push_back(ts.set.id());
-        }
-    }
-#endif
-
     TileResult result;
 
     // NB: index to tiles is 1-based, decremented to 0-based is done when

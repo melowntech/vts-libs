@@ -102,8 +102,11 @@ TileIndex Index::deriveMetaIndex() const
 {
     if (tileIndex.empty()) { return {}; }
 
+    // clone tile index
     TileIndex out(tileIndex);
-    return out.shrinkAndComplete(metaBinaryOrder_);
+    // make absolute (i.e. from LOD 0) and shrink every tree by
+    // metaBinaryOrder_ levels
+    return out.makeAbsolute().shrinkAndComplete(metaBinaryOrder_);
 }
 
 } } } // namespace vadstena::vts::tileset
