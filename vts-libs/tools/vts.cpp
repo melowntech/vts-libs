@@ -608,17 +608,26 @@ int tilesetInfo(const std::string &prefix, const fs::path &path)
               << std::endl;
 
     std::cout << prefix << "Tile type info:" << std::endl;
+    const auto &ti(ts.tileIndex());
     for (auto flag : { vts::TileIndex::Flag::mesh
                 , vts::TileIndex::Flag::atlas
                 , vts::TileIndex::Flag::navtile
                 , vts::TileIndex::Flag::reference })
     {
-        auto stat(ts.tileIndex().statMask(flag));
+        auto stat(ti.statMask(flag));
         std::cout
             << prefix << "    " << vts::TileFlags(flag) << ":" << std::endl
             << prefix << "        lodRange: " << stat.lodRange << std::endl
             << prefix << "        count = " << stat.count << std::endl
             ;
+
+        // special handling for mesh: make statistics for watertight
+        if (flag == vts::TileIndex::Flag::mesh) {
+            auto wstat(ti.statMask(vts::TileIndex::Flag::watertight));
+            std::cout
+                << prefix << "        watertight = " << wstat.count
+                << std::endl;
+        }
     }
 
     return EXIT_SUCCESS;

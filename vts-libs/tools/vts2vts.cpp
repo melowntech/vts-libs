@@ -55,8 +55,9 @@ struct Config {
     boost::optional<std::uint16_t> textureLayer;
     int textureQuality;
     std::set<vts::TileId> debugTileIds;
+    bool forceWatertight;
 
-    Config() : textureQuality(85) {}
+    Config() : textureQuality(85), forceWatertight(false) {}
 };
 
 class Vts2Vts : public service::Cmdline
@@ -114,6 +115,11 @@ void Vts2Vts::configuration(po::options_description &cmdline
         ("textureLayer", po::value<std::string>()
          , "String/numeric id of bound layer to be used as external texture "
          "in generated meshes.")
+
+        ("force.watertight", po::value(&config_.forceWatertight)
+         ->default_value(false)->implicit_value(true)
+         , "Enforces full coverage mask to every generated tile even "
+         "when it is holey.")
 
         ("debug.tileId", po::value<std::vector<vts::TileId>>()
          , "Limits output only to given set of tiles. "
@@ -526,7 +532,7 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     Encoder::TileResult result;
     auto &tile(result.tile());
     vts::Mesh &mesh
-        (*(tile.mesh = std::make_shared<vts::Mesh>(false)));
+        (*(tile.mesh = std::make_shared<vts::Mesh>(config_.forceWatertight)));
     vts::RawAtlas::pointer patlas([&]() -> vts::RawAtlas::pointer
     {
         auto atlas(std::make_shared<vts::RawAtlas>());
@@ -553,7 +559,9 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
                             , nodeInfo.node().externalTexture);
 
                 // update mesh coverage mask
-                updateCoverage(mesh, dstSm, nodeInfo.extents());
+                if (!config_.forceWatertight) {
+                    updateCoverage(mesh, dstSm, nodeInfo.extents());
+                }
 
                 // set new texture layer if provided
                 dstSm.textureLayer = config_.textureLayer;
