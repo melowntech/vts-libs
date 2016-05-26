@@ -80,13 +80,14 @@ SubMesh clip(const SubMesh &projectedMesh
  *  Atlas is repacked when merging textured submeshes.
  *  In case of atlas repacking, returned atlas is image based one.
  *
+ * \param tileId ID of tile this mesh belongs to (info only)
  * \param mesh mesh to compact
  * \param atlas meshe's atlas
  * \param textureQuality JPEG quality (0-100)
  */
 std::tuple<Mesh::pointer, Atlas::pointer>
-mergeSubmeshes(const Mesh::pointer &mesh, const RawAtlas::pointer &atlas
-               , int textureQuality);
+mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
+               , const RawAtlas::pointer &atlas, int textureQuality);
 
 } } // namespace vadstena::vts
 

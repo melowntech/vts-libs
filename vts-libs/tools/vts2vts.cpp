@@ -589,7 +589,7 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
 
     // merge submeshes if allowed
     std::tie(tile.mesh, tile.atlas)
-        = mergeSubmeshes(tile.mesh, patlas, config_.textureQuality);
+        = mergeSubmeshes(tileId, tile.mesh, patlas, config_.textureQuality);
 
     if (atlas.empty()) {
         // no atlas -> disable

@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <memory>
 #include <array>
 #include <stack>
@@ -5,6 +6,7 @@
 #include <algorithm>
 
 #include <boost/format.hpp>
+#include <boost/filesystem.hpp>
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -64,7 +66,10 @@ namespace vadstena { namespace vts {
 
 namespace {
 
-// TODO: move this stuff to own header
+namespace fs = boost::filesystem;
+
+const char *VTS_MESH_MERGE_DUMP_DIR(std::getenv("VTS_MESH_MERGE_DUMP_DIR"));
+
 typedef std::vector<cv::Mat> MatList;
 
 inline math::Point2d denormalize(const math::Point2d &p
@@ -286,11 +291,11 @@ struct ComponentInfo {
 
     typedef std::vector<ComponentInfo> list;
 
-    ComponentInfo(TextureInfo &tx);
+    ComponentInfo(const TileId &tileId, int id, TextureInfo &tx);
 
     void copy(cv::Mat &tex) const;
 
-    void debug(int id, const cv::Mat &outAtlas) const;
+    void debug(const fs::path &dir, const cv::Mat &outAtlas) const;
 
 private:
     /** Breaks component into best fitting parts.
@@ -300,10 +305,13 @@ private:
     /** Adds new components.
      */
     void addComponent(const Component::pointer &c);
+
+    TileId tileId_;
+    int id_;
 };
 
-ComponentInfo::ComponentInfo(TextureInfo &tx)
-    : tcMap(tx.tc().size()), tx(&tx)
+ComponentInfo::ComponentInfo(const TileId &tileId, int id, TextureInfo &tx)
+    : tcMap(tx.tc().size()), tx(&tx), tileId_(tileId), id_(id)
 {
     const auto &faces(tx.faces());
     Component::list fMap(tx.faces().size());
@@ -549,7 +557,6 @@ void ComponentInfo::breakComponent(const Component::pointer &start)
 
 void ComponentInfo::addComponent(const Component::pointer &c)
 {
-    LOG(info4) << "Adding component " << c << " (" << c->faces.size() << ").";
     components.insert(c);
 
     typedef std::map<int, int> Remap;
@@ -558,7 +565,6 @@ void ComponentInfo::addComponent(const Component::pointer &c)
     // process component's faces
     for (auto findex : c->faces) {
         auto &face(tx->ncface(findex));
-        LOG(info4) << "in face " << findex << ": " << face;
 
         // process all face's vertices
         for (auto &index : face) {
@@ -579,7 +585,6 @@ void ComponentInfo::addComponent(const Component::pointer &c)
                     // alredy remapped -> reuse
                     ni = ftcRemap->second;
                 }
-                LOG(info4) << "remapped tc " << index << " to " << ni << ".";
 
                 // update (NB: index is a reference!)
                 index = ni;
@@ -587,7 +592,6 @@ void ComponentInfo::addComponent(const Component::pointer &c)
 
             // map component to texture coordinate
             tcMap[index] = c;
-            LOG(info4) << "mapping[" << index << "]: " << tcMap[index];
         }
     }
 
@@ -608,6 +612,65 @@ void ComponentInfo::copy(cv::Mat &tex) const
     for (const auto &c : components) {
         c->copy(tex, tx->texture(), tx->mask());
     }
+}
+
+
+void ComponentInfo::debug(const fs::path &dir, const cv::Mat &outAtlas)
+    const
+{
+    int border(16);
+
+    const auto &texture(tx->texture());
+
+    cv::Mat dr(texture.rows + outAtlas.rows + 3 * border
+               , std::max(texture.cols, outAtlas.cols) + 2 * border, CV_8UC3
+               , cv::Scalar(0x80, 0x80, 0x80));
+
+    cv::Mat drTx(dr, cv::Rect(border, border, texture.cols, texture.rows));
+
+    // combine input texture with its mask and put into drawable
+    {
+        cv::Mat colorMask;
+        const auto &mask(tx->mask());
+        cv::cvtColor(mask, colorMask, cv::COLOR_GRAY2BGR);
+        addWeighted(texture, 0.7, colorMask, 0.3, 0.0, drTx);
+    }
+
+    // put output atlas into drawable
+    cv::Mat drAt(dr, cv::Rect
+                 (border, texture.rows + 2 * border
+                  , outAtlas.cols, outAtlas.rows));
+    outAtlas.convertTo(drAt, -1, 0.7);
+
+    // draw both input and output rectangles
+    auto &rng(cv::theRNG());
+
+    for (const auto &c : components) {
+        cv::Scalar color(rng(223) + 32, rng(223) + 32, rng(223) + 32);
+
+        cv::Point2f pts[4];
+        c->rrect.points(pts);
+
+        std::vector<std::vector<cv::Point2i>> contours;
+        {
+            contours.emplace_back();
+            auto &contour(contours.back());
+            for (int i : { 0, 1, 2, 3 }) {
+                contour.emplace_back(int(pts[i].x), int(pts[i].y));
+            }
+        }
+
+        cv::drawContours(drTx, contours, 0, color, 1); //CV_FILLED);
+
+        const auto &pr(c->rect);
+        cv::Rect r(pr.packX, pr.packY, pr.width(), pr.height());
+        cv::rectangle(drAt, r, color, 1); //CV_FILLED);
+    }
+
+    fs::create_directories(dir);
+    cv::imwrite((dir / str(boost::format("%s-%d-repacked.png")
+                           % tileId_ % id_)).string()
+                 , dr);
 }
 
 void Component::bestRectangle(const TextureInfo &tx) {
@@ -711,7 +774,7 @@ void Component::copy(cv::Mat &tex, const cv::Mat &texture, const cv::Mat &mask)
 /** Joins textures into single texture.
  */
 std::tuple<cv::Mat, math::Points2d, Faces>
-joinTextures(TextureInfo::list texturing);
+joinTextures(const TileId &tileId, TextureInfo::list texturing);
 
 typedef std::tuple<Mesh::pointer, Atlas::pointer> MeshAtlas;
 
@@ -771,10 +834,11 @@ Range::list groupSubmeshes(const SubMesh::list &sms, std::size_t textured)
 
 class MeshAtlasBuilder {
 public:
-    MeshAtlasBuilder(const Mesh::pointer &mesh
+    MeshAtlasBuilder(const TileId &tileId
+                     , const Mesh::pointer &mesh
                      , const RawAtlas::pointer &atlas
                      , int textureQuality)
-        : textureQuality_(textureQuality)
+        : tileId_(tileId), textureQuality_(textureQuality)
         , originalMesh_(mesh), originalAtlas_(atlas)
         , oSubmeshes_(mesh->submeshes)
         , meshEnd_(0), atlasEnd_(0)
@@ -801,6 +865,7 @@ private:
 
     TextureInfo::list texturing(const Range &range) const;
 
+    const TileId tileId_;
     const int textureQuality_;
     const Mesh::pointer originalMesh_;
     const RawAtlas::pointer originalAtlas_;
@@ -818,10 +883,6 @@ TextureInfo::list MeshAtlasBuilder::texturing(const Range &range) const
         tx.emplace_back
             (originalMesh_->submeshes[i]
              , opencv::HybridAtlas::imageFromRaw(originalAtlas_->get(i)));
-        cv::imwrite(str(boost::format("%d-texture.png") % i)
-                    , tx.back().texture());
-        cv::imwrite(str(boost::format("%d-mask.png") % i)
-                    , tx.back().mask());
     }
     return tx;
 }
@@ -939,7 +1000,8 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
 
     // and join textures
     cv::Mat texture;
-    std::tie(texture, sm.tc, sm.facesTc) = joinTextures(texturing(range));
+    std::tie(texture, sm.tc, sm.facesTc)
+        = joinTextures(tileId_, texturing(range));
     atlas_->add(texture);
 
     // housekeeping
@@ -947,7 +1009,7 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
 }
 
 std::tuple<cv::Mat, math::Points2d, Faces>
-joinTextures(TextureInfo::list texturing)
+joinTextures(const TileId &tileId, TextureInfo::list texturing)
 {
     const int inpaintMargin(4);
 
@@ -958,8 +1020,11 @@ joinTextures(TextureInfo::list texturing)
 
     // break texturing mesh into components
     ComponentInfo::list cinfoList;
-    for (auto &tx : texturing) {
-        cinfoList.emplace_back(tx);
+    {
+        int id(0);
+        for (auto &tx : texturing) {
+            cinfoList.emplace_back(tileId, id++, tx);
+        }
     }
 
     // pack patches into new atlas
@@ -1013,8 +1078,6 @@ joinTextures(TextureInfo::list texturing)
         auto ts(tex.size());
 
         for (const auto &cinfo : cinfoList) {
-            LOG(info4) << "Processing patches from component info "
-                       << &cinfo << ".";
             const auto &tx(*cinfo.tx);
 
             // copy patches from this texture
@@ -1025,7 +1088,6 @@ joinTextures(TextureInfo::list texturing)
 
             int idx(0);
             for (const auto &oldUv : tx.tc()) {
-                LOG(info4) << "tcMap[" << idx << "]: " << *itcMap;
                 auto uv((*itcMap++)->adjustUV(oldUv));
                 dnTc.emplace_back(double(uv.x), double(uv.y));
                 tc.push_back(normalize(uv, ts));
@@ -1036,9 +1098,10 @@ joinTextures(TextureInfo::list texturing)
             appendFaces(faces, tx.faces(), tcOffset);
         }
 
-        int ci(0);
-        for (const auto &cinfo : cinfoList) {
-            cinfo.debug(ci++, tex);
+        if (VTS_MESH_MERGE_DUMP_DIR) {
+            for (const auto &cinfo : cinfoList) {
+                cinfo.debug(VTS_MESH_MERGE_DUMP_DIR, tex);
+            }
         }
     }
 
@@ -1056,58 +1119,13 @@ joinTextures(TextureInfo::list texturing)
     return res;
 }
 
-void ComponentInfo::debug(int id, const cv::Mat &outAtlas) const
-{
-    int border(16);
-
-    const auto &texture(tx->texture());
-
-    cv::Mat dr(texture.rows + outAtlas.rows + 3 * border
-               , std::max(texture.cols, outAtlas.cols) + 2 * border, CV_8UC3
-               , cv::Scalar(0x00, 0x00, 0x00));
-
-    cv::Mat drTx(dr, cv::Rect(border, border, texture.cols, texture.rows));
-    texture.convertTo(drTx, -1, 0.5);
-
-    cv::Mat drAt(dr, cv::Rect
-                 (border, texture.rows + 2 * border
-                  , outAtlas.cols, outAtlas.rows));
-    outAtlas.convertTo(drAt, -1, 0.5);
-
-    auto &rng(cv::theRNG());
-
-    for (const auto &c : components) {
-        cv::Scalar color(rng(223) + 32, rng(223) + 32, rng(223) + 32);
-
-        cv::Point2f pts[4];
-        c->rrect.points(pts);
-
-        std::vector<std::vector<cv::Point2i>> contours;
-        {
-            contours.emplace_back();
-            auto &contour(contours.back());
-            for (int i : { 0, 1, 2, 3 }) {
-                contour.emplace_back(int(pts[i].x), int(pts[i].y));
-            }
-        }
-
-        cv::drawContours(drTx, contours, 0, color, 1); //CV_FILLED);
-
-        const auto &pr(c->rect);
-        cv::Rect r(pr.packX, pr.packY, pr.width(), pr.height());
-        cv::rectangle(drAt, r, color, 1); //CV_FILLED);
-    }
-
-    cv::imwrite(str(boost::format("debug-%d.png") % id), dr);
-}
-
 } // namespace
 
-MeshAtlas mergeSubmeshes(const Mesh::pointer &mesh
+MeshAtlas mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
                          , const RawAtlas::pointer &atlas
                          , int textureQuality)
 {
-    return MeshAtlasBuilder(mesh, atlas, textureQuality).result();
+    return MeshAtlasBuilder(tileId, mesh, atlas, textureQuality).result();
 }
 
 } } // namespace vadstena::vts
