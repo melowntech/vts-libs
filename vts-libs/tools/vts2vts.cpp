@@ -29,14 +29,14 @@
 #include "geo/csconvertor.hpp"
 #include "geo/coordinates.hpp"
 
-#include "vts-libs/registry/po.hpp"
-#include "vts-libs/vts.hpp"
-#include "vts-libs/vts/encoder.hpp"
-#include "vts-libs/vts/opencv/navtile.hpp"
-#include "vts-libs/vts/io.hpp"
-#include "vts-libs/vts/csconvertor.hpp"
-#include "vts-libs/vts/meshopinput.hpp"
-#include "vts-libs/vts/meshop.hpp"
+#include "../registry/po.hpp"
+#include "../vts.hpp"
+#include "../vts/encoder.hpp"
+#include "../vts/opencv/navtile.hpp"
+#include "../vts/io.hpp"
+#include "../vts/csconvertor.hpp"
+#include "../vts/meshopinput.hpp"
+#include "../vts/meshop.hpp"
 
 #include "./heightmap.hpp"
 

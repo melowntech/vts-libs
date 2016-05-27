@@ -14,11 +14,17 @@ if (TARGET service)
   endif()
 
   if(TARGET vts-libs)
+    set(EXTRA_DEPENDS)
+    if(MAGIC_FOUND)
+      set(EXTRA_DEPENDS MAGIC)
+    endif()
+
     define_module(BINARY vts-tools
-      DEPENDS vts-libs service
+      DEPENDS vts-libs service ${EXTRA_DEPENDS}
       )
 
     macro(vts_libs_tool name)
+      message(STATUS "vts-libs: building ${name} tool")
       if (vts-libs_vts-install_component)
         add_executable(${name} ${ARGN})
         # and install it to along other storage tools
@@ -47,5 +53,15 @@ if (TARGET service)
     vts_libs_tool(vts vts.cpp)
     vts_libs_tool(vts2vts vts2vts.cpp heightmap.hpp heightmap.cpp)
     vts_libs_tool(vts02vts vts02vts.cpp heightmap.hpp heightmap.cpp)
+
+    vts_libs_tool(vts0
+      vts0/vts0.cpp vts0/commands.hpp vts0/fallback.cpp
+      vts0/create.cpp vts0/info.cpp vts0/add.cpp
+      vts0/tileset-info.cpp vts0/tileset-clone.cpp
+      vts0/tileset-paste.cpp)
+
+    if(MAGIC_FOUND)
+      vts_libs_tool(ts2vts0 ts2vts0.cpp)
+    endif()
   endif()
 endif()
