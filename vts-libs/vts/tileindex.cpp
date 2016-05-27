@@ -256,11 +256,6 @@ TileIndex TileIndex::grow(const LodRange &lodRange
     auto filter([type](QTree::value_type value) { return (value & type); });
     TileIndex ti(lodRange, *this, filter, false);
 
-    if (trees_.size() < 2) {
-        // nothing to grow
-        return ti;
-    }
-
     // propagate tiles down
     ti.completeDown();
     // propagate tiles up
