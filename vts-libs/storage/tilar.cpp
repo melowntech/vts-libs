@@ -1404,7 +1404,7 @@ void Tilar::ignoreInterrupts(bool value)
 void Tilar::expect(const Options &options)
 {
     if (options != detail().options) {
-        LOGTHROW(err1, std::runtime_error)
+        LOGTHROW(err1, Corrupted)
             << "Expectation failed: file " << detail().fd.path()
             << " has different configuration "
             << "(expected: " << options << ", " << ", encountered: "
