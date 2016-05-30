@@ -41,6 +41,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((aggregate)("aggregate"))
                       ((remote)("remote"))
                       ((local)("local"))
+                      ((tilePick)("tile-pick"))
                       )
 
 
@@ -132,6 +133,8 @@ private:
     int remote();
 
     int local();
+
+    int tilePick();
 
     bool noexcept_;
     fs::path path_;
@@ -475,6 +478,26 @@ void VtsStorage::configuration(po::options_description &cmdline
                            : vts::CreateMode::failIfExists);
         };
     });
+
+    createParser(cmdline, Command::tilePick
+                 , "--command=tile-pick: create new tiles by picking "
+                 "enumerated tiles from source"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileset", po::value(&tileset_)
+             , "Path to created tileset.")
+            ("overwrite", "Overwrite existing output tileset.")
+            ("tileId", po::value(&tileIds_)
+             , "ID of tile to pick (can be specified multiple times).")
+            ;
+
+        p.configure = [&](const po::variables_map &vars) {
+            createMode_ = (vars.count("overwrite")
+                           ? vts::CreateMode::overwrite
+                           : vts::CreateMode::failIfExists);
+        };
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -575,6 +598,7 @@ int VtsStorage::runCommand()
     case Command::aggregate: return aggregate();
     case Command::remote: return remote();
     case Command::local: return local();
+    case Command::tilePick: return tilePick();
     }
     std::cerr << "vts: no operation requested" << std::endl;
     return EXIT_FAILURE;
@@ -1147,6 +1171,22 @@ int VtsStorage::local()
     createOptions.mode(createMode_);
 
     vts::createLocalTileSet(path_, localPath_, createOptions);
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::tilePick()
+{
+    auto its(vts::openTileSet(path_));
+    auto props(its.getProperties());
+
+    auto ots(vts::createTileSet(tileset_, props, createMode_));
+
+    for (const auto &tileId : tileIds_) {
+        ots.setTile(tileId, its.getTileSource(tileId));
+    }
+
+    ots.flush();
+
     return EXIT_SUCCESS;
 }
 

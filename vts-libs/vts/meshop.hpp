@@ -51,14 +51,13 @@ typedef std::function<math::Point3d(const math::Point3d&)> MeshUnproject;
  *
  * \param mesh enhanced mesh (mesh + projected vertices)
  * \param projectedExtents extents in projected space
- * \param lodDiff LOD difference (used as refinement factor)
  * \param convertor vertex convertor (for new vertex generation)
  * \param mask optional vertex mask (masked out vertices are removed)
  * \return clipped and refined mesh
  */
 EnhancedSubMesh
-refineAndClip(const EnhancedSubMesh &mesh
-              , const math::Extents2 &projectedExtents, Lod lodDiff
+clipAndRefine(const EnhancedSubMesh &mesh
+              , const math::Extents2 &projectedExtents
               , const MeshVertexConvertor &convertor
               , const VertexMask &mask = VertexMask());
 

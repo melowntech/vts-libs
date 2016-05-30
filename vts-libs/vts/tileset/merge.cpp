@@ -784,7 +784,8 @@ public:
 
     virtual math::Point2d etc(const math::Point3d &v) const {
         // point is in projected space (i.e. in coverage raster)
-        return transform(coverage2Texture_, v);
+        auto tmp(transform(coverage2Texture_, v));
+        return math::Point2d(tmp(0), tmp(1));
     }
 
     virtual math::Point2d etc(const math::Point2d &v) const {
@@ -957,8 +958,8 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
     std::size_t smIndex(0);
     for (const auto &sm : input.mesh()) {
         auto refined
-            (refineAndClip({ sm, coverageVertices[smIndex] }
-                           , coverageExtents(1.), localId.lod, sdmc));
+            (clipAndRefine({ sm, coverageVertices[smIndex] }
+                           , coverageExtents(1.), sdmc));
 
         if (refined) {
             addInputToOutput(result, input, refined.mesh, smIndex
@@ -1114,7 +1115,7 @@ Output mergeTile(const TileId &tileId
             // fallback mesh: we have to clip and refine accumulated
             // mesh and process again
             auto refined
-                (refineAndClip(mf.result(), coverageExtents(1.), localId.lod
+                (clipAndRefine(mf.result(), coverageExtents(1.)
                                , SdMeshConvertor(input, nodeInfo, localId)));
 
             MeshFilter rmf(refined.mesh, m, refined.projected
