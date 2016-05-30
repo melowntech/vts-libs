@@ -1,6 +1,9 @@
 #include <vector>
-#include <queue>
 #include <map>
+
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/member.hpp>
 
 #include "dbglog/dbglog.hpp"
 
@@ -9,6 +12,8 @@
 namespace vadstena { namespace vts {
 
 namespace {
+
+namespace bmi = boost::multi_index;
 
 template <typename PointType>
 struct Segment_ {
@@ -196,10 +201,10 @@ void Clipper::clip(const ClipPlane &line)
             , (line.signedDistance(tri[2]) >= .0)
         };
 
-        LOG(debug) << "cutting face " << tri << ":";
-        LOG(debug) << std::fixed << "    " << tri[0] << ", " << inside[0];
-        LOG(debug) << std::fixed << "    " << tri[1] << ", " << inside[1];
-        LOG(debug) << std::fixed << "    " << tri[2] << ", " << inside[2];
+        LOG(debug) << std::fixed << "cutting face " << tri << ":"
+                   << "\n    " << tri[0] << ", " << inside[0]
+                   << "\n    " << tri[1] << ", " << inside[1]
+                   << "\n    " << tri[2] << ", " << inside[2];
 
         int count(inside[0] + inside[1] + inside[2]);
         if (!count) {
@@ -246,23 +251,27 @@ void Clipper::clip(const ClipPlane &line)
                 // one vertex inside: just one face:
                 out.emplace_back(cf.face[vm.a], vi1, vi2);
 
-                LOG(debug) << "    -> one vertex inside, new face:";
-                LOG(debug) << "    " << tri[vm.a];
-                LOG(debug) << "    " << p1;
-                LOG(debug) << "    " << p2;
+                LOG(debug)
+                    << std::fixed
+                    << "    -> one vertex inside, new face:"
+                    << "\n    " << tri[vm.a]
+                    << "\n    " << p1
+                    << "\n    " << p2;
 
             } else {
                 // one vertex outside: two new faces
                 out.emplace_back(vi1, cf.face[vm.b], cf.face[vm.c]);
                 out.emplace_back(vi1, cf.face[vm.c], vi2);
 
-                LOG(debug) << "    -> one vertex outside, new faces:";
-                LOG(debug) << std::fixed << "    " << p1;
-                LOG(debug) << std::fixed << "    " << tri[vm.b];
-                LOG(debug) << std::fixed << "    " << tri[vm.c];
-                LOG(debug) << std::fixed << "    " << p1;
-                LOG(debug) << std::fixed << "    " << tri[vm.c];
-                LOG(debug) << std::fixed << "    " << p2;
+                LOG(debug)
+                    << std::fixed
+                    << "\n    -> one vertex outside, new faces:"
+                    << "\n    " << p1
+                    << "\n    " << tri[vm.b]
+                    << "\n    " << tri[vm.c]
+                    << "\n    " << p1
+                    << "\n    " << tri[vm.c]
+                    << "\n    " << p2;
             }
         }
 
@@ -289,25 +298,29 @@ void Clipper::clip(const ClipPlane &line)
                 // one vertex inside: just one face:
                 out.back().faceTc = Face(face[vm.a], ti1, ti2);
 
-                LOG(debug) << "    -> one vertex inside, new face "
-                           << *out.back().faceTc << ":";
-                LOG(debug) << "    " << tc[face[vm.a]];
-                LOG(debug) << "    " << tp1;
-                LOG(debug) << "    " << tp2;
+                LOG(debug)
+                    << std::fixed
+                    << "    -> one vertex inside, new face "
+                    << *out.back().faceTc << ":"
+                    << "\n    " << tc[face[vm.a]]
+                    << "\n    " << tp1
+                    << "\n    " << tp2;
             } else {
                 // one vertex outside: two new faces
                 out[out.size() - 2].faceTc = Face(ti1, face[vm.b], face[vm.c]);
                 out[out.size() - 1].faceTc = Face(ti1, face[vm.c], ti2);
 
-                LOG(debug) << "    -> one vertex outside, new faces "
-                           << *out[out.size() - 2].faceTc << ", "
-                           << *out[out.size() - 1].faceTc << ":";
-                LOG(debug) << "    " << tp1;
-                LOG(debug) << "    " << tc[face[vm.b]];
-                LOG(debug) << "    " << tc[face[vm.c]];
-                LOG(debug) << "    " << tp1;
-                LOG(debug) << "    " << tc[face[vm.c]];
-                LOG(debug) << "    " << tp2;
+                LOG(debug)
+                    << std::fixed
+                    << "    -> one vertex outside, new faces "
+                    << *out[out.size() - 2].faceTc << ", "
+                    << *out[out.size() - 1].faceTc << ":"
+                    << "\n    " << tp1
+                    << "\n    " << tc[face[vm.b]]
+                    << "\n    " << tc[face[vm.c]]
+                    << "\n    " << tp1
+                    << "\n    " << tc[face[vm.c]]
+                    << "\n    " << tp2;
             }
         }
     }
@@ -317,7 +330,6 @@ void Clipper::clip(const ClipPlane &line)
 
 void Clipper::refine(std::size_t faceCount)
 {
-    faceCount = faces_.size() + 4;
     if (faceCount <= faces_.size()) { return; }
     LOG(info2) << "Refining " << faces_.size() << " faces to " << faceCount
                << " faces.";
@@ -345,9 +357,19 @@ void Clipper::refine(std::size_t faceCount)
         }
     };
 
+    struct EdgeFace {
+        int face;
+        int i1;
+
+        EdgeFace(int face, int i1) : face(face), i1(i1) {}
+
+        typedef std::vector<EdgeFace> list;
+    };
+
     struct Edge {
         EdgeKey key;
         double length;
+        EdgeFace::list faces;
 
         Edge() = default;
 
@@ -361,101 +383,93 @@ void Clipper::refine(std::size_t faceCount)
                  , Edge(EdgeKey(vh, key.v2), length / 2.0));
         }
 
-        struct Compare {
-            bool operator()(const Edge &e1, const Edge &e2) const {
-                return e1.length < e2.length;
-            }
-        };
+        bool operator<(const Edge &o) const {
+            return key < o.key;
+        }
+
+        bool has(int v) const {
+            return (key.v1 == v) || (key.v2 == v);
+        }
     };
 
-    struct EdgeFace {
-        int face;
-        int i1;
+    struct KeyIdx {};
+    struct LengthIdx {};
+    typedef boost::multi_index_container<
+        Edge
+        , bmi::indexed_by<
+              bmi::ordered_unique<
+                    bmi::tag<KeyIdx>
+                    , BOOST_MULTI_INDEX_MEMBER(Edge, EdgeKey, key)
+                  >
 
-        EdgeFace(int face, int i1) : face(face), i1(i1) {}
+              , bmi::ordered_non_unique<
+                    bmi::tag<LengthIdx>
+                    , BOOST_MULTI_INDEX_MEMBER(Edge, double, length)
+                    , std::greater<double>
+                    >
+              >
 
-        typedef std::vector<EdgeFace> list;
-    };
+        > Edges;
 
-    typedef std::map<EdgeKey, EdgeFace::list> EdgeFaces;
-    EdgeFaces edgeFaces;
-
-    auto addFace([&](const EdgeKey &key, int fi, int i)
-    {
-        edgeFaces[key].emplace_back(fi, i);
-    });
-
-    // reuse existing faces
     ClipFace::list &faces(faces_);
+    Edges edges;
 
-    auto addEdges([&](int fi, const Face &face)
+    auto addEdge([&](const EdgeKey &key, int findex, int i1
+                     , int oldFindex)
     {
-        for (auto i : { 0, 1, 2 }) {
-            addFace(EdgeKey(face[i], face[(i + 1) % 3]), fi, i);
+        auto fedges(edges.find(key));
+        if (fedges == edges.end()) {
+            // adding new edge
+            fedges = edges.insert
+                (Edge(key, fpmap_.distance(key.v1, key.v2))).first;
+            const_cast<EdgeFace::list&>
+                (fedges->faces).emplace_back(findex, i1);
+            return;
         }
-    });
 
-    auto removeEdges([&](int fi, const Face &face)
-    {
-        for (auto i : { 0, 1, 2 }) {
-            EdgeKey key(face[i], face[(i + 1) % 3]);
-            auto fedgeFaces(edgeFaces.find(key));
-            if (fedgeFaces == edgeFaces.end()) { continue; }
-            auto &faces(fedgeFaces->second);
+        // updating existing edge
+        auto &faces(const_cast<EdgeFace::list&>(fedges->faces));
+        if (oldFindex >= 0) {
+            auto ffaces(std::find_if(faces.begin(), faces.end()
+                                     , [&](const EdgeFace &ef)
+            {
+                return (ef.face == oldFindex);
+            }));
 
-            for (auto ifaces(faces.begin()); ifaces != faces.end(); ) {
-                if (ifaces->face == fi) {
-                    ifaces = faces.erase(ifaces);
-                } else {
-                    ++ifaces;
-                }
+            if (ffaces != faces.end()) {
+                LOG(debug) << "    replacing face (" << ffaces->face
+                           << ", " << ffaces->i1
+                           << ") with face (" << findex << ", " << i1
+                           << ")";
+                // found -> replace
+                ffaces->face = findex;
+                ffaces->i1 = i1;
+                return;
             }
+
+            // not found -> fall through
         }
+
+        // not found or not replacing -> add
+        faces.emplace_back(findex, i1);
     });
 
-    std::priority_queue<Edge, std::vector<Edge>, Edge::Compare> edges;
     {
-        // build edge info
-        typedef std::map<EdgeKey, Edge> Map;
-
-        Map map;
         std::size_t findex(0);
 
         for (const auto &cf : faces) {
             const auto &face(cf.face);
 
-            auto addEdge([&](int i1)
+            auto addEdgeFrom([&](int i1)
             {
-                // next vertex index
-                int i2((i1 + 1) % 3);
-
-                // resolve vertices
-                int v1(face[i1]);
-                int v2(face[i2]);
-
-                // key in map is in defined order: faces that shared this edge
-                // have the same key
-                EdgeKey key(v1, v2);
-
-                if (map.find(key) == map.end()) {
-                    // adding new edge
-                    map.insert(Map::value_type
-                               (key, Edge(key, fpmap_.distance(v1, v2))));
-                }
-
-                // remembering face
-                addFace(key, findex, i1);
+                addEdge(EdgeKey(face[i1], face[(i1 + 1) % 3])
+                        , findex, i1, -1);
             });
 
-            addEdge(0);
-            addEdge(1);
-            addEdge(2);
+            addEdgeFrom(0);
+            addEdgeFrom(1);
+            addEdgeFrom(2);
             ++findex;
-        }
-
-        // fill queue with collected edges
-        for (const auto &item : map) {
-            edges.push(item.second);
         }
     }
 
@@ -464,8 +478,11 @@ void Clipper::refine(std::size_t faceCount)
 
     (void) tc;
 
+    auto &idx(edges.get<LengthIdx>());
     while (faces.size() < faceCount) {
-        const auto &edge(edges.top());
+        auto iedges(idx.begin());
+
+        const auto &edge(*iedges);
 
         // split edge in half and remember index
         auto vh(fpmap_.add
@@ -476,53 +493,71 @@ void Clipper::refine(std::size_t faceCount)
         auto &e1(std::get<0>(halves));
         auto &e2(std::get<1>(halves));
 
-        LOG(info4) << "Splitting (" << edge.key.v1 << ", " << edge.key.v2
+        LOG(debug) << "Splitting (" << edge.key.v1 << ", " << edge.key.v2
                    << ") into (" << e1.key.v1 << ", " << e1.key.v2
                    << ") and (" <<  e2.key.v1 << ", " << e2.key.v2 << ").";
 
-        auto fedgeFaces(edgeFaces.find(edge.key));
-        if (fedgeFaces != edgeFaces.end()) {
-            auto efaces(fedgeFaces->second);
-            // remove face mapping
-            edgeFaces.erase(fedgeFaces);
+        for (const auto &ef : edge.faces) {
+            // get old and new face index
+            int fi1(ef.face);
+            int fi2(faces.size());
 
-            for (const auto &ef : efaces) {
-                // get old and new face index
-                int fi1(ef.face);
-                int fi2(faces.size());
+            // clone face to second face
+            faces.push_back(faces[fi1].face);
 
-                // clone face to second face
-                faces.push_back(faces[fi1].face);
+            // get reference to first face
+            Face &face1(faces[fi1].face);
+            // get reference to new (second) face
+            Face &face2(faces.back().face);
 
-                // get reference to first face
-                Face &face1(faces[fi1].face);
-                // get reference to new (second) face
-                Face &face2(faces.back().face);
+            int i1(ef.i1);
+            int i2((ef.i1 + 1) % 3);
+            int i3((ef.i1 + 2) % 3);
 
-                // remove original face's edges
-                removeEdges(fi1, face1);
+            LOG(debug) << "    before split: " << face1 << ", " << face2
+                       << " (" << i1 << ")";
+            // replace end edge vertices with half-way vertex
+            face1(i2) = vh;
+            face2(i1) = vh;
+            LOG(debug) << "    after split: " << face1 << ", " << face2;
 
-                int i1(ef.i1);
-                int i2((ef.i1 + 1) % 3);
-
-                LOG(info4) << "    before: " << face1 << ", " << face2;
-                // replace end edge vertices with half-way vertex
-                face1(i2) = vh;
-                face2(i1) = vh;
-                LOG(info4) << "    after: " << face1 << ", " << face2;
-
-                // add edges of two new faces
-                addEdges(fi1, face1);
-                addEdges(fi2, face2);
+            // add new faces to half-edges (since edge is oriented from lower to
+            // higher index we have to check which way the edge is)
+            if (e1.has(face1[i1])) {
+                e1.faces.emplace_back(fi1, i1);
+                e2.faces.emplace_back(fi2, i1);
+            } else {
+                e1.faces.emplace_back(fi2, i1);
+                e2.faces.emplace_back(fi1, i1);
             }
 
-            // add new edges
-            edges.push(e1);
-            edges.push(e2);
+            auto v2(face2[i2]);
+            auto v3(face2[i3]);
+
+            // create 3rd new edge that is shared between two new triangles
+            {
+                EdgeKey e3key(vh, v3);
+                Edge e3(e3key, fpmap_.distance(e3key.v1, e3key.v2));
+                LOG(debug) << "    added edge ("
+                           << e3key.v1 << ", " << e3key.v2 << ")";
+                e3.faces.emplace_back(fi1, i2);
+                e3.faces.emplace_back(fi2, i3);
+                edges.insert(e3);
+            }
+
+            // replace fi1 with fi2 in edge(i2, i3)
+            LOG(debug) << "    remapping edge ("
+                       << v2 << ", " << v3 << ") from " << fi1
+                       << " to " << fi2;
+            addEdge(EdgeKey(v2, v3), fi2, i2, fi1);
         }
 
-        // remove original edge
-        edges.pop();
+        // add new edges
+        edges.insert(e1);
+        edges.insert(e2);
+
+        // and finally remove original edge
+        idx.erase(iedges);
     }
 }
 
