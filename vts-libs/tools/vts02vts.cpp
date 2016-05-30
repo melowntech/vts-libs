@@ -32,16 +32,16 @@
 
 // old stuff
 #include "geometry/binmesh.hpp"
-#include "vts-libs/vts0.hpp"
-#include "vts-libs/vts0/tileset-advanced.hpp"
-#include "vts-libs/vts0/io.hpp"
+#include "../vts0.hpp"
+#include "../vts0/tileset-advanced.hpp"
+#include "../vts0/io.hpp"
 
 // new stuff
-#include "vts-libs/vts.hpp"
-#include "vts-libs/vts/encoder.hpp"
-#include "vts-libs/vts/opencv/navtile.hpp"
-#include "vts-libs/vts/io.hpp"
-#include "vts-libs/vts/csconvertor.hpp"
+#include "../vts.hpp"
+#include "../vts/encoder.hpp"
+#include "../vts/opencv/navtile.hpp"
+#include "../vts/io.hpp"
+#include "../vts/csconvertor.hpp"
 
 #include "./heightmap.hpp"
 

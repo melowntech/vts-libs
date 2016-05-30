@@ -29,14 +29,14 @@
 #include "geo/csconvertor.hpp"
 #include "geo/coordinates.hpp"
 
-#include "vts-libs/registry/po.hpp"
-#include "vts-libs/vts.hpp"
-#include "vts-libs/vts/encoder.hpp"
-#include "vts-libs/vts/opencv/navtile.hpp"
-#include "vts-libs/vts/io.hpp"
-#include "vts-libs/vts/csconvertor.hpp"
-#include "vts-libs/vts/meshopinput.hpp"
-#include "vts-libs/vts/meshop.hpp"
+#include "../registry/po.hpp"
+#include "../vts.hpp"
+#include "../vts/encoder.hpp"
+#include "../vts/opencv/navtile.hpp"
+#include "../vts/io.hpp"
+#include "../vts/csconvertor.hpp"
+#include "../vts/meshopinput.hpp"
+#include "../vts/meshop.hpp"
 
 #include "./heightmap.hpp"
 
@@ -138,7 +138,6 @@ void Vts2Vts::configuration(po::options_description &cmdline
          "the output.")
 
         ("borderClipMargin", po::value(&config_.borderClipMargin)
-         ->default_value(config_.borderClipMargin)
          , "Margin (in fraction of tile dimensions) added to tile extents "
          "where tile touches artificial border definied by tileExtents.")
 
@@ -185,9 +184,6 @@ void Vts2Vts::configure(const po::variables_map &vars)
 
     if (vars.count("tileExtents")) {
         config_.tileExtents = vars["tileExtents"].as<vts::LodTileRange>();
-    } else if (vars.count("borderClipMargin")) {
-        throw po::validation_error
-            (po::validation_error::invalid_option, "borderClipMargin");
     }
 
     if (vars.count("debug.tileId")) {
@@ -373,6 +369,7 @@ public:
                 auto tr(tileRange(node, dstLocalLod, dstCorners));
                 LOG(info1) << "tile range: " << tr;
 
+                // TODO: add margin
                 rasterizeTiles(dstRf, node, dstLod, tr
                                , [&](const vts::TileId &id)
                 {
