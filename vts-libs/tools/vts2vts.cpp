@@ -64,6 +64,13 @@ struct Config {
         : textureQuality(85), forceWatertight(false)
         , clipMargin(1.0 / 128.), borderClipMargin(1.0 / 128.)
     {}
+
+    double maxClipMargin() const {
+        // no tile extents: use only clip margin
+        if (!tileExtents) { return clipMargin; }
+        // use maximum of clipe extents and border clip extents
+        return std::max(clipMargin, borderClipMargin);
+    }
 };
 
 class Vts2Vts : public service::Cmdline
@@ -232,26 +239,36 @@ int bestLod(const vr::ReferenceFrame::Division::Node &node, double area)
 }
 
 vts::TileRange::point_type
-tiled(const vr::ReferenceFrame::Division::Node &node
-      , vts::Lod localLod, const math::Point2 &p)
+tiled(const math::Size2f &ts, const math::Point2 &origin
+      , const math::Point2 &p)
 {
-    auto ts(vts::tileSize(node.extents, localLod));
-
-    // NB: origin is in upper-left corner and Y grows down
-    auto origin(math::ul(node.extents));
     math::Point2 local(p - origin);
     return vts::TileRange::point_type(local(0) / ts.width
                                       , -local(1) / ts.height);
 }
 
 vts::TileRange tileRange(const vr::ReferenceFrame::Division::Node &node
-                         , vts::Lod localLod
-                         , const math::Points2 &points)
+                         , vts::Lod localLod, const math::Points2 &points
+                         , double margin)
 {
+    const auto ts(vts::tileSize(node.extents, localLod));
+    // NB: origin is in upper-left corner and Y grows down
+    const auto origin(math::ul(node.extents));
+
+    math::Size2f isize(ts.width * margin, ts.height * margin);
+    std::array<math::Point2, 4> inflates{{
+            { -isize.width, +isize.height }
+            , { +isize.width, +isize.height }
+            , { +isize.width, -isize.height }
+            , { -isize.width, -isize.height }
+        }};
+
     vts::TileRange r(math::InvalidExtents{});
 
     for (const auto &p : points) {
-        update(r, tiled(node, localLod, p));
+        for (const auto &inflate : inflates) {
+            update(r, tiled(ts, origin, p + inflate));
+        }
     }
 
     return r;
@@ -283,7 +300,8 @@ void rasterizeTiles(const vr::ReferenceFrame &referenceFrame
             << std::fixed << "dst tile: "
             << ni.nodeId() << ", " << ni.extents();
 
-        // TODO: check for incidence with Q
+        // TODO: check for incidence with Q; NB: clip margin must be taken into
+        // account
 
         // check for root
         if (ni.subtree().root().id == rootNode.id) {
@@ -322,7 +340,8 @@ math::Points2 projectCorners(const vr::ReferenceFrame::Division::Node &node
 class SourceInfoBuilder : boost::noncopyable {
 public:
     SourceInfoBuilder(const vts::TileSet &tileset
-                      , const vr::ReferenceFrame &dstRf)
+                      , const vr::ReferenceFrame &dstRf
+                      , double margin)
     {
         const auto &srcRf(tileset.referenceFrame());
         utility::Progress progress(tileset.tileIndex().count());
@@ -366,7 +385,7 @@ public:
                     << " (node's local LOD: " << dstLocalLod << ").";
 
                 // generate tile range from corners
-                auto tr(tileRange(node, dstLocalLod, dstCorners));
+                auto tr(tileRange(node, dstLocalLod, dstCorners, margin));
                 LOG(info1) << "tile range: " << tr;
 
                 // TODO: add margin
@@ -415,7 +434,7 @@ public:
             , const Config &config)
         : vts::Encoder(path, properties, mode)
         , config_(config), input_(input), srcRf_(input_.referenceFrame())
-        , srcInfo_(input_, referenceFrame())
+        , srcInfo_(input_, referenceFrame(), config.maxClipMargin())
         , debugTileIds_(config.debugTileIds.empty() ? nullptr
                         : &config.debugTileIds)
     {
