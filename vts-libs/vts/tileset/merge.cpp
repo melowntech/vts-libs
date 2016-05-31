@@ -453,6 +453,7 @@ struct Coverage {
              , const Input::list &sources)
         : tileId(tileId), sources(sources), hasHoles(false)
         , indices(sources.back().id() + 1, false)
+        , coveredArea_(sources.back().id() + 1, 0)
     {
         generateCoverage(nodeInfo);
         analyze();
@@ -553,6 +554,10 @@ struct Coverage {
         imwrite(filename.string(), img);
     }
 
+    double coveredArea(Input::Id id) const {
+        return coveredArea_[id] / (coverage.cols * coverage.rows);
+    }
+
 private:
     void generateCoverage(const NodeInfo &nodeInfo) {
         // prepare coverage map
@@ -561,7 +566,7 @@ private:
 
         // BEGIN OPTIMIZATION {
 
-        // analyze input and skipp all sets masked by first watertight tile
+        // analyze input and skip all sets masked by first watertight tile
         auto iinput([&]() -> Input::list::const_iterator
         {
             for (auto rinput(sources.rbegin()), reinput(sources.rend());
@@ -586,6 +591,7 @@ private:
 
             // single sourced and marked in indices
             indices[*(single = iinput->id())] = true;
+            coveredArea_[iinput->id()] = (coverage.cols * coverage.rows);
 
             // tile is watertight -> there are no holes at all
 
@@ -628,6 +634,7 @@ private:
                     hasHoles = true;
                 } else {
                     indices[v] = true;
+                    ++coveredArea_[v];
                 }
             }
         }
@@ -654,6 +661,8 @@ private:
         if ((yy < 0) || (yy >= coverage.rows)) { return false; }
         return (coverage(yy, xx) == id);
     }
+
+    std::vector<int> coveredArea_;
 };
 
 class MeshFilter {
@@ -769,12 +778,15 @@ void MeshFilter::addTo(Output &out, double uvAreaScale)
 class SdMeshConvertor : public MeshVertexConvertor {
 public:
     SdMeshConvertor(const Input &input, const NodeInfo &nodeInfo
-                    , const TileId &tileId)
+                    , const TileId &tileId
+                    , Lod lodDiff = 0
+                    , std::size_t faceLimit = 0)
         : geoTrafo_(input.coverage2Sd(nodeInfo))
         , geoConv_(nodeInfo.srs()
                    , nodeInfo.referenceFrame().model.physicalSrs)
         , etcNCTrafo_(etcNCTrafo(tileId))
         , coverage2Texture_(input.coverage2Texture())
+        , lodDiff_(lodDiff), faceLimit_(faceLimit)
     {}
 
     virtual math::Point3d vertex(const math::Point3d &v) const {
@@ -792,6 +804,22 @@ public:
         // point is in the input's texture coordinates system
         return transform(etcNCTrafo_, v);
     }
+
+    virtual std::size_t refineToFaceCount(std::size_t current) const
+    {
+        // no refinement -> use current count
+        if (!lodDiff_) { return current; }
+
+        // scale current number of faces by 4^lodDiff (i.e. 2^(2 * lodDiff))
+        // Limit lodDiff to 8;
+        int exponent(2 * std::min(lodDiff_, Lod(8)));
+        // scale current number of faces
+        std::size_t scaled(current << exponent);
+        // limit scaled number of faces by original number of faces in the mesh
+        return std::min(scaled, faceLimit_);
+    }
+
+    void faceLimit(std::size_t value) { faceLimit_ = value; }
 
 private:
     /** Linear transformation from local coverage coordinates to node's SD SRS.
@@ -811,6 +839,14 @@ private:
      *  cooridnates.
      */
     math::Matrix4 coverage2Texture_;
+
+    /** Difference between current LOD and tile's original lod.
+     */
+    Lod lodDiff_;
+
+    /** Limit number of faces after refinement to given number.
+     */
+    std::size_t faceLimit_;
 };
 
 void renderNavtile(cv::Mat &nt, cv::Mat &ntCoverage
@@ -1083,6 +1119,15 @@ Output mergeTile(const TileId &tileId
     CsConvertor phys2sd(nodeInfo.referenceFrame().model.physicalSrs
                         , nodeInfo.srs());
 
+    // compute bottom (maximum) lod from all inputs
+    auto bottomLod(std::accumulate
+                   (result.source.mesh.begin()
+                    , result.source.mesh.end()
+                    , Lod(0), [](Lod lod, const MeshOpInput &i)
+                    {
+                        return std::max(lod, i.tileId().lod);
+                    }));
+
     // process all input tiles from result source (i.e. only those contributing
     // to the tile)
     for (const auto &input : result.source.mesh) {
@@ -1095,12 +1140,15 @@ Output mergeTile(const TileId &tileId
         auto icoverageVertices(coverageVertices.begin());
 
         // localize tileId -> used to map fallback content into this tile
-        const auto localId(local(input.tileId().lod, tileId));
+        const auto &tileLod(input.tileId().lod);
+        const auto localId(local(tileLod, tileId));
 
         // traverse all submeshes
         for (int m(0), em(mesh.submeshes.size()); m != em; ++m) {
+            const auto &sm(mesh[m]);
+            const auto srcFaceCount(sm.faces.size());
             // accumulate new mesh
-            MeshFilter mf(mesh[m], m, *icoverageVertices++, input, coverage);
+            MeshFilter mf(sm, m, *icoverageVertices++, input, coverage);
             if (!mf) {
                 // empty result mesh -> nothing to do
                 continue;
@@ -1115,8 +1163,11 @@ Output mergeTile(const TileId &tileId
             // fallback mesh: we have to clip and refine accumulated
             // mesh and process again
             auto refined
-                (clipAndRefine(mf.result(), coverageExtents(1.)
-                               , SdMeshConvertor(input, nodeInfo, localId)));
+                (clipAndRefine
+                 (mf.result(), coverageExtents(1.)
+                  , SdMeshConvertor(input, nodeInfo, localId
+                                    , (bottomLod - tileLod)
+                                    , srcFaceCount)));
 
             MeshFilter rmf(refined.mesh, m, refined.projected
                            , input, coverage);

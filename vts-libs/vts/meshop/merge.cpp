@@ -897,7 +897,8 @@ void MeshAtlasBuilder::merge(const Range &range)
     // sanity check
     if (range.empty()) { return; }
 
-    // textured range - always merge
+    // textured range - always merge (even if it is only one mesh because we
+    // want to repack atlas)
     if (range.textured) {
         mergeTextured(range);
         return;

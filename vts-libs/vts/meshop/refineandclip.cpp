@@ -83,6 +83,7 @@ struct ClipFace {
 
     typedef std::vector<ClipFace> list;
 
+    ClipFace(const ClipFace&) = default;
     ClipFace(const Face &face) : face(face) {}
     ClipFace(Face::value_type a, Face::value_type b, Face::value_type c)
         : face(a, b, c)
@@ -146,6 +147,8 @@ public:
     void clip(const ClipPlane &line);
 
     EnhancedSubMesh mesh(const MeshVertexConvertor *convertor = nullptr);
+
+    std::size_t faceCount() const { return faces_.size(); }
 
 private:
     void extractFaces() {
@@ -476,8 +479,6 @@ void Clipper::refine(std::size_t faceCount)
     const auto &tc(ftpmap_.points());
     const auto &vertices(fpmap_.points());
 
-    (void) tc;
-
     auto &idx(edges.get<LengthIdx>());
     while (faces.size() < faceCount) {
         auto iedges(idx.begin());
@@ -503,7 +504,7 @@ void Clipper::refine(std::size_t faceCount)
             int fi2(faces.size());
 
             // clone face to second face
-            faces.push_back(faces[fi1].face);
+            faces.push_back(faces[fi1]);
 
             // get reference to first face
             Face &face1(faces[fi1].face);
@@ -531,8 +532,8 @@ void Clipper::refine(std::size_t faceCount)
                 e2.faces.emplace_back(fi1, i1);
             }
 
-            auto v2(face2[i2]);
-            auto v3(face2[i3]);
+            auto v2(face2(i2));
+            auto v3(face2(i3));
 
             // create 3rd new edge that is shared between two new triangles
             {
@@ -550,6 +551,19 @@ void Clipper::refine(std::size_t faceCount)
                        << v2 << ", " << v3 << ") from " << fi1
                        << " to " << fi2;
             addEdge(EdgeKey(v2, v3), fi2, i2, fi1);
+
+            if (!tc.empty()) {
+                // split texturing face as well
+                Face &tf1(*faces[fi1].faceTc);
+                Face &tf2(*faces[fi2].faceTc);
+
+                // split edge
+                auto th(ftpmap_.add((tc[tf1(i1)] + tc[tf1(i2)]) / 2.0));
+
+                // assign
+                tf1(i2) = th;
+                tf2(i1) = th;
+            }
         }
 
         // add new edges
@@ -687,8 +701,8 @@ EnhancedSubMesh clipAndRefine(const EnhancedSubMesh &mesh
     // clip by clipping planes
     for (const auto &cp : clipPlanes) { clipper.clip(cp); }
 
-    // refine clipped mesh to have same number of faces as the original mesh
-    clipper.refine(mesh.mesh.faces.size());
+    // refine clipped mesh to requested number of faces
+    clipper.refine(convertor.refineToFaceCount(clipper.faceCount()));
 
     return clipper.mesh(&convertor);
 }

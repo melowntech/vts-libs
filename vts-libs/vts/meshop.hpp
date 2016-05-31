@@ -39,6 +39,13 @@ struct MeshVertexConvertor {
      */
     virtual math::Point2d etc(const math::Point2d &v) const = 0;
 
+    /** Number of faces to refine mesh to.
+     *
+     *  \param current current number of faces in clipped mesh before refinement
+     *  \return number of faces to refine mesh to
+     */
+    virtual std::size_t refineToFaceCount(std::size_t current) const = 0;
+
     virtual ~MeshVertexConvertor() {}
 };
 
