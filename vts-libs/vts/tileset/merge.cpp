@@ -453,7 +453,6 @@ struct Coverage {
              , const Input::list &sources)
         : tileId(tileId), sources(sources), hasHoles(false)
         , indices(sources.back().id() + 1, false)
-        , coveredArea_(sources.back().id() + 1, 0)
     {
         generateCoverage(nodeInfo);
         analyze();
@@ -469,9 +468,14 @@ struct Coverage {
             = filterSources(output.source.mesh, navtileSource);
     }
 
-    bool covered(const Face &face, const math::Points3d &vertices
-                 , Input::Id id) const
+    std::tuple<bool, bool>
+    covered(const Face &face, const math::Points3d &vertices
+            , Input::Id id) const
     {
+        std::tuple<bool, bool> res(false, false);
+        auto &covered(std::get<0>(res));
+        auto &inside(std::get<1>(res));
+
         // TODO: repeat border for some distance to take triangles from the tile
         // margin into account
         std::vector<imgproc::Scanline> scanlines;
@@ -486,26 +490,40 @@ struct Coverage {
             (*tri[0], *tri[1], *tri[2], 0, coverage.rows, scanlines);
 
         for (const auto &sl : scanlines) {
-            bool covered(false);
             imgproc::processScanline(sl, 0, coverage.cols
                                      , [&](int x, int y, float)
             {
+                // triangle passes through
+                inside = true;
+
                 // TODO: early exit
                 if (coverage(y, x) == id) {
                     covered = true;
                 }
             });
-            if (covered) { return true; }
+            if (covered) { return res; }
         }
 
         // do one more check in case the triangle is thinner than one pixel
         for (int i = 0; i < 3; ++i) {
-            if (check((*tri[i])(0), (*tri[i])(1), id)) {
-                return true;
+            int x(std::round((*tri[i])(0)));
+            int y(std::round((*tri[i])(1)));
+
+            if ((x < 0) || (x >= coverage.cols)) {
+                continue;
+            }
+            if ((y < 0) || (y >= coverage.rows)) {
+                continue;
+            }
+
+            inside = true;
+            if (coverage(y, x) == id) {
+                covered = true;
+                return res;
             }
         }
 
-        return false;
+        return res;
     }
 
     void fillMeshMask(Output &out) const {
@@ -554,10 +572,6 @@ struct Coverage {
         imwrite(filename.string(), img);
     }
 
-    double coveredArea(Input::Id id) const {
-        return coveredArea_[id] / (coverage.cols * coverage.rows);
-    }
-
 private:
     void generateCoverage(const NodeInfo &nodeInfo) {
         // prepare coverage map
@@ -591,7 +605,6 @@ private:
 
             // single sourced and marked in indices
             indices[*(single = iinput->id())] = true;
-            coveredArea_[iinput->id()] = (coverage.cols * coverage.rows);
 
             // tile is watertight -> there are no holes at all
 
@@ -634,7 +647,6 @@ private:
                     hasHoles = true;
                 } else {
                     indices[v] = true;
-                    ++coveredArea_[v];
                 }
             }
         }
@@ -653,16 +665,6 @@ private:
             single = boost::none;
         }
     }
-
-    bool check(float x, float y, Input::Id id) const {
-        int xx(std::round(x));
-        int yy(std::round(y));
-        if ((xx < 0) || (xx >= coverage.cols)) { return false; }
-        if ((yy < 0) || (yy >= coverage.rows)) { return false; }
-        return (coverage(yy, xx) == id);
-    }
-
-    std::vector<int> coveredArea_;
 };
 
 class MeshFilter {
@@ -676,6 +678,7 @@ public:
         , mesh_(result_.mesh), coverageVertices_(result_.projected)
         , vertexMap_(original.vertices.size(), -1)
         , tcMap_(original.tc.size(), -1)
+        , incidentTriangles_(0)
     {
         original_.cloneMetadataInto(mesh_);
         filter(coverage);
@@ -687,16 +690,21 @@ public:
 
     operator bool() const { return mesh_.vertices.size(); }
 
+    std::size_t maxRefinedFaceCount() const {
+        return ((original_.faces.size() * mesh_.faces.size())
+                / incidentTriangles_);
+    }
+
 private:
     void filter(const Coverage &coverage) {
         // each face covered at least by one pixel is added to new mesh
         for (int f(0), ef(original_.faces.size()); f != ef; ++f) {
-            // only vertices
-            if (coverage.covered
-                (original_.faces[f], originalCoverage_, input_.id()))
-            {
+            auto covered(coverage.covered
+                         (original_.faces[f], originalCoverage_, input_.id()));
+            if (std::get<0>(covered)) {
                 addFace(f);
             }
+            incidentTriangles_ += std::get<1>(covered);
         }
     }
 
@@ -749,6 +757,7 @@ private:
     math::Points3 &coverageVertices_;
     std::vector<int> vertexMap_;
     std::vector<int> tcMap_;
+    int incidentTriangles_;
 };
 
 void addInputToOutput(Output &out, const Input &input
@@ -1146,7 +1155,6 @@ Output mergeTile(const TileId &tileId
         // traverse all submeshes
         for (int m(0), em(mesh.submeshes.size()); m != em; ++m) {
             const auto &sm(mesh[m]);
-            const auto srcFaceCount(sm.faces.size());
             // accumulate new mesh
             MeshFilter mf(sm, m, *icoverageVertices++, input, coverage);
             if (!mf) {
@@ -1167,7 +1175,7 @@ Output mergeTile(const TileId &tileId
                  (mf.result(), coverageExtents(1.)
                   , SdMeshConvertor(input, nodeInfo, localId
                                     , (bottomLod - tileLod)
-                                    , srcFaceCount)));
+                                    , mf.maxRefinedFaceCount())));
 
             MeshFilter rmf(refined.mesh, m, refined.projected
                            , input, coverage);
