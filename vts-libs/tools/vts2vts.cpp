@@ -77,7 +77,7 @@ class Vts2Vts : public service::Cmdline
 {
 public:
     Vts2Vts()
-        : service::Cmdline("vts0vts", BUILD_TARGET_VERSION)
+        : service::Cmdline("vts2vts", BUILD_TARGET_VERSION)
         , createMode_(vts::CreateMode::failIfExists)
     {
     }
