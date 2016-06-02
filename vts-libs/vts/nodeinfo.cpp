@@ -386,4 +386,43 @@ const geo::SrsDefinition& NodeInfo::srsDef() const
     return registry::Registry::srs(node_.srs).srsDef;
 }
 
+NodeInfo::CoveredArea NodeInfo::checkMask(const CoverageMask &mask
+                                          , CoverageType type
+                                          , unsigned int dilation) const
+{
+    if (mask.empty() || !valid()) {
+        // nothing at all
+        return CoveredArea::none;
+    }
+
+    // full node -> result is based on mask content
+    if (!partial()) {
+        return mask.full() ? CoveredArea::whole : CoveredArea::some;
+    }
+
+    // partial node: subtract mask from node's mask; if anything is left then
+    // mask doesn't cover all pixels in node valid area and therefore coverage
+    // is partial; otherwise we have full coverage, i.e. watertight file
+
+    // generate node mask
+    auto nm(coverageMask(type, mask.size(), dilation));
+    auto total(nm.count());
+
+    // subtract provide mask from node mask
+    nm.subtract(mask);
+
+    // empty resukt -> all valid pixels in node are also valid in mask -> whole
+    // valid are is covered
+    if (nm.empty()) { return CoveredArea::whole; }
+
+    // some pixels are left
+    if (nm.count() == total) {
+        // nothing in node's mask is in the mask -> nothing covered
+        return CoveredArea::none;
+    }
+
+    // something in the mask covers valid node mask -> there is something
+    return CoveredArea::some;
+}
+
 } } // namespace vadstena::vts

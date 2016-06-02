@@ -137,6 +137,13 @@ public:
      */
     bool inside(const math::Point2 &point) const;
 
+    enum CoveredArea { none, some, whole };
+
+    /** Evaluates area covered by given mask (of given type).
+     */
+    CoveredArea checkMask(const CoverageMask &mask, CoverageType type
+                          , unsigned int dilation = 0) const;
+
 private:
     /** Node info.
      */
