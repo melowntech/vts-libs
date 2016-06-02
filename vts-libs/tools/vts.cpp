@@ -622,17 +622,8 @@ int tilesetInfo(const fs::path &path);
 int storageInfo(const fs::path &path);
 int storageViewInfo(const fs::path &path);
 
-int tilesetInfo(const std::string &prefix, const fs::path &path)
+void tiInfo(const vts::TileIndex &ti, const std::string &prefix = "")
 {
-    auto ts(vts::openTileSet(path));
-    auto prop(ts.getProperties());
-    std::cout << prefix << "Id: " << prop.id << std::endl;
-    std::cout << prefix << "Type: " << ts.typeInfo() << std::endl;
-    std::cout << prefix << "Reference frame: " << ts.referenceFrame().id
-              << std::endl;
-
-    std::cout << prefix << "Tile type info:" << std::endl;
-    const auto &ti(ts.tileIndex());
     for (auto flag : { vts::TileIndex::Flag::mesh
                 , vts::TileIndex::Flag::atlas
                 , vts::TileIndex::Flag::navtile
@@ -653,6 +644,19 @@ int tilesetInfo(const std::string &prefix, const fs::path &path)
                 << std::endl;
         }
     }
+}
+
+int tilesetInfo(const std::string &prefix, const fs::path &path)
+{
+    auto ts(vts::openTileSet(path));
+    auto prop(ts.getProperties());
+    std::cout << prefix << "Id: " << prop.id << std::endl;
+    std::cout << prefix << "Type: " << ts.typeInfo() << std::endl;
+    std::cout << prefix << "Reference frame: " << ts.referenceFrame().id
+              << std::endl;
+
+    std::cout << prefix << "Tile type info:" << std::endl;
+    tiInfo(ts.tileIndex(), prefix);
 
     return EXIT_SUCCESS;
 }
@@ -1085,18 +1089,7 @@ int VtsStorage::tileIndexInfo()
     ti.load(path_);
     std::cout << "lodRange: " << ti.lodRange() << std::endl;
 
-    for (auto flag : { vts::TileIndex::Flag::mesh
-                , vts::TileIndex::Flag::atlas
-                , vts::TileIndex::Flag::navtile
-                , vts::TileIndex::Flag::reference })
-    {
-        auto stat(ti.statMask(flag));
-        std::cout
-            << "    " << vts::TileFlags(flag) << ":" << std::endl
-            << "        lodRange: " << stat.lodRange << std::endl
-            << "        count = " << stat.count << std::endl
-            ;
-    }
+    tiInfo(ti);
 
     for (const auto &tileId : tileIds_) {
         auto flags(ti.get(tileId));
