@@ -179,8 +179,9 @@ TileId commonAncestor(Lod lod, TileRange range)
     // sanity check
     if (!valid(range)) { return {}; }
 
-    // iterative approach: go the tree up until we hit the same point
-    while (!empty(range)) {
+    // iterative approach: tranverse the tree up until we hit the same parent
+    // point tile
+    while ((range.ll(0) != range.ur(0)) || (range.ll(1) != range.ur(1))) {
         range.ll(0) >>= 1;
         range.ll(1) >>= 1;
         range.ur(0) >>= 1;
