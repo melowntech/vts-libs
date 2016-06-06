@@ -485,7 +485,7 @@ void VtsStorage::configuration(po::options_description &cmdline
                  , [&](UP &p)
     {
         p.options.add_options()
-            ("tileset", po::value(&tileset_)
+            ("tileset", po::value(&tileset_)->required()
              , "Path to created tileset.")
             ("overwrite", "Overwrite existing output tileset.")
             ("tileId", po::value(&tileIds_)

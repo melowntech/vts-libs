@@ -14,7 +14,8 @@ namespace {
         if (mask.size() != NavTile::size()) {
             LOGTHROW(err1, storage::FormatError)
                 << "Navigation coverage mask has different "
-                << "dimensions than" << NavTile::size() << ".";
+                << "dimensions than expected " << NavTile::size()
+                << " (" << mask.size() << ").";
         }
     }
 
