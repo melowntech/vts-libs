@@ -72,26 +72,24 @@ namespace {
 template <typename Operator>
 class Morphology {
 public:
-    Morphology(cv::Mat &data, cv::Mat &tmp, int kernelSize)
+    Morphology(cv::Mat &data, cv::Mat &tmp, math::Size2i kernelRadius)
         : in_(data), tmp_(tmp)
     {
         tmp_ = cv::Scalar(def::InvalidHeight);
-        run(kernelSize);
+        run(kernelRadius);
         std::swap(in_, tmp_);
     }
 
 private:
-    void run(int kernelSize);
+    void run(math::Size2i kernelRadius);
 
     cv::Mat &in_;
     cv::Mat &tmp_;
 };
 
 template <typename Operator>
-void Morphology<Operator>::run(int kernelSize)
+void Morphology<Operator>::run(math::Size2i kernelRadius)
 {
-    kernelSize /= 2;
-
     for (int y(0); y != in_.rows; ++y) {
         for (int x(0); x != in_.cols; ++x) {
             // skip invalid data
@@ -101,11 +99,11 @@ void Morphology<Operator>::run(int kernelSize)
 
             Operator op;
 
-            for (int j = -kernelSize; j <= kernelSize; ++j) {
+            for (int j = -kernelRadius.height; j <= kernelRadius.height; ++j) {
                 const int yy(y + j);
                 if ((yy < 0) || (yy >= in_.rows)) { continue; }
 
-                for (int i = -kernelSize; i <= kernelSize; ++i) {
+                for (int i = -kernelRadius.width; i <= kernelRadius.width; ++i) {
                     const int xx(x + i);
                     if ((xx < 0) || (xx >= in_.cols)) { continue; }
 
@@ -163,17 +161,15 @@ void dtmize(cv::Mat &pane, int count)
 
     cv::Mat tmp(pane.rows, pane.cols, pane.type());
 
-    LOG(info2) << "Eroding heightmap (" << count << " iterations).";
-    for (int c(0); c < count; ++c) {
-        LOG(info1) << "Erosion iteration " << c << ".";
-        Morphology<Erosion>(pane, tmp, 2);
-    }
+    LOG(info2) << "Eroding heightmap Y (" << count << " radius).";
+    Morphology<Erosion>(pane, tmp, {0,count});
+    LOG(info2) << "Eroding heightmap X (" << count << " radius).";
+    Morphology<Erosion>(pane, tmp, {count,0});
 
-    LOG(info2) << "Dilating heightmap (" << count << " iterations).";
-    for (int c(0); c < count; ++c) {
-        LOG(info1) << "Dilation iteration " << c << ".";
-        Morphology<Dilation>(pane, tmp, 2);
-    }
+    LOG(info2) << "Dilating heightmap Y (" << count << " radius).";
+    Morphology<Dilation>(pane, tmp, {0,count});
+    LOG(info2) << "Dilating heightmap X (" << count << " radius).";
+    Morphology<Dilation>(pane, tmp, {count,0});
 }
 
 template <typename ...Args>
