@@ -218,7 +218,7 @@ AggregatedDriver::buildTilesetInfo() const
     TileSetInfo::list out;
 
     for (const auto &tsg : glueOrder(tilesetInfo)) {
-        out.emplace_back(tsg);
+        out.emplace_back(referenceFrame_, tsg);
         auto &tsi(out.back());
 
         // open tileset
@@ -279,7 +279,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     auto addFlags([](TileIndex::Flag::value_type &value
                    , TileIndex::Flag::value_type flags)
     {
-        // clear flags, keep reference and metatile (which is shared)
+        // clear flags, keep reference (which is shared)
         value &= (0xffff0000u);
         value |= (flags & 0xff);
     });
@@ -403,6 +403,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     : Driver(root, options)
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
+    , tsi_(referenceFrame_.metaBinaryOrder)
     , tilesetInfo_(buildTilesetInfo())
 {
     tileset::loadTileSetIndex(tsi_, *this);
@@ -415,6 +416,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     : Driver(root, options, cloneOptions.mode())
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
+    , tsi_(referenceFrame_.metaBinaryOrder)
     , tilesetInfo_(buildTilesetInfo())
 {
     // update and save properties

@@ -48,12 +48,19 @@ public:
         Driver::pointer driver;
         tileset::Index tsi;
         std::string name;
+
+        EnhancedInfo(const registry::ReferenceFrame &referenceFrame)
+            : tsi(referenceFrame.metaBinaryOrder)
+        {}
     };
 
     struct TileSetInfo : EnhancedInfo {
         struct GlueInfo : TileSetGlues::EnhancedGlue, EnhancedInfo {
-            GlueInfo(const TileSetGlues::EnhancedGlue &glue)
-                : EnhancedGlue(glue) {}
+            GlueInfo(const registry::ReferenceFrame &referenceFrame
+                     , const TileSetGlues::EnhancedGlue &glue)
+                : EnhancedGlue(glue)
+                , EnhancedInfo(referenceFrame)
+            {}
 
             typedef std::vector<GlueInfo> list;
         };
@@ -62,10 +69,15 @@ public:
 
         GlueInfo::list glues;
 
-        TileSetInfo(const TileSetGlues &tsg)
-            : tilesetId(tsg.tilesetId)
-            , glues{tsg.glues.begin(), tsg.glues.end()}
-        {}
+        TileSetInfo(const registry::ReferenceFrame &referenceFrame
+                    , const TileSetGlues &tsg)
+            : EnhancedInfo(referenceFrame)
+            , tilesetId(tsg.tilesetId)
+        {
+            for (const auto &g : tsg.glues) {
+                glues.emplace_back(referenceFrame, g);
+            }
+        }
 
         typedef std::vector<TileSetInfo> list;
     };
