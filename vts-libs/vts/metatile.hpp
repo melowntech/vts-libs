@@ -1,6 +1,7 @@
 #ifndef vadstena_libs_vts_metatile_hpp
 #define vadstena_libs_vts_metatile_hpp
 
+#include <memory>
 #include <cstdint>
 #include <iosfwd>
 #include <vector>
@@ -159,6 +160,8 @@ private:
 
 class MetaTile {
 public:
+    typedef std::shared_ptr<MetaTile> pointer;
+
     typedef std::uint32_t size_type;
     typedef math::Point2_<size_type> point_type;
     typedef math::Size2_<size_type> size2_type;
@@ -243,9 +246,16 @@ void saveMetaTile(const boost::filesystem::path &path
 MetaTile loadMetaTile(const boost::filesystem::path &path
                       , std::uint8_t binaryOrder);
 
-MetaTile loadMetaTile(std::istream &in
-                      , std::uint8_t binaryOrder
+MetaTile loadMetaTile(std::istream &in, std::uint8_t binaryOrder
                       , const boost::filesystem::path &path = "unknown");
+
+MetaTile::pointer loadMetaTile(const boost::filesystem::path *path
+                               , std::uint8_t binaryOrder);
+
+MetaTile::pointer loadMetaTile(std::istream *in
+                               , std::uint8_t binaryOrder
+                               , const boost::filesystem::path
+                               &path = "unknown");
 
 std::vector<TileId> children(const MetaNode &node
                              , const TileId &tileId);

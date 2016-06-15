@@ -105,7 +105,7 @@ MetaNode TileSet::getMetaNode(const TileId &tileId) const
 
 MetaTile TileSet::getMetaTile(const TileId &metaId) const
 {
-    auto *mt(detail().findMetaTile(metaId));
+    auto mt(detail().findMetaTile(metaId));
     if (!mt) {
         LOGTHROW(err2, storage::NoSuchTile)
             << "There is no metatile at " << metaId << ".";
@@ -417,6 +417,7 @@ TileSet createLocalTileSet(const boost::filesystem::path &path
 TileSet::Detail::Detail(const Driver::pointer &driver)
     : readOnly(true), driver(driver)
     , propertiesChanged(false), metadataChanged(false)
+    , metaTiles(driver)
     , tileIndex(tsi.tileIndex), references(tsi.references)
 {
     loadConfig();
@@ -432,6 +433,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     , propertiesChanged(false), metadataChanged(false)
     , referenceFrame(registry::Registry::referenceFrame
                      (properties.referenceFrame))
+    , metaTiles(driver)
     , tsi(referenceFrame.metaBinaryOrder)
     , tileIndex(tsi.tileIndex), references(tsi.references)
     , lodRange(LodRange::emptyRange())
@@ -511,7 +513,7 @@ TileNode TileSet::Detail::findNode(const TileId &tileId, bool addNew)
     const
 {
     // not found in memory -> load from disk
-    auto *meta(findMetaTile(tileId, addNew));
+    auto meta(findMetaTile(tileId, addNew));
     if (!meta) { return {}; }
 
     // now, find node in the metatile
@@ -525,61 +527,50 @@ TileNode TileSet::Detail::findNode(const TileId &tileId, bool addNew)
     return { meta, node };
 }
 
-MetaTile* TileSet::Detail::addNewMetaTile(const TileId &tileId) const
+MetaTile::pointer TileSet::Detail::addNewMetaTile(const TileId &tileId) const
 {
     auto mid(metaId(tileId));
     LOG(info1) << "Creating metatile " << mid << ".";
     metadataChanged = true;
 
     // create metatile and store it in tileindex
-    auto *meta(&metaTiles.insert
-               (MetaTiles::value_type
-                (mid, MetaTile(mid,  metaOrder()))).first->second);
-    return meta;
+    return metaTiles.add(std::make_shared<MetaTile>(mid, metaOrder()));
 }
 
-MetaTile* TileSet::Detail::findMetaTile(const TileId &tileId, bool addNew)
+MetaTile::pointer TileSet::Detail::findMetaTile(const TileId &tileId
+                                                , bool addNew)
     const
 {
     TileId mid(metaId(tileId));
+    auto meta(metaTiles.find(mid));
+    if (meta) { return meta; }
 
-    // try to find metatile
-    auto fmetaTiles(metaTiles.find(mid));
+    // does this metatile exist in the index?
+    if (!tsi.meta(mid)) {
+        if (addNew) { return addNewMetaTile(tileId); }
+        return {};
+    }
 
-    // load metatile if not found
-    if (fmetaTiles == metaTiles.end()) {
-        // does this metatile exist in the index?
-        if (!tsi.meta(mid)) {
-            if (addNew) { return addNewMetaTile(tileId); }
-            return nullptr;
-        }
+    // load metatile from driver
+    auto load([&]() -> MetaTile::pointer
+    {
+        auto f(driver->input(mid, TileFile::meta));
+        return metaTiles.add(loadMetaTile(&f->get(), metaOrder(), f->name()));
+    });
 
-        // load metatile from driver
-        auto load([&]()
-        {
-            auto f(driver->input(mid, TileFile::meta));
-            fmetaTiles = metaTiles.insert
-                (MetaTiles::value_type
-                 (mid, loadMetaTile(*f, metaOrder(), f->name()))).first;
-        });
-
-        // some child nodes exist therefore this metatile can exist:
-        //     * read-only mode: error if non-existent
-        //     * read-write mode (addNew == true): add on failure
-        if (addNew) {
-            try {
-                load();
-            } catch (const storage::NoSuchFile&) {
-                // metatile doesn't exist -> Create
-                return addNewMetaTile(tileId);
-            }
-        } else {
-            // try to load and let fail
-            load();
+    // some child nodes exist therefore this metatile can exist:
+    //     * read-only mode: error if non-existent
+    //     * read-write mode (addNew == true): add on failure
+    if (addNew) {
+        try {
+            return load();
+        } catch (const storage::NoSuchFile&) {
+            // metatile doesn't exist -> Create
+            return addNewMetaTile(tileId);
         }
     }
 
-    return &fmetaTiles->second;
+    return load();
 }
 
 registry::ReferenceFrame TileSet::referenceFrame() const
@@ -1112,18 +1103,7 @@ void TileSet::Detail::saveMetadata()
 {
 
     driver->wannaWrite("save metadata");
-
-    for (const auto &item : metaTiles) {
-        const auto &meta(item.second);
-        auto tileId(meta.origin());
-        LOG(info1) << "Saving: " << tileId;
-
-        // save metatile to file
-        auto f(driver->output(tileId, TileFile::meta));
-        meta.save(*f);
-        f->close();
-    }
-
+    metaTiles.save();
     saveTileIndex();
 }
 

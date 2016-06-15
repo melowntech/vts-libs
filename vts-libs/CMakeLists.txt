@@ -192,6 +192,7 @@ set(vts-core_SOURCES
   vts/tileset/tileset.cpp
   vts/tileset/config.hpp vts/tileset/config.cpp
   vts/tileset/tilesetindex.hpp vts/tileset/tilesetindex.cpp
+  vts/tileset/metacache.hpp vts/tileset/metacache.cpp
 
   vts/tileset/driver.hpp
   vts/tileset/driver/driver.cpp

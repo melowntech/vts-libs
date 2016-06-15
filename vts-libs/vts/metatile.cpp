@@ -474,6 +474,30 @@ MetaTile loadMetaTile(const fs::path &path, std::uint8_t binaryOrder)
     return meta;
 }
 
+MetaTile::pointer loadMetaTile(std::istream *in
+                               , std::uint8_t binaryOrder
+                               , const boost::filesystem::path &path)
+{
+    auto meta(std::make_shared<MetaTile>(TileId(), binaryOrder));
+    try {
+        meta->load(*in, path);
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::BadFileFormat)
+            << "Error loading metatile from file " << path
+            << ": " << e.what()
+            << "; state=" << utility::StreamState(*in) << ".";
+    }
+    return meta;
+}
+
+MetaTile::pointer loadMetaTile(const fs::path *path, std::uint8_t binaryOrder)
+{
+    utility::ifstreambuf f(path->string());
+    auto meta(loadMetaTile(&f, binaryOrder, *path));
+    f.close();
+    return meta;
+}
+
 void MetaNode::update(const MetaNode &other)
 {
     auto cf(childFlags());

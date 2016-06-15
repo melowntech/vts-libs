@@ -14,17 +14,18 @@
 #include "../tileindex.hpp"
 #include "./driver.hpp"
 #include "./tilesetindex.hpp"
+#include "./metacache.hpp"
 
 namespace vadstena { namespace vts {
 
 bool check(const SpatialDivisionExtents &l, const SpatialDivisionExtents &r);
 
 struct TileNode {
-    MetaTile *metatile;
+    MetaTile::pointer metatile;
     const MetaNode *metanode;
 
     TileNode() : metatile(), metanode() {}
-    TileNode(MetaTile *metatile, const MetaNode *metanode)
+    TileNode(const MetaTile::pointer &metatile, const MetaNode *metanode)
         : metatile(metatile), metanode(metanode)
     {}
 
@@ -41,8 +42,6 @@ struct TileNode {
     operator bool() const { return metanode; }
 };
 
-typedef std::map<TileId, MetaTile> MetaTiles;
-
 /** Driver that implements physical aspects of tile set.
  */
 struct TileSet::Detail
@@ -58,7 +57,7 @@ struct TileSet::Detail
 
     registry::ReferenceFrame referenceFrame;
 
-    mutable MetaTiles metaTiles;
+    mutable MetaCache metaTiles;
 
     /** Index of existing tiles.
      */
@@ -81,7 +80,7 @@ struct TileSet::Detail
 
     void checkValidity() const;
 
-    MetaTile* findMetaTile(const TileId &tileId, bool addNew = false) const;
+    MetaTile::pointer findMetaTile(const TileId &tileId, bool addNew = false) const;
     TileNode findNode(const TileId &tileId, bool addNew = false) const;
     const MetaNode* findMetaNode(const TileId &tileId) const;
 
@@ -111,7 +110,7 @@ struct TileSet::Detail
     void load(const NavTile::HeightRange &heightRange
               , const IStream::pointer &os, NavTile &navtile) const;
 
-    MetaTile* addNewMetaTile(const TileId &tileId) const;
+    MetaTile::pointer addNewMetaTile(const TileId &tileId) const;
 
     void updateNode(TileId tileId, const MetaNode &metanode
                     , bool watertight);
