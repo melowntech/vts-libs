@@ -57,7 +57,7 @@ struct TileSet::Detail
 
     registry::ReferenceFrame referenceFrame;
 
-    mutable MetaCache metaTiles;
+    mutable std::unique_ptr<MetaCache> metaTiles;
 
     /** Index of existing tiles.
      */

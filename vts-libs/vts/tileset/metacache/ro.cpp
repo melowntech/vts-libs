@@ -1,3 +1,5 @@
+#include <atomic>
+
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/identity.hpp>
@@ -6,7 +8,9 @@
 
 #include "utility/time.hpp"
 
-#include "./metacache.hpp"
+#include "../../../storage/error.hpp"
+
+#include "../metacache.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -14,6 +18,8 @@ namespace limit {
 std::size_t ReadOnlyMetatileLimit(1000);
 std::atomic<std::size_t> roMetatiles(0);
 } // namespace limit
+
+namespace detail {
 
 namespace {
 
@@ -52,10 +58,10 @@ typedef boost::multi_index_container<
 
 } // namespace
 
-class MetaCache::Cache {
+class RoMetaCache : public MetaCache {
 public:
-    Cache(const Driver::pointer &driver)
-        : driver_(driver), readOnly_(driver->readOnly())
+    RoMetaCache(const Driver::pointer &driver)
+        : MetaCache(driver)
     {}
 
     MetaTile::pointer add(const MetaTile::pointer &metatile) {
@@ -63,7 +69,7 @@ public:
         auto res(map_.insert(record));
         if (!res.second) {
             map_.replace(res.first, record);
-        } else if (readOnly_) {
+        } else {
             ++limit::roMetatiles;
         }
 
@@ -87,16 +93,8 @@ public:
     }
 
     void save() {
-        for (auto imap(map_.begin()), emap(map_.end()); imap != emap; ++imap) {
-            const auto &meta(*imap->metatile);
-            auto tileId(meta.origin());
-            LOG(info1) << "Saving: " << tileId;
-
-            // save metatile to file
-            auto f(driver_->output(tileId, TileFile::meta));
-            meta.save(*f);
-            f->close();
-        }
+        LOGTHROW(err1, storage::ReadOnlyError)
+            << "Cannot save metatile from read-only cache.";
     }
 
 private:
@@ -107,18 +105,11 @@ private:
         idx.modify(iterator, [](Record &r) { r.hit(); });
     }
 
-    Driver::pointer driver_;
-    bool readOnly_;
     Map map_;
 };
 
-void MetaCache::Cache::houseKeeping(const TileId *keep)
+void RoMetaCache::houseKeeping(const TileId *keep)
 {
-    if (!readOnly_) {
-        // rw case is unsupported so far
-        return;
-    }
-
     if (limit::roMetatiles <= limit::ReadOnlyMetatileLimit) {
         return;
     }
@@ -147,30 +138,18 @@ void MetaCache::Cache::houseKeeping(const TileId *keep)
     }
 }
 
-MetaCache::MetaCache(const Driver::pointer &driver)
-    : cache_(new Cache(driver))
-{}
+} // namespace detail
 
 MetaCache::~MetaCache() {}
 
-MetaTile::pointer MetaCache::add(const MetaTile::pointer &metatile)
+std::unique_ptr<MetaCache> MetaCache::create(const Driver::pointer &driver)
 {
-    return cache_->add(metatile);
+    return driver->readOnly() ? ro(driver) : rw(driver);
 }
 
-MetaTile::pointer MetaCache::find(const TileId &metaId)
+std::unique_ptr<MetaCache> MetaCache::ro(const Driver::pointer &driver)
 {
-    return cache_->find(metaId);
-}
-
-void MetaCache::clear()
-{
-    cache_->clear();
-}
-
-void MetaCache::save()
-{
-    cache_->save();
+    return std::unique_ptr<MetaCache>(new detail::RoMetaCache(driver));
 }
 
 } } // namespace vadstena::vts

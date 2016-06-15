@@ -417,7 +417,7 @@ TileSet createLocalTileSet(const boost::filesystem::path &path
 TileSet::Detail::Detail(const Driver::pointer &driver)
     : readOnly(true), driver(driver)
     , propertiesChanged(false), metadataChanged(false)
-    , metaTiles(driver)
+    , metaTiles(MetaCache::create(driver))
     , tileIndex(tsi.tileIndex), references(tsi.references)
 {
     loadConfig();
@@ -433,7 +433,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     , propertiesChanged(false), metadataChanged(false)
     , referenceFrame(registry::Registry::referenceFrame
                      (properties.referenceFrame))
-    , metaTiles(driver)
+    , metaTiles(MetaCache::create(driver))
     , tsi(referenceFrame.metaBinaryOrder)
     , tileIndex(tsi.tileIndex), references(tsi.references)
     , lodRange(LodRange::emptyRange())
@@ -534,7 +534,7 @@ MetaTile::pointer TileSet::Detail::addNewMetaTile(const TileId &tileId) const
     metadataChanged = true;
 
     // create metatile and store it in tileindex
-    return metaTiles.add(std::make_shared<MetaTile>(mid, metaOrder()));
+    return metaTiles->add(std::make_shared<MetaTile>(mid, metaOrder()));
 }
 
 MetaTile::pointer TileSet::Detail::findMetaTile(const TileId &tileId
@@ -542,7 +542,7 @@ MetaTile::pointer TileSet::Detail::findMetaTile(const TileId &tileId
     const
 {
     TileId mid(metaId(tileId));
-    auto meta(metaTiles.find(mid));
+    auto meta(metaTiles->find(mid));
     if (meta) { return meta; }
 
     // does this metatile exist in the index?
@@ -555,7 +555,7 @@ MetaTile::pointer TileSet::Detail::findMetaTile(const TileId &tileId
     auto load([&]() -> MetaTile::pointer
     {
         auto f(driver->input(mid, TileFile::meta));
-        return metaTiles.add(loadMetaTile(&f->get(), metaOrder(), f->name()));
+        return metaTiles->add(loadMetaTile(&f->get(), metaOrder(), f->name()));
     });
 
     // some child nodes exist therefore this metatile can exist:
@@ -1103,7 +1103,7 @@ void TileSet::Detail::saveMetadata()
 {
 
     driver->wannaWrite("save metadata");
-    metaTiles.save();
+    metaTiles->save();
     saveTileIndex();
 }
 
@@ -1159,7 +1159,7 @@ void TileSet::Detail::flush()
     driver->flush();
 
     // drop all metatiles from memory cache
-    metaTiles.clear();
+    metaTiles->clear();
 }
 
 void TileSet::Detail::emptyCache() const
@@ -1173,7 +1173,7 @@ void TileSet::Detail::emptyCache() const
     }
 
     // drop all metatiles from memory cache
-    metaTiles.clear();
+    metaTiles->clear();
 }
 
 const Driver& TileSet::driver() const

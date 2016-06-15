@@ -15,18 +15,23 @@ namespace vadstena { namespace vts {
 
 class MetaCache {
 public:
-    MetaCache(const Driver::pointer &driver);
-    ~MetaCache();
+    MetaCache(const Driver::pointer &driver) : driver_(driver) {}
 
-    MetaTile::pointer add(const MetaTile::pointer &metatile);
-    MetaTile::pointer find(const TileId &metaId);
-    void clear();
+    virtual ~MetaCache();
 
-    void save();
+    virtual MetaTile::pointer add(const MetaTile::pointer &metatile) = 0;
+    virtual MetaTile::pointer find(const TileId &metaId) = 0;
+    virtual void clear() = 0;
 
-private:
-    struct Cache;
-    std::unique_ptr<Cache> cache_;
+    virtual void save() = 0;
+
+    static std::unique_ptr<MetaCache> ro(const Driver::pointer &driver);
+    static std::unique_ptr<MetaCache> rw(const Driver::pointer &driver);
+
+    static std::unique_ptr<MetaCache> create(const Driver::pointer &driver);
+
+protected:
+    Driver::pointer driver_;
 };
 
 } } // namespace vadstena::vts
