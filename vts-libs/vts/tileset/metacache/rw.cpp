@@ -18,7 +18,9 @@ class RwMetaCache : public MetaCache {
 public:
     RwMetaCache(const Driver::pointer &driver)
         : MetaCache(driver)
-    {}
+    {
+        LOG(info1) << "RwMetaCache(" << driver->info() << ")";
+    }
 
     virtual MetaTile::pointer add(const MetaTile::pointer &metatile) {
         auto res(map_.insert

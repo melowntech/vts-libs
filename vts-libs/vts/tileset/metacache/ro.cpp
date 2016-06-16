@@ -62,7 +62,9 @@ class RoMetaCache : public MetaCache {
 public:
     RoMetaCache(const Driver::pointer &driver)
         : MetaCache(driver)
-    {}
+    {
+        LOG(info1) << "RoMetaCache(" << driver->info() << ")";
+    }
 
     MetaTile::pointer add(const MetaTile::pointer &metatile) {
         Record record(metatile);

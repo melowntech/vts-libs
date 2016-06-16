@@ -455,6 +455,9 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     // save config and (empty) tile index and reference
     saveConfig();
     saveTileIndex();
+
+    // copy read-only flag from driver after everything has been done
+    readOnly = driver->readOnly();
 }
 
 TileSet::Detail::~Detail()
@@ -1155,11 +1158,11 @@ void TileSet::Detail::flush()
         propertiesChanged = false;
     }
 
-    // flush driver
+    // flush driver; makes read-only
     driver->flush();
 
-    // drop all metatiles from memory cache
-    metaTiles->clear();
+    // new cache - now readonly
+    metaTiles = MetaCache::create(driver);
 }
 
 void TileSet::Detail::emptyCache() const
@@ -1487,7 +1490,7 @@ TileSet concatTileSets(const boost::filesystem::path &path
     auto dst(createTileSet(path, properties, co.mode()));
 
     // clone-in all tileset from back (i.e. in the order they have been
-    // specified bu user
+    // specified by user
     for (; !tsList.empty(); tsList.pop_back()) {
         dst.paste(tsList.back(), createOptions.lodRange());
     }

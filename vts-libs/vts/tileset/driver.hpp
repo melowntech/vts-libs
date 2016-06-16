@@ -252,7 +252,9 @@ inline void Driver::drop()
 
 inline void Driver::flush()
 {
-    return flush_impl();
+    // flush and make read-only
+    flush_impl();
+    readOnly(true);
 }
 
 inline Driver::pointer Driver::clone(const boost::filesystem::path &root
