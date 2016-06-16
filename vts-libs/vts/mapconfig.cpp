@@ -126,8 +126,10 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
         credits.update(registry::creditsAsDict(bl.second.credits));
     }
 
+    // grab credits
     content["credits"] = registry::asJson(credits);
-    content["boundLayers"] = registry::asJson(boundLayers);
+    // get bound layers, no inline credits
+    content["boundLayers"] = registry::asJson(boundLayers, false);
 
     content["textureAtlasReady"] = mapConfig.textureAtlasReady;
 

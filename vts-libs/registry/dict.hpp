@@ -32,6 +32,7 @@ public:
     inline void add(const T &value) { set(value.id, value); }
     inline void add(const T *value) { if (value) { add(*value); } }
 
+    typedef typename map::value_type value_type;
     typedef typename map::const_iterator const_iterator;
     const_iterator begin() const { return map_.begin(); }
     const_iterator end() const { return map_.end(); }

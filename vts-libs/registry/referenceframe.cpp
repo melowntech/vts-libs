@@ -3,6 +3,7 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
+#include <algorithm>
 #include <fstream>
 
 #include <boost/lexical_cast.hpp>
@@ -637,159 +638,6 @@ void build(Json::Value &content, const Srs::dict &srs)
     }
 }
 
-void parse(BoundLayer &bl, const Json::Value &content)
-{
-    if (content.isMember("id")) {
-        Json::get(bl.numericId, content, "id");
-    }
-
-    std::string s;
-    bl.type = boost::lexical_cast<BoundLayer::Type>
-        (Json::get(s, content, "type"));
-
-    Json::get(bl.url, content, "url");
-    if (content.isMember("maskUrl")) {
-        bl.maskUrl = boost::in_place();
-        Json::get(*bl.maskUrl, content, "maskUrl");
-    }
-    if (content.isMember("metaUrl")) {
-        bl.metaUrl = boost::in_place();
-        Json::get(*bl.metaUrl, content, "metaUrl");
-    }
-    Json::get(bl.lodRange.min, content, "lodRange", 0);
-    Json::get(bl.lodRange.max, content, "lodRange", 1);
-
-    bl.tileRange = tileRangeFromJson(content["tileRange"]);
-
-    const auto &credits(content["credits"]);
-    if (!credits.isArray()) {
-        LOGTHROW(err1, Json::Error)
-            << "Type of boundLayer[credits] is not a list.";
-    }
-
-    for (const auto &element : credits) {
-        bl.credits.insert(element.asString());
-    }
-
-    if (content.isMember("availability")) {
-        const auto &availability(content["availability"]);
-
-        if (!availability.isObject()) {
-            LOGTHROW(err1, Json::Error)
-                << "Type of boundLayer[availability] is not an object.";
-        }
-
-        bl.availability = boost::in_place();
-        auto &bla(*bl.availability);
-
-        bla.type = boost::lexical_cast<BoundLayer::Availability::Type>
-            (Json::get(s, availability, "type"));
-
-        switch (bla.type) {
-        case BoundLayer::Availability::Type::negativeType:
-            Json::get(bla.mime, availability, "mime");
-            break;
-
-        case BoundLayer::Availability::Type::negativeCode:
-            v1::parseIntSet(bla.codes, availability["codes"]
-                            , "boundLayer[availability[codes]]");
-            break;
-        }
-    }
-}
-
-void parse(BoundLayer::dict &bls, const Json::Value &content)
-{
-    for (const auto &id : Json::check(content, Json::objectValue)
-             .getMemberNames())
-    {
-        try {
-            BoundLayer bl;
-            bl.id = id;
-            const auto &value(content[id]);
-            if (value.isString()) {
-                // special case: external url
-                bl.type = BoundLayer::Type::external;
-                bl.url = value.asString();
-            } else {
-                parse(bl, Json::check(value, Json::objectValue));
-            }
-            bls.set(id, bl);
-        } catch (const Json::Error &e) {
-            LOGTHROW(err1, storage::FormatError)
-                << "Invalid bound layers file format (" << e.what()
-                << ").";
-        }
-    }
-}
-
-void build(Json::Value &content, const BoundLayer &bl)
-{
-    content = Json::objectValue;
-    if (bl.numericId > 0) {
-        // numeric id is optional
-        content["id"] = bl.numericId;
-    }
-    content["type"] = boost::lexical_cast<std::string>(bl.type);
-    content["url"] = bl.url;
-    if (bl.maskUrl) { content["maskUrl"] = *bl.maskUrl; }
-    if (bl.metaUrl) { content["metaUrl"] = *bl.metaUrl; }
-
-    auto &lodRange(content["lodRange"] = Json::arrayValue);
-    lodRange.append(bl.lodRange.min);
-    lodRange.append(bl.lodRange.max);
-
-    auto &tileRange(content["tileRange"] = Json::arrayValue);
-    auto &tileRangeMin(tileRange.append(Json::arrayValue));
-    tileRangeMin.append(bl.tileRange.ll(0));
-    tileRangeMin.append(bl.tileRange.ll(1));
-    auto &tileRangeMax(tileRange.append(Json::arrayValue));
-    tileRangeMax.append(bl.tileRange.ur(0));
-    tileRangeMax.append(bl.tileRange.ur(1));
-
-    auto &credits(content["credits"] = Json::arrayValue);
-    for (const auto &credit : bl.credits) {
-        credits.append(credit);
-    };
-
-    if (bl.availability) {
-        auto &availability(content["availability"] = Json::objectValue);
-        const auto &bla(*bl.availability);
-        availability["type"] = boost::lexical_cast<std::string>(bla.type);
-
-        switch (bla.type) {
-        case BoundLayer::Availability::Type::negativeType:
-            availability["mime"] = bla.mime;
-            break;
-
-        case BoundLayer::Availability::Type::negativeCode:
-            {
-                auto &codes(availability["codes"] = Json::arrayValue);
-                for (auto code : bla.codes) { codes.append(code); }
-            }
-            break;
-        }
-    }
-}
-
-void build(Json::Value &content, const BoundLayer::dict &bls)
-{
-    content = Json::objectValue;
-
-    for (const auto &item : bls) {
-        const auto &id(item.first);
-        const auto &bl(item.second);
-
-        if (bl.type == BoundLayer::Type::external) {
-            // external bound layer: just URL
-            content[id] = bl.url;
-        } else {
-            // regular bound layer
-            build(content[id], bl);
-        }
-    }
-}
-
 void parse(Credit &c, const Json::Value &content)
 {
     Json::get(c.numericId, content, "id");
@@ -839,6 +687,213 @@ void build(Json::Value &content, const Credit::dict &credits)
 
     for (const auto &c : credits) {
         build(content[c.first], c.second);
+    }
+}
+
+void parse(BoundLayer &bl, const Json::Value &content)
+{
+    if (content.isMember("id")) {
+        Json::get(bl.numericId, content, "id");
+    }
+
+    std::string s;
+    bl.type = boost::lexical_cast<BoundLayer::Type>
+        (Json::get(s, content, "type"));
+
+    Json::get(bl.url, content, "url");
+    if (content.isMember("maskUrl")) {
+        bl.maskUrl = boost::in_place();
+        Json::get(*bl.maskUrl, content, "maskUrl");
+    }
+    if (content.isMember("metaUrl")) {
+        bl.metaUrl = boost::in_place();
+        Json::get(*bl.metaUrl, content, "metaUrl");
+    }
+    Json::get(bl.lodRange.min, content, "lodRange", 0);
+    Json::get(bl.lodRange.max, content, "lodRange", 1);
+
+    bl.tileRange = tileRangeFromJson(content["tileRange"]);
+
+    const auto &credits(content["credits"]);
+    if (credits.isArray()) {
+        for (const auto &element : credits) {
+            bl.credits.set(element.asString(), boost::none);
+        }
+    } else if (credits.isObject()) {
+        for (const auto &id : Json::check(credits, Json::objectValue)
+                 .getMemberNames())
+        {
+            const auto &element(Json::check(credits[id], Json::objectValue));
+            if (element.empty()) {
+                bl.credits.set(id, boost::none);
+            } else {
+                Credit c;
+                c.id = id;
+                parse(c, element);
+                bl.credits.set(id, c);
+            }
+        }
+    } else {
+        LOGTHROW(err1, Json::Error)
+            << "Type of boundLayer[credits] is not a list nor an object.";
+    }
+
+    if (content.isMember("availability")) {
+        const auto &availability(content["availability"]);
+
+        if (!availability.isObject()) {
+            LOGTHROW(err1, Json::Error)
+                << "Type of boundLayer[availability] is not an object.";
+        }
+
+        bl.availability = boost::in_place();
+        auto &bla(*bl.availability);
+
+        bla.type = boost::lexical_cast<BoundLayer::Availability::Type>
+            (Json::get(s, availability, "type"));
+
+        switch (bla.type) {
+        case BoundLayer::Availability::Type::negativeType:
+            Json::get(bla.mime, availability, "mime");
+            break;
+
+        case BoundLayer::Availability::Type::negativeCode:
+            v1::parseIntSet(bla.codes, availability["codes"]
+                            , "boundLayer[availability[codes]]");
+            break;
+
+        case BoundLayer::Availability::Type::negativeSize:
+            Json::get(bla.size, availability, "size");
+            break;
+        }
+    }
+
+    // isTransparent is optional
+    if (content.isMember("isTransparent")) {
+        Json::get(bl.isTransparent, content, "isTransparent");
+    }
+}
+
+void parse(BoundLayer::dict &bls, const Json::Value &content)
+{
+    for (const auto &id : Json::check(content, Json::objectValue)
+             .getMemberNames())
+    {
+        try {
+            BoundLayer bl;
+            bl.id = id;
+            const auto &value(content[id]);
+            if (value.isString()) {
+                // special case: external url
+                bl.type = BoundLayer::Type::external;
+                bl.url = value.asString();
+            } else {
+                parse(bl, Json::check(value, Json::objectValue));
+            }
+            bls.set(id, bl);
+        } catch (const Json::Error &e) {
+            LOGTHROW(err1, storage::FormatError)
+                << "Invalid bound layers file format (" << e.what()
+                << ").";
+        }
+    }
+}
+
+void build(Json::Value &content, const BoundLayer &bl
+           , bool inlineCredits = true)
+{
+    content = Json::objectValue;
+    if (bl.numericId > 0) {
+        // numeric id is optional
+        content["id"] = bl.numericId;
+    }
+    content["type"] = boost::lexical_cast<std::string>(bl.type);
+    content["url"] = bl.url;
+    if (bl.maskUrl) { content["maskUrl"] = *bl.maskUrl; }
+    if (bl.metaUrl) { content["metaUrl"] = *bl.metaUrl; }
+
+    auto &lodRange(content["lodRange"] = Json::arrayValue);
+    lodRange.append(bl.lodRange.min);
+    lodRange.append(bl.lodRange.max);
+
+    auto &tileRange(content["tileRange"] = Json::arrayValue);
+    auto &tileRangeMin(tileRange.append(Json::arrayValue));
+    tileRangeMin.append(bl.tileRange.ll(0));
+    tileRangeMin.append(bl.tileRange.ll(1));
+    auto &tileRangeMax(tileRange.append(Json::arrayValue));
+    tileRangeMax.append(bl.tileRange.ur(0));
+    tileRangeMax.append(bl.tileRange.ur(1));
+
+    bool hasInlineCredits(inlineCredits && std::accumulate
+                          (bl.credits.begin(), bl.credits.end()
+                           , 0, [](int v, const Credits::value_type &item)
+                           {
+                               return v + bool(item.second);
+                           }));
+
+    if (hasInlineCredits) {
+        auto &credits(content["credits"] = Json::objectValue);
+        for (const auto &item : bl.credits) {
+            // add empty dictionary
+            auto &credit(credits[item.first] = Json::objectValue);
+            if (item.second) {
+                // build content if there is some
+                build(credit, *item.second);
+            }
+        }
+    } else {
+        // can be represented as a vector of identifiers
+        auto &credits(content["credits"] = Json::arrayValue);
+        for (const auto &item : bl.credits) {
+            credits.append(item.first);
+        };
+    }
+
+    if (bl.availability) {
+        auto &availability(content["availability"] = Json::objectValue);
+        const auto &bla(*bl.availability);
+        availability["type"] = boost::lexical_cast<std::string>(bla.type);
+
+        switch (bla.type) {
+        case BoundLayer::Availability::Type::negativeType:
+            availability["mime"] = bla.mime;
+            break;
+
+        case BoundLayer::Availability::Type::negativeCode:
+            {
+                auto &codes(availability["codes"] = Json::arrayValue);
+                for (auto code : bla.codes) { codes.append(code); }
+            }
+            break;
+
+        case BoundLayer::Availability::Type::negativeSize:
+            availability["size"] = bla.size;
+            break;
+        }
+    }
+
+    // isTransparent is optional, defaults to false
+    if (bl.isTransparent) {
+        content["isTransparent"] = bl.isTransparent;
+    }
+}
+
+void build(Json::Value &content, const BoundLayer::dict &bls
+           , bool inlineCredits = true)
+{
+    content = Json::objectValue;
+
+    for (const auto &item : bls) {
+        const auto &id(item.first);
+        const auto &bl(item.second);
+
+        if (bl.type == BoundLayer::Type::external) {
+            // external bound layer: just URL
+            content[id] = bl.url;
+        } else {
+            // regular bound layer
+            build(content[id], bl, inlineCredits);
+        }
     }
 }
 
@@ -1162,10 +1217,11 @@ Credit::dict creditsFromJson(const Json::Value &value)
     return credits;
 }
 
-Json::Value asJson(const BoundLayer::dict &boundLayers)
+Json::Value asJson(const BoundLayer::dict &boundLayers
+                   , bool inlineCredits)
 {
     Json::Value content;
-    build(content, boundLayers);
+    build(content, boundLayers, inlineCredits);
     return content;
 }
 
@@ -1246,6 +1302,21 @@ Credit::dict creditsAsDict(const StringIdSet &credits)
     Credit::dict c;
     for (const auto &id : credits) {
         c.add(Registry::credit(id, std::nothrow));
+    };
+    return c;
+}
+
+Credit::dict creditsAsDict(const Credits &credits)
+{
+    Credit::dict c;
+    for (const auto &item : credits) {
+        if (item.second) {
+            // value
+            c.add(*item.second);
+        } else {
+            // just id, resolve
+            c.add(Registry::credit(item.first, std::nothrow));
+        }
     };
     return c;
 }

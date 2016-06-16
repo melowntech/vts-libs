@@ -262,6 +262,8 @@ struct Credit {
     typedef Dictionary<Credit, Credit::NumericId> ndict;
 };
 
+typedef Dictionary<boost::optional<Credit>, std::string> Credits;
+
 struct BoundLayer {
     enum Type { raster, vector, external };
 
@@ -276,19 +278,21 @@ struct BoundLayer {
     boost::optional<std::string> metaUrl;
     LodRange lodRange;
     TileRange tileRange;
-    StringIdSet credits;
+    Credits credits;
 
     struct Availability {
-        enum Type { negativeType, negativeCode };
+        enum Type { negativeType, negativeCode, negativeSize };
         Type type;
 
         std::string mime;
         std::set<int> codes;
+        int size;
     };
 
     boost::optional<Availability> availability;
+    bool isTransparent;
 
-    BoundLayer() : numericId() {}
+    BoundLayer() : numericId(), isTransparent(false) {}
 
     static constexpr char typeName[] = "bound layer";
 
@@ -385,6 +389,7 @@ UTILITY_GENERATE_ENUM_IO(BoundLayer::Type,
 UTILITY_GENERATE_ENUM_IO(BoundLayer::Availability::Type,
     ((negativeType)("negative-type"))
     ((negativeCode)("negative-code"))
+    ((negativeSize)("negative-size"))
 )
 
 // inlines
@@ -448,6 +453,7 @@ inline math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
 Srs::dict listSrs(const ReferenceFrame &referenceFrame);
 
 Credit::dict creditsAsDict(const StringIdSet &credits);
+Credit::dict creditsAsDict(const Credits &credits);
 Credit::dict creditsAsDict(const IdSet &credits);
 
 BoundLayer::dict boundLayersAsDict(const StringIdSet &boundLayers);

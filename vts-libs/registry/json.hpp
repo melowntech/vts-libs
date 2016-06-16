@@ -16,7 +16,8 @@ Json::Value asJson(const ReferenceFrame &rf);
 Json::Value asJson(const Srs::dict &srs);
 Json::Value asJson(const Credit::dict &credits);
 Credit::dict creditsFromJson(const Json::Value &value);
-Json::Value asJson(const BoundLayer::dict &boundLayers);
+Json::Value asJson(const BoundLayer::dict &boundLayers
+                   , bool inlineCredits = true);
 BoundLayer::dict boundLayersFromJson(const Json::Value &value);
 Json::Value asJson(const Position &position);
 Position positionFromJson(const Json::Value &value);
