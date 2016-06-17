@@ -71,20 +71,7 @@ struct Output {
     const NavTile* getNavtile() const { return navtile ? &*navtile : nullptr; }
 
     // Takes content as a tile
-    Tile tile() {
-        Tile tile;
-        if (mesh) {tile.mesh.reset(&*mesh, [](void*) {}); }
-        if (atlas) {tile.atlas.reset(&*atlas, [](void*) {}); }
-        if (navtile) {tile.navtile.reset(&*navtile, [](void*) {}); }
-
-        // join all credits from tile mesh source
-        for (const auto &src : source.mesh) {
-            const auto &sCredits(src.node().credits());
-            tile.credits.insert(sCredits.begin(), sCredits.end());
-        }
-
-        return tile;
-    }
+    Tile tile(int textureQuality);
 
     Mesh& forceMesh();
     RawAtlas& forceAtlas();

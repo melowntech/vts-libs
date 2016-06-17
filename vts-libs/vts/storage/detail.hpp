@@ -147,9 +147,9 @@ struct Storage::Detail
 
     void add(const TileSet &tileset, const Location &where
              , const StoredTileset &tilesetInfo
-             , const TileFilter &filter);
+             , const TileFilter &filter, int textureQuality);
 
-    void readd(const TilesetId &tilesetId);
+    void readd(const TilesetId &tilesetId, int textureQuality);
 
     void remove(const TilesetIdList &tilesetIds);
 

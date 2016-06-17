@@ -1195,4 +1195,40 @@ Output mergeTile(const TileId &tileId
     return result;
 }
 
+Tile Output::tile(int textureQuality)
+{
+    Tile tile;
+
+    if (textureQuality && mesh) {
+        // we have mesh and should generate textures, try to optimize it
+
+        // wrap mesh and atlas in shared pointers
+        Mesh::pointer m;
+        RawAtlas::pointer a;
+        if (atlas) { a.reset(&*atlas, [](void*) {}); }
+        if (mesh) { m.reset(&*mesh, [](void*) {}); }
+
+        // optimize
+        auto optimized(mergeSubmeshes(tileId, m, a, textureQuality));
+
+        // assign output
+        tile.mesh = std::get<0>(optimized);
+        tile.atlas = std::get<1>(optimized);
+    } else {
+        // nothing, just wrap members into output
+        if (mesh) { tile.mesh.reset(&*mesh, [](void*) {}); }
+        if (atlas) { tile.atlas.reset(&*atlas, [](void*) {}); }
+    }
+
+    if (navtile) { tile.navtile.reset(&*navtile, [](void*) {}); }
+
+    // join all credits from tile mesh source
+    for (const auto &src : source.mesh) {
+        const auto &sCredits(src.node().credits());
+        tile.credits.insert(sCredits.begin(), sCredits.end());
+    }
+
+    return tile;
+}
+
 } } } // namespace vadstena::vts::merge

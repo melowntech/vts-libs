@@ -9,6 +9,7 @@
 #include "../io.hpp"
 
 #include "../../storage/tidguard.hpp"
+#include "../meshop.hpp"
 #include "./detail.hpp"
 #include "./merge.hpp"
 
@@ -98,11 +99,13 @@ struct Merger {
 public:
     Merger(TileSet::Detail &self, const TileIndex &generate
            , const TileIndex &navtileGenerate
-           , const TileSet::const_ptrlist &srcSets)
+           , const TileSet::const_ptrlist &srcSets
+           , int textureQuality)
         : self_(self), world_(generate), generate_(generate)
         , navtileGenerate_(navtileGenerate)
         , src_(details(self, srcSets)), top_(*src_.back())
         , topId_(src_.size() - 1), progress_(generate_.count())
+        , textureQuality_(textureQuality)
     {
         // make world complete
         world_.complete();
@@ -151,6 +154,8 @@ private:
     const merge::Input::Id topId_;
 
     utility::Progress progress_;
+
+    const int textureQuality_;
 };
 
 inline bool Merger::isGlueTile(const merge::Output &tile) const
@@ -225,8 +230,7 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
                           , Constraints(*this, g, ng)));
 
     if (tile) {
-        // tile generated, store into glue
-        self_.setTile(tileId, tile.tile(), &nodeInfo);
+        self_.setTile(tileId, tile.tile(textureQuality_), &nodeInfo);
     } else if (g && !tile.source.mesh.empty()) {
         // no tile generated but there are some data to generate it
         auto topSourceId(tile.source.mesh.back().id());
@@ -326,7 +330,7 @@ TileIndex buildGenerateSet(const char *dumpRoot
 
 } // namespace
 
-void TileSet::createGlue(const const_ptrlist &sets)
+void TileSet::createGlue(const const_ptrlist &sets, int textureQuality)
 {
     if (sets.size() < 2) {
         LOG(info3) << "(glue) Too few sets to glue together ("
@@ -364,7 +368,7 @@ void TileSet::createGlue(const const_ptrlist &sets)
                   , referenceFrameId);
 
     // run merge
-    Merger(detail(), generate, navtileGenerate, sets);
+    Merger(detail(), generate, navtileGenerate, sets, textureQuality);
 
     // copy position from top dataset
     setPosition(sets.back()->getProperties().position);

@@ -41,6 +41,7 @@ namespace vadstena { namespace vts {
 void Storage::add(const boost::filesystem::path &tilesetPath
                   , const Location &where
                   , const StoredTileset &info
+                  , int textureQuality
                   , const TileFilter &filter)
 {
     auto ts(openTileSet(tilesetPath));
@@ -48,12 +49,12 @@ void Storage::add(const boost::filesystem::path &tilesetPath
     if (useInfo.tilesetId.empty()) {
         useInfo.tilesetId = ts.getProperties().id;
     }
-    detail().add(ts, where, useInfo, filter);
+    detail().add(ts, where, useInfo, filter, textureQuality);
 }
 
-void Storage::readd(const TilesetId &tilesetId)
+void Storage::readd(const TilesetId &tilesetId, int textureQuality)
 {
-    detail().readd(tilesetId);
+    detail().readd(tilesetId, textureQuality);
 }
 
 void Storage::remove(const TilesetIdList &tilesetIds)
@@ -343,7 +344,8 @@ bool BitSet::increment()
 
 Storage::Properties
 createGlues(Tx &tx, Storage::Properties properties
-            , const std::tuple<TileSets, std::size_t> &tsets)
+            , const std::tuple<TileSets, std::size_t> &tsets
+            , int textureQuality)
 {
     if (properties.tilesets.size() <= 1) {
         LOG(info3) << "No need to create any glue.";
@@ -485,7 +487,7 @@ createGlues(Tx &tx, Storage::Properties properties
                                        , CreateMode::overwrite));
 
                 // create glue
-                gts.createGlue(combination);
+                gts.createGlue(combination, textureQuality);
 
                 // empty cached input data (no need for them now)
                 for (const auto *ts : combination) {
@@ -603,7 +605,8 @@ Storage::Detail::removeTilesets(const Properties &properties
 void Storage::Detail::add(const TileSet &tileset
                           , const Location &where
                           , const StoredTileset &tilesetInfo
-                          , const TileFilter &filter)
+                          , const TileFilter &filter
+                          , int textureQuality)
 {
     vadstena::storage::TIDGuard tg
         (str(boost::format("add(%s)") % tilesetInfo.tilesetId));
@@ -640,7 +643,8 @@ void Storage::Detail::add(const TileSet &tileset
         if (tilesetInfo.glueMode != StoredTileset::GlueMode::none) {
             auto tilesets(openTilesets(tx, nProperties.tilesets, dst
                                        , StoredTileset::GlueMode::full));
-            nProperties = createGlues(tx, nProperties, tilesets);
+            nProperties = createGlues(tx, nProperties, tilesets
+                                      , textureQuality);
         }
 
         tx.commit();
@@ -651,7 +655,8 @@ void Storage::Detail::add(const TileSet &tileset
     saveConfig();
 }
 
-void Storage::Detail::readd(const TilesetId &tilesetId)
+void Storage::Detail::readd(const TilesetId &tilesetId
+                            , int textureQuality)
 {
     vadstena::storage::TIDGuard tg
         (str(boost::format("readd(%s)") % tilesetId));
@@ -679,7 +684,8 @@ void Storage::Detail::readd(const TilesetId &tilesetId)
         if (tilesetInfo.glueMode != StoredTileset::GlueMode::none) {
             auto tilesets(openTilesets(tx, properties.tilesets, dst
                                        , StoredTileset::GlueMode::full));
-            nProperties = createGlues(tx, nProperties, tilesets);
+            nProperties = createGlues(tx, nProperties, tilesets
+                                      , textureQuality);
         }
 
         tx.commit();

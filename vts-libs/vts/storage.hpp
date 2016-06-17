@@ -127,7 +127,7 @@ public:
      *  Tileset's own id is used if info.tilesetId is empty.
      */
     void add(const boost::filesystem::path &tilesetPath, const Location &where
-             , const StoredTileset &info
+             , const StoredTileset &info, int textureQuality
              , const TileFilter &filter = TileFilter());
 
     /** Readds existing tileset.
@@ -135,7 +135,7 @@ public:
      *
      *  \param tilesetId identifier of the tileset in the storage.
      */
-    void readd(const TilesetId &tilesetId);
+    void readd(const TilesetId &tilesetId, int textureQuality);
 
     /** Removes given tileset from the storage.
      *

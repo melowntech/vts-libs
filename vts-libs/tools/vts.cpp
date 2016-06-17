@@ -55,6 +55,7 @@ public:
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
         , glueMode_(vts::StoredTileset::GlueMode::full)
+        , textureQuality_(0)
     {}
 
     ~VtsStorage() {}
@@ -159,6 +160,7 @@ private:
     std::string remoteUrl_;
     fs::path localPath_;
     boost::optional<std::string> optSrs_;
+    int textureQuality_;
 
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
 };
@@ -230,6 +232,9 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "Glue generation mode.")
             ("lodRange", po::value<vts::LodRange>()
              , "Limits used LOD range from source tileset.")
+            ("textureQuality", po::value(&textureQuality_)
+             ->required()->default_value(textureQuality_)
+             , "Quality of repacked atlases. 0 means no repacking.")
             ;
 
         p.positional.add("tileset", 1);
@@ -252,6 +257,9 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.options.add_options()
             ("tilesetId", po::value(&tilesetId_)->required()
              , "TilesetId to work with.")
+            ("textureQuality", po::value(&textureQuality_)
+             ->required()->default_value(textureQuality_)
+             , "Quality of repacked atlases. 0 means no repacking.")
             ;
 
         p.positional.add("tilesetId", 1);
@@ -725,6 +733,7 @@ int VtsStorage::add()
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
     storage.add(tileset_, where_
                 , vts::StoredTileset(optTilesetId_, glueMode_)
+                , textureQuality_
                 , vts::TileFilter().lodRange(optLodRange_));
     return EXIT_SUCCESS;
 }
@@ -732,7 +741,7 @@ int VtsStorage::add()
 int VtsStorage::readd()
 {
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
-    storage.readd(tilesetId_);
+    storage.readd(tilesetId_, textureQuality_);
     return EXIT_SUCCESS;
 }
 
