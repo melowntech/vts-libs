@@ -609,8 +609,6 @@ void MetaTile::update(const MetaTile &in, References &references
 
                     // unset output references -> store
                     outr = surfaceReference;
-                    outr = reference;
-                    LOG(info4) << "Remembering reference: " << outr;
                 }
                 continue;
             }
