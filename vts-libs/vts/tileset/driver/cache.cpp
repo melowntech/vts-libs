@@ -43,7 +43,11 @@ int fileType(TileFile type) {
     case TileFile::mesh: return 0;
     case TileFile::atlas: return 1;
     case TileFile::navtile: return 0;
+    default: break;
     }
+
+    utility::raise<storage::NoSuchTile>("File type <%s> unsupported by "
+                                        "this driver", type);
     throw;
 }
 

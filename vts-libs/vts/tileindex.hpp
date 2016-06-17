@@ -41,6 +41,10 @@ public:
         };
 
         static bool isReal(value_type flags) { return (flags & real); };
+
+        static bool isWatertight(value_type flags) {
+            return (flags & watertight);
+        };
     };
 
     TileIndex() : minLod_() {}

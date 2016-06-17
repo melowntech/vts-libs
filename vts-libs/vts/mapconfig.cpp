@@ -49,6 +49,22 @@ void asJson(const SurfaceCommonConfig &surface, Json::Value &s
         = (surface.root / fileTemplate(storage::TileFile::navtile
                                        , surface.revision)).string();
 
+    if (surface.has2dInterface) {
+        auto &i2d(s["2d"] = Json::objectValue);
+        i2d["metaUrl"]
+            = (surface.root / fileTemplate(storage::TileFile::meta2d
+                                           , surface.revision)).string();
+        i2d["maskUrl"]
+            = (surface.root / fileTemplate(storage::TileFile::mask
+                                           , surface.revision)).string();
+        i2d["orthoUrl"]
+            = (surface.root / fileTemplate(storage::TileFile::ortho
+                                           , surface.revision)).string();
+        i2d["creditsUrl"]
+            = (surface.root / fileTemplate(storage::TileFile::credits
+                                           , surface.revision)).string();
+    }
+
     if (surface.textureLayer) {
         s["textureLayer"] = *surface.textureLayer;
         boundLayers.add

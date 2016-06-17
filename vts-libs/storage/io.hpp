@@ -13,6 +13,10 @@ UTILITY_GENERATE_ENUM_IO(TileFile,
                          ((mesh))
                          ((atlas))
                          ((navtile))
+                         ((meta2d))
+                         ((mask))
+                         ((ortho))
+                         ((credits))
                          )
 
 UTILITY_GENERATE_ENUM_IO(File,

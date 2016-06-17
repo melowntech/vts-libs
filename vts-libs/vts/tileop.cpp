@@ -4,6 +4,7 @@
 #include <boost/format.hpp>
 
 #include "dbglog/dbglog.hpp"
+#include "utility/raise.hpp"
 #include "math/math.hpp"
 
 #include "./tileop.hpp"
@@ -16,6 +17,11 @@ namespace {
     const std::string MeshExt("bin");
     const std::string AtlasExt("jpg");
     const std::string NavTileExt("nav");
+    const std::string Meta2dExt("2dmeta");
+    const std::string MaskExt("mask");
+    const std::string OrthoExt("ortho");
+    const std::string CreditsExt("credits");
+
     const std::string RawMeshExt("rmesh");
     const std::string RawAtlasExt("ratlas");
     const std::string RawNavTileExt("rnavtile");
@@ -26,44 +32,48 @@ namespace {
         case TileFile::mesh: return MeshExt;
         case TileFile::atlas: return AtlasExt;
         case TileFile::navtile: return NavTileExt;
-        default: throw "Unexpected TileFile value. Go fix your program.";
+        case TileFile::meta2d: return Meta2dExt;
+        case TileFile::mask: return MaskExt;
+        case TileFile::ortho: return OrthoExt;
+        case TileFile::credits: return CreditsExt;
+        default:
+            utility::raise<std::string>
+                ("Unexpected TileFile value <%s>. Go fix your program."
+                 , type);
         }
         throw;
     }
 
     inline const char* tileFile(const char *p, TileFile &type, bool *raw) {
         if (raw) {*raw = false; }
-
-        if (!MetaExt.compare(p)) {
-            type = TileFile::meta;
-            return p + MetaExt.size();
-        } else if (!MeshExt.compare(p)) {
-            type = TileFile::mesh;
-            return p + MeshExt.size();
-        } else if (!AtlasExt.compare(p)) {
-            type = TileFile::atlas;
-            return p + AtlasExt.size();
-        } else if (!NavTileExt.compare(p)) {
-            type = TileFile::navtile;
-            return p + NavTileExt.size();
-        } else if (!raw) {
-            return nullptr;
+#define HANDLE_EXT(EXT, TYPE)                   \
+        if (!EXT.compare(p)) {                  \
+            type = TileFile::TYPE;              \
+            return p + EXT.size();              \
         }
 
-        // raw part follows
-        if (!RawMeshExt.compare(p)) {
-            type = TileFile::mesh;
-            *raw = true;
-            return p + RawMeshExt.size();
-        } else  if (!RawAtlasExt.compare(p)) {
-            type = TileFile::atlas;
-            *raw = true;
-            return p + RawAtlasExt.size();
-        } else  if (!RawNavTileExt.compare(p)) {
-            type = TileFile::navtile;
-            *raw = true;
-            return p + RawNavTileExt.size();
+        HANDLE_EXT(MetaExt, meta)
+        HANDLE_EXT(MeshExt, mesh)
+        HANDLE_EXT(AtlasExt, atlas)
+        HANDLE_EXT(NavTileExt, navtile)
+        HANDLE_EXT(Meta2dExt, meta2d)
+        HANDLE_EXT(MaskExt, mask)
+        HANDLE_EXT(OrthoExt, ortho)
+        HANDLE_EXT(CreditsExt, credits)
+        if (!raw) { return nullptr; }
+
+#undef HANDLE_EXT
+#define HANDLE_EXT(EXT, TYPE)                   \
+        if (!EXT.compare(p)) {                  \
+            type = TileFile::TYPE;              \
+            *raw = true;                        \
+            return p + EXT.size();              \
         }
+
+        HANDLE_EXT(RawMeshExt, mesh)
+        HANDLE_EXT(RawAtlasExt, atlas)
+        HANDLE_EXT(RawNavTileExt, navtile)
+#undef HANDLE_EXT
 
         return nullptr;
     }
@@ -73,7 +83,20 @@ namespace {
     {
         auto pp(tileFile(p, type, raw));
         if (!pp) { return pp; }
-        bool mustHaveSubFile((type == TileFile::atlas) && !(raw && *raw));
+
+        // subfile is mandatory for given non-raw files
+        bool mustHaveSubFile([&]() -> bool {
+                switch (type) {
+                case TileFile::atlas:
+                case TileFile::ortho:
+                    return !(raw && *raw);
+                    break;
+
+                default: break;
+                }
+                return false;
+            }());
+
         if (hasSubFile != mustHaveSubFile) { return nullptr; }
         return pp;
     }
@@ -94,8 +117,12 @@ std::string fileTemplate(TileFile type, boost::optional<unsigned int> revision)
         ext = str(boost::format("%s?%s") % ext % *revision);
     }
 
-    if (type == TileFile::atlas) {
+    switch (type) {
+    case TileFile::atlas:
+    case TileFile::ortho:
         return str(boost::format("{lod}-{x}-{y}-{sub}.%s") % ext);
+
+    default: break;
     }
 
     return str(boost::format("{lod}-{x}-{y}.%s") % ext);

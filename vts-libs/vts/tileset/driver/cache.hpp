@@ -9,9 +9,13 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/uuid/uuid.hpp>
 
+#include "utility/raise.hpp"
+
+#include "../../../storage/io.hpp"
 #include "../../../storage/tilar.hpp"
 #include "../../../storage/streams.hpp"
 #include "../../../storage/resources.hpp"
+#include "../../../storage/error.hpp"
 #include "../../basetypes.hpp"
 
 #include "./options.hpp"
@@ -68,7 +72,11 @@ inline Cache::Archives& Cache::getArchives(TileFile type)
     case TileFile::meta: return *metatiles_;
     case TileFile::mesh: case TileFile::atlas: return *tiles_;
     case TileFile::navtile: return *navtiles_;
+    default: break;
     }
+
+    utility::raise<storage::NoSuchTile>("File type <%s> unsupported by "
+                                        "this driver", type);
     throw;
 }
 

@@ -22,6 +22,10 @@
 #include "utility/openmp.hpp"
 #include "utility/path.hpp"
 
+#ifdef UTILITY_HAS_PROC
+#  include "utility/procstat.hpp"
+#endif
+
 #include "../../storage/error.hpp"
 #include "../../storage/tidguard.hpp"
 #include "../storage.hpp"
@@ -37,6 +41,28 @@
 namespace fs = boost::filesystem;
 
 namespace vadstena { namespace vts {
+
+namespace {
+
+#ifdef UTILITY_HAS_PROC
+
+void reportMemoryUsage(const std::string &what)
+{
+    const double kb2gb(1 << 20);
+    auto stat(utility::getProcStat());
+    LOG(info3)
+        << std::fixed
+        << "Memory occupied " << what << ": " << (stat.occupies() / kb2gb)
+        << " GiB (of which " << (stat.swap / kb2gb) << " GiB is swapped).";
+}
+
+#else
+
+void reportMemoryUsage(const std::string&) {}
+
+#endif
+
+} // namespace
 
 void Storage::add(const boost::filesystem::path &tilesetPath
                   , const Location &where
@@ -480,6 +506,7 @@ createGlues(Tx &tx, Storage::Properties properties
             gprop.referenceFrame
                 = combination.front()->getProperties().referenceFrame;
 
+            reportMemoryUsage("before glue creation");
             {
                 // create glue
                 auto tmpPath(tx.addGlue(glue));
@@ -489,10 +516,14 @@ createGlues(Tx &tx, Storage::Properties properties
                 // create glue
                 gts.createGlue(combination, textureQuality);
 
+                reportMemoryUsage("after merge");
+
                 // empty cached input data (no need for them now)
                 for (const auto *ts : combination) {
                     ts->emptyCache();
                 }
+
+                reportMemoryUsage("after emptying input caches");
 
                 if (gts.empty()) {
                     // unusable
@@ -507,10 +538,13 @@ createGlues(Tx &tx, Storage::Properties properties
                     // flush
                     gts.flush();
 
+                    reportMemoryUsage("after glue flush");
+
                     // and remember
                     properties.glues[glue.id] = glue;
                 }
             }
+            reportMemoryUsage("after glue creation");
 
         } while (flags.increment());
     }

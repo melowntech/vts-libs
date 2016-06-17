@@ -221,7 +221,7 @@ public:
      *
      *  Priority grows from left to right.
      */
-    void createGlue(const const_ptrlist &sets);
+    void createGlue(const const_ptrlist &sets, int textureQuality);
 
     bool externallyChanged() const;
 

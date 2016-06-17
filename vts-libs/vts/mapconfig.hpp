@@ -21,9 +21,10 @@ struct SurfaceCommonConfig {
     storage::LodRange lodRange;
     registry::TileRange tileRange;
     boost::optional<std::string> textureLayer;
+    bool has2dInterface;
     unsigned int revision;
 
-    SurfaceCommonConfig() : revision(0) {}
+    SurfaceCommonConfig() : has2dInterface(false), revision(0) {}
 };
 
 struct SurfaceConfig : SurfaceCommonConfig {
