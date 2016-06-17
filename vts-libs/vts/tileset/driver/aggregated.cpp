@@ -88,7 +88,8 @@ private:
 IStream::pointer
 buildMeta(const TileSetInfo::list &tsil, const fs::path &root
           , const registry::ReferenceFrame &referenceFrame
-          , std::time_t lastModified, const TileId &tileId)
+          , std::time_t lastModified, const TileId &tileId
+          , const TileIndex &tileIndex)
 {
     // output metatile
     auto bo(referenceFrame.metaBinaryOrder);
@@ -120,6 +121,16 @@ buildMeta(const TileSetInfo::list &tsil, const fs::path &root
             ometa.update(loadMeta(tileId, tsi.driver), references, idx);
         }
     }
+
+    // generate child flags based on tile index
+    // TODO: make better by some quadtree magic
+    ometa.for_each([&](const TileId &nodeId, MetaNode &node)
+    {
+        for (const auto &child : vts::children(nodeId)) {
+            node.setChildFromId
+                (child, tileIndex.validSubtree(child));
+        }
+    });
 
     // create stream and serialize metatile
 
@@ -489,7 +500,8 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
 
     if (type == TileFile::meta) {
         return buildMeta(tilesetInfo_, root(), referenceFrame_
-                         , configStat().lastModified, tileId);
+                         , configStat().lastModified, tileId
+                         , tsi_.tileIndex);
     }
 
     if (const auto *tsi = findTileSet(tilesetInfo_, tileId)) {
@@ -519,7 +531,8 @@ FileStat AggregatedDriver::stat_impl(const TileId &tileId, TileFile type) const
     if (type == TileFile::meta) {
         // TODO: make better
         return buildMeta(tilesetInfo_, root(), referenceFrame_
-                         , configStat().lastModified, tileId)->stat();
+                         , configStat().lastModified, tileId
+                         , tsi_.tileIndex)->stat();
     }
 
     if (const auto *tsi = findTileSet(tilesetInfo_, tileId)) {

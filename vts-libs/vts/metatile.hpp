@@ -39,6 +39,8 @@ struct MetaNode {
             , lrChild = 0x80
 
             , allChildren = (ulChild | urChild | llChild | lrChild)
+            , nonChildren = value_type(~allChildren)
+            , none = 0x00
 
             // tile is real if it contains geometry
             , real = geometryPresent
@@ -99,7 +101,14 @@ struct MetaNode {
 
     Flag::value_type childFlags() const { return flags_ & Flag::allChildren; }
     void childFlags(Flag::value_type flags) {
-        flags_ = (flags_ & ~Flag::allChildren) | (flags & Flag::allChildren);
+        flags_ = (flags_ & Flag::nonChildren) | (flags & Flag::allChildren);
+    }
+
+    Flag::value_type nonChildFlags() const {
+        return flags_ & Flag::nonChildren;
+    }
+    void nonChildFlags(Flag::value_type flags) {
+        flags_ = (flags_ & Flag::allChildren) | (flags & Flag::nonChildren);
     }
 
     void update(const MetaNode &other);
@@ -196,11 +205,21 @@ public:
      */
     template <typename F> void for_each(F f) const;
 
+    /** Runs given function for every real tile.
+     */
+    template <typename F> void for_each(F f);
+
     typedef std::vector<int> References;
     typedef std::vector<int> Indices;
 
-    /** Updates this metatile with data from input metatile.
-     *  Existing real nodes are not touched.
+    /** Updates this metatile with data from input metatiles while resolving
+     *  references.
+     *
+     *  Existing real nodes are not touched except updating geometry extents
+     *  from virtual nodes.
+     *
+     *  NB: child flags are not copied, it is up to the user to obtain values
+     *  from another source.
      *
      * \param in input metatile
      * \param references grid with stored references during computation
@@ -307,11 +326,11 @@ inline const MetaNode& MetaTile::get(const TileId &tileId)
 }
 
 template <typename F>
-inline void MetaTile::for_each(F f) const
+inline void MetaTile::for_each(F f)
 {
     for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
         for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
-            const auto &node(grid_[j * size_ + i]);
+            auto &node(grid_[j * size_ + i]);
             f(TileId(origin_.lod, origin_.x + i, origin_.y + j), node);
         }
     }

@@ -592,9 +592,8 @@ void MetaTile::update(const MetaTile &in, References &references
             auto idx(j * in.size_ + i);
             auto &outn(grid_[idx]);
 
-            TileId tid(origin_);
-            tid.x += i;
-            tid.y += j;
+            // valid output -> nothing to do
+            if (outn.real()) { continue; }
 
             // get input
             const auto &inn(in.grid_[idx]);
@@ -603,12 +602,15 @@ void MetaTile::update(const MetaTile &in, References &references
             if (auto reference = inn.reference()) {
                 // we have reference, store if we can
                 auto &outr(references[idx]);
-                if (!outr && indices) {
+                // if (!outr && indices) {
+                if (!outr) {
                     // translate glue reference info surface index
                     auto surfaceReference((*indices)[reference - 1] + 1);
 
                     // unset output references -> store
                     outr = surfaceReference;
+                    outr = reference;
+                    LOG(info4) << "Remembering reference: " << outr;
                 }
                 continue;
             }
@@ -620,26 +622,20 @@ void MetaTile::update(const MetaTile &in, References &references
                 continue;
             }
 
-            if (outn.real()) {
-                // we need to update child flags!
-                outn.flags(outn.flags() | inn.childFlags());
-                continue;
-            }
-
             // update valid extents
             math::update(valid_, point_type(i, j));
 
             if (inn.real()) {
-                // found new real tile, copy node and we are done here
+                // found new real tile, copy node
                 outn = inn;
+                // reset children flags
+                outn.childFlags(MetaNode::Flag::none);
                 continue;
             }
 
             // both are virtual nodes:
             // update extents
             outn.mergeExtents(inn);
-            // update child flags
-            outn.flags(outn.flags() | inn.childFlags());
         }
     }
 }
