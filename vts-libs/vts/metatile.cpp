@@ -578,7 +578,7 @@ MetaTile::References MetaTile::makeReferences() const
 }
 
 void MetaTile::update(const MetaTile &in, References &references
-                      , int surfaceIndex)
+                      , int surfaceIndex, const Indices *indices)
 {
     // sanity check
     if ((origin_ != in.origin_) || (binaryOrder_ != in.binaryOrder_)) {
@@ -592,6 +592,10 @@ void MetaTile::update(const MetaTile &in, References &references
             auto idx(j * in.size_ + i);
             auto &outn(grid_[idx]);
 
+            TileId tid(origin_);
+            tid.x += i;
+            tid.y += j;
+
             // get input
             const auto &inn(in.grid_[idx]);
 
@@ -599,9 +603,12 @@ void MetaTile::update(const MetaTile &in, References &references
             if (auto reference = inn.reference()) {
                 // we have reference, store if we can
                 auto &outr(references[idx]);
-                if (!outr) {
+                if (!outr && indices) {
+                    // translate glue reference info surface index
+                    auto surfaceReference((*indices)[reference - 1] + 1);
+
                     // unset output references -> store
-                    outr = reference;
+                    outr = surfaceReference;
                 }
                 continue;
             }

@@ -197,11 +197,18 @@ public:
     template <typename F> void for_each(F f) const;
 
     typedef std::vector<int> References;
+    typedef std::vector<int> Indices;
 
     /** Updates this metatile with data from input metatile.
      *  Existing real nodes are not touched.
+     *
+     * \param in input metatile
+     * \param references grid with stored references during computation
+     * \param indices mapping between glue surface reference and surface index
+     * \param idnex index of current surface being processed
      */
-    void update(const MetaTile &in, References &references, int index);
+    void update(const MetaTile &in, References &references
+                , int index, const Indices *indices = nullptr);
 
     References makeReferences() const;
 

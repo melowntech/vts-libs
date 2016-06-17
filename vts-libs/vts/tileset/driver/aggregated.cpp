@@ -110,7 +110,8 @@ buildMeta(const TileSetInfo::list &tsil, const fs::path &root
         for (const auto &gi : tsi.glues) {
             // apply metatile from glue
             if (gi.tsi.check(tileId, TileFile::meta)) {
-                ometa.update(loadMeta(tileId, gi.driver), references, idx);
+                ometa.update(loadMeta(tileId, gi.driver), references
+                             , idx, &gi.indices);
             }
         }
 
