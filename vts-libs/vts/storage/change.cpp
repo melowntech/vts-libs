@@ -584,7 +584,7 @@ Storage::Properties Storage::Detail::addTileset(const Properties &properties
     auto ftilesets(p.findTilesetIt(where.where));
     if (ftilesets == tilesets.end()) {
         LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
-            << "Tileset <" << tileset.tilesetId << "> (used as a reference) "
+            << "Tileset <" << where.where << "> (used as a reference) "
             "not found in storage " << root << ".";
     }
 

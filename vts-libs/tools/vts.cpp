@@ -223,13 +223,18 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tilesetId", po::value<std::string>()
              , "TilesetId to use in storage, defaults to id "
              "stored in tileset.")
-            ("where"
-             , po::value(&where_)->required()->default_value(where_)
-             , "Location of reference tileset; format: \n"
-             "    @BOTTOM -- adds to the bottom of the stack"
-             "    @TOP -- adds to the TOP of the stack"
-             "    -tileSetId -- adds below given tileset"
-             "    +tileSetId -- adds above given tileset.")
+
+            ("above", po::value<std::string>()
+             , "Place new tileset right above given one."
+             " Conflicts with --below, --top and --bottom.")
+            ("below", po::value<std::string>()
+             , "Place new tileset right below given one."
+             " Conflicts with --above, --top and --bottom.")
+            ("top", "Place new tileset at the top of the stack."
+             " Conflicts with --above, --below and --bottom.")
+            ("bottom", "Place new tileset at the bottom of the stack."
+             " Conflicts with --above, --below and --top.")
+
             ("glueMode", po::value(&glueMode_)->required()
              ->default_value(glueMode_)
              , "Glue generation mode.")
@@ -248,6 +253,37 @@ void VtsStorage::configuration(po::options_description &cmdline
             }
             if (vars.count("lodRange")) {
                 optLodRange_ = vars["lodRange"].as<vts::LodRange>();
+            }
+
+            // handle where options
+            bool above(vars.count("above"));
+            bool below(vars.count("below"));
+            bool top(vars.count("top"));
+            bool bottom(vars.count("bottom"));
+            int sum(above + below + top + bottom);
+            if (!sum) {
+                throw po::validation_error
+                    (po::validation_error::at_least_one_value_required
+                     , "above,below,top,bottom");
+            }
+            if (sum > 1) {
+                throw po::validation_error
+                    (po::validation_error::multiple_values_not_allowed
+                     , "above,below,top,bottom");
+            }
+
+            if (above) {
+                where_.where = vars["above"].as<std::string>();
+                where_.direction = vts::Storage::Location::Direction::above;
+            } else if (below) {
+                where_.where = vars["below"].as<std::string>();
+                where_.direction = vts::Storage::Location::Direction::below;
+            } else if (top) {
+                where_.where.clear();
+                where_.direction = vts::Storage::Location::Direction::below;
+            } else if (bottom) {
+                where_.where.clear();
+                where_.direction = vts::Storage::Location::Direction::above;
             }
         };
     });
