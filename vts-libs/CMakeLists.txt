@@ -216,6 +216,8 @@ set(vts-core_SOURCES
   vts/storageview/config.hpp vts/storageview/config.cpp
 
   vts/mapconfig.hpp vts/mapconfig.cpp
+
+  vts/types2d.hpp
   )
 
 set(vts_SOURCES
