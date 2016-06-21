@@ -88,6 +88,14 @@ struct Storage::Properties : StorageProperties {
     bool hasGlue(const Glue::Id& glue) const {
         return findGlue(glue) != glues.end();
     }
+
+    /** Return set of unique tilesets.
+     *
+     *  Either use tileset specified in subset or choose tilesets with highest
+     *  version. If subset contains tilesets with same base use highest version
+     *  as well.
+     */
+    TilesetIdSet unique(const TilesetIdSet *subset) const;
 };
 
 TilesetIdList tilesetIdList(const StoredTileset::list &tilesets);

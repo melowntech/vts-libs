@@ -79,6 +79,10 @@ struct StoredTileset {
     typedef std::vector<StoredTileset> list;
 
     StoredTileset() : version(version) {}
+
+    StoredTileset(const TilesetId &tilesetId)
+        : tilesetId(tilesetId), version(version)
+    {}
 };
 
 class TileFilter {

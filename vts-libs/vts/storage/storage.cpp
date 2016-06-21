@@ -296,7 +296,46 @@ inline bool allowed(const TilesetIdSet *subset, const Glue::Id &id)
     return true;
 }
 
+inline bool allowed(const TilesetIdSet &subset, const Glue::Id &id)
+{
+    for (const auto &tileset : id) {
+        if (!subset.count(tileset)) { return false; }
+    }
+    return true;
+}
+
 } // namespace
+
+TilesetIdSet Storage::Properties::unique(const TilesetIdSet *subset) const
+{
+    typedef std::map<TilesetId, const StoredTileset*> Seen;
+    Seen seen;
+
+    for (const auto &tileset : tilesets) {
+        // filter by set of allowed tilesets
+        if (!allowed(subset, tileset.tilesetId)) { continue; }
+
+        auto fseen(seen.find(tileset.baseId));
+        if (fseen != seen.end()) {
+            // baseId already seen -> check version and replace if better
+            auto &current(fseen->second);
+            if (tileset.version > current->version) {
+                current = &tileset;
+            }
+        } else {
+            // new, insert and remember
+            seen.insert(Seen::value_type(tileset.baseId, &tileset));
+        }
+    }
+
+    // reconstruct set from seen map
+    TilesetIdSet out;
+    for (const auto &item : seen) {
+        out.insert(item.second->tilesetId);
+    }
+
+    return out;
+}
 
 MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
                                      , const Storage::Properties &properties
@@ -319,21 +358,21 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     // get in mapconfigs of tilesets and their glues; do not use any tileset's
     // extra configuration
 
-    // tilesets
-    for (const auto &tileset : properties.tilesets) {
-        // limit to tileset subset
-        if (!allowed(subset, tileset.tilesetId)) { continue; }
+    // grab list of unique tilesets to be sent into the output
+    const auto unique(properties.unique(subset));
 
+    // tilesets
+    for (const auto &tileset : unique) {
         mapConfig.mergeTileSet
             (TileSet::mapConfig
-             (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-             , prefix / storage_paths::tilesetRoot() / tileset.tilesetId);
+             (storage_paths::tilesetPath(root, tileset), false)
+             , prefix / storage_paths::tilesetRoot() / tileset);
     }
 
     // glues
     for (const auto &item : properties.glues) {
         // limit to tileset subset
-        if (!allowed(subset, item.first)) { continue; }
+        if (!allowed(unique, item.first)) { continue; }
 
         const auto &glue(item.second);
         mapConfig.mergeGlue
