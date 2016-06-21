@@ -55,8 +55,11 @@ public:
                            , (service::DISABLE_EXCESSIVE_LOGGING
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
-        , textureQuality_(0), bumpVersion_(false)
-    {}
+    {
+        addOptions_.textureQuality = 0;
+        addOptions_.bumpVersion = false;
+        addOptions_.dryRun = false;
+    }
 
     ~VtsStorage() {}
 
@@ -161,8 +164,7 @@ private:
     std::string remoteUrl_;
     fs::path localPath_;
     boost::optional<std::string> optSrs_;
-    int textureQuality_;
-    int bumpVersion_;
+    vts::Storage::AddOptions addOptions_;
 
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
 };
@@ -236,12 +238,12 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             ("lodRange", po::value<vts::LodRange>()
              , "Limits used LOD range from source tileset.")
-            ("textureQuality", po::value(&textureQuality_)
-             ->required()->default_value(textureQuality_)
+            ("textureQuality", po::value(&addOptions_.textureQuality)
+             ->required()->default_value(addOptions_.textureQuality)
              , "Quality of repacked atlases. 0 means no repacking.")
 
-            ("bumpVersion"
-             , "Add dataset under new version");
+            ("bumpVersion", "Add dataset under new version")
+            ("dryRun", "Simulate glue creation.")
             ;
 
         p.positional.add("tileset", 1);
@@ -251,7 +253,8 @@ void VtsStorage::configuration(po::options_description &cmdline
                 optTilesetId_ = vars["tilesetId"].as<std::string>();
             }
             if (vars.count("lodRange")) {
-                optLodRange_ = vars["lodRange"].as<vts::LodRange>();
+                addOptions_.filter.lodRange
+                (vars["lodRange"].as<vts::LodRange>());
             }
 
             // handle where options
@@ -285,9 +288,8 @@ void VtsStorage::configuration(po::options_description &cmdline
                 where_.direction = vts::Storage::Location::Direction::above;
             }
 
-            if (vars.count("bumpVersion")) {
-                bumpVersion_ = true;
-            }
+            addOptions_.bumpVersion = vars.count("bumpVersion");
+            addOptions_.dryRun = vars.count("dryRun");
         };
     });
 
@@ -299,12 +301,17 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.options.add_options()
             ("tilesetId", po::value(&tilesetId_)->required()
              , "TilesetId to work with.")
-            ("textureQuality", po::value(&textureQuality_)
-             ->required()->default_value(textureQuality_)
+            ("textureQuality", po::value(&addOptions_.textureQuality)
+             ->required()->default_value(addOptions_.textureQuality)
              , "Quality of repacked atlases. 0 means no repacking.")
+            ("dryRun", "Simulate glue creation.")
             ;
 
         p.positional.add("tilesetId", 1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            addOptions_.dryRun = vars.count("dryRun");
+        };
     });
 
     createParser(cmdline, Command::remove
@@ -797,18 +804,17 @@ int VtsStorage::create()
 int VtsStorage::add()
 {
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
-    int version(bumpVersion_ ? -1 : 0);
+
     storage.add(tileset_, where_
-                , optTilesetId_ ? *optTilesetId_ : std::string(), version
-                , textureQuality_
-                , vts::TileFilter().lodRange(optLodRange_));
+                , optTilesetId_ ? *optTilesetId_ : std::string()
+                , addOptions_);
     return EXIT_SUCCESS;
 }
 
 int VtsStorage::readd()
 {
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
-    storage.readd(tilesetId_, textureQuality_);
+    storage.readd(tilesetId_, addOptions_);
     return EXIT_SUCCESS;
 }
 

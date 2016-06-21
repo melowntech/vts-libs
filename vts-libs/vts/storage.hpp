@@ -126,6 +126,24 @@ public:
         Location() : direction(Direction::below) {}
     };
 
+    /** Add options:
+     *  bumpVersion: bump version in case of ID collision
+     *  textureQuality: JPEG quality of glue textures 0 means no atlas repacking
+     *  filter optional: filter for input dataset
+     *  dryRun: do not modify anything, simulate add
+     */
+    struct AddOptions {
+        bool bumpVersion;
+        int textureQuality;
+        TileFilter filter;
+        bool dryRun;
+
+        AddOptions()
+            : bumpVersion(false), textureQuality(0), filter()
+            , dryRun(false)
+        {}
+    };
+
     /** Adds tileset from given path to the tileset at where location.
      *  Operation fails if give tileset is already present in the stack.
      *
@@ -133,23 +151,18 @@ public:
      *  \param where location in the stack where to add
      *  \param tilesetId (base) id of added tileset;
      *                   pass empty string to get ID from source
-     *  \param bumpVersion bump version in case of ID collision
-     *  \param textureQuality JPEG quality of glue textures
-     *                        0 means no atlas repacking
-     *  \param filter optional filter for input dataset
      *
      *  Tileset's own id is used if info.tilesetId is empty.
      */
     void add(const boost::filesystem::path &tilesetPath, const Location &where
-             , const TilesetId &tilesetId, bool bumpVersion
-             , int textureQuality, const TileFilter &filter = TileFilter());
+             , const TilesetId &tilesetId, const AddOptions &addOptions);
 
     /** Readds existing tileset.
      *  Operation fails if given tileset is not present in the storage
      *
      *  \param tilesetId identifier of the tileset in the storage.
      */
-    void readd(const TilesetId &tilesetId, int textureQuality);
+    void readd(const TilesetId &tilesetId, const AddOptions &addOptions);
 
     /** Removes given tileset from the storage.
      *

@@ -156,10 +156,9 @@ struct Storage::Detail
     TileSet open(const Glue &glue) const;
 
     void add(const TileSet &tileset, const Location &where
-             , const TilesetId &tilesetId, bool bumpVersion
-             , const TileFilter &filter, int textureQuality);
+             , const TilesetId &tilesetId, const AddOptions &addOptions);
 
-    void readd(const TilesetId &tilesetId, int textureQuality);
+    void readd(const TilesetId &tilesetId, const AddOptions &addOptions);
 
     void remove(const TilesetIdList &tilesetIds);
 

@@ -67,19 +67,19 @@ void reportMemoryUsage(const std::string&) {}
 } // namespace
 
 void Storage::add(const boost::filesystem::path &tilesetPath
-                  , const Location &where
-                  , const TilesetId &tilesetId, bool bumpVersion
-                  , int textureQuality, const TileFilter &filter)
+                  , const Location &where, const TilesetId &tilesetId
+                  , const AddOptions &addOptions)
 {
     auto ts(openTileSet(tilesetPath));
     detail().add(ts, where
                  , (tilesetId.empty() ? ts.getProperties().id : tilesetId)
-                 , bumpVersion, filter, textureQuality);
+                 , addOptions);
 }
 
-void Storage::readd(const TilesetId &tilesetId, int textureQuality)
+void Storage::readd(const TilesetId &tilesetId
+                    , const AddOptions &addOptions)
 {
-    detail().readd(tilesetId, textureQuality);
+    detail().readd(tilesetId, addOptions);
 }
 
 void Storage::remove(const TilesetIdList &tilesetIds)
@@ -222,20 +222,20 @@ typedef std::vector<TileSet> TileSets;
 typedef std::vector<TileIndex> TileIndices;
 
 std::tuple<TileSets, std::size_t>
-openTilesets(Tx &tx, const StoredTileset::list &infos, TileSet &tileset)
+openTilesets(Tx &tx, const StoredTileset::list &infos, const TileSet &tileset
+             , const vts::TilesetId &addedId)
 {
     std::tuple<TileSets, std::size_t> res;
     TileSets &tilesets(std::get<0>(res));
     std::size_t index(0);
     for (const auto &info : infos) {
-        if (info.tilesetId == tileset.id()) {
+        if (info.tilesetId == addedId) {
             tilesets.push_back(tileset);
             std::get<1>(res) = index;
-            LOG(info2) << "Reused already open <"
-                       << tilesets.back().id() << ">.";
+            LOG(info2) << "Reused already open <" << addedId << ">.";
         } else {
             tilesets.push_back(tx.open(info.tilesetId));
-            LOG(info2) << "Opened tileset <" << tilesets.back().id() << ">.";
+            LOG(info2) << "Opened tileset <" << info.tilesetId << ">.";
         }
 
         ++index;
@@ -358,34 +358,21 @@ bool BitSet::increment()
     return false;
 }
 
-Storage::Properties
-createGlues(Tx &tx, Storage::Properties properties
-            , const std::tuple<TileSets, std::size_t> &tsets
-            , int textureQuality)
+struct GlueDescriptor {
+    TileSet::const_ptrlist combination;
+    Glue glue;
+    TilesetId glueSetId;
+
+    GlueDescriptor(const TileSet::const_ptrlist &combination
+                   , const Glue &glue, const TilesetId &glueSetId)
+        : combination(combination), glue(glue), glueSetId(glueSetId)
+    {}
+
+    typedef std::vector<GlueDescriptor> list;
+};
+
+GlueDescriptor::list prepareGlues(Ts::list &tilesets, Ts &added)
 {
-    if (properties.tilesets.size() <= 1) {
-        LOG(info3) << "No need to create any glue.";
-        return properties;
-    }
-
-    // accumulate lod range for all tilesets
-    auto lr(range(std::get<0>(tsets)));
-
-    LOG(info1) << "Glue lod range: " << lr;
-
-    // create tileset list
-    Ts::list tilesets;
-    {
-        std::size_t index(0);
-        for (auto &set : std::get<0>(tsets)) {
-            tilesets.emplace_back(index, set, lr, properties
-                                  , (index == std::get<1>(tsets)));
-            ++index;
-        }
-    }
-
-    // filter out all tilesets that do not overlap with added tileset
-    const auto &added(tilesets[std::get<1>(tsets)]);
     Ts::ptrlist incidentSets;
     {
         for (auto &ts : tilesets) {
@@ -426,6 +413,9 @@ createGlues(Tx &tx, Storage::Properties properties
         }
     }
 
+    // result
+    GlueDescriptor::list gd;
+
     for (const auto &tsp : incidentSets) {
         const auto &ts(*tsp);
 
@@ -456,7 +446,6 @@ createGlues(Tx &tx, Storage::Properties properties
         BitSet flags(ts.incidentSets.size());
 
         do {
-            // make room for combination
             TileSet::const_ptrlist combination;
             Glue glue;
 
@@ -508,61 +497,101 @@ createGlues(Tx &tx, Storage::Properties properties
             auto glueSetId(boost::lexical_cast<std::string>
                            (utility::join(glue.id, "_")));
             glue.path = glueSetId;
-            LOG(info3) << "Trying to generate glue <" << glueSetId << ">.";
 
-            vadstena::storage::TIDGuard tg(glueSetId);
-
-            TileSetProperties gprop;
-            gprop.id = glueSetId;
-            gprop.referenceFrame
-                = combination.front()->getProperties().referenceFrame;
-
-            reportMemoryUsage("before glue creation");
-            {
-                // create glue
-                auto tmpPath(tx.addGlue(glue));
-                auto gts(createTileSet(tmpPath, gprop
-                                       , CreateMode::overwrite));
-
-                // create glue
-                utility::DurationMeter timer;
-                gts.createGlue(combination, textureQuality);
-                auto duration(timer.duration());
-
-                reportMemoryUsage("after merge");
-
-                // empty cached input data (no need for them now)
-                for (const auto *ts : combination) {
-                    ts->emptyCache();
-                }
-
-                reportMemoryUsage("after emptying input caches");
-
-                if (gts.empty()) {
-                    // unusable
-                    LOG(info3)
-                        << "Glue <" << glueSetId  << "> contains no tile; "
-                        << "glue is forgotten. Duration: "
-                        << utility::formatDuration(duration) << ".";
-                    tx.remove(tmpPath);
-                } else {
-                    // usable
-                    LOG(info3)
-                        << "Glue <" << glueSetId  << "> created, duration: "
-                        << utility::formatDuration(duration) << ".";
-
-                    // flush
-                    gts.flush();
-
-                    reportMemoryUsage("after glue flush");
-
-                    // and remember
-                    properties.glues[glue.id] = glue;
-                }
-            }
-            reportMemoryUsage("after glue creation");
-
+            gd.emplace_back(combination, glue, glueSetId);
         } while (flags.increment());
+    }
+
+    return gd;
+}
+
+Storage::Properties
+createGlues(Tx &tx, Storage::Properties properties
+            , const std::tuple<TileSets, std::size_t> &tsets
+            , const Storage::AddOptions &addOptions)
+{
+    if (properties.tilesets.size() <= 1) {
+        LOG(info3) << "No need to create any glue.";
+        return properties;
+    }
+
+    // create tileset list
+    Ts::list tilesets;
+    {
+        // accumulate lod range for all tilesets
+        auto lr(range(std::get<0>(tsets)));
+        LOG(info1) << "Glue lod range: " << lr;
+
+        std::size_t index(0);
+        for (auto &set : std::get<0>(tsets)) {
+            tilesets.emplace_back(index, set, lr, properties
+                                  , (index == std::get<1>(tsets)));
+            ++index;
+        }
+    }
+
+    // prepare glues
+    auto gds(prepareGlues(tilesets, tilesets[std::get<1>(tsets)]));
+
+    LOG(info3) << "Will try to generate glues:";
+    for (const auto &gd : gds) {
+        LOG(info3) << "    <" << gd.glueSetId << ">.";
+    }
+
+    // simulation -> stop here
+    if (addOptions.dryRun) { return properties; }
+
+    for (const auto &gd : gds) {
+        LOG(info3) << "Trying to generate glue <" << gd.glueSetId << ">.";
+
+        vadstena::storage::TIDGuard tg(gd.glueSetId);
+
+        TileSetProperties gprop;
+        gprop.id = gd.glueSetId;
+        gprop.referenceFrame
+            = gd.combination.front()->getProperties().referenceFrame;
+
+        reportMemoryUsage("before glue creation");
+
+        // create glue
+        auto tmpPath(tx.addGlue(gd.glue));
+        auto gts(createTileSet(tmpPath, gprop, CreateMode::overwrite));
+
+        // create glue
+        utility::DurationMeter timer;
+        gts.createGlue(gd.combination, addOptions.textureQuality);
+        auto duration(timer.duration());
+
+        reportMemoryUsage("after merge");
+
+        // empty cached input data (no need for them now)
+        for (const auto *ts : gd.combination) { ts->emptyCache(); }
+
+        reportMemoryUsage("after emptying input caches");
+
+        if (gts.empty()) {
+            // unusable
+            LOG(info3)
+                << "Glue <" << gd.glueSetId  << "> contains no tile; "
+                << "glue is forgotten. Duration: "
+                << utility::formatDuration(duration) << ".";
+            tx.remove(tmpPath);
+        } else {
+            // usable
+            LOG(info3)
+                << "Glue <" << gd.glueSetId  << "> created, duration: "
+                << utility::formatDuration(duration) << ".";
+
+            // flush
+            gts.flush();
+
+            reportMemoryUsage("after glue flush");
+
+            // and remember
+            properties.glues[gd.glue.id] = gd.glue;
+        }
+
+        reportMemoryUsage("after glue creation");
     }
 
     return properties;
@@ -688,14 +717,13 @@ Storage::Detail::removeTilesets(const Properties &properties
     return res;
 }
 
-void Storage::Detail::add(const TileSet &tileset
-                          , const Location &where
-                          , const TilesetId &tilesetId, bool bumpVersion
-                          , const TileFilter &filter
-                          , int textureQuality)
+void Storage::Detail::add(const TileSet &tileset, const Location &where
+                          , const TilesetId &tilesetId
+                          , const AddOptions &addOptions)
 {
+    std::string simulation(addOptions.dryRun ? "(simulation) " : "");
     vadstena::storage::TIDGuard tg
-        (str(boost::format("add(%s)") % tilesetId));
+        (str(boost::format("%sadd(%s)") % simulation % tilesetId));
 
     // check compatibility
     if (tileset.getProperties().referenceFrame != properties.referenceFrame) {
@@ -711,27 +739,39 @@ void Storage::Detail::add(const TileSet &tileset
     Properties nProperties;
     StoredTileset tilesetInfo;
     std::tie(nProperties, tilesetInfo)
-        = addTileset(properties, tilesetId, bumpVersion, where);
+        = addTileset(properties, tilesetId, addOptions.bumpVersion, where);
 
-    LOG(info3) << "Adding tileset <" << tileset.id() << "> (from "
-               << tileset.root() << ").";
+
+    LOG(info3)
+        << "Adding tileset <" << tileset.id() << "> (from "
+        << tileset.root() << ").";
 
     {
         Tx tx(root);
 
-        // create tileset at work path (overwrite any existing stuff here)
-        // NB: we have to clone original tileset's content as-is!
-        auto dst(cloneTileSet(tx.addTileset(tilesetInfo.tilesetId), tileset
-                              , CloneOptions()
-                              .mode(CreateMode::overwrite)
-                              .sameType(true)
-                              .tilesetId(tilesetInfo.tilesetId)
-                              .lodRange(filter.lodRange())));
+        auto dst([&]() -> TileSet
+        {
+            if (addOptions.dryRun) { return tileset; }
 
-        auto tilesets(openTilesets(tx, nProperties.tilesets, dst));
+            // create tileset at work path (overwrite any existing stuff here)
+            // NB: we have to clone original tileset's content as-is!
+            return cloneTileSet(tx.addTileset(tilesetInfo.tilesetId), tileset
+                                , CloneOptions()
+                                .mode(CreateMode::overwrite)
+                                .sameType(true)
+                                .tilesetId(tilesetInfo.tilesetId)
+                                .lodRange(addOptions.filter.lodRange()));
+        }());
+
+        auto tilesets(openTilesets(tx, nProperties.tilesets
+                                   , dst, tilesetInfo.tilesetId));
         nProperties = createGlues(tx, nProperties, tilesets
-                                  , textureQuality);
+                                  , addOptions);
 
+        // dry run -> do nothing
+        if (addOptions.dryRun) { return; }
+
+        // commit changes
         tx.commit();
     }
 
@@ -741,10 +781,11 @@ void Storage::Detail::add(const TileSet &tileset
 }
 
 void Storage::Detail::readd(const TilesetId &tilesetId
-                            , int textureQuality)
+                            , const AddOptions &addOptions)
 {
+    std::string simulation(addOptions.dryRun ? "(simulation) " : "");
     vadstena::storage::TIDGuard tg
-        (str(boost::format("readd(%s)") % tilesetId));
+        (str(boost::format("%sreadd(%s)") % simulation % tilesetId));
 
     LOG(info3) << "Readding tileset <" << tilesetId << ">.";
 
@@ -755,9 +796,11 @@ void Storage::Detail::readd(const TilesetId &tilesetId
         auto dst(openTileSet(storage_paths::tilesetPath(root, tilesetId)));
 
         // create glues only if tileset participates in any glue
-        auto tilesets(openTilesets(tx, properties.tilesets, dst));
-        nProperties = createGlues(tx, nProperties, tilesets
-                                  , textureQuality);
+        auto tilesets(openTilesets(tx, properties.tilesets, dst, dst.id()));
+        nProperties = createGlues(tx, nProperties, tilesets, addOptions);
+
+        // dry run -> do nothing
+        if (addOptions.dryRun) { return; }
 
         tx.commit();
     }
