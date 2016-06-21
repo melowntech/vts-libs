@@ -146,7 +146,9 @@ MetaCache::~MetaCache() {}
 
 std::unique_ptr<MetaCache> MetaCache::create(const Driver::pointer &driver)
 {
-    return driver->readOnly() ? ro(driver) : rw(driver);
+    // return driver->readOnly() ? ro(driver) : rw(driver);
+    // we are using ro cache implementation due to performance reasons
+    return rw(driver);
 }
 
 std::unique_ptr<MetaCache> MetaCache::ro(const Driver::pointer &driver)
