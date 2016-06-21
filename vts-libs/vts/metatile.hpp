@@ -51,6 +51,14 @@ struct MetaNode {
 
     bool real() const { return check(Flag::real); }
 
+    bool real(bool alien) const {
+        if (alien) {
+            return check(Flag::real | Flag::alien
+                         , Flag::real | Flag::alien);
+        }
+        return check(Flag::real | Flag::alien, Flag::real);
+    }
+
     bool geometry() const { return check(Flag::geometryPresent); }
     MetaNode& geometry(bool value) {
         return set(Flag::geometryPresent, value);
@@ -153,6 +161,9 @@ struct MetaNode {
 
 private:
     bool check(Flag::value_type flag) const { return flags_ & flag; }
+    bool check(Flag::value_type flag, Flag::value_type value) const {
+        return (flags_ & flag) == value;
+    }
 
     MetaNode& set(Flag::value_type flag, bool value) {
         if (value) {

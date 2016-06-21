@@ -303,7 +303,6 @@ void MetaTile::save(std::ostream &out) const
             }
         }
         if (!aliens.empty()) {
-            LOG(info4) << "Saving aliens in " << origin_;
             credits.insert(CMap::value_type(AlienFlag, aliens));
         }
     }
@@ -654,11 +653,14 @@ void MetaTile::update(const MetaTile &in, References &references
             // update valid extents
             math::update(valid_, point_type(i, j));
 
-            if ((alien && inn.alien()) || (!alien &&  inn.real())) {
+            if (inn.real(alien)) {
                 // found new real/alien tile, copy node
                 outn = inn;
                 // reset children flags
                 outn.childFlags(MetaNode::Flag::none);
+
+                // reset alien flag
+                outn.alien(false);
                 continue;
             }
 
