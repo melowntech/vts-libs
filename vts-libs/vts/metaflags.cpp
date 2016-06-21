@@ -4,6 +4,7 @@ namespace vadstena { namespace vts {
 
 std::vector<MetaFlags::MetaFlag> MetaFlags::mapping = {
     MetaFlag(vts::MetaNode::Flag::geometryPresent, "geometry")
+    , MetaFlag(vts::MetaNode::Flag::alien, "alien")
     , MetaFlag(vts::MetaNode::Flag::navtilePresent, "navtile")
     , MetaFlag(vts::MetaNode::Flag::applyTexelSize, "texelSize")
     , MetaFlag(vts::MetaNode::Flag::applyDisplaySize, "displaySize")

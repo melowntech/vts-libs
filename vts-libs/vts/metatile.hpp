@@ -26,7 +26,7 @@ namespace vadstena { namespace vts {
 
 struct MetaNode {
     struct Flag {
-        typedef std::uint8_t value_type;
+        typedef std::uint16_t value_type;
         enum : value_type {
             geometryPresent = 0x01
             , navtilePresent = 0x02
@@ -37,6 +37,8 @@ struct MetaNode {
             , urChild = 0x20
             , llChild = 0x40
             , lrChild = 0x80
+
+            , alien = 0x100
 
             , allChildren = (ulChild | urChild | llChild | lrChild)
             , nonChildren = value_type(~allChildren)
@@ -80,6 +82,11 @@ struct MetaNode {
 
     bool lrlChild() const { return check(Flag::lrChild); }
     MetaNode& lrChild(bool value) { return set(Flag::lrChild, value); }
+
+    bool alien() const { return check(Flag::alien); }
+    MetaNode& alien(bool value) {
+        return set(Flag::alien, value);
+    }
 
     /** Normalized extents in range 0.0-1.0.
      */
@@ -221,13 +228,19 @@ public:
      *  NB: child flags are not copied, it is up to the user to obtain values
      *  from another source.
      *
+     *  Flag alien:
+     *     false: take only non-alien nodes into account
+     *     true: take only alien nodes into account
+     *
      * \param in input metatile
      * \param references grid with stored references during computation
      * \param indices mapping between glue surface reference and surface index
-     * \param idnex index of current surface being processed
+     * \param index index of current surface being processed
+     * \param alien marks processing or regular or alien nodes
      */
     void update(const MetaTile &in, References &references
-                , int index, const Indices *indices = nullptr);
+                , int index, const Indices *indices = nullptr
+                , bool alien = false);
 
     References makeReferences() const;
 

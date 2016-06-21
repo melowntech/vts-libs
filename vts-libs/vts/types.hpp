@@ -1,6 +1,7 @@
 #ifndef vadstena_libs_vts_types_hpp_included_
 #define vadstena_libs_vts_types_hpp_included_
 
+#include <cstdint>
 #include <string>
 
 #include "math/geometry_core.hpp"
@@ -22,7 +23,14 @@ struct Tile {
     // credits to store in metanode
     storage::CreditIds credits;
 
-    Tile() {}
+    bool alien;
+
+    Tile& setAlien(bool value) {
+        alien = value;
+        return *this;
+    }
+
+    Tile() : alien(false) {}
 };
 
 } } // namespace vadstena::vts

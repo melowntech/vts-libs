@@ -46,6 +46,11 @@ struct TileNode {
  */
 struct TileSet::Detail
 {
+private:
+    mutable tileset::Index tsi_;
+    tileset::Index *driverTsi_;
+
+public:
     bool readOnly;
 
     Driver::pointer driver;
@@ -59,10 +64,9 @@ struct TileSet::Detail
 
     mutable std::unique_ptr<MetaCache> metaTiles;
 
+    tileset::Index &tsi;
     /** Index of existing tiles.
      */
-    mutable tileset::Index tsi;
-    tileset::Index *driverTsi;
     TileIndex &tileIndex;
     TileIndex &references;
 

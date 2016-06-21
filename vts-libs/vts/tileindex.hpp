@@ -24,6 +24,7 @@ public:
             , watertight = 0x02
             , atlas = 0x04
             , navtile = 0x08
+            , alien = 0x20 // alien tile share value with reference
             , reference = 0x20
             , ortho = 0x40
 
@@ -123,6 +124,14 @@ public:
         return get(tileId) & mask;
     }
 
+    QTree::value_type checkMask(const TileId &tileId, QTree::value_type allow
+                                , QTree::value_type deny)
+        const
+    {
+        auto value(get(tileId));
+        return ((value & allow) && (value & ~deny));
+    }
+
     void unset(const TileId &tileId) { set(tileId, 0); }
 
     /** Updates value. Equivalent to set(tileId, op(get(tileId)))
@@ -196,6 +205,10 @@ public:
     /** Get statistics for all tiles with given mask.
      */
     Stat statMask(QTree::value_type mask) const;
+
+    /** Get statistics for all tiles with given mask and value.
+     */
+    Stat statMask(QTree::value_type mask, QTree::value_type value) const;
 
     /** Compute tile and lod range for given for all tiles satisfying given
      *  mask. Uses statMask(mask) internally.

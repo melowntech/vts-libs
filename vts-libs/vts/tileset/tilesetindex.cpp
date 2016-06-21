@@ -103,7 +103,10 @@ bool Index::check(const TileId &tileId, TileFile type) const
 
 int Index::getReference(const TileId &tileId) const
 {
-    if (!tileIndex.checkMask(tileId, TileIndex::Flag::reference)) {
+    // reference tile must have set reference flag and unset mesh flag
+    if (!tileIndex.checkMask(tileId, TileIndex::Flag::reference
+                             , TileIndex::Flag::mesh))
+    {
         return 0;
     }
     return references.get(tileId);

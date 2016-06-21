@@ -219,6 +219,8 @@ void parseGeomExtents(Lod lod, math::Extents3 &extents
     extents.ur(2) = decoder();
 }
 
+const std::uint16_t AlienFlag(0xffff);
+
 } // namespace
 
 inline void MetaNode::save(std::ostream &out, Lod lod) const
@@ -273,7 +275,8 @@ void MetaTile::save(std::ostream &out) const
 
     // collect all credits
     // mapping between credit id and all nodes having it
-    std::map<std::uint16_t, std::vector<size_type> > credits;
+    typedef std::map<std::uint16_t, std::vector<size_type> > CMap;
+    CMap credits;
     {
         size_type idx(0);
         for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
@@ -284,6 +287,24 @@ void MetaTile::save(std::ostream &out) const
                     credits[cid].push_back(idx);
                 }
             }
+        }
+    }
+
+    // alien flag saved in credits:
+    {
+        size_type idx(0);
+        std::vector<size_type> aliens;
+        for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
+            for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i, ++idx) {
+                const auto &node(grid_[j * size_ + i]);
+                if (node.alien()) {
+                    aliens.push_back(idx);
+                }
+            }
+        }
+        if (!aliens.empty()) {
+            LOG(info4) << "Saving aliens in " << origin_;
+            credits.insert(CMap::value_type(AlienFlag, aliens));
         }
     }
 
@@ -337,9 +358,11 @@ void saveMetaTile(const fs::path &path, const MetaTile &meta)
 
 inline void MetaNode::load(std::istream &in, Lod lod)
 {
+    // NB: flags are accumulated because they can be pre-initialized from
+    // another source
     std::uint8_t f;
     bin::read(in, f);
-    flags_ = f;
+    flags_ |= f;
 
     std::vector<std::uint8_t> geomExtents(geomLen(lod));
     bin::read(in, geomExtents);
@@ -420,6 +443,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
             // read credit ID
             std::uint16_t creditId;
             bin::read(in, creditId);
+            bool alien(creditId == AlienFlag);
 
             // read in bitmap
             bitmap.readData(in);
@@ -433,7 +457,13 @@ void MetaTile::load(std::istream &in, const fs::path &path)
                 {
                     auto &node(grid_[j * size_ + i]);
 
-                    if (bitmap.get(ii, jj)) { node.addCredit(creditId); }
+                    if (bitmap.get(ii, jj)) {
+                        if (alien) {
+                            node.alien(true);
+                        } else {
+                            node.addCredit(creditId);
+                        }
+                    }
                 }
             }
         }
@@ -578,7 +608,8 @@ MetaTile::References MetaTile::makeReferences() const
 }
 
 void MetaTile::update(const MetaTile &in, References &references
-                      , int surfaceIndex, const Indices *indices)
+                      , int surfaceIndex, const Indices *indices
+                      , bool alien)
 {
     // sanity check
     if ((origin_ != in.origin_) || (binaryOrder_ != in.binaryOrder_)) {
@@ -623,8 +654,8 @@ void MetaTile::update(const MetaTile &in, References &references
             // update valid extents
             math::update(valid_, point_type(i, j));
 
-            if (inn.real()) {
-                // found new real tile, copy node
+            if ((alien && inn.alien()) || (!alien &&  inn.real())) {
+                // found new real/alien tile, copy node
                 outn = inn;
                 // reset children flags
                 outn.childFlags(MetaNode::Flag::none);

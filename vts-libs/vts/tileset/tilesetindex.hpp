@@ -40,6 +40,8 @@ public:
 
     TileIndex deriveMetaIndex() const;
 
+    unsigned int metaBinaryOrder() const { return metaBinaryOrder_; }
+
 private:
     unsigned int metaBinaryOrder_;
 };

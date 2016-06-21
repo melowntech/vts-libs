@@ -195,4 +195,10 @@ StorageView openStorageView(const boost::filesystem::path &path)
     return { path };
 }
 
+TileSet StorageView::clone(const boost::filesystem::path &tilesetPath
+                             , const CloneOptions &createOptions)
+{
+    return storage().clone(tilesetPath, createOptions, &tilesets());
+}
+
 } } // namespace vadstena::vts

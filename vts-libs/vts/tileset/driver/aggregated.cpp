@@ -274,6 +274,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     , Driver(root, options, cloneOptions.mode())
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
+    , tsi_(referenceFrame_.metaBinaryOrder)
     , tilesetInfo_(buildTilesetInfo())
 {
     // build driver information
@@ -291,6 +292,7 @@ AggregatedDriver::AggregatedDriver(const AggregatedOptions &options
     , Driver(options, cloneOptions.mode())
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
+    , tsi_(referenceFrame_.metaBinaryOrder)
     , tilesetInfo_(buildTilesetInfo())
 {
     // build driver information and cache it

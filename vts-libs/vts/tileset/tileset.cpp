@@ -429,31 +429,33 @@ TileSet createLocalTileSet(const boost::filesystem::path &path
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver)
-    : readOnly(true), driver(driver)
+    : driverTsi_(driver->getTileIndex())
+    , readOnly(true), driver(driver)
     , propertiesChanged(false), metadataChanged(false)
     , metaTiles(MetaCache::create(driver))
-    , driverTsi(driver->getTileIndex())
-    , tileIndex(driverTsi ? driverTsi->tileIndex : tsi.tileIndex)
-    , references(driverTsi ? driverTsi->references : tsi.references)
+    , tsi(driverTsi_ ? *driverTsi_ : tsi_)
+    , tileIndex(tsi.tileIndex)
+    , references(tsi.references)
 {
     loadConfig();
     referenceFrame = registry::Registry::referenceFrame
         (properties.referenceFrame);
 
-    if (!driverTsi) {
+    if (!driverTsi_) {
         loadTileIndex();
     }
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver
                         , const TileSet::Properties &properties)
-    : readOnly(false), driver(driver)
+    : tsi_(referenceFrame.metaBinaryOrder)
+    , driverTsi_()
+    , readOnly(false), driver(driver)
     , propertiesChanged(false), metadataChanged(false)
     , referenceFrame(registry::Registry::referenceFrame
                      (properties.referenceFrame))
     , metaTiles(MetaCache::create(driver))
-    , tsi(referenceFrame.metaBinaryOrder)
-    , driverTsi()
+    , tsi(tsi_)
     , tileIndex(tsi.tileIndex), references(tsi.references)
     , lodRange(LodRange::emptyRange())
 {
@@ -513,17 +515,17 @@ void TileSet::Detail::saveConfig()
 void TileSet::Detail::loadTileIndex()
 {
     // initialize tileset index with proper settings
-    tsi = { referenceFrame.metaBinaryOrder };
-    tileset::loadTileSetIndex(tsi, *driver);
+    tsi_ = { referenceFrame.metaBinaryOrder };
+    tileset::loadTileSetIndex(tsi_, *driver);
 
     // new extents
     lodRange = tileIndex.lodRange();
-    LOG(debug) << "Loaded tile index: " << tsi.tileIndex;
+    LOG(debug) << "Loaded tile index: " << tsi_.tileIndex;
 }
 
 void TileSet::Detail::saveTileIndex()
 {
-    tileset::saveTileSetIndex(tsi, *driver);
+    tileset::saveTileSetIndex(tsi_, *driver);
 }
 
 void TileSet::Detail::watch(utility::Runnable *runnable)
@@ -671,7 +673,11 @@ namespace {
 std::uint8_t flagsFromNode(const MetaNode &node)
 {
     std::uint8_t m(0);
-    if (node.geometry()) { m |= TileIndex::Flag::mesh; }
+    if (node.geometry()) {
+        // alien flag allowed only in when we have a mesh
+        m |= TileIndex::Flag::mesh;
+        if (node.alien()) { m |= TileIndex::Flag::alien; }
+    }
     if (node.navtile()) { m |= TileIndex::Flag::navtile; }
     if (node.internalTextureCount()) { m |= TileIndex::Flag::atlas; }
     return m;
@@ -691,7 +697,7 @@ void TileSet::Detail::updateNode(TileId tileId
 
     // prepare tileindex flags and mask
     auto mask(TileIndex::Flag::content | TileIndex::Flag::watertight
-              | TileIndex::Flag::reference);
+              | TileIndex::Flag::reference | TileIndex::Flag::alien);
     auto flags(flagsFromNode(*node.metanode));
     if (watertight) {
         flags |= TileIndex::Flag::watertight;
@@ -891,6 +897,9 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile
 
         // set credits (only when we have mesh)
         metanode.updateCredits(tile.credits);
+
+        // set alien flag
+        metanode.alien(tile.alien);
     }
 
     // navtile
@@ -1391,10 +1400,7 @@ bool TileSet::canContain(const NodeInfo &nodeInfo) const
 
 int TileSet::getReference(const TileId &tileId) const
 {
-    if (!detail().tileIndex.checkMask(tileId, TileIndex::Flag::reference)) {
-        return 0;
-    }
-    return detail().references.get(tileId);
+    return detail().tsi.getReference(tileId);
 }
 
 void TileSet::paste(const TileSet &srcSet

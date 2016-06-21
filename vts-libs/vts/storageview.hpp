@@ -66,6 +66,14 @@ public:
 
     boost::filesystem::path storagePath() const;
 
+    /** Flattens content of this storageview into new tileset at tilesetPath.
+     *
+     * \param tilesetPath path to tileset
+     * \param createOptions create options
+     */
+    TileSet clone(const boost::filesystem::path &tilesetPath
+                  , const CloneOptions &createOptions);
+
     /** Generates map configuration for storage view at given path.
      */
     static MapConfig mapConfig(const boost::filesystem::path &path);

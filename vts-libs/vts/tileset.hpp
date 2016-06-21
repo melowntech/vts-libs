@@ -217,12 +217,6 @@ public:
 
     typedef std::vector<const TileSet*> const_ptrlist;
 
-    /** Creates glue from given sets into this set.
-     *
-     *  Priority grows from left to right.
-     */
-    void createGlue(const const_ptrlist &sets, int textureQuality);
-
     bool externallyChanged() const;
 
     /** Returns time of last modification. Recorded at read-only open.
@@ -258,6 +252,18 @@ public:
     /** Check for tileset at given path.
      */
     static bool check(const boost::filesystem::path &root);
+
+    /** Creates glue from given sets.
+     *
+     * \param glue output tileset for glue tiles
+     * \param sets input tilesets
+     * \param textureQuality quality of repacked atlases (0 to no repacking)
+     *
+     *  Priority grows from left to right.
+     *
+     */
+    static void createGlue(TileSet &glue
+                           , const const_ptrlist &sets, int textureQuality);
 
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the tileset's guts!
