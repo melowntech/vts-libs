@@ -283,8 +283,7 @@ namespace {
 inline bool allowed(const TilesetIdSet *subset, const TilesetId &id)
 {
     if (!subset) { return true; }
-    if (!subset->count(id)) { return false; }
-    return true;
+    return subset->count(id);
 }
 
 inline bool allowed(const TilesetIdSet *subset, const Glue::Id &id)
@@ -294,6 +293,11 @@ inline bool allowed(const TilesetIdSet *subset, const Glue::Id &id)
         if (!subset->count(tileset)) { return false; }
     }
     return true;
+}
+
+inline bool allowed(const TilesetIdSet &subset, const TilesetId &id)
+{
+    return subset.count(id);
 }
 
 inline bool allowed(const TilesetIdSet &subset, const Glue::Id &id)
@@ -362,11 +366,12 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     const auto unique(properties.unique(subset));
 
     // tilesets
-    for (const auto &tileset : unique) {
+    for (const auto &tileset : properties.tilesets) {
+        if (!allowed(unique, tileset.tilesetId)) { continue; }
         mapConfig.mergeTileSet
             (TileSet::mapConfig
-             (storage_paths::tilesetPath(root, tileset), false)
-             , prefix / storage_paths::tilesetRoot() / tileset);
+             (storage_paths::tilesetPath(root, tileset.tilesetId), false)
+             , prefix / storage_paths::tilesetRoot() / tileset.tilesetId);
     }
 
     // glues
