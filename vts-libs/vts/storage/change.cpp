@@ -21,6 +21,8 @@
 #include "utility/streams.hpp"
 #include "utility/openmp.hpp"
 #include "utility/path.hpp"
+#include "utility/duration.hpp"
+#include "utility/time.hpp"
 
 #ifdef UTILITY_HAS_PROC
 #  include "utility/procstat.hpp"
@@ -523,7 +525,9 @@ createGlues(Tx &tx, Storage::Properties properties
                                        , CreateMode::overwrite));
 
                 // create glue
+                utility::DurationMeter timer;
                 gts.createGlue(combination, textureQuality);
+                auto duration(timer.duration());
 
                 reportMemoryUsage("after merge");
 
@@ -538,11 +542,14 @@ createGlues(Tx &tx, Storage::Properties properties
                     // unusable
                     LOG(info3)
                         << "Glue <" << glueSetId  << "> contains no tile; "
-                        << "glue is forgotten.";
+                        << "glue is forgotten. Duration: "
+                        << utility::formatDuration(duration) << ".";
                     tx.remove(tmpPath);
                 } else {
                     // usable
-                    LOG(info3) << "Glue <" << glueSetId  << "> created.";
+                    LOG(info3)
+                        << "Glue <" << glueSetId  << "> created, duration: "
+                        << utility::formatDuration(duration) << ".";
 
                     // flush
                     gts.flush();
