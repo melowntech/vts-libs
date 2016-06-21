@@ -55,8 +55,7 @@ public:
                            , (service::DISABLE_EXCESSIVE_LOGGING
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
-        , glueMode_(vts::StoredTileset::GlueMode::full)
-        , textureQuality_(0)
+        , textureQuality_(0), bumpVersion_(false)
     {}
 
     ~VtsStorage() {}
@@ -154,7 +153,6 @@ private:
     std::vector<std::string> tilesetIds_;
     boost::optional<std::string> optTilesetId_;
     vts::Storage::Location where_;
-    vts::StoredTileset::GlueMode glueMode_;
     boost::optional<vts::LodRange> optLodRange_;
     fs::path outputPath_;
     vts::TileFlags tileFlags_;
@@ -164,6 +162,7 @@ private:
     fs::path localPath_;
     boost::optional<std::string> optSrs_;
     int textureQuality_;
+    int bumpVersion_;
 
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
 };
@@ -235,14 +234,14 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("bottom", "Place new tileset at the bottom of the stack."
              " Conflicts with --above, --below and --top.")
 
-            ("glueMode", po::value(&glueMode_)->required()
-             ->default_value(glueMode_)
-             , "Glue generation mode.")
             ("lodRange", po::value<vts::LodRange>()
              , "Limits used LOD range from source tileset.")
             ("textureQuality", po::value(&textureQuality_)
              ->required()->default_value(textureQuality_)
              , "Quality of repacked atlases. 0 means no repacking.")
+
+            ("bumpVersion"
+             , "Add dataset under new version");
             ;
 
         p.positional.add("tileset", 1);
@@ -284,6 +283,10 @@ void VtsStorage::configuration(po::options_description &cmdline
             } else if (bottom) {
                 where_.where.clear();
                 where_.direction = vts::Storage::Location::Direction::above;
+            }
+
+            if (vars.count("bumpVersion")) {
+                bumpVersion_ = true;
             }
         };
     });
@@ -794,8 +797,9 @@ int VtsStorage::create()
 int VtsStorage::add()
 {
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+    int version(bumpVersion_ ? -1 : 0);
     storage.add(tileset_, where_
-                , vts::StoredTileset(optTilesetId_, glueMode_)
+                , optTilesetId_ ? *optTilesetId_ : std::string(), version
                 , textureQuality_
                 , vts::TileFilter().lodRange(optLodRange_));
     return EXIT_SUCCESS;

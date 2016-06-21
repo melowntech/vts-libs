@@ -13,6 +13,7 @@
 
 #include "../registry.hpp"
 #include "./basetypes.hpp"
+#include "./glue.hpp"
 
 namespace vadstena { namespace vts {
 

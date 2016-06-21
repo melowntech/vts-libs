@@ -2,7 +2,7 @@
 
 #include <boost/range/adaptor/reversed.hpp>
 
-#include "./basetypes.hpp"
+#include "./glue.hpp"
 #include "./tileop.hpp"
 
 namespace vadstena { namespace vts {

@@ -80,6 +80,8 @@ struct Storage::Properties : StorageProperties {
         return findTileset(tileset);
     }
 
+    int lastVersion(const TilesetId &baseId) const;
+
     Glue::map::iterator findGlue(const Glue::Id& glue);
     Glue::map::const_iterator findGlue(const Glue::Id& glue) const;
 
@@ -146,19 +148,17 @@ struct Storage::Detail
     TileSet open(const Glue &glue) const;
 
     void add(const TileSet &tileset, const Location &where
-             , const StoredTileset &tilesetInfo
+             , const TilesetId &tilesetId, bool bumpVersion
              , const TileFilter &filter, int textureQuality);
 
     void readd(const TilesetId &tilesetId, int textureQuality);
 
     void remove(const TilesetIdList &tilesetIds);
 
-    TileSet flatten(const boost::filesystem::path &tilesetPath
-                    , CreateMode mode, const std::string &tilesetId);
-
-    Properties addTileset(const Properties &properties
-                          , const StoredTileset &tileset
-                          , const Location &where) const;
+    std::tuple<Properties, StoredTileset>
+    addTileset(const Properties &properties
+               , const TilesetId &tilesetId, bool bumpVersion
+               , const Location &where) const;
 
     /** Removes given tileset from properties and returns new properties and
      *  list of removed glues.

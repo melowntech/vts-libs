@@ -69,6 +69,11 @@ public:
         : vs::IStream(type), stat_(0, lastModified), name_(name)
     {}
 
+    StringIStream(File type, const std::string &name
+                  , std::time_t lastModified)
+        : vs::IStream(type), stat_(0, lastModified), name_(name)
+    {}
+
     std::stringstream& sink() { return ss_; }
 
     void updateSize() { stat_.size = ss_.tellp(); }
@@ -271,6 +276,30 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     , referenceFrame_(storage_.referenceFrame())
     , tilesetInfo_(buildTilesetInfo())
 {
+    // build driver information
+    auto properties(build(options, cloneOptions));
+
+    // save stuff (allow write for a brief moment)
+    tileset::saveConfig(this->root() / filePath(File::config), properties);
+    tileset::saveTileSetIndex(tsi_, *this);
+    readOnly(true);
+}
+
+AggregatedDriver::AggregatedDriver(const AggregatedOptions &options
+                                   , const CloneOptions &cloneOptions)
+    : AggregatedDriverBase(cloneOptions)
+    , Driver(options, cloneOptions.mode())
+    , storage_(this->options().storagePath, OpenMode::readOnly)
+    , referenceFrame_(storage_.referenceFrame())
+    , tilesetInfo_(buildTilesetInfo())
+{
+    // build driver information and cache it
+    memProperties_ = build(options, cloneOptions);
+}
+
+TileSet::Properties AggregatedDriver::build(const AggregatedOptions &options
+                                            , const CloneOptions &cloneOptions)
+{
     TileSet::Properties properties;
     properties.id = *cloneOptions.tilesetId();
     properties.driverOptions = options;
@@ -404,10 +433,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
         properties.tileRange = ranges.second;
     }
 
-    // save stuff (allow write for a brief moment)
-    tileset::saveConfig(this->root() / filePath(File::config), properties);
-    tileset::saveTileSetIndex(tsi_, *this);
-    readOnly(true);
+    return properties;
 }
 
 AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
@@ -475,9 +501,42 @@ OStream::pointer AggregatedDriver::output_impl(File type)
     return fileOStream(type, path);
 }
 
+IStream::pointer AggregatedDriver::input_mem(File type) const
+{
+    // this is an in-memory driver
+
+    // no extra config here
+    if (type == File::extraConfig) {
+        LOGTHROW(err1, storage::NoSuchFile)
+            << "No extra config for in-memory driver.";
+    }
+
+    auto s(std::make_shared<StringIStream>(type, filePath(type), 0));
+
+    switch (type) {
+    case File::config:
+        tileset::saveConfig(s->sink(), *memProperties_);
+        break;
+
+    case File::tileIndex:
+        tileset::saveTileSetIndex(tsi_, s->sink());
+        break;
+
+    default: break;
+    }
+
+    s->updateSize();
+
+    // done
+    return s;
+}
+
 IStream::pointer AggregatedDriver::input_impl(File type) const
 {
-    auto path(root() / filePath(type));
+    // in-memory -> alternative branch
+    if (memProperties_) { return input_mem(type); }
+
+    const auto path(root() / filePath(type));
     LOG(info1) << "Loading from " << path << ".";
     return fileIStream(type, path);
 }

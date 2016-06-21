@@ -77,6 +77,15 @@ Driver::Driver(const boost::filesystem::path &root
     }
 }
 
+Driver::Driver(const boost::any &options, CreateMode)
+    : root_()
+    , readOnly_(true)
+    , configPath_(root_ / filePath(File::config))
+    , extraConfigPath_(root_ / filePath(File::extraConfig))
+    , options_(options)
+    , runnable_(), lastModified_()
+{}
+
 Driver::Driver(const boost::filesystem::path &root
                , const boost::any &options)
     : root_(absolute(root))
@@ -158,6 +167,22 @@ Driver::pointer Driver::create(const boost::filesystem::path &root
     LOGTHROW(err2, storage::BadFileFormat)
         << "Cannot create tileset at " << root
         << ": Invalid type of driver options: <"
+        << genericOptions.type().name() << ">.";
+    throw;
+}
+
+Driver::pointer Driver::create(const boost::any &genericOptions
+                               , const CloneOptions &cloneOptions)
+{
+    if (auto o = boost::any_cast<const driver::AggregatedOptions>
+        (&genericOptions))
+    {
+        return std::make_shared<driver::AggregatedDriver>
+            (*o, cloneOptions);
+    }
+
+    LOGTHROW(err2, storage::BadFileFormat)
+        << "Cannot create in-memory tileset: Invalid type of driver options: <"
         << genericOptions.type().name() << ">.";
     throw;
 }

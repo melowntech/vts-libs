@@ -19,6 +19,7 @@
 
 #include "./tileset.hpp"
 #include "./basetypes.hpp"
+#include "./glue.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -60,19 +61,24 @@ struct ExtraStorageProperties {
     ExtraStorageProperties() {}
 };
 
+/** Info about stored tileset
+ */
 struct StoredTileset {
-    enum class GlueMode { none, full };
-
+    /** Unique tileset identifier.
+     */
     TilesetId tilesetId;
-    GlueMode glueMode;
+
+    /** Base identifier (without version).
+     */
+    TilesetId baseId;
+
+    /** Version of tileset
+     */
+    int version;
 
     typedef std::vector<StoredTileset> list;
 
-    StoredTileset(const boost::optional<TilesetId> &tid = boost::none
-                  , GlueMode glueMode = GlueMode::full)
-        : tilesetId(tid ? *tid : TilesetId())
-        , glueMode(glueMode)
-    {}
+    StoredTileset() : version(version) {}
 };
 
 class TileFilter {
@@ -121,14 +127,18 @@ public:
      *
      *  \param tilesetPath path to source tileset
      *  \param where location in the stack where to add
-     *  \param info how to store this tileset.
+     *  \param tilesetId (base) id of added tileset;
+     *                   pass empty string to get ID from source
+     *  \param bumpVersion bump version in case of ID collision
+     *  \param textureQuality JPEG quality of glue textures
+     *                        0 means no atlas repacking
      *  \param filter optional filter for input dataset
      *
      *  Tileset's own id is used if info.tilesetId is empty.
      */
     void add(const boost::filesystem::path &tilesetPath, const Location &where
-             , const StoredTileset &info, int textureQuality
-             , const TileFilter &filter = TileFilter());
+             , const TilesetId &tilesetId, bool bumpVersion
+             , int textureQuality, const TileFilter &filter = TileFilter());
 
     /** Readds existing tileset.
      *  Operation fails if given tileset is not present in the storage
@@ -151,7 +161,7 @@ public:
      */
     TileSet flatten(const boost::filesystem::path &tilesetPath
                     , CreateMode mode
-                    , const boost::optional<std::string> tilesetId
+                    , const boost::optional<std::string> &tilesetId
                     = boost::none);
 
     /** Returns list of tileses in the stacked order (bottom to top);
@@ -232,11 +242,6 @@ public:
 UTILITY_GENERATE_ENUM_IO(Storage::Location::Direction,
     ((below))
     ((above))
-)
-
-UTILITY_GENERATE_ENUM_IO(StoredTileset::GlueMode,
-    ((full))
-    ((none))
 )
 
 template<typename CharT, typename Traits>

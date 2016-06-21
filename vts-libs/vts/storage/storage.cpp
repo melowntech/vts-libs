@@ -221,6 +221,17 @@ Storage::Properties::findTileset(const TilesetId &tilesetId)
     return &*it;
 }
 
+int Storage::Properties::lastVersion(const TilesetId &baseId) const
+{
+    int version(-1);
+    for (auto &id : tilesets) {
+        if ((id.baseId == baseId) && (id.version > version)) {
+            version = id.version;
+        }
+    }
+    return version;
+}
+
 Glue::map::iterator Storage::Properties::findGlue(const Glue::Id &glue)
 {
     return glues.find(glue);
@@ -525,6 +536,23 @@ boost::filesystem::path Storage::path(const Glue &glue) const
     }
 
     return storage_paths::gluePath(root, glue);
+}
+
+TileSet Storage::flatten(const boost::filesystem::path &tilesetPath
+                         , CreateMode mode
+                         , const boost::optional<std::string> &tilesetId)
+{
+    CloneOptions co;
+
+    // create in-memory
+    co.tilesetId(TilesetId("storage"));
+    auto tmp(aggregateTileSets(*this, co, tilesets()));
+
+    // clone
+    co.mode(mode);
+    co.sameType(false);
+    co.tilesetId(tilesetId ? *tilesetId : tilesetPath.filename().string());
+    return cloneTileSet(tilesetPath, tmp, co);
 }
 
 } } // namespace vadstena::vts

@@ -62,6 +62,7 @@ struct TileSet::Detail
     /** Index of existing tiles.
      */
     mutable tileset::Index tsi;
+    tileset::Index *driverTsi;
     TileIndex &tileIndex;
     TileIndex &references;
 

@@ -38,9 +38,15 @@ void parseTileset(StoredTileset &tileset, const Json::Value &value)
     }
 
     Json::get(tileset.tilesetId, value, "id");
-    std::string s;
-    Json::get(s, value, "mode");
-    tileset.glueMode = boost::lexical_cast<StoredTileset::GlueMode>(s);
+    if (value.isMember("version")) {
+        // versioned -> get version and base ID
+        Json::get(tileset.baseId, value, "base");
+        Json::get(tileset.version, value, "version");
+    } else {
+        // non-versioned -> base sameId as tilesetId and no version
+        tileset.baseId = tileset.tilesetId;
+        tileset.version = 0;
+    }
 }
 
 void parseTilesets(StoredTileset::list &tilesets, const Json::Value &value)
@@ -122,7 +128,10 @@ void buildTileset(const StoredTileset &tileset, Json::Value &object)
 {
     object = Json::objectValue;
     object["id"] = tileset.tilesetId;
-    object["mode"] = boost::lexical_cast<std::string>(tileset.glueMode);
+    if (tileset.version > 0) {
+        object["base"] = tileset.baseId;
+        object["version"] = tileset.version;
+    }
 }
 
 void buildTilesets(const StoredTileset::list &tilesets, Json::Value &object)

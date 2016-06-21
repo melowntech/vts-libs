@@ -25,6 +25,10 @@ struct VersionError : std::runtime_error {
     VersionError(const std::string &message) : std::runtime_error(message) {}
 };
 
+struct InvalidId : Error {
+    InvalidId(const std::string &message) : Error(message) {}
+};
+
 struct NoSuchTileSet : Error {
     NoSuchTileSet(const std::string &message) : Error(message) {}
 };

@@ -68,6 +68,17 @@ void saveTileSetIndex(const Index &tsi, const fs::path &path)
     }
 }
 
+void saveTileSetIndex(const Index &tsi, std::ostream &os)
+{
+    try {
+        tsi.tileIndex.save(os);
+        tsi.references.save(os);
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::Error)
+            << "Unable to save tile index: " << e.what() << ".";
+    }
+}
+
 bool Index::meta(const TileId &tileId) const
 {
     return tileIndex.validSubtree

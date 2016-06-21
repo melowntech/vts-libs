@@ -26,6 +26,16 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
                              , TilesetIdSet(tilesets.begin(), tilesets.end()));
 }
 
+/** Creates in-memory aggreagated tileset from storage subset.
+ */
+TileSet aggregateTileSets(const Storage &storage
+                          , const CloneOptions &co
+                          , const TilesetIdList &tilesets)
+{
+    return aggregateTileSets(storage, co
+                             , TilesetIdSet(tilesets.begin(), tilesets.end()));
+}
+
 /** Creates aggreagated tileset from storage view.
  */
 TileSet aggregateTileSets(const boost::filesystem::path &path

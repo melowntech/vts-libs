@@ -14,6 +14,7 @@
 
 #include "../options.hpp"
 #include "./driver/options.hpp"
+#include "./tilesetindex.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -34,6 +35,12 @@ public:
      */
     static pointer create(const boost::filesystem::path &root
                           , const boost::any &options
+                          , const CloneOptions &cloneOptions);
+
+    /** Creates in-memory driver.
+     *  Only some drivers provide this feature.
+     */
+    static pointer create(const boost::any &options
                           , const CloneOptions &cloneOptions);
 
     /** Opens driver for existing dataset.
@@ -103,12 +110,30 @@ public:
      */
     std::string info() const;
 
+    /** Returns parsed read-only tileindex. Some drives need tileindex for their
+     *  operation and it whould be a waste of resources to load it again from
+     *  disk. Also, some drivers may hold tileindex only in-memory and to get
+     *  them as a file we'd have to serialize it first.
+     */
+    tileset::Index* getTileIndex();
+
+    /** Returns parsed read-only tileindex. Some drives need tileindex for their
+     *  operation and it whould be a waste of resources to load it again from
+     *  disk. Also, some drivers may hold tileindex only in-memory and to get
+     *  them as a file we'd have to serialize it first.
+     */
+    const tileset::Index* getTileIndex() const;
+
 protected:
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.
      */
     Driver(const boost::filesystem::path &root, const boost::any &options
            , CreateMode mode);
+
+    /** Creates in-memory storage.
+     */
+    Driver(const boost::any &options, CreateMode mode);
 
     /** Opens storage.
      */
@@ -145,6 +170,10 @@ private:
                                , const CloneOptions &cloneOptions) const = 0;
 
     virtual std::string info_impl() const = 0;
+
+    virtual tileset::Index* getTileIndex_impl() { return nullptr; }
+
+    virtual const tileset::Index* getTileIndex_impl() const { return nullptr; }
 
     void checkRunning() const;
 
@@ -267,6 +296,16 @@ inline Driver::pointer Driver::clone(const boost::filesystem::path &root
 inline std::string Driver::info() const
 {
     return info_impl();
+}
+
+inline tileset::Index* Driver::getTileIndex()
+{
+    return getTileIndex_impl();
+}
+
+inline const tileset::Index* Driver::getTileIndex() const
+{
+    return getTileIndex_impl();
 }
 
 } } // namespace vadstena::vts

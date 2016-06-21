@@ -66,16 +66,13 @@ void reportMemoryUsage(const std::string&) {}
 
 void Storage::add(const boost::filesystem::path &tilesetPath
                   , const Location &where
-                  , const StoredTileset &info
-                  , int textureQuality
-                  , const TileFilter &filter)
+                  , const TilesetId &tilesetId, bool bumpVersion
+                  , int textureQuality, const TileFilter &filter)
 {
     auto ts(openTileSet(tilesetPath));
-    StoredTileset useInfo(info);
-    if (useInfo.tilesetId.empty()) {
-        useInfo.tilesetId = ts.getProperties().id;
-    }
-    detail().add(ts, where, useInfo, filter, textureQuality);
+    detail().add(ts, where
+                 , (tilesetId.empty() ? ts.getProperties().id : tilesetId)
+                 , bumpVersion, filter, textureQuality);
 }
 
 void Storage::readd(const TilesetId &tilesetId, int textureQuality)
@@ -86,16 +83,6 @@ void Storage::readd(const TilesetId &tilesetId, int textureQuality)
 void Storage::remove(const TilesetIdList &tilesetIds)
 {
     detail().remove(tilesetIds);
-}
-
-TileSet Storage::flatten(const boost::filesystem::path &tilesetPath
-                         , CreateMode mode
-                         , const boost::optional<std::string> tilesetId)
-{
-    return detail()
-        .flatten(tilesetPath, mode
-                 , (tilesetId ? *tilesetId
-                    : tilesetPath.filename().string()));
 }
 
 namespace {
@@ -233,19 +220,12 @@ typedef std::vector<TileSet> TileSets;
 typedef std::vector<TileIndex> TileIndices;
 
 std::tuple<TileSets, std::size_t>
-openTilesets(Tx &tx, const StoredTileset::list &infos, TileSet &tileset
-             , const boost::optional<StoredTileset::GlueMode> &glueMode
-             = boost::none)
+openTilesets(Tx &tx, const StoredTileset::list &infos, TileSet &tileset)
 {
     std::tuple<TileSets, std::size_t> res;
     TileSets &tilesets(std::get<0>(res));
     std::size_t index(0);
     for (const auto &info : infos) {
-        if (glueMode && (*glueMode != info.glueMode)) {
-            LOG(info2) << "Skipping masked out tileset <"
-                       << info.tilesetId << ">.";
-            continue;
-        }
         if (info.tilesetId == tileset.id()) {
             tilesets.push_back(tileset);
             std::get<1>(res) = index;
@@ -283,13 +263,19 @@ struct Ts {
      */
     TileSet set;
 
+    /** Stored ID.
+     */
+    StoredTileset storedId;
+
     /** Set of tilesets that overlap with this one.
      */
     std::set<std::size_t> incidentSets;
 
-    Ts(const TileSet &tileset, const LodRange &lodRange
-       , bool added)
-        : index(0), added(added), set(tileset), lodRange(lodRange)
+    Ts(int index, const TileSet &tileset, const LodRange &lodRange
+       , const Storage::Properties &properties, bool added)
+        : index(index), added(added), set(tileset)
+        , storedId(properties.tilesets[index])
+        , lodRange(lodRange)
     {}
 
     bool notoverlaps(const Ts &other) const {
@@ -297,7 +283,9 @@ struct Ts {
             (other.sphereOfInfluence(), TileIndex::Flag::any);
     }
 
-    std::string id() const { return set.id(); }
+    std::string id() const { return storedId.tilesetId; }
+
+    std::string base() const { return storedId.baseId; }
 
     const TileIndex& sphereOfInfluence() const {
         if (!sphereOfInfluence_) {
@@ -388,8 +376,9 @@ createGlues(Tx &tx, Storage::Properties properties
     {
         std::size_t index(0);
         for (auto &set : std::get<0>(tsets)) {
-            tilesets.emplace_back(set, lr, (index == std::get<1>(tsets)));
-            tilesets.back().index = index++;
+            tilesets.emplace_back(index, set, lr, properties
+                                  , (index == std::get<1>(tsets)));
+            ++index;
         }
     }
 
@@ -444,6 +433,7 @@ createGlues(Tx &tx, Storage::Properties properties
             << ") overlap with [" << utility::join(ts.incidentSets, ", ")
             << "].";
 
+        // initialize tileset mapping
         constexpr int emptyPlaceholder(-1);
         constexpr int addedPlaceholder(-2);
         constexpr int thisPlaceholder(-3);
@@ -468,30 +458,49 @@ createGlues(Tx &tx, Storage::Properties properties
             TileSet::const_ptrlist combination;
             Glue glue;
 
-            for (std::size_t index(0), e(mapping.size()); index != e; ++ index)
+            auto buildCombination([&]() -> bool
             {
-                auto value(mapping[index]);
-                switch (value) {
-                case emptyPlaceholder:
-                    continue;
+                std::set<TilesetId> seen;
+                auto addTs([&](const Ts &ts) -> bool
+                {
+                    if (!seen.insert(ts.base()).second) {
+                        // this base tileset has already been seen
+                        return false;
+                    }
+                    combination.push_back(&ts.set);
+                    glue.id.push_back(ts.id());
+                    return true;
+                });
 
-                case addedPlaceholder:
-                    combination.push_back(&added.set);
-                    glue.id.push_back(added.id());
-                    continue;
+                for (std::size_t index(0), e(mapping.size());
+                     index != e; ++ index)
+                {
+                    auto value(mapping[index]);
+                    switch (value) {
+                    case emptyPlaceholder:
+                        continue;
 
-                case thisPlaceholder:
-                    combination.push_back(&tsp->set);
-                    glue.id.push_back(tsp->id());
-                    continue;
+                    case addedPlaceholder:
+                        if (!addTs(added)) {
+                            return false;
+                        }
+                        continue;
 
+                    case thisPlaceholder:
+                        if (!addTs(*tsp)) {
+                            return false;
+                        }
+                        continue;
+                    }
+
+                    if (flags[value] && !addTs(tilesets[index])) {
+                        return false;
+                    }
                 }
+                return true;
+            });
 
-                if (flags[value]) {
-                    combination.push_back(&tilesets[index].set);
-                    glue.id.push_back(tilesets[index].id());
-                }
-            }
+            if (!buildCombination()) { continue; }
 
             // create glue
             auto glueSetId(boost::lexical_cast<std::string>
@@ -554,10 +563,43 @@ createGlues(Tx &tx, Storage::Properties properties
 
 } // namespace
 
-Storage::Properties Storage::Detail::addTileset(const Properties &properties
-                                                , const StoredTileset &tileset
-                                                , const Location &where) const
+std::tuple<Storage::Properties, StoredTileset>
+Storage::Detail::addTileset(const Properties &properties
+                            , const TilesetId &tilesetId, bool bumpVersion
+                            , const Location &where) const
 {
+    if (tilesetId.find('@') != std::string::npos) {
+        LOGTHROW(err1, vadstena::storage::TileSetAlreadyExists)
+            << "Invalid character in tileset ID <" << tilesetId << ">.";
+    }
+
+    StoredTileset tileset;
+    {
+        tileset.baseId = tilesetId;
+        auto lastVersion(properties.lastVersion(tilesetId));
+        if (lastVersion >= 0) {
+            if (!bumpVersion) {
+                LOGTHROW(err1, vadstena::storage::TileSetAlreadyExists)
+                    << "Tileset <" << tilesetId
+                    << "> already present in storage "
+                    << root << ". Use version bumping to introduce "
+                    "new version.";
+            }
+
+            tileset.version = lastVersion + 1;
+            tileset.baseId = tilesetId;
+            tileset.tilesetId = str(boost::format("%s@%d")
+                                    % tilesetId % tileset.version);
+            LOG(info2)
+                << "Bumping version " << tileset.version
+                << " of tileset <" << tileset.baseId << "> under name ID <"
+                << tileset.tilesetId << ">";
+        } else {
+            tileset.baseId = tileset.tilesetId = tilesetId;
+            tileset.version = 0;
+        }
+    }
+
     if (properties.hasTileset(tileset.tilesetId)) {
         LOGTHROW(err1, vadstena::storage::TileSetAlreadyExists)
             << "Tileset <" << tileset.tilesetId
@@ -565,7 +607,10 @@ Storage::Properties Storage::Detail::addTileset(const Properties &properties
             << root << ".";
     }
 
-    auto p(properties);
+    std::tuple<Properties, StoredTileset> res;
+    auto &p(std::get<0>(res) = properties);
+    std::get<1>(res) = tileset;
+
     auto &tilesets(p.tilesets);
 
     if (where.where.empty()) {
@@ -577,7 +622,7 @@ Storage::Properties Storage::Detail::addTileset(const Properties &properties
             // above void -> to the bottom of the stack
             tilesets.insert(tilesets.begin(), tileset);
         }
-        return p;
+        return res;
     }
 
     // some reference
@@ -596,7 +641,7 @@ Storage::Properties Storage::Detail::addTileset(const Properties &properties
         tilesets.insert(std::next(ftilesets), tileset);
     }
 
-    return p;
+    return res;
 }
 
 std::tuple<Storage::Properties, Glue::map>
@@ -638,17 +683,17 @@ Storage::Detail::removeTilesets(const Properties &properties
 
 void Storage::Detail::add(const TileSet &tileset
                           , const Location &where
-                          , const StoredTileset &tilesetInfo
+                          , const TilesetId &tilesetId, bool bumpVersion
                           , const TileFilter &filter
                           , int textureQuality)
 {
     vadstena::storage::TIDGuard tg
-        (str(boost::format("add(%s)") % tilesetInfo.tilesetId));
+        (str(boost::format("add(%s)") % tilesetId));
 
     // check compatibility
     if (tileset.getProperties().referenceFrame != properties.referenceFrame) {
         LOGTHROW(err1, vadstena::storage::IncompatibleTileSet)
-            << "Tileset <" << tilesetInfo.tilesetId << "> "
+            << "Tileset <" << tilesetId << "> "
             "uses different reference frame ("
             << tileset.getProperties().referenceFrame
             << ") from the one  this storage supports ("
@@ -656,7 +701,10 @@ void Storage::Detail::add(const TileSet &tileset
     }
 
     // prepare new tileset list
-    auto nProperties(addTileset(properties, tilesetInfo, where));
+    Properties nProperties;
+    StoredTileset tilesetInfo;
+    std::tie(nProperties, tilesetInfo)
+        = addTileset(properties, tilesetId, bumpVersion, where);
 
     LOG(info3) << "Adding tileset <" << tileset.id() << "> (from "
                << tileset.root() << ").";
@@ -673,13 +721,9 @@ void Storage::Detail::add(const TileSet &tileset
                               .tilesetId(tilesetInfo.tilesetId)
                               .lodRange(filter.lodRange())));
 
-        // create glues only if tileset participates in any glue
-        if (tilesetInfo.glueMode != StoredTileset::GlueMode::none) {
-            auto tilesets(openTilesets(tx, nProperties.tilesets, dst
-                                       , StoredTileset::GlueMode::full));
-            nProperties = createGlues(tx, nProperties, tilesets
-                                      , textureQuality);
-        }
+        auto tilesets(openTilesets(tx, nProperties.tilesets, dst));
+        nProperties = createGlues(tx, nProperties, tilesets
+                                  , textureQuality);
 
         tx.commit();
     }
@@ -701,26 +745,12 @@ void Storage::Detail::readd(const TilesetId &tilesetId
     {
         Tx tx(root);
 
-        const auto &tilesetInfo([&]() -> const StoredTileset&
-        {
-            const auto *info(properties.findTileset(tilesetId));
-            if (!info) {
-                LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
-                    << "Tileset <" << tilesetId << "> not found in storage "
-                    << root << ".";
-            }
-            return *info;
-        }());
-
         auto dst(openTileSet(storage_paths::tilesetPath(root, tilesetId)));
 
         // create glues only if tileset participates in any glue
-        if (tilesetInfo.glueMode != StoredTileset::GlueMode::none) {
-            auto tilesets(openTilesets(tx, properties.tilesets, dst
-                                       , StoredTileset::GlueMode::full));
-            nProperties = createGlues(tx, nProperties, tilesets
-                                      , textureQuality);
-        }
+        auto tilesets(openTilesets(tx, properties.tilesets, dst));
+        nProperties = createGlues(tx, nProperties, tilesets
+                                  , textureQuality);
 
         tx.commit();
     }
@@ -759,320 +789,6 @@ void Storage::Detail::remove(const TilesetIdList &tilesetIds)
         LOG(info3) << "Removing glue " << glue.path << ".";
         rmrf(path);
     }
-}
-
-namespace {
-
-typedef std::map<TilesetId, Glue::list> GlueMapping;
-
-class Flattener : public Encoder {
-public:
-    struct Ts {
-        TileSet set;
-        TileIndex soi;
-
-        Ts(Tx &tx, const TilesetId &id);
-        Ts(TileSet &&set) : set(set) {}
-
-        void generateSoi(const LodRange &lodRange) {
-            soi = set.sphereOfInfluence(lodRange, TileIndex::Flag::mesh);
-        }
-
-        TilesetId id() const { return set.id(); }
-
-        typedef std::vector<Ts> list;
-        typedef std::vector<const Ts*> const_ptrlist;
-        typedef std::map<Glue::Id, const Ts*> map;
-    };
-
-    struct GlueTs : Ts {
-        GlueTs(Tx &tx, const Glue &glue, const TilesetIdList &world);
-
-        Glue::Id id;
-        GlueIndices indices;
-
-        typedef std::vector<GlueTs> list;
-        typedef std::map<TilesetId, list> map;
-    };
-
-    Flattener(Tx &tx, const Storage::Properties &properties
-              , const boost::filesystem::path &path
-              , const TileSetProperties &tsProps
-              , CreateMode mode)
-        : Encoder(path, tsProps, mode), tx_(tx)
-        , properties_(properties)
-        , tilesets_(openTilesets(tx, properties.tilesets))
-        , dataLodRange_(range(tilesets_))
-        , soi_(soi(dataLodRange_.max, tilesets_))
-        , glues_(openGlues(tx, dataLodRange_.max, properties.tilesets
-                           , properties.glues))
-    {
-        for (const auto &ts : tilesets_) {
-            all_.insert(Ts::map::value_type({1, ts.id()}, &ts));
-        }
-
-        for (const auto &glues : glues_) {
-            for (const auto &glue : glues.second) {
-                all_.insert(Ts::map::value_type(glue.id, &glue));
-            }
-        }
-
-        // limit lodRange
-        setConstraints(Constraints()
-                       .setLodRange(dataLodRange_)
-                       .setValidTree(&soi_));
-    }
-
-private:
-    virtual TileResult
-    generate(const TileId &tileId, const NodeInfo &nodeInfo
-             , const TileResult&);
-
-    virtual void finish(TileSet &tileSet);
-
-    GlueMapping getGluesMapping(const Glue::Id &glueId) const;
-
-    const GlueTs::list& glues(const TilesetId &tilesetId) const {
-        auto fglues(glues_.find(tilesetId));
-        if (fglues == glues_.end()) { return noGlue_; }
-        return fglues->second;
-    }
-
-    const Ts* findSet(const Glue::Id &glueId) const {
-        auto fall(all_.find(glueId));
-        if (fall == all_.end()) { return nullptr; }
-        return fall->second;
-    }
-
-    bool trySet(TileResult &result, const TileId &tileId, const Ts &ts) {
-        LOG(info1) << "trying " << ts.set.id();
-        if (!ts.set.exists(tileId)) { return false; }
-
-        LOG(info1) << "using " << ts.set.id();
-
-        UTILITY_OMP(critical)
-        {
-            // this must be inside critical section
-            result.source() = ts.set.getTileSource(tileId);
-            usedSets_.insert(&ts.set);
-        }
-        return true;
-    }
-
-    static Ts::list openTilesets(Tx &tx, const StoredTileset::list &infos);
-
-    static GlueTs::map openGlues(Tx &tx, Lod depth
-                                 , const StoredTileset::list &infos
-                                 , const Glue::map &glues);
-
-    static TileIndex soi(Lod depth, Ts::list &sets);
-
-    static LodRange range(const Ts::list &tilesets);
-
-    Tx &tx_;
-    const Storage::Properties properties_;
-    Ts::list tilesets_;
-    const LodRange dataLodRange_;
-    const TileIndex soi_;
-    GlueTs::map glues_;
-    GlueTs::list noGlue_;
-    Ts::map all_;
-
-    // accumulates used sets
-    std::set<const TileSet*> usedSets_;
-};
-
-LodRange Flattener::range(const Ts::list &tilesets)
-{
-    auto lr(LodRange::emptyRange());
-    for (const auto &ts : tilesets) {
-        lr = unite(lr, ts.set.lodRange());
-    }
-    return lr;
-}
-
-Flattener::Ts::Ts(Tx &tx, const TilesetId &id)
-    : set(tx.open(id))
-{}
-
-Flattener::GlueTs::GlueTs(Tx &tx, const Glue &glue
-                          , const TilesetIdList &world)
-    : Ts(tx.open(glue)), id(glue.id), indices(buildGlueIndices(world, id))
-{}
-
-Flattener::Ts::list
-Flattener::openTilesets(Tx &tx, const StoredTileset::list &infos)
-{
-    Ts::list sets;
-
-    for (const auto &info : infos) {
-        sets.emplace_back(tx, info.tilesetId);
-        LOG(info2) << "Opened tileset <" << sets.back().set.id() << ">.";
-    }
-
-    return sets;
-}
-
-Flattener::GlueTs::map Flattener::openGlues(Tx &tx, Lod depth
-                                            , const StoredTileset::list &infos
-                                            , const Glue::map &glues)
-{
-    GlueTs::map gm;
-    LodRange lr(0, depth);
-    auto world(tilesetIdList(infos));
-
-    for (const auto &g : glues) {
-        auto &list(gm[g.first.back()]);
-        list.emplace_back(tx, g.second, world);
-        list.back().generateSoi(lr);
-        LOG(info2)
-            << "Opened glue <" << utility::join(list.back().id, ",")
-            << "> (<" << utility::join(list.back().indices, ",")
-            << ">) for set <" << g.first.back() << ">.";
-    }
-
-    // create tileset id -> depth mapping
-    std::map<TilesetId, int> depthMap;
-    {
-        int d(0);
-        for (const auto &info : boost::adaptors::reverse(infos)) {
-            depthMap[info.tilesetId] = d;
-            LOG(info2) << "Depth <" << info.tilesetId << ">: " << d << ".";
-            ++d;
-        }
-    }
-
-    auto compareGlues([&](const GlueTs &l, const GlueTs &r) -> bool
-    {
-        const auto &lid(l.id), &rid(r.id);
-
-        if (lid.size() > rid.size()) {
-            return true;
-        } else if (lid.size() < rid.size()) {
-            return false;
-        }
-
-        // same length
-        for (std::size_t i(0), e(lid.size()); i < e; ++i) {
-            auto ld(depthMap[lid[i]]);
-            auto rd(depthMap[rid[i]]);
-            if (ld < rd) {
-                return true;
-            } else if (ld > rd) {
-                return false;
-            }
-            // same depth -> next
-        }
-        return false;
-    });
-
-    // sort each tileset's glue so longest comes first
-    for (auto &item : gm) {
-        std::sort(item.second.begin(), item.second.end()
-                  , compareGlues);
-
-        LOG(info2) << "Search order <" << item.first << ">:"
-                   << utility::LManip([&](std::ostream &os)
-        {
-            for (const auto &glue : item.second) {
-                os << " <" << utility::join(glue.id, ",") << ">";
-            }
-        });
-    }
-
-    return gm;
-}
-
-TileIndex Flattener::soi(Lod depth, Ts::list &sets)
-{
-    // get sphere of influence of all meshes
-    LodRange lr(0, depth);
-    vts::TileIndices sois;
-    for (auto &ts : sets) {
-        ts.generateSoi(lr);
-        sois.push_back(&ts.soi);
-    }
-
-    // sphere of influence of whole storage
-    return unite(sois, TileIndex::Flag::any, lr);
-}
-
-Encoder::TileResult
-Flattener::generate(const TileId &tileId, const NodeInfo &nodeInfo
-                    , const TileResult&)
-{
-    TileResult result;
-
-    // NB: index to tiles is 1-based, decremented to 0-based is done when
-    // accessing tileset list
-
-    // glue trying
-    auto tryGlues([&](const GlueTs::list &glues) -> int
-    {
-        for (const auto &glue : glues) {
-            if (trySet(result, tileId, glue)) {
-                return 0;
-            } else if (auto reference = glue.set.getReference(tileId)) {
-                LOG(info2) << "Redirected to <" << glue.id[reference] << ">.";
-                return glue.indices[reference - 1] + 1;
-            }
-        }
-        return -1;
-    });
-
-    // iterate through tilesets from back (i.e. the top)
-    for (std::size_t tsi(tilesets_.size()); tsi;) {
-        // get tileset
-        const auto &ts(tilesets_[--tsi]);
-
-        // try glues first
-        auto gr(tryGlues(glues(ts.id())));
-        if (!gr) {
-            // found tile in one of glues result
-            return result;
-        } else if (gr > 0) {
-            // reference found -> redirect
-            tsi = gr;
-        } else {
-            // nothing found in glues, try tileset itself
-            if (trySet(result, tileId, ts)) {
-                return result;
-            }
-        }
-    }
-
-    // nothing appropriate
-    return result;
-
-    (void) nodeInfo;
-}
-
-void Flattener::finish(TileSet &tileSet)
-{
-    for (const auto *set : usedSets_) {
-        const auto props(set->getProperties());
-        tileSet.addBoundLayers(props.boundLayers);
-    }
-
-    if (!usedSets_.empty()) {
-        tileSet.setPosition((*usedSets_.begin())->getProperties().position);
-    }
-}
-
-} // namespace
-
-TileSet Storage::Detail::flatten(const boost::filesystem::path &tilesetPath
-                                 , CreateMode mode
-                                 , const std::string &tilesetId)
-{
-    TileSetProperties tsProp;
-    tsProp.id = tilesetId;
-    tsProp.referenceFrame = properties.referenceFrame;
-
-    Tx tx(root);
-    Flattener flattener(tx, properties, tilesetPath, tsProp, mode);
-
-    return flattener.run();
 }
 
 } } // namespace vadstena::vts

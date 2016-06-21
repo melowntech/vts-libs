@@ -67,6 +67,16 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
                           , const CloneOptions &co
                           , const TilesetIdSet &tilesets);
 
+/** Creates aggreagated in-memory tileset from storage subset.
+ */
+TileSet aggregateTileSets(const Storage &storage
+                          , const CloneOptions &createOptions
+                          , const TilesetIdList &tilesets);
+
+TileSet aggregateTileSets(const Storage &storage
+                          , const CloneOptions &co
+                          , const TilesetIdSet &tilesets);
+
 /** Creates adapter for remote (HTTP) tileset.
  */
 TileSet createRemoteTileSet(const boost::filesystem::path &path

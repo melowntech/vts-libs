@@ -390,6 +390,20 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
     return TileSet::Factory::open(driver);
 }
 
+/** Core implementation.
+ */
+TileSet aggregateTileSets(const Storage &storage
+                          , const CloneOptions &co
+                          , const TilesetIdSet &tilesets)
+{
+    driver::AggregatedOptions dopts;
+    dopts.storagePath = fs::absolute(storage.path());
+    dopts.tilesets = tilesets;
+
+    auto driver(Driver::create(dopts, co));
+    return TileSet::Factory::open(driver);
+}
+
 TileSet createRemoteTileSet(const boost::filesystem::path &path
                             , const std::string &url
                             , const CloneOptions &createOptions)
@@ -418,13 +432,17 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
     : readOnly(true), driver(driver)
     , propertiesChanged(false), metadataChanged(false)
     , metaTiles(MetaCache::create(driver))
-    , tileIndex(tsi.tileIndex), references(tsi.references)
+    , driverTsi(driver->getTileIndex())
+    , tileIndex(driverTsi ? driverTsi->tileIndex : tsi.tileIndex)
+    , references(driverTsi ? driverTsi->references : tsi.references)
 {
     loadConfig();
     referenceFrame = registry::Registry::referenceFrame
         (properties.referenceFrame);
 
-    loadTileIndex();
+    if (!driverTsi) {
+        loadTileIndex();
+    }
 }
 
 TileSet::Detail::Detail(const Driver::pointer &driver
@@ -435,6 +453,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
                      (properties.referenceFrame))
     , metaTiles(MetaCache::create(driver))
     , tsi(referenceFrame.metaBinaryOrder)
+    , driverTsi()
     , tileIndex(tsi.tileIndex), references(tsi.references)
     , lodRange(LodRange::emptyRange())
 {

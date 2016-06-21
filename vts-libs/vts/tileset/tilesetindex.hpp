@@ -52,6 +52,8 @@ void loadTileSetIndex(Index &tsi, const boost::filesystem::path &path);
 
 void saveTileSetIndex(const Index &tsi, const boost::filesystem::path &path);
 
+void saveTileSetIndex(const Index &tsi, std::ostream &os);
+
 // inlines
 
 inline bool Index::real(const TileId &tileId) const

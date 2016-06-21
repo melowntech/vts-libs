@@ -28,6 +28,11 @@ public:
                      , const AggregatedOptions &options
                      , const CloneOptions &cloneOptions);
 
+    /** Creates in-memory storage.
+     */
+    AggregatedDriver(const AggregatedOptions &options
+                     , const CloneOptions &cloneOptions);
+
     /** Opens storage.
      */
     AggregatedDriver(const boost::filesystem::path &root
@@ -108,11 +113,20 @@ private:
 
     virtual std::string info_impl() const;
 
+    IStream::pointer input_mem(File type) const;
+
+    virtual tileset::Index* getTileIndex_impl() { return &tsi_; }
+
+    virtual const tileset::Index* getTileIndex_impl() const { return &tsi_; }
+
     inline const AggregatedOptions& options() const {
         return Driver::options<const AggregatedOptions&>();
     }
 
     TileSetInfo::list buildTilesetInfo() const;
+
+    TileSet::Properties build(const AggregatedOptions &options
+                              , const CloneOptions &cloneOptions);
 
     Storage storage_;
 
@@ -123,6 +137,8 @@ private:
     /** Stuff ripe for delivery.
      */
     TileSetInfo::list tilesetInfo_;
+
+    boost::optional<TileSet::Properties> memProperties_;
 };
 
 } } } // namespace vadstena::vts::driver
