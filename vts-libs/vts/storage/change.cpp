@@ -533,18 +533,30 @@ createGlues(Tx &tx, Storage::Properties properties
     // prepare glues
     auto gds(prepareGlues(tilesets, tilesets[std::get<1>(tsets)]));
 
-    LOG(info3) << "Will try to generate glues:";
-    for (const auto &gd : gds) {
-        LOG(info3) << "    <" << gd.glueSetId << ">.";
+    {
+        int glueNumber(1);
+        LOG(info3) << "Will try to generate " << gds.size() << "glues:";
+        for (const auto &gd : gds) {
+            LOG(info3)
+                << "    #" << glueNumber
+                << '/' << gds.size() << " <" << gd.glueSetId << ">.";
+            ++glueNumber;
+        }
     }
 
     // simulation -> stop here
     if (addOptions.dryRun) { return properties; }
 
+    int glueNumber(1);
     for (const auto &gd : gds) {
-        LOG(info3) << "Trying to generate glue <" << gd.glueSetId << ">.";
+        LOG(info3)
+            << "Trying to generate glue #" << glueNumber
+            << '/' << gds.size() << " <" << gd.glueSetId << ">.";
+        vadstena::storage::TIDGuard tg
+            (str(boost::format("%d:%s") % glueNumber % gd.glueSetId)
+             , true);
 
-        vadstena::storage::TIDGuard tg(gd.glueSetId);
+        ++glueNumber;
 
         TileSetProperties gprop;
         gprop.id = gd.glueSetId;
