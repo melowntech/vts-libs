@@ -25,13 +25,10 @@ if (TARGET service)
 
     macro(vts_libs_tool name)
       message(STATUS "vts-libs: building ${name} tool")
+      add_executable(${name} ${ARGN})
       if (vts-libs_vts-install_component)
-        add_executable(${name} ${ARGN})
-        # and install it to along other storage tools
         install(TARGETS ${name} RUNTIME DESTINATION bin
           COMPONENT ${vts-libs_vts-install_component})
-      else()
-        add_executable(${name} EXCLUDE_FROM_ALL ${ARGN})
       endif()
 
       target_link_libraries(${name} ${MODULE_LIBRARIES})
@@ -51,6 +48,7 @@ if (TARGET service)
     buildsys_binary(vts-measure-dataset)
 
     vts_libs_tool(vts vts.cpp)
+
     vts_libs_tool(vts2vts vts2vts.cpp heightmap.hpp heightmap.cpp)
     vts_libs_tool(vts02vts vts02vts.cpp heightmap.hpp heightmap.cpp)
 
