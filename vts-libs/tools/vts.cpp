@@ -375,6 +375,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tileId", po::value(&tileId_)->required()
              , "ID of tile to query.")
             ;
+        p.positional.add("tileId", 1);
     });
 
     createParser(cmdline, Command::dumpMesh
@@ -385,6 +386,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tileId", po::value(&tileId_)->required()
              , "ID of tile to query.")
             ;
+        p.positional.add("tileId", 1);
     });
 
     createParser(cmdline, Command::dumpMeshMask

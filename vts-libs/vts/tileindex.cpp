@@ -22,11 +22,13 @@ namespace {
 TileIndex::TileIndex(const TileIndex &other)
     : minLod_(other.minLod_)
     , trees_(other.trees_)
+    , allSetFlags_()
 {
 }
 
 TileIndex::TileIndex(const TileIndex &other, ShallowCopy)
     : minLod_(other.minLod_)
+    , allSetFlags_()
 {
     trees_.reserve(other.trees_.size());
     for (const auto &tree : other.trees_) {
@@ -36,6 +38,7 @@ TileIndex::TileIndex(const TileIndex &other, ShallowCopy)
 
 TileIndex::TileIndex(LodRange lodRange
                      , const TileIndex *other, bool noFill)
+    : allSetFlags_()
 {
     // include old definition if non-empty
     if (other && !other->empty()) {
@@ -94,8 +97,10 @@ void TileIndex::load(std::istream &f, const fs::path &path)
     minLod_ = minLod;
 
     trees_.resize(size);
+    allSetFlags_ = 0;
     for (auto &tree : trees_) {
         tree.load(f, path);
+        allSetFlags_ |= tree.allSetFlags();
     }
 }
 

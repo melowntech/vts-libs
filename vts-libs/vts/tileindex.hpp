@@ -46,6 +46,20 @@ public:
         static bool isWatertight(value_type flags) {
             return (flags & watertight);
         };
+
+        static bool check(value_type value, value_type mask, value_type match)
+        {
+            return ((value & mask) == match);
+        }
+
+        static bool check(value_type value, value_type mask)
+        {
+            return (value & mask);
+        }
+
+        static bool isAlien(value_type flags) {
+            return check(flags, mesh | alien, mesh | alien);
+        };
     };
 
     TileIndex() : minLod_() {}
@@ -84,6 +98,14 @@ public:
 
     bool real(const TileId &tileId) const {
         return (get(tileId) & Flag::real);
+    }
+
+    /** Returns whether contains real tile with given alien flag
+     */
+    bool real(const TileId &tileId, bool alien) const {
+        auto flag(get(tileId));
+        if (!(flag & Flag::real)) { return false; }
+        return bool(flag & Flag::alien) == alien;
     }
 
     bool navtile(const TileId &tileId) const {
@@ -308,11 +330,14 @@ public:
      */
     TileIndex& makeAbsolute();
 
+    Flag::value_type allSetFlags() const { return allSetFlags_; }
+
 private:
     QTree* tree(Lod lod, bool create = false);
 
     Lod minLod_;
     Trees trees_;
+    Flag::value_type allSetFlags_;
 };
 
 typedef std::vector<const TileIndex*> TileIndices;

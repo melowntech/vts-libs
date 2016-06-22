@@ -293,7 +293,7 @@ void QTree::load(std::istream &is, const fs::path &path)
     std::uint8_t order;
     bin::read(is, order);
     recreate(order);
-    count_ = root_.load(size_, is);
+    std::tie(count_, allSetFlags_) = root_.load(size_, is);
 }
 
 void QTree::Node::save(std::ostream &os) const
@@ -312,21 +312,25 @@ void QTree::Node::save(std::ostream &os) const
     }
 }
 
-std::size_t QTree::Node::load(unsigned int mask, std::istream &is)
+std::tuple<std::size_t, QTree::value_type>
+QTree::Node::load(unsigned int mask, std::istream &is)
 {
     std::uint8_t u8;
     bin::read(is, u8);
     if (u8 == detail::GrayNode) {
         children.reset(new Children());
-        std::size_t count(0);
+        std::tuple<std::size_t, value_type> res(0, 0);
         for (auto &node : children->nodes) {
-            count += node.load(mask >> 1, is);
+            auto sub(node.load(mask >> 1, is));
+            std::get<0>(res) += std::get<0>(sub);
+            std::get<1>(res) += std::get<1>(sub);
         }
-        return count;
+        return res;
     }
 
     value = u8;
-    return (value > 0) * (mask * mask);
+    return std::tuple<std::size_t, value_type>
+        ((value > 0) * (mask * mask), value);
 }
 
 void QTree::recount()

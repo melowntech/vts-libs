@@ -130,6 +130,10 @@ public:
      */
     void shrink(unsigned int depth);
 
+    /** Return all set flags.
+     */
+    value_type allSetFlags() const { return allSetFlags_; }
+
 private:
     /** Re-calculates number of non-zero elements.
      */
@@ -170,7 +174,8 @@ private:
         void contract();
 
         void save(std::ostream &os) const;
-        std::size_t load(unsigned int mask, std::istream &is);
+        std::tuple<std::size_t, value_type>
+        load(unsigned int mask, std::istream &is);
 
         /** Called from QTree::forEachNode */
         template <typename Op>
@@ -234,6 +239,7 @@ private:
     unsigned int size_;
     Node root_;
     std::size_t count_;
+    value_type allSetFlags_;
 };
 
 /** Using std::function to hide implementation.

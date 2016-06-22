@@ -24,6 +24,13 @@ void loadTileSetIndex(Index &tsi, const Driver &driver)
     }
 }
 
+Index::pointer loadTileSetIndex(const Driver &driver)
+{
+    auto tsi(std::make_shared<Index>());
+    loadTileSetIndex(*tsi, driver);
+    return tsi;
+}
+
 void saveTileSetIndex(const Index &tsi, Driver &driver)
 {
     try {
