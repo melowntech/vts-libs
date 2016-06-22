@@ -267,7 +267,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
   message(STATUS "Compiling main vts-libs library.")
   define_module(LIBRARY vts-libs DEPENDS
     vts-libs-core
-    service cvision optics
     OpenCV)
 
 
@@ -283,5 +282,9 @@ endif()
 
 # add tools subdirectory
 if(MODULE_service_FOUND)
-  add_subdirectory(tools EXCLUDE_FROM_ALL)
+  if (vts-libs_vts-install_component)
+    add_subdirectory(tools)
+  else()
+    add_subdirectory(tools EXCLUDE_FROM_ALL)
+  endif()
 endif()
