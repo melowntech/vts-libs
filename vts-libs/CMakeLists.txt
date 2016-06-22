@@ -267,7 +267,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
   message(STATUS "Compiling main vts-libs library.")
   define_module(LIBRARY vts-libs DEPENDS
     vts-libs-core
-    service
     OpenCV)
 
 
