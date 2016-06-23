@@ -708,7 +708,7 @@ std::string AggregatedDriver::info_impl() const
     auto o(options());
     std::ostringstream os;
     os << "aggregated (storage=" << o.storagePath
-       << ", tilesets=[" << utility::join(o.tilesets, ", ") << "])";
+       << ", tilesets=[" << utility::join(o.tilesets, " ") << "])";
     return os.str();
 }
 
