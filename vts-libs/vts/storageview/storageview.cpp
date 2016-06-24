@@ -195,4 +195,26 @@ StorageView openStorageView(const boost::filesystem::path &path)
     return { path };
 }
 
+TileSet StorageView::clone(const boost::filesystem::path &tilesetPath
+                             , const CloneOptions &createOptions)
+{
+    return storage().clone(tilesetPath, createOptions, &tilesets());
+}
+
+void StorageView::relocate(const boost::filesystem::path &root
+                           , const RelocateOptions &options)
+{
+    auto config(storageview::loadConfig(root));
+
+    auto res(options.apply(config.storagePath.string()));
+    if (!options.dryRun && res.replacement) {
+        config.storagePath = *res.replacement;
+
+        // TODO: save config
+        storageview::saveConfig(root, config);
+    }
+
+    Storage::relocate(res.follow, options);
+}
+
 } } // namespace vadstena::vts

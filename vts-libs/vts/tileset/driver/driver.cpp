@@ -217,6 +217,57 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
     throw;
 }
 
+namespace {
+
+boost::any relocateOptions(const boost::any &options
+                           , const RelocateOptions &relocateOptions)
+{
+    if (auto o = boost::any_cast<const driver::PlainOptions>(&options))
+    {
+        return o->relocate(relocateOptions);
+    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
+               (&options))
+    {
+        return o->relocate(relocateOptions);
+    } else if (auto o = boost::any_cast<const driver::RemoteOptions>
+               (&options))
+    {
+        return o->relocate(relocateOptions);
+    } else if (auto o = boost::any_cast<const driver::LocalOptions>
+               (&options))
+    {
+        return o->relocate(relocateOptions);
+    }
+
+    LOGTHROW(err2, storage::BadFileFormat)
+        << "Cannot relocate tileset: Invalid type of driver options: <"
+        << options.type().name() << ">.";
+    throw;
+}
+
+} // namespace
+
+void Driver::relocate(const boost::filesystem::path &root
+                      , const RelocateOptions &ro)
+{
+    LOG(info4) << "Relocating " << root << ".";
+    const auto configPath(root / filePath(File::config));
+
+    auto config(tileset::loadConfig(configPath));
+
+    auto relocated(relocateOptions(config.driverOptions, ro));
+
+    if (relocated.empty()) { return; }
+
+    // update config
+    config.driverOptions = relocated;
+
+    // safe save
+    auto tmpPath(utility::addExtension(configPath, ".tmp"));
+    tileset::saveConfig(tmpPath, config);
+    fs::rename(tmpPath, configPath);
+}
+
 namespace driver {
 
 MapConfigOverride::MapConfigOverride(const boost::any &options)

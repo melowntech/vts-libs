@@ -33,6 +33,7 @@
 #include "./mapconfig.hpp"
 #include "./tileindex.hpp"
 #include "./tilesource.hpp"
+#include "./options.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -258,6 +259,9 @@ public:
     /** Check for tileset at given path.
      */
     static bool check(const boost::filesystem::path &root);
+
+    static void relocate(const boost::filesystem::path &root
+                         , const RelocateOptions &options);
 
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the tileset's guts!

@@ -638,4 +638,21 @@ std::string AggregatedDriver::info_impl() const
     return os.str();
 }
 
+boost::any AggregatedOptions::relocate(const RelocateOptions &options) const
+{
+    LOG(info4) << "Trying to relocate <" << storagePath << ".";
+    auto res(options.apply(storagePath.string()));
+
+    // follow storage
+    Storage::relocate(res.follow, options);
+
+    if (!options.dryRun && res.replacement) {
+        // update
+        auto out(*this);
+        out.storagePath = *res.replacement;
+        return out;
+    }
+    return {};
+}
+
 } } } // namespace vadstena::vts::driver

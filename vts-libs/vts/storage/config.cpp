@@ -297,6 +297,40 @@ ExtraStorageProperties parse1(const Json::Value &config)
     return ep;
 }
 
+void build(Json::Value &config, const ExtraStorageProperties &ep)
+{
+    if (ep.position) {
+        config["position"] = registry::asJson(*ep.position);
+    }
+
+    if (!ep.credits.empty()) {
+        config["credits"] = registry::asJson(ep.credits);
+    }
+
+    if (!ep.boundLayers.empty()) {
+        config["boundLayers"] = registry::asJson(ep.boundLayers);
+    }
+
+    if (!ep.rois.empty()) {
+        config["rois"] = registry::asJson(ep.rois);
+    }
+
+    if (!ep.namedViews.empty()) {
+        registry::BoundLayer::dict tmp;
+        config["namedViews"]
+            = registry::asJson(ep.namedViews, tmp);
+    }
+
+    if (ep.view) {
+        registry::BoundLayer::dict tmp;
+        config["view"] = registry::asJson(ep.view, tmp);
+    }
+
+    if (ep.browserOptions) {
+        config["browserOptions"] = ep.browserOptions->value;
+    }
+}
+
 } // namespace detail_extra
 
 ExtraStorageProperties
@@ -356,6 +390,12 @@ ExtraStorageProperties loadExtraConfig(const boost::filesystem::path &path)
     auto p(loadExtraConfig(f));
     f.close();
     return p;
+}
+
+void extraStorageConfigToJson(Json::Value &config
+                              , const ExtraStorageProperties &properties)
+{
+    detail_extra::build(config, properties);
 }
 
 } } } // namespace vadstena::vts::storage

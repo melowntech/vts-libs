@@ -239,10 +239,10 @@ IStream::pointer fetchAsStream(::CURL *handle
             (std::move(buffer), contentType, url, lastModified);
     });
 
-    for (auto tries(options.tries); tries > 0; (tries > 0) ? --tries : 0) {
+    for (auto tries(options.tries); tries; (tries > 0) ? --tries : 0) {
         try {
             return tryFetch();
-        } catch (const std::exception &e) {
+        } catch (const storage::IOError &e) {
             LOG(warn2) << "Failed to fetch file from <" << url
                        << ">; retrying in a while.";
             ::sleep(1);

@@ -20,6 +20,7 @@
 #include "./tileset.hpp"
 #include "./basetypes.hpp"
 #include "./glue.hpp"
+#include "./options.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -173,13 +174,12 @@ public:
     /** Flattens content of this storage into new tileset at tilesetPath.
      *
      * \param tilesetPath path to tileset
-     * \param mode create mode of new tileset
-     * \param tilesetId ID of new tileset (defaults to filename of path)
+     * \param createOptions create options
+     * \param subset optional subset of tilesets
      */
-    TileSet flatten(const boost::filesystem::path &tilesetPath
-                    , CreateMode mode
-                    , const boost::optional<std::string> &tilesetId
-                    = boost::none);
+    TileSet clone(const boost::filesystem::path &tilesetPath
+                  , const CloneOptions &createOptions
+                  , const TilesetIdSet *subset = nullptr) const;
 
     /** Returns list of tileses in the stacked order (bottom to top);
      */
@@ -240,6 +240,9 @@ public:
     /** Check for storage at given path.
      */
     static bool check(const boost::filesystem::path &path);
+
+    static void relocate(const boost::filesystem::path &root
+                         , const RelocateOptions &options);
 
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the storage's guts!

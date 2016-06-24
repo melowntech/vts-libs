@@ -101,4 +101,46 @@ StorageView::Properties loadConfig(const boost::filesystem::path &path)
     return p;
 }
 
+namespace detail {
+
+void buildSet(Json::Value &object, const std::set<std::string> &ids)
+{
+    object = Json::arrayValue;
+    for (const auto &id : ids) {
+        object.append(id);
+    }
+}
+
+void build(Json::Value &config, const StorageView::Properties &properties)
+{
+    config["version"]
+        = Json::Int64(detail::CURRENT_JSON_FORMAT_VERSION);
+
+    config["storage"] = properties.storagePath.string();
+    buildSet(config["tilesets"], properties.tilesets);
+
+    storage::extraStorageConfigToJson(config, properties.extra);
+}
+
+void saveConfig(std::ostream &out, const StorageView::Properties &properties)
+{
+    Json::Value config;
+    detail::build(config, properties);
+    out.precision(15);
+    Json::StyledStreamWriter().write(out, config);
+}
+
+} // namespace detail
+
+void saveConfig(const boost::filesystem::path &path
+                , const StorageView::Properties &properties)
+{
+    LOG(info1) << "Saving storage view config to " << path  << ".";
+    std::ofstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    f.open(path.string(), std::ios_base::out);
+    detail::saveConfig(f, properties);
+    f.close();
+}
+
 } } } // namespace vadstena::vts::storageview

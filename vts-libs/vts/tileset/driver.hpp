@@ -124,6 +124,11 @@ public:
      */
     const tileset::Index* getTileIndex() const;
 
+    /** Relocates referenced resources.
+     */
+    static void relocate(const boost::filesystem::path &root
+                         , const RelocateOptions &relocateOptions);
+
 protected:
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.

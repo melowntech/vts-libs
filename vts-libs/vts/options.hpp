@@ -67,6 +67,20 @@ private:
     bool sameType_;
 };
 
+class RelocateOptions {
+public:
+    RelocateOptions() : dryRun(false) {}
+
+    struct Result {
+        boost::optional<std::string> replacement;
+        std::string follow;
+    };
+
+    Result apply(const std::string &path) const;
+
+    bool dryRun;
+};
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_options_hpp_included_

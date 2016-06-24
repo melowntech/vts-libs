@@ -29,7 +29,6 @@ UTILITY_GENERATE_ENUM(Command,
                       ((add))
                       ((readd))
                       ((remove))
-                      ((flatten))
                       ((dumpMetatile)("dump-metatile"))
                       ((mapConfig)("map-config"))
                       ((dumpTileIndex)("dump-tileindex"))
@@ -42,6 +41,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((remote)("remote"))
                       ((local)("local"))
                       ((clone)("clone"))
+                      ((relocate)("relocate"))
                       ((tilePick)("tile-pick"))
                       )
 
@@ -59,6 +59,8 @@ public:
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
         addOptions_.dryRun = false;
+
+        relocateOptions_.dryRun = false;
     }
 
     ~VtsStorage() {}
@@ -115,8 +117,6 @@ private:
 
     int remove();
 
-    int flatten();
-
     int dumpMetatile();
 
     int mapConfig();
@@ -139,6 +139,8 @@ private:
     int local();
 
     int clone();
+
+    int relocate();
 
     int tilePick();
 
@@ -165,6 +167,7 @@ private:
     fs::path localPath_;
     boost::optional<std::string> optSrs_;
     vts::Storage::AddOptions addOptions_;
+    vts::RelocateOptions relocateOptions_;
 
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
 };
@@ -324,32 +327,6 @@ void VtsStorage::configuration(po::options_description &cmdline
             ;
 
         p.positional.add("tileset", -1);
-    });
-
-    createParser(cmdline, Command::flatten
-                 , "--command=flatten: flattens contents of a VTS storage "
-                 "into new tileset."
-                 , [&](UP &p)
-    {
-        p.options.add_options()
-            ("tileset", po::value(&tileset_)->required()
-             , "Path to output tileset.")
-            ("overwrite", "Overwrite existing output tileset.")
-            ("tilesetId", po::value<std::string>()
-             , "TilesetId of output tileset. Defaults to filename of "
-             "tileset path ")
-            ;
-
-        p.configure = [&](const po::variables_map &vars) {
-            createMode_ = (vars.count("overwrite")
-                           ? vts::CreateMode::overwrite
-                           : vts::CreateMode::failIfExists);
-            if (vars.count("tilesetId")) {
-                optTilesetId_ = vars["tilesetId"].as<std::string>();
-            }
-        };
-
-        p.positional.add("tileset", 1);
     });
 
     createParser(cmdline, Command::dumpMetatile
@@ -545,7 +522,10 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "Path to output tileset.")
             ("overwrite", "Overwrite existing output tileset.")
             ("tilesetId", po::value<std::string>()
-             , "TilesetId of created tileset, defaults to ID of local set.")
+             , "TilesetId of output tileset. Defaults to filename of "
+             "tileset path ")
+            ("lodRange", po::value<vts::LodRange>()
+             , "Limits output to given LOD range from source tileset.")
             ;
 
         p.configure = [&](const po::variables_map &vars) {
@@ -556,6 +536,26 @@ void VtsStorage::configuration(po::options_description &cmdline
             createMode_ = (vars.count("overwrite")
                            ? vts::CreateMode::overwrite
                            : vts::CreateMode::failIfExists);
+
+            if (vars.count("lodRange")) {
+                optLodRange_ = vars["lodRange"].as<vts::LodRange>();
+            }
+        };
+
+        p.positional.add("tileset", 1);
+    });
+
+    createParser(cmdline, Command::relocate
+                 , "--command=relocate: update paths to external resources "
+                 "in a dataset"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("dryRun", "Simulate glue creation.")
+            ;
+
+        p.configure = [&](const po::variables_map &vars) {
+            relocateOptions_.dryRun = vars.count("dryRun");
         };
     });
 
@@ -666,7 +666,6 @@ int VtsStorage::runCommand()
     case Command::add: return add();
     case Command::readd: return readd();
     case Command::remove: return remove();
-    case Command::flatten: return flatten();
     case Command::dumpMetatile: return dumpMetatile();
     case Command::mapConfig: return mapConfig();
     case Command::dumpTileIndex: return dumpTileIndex();
@@ -680,6 +679,7 @@ int VtsStorage::runCommand()
     case Command::local: return local();
     case Command::clone: return clone();
     case Command::tilePick: return tilePick();
+    case Command::relocate: return relocate();
     }
     std::cerr << "vts: no operation requested" << std::endl;
     return EXIT_FAILURE;
@@ -822,13 +822,6 @@ int VtsStorage::remove()
 {
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
     storage.remove(tilesetIds_);
-    return EXIT_SUCCESS;
-}
-
-int VtsStorage::flatten()
-{
-    auto storage(vts::Storage(path_, vts::OpenMode::readOnly));
-    storage.flatten(tileset_, createMode_);
     return EXIT_SUCCESS;
 }
 
@@ -1252,14 +1245,30 @@ int VtsStorage::local()
 int VtsStorage::clone()
 {
     vts::CloneOptions cloneOptions;
-    cloneOptions.sameType(false);
     cloneOptions.tilesetId(optTilesetId_);
+    cloneOptions.lodRange(optLodRange_);
     cloneOptions.mode(createMode_);
 
-    auto ts(vts::openTileSet(path_));
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::TileSet:
+        vts::cloneTileSet
+            (tileset_, vts::openTileSet(path_), cloneOptions);
+        return EXIT_FAILURE;
 
-    vts::cloneTileSet(tileset_, ts, cloneOptions);
-    return EXIT_SUCCESS;
+    case vts::DatasetType::Storage:
+        vts::Storage(path_, vts::OpenMode::readOnly)
+            .clone(tileset_, cloneOptions);
+        return EXIT_SUCCESS;
+
+    case vts::DatasetType::StorageView:
+        vts::StorageView(path_).clone(tileset_, cloneOptions);
+        return EXIT_SUCCESS;
+
+    default: break;
+    }
+
+    std::cerr << "Unrecognized content " << path_ << "." << std::endl;
+    return EXIT_FAILURE;
 }
 
 int VtsStorage::tilePick()
@@ -1276,6 +1285,28 @@ int VtsStorage::tilePick()
     ots.flush();
 
     return EXIT_SUCCESS;
+}
+
+int VtsStorage::relocate()
+{
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::TileSet:
+        vts::TileSet::relocate(path_, relocateOptions_);
+        return EXIT_FAILURE;
+
+    case vts::DatasetType::Storage:
+        vts::Storage::relocate(path_, relocateOptions_);
+        return EXIT_SUCCESS;
+
+    case vts::DatasetType::StorageView:
+        vts::StorageView::relocate(path_, relocateOptions_);
+        return EXIT_SUCCESS;
+
+    default: break;
+    }
+
+    std::cerr << "Unrecognized content " << path_ << "." << std::endl;
+    return EXIT_FAILURE;
 }
 
 int main(int argc, char *argv[])

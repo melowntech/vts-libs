@@ -1528,4 +1528,10 @@ TileId TileSet::metaId(const TileId &tileId) const
     return detail().metaId(tileId);
 }
 
+void TileSet::relocate(const boost::filesystem::path &root
+                       , const RelocateOptions &options)
+{
+    Driver::relocate(root, options);
+}
+
 } } // namespace vadstena::vts

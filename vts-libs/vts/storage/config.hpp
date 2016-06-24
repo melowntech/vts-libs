@@ -32,6 +32,9 @@ ExtraStorageProperties loadExtraConfig(const boost::filesystem::path &path);
 ExtraStorageProperties
 extraStorageConfigFromJson(int version, const Json::Value &config);
 
+void extraStorageConfigToJson(Json::Value &config
+                              , const ExtraStorageProperties &properties);
+
 } } } // namespace vadstena::vts::storage
 
 #endif // vadstena_libs_vts_storage_config_hpp_included_

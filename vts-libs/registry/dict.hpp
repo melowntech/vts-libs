@@ -55,6 +55,8 @@ public:
                       });
     }
 
+    bool empty() const { return map_.empty(); }
+
 private:
     map map_;
 };

@@ -213,4 +213,19 @@ std::string RemoteDriver::info_impl() const
     return os.str();
 }
 
+boost::any RemoteOptions::relocate(const RelocateOptions &options) const
+{
+    LOG(info4) << "Trying to relocate <" << url << ".";
+
+    auto res(options.apply(url));
+
+    if (!options.dryRun && res.replacement) {
+        // update
+        auto out(*this);
+        out.url = *res.replacement;
+        return out;
+    }
+    return {};
+}
+
 } } } // namespace vadstena::vts::driver

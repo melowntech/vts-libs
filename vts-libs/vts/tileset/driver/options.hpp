@@ -10,6 +10,7 @@
 #include <boost/uuid/uuid.hpp>
 
 #include "../../../storage/tilar.hpp"
+#include "../../options.hpp"
 
 namespace vadstena { namespace vts { namespace driver {
 
@@ -66,6 +67,10 @@ public:
      */
     Index index(const TileId &tileId, int type) const;
 
+    /** Tries to relocate resources. Returns valid result in case of relocation.
+     */
+    boost::any relocate(const RelocateOptions &options) const;
+
 private:
     /** Binary order of magnitude of data stored in the individial tile
      *  archives (each archive has square grid of
@@ -92,14 +97,20 @@ private:
 struct AggregatedOptions {
     boost::filesystem::path storagePath;
     TilesetIdSet tilesets;
+
+    boost::any relocate(const RelocateOptions &options) const;
 };
 
 struct RemoteOptions {
     std::string url;
+
+    boost::any relocate(const RelocateOptions &options) const;
 };
 
 struct LocalOptions {
     boost::filesystem::path path;
+
+    boost::any relocate(const RelocateOptions &options) const;
 };
 
 // inlines

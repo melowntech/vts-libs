@@ -582,21 +582,31 @@ boost::filesystem::path Storage::path(const Glue &glue) const
     return storage_paths::gluePath(root, glue);
 }
 
-TileSet Storage::flatten(const boost::filesystem::path &tilesetPath
-                         , CreateMode mode
-                         , const boost::optional<std::string> &tilesetId)
+TileSet Storage::clone(const boost::filesystem::path &tilesetPath
+                       , const CloneOptions &createOptions
+                       , const TilesetIdSet *subset) const
 {
-    CloneOptions co;
-
     // create in-memory
-    co.tilesetId(TilesetId("storage"));
-    auto tmp(aggregateTileSets(*this, co, tilesets()));
+    auto tmp(aggregateTileSets(*this, CloneOptions(createOptions)
+                               .tilesetId(TilesetId("storage"))
+                               , detail().properties.unique(subset)));
 
     // clone
-    co.mode(mode);
+    CloneOptions co(createOptions);
     co.sameType(false);
-    co.tilesetId(tilesetId ? *tilesetId : tilesetPath.filename().string());
+    if (!co.tilesetId()) { co.tilesetId(tilesetPath.filename().string()); }
     return cloneTileSet(tilesetPath, tmp, co);
+}
+
+void Storage::relocate(const boost::filesystem::path &root
+                       , const RelocateOptions &options)
+{
+    auto config(storage::loadConfig(root / ConfigFilename));
+
+    for (const auto &tileset : config.tilesets) {
+        TileSet::relocate(storage_paths::tilesetPath(root, tileset.tilesetId)
+                          , options);
+    }
 }
 
 } } // namespace vadstena::vts

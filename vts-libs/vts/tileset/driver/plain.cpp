@@ -152,4 +152,10 @@ std::string PlainDriver::info_impl() const
     return os.str();
 }
 
+boost::any PlainOptions::relocate(const RelocateOptions&) const
+{
+    LOG(info4) << "Nothing to relocate in plain tileset.";
+    return {};
+}
+
 } } } // namespace vadstena::vts::driver

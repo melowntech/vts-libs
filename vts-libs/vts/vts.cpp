@@ -46,4 +46,9 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
                              , storageView.tilesets());
 }
 
+RelocateOptions::Result RelocateOptions::apply(const std::string &path) const
+{
+    return { boost::none, path };
+}
+
 } } // namespace vadstena::vts

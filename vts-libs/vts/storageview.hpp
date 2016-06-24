@@ -66,6 +66,14 @@ public:
 
     boost::filesystem::path storagePath() const;
 
+    /** Flattens content of this storageview into new tileset at tilesetPath.
+     *
+     * \param tilesetPath path to tileset
+     * \param createOptions create options
+     */
+    TileSet clone(const boost::filesystem::path &tilesetPath
+                  , const CloneOptions &createOptions);
+
     /** Generates map configuration for storage view at given path.
      */
     static MapConfig mapConfig(const boost::filesystem::path &path);
@@ -73,6 +81,9 @@ public:
     /** Check for storageview at given path.
      */
     static bool check(const boost::filesystem::path &path);
+
+    static void relocate(const boost::filesystem::path &root
+                         , const RelocateOptions &options);
 
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the storageview's guts!
