@@ -1008,7 +1008,7 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
 
         if (refined) {
             addInputToOutput(result, input, refined.mesh, smIndex
-                             , (1 << localId.lod));
+                             , (1 << (2 * localId.lod)));
         }
 
         ++smIndex;
@@ -1181,7 +1181,7 @@ Output mergeTile(const TileId &tileId
                            , input, coverage);
             if (rmf) {
                 // add refined
-                rmf.addTo(result, (1 << localId.lod));
+                rmf.addTo(result, (1 << (2 * localId.lod)));
             }
         }
     }
