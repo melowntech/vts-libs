@@ -96,6 +96,8 @@ struct MetaNode {
         return set(Flag::alien, value);
     }
 
+    void update(Flag::value_type flags) { flags |= flags_; }
+
     /** Normalized extents in range 0.0-1.0.
      */
     math::Extents3 extents;
@@ -355,6 +357,17 @@ inline void MetaTile::for_each(F f)
     for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
         for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
             auto &node(grid_[j * size_ + i]);
+            f(TileId(origin_.lod, origin_.x + i, origin_.y + j), node);
+        }
+    }
+}
+
+template <typename F>
+inline void MetaTile::for_each(F f) const
+{
+    for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
+        for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
+            const auto &node(grid_[j * size_ + i]);
             f(TileId(origin_.lod, origin_.x + i, origin_.y + j), node);
         }
     }

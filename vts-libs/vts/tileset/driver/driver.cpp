@@ -217,6 +217,16 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
     throw;
 }
 
+bool Driver::check(const boost::filesystem::path &root)
+{
+    try {
+        tileset::loadConfig(root / filePath(File::config));
+    } catch (storage::Error) {
+        return false;
+    }
+    return true;
+}
+
 namespace driver {
 
 MapConfigOverride::MapConfigOverride(const boost::any &options)

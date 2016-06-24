@@ -241,21 +241,9 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
 
     if (tile) {
         // place alien tiles to alien glue and proper tiles to glue
-        LOG(info4) << "Setting: " << (isAlienTile(tile) ? "alien" : "regular");
         glue_.setTile(tileId
                       , tile.tile(textureQuality_).setAlien(isAlienTile(tile))
                       , &nodeInfo);
-
-#if 0
-    } else if (g && !tile.source.mesh.empty()) {
-        // no tile generated but there are some data to generate it
-        auto topSourceId(tile.source.mesh.back().id());
-        if (topSourceId != topId_) {
-            // tile references single tile in other set -> store reference
-            LOG(info1) << "Setting reference " << topSourceId + 1;
-            glue_.setReferenceTile(tileId, topSourceId + 1, &nodeInfo);
-        }
-#endif
     }
 
     if (g) {

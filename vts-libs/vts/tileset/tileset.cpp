@@ -1362,12 +1362,7 @@ TileIndex TileSet::tileIndex(const LodRange &lodRange) const
 
 bool TileSet::check(const boost::filesystem::path &root)
 {
-    try {
-        tileset::loadConfig(*Driver::open(root));
-    } catch (const storage::Error&) {
-        return false;
-    }
-    return true;
+    return Driver::check(root);
 }
 
 bool TileSet::externallyChanged() const

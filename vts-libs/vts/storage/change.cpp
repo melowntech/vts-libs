@@ -535,7 +535,7 @@ createGlues(Tx &tx, Storage::Properties properties
 
     {
         int glueNumber(1);
-        LOG(info3) << "Will try to generate " << gds.size() << "glues:";
+        LOG(info3) << "Will try to generate " << gds.size() << " glues:";
         for (const auto &gd : gds) {
             LOG(info3)
                 << "    #" << glueNumber

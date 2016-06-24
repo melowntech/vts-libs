@@ -47,6 +47,10 @@ public:
      */
     static pointer open(const boost::filesystem::path &root);
 
+    /** Check for valid configuration.
+     */
+    static bool check(const boost::filesystem::path &root);
+
     /** Creates driver for new dataset as exact copy of the original one.
      */
     pointer clone(const boost::filesystem::path &root

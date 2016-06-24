@@ -23,7 +23,7 @@ namespace vadstena { namespace vts {
 
 namespace {
     const char MAGIC[2] = { 'M', 'T' };
-    const std::uint16_t VERSION = 1;
+    const std::uint16_t VERSION = 2;
 
     const std::size_t MIN_GEOM_BITS(2);
 } // namespace
@@ -219,7 +219,29 @@ void parseGeomExtents(Lod lod, math::Extents3 &extents
     extents.ur(2) = decoder();
 }
 
-const std::uint16_t AlienFlag(0xffff);
+struct MetaTileFlag {
+    typedef std::uint8_t value_type;
+
+    enum : value_type {
+        alienPlane = 0x01
+    };
+
+    static value_type extract(const MetaNode &node) {
+        value_type flags(0);
+        switch (node.flags() & MetaNode::Flag::alien) {
+            flags |= alienPlane;
+        }
+        return flags;
+    }
+
+    typedef std::pair<value_type, MetaNode::Flag::value_type> FlagMapping;
+
+    static std::initializer_list<FlagMapping> flagMapping;
+};
+
+std::initializer_list<MetaTileFlag::FlagMapping> MetaTileFlag::flagMapping = {
+    { MetaTileFlag::alienPlane, MetaNode::Flag::alien }
+};
 
 } // namespace
 
@@ -271,7 +293,46 @@ void MetaTile::save(std::ostream &out) const
     bin::write(out, std::uint16_t(validSize.width));
     bin::write(out, std::uint16_t(validSize.height));
 
-    bin::write(out, nodeSize(origin_.lod));
+    // accumulate extra flags
+    MetaTileFlag::value_type flags(0);
+    for_each([&](const TileId&, const MetaNode &node)
+    {
+        flags |= MetaTileFlag::extract(node);
+    });
+
+    // store flags
+    bin::write(out, std::uint8_t(flags));
+
+    // store flag planes (if any)
+    if (flags) {
+        imgproc::bitfield::RasterMask bitmap;
+
+        // save flag planes
+        for (const auto &mapping : MetaTileFlag::flagMapping) {
+            if (!(mapping.first & flags)) { continue; }
+
+            // create flag plane
+            bitmap.create(validSize.width, validSize.height
+                          , imgproc::bitfield::RasterMask::EMPTY);
+
+            // set flags
+            for (unsigned int j(valid_.ll(1)), jj(0); j <= valid_.ur(1);
+                 ++j, ++jj)
+            {
+                for (unsigned int i(valid_.ll(0)), ii(0); i <= valid_.ur(0);
+                     ++i, ++ii)
+                {
+                    auto &node(grid_[j * size_ + i]);
+                    if (node.flags() & mapping.second) {
+                        bitmap.set(ii, jj);
+                    }
+                }
+            }
+
+            // write flag plane
+            bitmap.writeData(out);
+        }
+    }
 
     // collect all credits
     // mapping between credit id and all nodes having it
@@ -290,36 +351,16 @@ void MetaTile::save(std::ostream &out) const
         }
     }
 
-    // alien flag saved in credits:
-    {
-        size_type idx(0);
-        std::vector<size_type> aliens;
-        for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
-            for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i, ++idx) {
-                const auto &node(grid_[j * size_ + i]);
-                if (node.alien()) {
-                    aliens.push_back(idx);
-                }
-            }
-        }
-        if (!aliens.empty()) {
-            credits.insert(CMap::value_type(AlienFlag, aliens));
-        }
-    }
-
     if (credits.empty() || empty(validSize)) {
         // no credits -> credit block size is irrelevant
         bin::write(out, std::uint8_t(0));
-        bin::write(out, std::uint16_t(0));
     } else {
         // write credit count
         bin::write(out, std::uint8_t(credits.size()));
 
+        // create credit plane bitmap
         imgproc::bitfield::RasterMask
             bitmap(validSize.width, validSize.height);
-
-        // write credit block size
-        bin::write(out, std::uint16_t(bitmap.byteCount()));
 
         // write credits
         for (const auto &credit : credits) {
@@ -424,15 +465,51 @@ void MetaTile::load(std::istream &in, const fs::path &path)
         valid_ = extents_type(math::InvalidExtents{});
     }
 
-    // node size (unused)
-    bin::read(in, u8);
+    std::uint8_t flags(0);
+    if (version < 2) {
+        // node size (unused)
+        bin::read(in, u8);
+    } else {
+        bin::read(in, flags);
+    }
 
     // credit count
     std::uint8_t creditCount;
     bin::read(in, creditCount);
 
-    // read credit block size (unused)
-    bin::read(in, u16);
+    if (version < 2) {
+        // read credit block size (unused)
+        bin::read(in, u16);
+    }
+
+    // load flags
+    if (flags) {
+        for (const auto &mapping : MetaTileFlag::flagMapping) {
+            if (!(mapping.first & flags)) { continue; }
+
+            imgproc::bitfield::RasterMask
+                bitmap(validSize.width, validSize.height);
+
+            // read in bitmap
+            bitmap.readData(in);
+
+            // process whole bitmap and update credits of all nodes
+            for (unsigned int j(valid_.ll(1)), jj(0); j <= valid_.ur(1);
+                 ++j, ++jj)
+            {
+                for (unsigned int i(valid_.ll(0)), ii(0); i <= valid_.ur(0);
+                     ++i, ++ii)
+                {
+                    auto &node(grid_[j * size_ + i]);
+
+                    // set flag
+                    if (bitmap.get(ii, jj)) {
+                        node.update(mapping.second);
+                    }
+                }
+            }
+        }
+    }
 
     if (creditCount) {
         imgproc::bitfield::RasterMask
@@ -442,7 +519,6 @@ void MetaTile::load(std::istream &in, const fs::path &path)
             // read credit ID
             std::uint16_t creditId;
             bin::read(in, creditId);
-            bool alien(creditId == AlienFlag);
 
             // read in bitmap
             bitmap.readData(in);
@@ -457,11 +533,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
                     auto &node(grid_[j * size_ + i]);
 
                     if (bitmap.get(ii, jj)) {
-                        if (alien) {
-                            node.alien(true);
-                        } else {
-                            node.addCredit(creditId);
-                        }
+                        node.addCredit(creditId);
                     }
                 }
             }

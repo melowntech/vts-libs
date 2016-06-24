@@ -231,6 +231,7 @@ const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
 AggregatedDriver::TileSetInfo::list
 AggregatedDriver::buildTilesetInfo() const
 {
+    LOG(info1) << "Building tileset info";
     // Step #1: grab all allowed tilesets and their glues
     const auto &tilesets(this->options().tilesets);
 
@@ -306,7 +307,7 @@ AggregatedDriver::buildTilesetInfo() const
         tileset::loadTileSetIndex(*tsi.tsi, *tsi.driver);
         tsi.name = tsi.tilesetId;
 
-        LOG(info4) << "    <" << tsi.name << ">";
+        LOG(info1) << "    <" << tsi.name << ">";
 
         // open glues
         for (auto iglues(tsi.glues.begin()); iglues != tsi.glues.end(); ) {
@@ -335,7 +336,7 @@ AggregatedDriver::buildTilesetInfo() const
                 // alien without alien tiles -> no need to have it here
                 iglues = tsi.glues.erase(iglues);
             } else {
-                LOG(info4) << "        <" << glue.name << ">"
+                LOG(info1) << "        <" << glue.name << ">"
                            << (glue.isAlien ? " (alien)" : "");
                 ++iglues;
             }
