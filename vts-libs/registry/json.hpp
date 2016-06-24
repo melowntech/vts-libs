@@ -13,7 +13,7 @@
 namespace vadstena { namespace registry {
 
 Json::Value asJson(const ReferenceFrame &rf);
-Json::Value asJson(const Srs::dict &srs);
+Json::Value asJson(const Srs::dict &srs, bool flatGeoidPath = false);
 Json::Value asJson(const Credit::dict &credits);
 Credit::dict creditsFromJson(const Json::Value &value);
 Json::Value asJson(const BoundLayer::dict &boundLayers

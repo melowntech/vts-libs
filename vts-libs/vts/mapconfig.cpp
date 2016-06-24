@@ -115,7 +115,7 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     Json::Value content;
     content["version"] = VERSION;
 
-    content["srses"] = registry::asJson(mapConfig.srs);
+    content["srses"] = registry::asJson(mapConfig.srs, true);
     content["referenceFrame"] = registry::asJson(mapConfig.referenceFrame);
 
     auto boundLayers(mapConfig.boundLayers);

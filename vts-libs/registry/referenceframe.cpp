@@ -591,7 +591,8 @@ void parse(Srs::dict &srs, const Json::Value &content)
     }
 }
 
-void build(Json::Value &content, const Srs &srs)
+void build(Json::Value &content, const Srs &srs
+           , bool flatGeoidPath = false)
 {
     content = Json::objectValue;
     content["comment"] = srs.comment;
@@ -608,7 +609,13 @@ void build(Json::Value &content, const Srs &srs)
         valueRange.append(gg.valueRange.min);
         valueRange.append(gg.valueRange.max);
 
-        jgg["definition"] = gg.definition;
+        if (flatGeoidPath) {
+            // take only filename
+            jgg["definition"] = boost::filesystem::path
+                (gg.definition).filename().string();
+        } else {
+            jgg["definition"] = gg.definition;
+        }
         jgg["srsDefEllps"]
             = gg.srsDefEllps.as(geo::SrsDefinition::Type::proj4).srs;
     }
@@ -629,12 +636,13 @@ void build(Json::Value &content, const Srs &srs)
     }
 }
 
-void build(Json::Value &content, const Srs::dict &srs)
+void build(Json::Value &content, const Srs::dict &srs
+           , bool flatGeoidPath = false)
 {
     content = Json::objectValue;
 
     for (const auto &s : srs) {
-        build(content[s.first], s.second);
+        build(content[s.first], s.second,  flatGeoidPath);
     }
 }
 
@@ -1196,10 +1204,10 @@ Json::Value asJson(const ReferenceFrame &rf)
     return content;
 }
 
-Json::Value asJson(const Srs::dict &srs)
+Json::Value asJson(const Srs::dict &srs, bool flatGeoidPath)
 {
     Json::Value content;
-    build(content, srs);
+    build(content, srs, flatGeoidPath);
     return content;
 }
 
