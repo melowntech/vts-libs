@@ -220,26 +220,28 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
 namespace {
 
 boost::any relocateOptions(const boost::any &options
-                           , const RelocateOptions &relocateOptions)
+                           , const RelocateOptions &relocateOptions
+                           , const std::string &prefix)
 {
     if (auto o = boost::any_cast<const driver::PlainOptions>(&options))
     {
-        return o->relocate(relocateOptions);
+        return o->relocate(relocateOptions, prefix);
     } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&options))
     {
-        return o->relocate(relocateOptions);
+        return o->relocate(relocateOptions, prefix);
     } else if (auto o = boost::any_cast<const driver::RemoteOptions>
                (&options))
     {
-        return o->relocate(relocateOptions);
+        return o->relocate(relocateOptions, prefix);
     } else if (auto o = boost::any_cast<const driver::LocalOptions>
                (&options))
     {
-        return o->relocate(relocateOptions);
+        return o->relocate(relocateOptions, prefix);
     }
 
     LOGTHROW(err2, storage::BadFileFormat)
+        << prefix
         << "Cannot relocate tileset: Invalid type of driver options: <"
         << options.type().name() << ">.";
     throw;
@@ -248,14 +250,22 @@ boost::any relocateOptions(const boost::any &options
 } // namespace
 
 void Driver::relocate(const boost::filesystem::path &root
-                      , const RelocateOptions &ro)
+                      , const RelocateOptions &ro
+                      , const std::string &prefix)
 {
-    LOG(info4) << "Relocating " << root << ".";
+    if (ro.dryRun) {
+        LOG(info3) << prefix << "Simulating relocation of tileset "
+                   << root << ".";
+    } else {
+        LOG(info3) << prefix << "Relocating tileset " << root << ".";
+    }
+
     const auto configPath(root / filePath(File::config));
 
     auto config(tileset::loadConfig(configPath));
 
-    auto relocated(relocateOptions(config.driverOptions, ro));
+    auto relocated(relocateOptions(config.driverOptions, ro
+                                   , prefix + "    "));
 
     if (relocated.empty()) { return; }
 

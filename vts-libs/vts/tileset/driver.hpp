@@ -127,7 +127,8 @@ public:
     /** Relocates referenced resources.
      */
     static void relocate(const boost::filesystem::path &root
-                         , const RelocateOptions &relocateOptions);
+                         , const RelocateOptions &relocateOptions
+                         , const std::string &prefix = "");
 
 protected:
     /** Creates new storage. Existing storage is overwritten only if mode ==

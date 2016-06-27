@@ -599,13 +599,21 @@ TileSet Storage::clone(const boost::filesystem::path &tilesetPath
 }
 
 void Storage::relocate(const boost::filesystem::path &root
-                       , const RelocateOptions &options)
+                       , const RelocateOptions &ro
+                       , const std::string &prefix)
 {
+    if (ro.dryRun) {
+        LOG(info3) << prefix << "Simulating relocation of storage "
+                   << root << ".";
+    } else {
+        LOG(info3) << prefix << "Relocating " << root << ".";
+    }
+
     auto config(storage::loadConfig(root / ConfigFilename));
 
     for (const auto &tileset : config.tilesets) {
         TileSet::relocate(storage_paths::tilesetPath(root, tileset.tilesetId)
-                          , options);
+                          , ro, prefix + "    ");
     }
 }
 

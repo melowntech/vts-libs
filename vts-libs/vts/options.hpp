@@ -74,12 +74,37 @@ public:
     struct Result {
         boost::optional<std::string> replacement;
         std::string follow;
+
+        Result(const std::string &follow) : follow(follow) {}
+    };
+
+    struct Rule {
+        std::string prefix;
+        std::string replacement;
+
+        Rule() = default;
+        Rule(const std::string &prefix, const std::string &replacement)
+            : prefix(prefix), replacement(replacement)
+        {}
+
+        typedef std::vector<Rule> list;
     };
 
     Result apply(const std::string &path) const;
 
+    Rule::list rules;
     bool dryRun;
 };
+
+std::istream& operator>>(std::istream &is, RelocateOptions::Rule &rule);
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os
+           , const RelocateOptions::Rule &rule)
+{
+    return os << rule.prefix << '=' << rule.replacement;
+}
 
 } } // namespace vadstena::vts
 

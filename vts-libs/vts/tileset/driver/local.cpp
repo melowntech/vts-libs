@@ -172,22 +172,40 @@ std::string LocalDriver::info_impl() const
     return os.str();
 }
 
-boost::any LocalOptions::relocate(const RelocateOptions &options) const
+boost::any LocalOptions::relocate(const RelocateOptions &options
+                                  , const std::string &prefix) const
 {
-    LOG(info4) << "Trying to relocate <" << path << ".";
-
     auto res(options.apply(path.string()));
 
-    // follow storage
-    Driver::relocate(res.follow, options);
+    auto ret([&]() -> boost::any
+    {
+        if (!res.replacement) {
+            LOG(info3)
+                << prefix << "Nothing to do with path " << path << ".";
+            return {};
+        }
 
-    if (!options.dryRun && res.replacement) {
         // update
+        if (options.dryRun) {
+            LOG(info3)
+                << prefix << "Would relocate local path " << path
+                << " to path "
+                << *res.replacement << ".";
+            return {};
+        }
+
         auto out(*this);
+        LOG(info3)
+            << prefix << "Relocating local path " << path << " to path "
+            << *res.replacement << ".";
         out.path = *res.replacement;
         return out;
-    }
-    return {};
+    }());
+
+    // descend
+    Driver::relocate(res.follow, options, prefix + "    ");
+
+    return ret;
 }
 
 } } } // namespace vadstena::vts::driver

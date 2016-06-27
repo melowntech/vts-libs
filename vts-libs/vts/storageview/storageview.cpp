@@ -202,19 +202,27 @@ TileSet StorageView::clone(const boost::filesystem::path &tilesetPath
 }
 
 void StorageView::relocate(const boost::filesystem::path &root
-                           , const RelocateOptions &options)
+                           , const RelocateOptions &ro
+                           , const std::string &prefix)
 {
+    if (ro.dryRun) {
+        LOG(info3) << prefix << "Simulating relocation of storageview "
+                   << root << ".";
+    } else {
+        LOG(info3) << prefix << "Relocating " << root << ".";
+    }
+
     auto config(storageview::loadConfig(root));
 
-    auto res(options.apply(config.storagePath.string()));
-    if (!options.dryRun && res.replacement) {
+    auto res(ro.apply(config.storagePath.string()));
+    if (!ro.dryRun && res.replacement) {
         config.storagePath = *res.replacement;
 
         // TODO: save config
         storageview::saveConfig(root, config);
     }
 
-    Storage::relocate(res.follow, options);
+    Storage::relocate(res.follow, ro, prefix + "    ");
 }
 
 } } // namespace vadstena::vts

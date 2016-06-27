@@ -242,7 +242,8 @@ public:
     static bool check(const boost::filesystem::path &path);
 
     static void relocate(const boost::filesystem::path &root
-                         , const RelocateOptions &options);
+                         , const RelocateOptions &options
+                         , const std::string &prefix = "");
 
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the storage's guts!

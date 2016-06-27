@@ -69,7 +69,8 @@ public:
 
     /** Tries to relocate resources. Returns valid result in case of relocation.
      */
-    boost::any relocate(const RelocateOptions &options) const;
+    boost::any relocate(const RelocateOptions &options
+                        , const std::string &prefix) const;
 
 private:
     /** Binary order of magnitude of data stored in the individial tile
@@ -98,19 +99,22 @@ struct AggregatedOptions {
     boost::filesystem::path storagePath;
     TilesetIdSet tilesets;
 
-    boost::any relocate(const RelocateOptions &options) const;
+    boost::any relocate(const RelocateOptions &options
+                        , const std::string &prefix) const;
 };
 
 struct RemoteOptions {
     std::string url;
 
-    boost::any relocate(const RelocateOptions &options) const;
+    boost::any relocate(const RelocateOptions &options
+                        , const std::string &prefix) const;
 };
 
 struct LocalOptions {
     boost::filesystem::path path;
 
-    boost::any relocate(const RelocateOptions &options) const;
+    boost::any relocate(const RelocateOptions &options
+                        , const std::string &prefix) const;
 };
 
 // inlines

@@ -152,9 +152,10 @@ std::string PlainDriver::info_impl() const
     return os.str();
 }
 
-boost::any PlainOptions::relocate(const RelocateOptions&) const
+boost::any PlainOptions::relocate(const RelocateOptions&
+                                  , const std::string &prefix) const
 {
-    LOG(info4) << "Nothing to relocate in plain tileset.";
+    LOG(info3) << prefix << "Plain driver has nothing to relocate.";
     return {};
 }
 

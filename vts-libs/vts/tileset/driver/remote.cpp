@@ -213,18 +213,29 @@ std::string RemoteDriver::info_impl() const
     return os.str();
 }
 
-boost::any RemoteOptions::relocate(const RelocateOptions &options) const
+boost::any RemoteOptions::relocate(const RelocateOptions &options
+                                   , const std::string &prefix) const
 {
-    LOG(info4) << "Trying to relocate <" << url << ".";
-
     auto res(options.apply(url));
 
-    if (!options.dryRun && res.replacement) {
+    if (res.replacement) {
         // update
+        if (options.dryRun) {
+            LOG(info3)
+                << prefix << "Would relocate URL <" << url << "> to URL <"
+                << *res.replacement << ">.";
+            return {};
+        }
+
         auto out(*this);
+        LOG(info3)
+            << prefix << "Relocating URL <" << url << "> to URL <"
+            << *res.replacement << ">.";
         out.url = *res.replacement;
         return out;
     }
+
+    LOG(info3) << prefix << "Nothing to do with URL <" << url << ">.";
     return {};
 }
 

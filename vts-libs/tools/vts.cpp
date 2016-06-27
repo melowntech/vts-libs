@@ -552,10 +552,18 @@ void VtsStorage::configuration(po::options_description &cmdline
     {
         p.options.add_options()
             ("dryRun", "Simulate glue creation.")
+            ("rule", po::value(&relocateOptions_.rules)
+             , "Rule in form prefix=replacement. Can be use multiple times. "
+             "First matching rule is applied. Can be omitted to display "
+             "dependency tree.")
             ;
 
         p.configure = [&](const po::variables_map &vars) {
             relocateOptions_.dryRun = vars.count("dryRun");
+
+            if (!relocateOptions_.dryRun && relocateOptions_.rules.empty()) {
+                throw po::required_option("rules");
+            }
         };
     });
 
