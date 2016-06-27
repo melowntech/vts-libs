@@ -97,7 +97,8 @@ void rmrf(const fs::path &path)
 
 class Tx {
 public:
-    Tx(const fs::path &root) : root_(root) {}
+    Tx(const fs::path &root, const boost::optional<fs::path> &tmpRoot)
+        : root_(root), tmpRoot_(tmpRoot) {}
     ~Tx();
 
     void add(const fs::path &work, const fs::path &dst);
@@ -107,13 +108,15 @@ public:
     fs::path tilesetPath(const std::string &tilesetId, bool tmp = false)
         const
     {
-        return createPath(storage_paths::tilesetPath(root_, tilesetId, tmp));
+        return createPath(storage_paths::tilesetPath
+                          (root_, tilesetId, tmp, tmpRoot_));
     }
 
     fs::path gluePath(const Glue &glue, bool tmp = false)
         const
     {
-        return createPath(storage_paths::gluePath(root_, glue, tmp));
+        return createPath(storage_paths::gluePath
+                          (root_, glue, tmp, tmpRoot_));
     }
 
     TileSet open(const TilesetId &tilesetId) const;
@@ -134,6 +137,8 @@ private:
     fs::path createPath(const fs::path &path) const;
 
     const fs::path root_;
+    const boost::optional<fs::path> &tmpRoot_;
+
     typedef std::map<fs::path, fs::path> Mapping;
     Mapping mapping_;
 };
@@ -759,7 +764,7 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
         << tileset.root() << ").";
 
     {
-        Tx tx(root);
+        Tx tx(root, addOptions.tmp);
 
         auto dst([&]() -> TileSet
         {
@@ -803,7 +808,7 @@ void Storage::Detail::readd(const TilesetId &tilesetId
 
     auto nProperties(properties);
     {
-        Tx tx(root);
+        Tx tx(root, addOptions.tmp);
 
         auto dst(openTileSet(storage_paths::tilesetPath(root, tilesetId)));
 

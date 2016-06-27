@@ -54,7 +54,7 @@ public:
         : service::Cmdline("vts", BUILD_TARGET_VERSION
                            , (service::DISABLE_EXCESSIVE_LOGGING
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
-        , noexcept_(false), command_(Command::info)
+        , noexcept_(false), command_(Command::info), brief_(false)
     {
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
@@ -168,6 +168,7 @@ private:
     boost::optional<std::string> optSrs_;
     vts::Storage::AddOptions addOptions_;
     vts::RelocateOptions relocateOptions_;
+    bool brief_;
 
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
 };
@@ -194,7 +195,13 @@ void VtsStorage::configuration(po::options_description &cmdline
                  , "--command=info: show VTS storage info"
                  , [&](UP &p)
     {
-        (void) p;
+        p.options.add_options()
+            ("brief", "Brief output.")
+            ;
+
+        p.configure = [&](const po::variables_map &vars) {
+            brief_ = vars.count("brief");
+        };
     });
 
     createParser(cmdline, Command::create
@@ -247,6 +254,8 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             ("bumpVersion", "Add dataset under new version")
             ("dryRun", "Simulate glue creation.")
+            ("tmp", po::value<fs::path>()
+             , "Temporary directory where to work with temporary data.")
             ;
 
         p.positional.add("tileset", 1);
@@ -258,6 +267,9 @@ void VtsStorage::configuration(po::options_description &cmdline
             if (vars.count("lodRange")) {
                 addOptions_.filter.lodRange
                 (vars["lodRange"].as<vts::LodRange>());
+            }
+            if (vars.count("tmp")) {
+                addOptions_.tmp = vars["tmp"].as<fs::path>();
             }
 
             // handle where options
@@ -308,12 +320,17 @@ void VtsStorage::configuration(po::options_description &cmdline
              ->required()->default_value(addOptions_.textureQuality)
              , "Quality of repacked atlases. 0 means no repacking.")
             ("dryRun", "Simulate glue creation.")
+            ("tmp", po::value<fs::path>()
+             , "Temporary directory where to work with temporary data.")
             ;
 
         p.positional.add("tilesetId", 1);
 
         p.configure = [&](const po::variables_map &vars) {
             addOptions_.dryRun = vars.count("dryRun");
+            if (vars.count("tmp")) {
+                addOptions_.tmp = vars["tmp"].as<fs::path>();
+            }
         };
     });
 
@@ -707,9 +724,9 @@ int VtsStorage::run()
     }
 }
 
-int tilesetInfo(const fs::path &path);
-int storageInfo(const fs::path &path);
-int storageViewInfo(const fs::path &path);
+int tilesetInfo(const fs::path &path, bool brief);
+int storageInfo(const fs::path &path, bool brief);
+int storageViewInfo(const fs::path &path, bool brief);
 
 void tiInfo(const vts::TileIndex &ti, const std::string &prefix = "")
 {
@@ -735,44 +752,60 @@ void tiInfo(const vts::TileIndex &ti, const std::string &prefix = "")
     }
 }
 
-int tilesetInfo(const std::string &prefix, const fs::path &path)
+int tilesetInfo(const std::string &prefix, const fs::path &path
+                , bool brief)
 {
     auto ts(vts::openTileSet(path));
     auto prop(ts.getProperties());
-    std::cout << prefix << "Id: " << prop.id << std::endl;
-    std::cout << prefix << "Type: " << ts.typeInfo() << std::endl;
-    std::cout << prefix << "Reference frame: " << ts.referenceFrame().id
-              << std::endl;
+    if (brief) {
+        std::cout << prefix << prop.id << " [" << ts.typeInfo()
+                  << "]" << std::endl;
 
-    std::cout << prefix << "Tile type info:" << std::endl;
-    tiInfo(ts.tileIndex(), prefix);
+    } else {
+        std::cout << prefix << "Id: " << prop.id << std::endl;
+        std::cout << prefix << "Type: " << ts.typeInfo() << std::endl;
+        std::cout << prefix << "Reference frame: " << ts.referenceFrame().id
+                  << std::endl;
+
+        std::cout << prefix << "Tile type info:" << std::endl;
+        tiInfo(ts.tileIndex(), prefix);
+    }
 
     return EXIT_SUCCESS;
 }
 
-int storageInfo(const std::string &prefix, const fs::path &path)
+int storageInfo(const std::string &prefix, const fs::path &path
+                , bool brief)
 {
     auto s(vts::openStorage(path));
     std::cout << prefix << "Tile sets:" << std::endl;
     for (const auto &tid : s.tilesets()) {
-        tilesetInfo(prefix + "    ", s.path(tid));
-        std::cout << std::endl;
+        tilesetInfo(prefix + "    ", s.path(tid), brief);
+        if (!brief) {
+            std::cout << std::endl;
+        }
     }
 
     std::cout << prefix << "Glues:" << std::endl;
     for (const auto &gitem : s.glues()) {
-        std::cout << prefix << "    Glue-Id: "
-                  << utility::join(gitem.first, ", ")
-                  << std::endl;
+        if (brief) {
+            std::cout << prefix << "    " << utility::join(gitem.first, ", ")
+                      << std::endl;
+        } else {
+            std::cout << prefix << "    Glue-Id: "
+                      << utility::join(gitem.first, ", ")
+                      << std::endl;
 
-        tilesetInfo(prefix + "    ",  s.path(gitem.second));
-        std::cout << std::endl;
+            tilesetInfo(prefix + "    ",  s.path(gitem.second), brief);
+            std::cout << std::endl;
+        }
     }
 
     return EXIT_SUCCESS;
 }
 
-int storageViewInfo(const std::string &prefix, const fs::path &path)
+int storageViewInfo(const std::string &prefix, const fs::path &path
+                    , bool brief)
 {
     auto sv(vts::openStorageView(path));
     std::cout << prefix << "View into storage:" << std::endl
@@ -782,19 +815,20 @@ int storageViewInfo(const std::string &prefix, const fs::path &path)
         std::cout << prefix << "    " << tid << std::endl;
     }
     return EXIT_SUCCESS;
+    (void) brief;
 }
 
 int VtsStorage::info()
 {
     switch (vts::datasetType(path_)) {
     case vts::DatasetType::TileSet:
-        return tilesetInfo(std::string(), path_);
+        return tilesetInfo(std::string(), path_, brief_);
 
     case vts::DatasetType::Storage:
-        return storageInfo(std::string(), path_);
+        return storageInfo(std::string(), path_, brief_);
 
     case vts::DatasetType::StorageView:
-        return storageViewInfo(std::string(), path_);
+        return storageViewInfo(std::string(), path_, brief_);
 
     default: break;
     }
