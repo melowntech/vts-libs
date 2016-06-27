@@ -8,13 +8,15 @@
 namespace vadstena { namespace vts {
 
 struct TileFlags {
-    TileIndex::Flag::value_type value;
+    typedef TileIndex::Flag TiFlag;
+    TiFlag::value_type value;
 
     TileFlags(TileIndex::Flag::value_type value = 0) : value(value) {}
 
     operator TileIndex::Flag::value_type() const { return value; }
 
-    typedef std::pair<TileIndex::Flag::value_type, const char*> TileFlag;
+    typedef std::pair<TiFlag::value_type, TiFlag::value_type> Match;
+    typedef std::pair<Match, const char*> TileFlag;
     static std::vector<TileFlag> mapping;
 };
 
@@ -24,7 +26,8 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const TileFlags &f)
 {
     const char *prefix("");
     for (const auto &flag : TileFlags::mapping) {
-        if (f.value & flag.first) {
+        const auto &match(flag.first);
+        if ((f.value & match.first) == match.second) {
             os << prefix << flag.second;
             prefix = ",";
         }
@@ -42,7 +45,7 @@ operator>>(std::basic_istream<CharT, Traits> &is, TileFlags &f)
         bool found(false);
         for (const auto &flag : TileFlags::mapping) {
             if (token == flag.second) {
-                f.value |= flag.first;
+                f.value |= flag.first.second;
                 found = true;
                 break;
             }

@@ -26,7 +26,7 @@ namespace vadstena { namespace vts {
 
 struct MetaNode {
     struct Flag {
-        typedef std::uint8_t value_type;
+        typedef std::uint16_t value_type;
         enum : value_type {
             geometryPresent = 0x01
             , navtilePresent = 0x02
@@ -38,6 +38,8 @@ struct MetaNode {
             , llChild = 0x40
             , lrChild = 0x80
 
+            , alien = 0x100
+
             , allChildren = (ulChild | urChild | llChild | lrChild)
             , nonChildren = value_type(~allChildren)
             , none = 0x00
@@ -48,6 +50,14 @@ struct MetaNode {
     };
 
     bool real() const { return check(Flag::real); }
+
+    bool real(bool alien) const {
+        if (alien) {
+            return check(Flag::real | Flag::alien
+                         , Flag::real | Flag::alien);
+        }
+        return check(Flag::real | Flag::alien, Flag::real);
+    }
 
     bool geometry() const { return check(Flag::geometryPresent); }
     MetaNode& geometry(bool value) {
@@ -80,6 +90,13 @@ struct MetaNode {
 
     bool lrlChild() const { return check(Flag::lrChild); }
     MetaNode& lrChild(bool value) { return set(Flag::lrChild, value); }
+
+    bool alien() const { return check(Flag::alien); }
+    MetaNode& alien(bool value) {
+        return set(Flag::alien, value);
+    }
+
+    void update(Flag::value_type flags) { flags |= flags_; }
 
     /** Normalized extents in range 0.0-1.0.
      */
@@ -146,6 +163,9 @@ struct MetaNode {
 
 private:
     bool check(Flag::value_type flag) const { return flags_ & flag; }
+    bool check(Flag::value_type flag, Flag::value_type value) const {
+        return (flags_ & flag) == value;
+    }
 
     MetaNode& set(Flag::value_type flag, bool value) {
         if (value) {
@@ -221,13 +241,19 @@ public:
      *  NB: child flags are not copied, it is up to the user to obtain values
      *  from another source.
      *
+     *  Flag alien:
+     *     false: take only non-alien nodes into account
+     *     true: take only alien nodes into account
+     *
      * \param in input metatile
      * \param references grid with stored references during computation
      * \param indices mapping between glue surface reference and surface index
-     * \param idnex index of current surface being processed
+     * \param index index of current surface being processed
+     * \param alien marks processing or regular or alien nodes
      */
     void update(const MetaTile &in, References &references
-                , int index, const Indices *indices = nullptr);
+                , int index, const Indices *indices = nullptr
+                , bool alien = false);
 
     References makeReferences() const;
 
@@ -331,6 +357,17 @@ inline void MetaTile::for_each(F f)
     for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
         for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
             auto &node(grid_[j * size_ + i]);
+            f(TileId(origin_.lod, origin_.x + i, origin_.y + j), node);
+        }
+    }
+}
+
+template <typename F>
+inline void MetaTile::for_each(F f) const
+{
+    for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
+        for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
+            const auto &node(grid_[j * size_ + i]);
             f(TileId(origin_.lod, origin_.x + i, origin_.y + j), node);
         }
     }

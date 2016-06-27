@@ -115,14 +115,14 @@ buildMeta(const TileSetInfo::list &tsil, const fs::path &root
         // process all glues
         for (const auto &gi : tsi.glues) {
             // apply metatile from glue
-            if (gi.tsi.check(tileId, TileFile::meta)) {
+            if (gi.tsi->check(tileId, TileFile::meta)) {
                 ometa.update(loadMeta(tileId, gi.driver), references
-                             , idx, &gi.indices);
+                             , idx, &gi.indices, gi.isAlien);
             }
         }
 
         // apply metatile from tileset
-        if (tsi.tsi.check(tileId, TileFile::meta)) {
+        if (tsi.tsi->check(tileId, TileFile::meta)) {
             ometa.update(loadMeta(tileId, tsi.driver), references, idx);
         }
     }
@@ -155,28 +155,45 @@ buildMeta(const TileSetInfo::list &tsil, const fs::path &root
 const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
                                 , const TileId &tileId)
 {
+    typedef TileIndex::Flag TiFlag;
+
     auto trySet([&](const EnhancedInfo &info) -> const EnhancedInfo*
     {
-        LOG(debug) << "Trying set <" << info.name << ">.";
-        if (info.tsi.real(tileId)) {
+        if (info.tsi->real(tileId, info.isAlien)) {
+            // tile exists and has same alien flag
+            LOG(debug)
+                << "Tile " << tileId << " found in "
+                << (info.isAlien ? "<(" : "<") << info.name
+                << (info.isAlien ? ")>." : ">.");
             return &info;
         }
 
+        LOG(debug)
+            << "Missing tile " << tileId << " in "
+            << (info.isAlien ? "<(" : "<") << info.name
+            << (info.isAlien ? ")>." : ">.");
         return nullptr;
     });
 
     typedef std::tuple<const EnhancedInfo*, int> GlueResult;
 
-    auto tryGlues([&](const GlueInfo::list &glues) -> GlueResult
+    auto tryGlues([&](const GlueInfo::list &glues, int idx)
+                  -> GlueResult
     {
         for (const auto &glue : glues) {
             if (const auto *result = trySet(glue)) {
                 return GlueResult(result, 0);
-            } if (auto reference = glue.tsi.getReference(tileId)) {
+            } if (auto reference = glue.tsi->getReference(tileId)) {
+                if (reference <= idx) {
+                    LOG(debug)
+                        << "Redirected to <" << glue.id[reference - 1]
+                        << ">.";
+                    return GlueResult
+                        (nullptr, glue.indices[reference - 1] + 1);
+                }
                 LOG(debug)
-                    << "Redirected to <" << glue.id[reference - 1]
-                    << ">.";
-                return GlueResult(nullptr, glue.indices[reference - 1] + 1);
+                    << "Unexpected forward reference <"
+                    << glue.id[reference - 1] << ">.";
             }
         }
 
@@ -189,7 +206,7 @@ const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
         // try glues first
         const EnhancedInfo *glueResult;
         int reference;
-        std::tie(glueResult, reference) = tryGlues(tsi.glues);
+        std::tie(glueResult, reference) = tryGlues(tsi.glues, idx);
 
         if (glueResult) {
             // found tile in one of glues
@@ -214,47 +231,119 @@ const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
 AggregatedDriver::TileSetInfo::list
 AggregatedDriver::buildTilesetInfo() const
 {
+    LOG(info1) << "Building tileset info";
+    // Step #1: grab all allowed tilesets and their glues
     const auto &tilesets(this->options().tilesets);
 
     // grab tilesets and their glues
     TileSetGlues::list tilesetInfo;
-    for (const auto &tilesetId : storage_.tilesets()) {
-        if (!tilesets.count(tilesetId)) { continue; }
 
-        tilesetInfo.emplace_back
-            (tilesetId, storage_.glues
-             (tilesetId, [&](const Glue::Id &glueId) -> bool
-              {
-                  for (const auto &id : glueId) {
-                      if (!tilesets.count(id)) { return false; }
-                  }
-                  return true;
-              }));
+    // make room for all tilesets in the output to ensure pointer are not
+    // invalidated later
+    tilesetInfo.reserve(tilesets.size());
+
+    // we are processing tileset from bottom up
+    {
+        typedef std::map<TilesetId, TileSetGlues*> BackMap;
+        BackMap backMap;
+        for (const auto &tilesetId : storage_.tilesets()) {
+            if (!tilesets.count(tilesetId)) { continue; }
+
+            tilesetInfo.emplace_back
+                (tilesetId, storage_.glues
+                 (tilesetId, [&](const Glue::Id &glueId) -> bool
+            {
+                for (const auto &id : glueId) {
+                    if (!tilesets.count(id)) { return false; }
+                }
+                return true;
+            }));
+
+            // remember tileset in back-map
+            backMap.insert(BackMap::value_type
+                           (tilesetId, &tilesetInfo.back()));
+        }
+
+        // Step #2: distribute (possible) aliens in appropriet secondaty
+        // tilesets
+        for (auto &tsi : tilesetInfo) {
+            for (const auto &glue : tsi.glues) {
+                // sane ID?
+                if (glue.id.size() < 2) { continue; }
+
+                const auto &secondaryId(glue.id[glue.id.size() - 2]);
+                auto fbackMap(backMap.find(secondaryId));
+                if (fbackMap == backMap.end()) {
+                    // should this ever happen?
+                    continue;
+                }
+
+                auto &secTs(*fbackMap->second);
+
+                LOG(debug) << "Adding <" << utility::join(glue.id, ",")
+                           << "> as an alien glue in tileset <"
+                           << secTs.tilesetId << ">.";
+
+                secTs.glues.push_back(glue);
+            }
+        }
     }
 
+    // Step #3: generate tileset info from nicely sorted glues of all tilesets;
+    // aliens included
     TileSetInfo::list out;
+    out.reserve(tilesetInfo.size());
 
+    typedef std::map<TilesetId, TileSetInfo::GlueInfo> GlueMap;
+    GlueMap glueMap;
+
+    // process tileset
     for (const auto &tsg : glueOrder(tilesetInfo)) {
         out.emplace_back(referenceFrame_, tsg);
         auto &tsi(out.back());
 
         // open tileset
         tsi.driver = Driver::open(storage_.path(tsi.tilesetId));
-        tileset::loadTileSetIndex(tsi.tsi, *tsi.driver);
+        tileset::loadTileSetIndex(*tsi.tsi, *tsi.driver);
         tsi.name = tsi.tilesetId;
 
-        LOG(debug) << "    <" << tsi.name << ">";
+        LOG(info1) << "    <" << tsi.name << ">";
 
         // open glues
-        for (auto &glue : tsi.glues) {
-            glue.driver = Driver::open(storage_.path(glue));
-            tileset::loadTileSetIndex(glue.tsi, *glue.driver);
+        for (auto iglues(tsi.glues.begin()); iglues != tsi.glues.end(); ) {
+            auto &glue(*iglues);
             glue.name = boost::lexical_cast<std::string>
                 (utility::join(glue.id, ","));
-            LOG(debug) << "        <" << glue.name << ">";
+
+            auto fglueMap(glueMap.find(glue.name));
+            if (fglueMap == glueMap.end()) {
+                glue.driver = Driver::open(storage_.path(glue));
+                tileset::loadTileSetIndex(*glue.tsi, *glue.driver);
+
+                glue.hasAlienTiles = TileIndex::Flag::isAlien
+                    (glue.tsi->tileIndex.allSetFlags());
+
+                // cache
+                glueMap.insert(GlueMap::value_type(glue.name, glue));
+            } else {
+                glue = fglueMap->second;
+            }
+
+            // mark as alien
+            glue.isAlien = (glue.id.back() != tsg.tilesetId);
+
+            if (glue.isAlien && !glue.hasAlienTiles) {
+                // alien without alien tiles -> no need to have it here
+                iglues = tsi.glues.erase(iglues);
+            } else {
+                LOG(info1) << "        <" << glue.name << ">"
+                           << (glue.isAlien ? " (alien)" : "");
+                ++iglues;
+            }
         }
     }
 
+    // done
     return out;
 }
 
@@ -319,67 +408,55 @@ TileSet::Properties AggregatedDriver::build(const AggregatedOptions &options
     // compose tile index and other properties
     TileIndex &ti(tsi_.tileIndex);
 
-    auto addFlags([](TileIndex::Flag::value_type &value
-                   , TileIndex::Flag::value_type flags)
+    typedef TileIndex::Flag TiFlag;
+    typedef TiFlag::value_type value_type;
+
+    auto addFlags([](value_type &value, value_type flags)
     {
         // clear flags, keep reference (which is shared)
         value &= (0xffff0000u);
         value |= (flags & 0xff);
     });
 
-    auto getFlags([](TileIndex::Flag::value_type value)
+    auto getFlags([](value_type value)
     {
         return (value & 0xff);
     });
 
-    auto addIdx([](TileIndex::Flag::value_type &value
-                   , TileIndex::Flag::value_type idx)
+    auto addIdx([](value_type &value, value_type idx)
     {
         value &= 0x0000ffffu;
         value |= (idx << 16);
     });
 
-    auto getIdx([](TileIndex::Flag::value_type value)
+    auto getIdx([](value_type value)
     {
         return (value >> 16);
     });
 
     bool first(true);
     for (std::size_t idx(tilesetInfo_.size()); idx; --idx) {
-        auto combiner([&](//unsigned int s, unsigned int x, unsigned int y,
-                          TileIndex::Flag::value_type o
-                          , TileIndex::Flag::value_type n)
-                      -> TileIndex::Flag::value_type
+        // marks alien tileset
+        bool alien(false);
+
+        auto combiner([&](value_type o, value_type n) -> value_type
         {
-            if (o & TileIndex::Flag::real) {
+            if (o & TiFlag::mesh) {
                 // already occupied by existing tile
-                // LOG(info4) << "combine(" << s << ", " << x << ", " << y
-                //            << "): <"
-                //            << TileFlags(o) << "> + <" << TileFlags(n)
-                //            << "> -> <" << TileFlags(o) << ">";
                 return o;
             }
 
             if (auto reference = getIdx(o)) {
                 // we have valid reference here
                 if (reference != idx) {
-                    // but it is not what we should use
-                    // LOG(info4) << "combine(" << s << ", " << x << ", " << y
-                    //            << "): <"
-                    //            << TileFlags(o) << "> + <" << TileFlags(n)
-                    //            << "> -> <" << TileFlags(o) << ">";
                     return o;
                 }
             }
 
-            // ok, store flags (whatever they are) inside the value and return
-            // them
-            // auto old(o);
-            addFlags(o, n);
-            // LOG(info4) << "combine(" << s << ", " << x << ", " << y
-            //            << "): <"
-            //            << TileFlags(old) << "> + <" << TileFlags(n)
-            //            << "> -> <" << TileFlags(o) << ">";
+            // store flags only if node is of same type
+            if (alien == TiFlag::isAlien(n)) {
+                addFlags(o, n);
+            }
             return o;
         });
 
@@ -391,25 +468,24 @@ TileSet::Properties AggregatedDriver::build(const AggregatedOptions &options
             LOG(info2) << "    adding glue: " << glue.name;
             // remember references to be applied when referenced tileset is
             // processed
-            auto storeReferences([&](//unsigned int , unsigned int , unsigned int,
-                                     TileIndex::Flag::value_type o
-                                     , TileIndex::Flag::value_type n)
-                                 -> TileIndex::Flag::value_type
+            auto storeReferences([&](value_type o, value_type n) -> value_type
             {
-                // valid reference + no real tile stored + no reference marked
+                // valid reference + no mesh tile stored + no reference marked
                 // -> mark reference
-                if (n && !(o & TileIndex::Flag::real) && !getIdx(o)) {
+                if (n && !(o & TileIndex::Flag::mesh) && !getIdx(o)) {
                     addIdx(o, glue.indices[n - 1] + 1);
                 }
                 return o;
             });
 
-            ti.combine(glue.tsi.references, storeReferences);
-            ti.combine(glue.tsi.tileIndex, combiner);
+            ti.combine(glue.tsi->references, storeReferences);
+            alien = glue.isAlien;
+            ti.combine(glue.tsi->tileIndex, combiner);
         }
 
         const auto tsProp(tileset::loadConfig(*tsg.driver));
-        ti.combine(tsg.tsi.tileIndex, combiner);
+        alien = false;
+        ti.combine(tsg.tsi->tileIndex, combiner);
 
         // unite referenced registry entities
         unite(properties.credits, tsProp.credits);
@@ -425,12 +501,11 @@ TileSet::Properties AggregatedDriver::build(const AggregatedOptions &options
     }
 
     // remove nonsense flags
-    ti.unset(TileIndex::Flag::reference | 0xffff0000u);
+    ti.unset(TiFlag::reference | 0xffff0000u);
 
     // update extents
     {
-        auto ranges(ti.ranges(TileIndex::Flag::mesh
-                              | TileIndex::Flag::reference));
+        auto ranges(ti.ranges(TiFlag::mesh | TiFlag::reference));
         properties.lodRange = ranges.first;
         properties.tileRange = ranges.second;
     }
@@ -634,7 +709,7 @@ std::string AggregatedDriver::info_impl() const
     auto o(options());
     std::ostringstream os;
     os << "aggregated (storage=" << o.storagePath
-       << ", tilesets=[" << utility::join(o.tilesets, ", ") << "])";
+       << ", tilesets=[" << utility::join(o.tilesets, " ") << "])";
     return os.str();
 }
 

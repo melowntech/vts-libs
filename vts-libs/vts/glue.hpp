@@ -36,6 +36,9 @@ struct TileSetGlues {
         EnhancedGlue(Args &&...args) : Glue(std::forward<Args>(args)...) {}
 
         typedef std::vector<int> Indices;
+
+        /** Glue-local surface index to storage surface index.
+         */
         Indices indices;
 
         typedef std::vector<EnhancedGlue> list;
@@ -46,7 +49,8 @@ struct TileSetGlues {
     EnhancedGlue::list glues;
 
     TileSetGlues(const TilesetId &tilesetId, const Glue::list glues)
-        : tilesetId(tilesetId), glues(glues.begin(), glues.end()) {}
+        : tilesetId(tilesetId), glues(glues.begin(), glues.end())
+    {}
 
     typedef std::vector<TileSetGlues> list;
 };

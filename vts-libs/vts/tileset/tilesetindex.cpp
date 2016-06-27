@@ -24,6 +24,13 @@ void loadTileSetIndex(Index &tsi, const Driver &driver)
     }
 }
 
+Index::pointer loadTileSetIndex(const Driver &driver)
+{
+    auto tsi(std::make_shared<Index>());
+    loadTileSetIndex(*tsi, driver);
+    return tsi;
+}
+
 void saveTileSetIndex(const Index &tsi, Driver &driver)
 {
     try {
@@ -103,7 +110,10 @@ bool Index::check(const TileId &tileId, TileFile type) const
 
 int Index::getReference(const TileId &tileId) const
 {
-    if (!tileIndex.checkMask(tileId, TileIndex::Flag::reference)) {
+    // reference tile must have set reference flag and unset mesh flag
+    if (!tileIndex.checkMask(tileId, TileIndex::Flag::reference
+                             , TileIndex::Flag::mesh))
+    {
         return 0;
     }
     return references.get(tileId);

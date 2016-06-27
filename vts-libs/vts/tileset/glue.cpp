@@ -97,21 +97,22 @@ DetailList details(TileSet::Detail &detail
 
 struct Merger {
 public:
-    Merger(TileSet::Detail &self, const TileIndex &generate
+    Merger(TileSet::Detail &glue
+           , const TileIndex &generate
            , const TileIndex &navtileGenerate
            , const TileSet::const_ptrlist &srcSets
-           , int textureQuality)
-        : self_(self), world_(generate), generate_(generate)
+           , const GlueCreationOptions &options)
+        : glue_(glue), world_(generate), generate_(generate)
         , navtileGenerate_(navtileGenerate)
-        , src_(details(self, srcSets)), top_(*src_.back())
+        , src_(details(glue, srcSets)), top_(*src_.back())
         , topId_(src_.size() - 1), progress_(generate_.count())
-        , textureQuality_(textureQuality)
+        , options_(options)
     {
         // make world complete
         world_.complete();
 
         // ruin
-        mergeTile(NodeInfo(self_.referenceFrame));
+        mergeTile(NodeInfo(glue_.referenceFrame));
     }
 
 private:
@@ -143,9 +144,10 @@ private:
                               , const merge::TileSource &parentSource
                               , const Constraints &constraints);
 
+    bool isAlienTile(const merge::Output &tile) const;
     bool isGlueTile(const merge::Output &tile) const;
 
-    TileSet::Detail &self_;
+    TileSet::Detail &glue_;
     TileIndex world_;
     const TileIndex &generate_;
     const TileIndex &navtileGenerate_;
@@ -155,8 +157,26 @@ private:
 
     utility::Progress progress_;
 
-    const int textureQuality_;
+    const GlueCreationOptions options_;
 };
+
+inline bool Merger::isAlienTile(const merge::Output &tile) const
+{
+    auto size(tile.source.mesh.size());
+    auto srcSize(src_.size());
+
+    if ((size + 1) != srcSize) { return false; }
+
+    // possibly generated from sets other than top set
+    if (tile.source.mesh.back().id() == topId_) {
+        // contains top set -> cannot be a glue
+        return false;
+    }
+
+    // tile must be fully derived from other sets (such tile cannot exist in
+    // other glues)
+    return tile.fullyDerived();
+}
 
 inline bool Merger::isGlueTile(const merge::Output &tile) const
 {
@@ -183,17 +203,7 @@ inline bool Merger::isGlueTile(const merge::Output &tile) const
         return true;
     }
 
-    if ((size + 1) == srcSize) {
-        // possibly generated from sets other than top set
-        if (tile.source.mesh.back().id() == topId_) {
-            // contains top set -> cannot be a glue
-            return false;
-        }
-
-        // tile must be fully derived from other sets (such tile cannot exist in
-        // other glues)
-        return tile.fullyDerived();
-    }
+    if (isAlienTile(tile)) { return true; }
 
     // anything else -> not a glue
     return false;
@@ -230,14 +240,23 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
                           , Constraints(*this, g, ng)));
 
     if (tile) {
-        self_.setTile(tileId, tile.tile(textureQuality_), &nodeInfo);
-    } else if (g && !tile.source.mesh.empty()) {
+        // place alien tiles to alien glue and proper tiles to glue
+        glue_.setTile(tileId
+                      , tile.tile(options_.textureQuality)
+                      .setAlien(!options_.generateReferences
+                                && isAlienTile(tile))
+                      , &nodeInfo);
+
+    } else if (g && options_.generateReferences
+               && !tile.source.mesh.empty())
+    {
+        // we are allowed to generate references
         // no tile generated but there are some data to generate it
         auto topSourceId(tile.source.mesh.back().id());
         if (topSourceId != topId_) {
             // tile references single tile in other set -> store reference
             LOG(info1) << "Setting reference " << topSourceId + 1;
-            self_.setReferenceTile(tileId, topSourceId + 1, &nodeInfo);
+            glue_.setReferenceTile(tileId, topSourceId + 1, &nodeInfo);
         }
     }
 
@@ -330,7 +349,8 @@ TileIndex buildGenerateSet(const char *dumpRoot
 
 } // namespace
 
-void TileSet::createGlue(const const_ptrlist &sets, int textureQuality)
+void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
+                         , const GlueCreationOptions &options)
 {
     if (sets.size() < 2) {
         LOG(info3) << "(glue) Too few sets to glue together ("
@@ -341,7 +361,7 @@ void TileSet::createGlue(const const_ptrlist &sets, int textureQuality)
     LOG(info3) << "(glue) Calculating generate set.";
 
     const auto *dumpRoot(getDumpDir());
-    const auto &referenceFrameId(getProperties().referenceFrame);
+    const auto &referenceFrameId(glue.getProperties().referenceFrame);
 
     // LOD range of all sets
     const LodRange lr(range(sets));
@@ -368,10 +388,11 @@ void TileSet::createGlue(const const_ptrlist &sets, int textureQuality)
                   , referenceFrameId);
 
     // run merge
-    Merger(detail(), generate, navtileGenerate, sets, textureQuality);
+    Merger(glue.detail()
+           , generate, navtileGenerate, sets, options);
 
     // copy position from top dataset
-    setPosition(sets.back()->getProperties().position);
+    glue.setPosition(sets.back()->getProperties().position);
 
     // done
 }

@@ -133,16 +133,14 @@ public:
      *  filter optional: filter for input dataset
      *  dryRun: do not modify anything, simulate add
      */
-    struct AddOptions {
+    struct AddOptions : public GlueCreationOptions {
         bool bumpVersion;
-        int textureQuality;
         TileFilter filter;
         bool dryRun;
         boost::optional<boost::filesystem::path> tmp;
 
         AddOptions()
-            : bumpVersion(false), textureQuality(0), filter()
-            , dryRun(false)
+            : bumpVersion(false), filter(), dryRun(false)
         {}
     };
 

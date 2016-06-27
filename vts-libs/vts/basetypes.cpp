@@ -2,10 +2,30 @@
 
 #include <boost/range/adaptor/reversed.hpp>
 
+#include "dbglog/dbglog.hpp"
+
 #include "./glue.hpp"
 #include "./tileop.hpp"
 
 namespace vadstena { namespace vts {
+
+namespace {
+template <typename Iterator>
+std::size_t detectAlien(Iterator &b, const Iterator &e
+                        , const TilesetId &tilesetId
+                        , std::size_t size)
+{
+    // starts with different tilesetId? -> increment
+    if ((b != e) && (*b != tilesetId)) {
+        ++b;
+        return size - 1;
+    }
+
+    // original size
+    return size;
+}
+
+} // namespace
 
 TileSetGlues::list glueOrder(const TileSetGlues::list &in)
 {
@@ -26,13 +46,18 @@ TileSetGlues::list glueOrder(const TileSetGlues::list &in)
 
     TileSetGlues::list out;
 
+    typedef TileSetGlues::EnhancedGlue EGlue;
+
     for (const auto &tsg : in) {
-        auto compareGlues([&](const Glue &l, const Glue &r)-> bool
+        auto compareGlues([&](const EGlue &l, const EGlue &r) -> bool
         {
             auto lr(boost::adaptors::reverse(l.id));
             auto rr(boost::adaptors::reverse(r.id));
             auto lrb(begin(lr)), lre(end(lr));
             auto rrb(begin(rr)), rre(end(rr));
+
+            auto lsize(detectAlien(lrb, lre, tsg.tilesetId, l.id.size()));
+            auto rsize(detectAlien(rrb, rre, tsg.tilesetId, r.id.size()));
 
             while ((lrb != lre) && (rrb != rre)) {
                 // grab characters
@@ -49,7 +74,7 @@ TileSetGlues::list glueOrder(const TileSetGlues::list &in)
 
             // one id is prefix or the other (or both are the same, which is
             // unlikely) -> longest is less
-            return r.id.size() <= l.id.size();
+            return rsize <= lsize;
         });
 
         out.push_back(tsg);

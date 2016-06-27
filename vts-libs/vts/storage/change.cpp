@@ -540,7 +540,7 @@ createGlues(Tx &tx, Storage::Properties properties
 
     {
         int glueNumber(1);
-        LOG(info3) << "Will try to generate " << gds.size() << "glues:";
+        LOG(info3) << "Will try to generate " << gds.size() << " glues:";
         for (const auto &gd : gds) {
             LOG(info3)
                 << "    #" << glueNumber
@@ -571,12 +571,12 @@ createGlues(Tx &tx, Storage::Properties properties
         reportMemoryUsage("before glue creation");
 
         // create glue
-        auto tmpPath(tx.addGlue(gd.glue));
-        auto gts(createTileSet(tmpPath, gprop, CreateMode::overwrite));
+        auto gPath(tx.addGlue(gd.glue));
+        auto gts(createTileSet(gPath, gprop, CreateMode::overwrite));
 
         // create glue
         utility::DurationMeter timer;
-        gts.createGlue(gd.combination, addOptions.textureQuality);
+        TileSet::createGlue(gts, gd.combination, addOptions);
         auto duration(timer.duration());
 
         reportMemoryUsage("after merge");
@@ -589,14 +589,17 @@ createGlues(Tx &tx, Storage::Properties properties
         if (gts.empty()) {
             // unusable
             LOG(info3)
-                << "Glue <" << gd.glueSetId  << "> contains no tile; "
-                << "glue is forgotten. Duration: "
+                << "Glue <" << gprop.id  << "> contains no tile; "
+                << "ignoring. Duration: "
                 << utility::formatDuration(duration) << ".";
-            tx.remove(tmpPath);
+
+            // remove
+            properties.glues.erase(gd.glue.id);
+            tx.remove(gPath);
         } else {
             // usable
             LOG(info3)
-                << "Glue <" << gd.glueSetId  << "> created, duration: "
+                << "Glue <" << gprop.id  << "> created, duration: "
                 << utility::formatDuration(duration) << ".";
 
             // flush

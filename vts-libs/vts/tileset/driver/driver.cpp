@@ -217,6 +217,7 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
     throw;
 }
 
+
 namespace {
 
 boost::any relocateOptions(const boost::any &options
@@ -276,6 +277,16 @@ void Driver::relocate(const boost::filesystem::path &root
     auto tmpPath(utility::addExtension(configPath, ".tmp"));
     tileset::saveConfig(tmpPath, config);
     fs::rename(tmpPath, configPath);
+}
+
+bool Driver::check(const boost::filesystem::path &root)
+{
+    try {
+        tileset::loadConfig(root / filePath(File::config));
+    } catch (storage::Error) {
+        return false;
+    }
+    return true;
 }
 
 namespace driver {

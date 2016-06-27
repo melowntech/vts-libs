@@ -24,6 +24,7 @@ public:
             , watertight = 0x02
             , atlas = 0x04
             , navtile = 0x08
+            , alien = 0x20 // alien tile share value with reference
             , reference = 0x20
             , ortho = 0x40
 
@@ -44,6 +45,20 @@ public:
 
         static bool isWatertight(value_type flags) {
             return (flags & watertight);
+        };
+
+        static bool check(value_type value, value_type mask, value_type match)
+        {
+            return ((value & mask) == match);
+        }
+
+        static bool check(value_type value, value_type mask)
+        {
+            return (value & mask);
+        }
+
+        static bool isAlien(value_type flags) {
+            return check(flags, mesh | alien, mesh | alien);
         };
     };
 
@@ -85,6 +100,14 @@ public:
         return (get(tileId) & Flag::real);
     }
 
+    /** Returns whether contains real tile with given alien flag
+     */
+    bool real(const TileId &tileId, bool alien) const {
+        auto flag(get(tileId));
+        if (!(flag & Flag::real)) { return false; }
+        return bool(flag & Flag::alien) == alien;
+    }
+
     bool navtile(const TileId &tileId) const {
         return (get(tileId) & Flag::navtile);
     }
@@ -121,6 +144,14 @@ public:
         const
     {
         return get(tileId) & mask;
+    }
+
+    QTree::value_type checkMask(const TileId &tileId, QTree::value_type allow
+                                , QTree::value_type deny)
+        const
+    {
+        auto value(get(tileId));
+        return ((value & allow) && (value & ~deny));
     }
 
     void unset(const TileId &tileId) { set(tileId, 0); }
@@ -196,6 +227,10 @@ public:
     /** Get statistics for all tiles with given mask.
      */
     Stat statMask(QTree::value_type mask) const;
+
+    /** Get statistics for all tiles with given mask and value.
+     */
+    Stat statMask(QTree::value_type mask, QTree::value_type value) const;
 
     /** Compute tile and lod range for given for all tiles satisfying given
      *  mask. Uses statMask(mask) internally.
@@ -295,11 +330,14 @@ public:
      */
     TileIndex& makeAbsolute();
 
+    Flag::value_type allSetFlags() const { return allSetFlags_; }
+
 private:
     QTree* tree(Lod lod, bool create = false);
 
     Lod minLod_;
     Trees trees_;
+    Flag::value_type allSetFlags_;
 };
 
 typedef std::vector<const TileIndex*> TileIndices;

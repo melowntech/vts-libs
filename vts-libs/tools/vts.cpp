@@ -59,6 +59,7 @@ public:
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
         addOptions_.dryRun = false;
+        addOptions_.generateReferences = true;
 
         relocateOptions_.dryRun = false;
     }
@@ -256,6 +257,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("dryRun", "Simulate glue creation.")
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
+            ("norefs", "Do not generate references")
             ;
 
         p.positional.add("tileset", 1);
@@ -305,6 +307,7 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             addOptions_.bumpVersion = vars.count("bumpVersion");
             addOptions_.dryRun = vars.count("dryRun");
+            addOptions_.generateReferences = !vars.count("norefs");
         };
     });
 
@@ -322,6 +325,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("dryRun", "Simulate glue creation.")
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
+            ("norefs", "Do not generate references")
             ;
 
         p.positional.add("tilesetId", 1);
@@ -331,6 +335,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             if (vars.count("tmp")) {
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
             }
+            addOptions_.generateReferences = !vars.count("norefs");
         };
     });
 
@@ -364,6 +369,8 @@ void VtsStorage::configuration(po::options_description &cmdline
                 optSrs_ = vars["srs"].as<std::string>();
             }
         };
+
+        p.positional.add("tileId", 1);
     });
 
     createParser(cmdline, Command::mapConfig
@@ -396,6 +403,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tileId", po::value(&tileId_)->required()
              , "ID of tile to query.")
             ;
+        p.positional.add("tileId", 1);
     });
 
     createParser(cmdline, Command::dumpMesh
@@ -406,6 +414,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tileId", po::value(&tileId_)->required()
              , "ID of tile to query.")
             ;
+        p.positional.add("tileId", 1);
     });
 
     createParser(cmdline, Command::dumpMeshMask
@@ -582,6 +591,8 @@ void VtsStorage::configuration(po::options_description &cmdline
                 throw po::required_option("rules");
             }
         };
+
+        p.positional.add("tileset", 1);
     });
 
     createParser(cmdline, Command::tilePick
@@ -730,20 +741,27 @@ int storageViewInfo(const fs::path &path, bool brief);
 
 void tiInfo(const vts::TileIndex &ti, const std::string &prefix = "")
 {
-    for (auto flag : { vts::TileIndex::Flag::mesh
-                , vts::TileIndex::Flag::atlas
-                , vts::TileIndex::Flag::navtile
-                , vts::TileIndex::Flag::reference })
+    typedef vts::TileIndex::Flag TiFlag;
+    typedef std::pair<TiFlag::value_type, TiFlag::value_type> Flags;
+    for (auto flag : { Flags(TiFlag::mesh, TiFlag::mesh)
+                , Flags(TiFlag::atlas, TiFlag::atlas)
+                , Flags(TiFlag::navtile, TiFlag::navtile)
+                , Flags(TiFlag::alien | TiFlag::mesh
+                        , TiFlag::alien | TiFlag::mesh)
+                , Flags(TiFlag::reference | TiFlag::mesh
+                        , TiFlag::reference)
+                })
     {
-        auto stat(ti.statMask(flag));
+        auto stat(ti.statMask(flag.first, flag.second));
         std::cout
-            << prefix << "    " << vts::TileFlags(flag) << ":" << std::endl
+            << prefix << "    " << vts::TileFlags(flag.second)
+            << ":" << std::endl
             << prefix << "        lodRange: " << stat.lodRange << std::endl
             << prefix << "        count = " << stat.count << std::endl
             ;
 
         // special handling for mesh: make statistics for watertight
-        if (flag == vts::TileIndex::Flag::mesh) {
+        if (flag.first == vts::TileIndex::Flag::mesh) {
             auto wstat(ti.statMask(vts::TileIndex::Flag::watertight));
             std::cout
                 << prefix << "        watertight = " << wstat.count

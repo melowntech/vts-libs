@@ -23,7 +23,7 @@ namespace vadstena { namespace vts {
 
 namespace {
     const char MAGIC[2] = { 'M', 'T' };
-    const std::uint16_t VERSION = 1;
+    const std::uint16_t VERSION = 2;
 
     const std::size_t MIN_GEOM_BITS(2);
 } // namespace
@@ -219,6 +219,30 @@ void parseGeomExtents(Lod lod, math::Extents3 &extents
     extents.ur(2) = decoder();
 }
 
+struct MetaTileFlag {
+    typedef std::uint8_t value_type;
+
+    enum : value_type {
+        alienPlane = 0x01
+    };
+
+    static value_type extract(const MetaNode &node) {
+        value_type flags(0);
+        switch (node.flags() & MetaNode::Flag::alien) {
+            flags |= alienPlane;
+        }
+        return flags;
+    }
+
+    typedef std::pair<value_type, MetaNode::Flag::value_type> FlagMapping;
+
+    static std::initializer_list<FlagMapping> flagMapping;
+};
+
+std::initializer_list<MetaTileFlag::FlagMapping> MetaTileFlag::flagMapping = {
+    { MetaTileFlag::alienPlane, MetaNode::Flag::alien }
+};
+
 } // namespace
 
 inline void MetaNode::save(std::ostream &out, Lod lod) const
@@ -244,8 +268,21 @@ inline void MetaNode::save(std::ostream &out, Lod lod) const
 
 void MetaTile::save(std::ostream &out) const
 {
+    // accumulate extra flags
+    MetaTileFlag::value_type flags(0);
+    for_each([&](const TileId&, const MetaNode &node)
+    {
+        flags |= MetaTileFlag::extract(node);
+    });
+
     bin::write(out, MAGIC);
-    bin::write(out, VERSION);
+
+    if (flags) {
+        bin::write(out, VERSION);
+    } else {
+        // VERSION=1: no metatile flags -> write old format
+        bin::write(out, std::uint16_t(1));
+    }
 
     // tile id information
     bin::write(out, std::uint8_t(origin_.lod));
@@ -269,11 +306,49 @@ void MetaTile::save(std::ostream &out) const
     bin::write(out, std::uint16_t(validSize.width));
     bin::write(out, std::uint16_t(validSize.height));
 
-    bin::write(out, nodeSize(origin_.lod));
+    if (flags) {
+        // store flags
+        bin::write(out, std::uint8_t(flags));
+    } else {
+        // VERSION=1: write node size
+        bin::write(out, nodeSize(origin_.lod));
+    }
+
+    // store flag planes (if any)
+    if (flags) {
+        imgproc::bitfield::RasterMask bitmap;
+
+        // save flag planes
+        for (const auto &mapping : MetaTileFlag::flagMapping) {
+            if (!(mapping.first & flags)) { continue; }
+
+            // create flag plane
+            bitmap.create(validSize.width, validSize.height
+                          , imgproc::bitfield::RasterMask::EMPTY);
+
+            // set flags
+            for (unsigned int j(valid_.ll(1)), jj(0); j <= valid_.ur(1);
+                 ++j, ++jj)
+            {
+                for (unsigned int i(valid_.ll(0)), ii(0); i <= valid_.ur(0);
+                     ++i, ++ii)
+                {
+                    auto &node(grid_[j * size_ + i]);
+                    if (node.flags() & mapping.second) {
+                        bitmap.set(ii, jj);
+                    }
+                }
+            }
+
+            // write flag plane
+            bitmap.writeData(out);
+        }
+    }
 
     // collect all credits
     // mapping between credit id and all nodes having it
-    std::map<std::uint16_t, std::vector<size_type> > credits;
+    typedef std::map<std::uint16_t, std::vector<size_type> > CMap;
+    CMap credits;
     {
         size_type idx(0);
         for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
@@ -290,16 +365,23 @@ void MetaTile::save(std::ostream &out) const
     if (credits.empty() || empty(validSize)) {
         // no credits -> credit block size is irrelevant
         bin::write(out, std::uint8_t(0));
-        bin::write(out, std::uint16_t(0));
+        if (!flags) {
+            // VERSION=1: credit block size
+            bin::write(out, std::uint16_t(0));
+        }
     } else {
         // write credit count
         bin::write(out, std::uint8_t(credits.size()));
 
+        // create credit plane bitmap
         imgproc::bitfield::RasterMask
             bitmap(validSize.width, validSize.height);
 
-        // write credit block size
-        bin::write(out, std::uint16_t(bitmap.byteCount()));
+
+        if (!flags) {
+            // VERSION=1: credit block size
+            bin::write(out, std::uint16_t(bitmap.byteCount()));
+        }
 
         // write credits
         for (const auto &credit : credits) {
@@ -337,9 +419,11 @@ void saveMetaTile(const fs::path &path, const MetaTile &meta)
 
 inline void MetaNode::load(std::istream &in, Lod lod)
 {
+    // NB: flags are accumulated because they can be pre-initialized from
+    // another source
     std::uint8_t f;
     bin::read(in, f);
-    flags_ = f;
+    flags_ |= f;
 
     std::vector<std::uint8_t> geomExtents(geomLen(lod));
     bin::read(in, geomExtents);
@@ -402,15 +486,51 @@ void MetaTile::load(std::istream &in, const fs::path &path)
         valid_ = extents_type(math::InvalidExtents{});
     }
 
-    // node size (unused)
-    bin::read(in, u8);
+    std::uint8_t flags(0);
+    if (version < 2) {
+        // node size (unused)
+        bin::read(in, u8);
+    } else {
+        bin::read(in, flags);
+    }
 
     // credit count
     std::uint8_t creditCount;
     bin::read(in, creditCount);
 
-    // read credit block size (unused)
-    bin::read(in, u16);
+    if (version < 2) {
+        // read credit block size (unused)
+        bin::read(in, u16);
+    }
+
+    // load flags
+    if (flags) {
+        for (const auto &mapping : MetaTileFlag::flagMapping) {
+            if (!(mapping.first & flags)) { continue; }
+
+            imgproc::bitfield::RasterMask
+                bitmap(validSize.width, validSize.height);
+
+            // read in bitmap
+            bitmap.readData(in);
+
+            // process whole bitmap and update credits of all nodes
+            for (unsigned int j(valid_.ll(1)), jj(0); j <= valid_.ur(1);
+                 ++j, ++jj)
+            {
+                for (unsigned int i(valid_.ll(0)), ii(0); i <= valid_.ur(0);
+                     ++i, ++ii)
+                {
+                    auto &node(grid_[j * size_ + i]);
+
+                    // set flag
+                    if (bitmap.get(ii, jj)) {
+                        node.update(mapping.second);
+                    }
+                }
+            }
+        }
+    }
 
     if (creditCount) {
         imgproc::bitfield::RasterMask
@@ -433,7 +553,9 @@ void MetaTile::load(std::istream &in, const fs::path &path)
                 {
                     auto &node(grid_[j * size_ + i]);
 
-                    if (bitmap.get(ii, jj)) { node.addCredit(creditId); }
+                    if (bitmap.get(ii, jj)) {
+                        node.addCredit(creditId);
+                    }
                 }
             }
         }
@@ -578,7 +700,8 @@ MetaTile::References MetaTile::makeReferences() const
 }
 
 void MetaTile::update(const MetaTile &in, References &references
-                      , int surfaceIndex, const Indices *indices)
+                      , int surfaceIndex, const Indices *indices
+                      , bool alien)
 {
     // sanity check
     if ((origin_ != in.origin_) || (binaryOrder_ != in.binaryOrder_)) {
@@ -623,11 +746,14 @@ void MetaTile::update(const MetaTile &in, References &references
             // update valid extents
             math::update(valid_, point_type(i, j));
 
-            if (inn.real()) {
-                // found new real tile, copy node
+            if (inn.real(alien)) {
+                // found new real/alien tile, copy node
                 outn = inn;
                 // reset children flags
                 outn.childFlags(MetaNode::Flag::none);
+
+                // reset alien flag
+                outn.alien(false);
                 continue;
             }
 

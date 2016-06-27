@@ -22,11 +22,13 @@ namespace {
 TileIndex::TileIndex(const TileIndex &other)
     : minLod_(other.minLod_)
     , trees_(other.trees_)
+    , allSetFlags_()
 {
 }
 
 TileIndex::TileIndex(const TileIndex &other, ShallowCopy)
     : minLod_(other.minLod_)
+    , allSetFlags_()
 {
     trees_.reserve(other.trees_.size());
     for (const auto &tree : other.trees_) {
@@ -36,6 +38,7 @@ TileIndex::TileIndex(const TileIndex &other, ShallowCopy)
 
 TileIndex::TileIndex(LodRange lodRange
                      , const TileIndex *other, bool noFill)
+    : allSetFlags_()
 {
     // include old definition if non-empty
     if (other && !other->empty()) {
@@ -94,8 +97,10 @@ void TileIndex::load(std::istream &f, const fs::path &path)
     minLod_ = minLod;
 
     trees_.resize(size);
+    allSetFlags_ = 0;
     for (auto &tree : trees_) {
         tree.load(f, path);
+        allSetFlags_ |= tree.allSetFlags();
     }
 }
 
@@ -211,7 +216,8 @@ void TileIndex::setMask(const TileId &tileId, QTree::value_type mask
     });
 }
 
-TileIndex::Stat TileIndex::statMask(QTree::value_type mask) const
+TileIndex::Stat TileIndex::statMask(QTree::value_type mask)
+    const
 {
     Stat stat;
 
@@ -221,9 +227,50 @@ TileIndex::Stat TileIndex::statMask(QTree::value_type mask) const
         auto &tileRange(stat.tileRanges.back());
 
         tree.forEachNode([&](unsigned int x, unsigned int y, unsigned int size
-                             , QTree::value_type value)
+                             , QTree::value_type v)
         {
-            if (!(value & mask)) { return; }
+            if (!(v & mask)) { return; }
+
+            // remember lod
+            storage::update(stat.lodRange, lod);
+
+            // update tile range
+            math::update(tileRange, x, y);
+            math::update(tileRange, x + size - 1, y + size - 1);
+
+            stat.count += (std::size_t(size) * std::size_t(size));
+        });
+        ++lod;
+    }
+
+    if (stat.lodRange.empty()) {
+        // nothing, drop whole tileRanges
+        stat.tileRanges.clear();
+    } else {
+        // remove difference between minLod_ and stat.lodRange.min (if any)
+        stat.tileRanges.erase
+            (stat.tileRanges.begin()
+             , stat.tileRanges.begin() + (stat.lodRange.min - minLod_));
+    }
+
+    return stat;
+}
+
+TileIndex::Stat TileIndex::statMask(QTree::value_type mask
+                                    , QTree::value_type value)
+    const
+{
+    Stat stat;
+
+    auto lod(minLod_);
+    for (const auto &tree : trees_) {
+        stat.tileRanges.emplace_back(math::InvalidExtents{});
+        auto &tileRange(stat.tileRanges.back());
+
+        tree.forEachNode([&](unsigned int x, unsigned int y, unsigned int size
+                             , QTree::value_type v)
+        {
+            if ((v & mask) != value) { return; }
 
             // remember lod
             storage::update(stat.lodRange, lod);
@@ -563,7 +610,8 @@ TileRange TileIndex::Stat::computeTileRange() const
     return range;
 }
 
-std::pair<LodRange, TileRange> TileIndex::ranges(QTree::value_type mask) const
+std::pair<LodRange, TileRange> TileIndex::ranges(QTree::value_type mask)
+    const
 {
     auto stat(statMask(mask));
     return { stat.lodRange, stat.computeTileRange() };

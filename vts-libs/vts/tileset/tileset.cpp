@@ -673,7 +673,11 @@ namespace {
 std::uint8_t flagsFromNode(const MetaNode &node)
 {
     std::uint8_t m(0);
-    if (node.geometry()) { m |= TileIndex::Flag::mesh; }
+    if (node.geometry()) {
+        // alien flag allowed only in when we have a mesh
+        m |= TileIndex::Flag::mesh;
+        if (node.alien()) { m |= TileIndex::Flag::alien; }
+    }
     if (node.navtile()) { m |= TileIndex::Flag::navtile; }
     if (node.internalTextureCount()) { m |= TileIndex::Flag::atlas; }
     return m;
@@ -693,7 +697,7 @@ void TileSet::Detail::updateNode(TileId tileId
 
     // prepare tileindex flags and mask
     auto mask(TileIndex::Flag::content | TileIndex::Flag::watertight
-              | TileIndex::Flag::reference);
+              | TileIndex::Flag::reference | TileIndex::Flag::alien);
     auto flags(flagsFromNode(*node.metanode));
     if (watertight) {
         flags |= TileIndex::Flag::watertight;
@@ -893,6 +897,9 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile
 
         // set credits (only when we have mesh)
         metanode.updateCredits(tile.credits);
+
+        // set alien flag
+        metanode.alien(tile.alien);
     }
 
     // navtile
@@ -1355,12 +1362,7 @@ TileIndex TileSet::tileIndex(const LodRange &lodRange) const
 
 bool TileSet::check(const boost::filesystem::path &root)
 {
-    try {
-        tileset::loadConfig(*Driver::open(root));
-    } catch (const storage::Error&) {
-        return false;
-    }
-    return true;
+    return Driver::check(root);
 }
 
 bool TileSet::externallyChanged() const

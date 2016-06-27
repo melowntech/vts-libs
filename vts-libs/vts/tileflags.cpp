@@ -3,11 +3,14 @@
 namespace vadstena { namespace vts {
 
 std::vector<TileFlags::TileFlag> TileFlags::mapping = {
-    TileFlag(TileIndex::Flag::mesh, "mesh")
-    , TileFlag(TileIndex::Flag::watertight, "watertight")
-    , TileFlag(TileIndex::Flag::atlas, "atlas")
-    , TileFlag(TileIndex::Flag::navtile, "navtile")
-    , TileFlag(TileIndex::Flag::reference, "reference")
+    TileFlag(Match(TiFlag::mesh | TiFlag::alien, TiFlag::mesh), "mesh")
+    , TileFlag(Match(TiFlag::alien | TiFlag::mesh
+                     , TiFlag::alien | TiFlag::mesh), "alien")
+    , TileFlag(Match(TiFlag::watertight, TiFlag::watertight), "watertight")
+    , TileFlag(Match(TiFlag::atlas, TiFlag::atlas), "atlas")
+    , TileFlag(Match(TiFlag::navtile, TiFlag::navtile), "navtile")
+    , TileFlag(Match(TiFlag::reference | TiFlag::mesh,
+                     TiFlag::reference), "reference")
 };
 
 } } // namespace vadstena::vts

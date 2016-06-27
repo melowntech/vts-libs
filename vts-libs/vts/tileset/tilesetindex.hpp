@@ -8,6 +8,8 @@
 #ifndef vadstena_libs_vts_tileset_tilesetindex_hpp_included_
 #define vadstena_libs_vts_tileset_tilesetindex_hpp_included_
 
+#include <memory>
+
 #include "../tileindex.hpp"
 
 namespace vadstena { namespace vts {
@@ -18,6 +20,8 @@ namespace tileset {
 
 class Index {
 public:
+    typedef std::shared_ptr<Index> pointer;
+
     Index(unsigned int metaBinaryOrder = 0)
         : metaBinaryOrder_(metaBinaryOrder)
     {}
@@ -34,11 +38,15 @@ public:
 
     bool real(const TileId &tileId) const;
 
+    bool real(const TileId &tileId, bool alien) const;
+
     int getReference(const TileId &tileId) const;
 
     bool meta(const TileId &tileId) const;
 
     TileIndex deriveMetaIndex() const;
+
+    unsigned int metaBinaryOrder() const { return metaBinaryOrder_; }
 
 private:
     unsigned int metaBinaryOrder_;
@@ -54,11 +62,18 @@ void saveTileSetIndex(const Index &tsi, const boost::filesystem::path &path);
 
 void saveTileSetIndex(const Index &tsi, std::ostream &os);
 
+Index::pointer loadTileSetIndex(const Driver &driver);
+
 // inlines
 
 inline bool Index::real(const TileId &tileId) const
 {
-    return check(tileId, TileFile::mesh);
+    return tileIndex.real(tileId);
+}
+
+inline bool Index::real(const TileId &tileId, bool alien) const
+{
+    return tileIndex.real(tileId, alien);
 }
 
 } } } // namespace vadstena::vts::tileset

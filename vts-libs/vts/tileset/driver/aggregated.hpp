@@ -51,11 +51,15 @@ public:
      */
     struct EnhancedInfo {
         Driver::pointer driver;
-        tileset::Index tsi;
+        tileset::Index::pointer tsi;
         std::string name;
+        bool hasAlienTiles;
+        bool isAlien;
 
         EnhancedInfo(const registry::ReferenceFrame &referenceFrame)
-            : tsi(referenceFrame.metaBinaryOrder)
+            : tsi(std::make_shared<tileset::Index>
+                  (referenceFrame.metaBinaryOrder))
+            , hasAlienTiles(false), isAlien(false)
         {}
     };
 
