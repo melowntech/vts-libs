@@ -571,8 +571,7 @@ createGlues(Tx &tx, Storage::Properties properties
 
         // create glue
         utility::DurationMeter timer;
-        TileSet::createGlue(gts, gd.combination
-                            , addOptions.textureQuality);
+        TileSet::createGlue(gts, gd.combination, addOptions);
         auto duration(timer.duration());
 
         reportMemoryUsage("after merge");

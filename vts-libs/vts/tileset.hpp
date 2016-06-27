@@ -33,6 +33,7 @@
 #include "./mapconfig.hpp"
 #include "./tileindex.hpp"
 #include "./tilesource.hpp"
+#include "./options.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -257,13 +258,13 @@ public:
      *
      * \param glue output tileset for glue tiles
      * \param sets input tilesets
-     * \param textureQuality quality of repacked atlases (0 to no repacking)
+     * \param options glue creation options
      *
      *  Priority grows from left to right.
      *
      */
-    static void createGlue(TileSet &glue
-                           , const const_ptrlist &sets, int textureQuality);
+    static void createGlue(TileSet &glue, const const_ptrlist &sets
+                           , const GlueCreationOptions &options);
 
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the tileset's guts!

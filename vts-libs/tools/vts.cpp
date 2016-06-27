@@ -58,6 +58,7 @@ public:
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
         addOptions_.dryRun = false;
+        addOptions_.generateReferences = true;
     }
 
     ~VtsStorage() {}
@@ -241,6 +242,7 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             ("bumpVersion", "Add dataset under new version")
             ("dryRun", "Simulate glue creation.")
+            ("norefs", "Do not generate references")
             ;
 
         p.positional.add("tileset", 1);
@@ -287,6 +289,7 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             addOptions_.bumpVersion = vars.count("bumpVersion");
             addOptions_.dryRun = vars.count("dryRun");
+            addOptions_.generateReferences = !vars.count("norefs");
         };
     });
 
@@ -302,12 +305,14 @@ void VtsStorage::configuration(po::options_description &cmdline
              ->required()->default_value(addOptions_.textureQuality)
              , "Quality of repacked atlases. 0 means no repacking.")
             ("dryRun", "Simulate glue creation.")
+            ("norefs", "Do not generate references")
             ;
 
         p.positional.add("tilesetId", 1);
 
         p.configure = [&](const po::variables_map &vars) {
             addOptions_.dryRun = vars.count("dryRun");
+            addOptions_.generateReferences = !vars.count("norefs");
         };
     });
 

@@ -101,12 +101,12 @@ public:
            , const TileIndex &generate
            , const TileIndex &navtileGenerate
            , const TileSet::const_ptrlist &srcSets
-           , int textureQuality)
+           , const GlueCreationOptions &options)
         : glue_(glue), world_(generate), generate_(generate)
         , navtileGenerate_(navtileGenerate)
         , src_(details(glue, srcSets)), top_(*src_.back())
         , topId_(src_.size() - 1), progress_(generate_.count())
-        , textureQuality_(textureQuality)
+        , options_(options)
     {
         // make world complete
         world_.complete();
@@ -157,7 +157,7 @@ private:
 
     utility::Progress progress_;
 
-    const int textureQuality_;
+    const GlueCreationOptions options_;
 };
 
 inline bool Merger::isAlienTile(const merge::Output &tile) const
@@ -242,8 +242,22 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     if (tile) {
         // place alien tiles to alien glue and proper tiles to glue
         glue_.setTile(tileId
-                      , tile.tile(textureQuality_).setAlien(isAlienTile(tile))
+                      , tile.tile(options_.textureQuality)
+                      .setAlien(!options_.generateReferences
+                                && isAlienTile(tile))
                       , &nodeInfo);
+
+    } else if (g && options_.generateReferences
+               && !tile.source.mesh.empty())
+    {
+        // we are allowed to generate references
+        // no tile generated but there are some data to generate it
+        auto topSourceId(tile.source.mesh.back().id());
+        if (topSourceId != topId_) {
+            // tile references single tile in other set -> store reference
+            LOG(info1) << "Setting reference " << topSourceId + 1;
+            glue_.setReferenceTile(tileId, topSourceId + 1, &nodeInfo);
+        }
     }
 
     if (g) {
@@ -335,8 +349,8 @@ TileIndex buildGenerateSet(const char *dumpRoot
 
 } // namespace
 
-void TileSet::createGlue(TileSet &glue
-                         , const const_ptrlist &sets, int textureQuality)
+void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
+                         , const GlueCreationOptions &options)
 {
     if (sets.size() < 2) {
         LOG(info3) << "(glue) Too few sets to glue together ("
@@ -375,7 +389,7 @@ void TileSet::createGlue(TileSet &glue
 
     // run merge
     Merger(glue.detail()
-           , generate, navtileGenerate, sets, textureQuality);
+           , generate, navtileGenerate, sets, options);
 
     // copy position from top dataset
     glue.setPosition(sets.back()->getProperties().position);

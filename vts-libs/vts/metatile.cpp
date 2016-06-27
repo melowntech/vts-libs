@@ -268,8 +268,21 @@ inline void MetaNode::save(std::ostream &out, Lod lod) const
 
 void MetaTile::save(std::ostream &out) const
 {
+    // accumulate extra flags
+    MetaTileFlag::value_type flags(0);
+    for_each([&](const TileId&, const MetaNode &node)
+    {
+        flags |= MetaTileFlag::extract(node);
+    });
+
     bin::write(out, MAGIC);
-    bin::write(out, VERSION);
+
+    if (flags) {
+        bin::write(out, VERSION);
+    } else {
+        // VERSION=1: no metatile flags -> write old format
+        bin::write(out, std::uint16_t(1));
+    }
 
     // tile id information
     bin::write(out, std::uint8_t(origin_.lod));
@@ -293,15 +306,13 @@ void MetaTile::save(std::ostream &out) const
     bin::write(out, std::uint16_t(validSize.width));
     bin::write(out, std::uint16_t(validSize.height));
 
-    // accumulate extra flags
-    MetaTileFlag::value_type flags(0);
-    for_each([&](const TileId&, const MetaNode &node)
-    {
-        flags |= MetaTileFlag::extract(node);
-    });
-
-    // store flags
-    bin::write(out, std::uint8_t(flags));
+    if (flags) {
+        // store flags
+        bin::write(out, std::uint8_t(flags));
+    } else {
+        // VERSION=1: write node size
+        bin::write(out, nodeSize(origin_.lod));
+    }
 
     // store flag planes (if any)
     if (flags) {
@@ -354,6 +365,10 @@ void MetaTile::save(std::ostream &out) const
     if (credits.empty() || empty(validSize)) {
         // no credits -> credit block size is irrelevant
         bin::write(out, std::uint8_t(0));
+        if (!flags) {
+            // VERSION=1: credit block size
+            bin::write(out, std::uint16_t(0));
+        }
     } else {
         // write credit count
         bin::write(out, std::uint8_t(credits.size()));
@@ -361,6 +376,12 @@ void MetaTile::save(std::ostream &out) const
         // create credit plane bitmap
         imgproc::bitfield::RasterMask
             bitmap(validSize.width, validSize.height);
+
+
+        if (!flags) {
+            // VERSION=1: credit block size
+            bin::write(out, std::uint16_t(bitmap.byteCount()));
+        }
 
         // write credits
         for (const auto &credit : credits) {

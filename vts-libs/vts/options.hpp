@@ -67,6 +67,22 @@ private:
     bool sameType_;
 };
 
+/** Glue creation options.
+ */
+struct GlueCreationOptions {
+    /** Texture quality. JPEG quality 0-100. 0 means no atlas repacking.
+     */
+    int textureQuality;
+
+    /** Generate old glues with references and without aliens.
+     */
+    bool generateReferences;
+
+    GlueCreationOptions()
+        : textureQuality(), generateReferences(true)
+    {}
+};
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_options_hpp_included_
