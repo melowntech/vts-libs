@@ -27,6 +27,11 @@ public:
     QTree(QTree&&) = default;
     QTree& operator=(QTree&&) = default;
 
+    /** Initialize qtree from other qtree's subtree at given coordinates.
+     */
+    QTree(const QTree &other, unsigned int order
+          , unsigned int depth, unsigned int x, unsigned int y);
+
     /** Read value from pixel at (x, y).
      */
     value_type get(unsigned int x, unsigned int y) const;
@@ -44,6 +49,10 @@ public:
      */
     void set(unsigned int x1, unsigned int y1
              , unsigned int x2, unsigned int y2, value_type value);
+
+    /** Force given value to all non-zero pixels.
+     */
+    void force(value_type value);
 
     /** Update given range.
      */
@@ -83,6 +92,14 @@ public:
     /** Returns number of non-zero elements.
      */
     std::size_t count() const { return count_; }
+
+    /** Returns true if there is no non-zero element.
+     */
+    bool empty() const { return !count_; }
+
+    /** Returns true if there is no zero element.
+     */
+    bool full() const { return count_ == size_ * size_; }
 
     math::Size2 size() const { return math::Size2(size_, size_); }
 
@@ -134,6 +151,14 @@ public:
      */
     value_type allSetFlags() const { return allSetFlags_; }
 
+    /** Create qtree from this qtrees's subtree at given coordinates.
+     */
+    QTree subTree(unsigned int order, unsigned int depth
+                  , uint x, uint y) const
+    {
+        return { *this, order, depth, x, y };
+    }
+
 private:
     /** Re-calculates number of non-zero elements.
      */
@@ -176,6 +201,11 @@ private:
         void save(std::ostream &os) const;
         std::tuple<std::size_t, value_type>
         load(unsigned int mask, std::istream &is);
+
+        /** Load node from raster mask node.
+         */
+        std::tuple<std::size_t, value_type>
+        loadRasterMask(unsigned int mask, std::istream &is);
 
         /** Called from QTree::forEachNode */
         template <typename Op>
@@ -233,6 +263,11 @@ private:
                      const Node &other, const Combiner &combiner);
 
         void shrink(unsigned int depth);
+
+        const Node& find(unsigned int depth, unsigned int x
+                         , unsigned int y) const;
+
+        void force(value_type value);
     };
 
     unsigned int order_;

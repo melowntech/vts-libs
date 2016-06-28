@@ -17,6 +17,7 @@
 #include "../vts/atlas.hpp"
 #include "../vts/tileflags.hpp"
 #include "../vts/metaflags.hpp"
+#include "../vts/opencv/colors.hpp"
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -1200,16 +1201,17 @@ int VtsStorage::dumpMeshMask()
     auto mesh(ts.getMesh(tileId_));
 
     cv::Mat coverage(mesh.coverageMask.size().height
-                     , mesh.coverageMask.size().width, CV_8U);
-    coverage = cv::Scalar(0x00);
-    cv::Scalar color(0xff);
-    mesh.coverageMask.forEachQuad([&](uint xstart, uint ystart, uint xsize
-                                      , uint ysize, bool)
+                     , mesh.coverageMask.size().width, CV_8UC3);
+    coverage = cv::Scalar(0x00, 0x00, 0x00);
+
+    mesh.coverageMask.forEachNode([&](uint xstart, uint ystart, uint size
+                                      , std::uint8_t color)
     {
         cv::Point2i start(xstart, ystart);
-        cv::Point2i end(xstart + xsize - 1, ystart + ysize - 1);
+        cv::Point2i end(xstart + size - 1, ystart + size - 1);
 
-        cv::rectangle(coverage, start, end, color, CV_FILLED, 4);
+        cv::rectangle(coverage, start, end, vts::opencv::palette256[color]
+                      , CV_FILLED, 4);
     }, vts::Mesh::CoverageMask::Filter::white);
 
     create_directories(outputPath_.parent_path());

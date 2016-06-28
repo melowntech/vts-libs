@@ -226,17 +226,19 @@ struct MetaTileFlag {
         alienPlane = 0x01
     };
 
-    static value_type extract(const MetaNode &node) {
-        value_type flags(0);
-        switch (node.flags() & MetaNode::Flag::alien) {
-            flags |= alienPlane;
-        }
-        return flags;
-    }
-
     typedef std::pair<value_type, MetaNode::Flag::value_type> FlagMapping;
 
     static std::initializer_list<FlagMapping> flagMapping;
+
+    static value_type extract(const MetaNode &node) {
+        value_type flags(0);
+        for (const auto &mapping : flagMapping) {
+            if (node.flags() & mapping.second) {
+                flags |= mapping.first;
+            }
+        }
+        return flags;
+    }
 };
 
 std::initializer_list<MetaTileFlag::FlagMapping> MetaTileFlag::flagMapping = {
@@ -306,12 +308,44 @@ void MetaTile::save(std::ostream &out) const
     bin::write(out, std::uint16_t(validSize.width));
     bin::write(out, std::uint16_t(validSize.height));
 
+    // collect all credits
+    // mapping between credit id and all nodes having it
+    typedef std::map<std::uint16_t, std::vector<size_type> > CMap;
+    CMap credits;
+    {
+        size_type idx(0);
+        for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
+            for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i, ++idx) {
+                const auto &node(grid_[j * size_ + i]);
+                for (const auto cid : node.credits()) {
+                    // TODO make it faster?
+                    credits[cid].push_back(idx);
+                }
+            }
+        }
+    }
+
     if (flags) {
         // store flags
         bin::write(out, std::uint8_t(flags));
+        bin::write(out, std::uint8_t(credits.size()));
     } else {
         // VERSION=1: write node size
         bin::write(out, nodeSize(origin_.lod));
+        // VERSION=1: write node size
+        if (credits.empty() || empty(validSize)) {
+            // no credits -> credit block size is irrelevant
+            bin::write(out, std::uint8_t(0));
+            bin::write(out, std::uint16_t(0));
+        } else {
+            // write credit count
+            bin::write(out, std::uint8_t(credits.size()));
+
+            // create credit plane bitmap
+            imgproc::bitfield::RasterMask
+                bitmap(validSize.width, validSize.height);
+            bin::write(out, std::uint16_t(bitmap.byteCount()));
+        }
     }
 
     // store flag planes (if any)
@@ -345,43 +379,10 @@ void MetaTile::save(std::ostream &out) const
         }
     }
 
-    // collect all credits
-    // mapping between credit id and all nodes having it
-    typedef std::map<std::uint16_t, std::vector<size_type> > CMap;
-    CMap credits;
-    {
-        size_type idx(0);
-        for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
-            for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i, ++idx) {
-                const auto &node(grid_[j * size_ + i]);
-                for (const auto cid : node.credits()) {
-                    // TODO make it faster?
-                    credits[cid].push_back(idx);
-                }
-            }
-        }
-    }
-
-    if (credits.empty() || empty(validSize)) {
-        // no credits -> credit block size is irrelevant
-        bin::write(out, std::uint8_t(0));
-        if (!flags) {
-            // VERSION=1: credit block size
-            bin::write(out, std::uint16_t(0));
-        }
-    } else {
-        // write credit count
-        bin::write(out, std::uint8_t(credits.size()));
-
+    if (!credits.empty() && !empty(validSize)) {
         // create credit plane bitmap
         imgproc::bitfield::RasterMask
             bitmap(validSize.width, validSize.height);
-
-
-        if (!flags) {
-            // VERSION=1: credit block size
-            bin::write(out, std::uint16_t(bitmap.byteCount()));
-        }
 
         // write credits
         for (const auto &credit : credits) {
@@ -491,6 +492,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
         // node size (unused)
         bin::read(in, u8);
     } else {
+        // flags
         bin::read(in, flags);
     }
 

@@ -14,6 +14,7 @@
 
 #include "../storage/streams.hpp"
 
+#include "./qtree.hpp"
 #include "./multifile.hpp"
 
 namespace vadstena { namespace vts {
@@ -82,17 +83,19 @@ struct SubMesh {
     bool empty() const { return vertices.empty(); }
 };
 
-/**
+/** Mesh with submeshes and mask.
  */
 struct Mesh {
     typedef std::shared_ptr<Mesh> pointer;
-    typedef imgproc::quadtree::RasterMask CoverageMask;
+    typedef QTree CoverageMask;
 
     SubMesh::list submeshes;
     CoverageMask coverageMask;
 
+    static constexpr int coverageOrder = 8;
+
     static math::Size2i coverageSize() {
-        return math::Size2i(256, 256);
+        return math::Size2i(1 << coverageOrder, 1 << coverageOrder);
     };
 
     /** Index inside multifile where mesh is stored.
@@ -140,6 +143,10 @@ bool watertight(const Mesh::pointer &mesh);
 math::Extents3 extents(const SubMesh &submesh);
 math::Extents3 extents(const Mesh &mesh);
 
+bool single(const Mesh &mesh);
+bool single(const Mesh *mesh);
+bool single(const Mesh::pointer &mesh);
+
 struct SubMeshArea {
     double mesh;
     double internalTexture;
@@ -183,9 +190,11 @@ void generateEtc(SubMesh &sm, const math::Extents2 &sdsExtents
  * \param mesh coverage mask of this mesh is updated
  * \param sm submesh to render (must be in SDS)
  * \param sdsExtents extents of tile in SDS
+ * \param smIndex submesh index
  */
 void updateCoverage(Mesh &mesh, const SubMesh &sm
-                    , const math::Extents2 &sdsExtents);
+                    , const math::Extents2 &sdsExtents
+                    , std::uint8_t smIndex = 1);
 
 // IO
 void saveMesh(std::ostream &out, const Mesh &mesh);
@@ -206,6 +215,17 @@ multifile::Table readMeshTable(std::istream &is
                                , const boost::filesystem::path &path
                                = "unknown");
 
+struct MeshMask {
+    Mesh::CoverageMask coverageMask;
+    std::vector<SubMesh::SurfaceReference> surfaceReferences;
+};
+
+MeshMask loadMeshMask(std::istream &is
+                      , const boost::filesystem::path &path
+                      = "unknown");
+MeshMask loadMeshMask(const boost::filesystem::path &path);
+MeshMask loadMeshMask(const storage::IStream::pointer &in);
+
 // inlines
 
 inline bool watertight(const Mesh &mesh) { return mesh.coverageMask.full(); }
@@ -216,11 +236,16 @@ inline bool watertight(const Mesh::pointer &mesh) {
     return watertight(mesh.get());
 }
 
+inline bool single(const Mesh &mesh) { return mesh.submeshes.size() == 1; }
+inline bool single(const Mesh *mesh) {
+    return mesh ? single(*mesh) : false;
+}
+inline bool single(const Mesh::pointer &mesh) {
+    return single(mesh.get());
+}
+
 inline Mesh::Mesh(bool fullyCovered)
-    : coverageMask(coverageSize()
-                   , (fullyCovered
-                      ? CoverageMask::InitMode::FULL
-                      : CoverageMask::InitMode::EMPTY))
+    : coverageMask(coverageOrder, fullyCovered)
 {}
 
 inline void SubMesh::cloneMetadataInto(SubMesh &dst) const
@@ -243,6 +268,11 @@ inline void saveMesh(const storage::OStream::pointer &out, const Mesh &mesh)
 inline Mesh loadMesh(const storage::IStream::pointer &in)
 {
     return loadMesh(*in, in->name());
+}
+
+inline MeshMask loadMeshMask(const storage::IStream::pointer &in)
+{
+    return loadMeshMask(*in, in->name());
 }
 
 } } // namespace vadstena::vts

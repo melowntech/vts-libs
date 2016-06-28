@@ -219,8 +219,27 @@ void saveMeshProperties(std::uint16_t version, std::ostream &out
 {
     (void) version;
 
+    // write uv scale area
     for (const auto &sm : mesh.submeshes) {
         bin::write(out, double(sm.uvAreaScale));
+    }
+}
+
+void saveSurfaceMapping(std::ostream &out, const Mesh &mesh)
+{
+    if ((mesh.submeshes.size() == 1)
+        && (mesh.submeshes.front().surfaceReference == 1))
+    {
+        // no need to save anything
+        return;
+    }
+
+    // save size
+    bin::write(out, std::uint8_t(mesh.submeshes.size()));
+
+    // write surface references
+    for (const auto &sm : mesh.submeshes) {
+        bin::write(out, std::uint8_t(sm.surfaceReference));
     }
 }
 
@@ -234,7 +253,9 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
     saveMeshProper(out, mesh);
     p = table.add(p, out.tellp() - p);
 
-    mesh.coverageMask.dump(out);
+    // save mask + surface references (used by 2d interface)
+    mesh.coverageMask.save(out);
+    saveSurfaceMapping(out, mesh);
     p = table.add(p, out.tellp() - p);
 
     saveMeshProperties(table.version, out, mesh);
@@ -391,11 +412,26 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
 void loadMeshProperties(std::uint16_t version, std::istream &in, Mesh &mesh)
 {
     (void) version;
-
     for (auto &sm : mesh.submeshes) {
         double uvAreaScale;
         bin::read(in, uvAreaScale);
         sm.uvAreaScale = uvAreaScale;
+    }
+}
+
+void loadSurfaceMapping(std::uint16_t version, std::istream &in
+                        , MeshMask &mask)
+{
+    (void) version;
+
+    std::uint8_t count;
+    bin::read(in, count);
+
+    // write surface references
+    while (count--) {
+        std::uint8_t sr;
+        bin::read(in, sr);
+        mask.surfaceReferences.push_back(sr);
     }
 }
 
@@ -420,7 +456,7 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
     loadMeshProper(in, path, mesh);
 
     in.seekg(table.entries[1].start);
-    mesh.coverageMask.load(in);
+    mesh.coverageMask.load(in, path);
 
     in.seekg(table.entries[2].start);
     loadMeshProperties(table.version, in, mesh);
@@ -434,6 +470,32 @@ Mesh loadMesh(const fs::path &path)
     auto mesh(loadMesh(f, path));
     f.close();
     return mesh;
+}
+
+MeshMask loadMeshMask(std::istream &in
+                      , const boost::filesystem::path &path)
+{
+    const auto table(readMeshTable(in, path));
+
+    MeshMask mask;
+
+    in.seekg(table.entries[1].start);
+    mask.coverageMask.load(in, path);
+
+    // load surface references if available
+    if (std::size_t(in.tellg()) < table.entries[1].end()) {
+        loadSurfaceMapping(table.version, in, mask);
+    }
+
+    return mask;
+}
+
+MeshMask loadMeshMask(const boost::filesystem::path &path)
+{
+    utility::ifstreambuf f(path.string());
+    auto mask(loadMeshMask(f, path));
+    f.close();
+    return mask;
 }
 
 SubMesh& Mesh::add(const SubMesh &subMesh)
@@ -529,7 +591,8 @@ math::Matrix4 geo2mask(const math::Extents2 &extents
 } // namespace
 
 void updateCoverage(Mesh &mesh, const SubMesh &sm
-                    , const math::Extents2 &sdsExtents)
+                    , const math::Extents2 &sdsExtents
+                    , std::uint8_t smIndex)
 {
     auto &cm(mesh.coverageMask);
     const auto rasterSize(cm.size());
@@ -550,7 +613,7 @@ void updateCoverage(Mesh &mesh, const SubMesh &sm
             imgproc::processScanline
                 (sl, 0, rasterSize.width, [&](int x, int y, float)
             {
-                cm.set(x, y);
+                cm.set(x, y, smIndex + 1);
             });
         }
     }

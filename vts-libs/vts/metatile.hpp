@@ -96,7 +96,7 @@ struct MetaNode {
         return set(Flag::alien, value);
     }
 
-    void update(Flag::value_type flags) { flags |= flags_; }
+    void update(Flag::value_type flags) { flags_ |= flags; }
 
     /** Normalized extents in range 0.0-1.0.
      */

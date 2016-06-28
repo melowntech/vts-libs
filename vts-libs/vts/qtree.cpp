@@ -269,7 +269,10 @@ void QTree::Node::contract()
 
 namespace {
     const char MAGIC[2] = { 'Q', 'T' };
-}
+
+    const char RASTERMASK_MAGIC_PREFIX[2] = { 'Q', 'M' };
+    const char RASTERMASK_MAGIC_SUFFIX[3] = { 'A', 'S', 'K' };
+} // namesapce
 
 void QTree::save(std::ostream &os) const
 {
@@ -279,6 +282,20 @@ void QTree::save(std::ostream &os) const
     root_.save(os);
 }
 
+namespace {
+
+std::uint8_t size2order(int size)
+{
+    std::uint8_t order(0);
+    while (size != 1) {
+        order++;
+        size >>= 1;
+    }
+    return order;
+}
+
+} // namesapce
+
 void QTree::load(std::istream &is, const fs::path &path)
 {
     // read and check magic
@@ -286,8 +303,41 @@ void QTree::load(std::istream &is, const fs::path &path)
     bin::read(is, magic);
 
     if (std::memcmp(magic, MAGIC, sizeof(MAGIC))) {
-        LOGTHROW(err1, storage::BadFileFormat)
-            << "File " << path << " is not a VTS mesh file.";
+        if (std::memcmp(magic, RASTERMASK_MAGIC_PREFIX, sizeof(MAGIC))) {
+            LOGTHROW(err1, storage::BadFileFormat)
+                << "File " << path << " is not a VTS qtree file.";
+        }
+
+        // seems like old plain raster mask -> load
+        char magic2[sizeof(RASTERMASK_MAGIC_SUFFIX)];
+        bin::read(is, magic2);
+        if (std::memcmp(magic2, RASTERMASK_MAGIC_SUFFIX
+                        , sizeof(RASTERMASK_MAGIC_SUFFIX)))
+        {
+            // hm, but is not :P
+            LOGTHROW(err1, storage::BadFileFormat)
+                << "File " << path << " is neither a VTS qtree "
+                "nor a imgproc raster mask file.";
+        }
+
+        uint8_t dummy;
+        bin::read(is, dummy); // reserved
+        bin::read(is, dummy); // reserved
+        bin::read(is, dummy); // reserved
+
+        // ignore dimensions and count, use quad size to compute order
+        std::int32_t x, y, qs;
+        bin::read(is, x);
+        bin::read(is, y);
+        bin::read(is, qs);
+        std::uint32_t count;
+        bin::read(is, count);
+
+        // compute order
+        std::uint8_t order(size2order(qs));
+        recreate(order);
+        std::tie(count_, allSetFlags_) = root_.loadRasterMask(size_, is);
+        return;
     }
 
     std::uint8_t order;
@@ -331,6 +381,37 @@ QTree::Node::load(unsigned int mask, std::istream &is)
     value = u8;
     return std::tuple<std::size_t, value_type>
         ((value > 0) * (mask * mask), value);
+}
+
+std::tuple<std::size_t, QTree::value_type>
+QTree::Node::loadRasterMask(unsigned int mask, std::istream &is)
+{
+    std::uint8_t u8;
+    bin::read(is, u8);
+    switch (u8) {
+    case 0: // white (really)
+        value = 1;
+        return std::tuple<std::size_t, value_type>((mask * mask), 1);
+
+    case 1: // black (no kidding)
+        value = 0;
+        return std::tuple<std::size_t, value_type>(0, 0);
+
+    default: // gray node
+        break;
+    }
+
+    // gray node
+    children.reset(new Children());
+    std::tuple<std::size_t, value_type> res(0, 0);
+    for (auto &node : children->nodes) {
+        auto sub(node.loadRasterMask(mask >> 1, is));
+        std::get<0>(res) += std::get<0>(sub);
+        std::get<1>(res) += std::get<1>(sub);
+    }
+
+    // done
+    return res;
 }
 
 void QTree::recount()
@@ -380,6 +461,55 @@ void QTree::Node::shrink(unsigned int depth)
 
     // contract if possible
     contract();
+}
+
+QTree::QTree(const QTree &other, unsigned int order
+             , unsigned int depth, unsigned int x, unsigned int y)
+    : order_(order), size_(1 << order), root_(other.root_.find(depth, x, y))
+    , count_(0)
+{
+    recount();
+}
+
+/** Finds quad in given subtree.
+ */
+const QTree::Node& QTree::Node::find(unsigned int depth
+                                     , unsigned int x, unsigned int y)
+    const
+{
+    // if we can descend down (i.e. both tree and depth allow)
+    if (depth && children) {
+        // find node to descend
+        --depth;
+        unsigned int mask(1 << depth);
+
+        auto index(((x & mask) ? 1 : 0) | ((y & mask) ? 2 : 0));
+        return children->nodes[index].find(depth, x, y);
+    }
+
+    // there is nothing more down there
+    return *this;
+}
+
+void QTree::force(value_type value)
+{
+    root_.force(value);
+}
+
+void QTree::Node::force(value_type newValue)
+{
+    if (children) {
+        // descend
+        children->nodes[0].force(newValue);
+        children->nodes[1].force(newValue);
+        children->nodes[2].force(newValue);
+        children->nodes[3].force(newValue);
+        contract();
+        return;
+    }
+
+    // rewrite
+    if (value) { value = newValue; }
 }
 
 } } // namespace vadstena::vts

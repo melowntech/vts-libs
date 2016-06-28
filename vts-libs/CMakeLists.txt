@@ -224,6 +224,7 @@ set(vts-core_SOURCES
 set(vts_SOURCES
   vts/opencv/atlas.hpp vts/opencv/atlas.cpp
   vts/opencv/navtile.hpp vts/opencv/navtile.cpp
+  vts/opencv/colors.hpp vts/opencv/colors.cpp
   vts/tileset/glue.cpp
   vts/tileset/merge.hpp vts/tileset/merge.cpp
   vts/meshop.hpp vts/meshopinput.hpp

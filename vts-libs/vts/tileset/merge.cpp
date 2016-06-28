@@ -273,7 +273,8 @@ Vertices3List inputCoverageVertices(const Input &input
 Mesh& Output::forceMesh()
 {
     if (!mesh) {
-        mesh = boost::in_place();
+        // mesh with empty mask
+        mesh = boost::in_place(false);
     }
     return *mesh;
 }
@@ -393,21 +394,19 @@ void rasterize(const MeshOpInput &input, const cv::Scalar &color
 
     cv::Rect bounds(0, 0, coverage.cols, coverage.rows);
 
-    auto draw([&](uint xstart, uint ystart
-                  , uint xsize, uint ysize, bool)
+    auto draw([&](uint xstart, uint ystart, uint size, bool)
     {
         // scale
         xstart *= pixelSize;
         ystart *= pixelSize;
-        xsize *= pixelSize;
-        ysize *= pixelSize;
+        size *= pixelSize;
 
         // shift
         xstart -= offset.x;
         ystart -= offset.y;
 
         // construct rectangle and intersect it with bounds
-        cv::Rect r(xstart, ystart, xsize, ysize);
+        cv::Rect r(xstart, ystart, size, size);
         auto rr(r & bounds);
         cv::rectangle(coverage, rr, color, CV_FILLED, 4);
     });
@@ -415,11 +414,11 @@ void rasterize(const MeshOpInput &input, const cv::Scalar &color
     if (input.watertight()) {
         // fully covered -> simulate full coverage
         auto s(Mesh::coverageSize());
-        draw(0, 0, s.width, s.height, true);
+        draw(0, 0, s.width, true);
         return;
     }
 
-    input.mesh().coverageMask.forEachQuad
+    input.mesh().coverageMask.forEachNode
         (draw, Mesh::CoverageMask::Filter::white);
 }
 
@@ -524,29 +523,6 @@ struct Coverage {
         }
 
         return res;
-    }
-
-    void fillMeshMask(Output &out) const {
-        if (!out.mesh) { return; }
-
-        // we have mesh -> fill
-        auto &cm(out.mesh->coverageMask);
-
-        if (hasHoles) {
-            // start with whole black mask and set non-hole pixels
-            cm.reset(false);
-            for (int j(0); j < coverage.rows; ++j) {
-                for (int i(0); i < coverage.cols; ++i) {
-                    // non-hole -> set in mask
-                    if (coverage(j, i) >= 0) {
-                        cm.set(j, i);
-                    }
-                }
-            }
-        } else {
-            // fully covered
-            cm.reset(true);
-        }
     }
 
     void dump(const fs::path &dump, const TileId &tileId) const {
@@ -761,9 +737,8 @@ private:
 };
 
 void addInputToOutput(Output &out, const Input &input
-                      , SubMesh mesh
-                      , int submeshIndex
-                      , double uvAreaScale)
+                      , SubMesh mesh, const math::Points3 &projected
+                      , int submeshIndex, double uvAreaScale)
 {
     // add atlas if present
     if (input.hasAtlas() && input.atlas().valid(submeshIndex)) {
@@ -771,17 +746,65 @@ void addInputToOutput(Output &out, const Input &input
     }
 
     // add submesh
-    auto &added(out.forceMesh().add(mesh));
+    auto &outMesh(out.forceMesh());
+    auto &added(outMesh.add(mesh));
 
-    // update scale (TODO: multiply?)
+    // set UV area scale
     added.uvAreaScale = uvAreaScale;
     // set surface reference to input tileset index + 1
     added.surfaceReference = input.id() + 1;
+
+    auto &cm(outMesh.coverageMask);
+
+    auto size(cm.size());
+
+    // rasterize all submeshes
+    const auto &faces(mesh.faces);
+
+    auto color(outMesh.size());
+
+    // TODO: optimize by using input mask and coverage
+    for (const auto &face : faces) {
+        std::vector<imgproc::Scanline> scanlines;
+
+        const math::Point3 *tri[3] = {
+            &projected[face[0]]
+            , &projected[face[1]]
+            , &projected[face[2]]
+        };
+
+        imgproc::scanConvertTriangle
+            (*tri[0], *tri[1], *tri[2], 0, size.height, scanlines);
+
+        for (const auto &sl : scanlines) {
+            imgproc::processScanline(sl, 0, size.width
+                                         , [&](int x, int y, float)
+            {
+                cm.set(x, y, color);
+            });
+        }
+
+        // do one more check in case the triangle is thinner than one pixel
+        for (int i = 0; i < 3; ++i) {
+            int x(std::round((*tri[i])(0)));
+            int y(std::round((*tri[i])(1)));
+
+            if ((x < 0) || (x >= size.width)) {
+                continue;
+            }
+            if ((y < 0) || (y >= size.height)) {
+                continue;
+            }
+
+            cm.set(x, y, color);
+        }
+    }
 }
 
 void MeshFilter::addTo(Output &out, double uvAreaScale)
 {
-    addInputToOutput(out, input_, mesh_, submeshIndex_, uvAreaScale);
+    addInputToOutput(out, input_, mesh_, coverageVertices_
+                     , submeshIndex_, uvAreaScale);
 }
 
 class SdMeshConvertor : public MeshVertexConvertor {
@@ -983,12 +1006,19 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
     if (input.tileId().lod == tileId.lod) {
         // as is -> copy
         result.mesh = input.mesh();
+
+        // update surface references of all submeshes
+        for (auto &sm : *result.mesh) {
+            sm.surfaceReference = input.id() + 1;
+        }
+
         if (input.hasAtlas()) { result.atlas = input.atlas(); }
         if (input.hasNavtile()) { result.navtile = input.navtile(); }
         if (generateNavtile) { mergeNavtile(result); }
         return result;
     }
 
+    // derived tile -> cut out
     const auto localId(local(input.tileId().lod, tileId));
 
     // clip source mesh/navtile
@@ -1001,39 +1031,25 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
     SdMeshConvertor sdmc(input, nodeInfo, localId);
 
     std::size_t smIndex(0);
+    std::size_t outSmIndex(0);
     for (const auto &sm : input.mesh()) {
         auto refined
             (clipAndRefine({ sm, coverageVertices[smIndex] }
                            , coverageExtents(1.), sdmc));
 
         if (refined) {
-            addInputToOutput(result, input, refined.mesh, smIndex
+            addInputToOutput(result, input, refined.mesh
+                             , refined.projected, outSmIndex++
                              , (1 << (2 * localId.lod)));
         }
 
         ++smIndex;
     }
 
-    // cut coverage mask from original mesh
-    result.forceMesh().coverageMask
-        = input.mesh().coverageMask.subTree
-        (Mesh::coverageSize(), localId.lod, localId.x, localId.y);
-
     if (generateNavtile) { mergeNavtile(result); }
 
     // done
     return result;
-}
-
-Input::list gerNavtiles(const Input::list &sources)
-{
-    Input::list out;
-    for (const auto &source : sources) {
-        if (source.hasNavtile()) {
-            out.push_back(source);
-        }
-    }
-    return out;
 }
 
 } // namespace
@@ -1186,9 +1202,6 @@ Output mergeTile(const TileId &tileId
         }
     }
 
-    // generate coverage mask
-    coverage.fillMeshMask(result);
-
     // generate navtile if asked to
     if (constraints.generateNavtile()) { mergeNavtile(result); }
 
@@ -1208,12 +1221,17 @@ Tile Output::tile(int textureQuality)
         if (atlas) { a.reset(&*atlas, [](void*) {}); }
         if (mesh) { m.reset(&*mesh, [](void*) {}); }
 
-        // optimize
-        auto optimized(mergeSubmeshes(tileId, m, a, textureQuality));
-
-        // assign output
-        tile.mesh = std::get<0>(optimized);
-        tile.atlas = std::get<1>(optimized);
+        if (textureQuality) {
+            // optimize
+            auto optimized(mergeSubmeshes(tileId, m, a, textureQuality));
+            // assign output
+            tile.mesh = std::get<0>(optimized);
+            tile.atlas = std::get<1>(optimized);
+        } else {
+            // no optimization
+            tile.mesh = m;
+            tile.atlas = a;
+        }
     } else {
         // nothing, just wrap members into output
         if (mesh) { tile.mesh.reset(&*mesh, [](void*) {}); }
