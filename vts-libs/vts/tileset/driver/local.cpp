@@ -112,6 +112,22 @@ IStream::pointer LocalDriver::input_impl(File type) const
     return driver_->input(type);
 }
 
+IStream::pointer LocalDriver::input_impl(File type, const NullWhenNotFound_t&)
+    const
+{
+    switch (type) {
+    case File::config:
+    case File::extraConfig: {
+        auto path(root() / filePath(type));
+        LOG(info1) << "Loading from " << path << ".";
+        return fileIStream(type, path, NullWhenNotFound);
+    }
+
+    default: break;
+    }
+    return driver_->input(type, NullWhenNotFound);
+}
+
 OStream::pointer LocalDriver::output_impl(const TileId&, TileFile)
 {
     LOGTHROW(err2, storage::ReadOnlyError)
@@ -124,6 +140,13 @@ IStream::pointer LocalDriver::input_impl(const TileId &tileId
     const
 {
     return driver_->input(tileId, type);
+}
+
+IStream::pointer LocalDriver::input_impl(const TileId &tileId, TileFile type
+                                         , const NullWhenNotFound_t&)
+    const
+{
+    return driver_->input(tileId, type, NullWhenNotFound);
 }
 
 FileStat LocalDriver::stat_impl(File type) const

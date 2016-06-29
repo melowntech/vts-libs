@@ -158,8 +158,7 @@ OStream::pointer fileOStream(const char *contentType
     return std::make_shared<detail::FileOStream>(contentType, path, onClose);
 }
 
-OStream::pointer fileOStream(File type
-                             , const boost::filesystem::path &path
+OStream::pointer fileOStream(File type, const boost::filesystem::path &path
                              , OnClose onClose)
 {
     return std::make_shared<detail::FileOStream>(type, path, onClose);
@@ -178,9 +177,15 @@ IStream::pointer fileIStream(const char *contentType
     return std::make_shared<detail::FileIStream>(contentType, path);
 }
 
-IStream::pointer fileIStream(File type
-                             , const boost::filesystem::path &path)
+IStream::pointer fileIStream(File type, const boost::filesystem::path &path)
 {
+    return std::make_shared<detail::FileIStream>(type, path);
+}
+
+IStream::pointer fileIStream(File type, const boost::filesystem::path &path
+                             , const NullWhenNotFound_t&)
+{
+    if (!exists(path)) { return {}; }
     return std::make_shared<detail::FileIStream>(type, path);
 }
 
@@ -188,6 +193,14 @@ IStream::pointer fileIStream(TileFile type
                              , const boost::filesystem::path &path)
 
 {
+    return std::make_shared<detail::FileIStream>(type, path);
+}
+
+IStream::pointer fileIStream(TileFile type, const boost::filesystem::path &path
+                             , const NullWhenNotFound_t&)
+
+{
+    if (!exists(path)) { return {}; }
     return std::make_shared<detail::FileIStream>(type, path);
 }
 

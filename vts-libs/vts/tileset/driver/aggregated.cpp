@@ -62,39 +62,11 @@ typedef AggregatedDriver::TileSetInfo TileSetInfo;
 typedef TileSetInfo::GlueInfo GlueInfo;
 typedef AggregatedDriver::EnhancedInfo EnhancedInfo;
 
-class StringIStream : public vs::IStream {
-public:
-    StringIStream(TileFile type, const std::string &name
-                  , std::time_t lastModified)
-        : vs::IStream(type), stat_(0, lastModified), name_(name)
-    {}
-
-    StringIStream(File type, const std::string &name
-                  , std::time_t lastModified)
-        : vs::IStream(type), stat_(0, lastModified), name_(name)
-    {}
-
-    std::stringstream& sink() { return ss_; }
-
-    void updateSize() { stat_.size = ss_.tellp(); }
-
-private:
-    virtual std::istream& get() { return ss_; }
-    virtual vs::FileStat stat_impl() const { return stat_; }
-    virtual void close() {};
-    virtual std::string name() const { return name_; }
-
-    vs::FileStat stat_;
-    std::string name_;
-    std::stringstream ss_;
-};
-
-
 IStream::pointer
 buildMeta(const TileSetInfo::list &tsil, const fs::path &root
           , const registry::ReferenceFrame &referenceFrame
           , std::time_t lastModified, const TileId &tileId
-          , const TileIndex &tileIndex)
+          , const TileIndex &tileIndex, bool noSuchFile = true)
 {
     // output metatile
     auto bo(referenceFrame.metaBinaryOrder);
@@ -125,6 +97,14 @@ buildMeta(const TileSetInfo::list &tsil, const fs::path &root
         if (tsi.tsi->check(tileId, TileFile::meta)) {
             ometa.update(loadMeta(tileId, tsi.driver), references, idx);
         }
+    }
+
+    if (ometa.empty()) {
+        if (noSuchFile) {
+            LOGTHROW(err1, vs::NoSuchFile)
+                << "There is no metatile for " << tileId << ".";
+        }
+        return {};
     }
 
     // generate child flags based on tile index
@@ -184,12 +164,12 @@ const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
             if (const auto *result = trySet(glue)) {
                 return GlueResult(result, 0);
             } if (auto reference = glue.tsi->getReference(tileId)) {
-                if (reference <= idx) {
+                auto redirect(glue.indices[reference - 1] + 1);
+                if (redirect <= idx) {
                     LOG(debug)
                         << "Redirected to <" << glue.id[reference - 1]
                         << ">.";
-                    return GlueResult
-                        (nullptr, glue.indices[reference - 1] + 1);
+                    return GlueResult(nullptr, redirect);
                 }
                 LOG(debug)
                     << "Unexpected forward reference <"
@@ -608,14 +588,18 @@ IStream::pointer AggregatedDriver::input_mem(File type) const
     return s;
 }
 
-IStream::pointer AggregatedDriver::input_impl(File type) const
+IStream::pointer AggregatedDriver::input_impl(File type, bool noSuchFile)
+    const
 {
     // in-memory -> alternative branch
     if (memProperties_) { return input_mem(type); }
 
     const auto path(root() / filePath(type));
     LOG(info1) << "Loading from " << path << ".";
-    return fileIStream(type, path);
+    if (noSuchFile) {
+        return fileIStream(type, path);
+    }
+    return fileIStream(type, path, NullWhenNotFound);
 }
 
 OStream::pointer AggregatedDriver::output_impl(const TileId&, TileFile)
@@ -626,27 +610,33 @@ OStream::pointer AggregatedDriver::output_impl(const TileId&, TileFile)
 }
 
 IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
-                                              , TileFile type)
-    const
+                                              , TileFile type
+                                              , bool noSuchFile) const
 {
+
     if (!tsi_.check(tileId, type)) {
-        LOGTHROW(err1, vs::NoSuchFile)
-            << "There is no " << type << " for " << tileId << ".";
+        if (noSuchFile) {
+            LOGTHROW(err1, vs::NoSuchFile)
+                << "There is no " << type << " for " << tileId << ".";
+        }
+        return {};
     }
 
     if (type == TileFile::meta) {
         return buildMeta(tilesetInfo_, root(), referenceFrame_
                          , configStat().lastModified, tileId
-                         , tsi_.tileIndex);
+                         , tsi_.tileIndex, noSuchFile);
     }
 
     if (const auto *tsi = findTileSet(tilesetInfo_, tileId)) {
         return tsi->driver->input(tileId, type);
     }
 
-    LOGTHROW(err1, vs::NoSuchFile)
-        << "There is no " << type << " for " << tileId << ".";
-    throw;
+    if (noSuchFile) {
+        LOGTHROW(err1, vs::NoSuchFile)
+            << "There is no " << type << " for " << tileId << ".";
+    }
+    return {};
 }
 
 FileStat AggregatedDriver::stat_impl(File type) const

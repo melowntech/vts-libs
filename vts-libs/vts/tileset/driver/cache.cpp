@@ -71,8 +71,8 @@ struct Cache::Archives
          *          consequences. But tilar is not a key, therefore we can
          *          safely modify it as we wish.
          */
-        Tilar& tilar() const {
-            return const_cast<Tilar&>(tilar_);
+        Tilar* tilar() const {
+            return &const_cast<Tilar&>(tilar_);
         }
 
         void hit() { lastHit = utility::usecFromEpoch(); }
@@ -117,7 +117,7 @@ struct Cache::Archives
              , const PlainOptions &options
              , const Tilar::ContentTypes &contentTypes);
 
-    Tilar& open(const TileId &archive);
+    Tilar* open(const TileId &archive, bool noSuchFile = true);
 
     fs::path filePath(const TileId &index) const;
 
@@ -141,7 +141,7 @@ private:
     template <typename Op>
     void finish(Op op) {
         for (auto iidx(map.begin()); iidx != map.end(); ) {
-            op(iidx->tilar());
+            op(*iidx->tilar());
             iidx = map.erase(iidx);
         }
     }
@@ -183,12 +183,18 @@ Cache::Cache(const fs::path &root, const PlainOptions &options
 namespace {
 
 Tilar tilar(const fs::path &path, const Tilar::Options &options
-            , bool readOnly)
+            , bool readOnly, bool noSuchFile = true)
 {
     if (readOnly) {
         // read-only
-        return Tilar::open(path, options
-                           , Tilar::OpenMode::readOnly);
+        if (noSuchFile) {
+            return Tilar::open(path, options
+                               , Tilar::OpenMode::readOnly);
+        } else {
+            return Tilar::open(path, options
+                               , NullWhenNotFound
+                               , Tilar::OpenMode::readOnly);
+        }
     }
     return Tilar::create(path, options
                          , Tilar::CreateMode::appendOrTruncate);
@@ -213,7 +219,7 @@ void Cache::Archives::houseKeeping(const TileId *keep)
     for (auto iidx(idx.begin()); toDrop && (iidx != idx.end()); ) {
         // skip keep file
         if (keep && (iidx->index == *keep)) {
-            LOG(debug) << "File " << iidx->tilar().path()
+            LOG(debug) << "File " << iidx->tilar()->path()
                        << " must be kept in the cache.";
             ++iidx;
             continue;
@@ -222,7 +228,7 @@ void Cache::Archives::houseKeeping(const TileId *keep)
         // files in infinity -> this and all its friends are detached
         if (iidx->isInInfinity()) { return; }
 
-        auto &file(iidx->tilar());
+        auto &file(*iidx->tilar());
 
         switch (file.state()) {
         case Tilar::State::detached:
@@ -275,7 +281,7 @@ void Cache::Archives::houseKeeping(const TileId *keep)
     }
 }
 
-Tilar& Cache::Archives::open(const TileId &archive)
+Tilar* Cache::Archives::open(const TileId &archive, bool noSuchFile)
 {
     auto fmap(map.find(archive));
     if (fmap != map.end()) {
@@ -289,7 +295,8 @@ Tilar& Cache::Archives::open(const TileId &archive)
     houseKeeping();
 
     auto path(filePath(archive));
-    auto file(tilar(path, options, readOnly));
+    auto file(tilar(path, options, readOnly, noSuchFile));
+    if (!file) { return nullptr; }
     file.setContentTypes(contentTypes);
 
     return map.insert
@@ -299,25 +306,34 @@ Tilar& Cache::Archives::open(const TileId &archive)
 IStream::pointer Cache::input(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
-    return getArchives(type).open(index.archive).input(index.file);
+    return getArchives(type).open(index.archive)->input(index.file);
+}
+
+IStream::pointer Cache::input(const TileId tileId, TileFile type
+                              , const NullWhenNotFound_t&)
+{
+    auto index(options_.index(tileId, fileType(type)));
+    auto *file(getArchives(type).open(index.archive, false));
+    if (!file) { return {}; }
+    return file->input(index.file, NullWhenNotFound);
 }
 
 OStream::pointer Cache::output(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
-    return getArchives(type).open(index.archive).output(index.file);
+    return getArchives(type).open(index.archive)->output(index.file);
 }
 
 std::size_t Cache::size(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
-    return getArchives(type).open(index.archive).size(index.file);
+    return getArchives(type).open(index.archive)->size(index.file);
 }
 
 FileStat Cache::stat(const TileId tileId, TileFile type)
 {
     auto index(options_.index(tileId, fileType(type)));
-    return getArchives(type).open(index.archive).stat(index.file);
+    return getArchives(type).open(index.archive)->stat(index.file);
 }
 
 storage::Resources Cache::resources()

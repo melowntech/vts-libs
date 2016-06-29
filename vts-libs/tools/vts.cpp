@@ -18,6 +18,7 @@
 #include "../vts/tileflags.hpp"
 #include "../vts/metaflags.hpp"
 #include "../vts/opencv/colors.hpp"
+#include "../vts/tileset/driver.hpp"
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -44,6 +45,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((clone)("clone"))
                       ((relocate)("relocate"))
                       ((tilePick)("tile-pick"))
+                      ((file)("file"))
                       )
 
 
@@ -145,6 +147,8 @@ private:
     int relocate();
 
     int tilePick();
+
+    int file();
 
     bool noexcept_;
     fs::path path_;
@@ -480,7 +484,7 @@ void VtsStorage::configuration(po::options_description &cmdline
              "if working with storage).")
             ("overwrite", "Overwrite existing output tileset.")
             ("tilesetId", po::value<std::string>()
-             , "TilesetId of created tileset, defaults to last part of"
+             , "TilesetId of created tileset, defaults to last part of "
              "output path.")
             ;
         p.positional.add("tileset", -1);
@@ -615,6 +619,14 @@ void VtsStorage::configuration(po::options_description &cmdline
                            : vts::CreateMode::failIfExists);
         };
     });
+
+    createParser(cmdline, Command::file
+                 , "--command=file: fetch file from dataset"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ;
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -717,6 +729,7 @@ int VtsStorage::runCommand()
     case Command::clone: return clone();
     case Command::tilePick: return tilePick();
     case Command::relocate: return relocate();
+    case Command::file: return file();
     }
     std::cerr << "vts: no operation requested" << std::endl;
     return EXIT_FAILURE;
@@ -1354,7 +1367,7 @@ int VtsStorage::relocate()
     switch (vts::datasetType(path_)) {
     case vts::DatasetType::TileSet:
         vts::TileSet::relocate(path_, relocateOptions_);
-        return EXIT_FAILURE;
+        return EXIT_SUCCESS;
 
     case vts::DatasetType::Storage:
         vts::Storage::relocate(path_, relocateOptions_);
@@ -1364,6 +1377,46 @@ int VtsStorage::relocate()
         vts::StorageView::relocate(path_, relocateOptions_);
         return EXIT_SUCCESS;
 
+    default: break;
+    }
+
+    std::cerr << "Unrecognized content " << path_ << "." << std::endl;
+    return EXIT_FAILURE;
+}
+
+int serveFile(const vts::Driver::pointer &driver
+              , const std::string &filename)
+{
+    vts::TileId tileId;
+    vts::TileFile type;
+    unsigned int subTileIndex;
+
+    if (!vts::fromFilename(tileId, type, subTileIndex, filename)) {
+        std::cerr << "Unrecognized filename " << filename << "." << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // open file
+    auto is(driver->input(tileId, type));
+
+    // copy file to stdout
+    copyFile(is, std::cout);
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::file()
+{
+    auto root(path_.parent_path());
+    auto file(path_.filename());
+
+    (void) file;
+
+    switch (vts::datasetType(root)) {
+    case vts::DatasetType::TileSet:
+        return serveFile(vts::TileSet::openDriver(root), file.string());
+
+    case vts::DatasetType::Storage:
+    case vts::DatasetType::StorageView:
     default: break;
     }
 

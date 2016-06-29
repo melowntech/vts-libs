@@ -36,6 +36,7 @@ struct Mask2d {
     };
 
     static math::Size2 size() { return math::Size2(256, 258); }
+    static math::Size2 maskSize() { return math::Size2(256, 256); }
     static constexpr int flagRow = 256;
     static constexpr int surfaceRow = 257;
 };

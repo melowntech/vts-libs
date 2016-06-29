@@ -159,6 +159,14 @@ IStream::pointer RemoteDriver::input_impl(File type) const
     return fileIStream(type, path);
 }
 
+IStream::pointer RemoteDriver::input_impl(File type, const NullWhenNotFound_t&)
+    const
+{
+    auto path(root() / filePath(type));
+    LOG(info1) << "Loading from " << path << ".";
+    return fileIStream(type, path, NullWhenNotFound);
+}
+
 OStream::pointer RemoteDriver::output_impl(const TileId&, TileFile)
 {
     LOGTHROW(err2, storage::ReadOnlyError)
@@ -171,6 +179,14 @@ IStream::pointer RemoteDriver::input_impl(const TileId &tileId
     const
 {
     return fetcher_.input(tileId, type, revision_);
+}
+
+IStream::pointer RemoteDriver::input_impl(const TileId &tileId
+                                          , TileFile type
+                                          , const NullWhenNotFound_t&)
+    const
+{
+    return fetcher_.input(tileId, type, revision_, false);
 }
 
 FileStat RemoteDriver::stat_impl(File type) const

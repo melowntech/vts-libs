@@ -26,8 +26,14 @@ IStream::pointer fileIStream(const char *contentType
                              , const boost::filesystem::path &path);
 IStream::pointer fileIStream(File type
                              , const boost::filesystem::path &path);
+IStream::pointer fileIStream(File type
+                             , const boost::filesystem::path &path
+                             , const NullWhenNotFound_t&);
 IStream::pointer fileIStream(TileFile type
                              , const boost::filesystem::path &path);
+IStream::pointer fileIStream(TileFile type
+                             , const boost::filesystem::path &path
+                             , const NullWhenNotFound_t&);
 
 } } // namespace vadstena::storage
 

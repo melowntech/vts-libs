@@ -14,12 +14,26 @@
 
 namespace vadstena { namespace storage {
 
+const NullWhenNotFound_t NullWhenNotFound;
+
 void copyFile(const IStream::pointer &in
               , const OStream::pointer &out)
 {
     out->get() << in->get().rdbuf();
     in->close();
     out->close();
+}
+
+void copyFile(std::istream &in, const OStream::pointer &out)
+{
+    out->get() << in.rdbuf();
+    out->close();
+}
+
+void copyFile(const IStream::pointer &in, std::ostream &out)
+{
+    out << in->get().rdbuf();
+    in->close();
 }
 
 std::size_t IStream::read(char *buf, std::size_t size

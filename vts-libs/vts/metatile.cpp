@@ -333,7 +333,7 @@ void MetaTile::save(std::ostream &out) const
         // VERSION=1: write node size
         bin::write(out, nodeSize(origin_.lod));
         // VERSION=1: write node size
-        if (credits.empty() || empty(validSize)) {
+        if (credits.empty() || math::empty(validSize)) {
             // no credits -> credit block size is irrelevant
             bin::write(out, std::uint8_t(0));
             bin::write(out, std::uint16_t(0));
@@ -379,7 +379,7 @@ void MetaTile::save(std::ostream &out) const
         }
     }
 
-    if (!credits.empty() && !empty(validSize)) {
+    if (!credits.empty() && !math::empty(validSize)) {
         // create credit plane bitmap
         imgproc::bitfield::RasterMask
             bitmap(validSize.width, validSize.height);
@@ -478,7 +478,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
     size2_type validSize;
     bin::read(in, u16); validSize.width = u16;
     bin::read(in, u16); validSize.height = u16;
-    if (!empty(validSize)) {
+    if (!math::empty(validSize)) {
         // non-empty -> just remove one
         valid_.ur(0) = valid_.ll(0) + validSize.width - 1;
         valid_.ur(1) = valid_.ll(1) + validSize.height - 1;

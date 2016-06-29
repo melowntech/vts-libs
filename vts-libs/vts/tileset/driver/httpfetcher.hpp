@@ -20,10 +20,11 @@ public:
 
     HttpFetcher(const std::string &rootUrl, const Options &options);
 
-    IStream::pointer input(File type) const;
+    IStream::pointer input(File type, bool noSuchFile = true) const;
 
     IStream::pointer input(const TileId &tileId, TileFile type
-                           , unsigned int revision) const;
+                           , unsigned int revision
+                           , bool noSuchFile = true) const;
 
 private:
     const std::string &rootUrl_;

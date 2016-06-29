@@ -254,6 +254,12 @@ public:
      */
     static bool check(const boost::filesystem::path &root);
 
+    /** Low level access: open driver directly.
+     *  You need to include tileset/driver.hpp to access it.
+     */
+    static std::shared_ptr<Driver>
+    openDriver(const boost::filesystem::path &root);
+
     static void relocate(const boost::filesystem::path &root
                          , const RelocateOptions &options
                          , const std::string &prefix = "");

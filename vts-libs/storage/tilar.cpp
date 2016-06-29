@@ -225,14 +225,17 @@ void read(const Filedes &fd, Block &block)
     }
 }
 
-Filedes openFile(const fs::path &path, int flags)
+Filedes openFile(const fs::path &path, int flags, bool noSuchFile = true)
 {
     Filedes fd(::open(path.string().c_str(), flags), path);
-    if (-1 == fd) {
+    if (!fd) {
         if ((errno == ENOENT) || (errno == ENOTDIR)) {
-            LOGTHROW(err1, NoSuchFile)
-                << "Failed to open tilar file " << path
-                << ": file not found.";
+            if (noSuchFile) {
+                LOGTHROW(err1, NoSuchFile)
+                    << "Failed to open tilar file " << path
+                    << ": file not found.";
+            }
+            return fd;
         }
         std::system_error e
             (errno, std::system_category()
@@ -400,6 +403,17 @@ public:
     }
 
     FileStat stat(const FileIndex &index) const;
+
+    bool exists(const FileIndex &index) const {
+        if (!((index.col < edge_) && (index.row < edge_)
+              && (index.type < options_.filesPerTile)))
+        {
+            return false;
+        }
+
+        return grid_[index.col + (rowSkip_ * index.row)
+                     + (typeSkip_ * index.type)].valid();
+    }
 
 private:
     inline Slot& slot(const FileIndex &index) {
@@ -863,6 +877,19 @@ Tilar::~Tilar() {}
 Tilar Tilar::open(const fs::path &path, OpenMode openMode)
 {
     auto fd(openFile(path, flags(openMode)));
+    auto header(loadHeader(fd));
+    return { std::make_shared<Detail>
+            (std::get<1>(header), std::get<0>(header)
+             , std::move(fd), (openMode == OpenMode::readOnly), 0) };
+}
+
+Tilar Tilar::open(const fs::path &path, const NullWhenNotFound_t&
+                  , OpenMode openMode)
+{
+    // open file; return -1 when file not found
+    auto fd(openFile(path, flags(openMode), false));
+    if (!fd) { return {{}}; }
+
     auto header(loadHeader(fd));
     return { std::make_shared<Detail>
             (std::get<1>(header), std::get<0>(header)
@@ -1358,6 +1385,14 @@ OStream::pointer Tilar::output(const FileIndex &index)
 IStream::pointer Tilar::input(const FileIndex &index)
 {
     LOG(debug) << "input(" << detail().fd.path() << ", " << index << ")";
+    return std::make_shared<Source::Stream>(detail_, index);
+}
+
+IStream::pointer Tilar::input(const FileIndex &index
+                              , const NullWhenNotFound_t&)
+{
+    LOG(debug) << "input(" << detail().fd.path() << ", " << index << ")";
+    if (!detail_->index.exists(index)) { return {}; }
     return std::make_shared<Source::Stream>(detail_, index);
 }
 

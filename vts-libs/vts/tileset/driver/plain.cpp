@@ -94,6 +94,14 @@ IStream::pointer PlainDriver::input_impl(File type) const
     return fileIStream(type, path);
 }
 
+IStream::pointer PlainDriver::input_impl(File type, const NullWhenNotFound_t&)
+    const
+{
+    auto path(root() / filePath(type));
+    LOG(info1) << "Loading from " << path << ".";
+    return fileIStream(type, path, NullWhenNotFound);
+}
+
 OStream::pointer PlainDriver::output_impl(const TileId &tileId, TileFile type)
 {
     return cache_.output(tileId, type);
@@ -103,6 +111,13 @@ IStream::pointer PlainDriver::input_impl(const TileId &tileId, TileFile type)
     const
 {
     return cache_.input(tileId, type);
+}
+
+IStream::pointer PlainDriver::input_impl(const TileId &tileId, TileFile type
+                                         , const NullWhenNotFound_t&)
+    const
+{
+    return cache_.input(tileId, type, NullWhenNotFound);
 }
 
 FileStat PlainDriver::stat_impl(File type) const

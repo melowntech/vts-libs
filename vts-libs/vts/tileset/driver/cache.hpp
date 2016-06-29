@@ -28,6 +28,8 @@ using storage::File;
 using storage::TileFile;
 using storage::FileStat;
 using storage::Resources;
+using storage::NullWhenNotFound_t;
+using storage::NullWhenNotFound;
 
 namespace fs = boost::filesystem;
 
@@ -39,6 +41,9 @@ public:
     ~Cache();
 
     IStream::pointer input(const TileId tileId, TileFile type);
+
+    IStream::pointer input(const TileId tileId, TileFile type
+                           , const NullWhenNotFound_t&);
 
     OStream::pointer output(const TileId tileId, TileFile type);
 

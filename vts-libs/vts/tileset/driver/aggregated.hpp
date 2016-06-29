@@ -94,13 +94,35 @@ public:
 private:
     virtual OStream::pointer output_impl(const File type);
 
-    virtual IStream::pointer input_impl(File type) const;
+    virtual IStream::pointer input_impl(File type) const {
+        return input_impl(type, true);
+    }
+
+    virtual IStream::pointer input_impl(File type, const NullWhenNotFound_t&)
+        const
+    {
+        return input_impl(type, false);
+    }
 
     virtual OStream::pointer
     output_impl(const TileId &tileId, TileFile type);
 
     virtual IStream::pointer
-    input_impl(const TileId &tileId, TileFile type) const;
+    input_impl(const TileId &tileId, TileFile type) const {
+        return input_impl(tileId, type, true);
+    }
+
+    virtual IStream::pointer
+    input_impl(const TileId &tileId, TileFile type, const NullWhenNotFound_t&)
+        const
+    {
+        return input_impl(tileId, type, false);
+    }
+
+    IStream::pointer input_impl(File type, bool noSuchFile) const;
+
+    IStream::pointer input_impl(const TileId &tileId, TileFile type
+                                , bool noSuchFile) const;
 
     virtual void drop_impl();
 

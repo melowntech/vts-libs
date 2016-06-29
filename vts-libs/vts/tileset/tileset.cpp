@@ -575,26 +575,20 @@ MetaTile::pointer TileSet::Detail::findMetaTile(const TileId &tileId
         return {};
     }
 
-    // load metatile from driver
-    auto load([&]() -> MetaTile::pointer
-    {
-        auto f(driver->input(mid, TileFile::meta));
-        return metaTiles->add(loadMetaTile(&f->get(), metaOrder(), f->name()));
-    });
-
     // some child nodes exist therefore this metatile can exist:
     //     * read-only mode: error if non-existent
     //     * read-write mode (addNew == true): add on failure
+    IStream::pointer f;
     if (addNew) {
-        try {
-            return load();
-        } catch (const storage::NoSuchFile&) {
+        f = driver->input(mid, TileFile::meta, NullWhenNotFound);
+        if (!f) {
             // metatile doesn't exist -> Create
             return addNewMetaTile(tileId);
         }
+    } else {
+        f = driver->input(mid, TileFile::meta);
     }
-
-    return load();
+    return metaTiles->add(loadMetaTile(&f->get(), metaOrder(), f->name()));
 }
 
 registry::ReferenceFrame TileSet::referenceFrame() const
@@ -1363,6 +1357,12 @@ TileIndex TileSet::tileIndex(const LodRange &lodRange) const
 bool TileSet::check(const boost::filesystem::path &root)
 {
     return Driver::check(root);
+}
+
+std::shared_ptr<Driver>
+TileSet::openDriver(const boost::filesystem::path &root)
+{
+    return Driver::open(root);
 }
 
 bool TileSet::externallyChanged() const

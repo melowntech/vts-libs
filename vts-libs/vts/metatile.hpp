@@ -257,6 +257,8 @@ public:
 
     References makeReferences() const;
 
+    bool empty() const { return !math::valid(valid_); }
+
 private:
     size_type index(const TileId &tileId, bool checkValidity = true) const;
 

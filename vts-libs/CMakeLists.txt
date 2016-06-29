@@ -26,6 +26,7 @@ set(vts-common_SOURCES
   storage/filetypes.hpp
   storage/streams.hpp storage/streams.cpp
   storage/fstreams.hpp storage/fstreams.cpp
+  storage/sstreams.hpp storage/sstreams.cpp
 
   storage/tilar.hpp storage/tilar.cpp
   storage/tilar-io.hpp
@@ -219,6 +220,7 @@ set(vts-core_SOURCES
   vts/mapconfig.hpp vts/mapconfig.cpp
 
   vts/types2d.hpp
+  vts/2d.hpp vts/2d.cpp
   )
 
 set(vts_SOURCES
@@ -242,7 +244,7 @@ define_module(LIBRARY vts-libs-core DEPENDS
   geo imgproc math utility dbglog jsoncpp half
   Boost_IOSTREAMS
   Boost_FILESYSTEM
-  CURL
+  CURL PNG
   )
 
 add_library(vts-libs-core STATIC

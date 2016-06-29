@@ -15,12 +15,15 @@
 #include "utility/streams.hpp"
 #include "utility/path.hpp"
 
+#include "imgproc/png.hpp"
+
 #include "../../../storage/error.hpp"
-#include "../../../storage/fstreams.hpp"
+#include "../../../storage/sstreams.hpp"
 #include "../../io.hpp"
 #include "../config.hpp"
 #include "../driver.hpp"
 #include "../detail.hpp"
+#include "../../2d.hpp"
 
 // drivers:
 #include "./plain.hpp"
@@ -31,6 +34,7 @@
 namespace vadstena { namespace vts {
 
 namespace fs = boost::filesystem;
+namespace vs = vadstena::storage;
 
 namespace {
     const std::uint8_t DefaultBinaryOrder(5);
@@ -303,5 +307,34 @@ MapConfigOverride::MapConfigOverride(const boost::any &options)
 }
 
 } // namespace driver
+
+IStream::pointer Driver::meta2d_impl(const TileId &tileId, bool noSuchFile)
+    const
+{
+    if (noSuchFile) {
+        LOGTHROW(err1, vs::NoSuchFile)
+            << "There is no 2d metatile for " << tileId << ".";
+    }
+    return {};
+}
+
+IStream::pointer Driver::mask_impl(const TileId &tileId, bool noSuchFile) const
+{
+    auto is(noSuchFile
+            ? input_impl(tileId, TileFile::mesh)
+            : input_impl(tileId, TileFile::mesh, NullWhenNotFound));
+
+    // invalid pointer only if asked to use it -> just pass
+    if (!is) { return is; }
+
+    const auto fname
+        (root_ / str(boost::format("%s.%s") % tileId % TileFile::mask));
+
+    // generate mask image from mask, serialize it as a png and wrap in input
+    // stream
+    return vs::memIStream(TileFile::mask
+                          , imgproc::serialize(mask2d(loadMeshMask(is)))
+                          , is->stat().lastModified, fname);
+}
 
 } } // namespace vadstena::vts

@@ -20,10 +20,13 @@ namespace vadstena { namespace vts {
 
 using storage::OStream;
 using storage::IStream;
+using storage::StringIStream;
 using storage::File;
 using storage::TileFile;
 using storage::FileStat;
 using storage::Resources;
+using storage::NullWhenNotFound_t;
+using storage::NullWhenNotFound;
 
 class Driver : boost::noncopyable {
 public:
@@ -60,9 +63,14 @@ public:
 
     IStream::pointer input(File type) const;
 
+    IStream::pointer input(File type, const NullWhenNotFound_t&) const;
+
     OStream::pointer output(const TileId &tileId, TileFile type);
 
     IStream::pointer input(const TileId &tileId, TileFile type) const;
+
+    IStream::pointer input(const TileId &tileId, TileFile type
+                           , const NullWhenNotFound_t&) const;
 
     FileStat stat(File type) const;
 
@@ -159,11 +167,18 @@ private:
 
     virtual IStream::pointer input_impl(File type) const = 0;
 
+    virtual IStream::pointer input_impl(File type, const NullWhenNotFound_t&)
+        const = 0;
+
     virtual OStream::pointer
     output_impl(const TileId &tileId, TileFile type) = 0;
 
     virtual IStream::pointer
     input_impl(const TileId &tileId, TileFile type) const = 0;
+
+    virtual IStream::pointer
+    input_impl(const TileId &tileId, TileFile type
+               , const NullWhenNotFound_t&) const = 0;
 
     virtual void drop_impl() = 0;
 
@@ -184,6 +199,16 @@ private:
     virtual tileset::Index* getTileIndex_impl() { return nullptr; }
 
     virtual const tileset::Index* getTileIndex_impl() const { return nullptr; }
+
+    /** Generate 2D metatile. Default implementation uses 3d metatiles.
+     */
+    virtual IStream::pointer
+    meta2d_impl(const TileId &tileId, bool noSuchFile = true) const;
+
+    /** Generate 2D mask. Default implementation uses 3d mesh mask.
+     */
+    virtual IStream::pointer
+    mask_impl(const TileId &tileId, bool noSuchFile = true) const;
 
     void checkRunning() const;
 
@@ -253,6 +278,13 @@ inline IStream::pointer Driver::input(File type) const
     return input_impl(type);
 }
 
+inline IStream::pointer Driver::input(File type, const NullWhenNotFound_t&)
+    const
+{
+    checkRunning();
+    return input_impl(type, NullWhenNotFound);
+}
+
 inline OStream::pointer Driver::output(const TileId &tileId, TileFile type)
 {
     checkRunning();
@@ -263,7 +295,30 @@ inline IStream::pointer Driver::input(const TileId &tileId, TileFile type)
     const
 {
     checkRunning();
-    return input_impl(tileId, type);
+    switch (type) {
+    case TileFile::meta2d:
+        return meta2d_impl(tileId, true);
+    case TileFile::mask:
+        return mask_impl(tileId, true);
+    default:
+        return input_impl(tileId, type);
+    }
+}
+
+inline IStream::pointer Driver::input(const TileId &tileId, TileFile type
+                                      , const NullWhenNotFound_t&)
+    const
+{
+    checkRunning();
+    checkRunning();
+    switch (type) {
+    case TileFile::meta2d:
+        return meta2d_impl(tileId, false);
+    case TileFile::mask:
+        return mask_impl(tileId, false);
+    default:
+        return input_impl(tileId, type, NullWhenNotFound);
+    }
 }
 
 inline FileStat Driver::stat(File type) const

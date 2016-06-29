@@ -209,7 +209,8 @@ IStream::pointer fetchAsStream(::CURL *handle
                                , const std::string rootUrl
                                , const std::string &filename
                                , const char *contentType
-                               , const HttpFetcher::Options &options)
+                               , const HttpFetcher::Options &options
+                               , bool noSuchFile)
 {
     std::string url(rootUrl + "/" + filename);
 
@@ -224,8 +225,11 @@ IStream::pointer fetchAsStream(::CURL *handle
         std::tie(httpCode, lastModified) = fetchUrl(handle, url, buffer);
 
         if (httpCode == 404) {
-            LOGTHROW(err2, storage::NoSuchFile)
-                << "File at URL <" << url << "> doesn't exist.";
+            if (noSuchFile) {
+                LOGTHROW(err2, storage::NoSuchFile)
+                    << "File at URL <" << url << "> doesn't exist.";
+            }
+            return {};
         }
 
         if (httpCode != 200) {
@@ -258,20 +262,22 @@ HttpFetcher::HttpFetcher(const std::string &rootUrl
     : rootUrl_(rootUrl), options_(options), handle_(createCurl())
 {}
 
-IStream::pointer HttpFetcher::input(File type)
+IStream::pointer HttpFetcher::input(File type, bool noSuchFile)
     const
 {
     return fetchAsStream(handle(handle_), rootUrl_, filePath(type)
-                         , contentType(type), options_);
+                         , contentType(type), options_
+                         , noSuchFile);
 }
 
 IStream::pointer HttpFetcher::input(const TileId &tileId, TileFile type
-                                    , unsigned int revision)
+                                    , unsigned int revision, bool noSuchFile)
     const
 {
     return fetchAsStream(handle(handle_), rootUrl_
                          , remotePath(tileId, type, revision)
-                         , contentType(type), options_);
+                         , contentType(type), options_
+                         , noSuchFile);
 }
 
 } } } // namespace vadstena::vts::driver

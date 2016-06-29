@@ -75,6 +75,28 @@ public:
     static Tilar open(const boost::filesystem::path &path
                       , OpenMode openMode = OpenMode::readWrite);
 
+    /** Opens existing tilar files.
+     *
+     *  \param path to the tilar file
+     *  \param openMode open mode (r/o, r/w)
+     *  \return open tilar file
+     */
+    static Tilar open(const boost::filesystem::path &path
+                      , const NullWhenNotFound_t&
+                      , OpenMode openMode = OpenMode::readWrite);
+
+    /** Opens existing tilar files and checks options before returning.
+     *
+     *  \param path to the tilar file
+     *  \param options expected options
+     *  \param openMode open mode (r/o, r/w)
+     *  \return open tilar file
+     */
+    static Tilar open(const boost::filesystem::path &path
+                      , const Options &options
+                      , const NullWhenNotFound_t&
+                      , OpenMode openMode = OpenMode::readWrite);
+
     /** Opens existing tilar files and checks options before returning.
      *
      *  \param path to the tilar file
@@ -182,6 +204,11 @@ public:
      */
     IStream::pointer input(const FileIndex &index);
 
+    /** Get input stream to read content of file at given index.
+     *  Returns invalid pointer if file doesn't exist.
+     */
+    IStream::pointer input(const FileIndex &index, const NullWhenNotFound_t&);
+
     /** Get size of stored file.
      *  Throws if file doesn't exist.
      */
@@ -228,6 +255,8 @@ public:
      */
     boost::filesystem::path path() const;
 
+    operator bool() const { return detail_.get(); }
+
 private:
     struct Detail;
 
@@ -247,6 +276,16 @@ inline Tilar Tilar::open(const boost::filesystem::path &path
 {
     auto tilar(open(path, openMode));
     tilar.expect(options);
+    return tilar;
+}
+
+inline Tilar Tilar::open(const boost::filesystem::path &path
+                         , const Options &options
+                         , const NullWhenNotFound_t&
+                         , OpenMode openMode)
+{
+    auto tilar(open(path, NullWhenNotFound, openMode));
+    if (tilar) { tilar.expect(options); }
     return tilar;
 }
 

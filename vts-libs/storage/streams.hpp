@@ -3,6 +3,7 @@
 
 #include <ctime>
 #include <iostream>
+#include <sstream>
 #include <memory>
 #include <new>
 
@@ -16,6 +17,9 @@ namespace vadstena { namespace storage {
 
 const char* contentType(File type);
 const char* contentType(TileFile type);
+
+struct NullWhenNotFound_t {};
+const extern NullWhenNotFound_t NullWhenNotFound;
 
 struct FileStat {
     std::size_t size;
@@ -115,7 +119,38 @@ public:
     virtual boost::optional<ReadOnlyFd> fd() { return {}; }
 };
 
+/** Special in-memory stream.
+ */
+class StringIStream : public IStream {
+public:
+    StringIStream(TileFile type, const std::string &name
+                  , std::time_t lastModified)
+        : IStream(type), stat_(0, lastModified), name_(name)
+    {}
+
+    StringIStream(File type, const std::string &name
+                  , std::time_t lastModified)
+        : IStream(type), stat_(0, lastModified), name_(name)
+    {}
+
+    std::stringstream& sink() { return ss_; }
+
+    void updateSize() { stat_.size = ss_.tellp(); }
+
+private:
+    virtual std::istream& get() { return ss_; }
+    virtual FileStat stat_impl() const { return stat_; }
+    virtual void close() {};
+    virtual std::string name() const { return name_; }
+
+    FileStat stat_;
+    std::string name_;
+    std::stringstream ss_;
+};
+
 void copyFile(const IStream::pointer &in, const OStream::pointer &out);
+void copyFile(std::istream &in, const OStream::pointer &out);
+void copyFile(const IStream::pointer &in, std::ostream &out);
 
 // inlines
 inline FileStat StreamBase::stat() const
