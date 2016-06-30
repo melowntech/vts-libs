@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <boost/noncopyable.hpp>
+#include <boost/format.hpp>
 
 #include "utility/runnable.hpp"
 
