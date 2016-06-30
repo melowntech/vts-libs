@@ -4,6 +4,7 @@
 #include "../storage/streams.hpp"
 
 #include "./metatile.hpp"
+#include "./tileindex.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -13,15 +14,16 @@ using storage::IStream;
  */
 struct TileSource {
     MetaNode metanode;
-    bool watertight;
+    TileIndex::Flag::value_type extraFlags;
 
     IStream::pointer mesh;
     IStream::pointer atlas;
     IStream::pointer navtile;
 
-    TileSource() : watertight(false) {}
-    TileSource(const MetaNode &metanode, bool watertight)
-        : metanode(metanode), watertight(watertight)
+    TileSource() : extraFlags(0) {}
+    TileSource(const MetaNode &metanode
+               , TileIndex::Flag::value_type extraFlags)
+        : metanode(metanode), extraFlags(extraFlags)
     {}
 };
 

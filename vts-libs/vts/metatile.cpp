@@ -245,6 +245,26 @@ std::initializer_list<MetaTileFlag::FlagMapping> MetaTileFlag::flagMapping = {
     { MetaTileFlag::alienPlane, MetaNode::Flag::alien }
 };
 
+std::uint16_t loadVersion(std::istream &in, const fs::path &path)
+{
+    char magic[sizeof(MAGIC)];
+    std::uint16_t version;
+
+    bin::read(in, magic);
+    bin::read(in, version);
+
+    if (std::memcmp(magic, MAGIC, sizeof(MAGIC))) {
+        LOGTHROW(err1, storage::BadFileFormat)
+            << "File " << path << " is not a VTS metatile file.";
+    }
+    if (version > VERSION) {
+        LOGTHROW(err1, storage::VersionError)
+            << "File " << path
+            << " has unsupported version (" << version << ").";
+    }
+    return version;
+}
+
 } // namespace
 
 inline void MetaNode::save(std::ostream &out, Lod lod) const
@@ -446,21 +466,7 @@ inline void MetaNode::load(std::istream &in, Lod lod)
 
 void MetaTile::load(std::istream &in, const fs::path &path)
 {
-    char magic[sizeof(MAGIC)];
-    std::uint16_t version;
-
-    bin::read(in, magic);
-    bin::read(in, version);
-
-    if (std::memcmp(magic, MAGIC, sizeof(MAGIC))) {
-        LOGTHROW(err1, storage::BadFileFormat)
-            << "File " << path << " is not a VTS metatile file.";
-    }
-    if (version > VERSION) {
-        LOGTHROW(err1, storage::VersionError)
-            << "File " << path
-            << " has unsupported version (" << version << ").";
-    }
+    auto version(loadVersion(in, path));
 
     std::uint8_t u8;
     std::uint16_t u16;
@@ -763,6 +769,90 @@ void MetaTile::update(const MetaTile &in, References &references
             // update extents
             outn.mergeExtents(inn);
         }
+    }
+}
+
+void loadCreditsFromMetaTile(std::istream &in, registry::IdSet &credits
+                             , const boost::filesystem::path &path)
+{
+    try {
+        auto version(loadVersion(in, path));
+
+        std::uint8_t u8;
+        std::uint16_t u16;
+        std::uint32_t u32;
+
+
+        // tile id information: ignore
+        bin::read(in, u8);
+        bin::read(in, u32);
+        bin::read(in, u32);
+
+        // offset: ignore
+        bin::read(in, u16);
+        bin::read(in, u16);
+
+        // size: this we need to know
+        math::Size2 size;
+        bin::read(in, u16); size.width = u16;
+        bin::read(in, u16); size.height = u16;
+
+        // skip empty metatile
+        if (math::empty(size)) { return; }
+
+        // read flags -- we need them
+        std::uint8_t flags(0);
+        if (version < 2) {
+            // node size (unused)
+            bin::read(in, u8);
+        } else {
+            // flags
+            bin::read(in, flags);
+        }
+
+        // credit count: we need them
+        std::uint8_t creditCount;
+        bin::read(in, creditCount);
+
+        // no credit planes? fine
+        if (!creditCount) { return; }
+
+        // size of all bitmap planes (flags and credits)
+        const auto planeSize(imgproc::bitfield::RasterMask::byteCount(size));
+        auto skipPlane([&]()
+        {
+            // seek plane size in advance
+            in.seekg(planeSize, std::ios_base::cur);
+        });
+
+        if (version < 2) {
+            // read credit block size (unused) (we have calculated it from size)
+            bin::read(in, u16);
+        }
+
+        if (flags) {
+            for (const auto &mapping : MetaTileFlag::flagMapping) {
+                if ((mapping.first & flags)) { skipPlane(); }
+            }
+        }
+
+        // and finally process credits
+        while (creditCount--) {
+            // load credit, rememebr
+            std::uint16_t creditId;
+            bin::read(in, creditId);
+            credits.insert(creditId);
+            // and skip plane (only if not last)
+            if (creditCount) { skipPlane(); }
+        }
+
+        // done!
+
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::BadFileFormat)
+            << "Error loading metatile from file " << path
+            << ": " << e.what()
+            << "; state=" << utility::StreamState(in) << ".";
     }
 }
 

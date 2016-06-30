@@ -314,6 +314,10 @@ MetaTile::pointer loadMetaTile(std::istream *in
 std::vector<TileId> children(const MetaNode &node
                              , const TileId &tileId);
 
+void loadCreditsFromMetaTile(std::istream &in, registry::IdSet &credits
+                             , const boost::filesystem::path
+                             &path = "unknown");
+
 // inlines
 
 inline MetaTile::size_type MetaTile::index(const math::Point2_<size_type> &gi)

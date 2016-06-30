@@ -15,6 +15,7 @@
 #include "./mesh.hpp"
 #include "./multifile.hpp"
 #include "./math.hpp"
+#include "./tileindex.hpp"
 
 namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;
@@ -39,6 +40,20 @@ namespace {
         , textureMode = 0x8
     }; };
 } // namespace
+
+std::uint32_t extraFlags(const Mesh &mesh) {
+    TileIndex::Flag::value_type flags(0);
+
+    if (mesh.coverageMask.full()) {
+        flags |= TileIndex::Flag::watertight;
+    }
+
+    if (mesh.submeshes.size() > 1) {
+        flags |= TileIndex::Flag::multimesh;
+    }
+
+    return flags;
+}
 
 math::Extents3 extents(const SubMesh &submesh)
 {

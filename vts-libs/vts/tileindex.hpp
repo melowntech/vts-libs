@@ -21,18 +21,21 @@ public:
          */
         enum : value_type {
             mesh = 0x01
-            , watertight = 0x02
+            , watertight = 0x02 // tile's mesh has no holes
             , atlas = 0x04
             , navtile = 0x08
             , alien = 0x20 // alien tile share value with reference
             , reference = 0x20
-            , ortho = 0x40
+            , multimesh = 0x40 // tile's mesh has multiple submeshes
 
             // tile is real if it contains mesh
             , real = mesh
 
             // content: tile has some content
             , content = (mesh | atlas | navtile)
+
+            // flags not present in metatiles
+            , nonmeta = (watertight | multimesh)
 
             // cannot be 0xff since it is reserved value!
             , any = 0x7f

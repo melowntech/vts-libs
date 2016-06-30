@@ -807,6 +807,36 @@ void parse(BoundLayer::dict &bls, const Json::Value &content)
     }
 }
 
+void build(Json::Value &value, const Credits &credits
+           , bool inlineCredits = true)
+{
+    bool hasInlineCredits(inlineCredits && std::accumulate
+                          (credits.begin(), credits.end()
+                           , 0, [](int v, const Credits::value_type &item)
+                           {
+                               return v + bool(item.second);
+                           }));
+
+    if (hasInlineCredits) {
+        value = Json::objectValue;
+        for (const auto &item : credits) {
+            // add empty dictionary
+            auto &credit(value[item.first] = Json::objectValue);
+            if (item.second) {
+                // build content if there is some
+                build(credit, *item.second);
+            }
+        }
+        return;
+    }
+
+    // can be represented as a vector of identifiers
+    value = Json::arrayValue;
+    for (const auto &item : credits) {
+        value.append(item.first);
+    };
+}
+
 void build(Json::Value &content, const BoundLayer &bl
            , bool inlineCredits = true)
 {
@@ -832,30 +862,7 @@ void build(Json::Value &content, const BoundLayer &bl
     tileRangeMax.append(bl.tileRange.ur(0));
     tileRangeMax.append(bl.tileRange.ur(1));
 
-    bool hasInlineCredits(inlineCredits && std::accumulate
-                          (bl.credits.begin(), bl.credits.end()
-                           , 0, [](int v, const Credits::value_type &item)
-                           {
-                               return v + bool(item.second);
-                           }));
-
-    if (hasInlineCredits) {
-        auto &credits(content["credits"] = Json::objectValue);
-        for (const auto &item : bl.credits) {
-            // add empty dictionary
-            auto &credit(credits[item.first] = Json::objectValue);
-            if (item.second) {
-                // build content if there is some
-                build(credit, *item.second);
-            }
-        }
-    } else {
-        // can be represented as a vector of identifiers
-        auto &credits(content["credits"] = Json::arrayValue);
-        for (const auto &item : bl.credits) {
-            credits.append(item.first);
-        };
-    }
+    build(content["credits"], bl.credits, inlineCredits);
 
     if (bl.availability) {
         auto &availability(content["availability"] = Json::objectValue);
@@ -1139,6 +1146,15 @@ void saveCredits(const boost::filesystem::path &path
     }
     saveCredits(f, credits);
     f.close();
+}
+
+void saveCredits(std::ostream &out, const Credits &credits
+                 , bool inlineCredits)
+{
+    Json::Value content;
+    build(content, credits, inlineCredits);
+    out.precision(15);
+    Json::StyledStreamWriter().write(out, content);
 }
 
 const ReferenceFrame::Division::Node*

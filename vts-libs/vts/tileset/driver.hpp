@@ -200,16 +200,6 @@ private:
 
     virtual const tileset::Index* getTileIndex_impl() const { return nullptr; }
 
-    /** Generate 2D metatile. Default implementation uses 3d metatiles.
-     */
-    virtual IStream::pointer
-    meta2d_impl(const TileId &tileId, bool noSuchFile = true) const;
-
-    /** Generate 2D mask. Default implementation uses 3d mesh mask.
-     */
-    virtual IStream::pointer
-    mask_impl(const TileId &tileId, bool noSuchFile = true) const;
-
     void checkRunning() const;
 
     void notRunning() const;
@@ -295,14 +285,7 @@ inline IStream::pointer Driver::input(const TileId &tileId, TileFile type)
     const
 {
     checkRunning();
-    switch (type) {
-    case TileFile::meta2d:
-        return meta2d_impl(tileId, true);
-    case TileFile::mask:
-        return mask_impl(tileId, true);
-    default:
-        return input_impl(tileId, type);
-    }
+    return input_impl(tileId, type);
 }
 
 inline IStream::pointer Driver::input(const TileId &tileId, TileFile type
@@ -310,15 +293,7 @@ inline IStream::pointer Driver::input(const TileId &tileId, TileFile type
     const
 {
     checkRunning();
-    checkRunning();
-    switch (type) {
-    case TileFile::meta2d:
-        return meta2d_impl(tileId, false);
-    case TileFile::mask:
-        return mask_impl(tileId, false);
-    default:
-        return input_impl(tileId, type, NullWhenNotFound);
-    }
+    return input_impl(tileId, type, NullWhenNotFound);
 }
 
 inline FileStat Driver::stat(File type) const

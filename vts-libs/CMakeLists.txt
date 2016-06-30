@@ -207,6 +207,8 @@ set(vts-core_SOURCES
   vts/tileset/driver/httpfetcher.hpp vts/tileset/driver/httpfetcher.cpp
   vts/tileset/driver/local.hpp vts/tileset/driver/local.cpp
 
+  vts/tileset/delivery.hpp vts/tileset/driver/delivery.cpp
+
   vts/storage.hpp
   vts/storage/detail.hpp
   vts/storage/storage.cpp

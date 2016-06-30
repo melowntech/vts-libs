@@ -118,7 +118,7 @@ public:
     MetaTile::pointer addNewMetaTile(const TileId &tileId) const;
 
     void updateNode(TileId tileId, const MetaNode &metanode
-                    , bool watertight);
+                    , TileIndex::Flag::value_type extraFlags = 0);
 
     bool exists(const TileId &tileId) const;
     Mesh getMesh(const TileId &tileId) const;
@@ -162,6 +162,8 @@ public:
     }
 
     bool fullyCovered(const TileId &tileId) const;
+
+    TileIndex::Flag::value_type extraFlags(const TileId &tileId) const;
 
     void setPosition(const registry::Position &position);
     void addCredits(const registry::IdSet &credits);

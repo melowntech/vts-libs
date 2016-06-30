@@ -18,7 +18,7 @@
 #include "../vts/tileflags.hpp"
 #include "../vts/metaflags.hpp"
 #include "../vts/opencv/colors.hpp"
-#include "../vts/tileset/driver.hpp"
+#include "../vts/tileset/delivery.hpp"
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -1384,7 +1384,7 @@ int VtsStorage::relocate()
     return EXIT_FAILURE;
 }
 
-int serveFile(const vts::Driver::pointer &driver
+int serveFile(const vts::Delivery::pointer &delivery
               , const std::string &filename)
 {
     vts::TileId tileId;
@@ -1397,7 +1397,7 @@ int serveFile(const vts::Driver::pointer &driver
     }
 
     // open file
-    auto is(driver->input(tileId, type));
+    auto is(delivery->input(tileId, type));
 
     // copy file to stdout
     copyFile(is, std::cout);
@@ -1409,11 +1409,9 @@ int VtsStorage::file()
     auto root(path_.parent_path());
     auto file(path_.filename());
 
-    (void) file;
-
     switch (vts::datasetType(root)) {
     case vts::DatasetType::TileSet:
-        return serveFile(vts::TileSet::openDriver(root), file.string());
+        return serveFile(vts::Delivery::open(root), file.string());
 
     case vts::DatasetType::Storage:
     case vts::DatasetType::StorageView:

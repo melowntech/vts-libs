@@ -293,7 +293,7 @@ struct TileSet::Factory
             }
 
             dst.updateNode(tid, *metanode
-                           , mask & TileIndex::Flag::watertight);
+                           , (mask & TileIndex::Flag::nonmeta));
             LOG(info1) << "Stored tile " << tid << ".";
             report();
         });
@@ -681,7 +681,7 @@ std::uint8_t flagsFromNode(const MetaNode &node)
 
 void TileSet::Detail::updateNode(TileId tileId
                                  , const MetaNode &metanode
-                                 , bool watertight)
+                                 , TileIndex::Flag::value_type extraFlags)
 {
     // get node (create if necessary)
     auto node(findNode(tileId, true));
@@ -690,12 +690,10 @@ void TileSet::Detail::updateNode(TileId tileId
     node.update(tileId, metanode);
 
     // prepare tileindex flags and mask
-    auto mask(TileIndex::Flag::content | TileIndex::Flag::watertight
+    auto mask(TileIndex::Flag::content | TileIndex::Flag::nonmeta
               | TileIndex::Flag::reference | TileIndex::Flag::alien);
     auto flags(flagsFromNode(*node.metanode));
-    if (watertight) {
-        flags |= TileIndex::Flag::watertight;
-    }
+    flags |= extraFlags;
 
     // process reference
     if (auto r = node.metanode->reference()) {
@@ -903,7 +901,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile
     }
 
     // store node
-    updateNode(tileId, metanode, watertight(mesh));
+    updateNode(tileId, metanode, vts::extraFlags(mesh));
 
     // save data
     if (mesh) {
@@ -926,7 +924,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const TileSource &tile
 {
 
     // store node
-    updateNode(tileId, tile.metanode, tile.watertight);
+    updateNode(tileId, tile.metanode, tile.extraFlags);
 
     // copy data
     if (tile.mesh) {
@@ -951,7 +949,7 @@ void TileSet::Detail::setReferenceTile(const TileId &tileId, uint8_t other
 {
     MetaNode node;
     node.reference(other);
-    updateNode(tileId, node, false);
+    updateNode(tileId, node);
 
     // add tile to valid extents
     updateProperties(nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId));
@@ -1385,6 +1383,12 @@ bool TileSet::Detail::fullyCovered(const TileId &tileId) const
     return (tileIndex.get(tileId) & TileIndex::Flag::watertight);
 }
 
+TileIndex::Flag::value_type TileSet::Detail::extraFlags(const TileId &tileId)
+    const
+{
+    return (tileIndex.get(tileId) & TileIndex::Flag::nonmeta);
+}
+
 bool TileSet::canContain(const NodeInfo &nodeInfo) const
 {
     const auto &sde(detail().properties.spatialDivisionExtents);
@@ -1458,7 +1462,7 @@ void TileSet::paste(const TileSet &srcSet
         }
 
         dst.updateNode(tid, *metanode
-                       , mask & TileIndex::Flag::watertight);
+                       , mask & TileIndex::Flag::nonmeta);
         LOG(info1) << "Stored tile " << tid << ".";
         report();
     });

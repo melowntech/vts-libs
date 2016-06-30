@@ -346,6 +346,9 @@ void saveCredits(std::ostream &out, const Credit::dict &credits);
 void saveCredits(const boost::filesystem::path &path
                  , const Credit::dict &credits);
 
+void saveCredits(std::ostream &out, const Credits &credits
+                 , bool inlineCredits = true);
+
 // extra stuff
 
 math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame

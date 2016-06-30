@@ -137,15 +137,12 @@ struct Mesh {
     bool empty() const { return submeshes.empty(); }
 };
 
-bool watertight(const Mesh &mesh);
-bool watertight(const Mesh *mesh);
-bool watertight(const Mesh::pointer &mesh);
+std::uint32_t extraFlags(const Mesh &mesh);
+std::uint32_t extraFlags(const Mesh *mesh);
+std::uint32_t extraFlags(const Mesh::pointer &mesh);
+
 math::Extents3 extents(const SubMesh &submesh);
 math::Extents3 extents(const Mesh &mesh);
-
-bool single(const Mesh &mesh);
-bool single(const Mesh *mesh);
-bool single(const Mesh::pointer &mesh);
 
 struct SubMeshArea {
     double mesh;
@@ -228,20 +225,12 @@ MeshMask loadMeshMask(const storage::IStream::pointer &in);
 
 // inlines
 
-inline bool watertight(const Mesh &mesh) { return mesh.coverageMask.full(); }
-inline bool watertight(const Mesh *mesh) {
-    return mesh ? watertight(*mesh) : false;
-}
-inline bool watertight(const Mesh::pointer &mesh) {
-    return watertight(mesh.get());
+inline std::uint32_t extraFlags(const Mesh *mesh) {
+    return mesh ? extraFlags(*mesh) : 0;
 }
 
-inline bool single(const Mesh &mesh) { return mesh.submeshes.size() == 1; }
-inline bool single(const Mesh *mesh) {
-    return mesh ? single(*mesh) : false;
-}
-inline bool single(const Mesh::pointer &mesh) {
-    return single(mesh.get());
+inline std::uint32_t extraFlags(const Mesh::pointer &mesh) {
+    return extraFlags(mesh.get());
 }
 
 inline Mesh::Mesh(bool fullyCovered)
