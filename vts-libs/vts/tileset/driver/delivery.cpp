@@ -14,6 +14,7 @@
 
 #include "../../io.hpp"
 #include "../../2d.hpp"
+#include "../../tileset.hpp"
 
 #include "../delivery.hpp"
 #include "../driver.hpp"
@@ -67,7 +68,7 @@ IStream::pointer meta2d(const Driver &driver
     // input stream
     return vs::memIStream(TileFile::mask
                           , imgproc::serialize
-                          (meta2d(index.tileIndex, tileId))
+                          (meta2d(index.tileIndex, tileId), 9)
                           , driver.lastModified()
                           , filename(driver.root(), tileId, TileFile::meta2d));
 }
@@ -85,7 +86,7 @@ IStream::pointer mask(const Driver &driver, const TileId &tileId
     // generate mask image from mask, serialize it as a png and wrap in input
     // stream
     return vs::memIStream(TileFile::mask
-                          , imgproc::serialize(mask2d(loadMeshMask(is)))
+                          , imgproc::serialize(mask2d(loadMeshMask(is)), 9)
                           , is->stat().lastModified
                           , filename(driver.root(), tileId, TileFile::mask));
 }
@@ -264,6 +265,16 @@ Resources Delivery::resources() const
 bool Delivery::externallyChanged() const
 {
     return driver_->externallyChanged();
+}
+
+std::time_t Delivery::lastModified() const
+{
+    return driver_->lastModified();
+}
+
+MapConfig Delivery::mapConfig(bool includeExtra) const
+{
+    return TileSet::mapConfig(*driver_, includeExtra);
 }
 
 } } // namespace vadstena::vts

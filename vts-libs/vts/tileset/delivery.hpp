@@ -7,6 +7,7 @@
 
 #include "../../storage/streams.hpp"
 #include "../../storage/resources.hpp"
+#include "../mapconfig.hpp"
 #include "./properties.hpp"
 
 namespace vadstena { namespace vts {
@@ -45,6 +46,10 @@ public:
     Resources resources() const;
 
     bool externallyChanged() const;
+
+    std::time_t lastModified() const;
+
+    MapConfig mapConfig(bool includeExtra = true) const;
 
 private:
     struct AccessToken {};

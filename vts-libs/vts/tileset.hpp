@@ -250,6 +250,14 @@ public:
     static MapConfig mapConfig(const boost::filesystem::path &root
                                , bool includeExtra = true);
 
+    /** Returns mapConfig for given driver.
+     *
+     * \param driver data source
+     * \param includeExtra include extra configuration in the output.
+     * \return map configuration
+     */
+    static MapConfig mapConfig(const Driver &driver, bool includeExtra);
+
     /** Check for tileset at given path.
      */
     static bool check(const boost::filesystem::path &root);

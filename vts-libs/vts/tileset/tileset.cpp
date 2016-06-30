@@ -1242,6 +1242,11 @@ MapConfig TileSet::mapConfig(const boost::filesystem::path &root
     return Detail::mapConfig(*Driver::open(root), includeExtra);
 }
 
+MapConfig TileSet::mapConfig(const Driver &driver, bool includeExtra)
+{
+    return Detail::mapConfig(driver, includeExtra);
+}
+
 MapConfig TileSet::Detail::mapConfig(const Driver &driver, bool includeExtra)
 {
     return vts::mapConfig(tileset::loadConfig(driver)
