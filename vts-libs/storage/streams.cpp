@@ -116,6 +116,13 @@ const char* contentType(TileFile type)
     case TileFile::navtile:
         return "image/jpeg";
 
+    case TileFile::meta2d:
+    case TileFile::mask:
+        return "image/png";
+
+    case TileFile::credits:
+        return "application/json; charset=utf-8";
+
     default: break;
     }
     return "application/octet-stream";
