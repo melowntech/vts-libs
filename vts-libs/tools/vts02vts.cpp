@@ -509,11 +509,11 @@ void createMeshMask(const vts::TileId &tileId, const math::Extents2 &extents
     });
 
     // convert into rastermask; we are optimistic so we start with full mask
-    cm.reset();
+    cm.recreate(vts::Mesh::coverageOrder, 1);
     for (int j(0); j < cms.height; ++j) {
         for (int i(0); i < cms.width; ++i) {
             if (!mask.at<std::uint8_t>(j, i)) {
-                cm.set(i, j, false);
+                cm.set(i, j, 0);
             }
         }
     }

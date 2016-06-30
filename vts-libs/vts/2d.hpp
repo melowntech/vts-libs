@@ -15,12 +15,22 @@ typedef boost::gil::gray8_image_t GrayImage;
 
 typedef boost::gil::gray8_image_t GrayImage;
 
+GrayImage mask2d(const Mesh::CoverageMask &coverageMask
+                 , const std::vector<SubMesh::SurfaceReference>
+                 &surfaceReferences);
+
 GrayImage mask2d(const MeshMask &mask);
 
 GrayImage meta2d(const TileIndex &tileIndex, const TileId &tileId);
 
 void saveCreditTile(std::ostream &out, const CreditTile &creditTile
                     , bool inlineCredits = true);
+
+// inlines
+
+inline GrayImage mask2d(const MeshMask &mask) {
+    return mask2d(mask.coverageMask, mask.surfaceReferences);
+}
 
 } } // vadstena::vts
 

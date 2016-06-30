@@ -8,7 +8,9 @@ namespace gil = boost::gil;
 
 namespace vadstena { namespace vts {
 
-GrayImage mask2d(const MeshMask &mask)
+GrayImage mask2d(const Mesh::CoverageMask &coverageMask
+                 , const std::vector<SubMesh::SurfaceReference>
+                 &surfaceReferences)
 {
     auto size(Mask2d::size());
     GrayImage out(size.width, size.height, gil::gray8_pixel_t(0x00), 0);
@@ -18,7 +20,7 @@ GrayImage mask2d(const MeshMask &mask)
     auto maskSize(Mask2d::maskSize());
     auto maskView(gil::subimage_view
                   (outView, 0, 0, maskSize.width, maskSize.height));
-    rasterize(mask.coverageMask, maskView);
+    rasterize(coverageMask, maskView);
 
     // get iterators to flag and surface rows
     auto iflag(outView.row_begin(Mask2d::flagRow));
@@ -26,7 +28,7 @@ GrayImage mask2d(const MeshMask &mask)
     // submeshes start at 1
     ++iflag;
     ++isurfaceReference;
-    for (const auto &sr : mask.surfaceReferences) {
+    for (const auto &sr : surfaceReferences) {
         *iflag++ = Mask2d::Flag::submesh;
         *isurfaceReference++ = sr;
     }
