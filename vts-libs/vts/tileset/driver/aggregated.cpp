@@ -346,6 +346,9 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     , tsi_(referenceFrame_.metaBinaryOrder)
     , tilesetInfo_(buildTilesetInfo())
 {
+    // we flatten the content
+    capabilities().flattener = true;
+
     // build driver information
     auto properties(build(options, cloneOptions));
 
@@ -364,6 +367,9 @@ AggregatedDriver::AggregatedDriver(const AggregatedOptions &options
     , tsi_(referenceFrame_.metaBinaryOrder)
     , tilesetInfo_(buildTilesetInfo())
 {
+    // we flatten the content
+    capabilities().flattener = true;
+
     // build driver information and cache it
     memProperties_ = build(options, cloneOptions);
 }
@@ -501,6 +507,9 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     , tsi_(referenceFrame_.metaBinaryOrder)
     , tilesetInfo_(buildTilesetInfo())
 {
+    // we flatten the content
+    capabilities().flattener = true;
+
     tileset::loadTileSetIndex(tsi_, *this);
 }
 
@@ -514,6 +523,9 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     , tsi_(referenceFrame_.metaBinaryOrder)
     , tilesetInfo_(buildTilesetInfo())
 {
+    // we flatten the content
+    capabilities().flattener = true;
+
     // update and save properties
     {
         auto properties(tileset::loadConfig(src));

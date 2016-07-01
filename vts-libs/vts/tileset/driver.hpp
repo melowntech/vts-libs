@@ -30,6 +30,16 @@ using storage::NullWhenNotFound;
 
 class Driver : boost::noncopyable {
 public:
+    /** Driver capabilities.
+     */
+    struct Capabilities {
+        /** Driver flattens existing multisurface setup into single surface.
+         */
+        bool flattener;
+
+        Capabilities() : flattener(false) {}
+    };
+
     typedef std::shared_ptr<Driver> pointer;
 
     virtual ~Driver();
@@ -136,6 +146,10 @@ public:
      */
     const tileset::Index* getTileIndex() const;
 
+    /** Returns drivers capabilities.
+     */
+    inline const Capabilities& capabilities() const { return capabilities_; }
+
     /** Relocates referenced resources.
      */
     static void relocate(const boost::filesystem::path &root
@@ -161,6 +175,10 @@ protected:
     void readOnly(bool value);
 
     const FileStat& configStat() const { return configStat_; }
+
+    /** Allow driver to change its capabilities.
+     */
+    inline Capabilities& capabilities() { return capabilities_; }
 
 private:
     virtual OStream::pointer output_impl(const File type) = 0;
@@ -209,6 +227,10 @@ private:
     const boost::filesystem::path root_;
 
     bool readOnly_;
+
+    /** Driver capabilities.
+     */
+    Capabilities capabilities_;
 
     /** Path to config
      */

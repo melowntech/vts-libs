@@ -10,7 +10,7 @@ namespace vadstena { namespace vts {
 
 GrayImage mask2d(const Mesh::CoverageMask &coverageMask
                  , const std::vector<SubMesh::SurfaceReference>
-                 &surfaceReferences)
+                 &surfaceReferences, bool singleSourced)
 {
     auto size(Mask2d::size());
     GrayImage out(size.width, size.height, gil::gray8_pixel_t(0x00), 0);
@@ -30,7 +30,8 @@ GrayImage mask2d(const Mesh::CoverageMask &coverageMask
     ++isurfaceReference;
     for (const auto &sr : surfaceReferences) {
         *iflag++ = Mask2d::Flag::submesh;
-        *isurfaceReference++ = sr;
+        // force single (first) source if asked to; otherwise use mapping
+        *isurfaceReference++ = (singleSourced ? 1 : sr);
     }
 
     return out;

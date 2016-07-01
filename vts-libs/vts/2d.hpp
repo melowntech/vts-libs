@@ -17,9 +17,10 @@ typedef boost::gil::gray8_image_t GrayImage;
 
 GrayImage mask2d(const Mesh::CoverageMask &coverageMask
                  , const std::vector<SubMesh::SurfaceReference>
-                 &surfaceReferences);
+                 &surfaceReferences
+                 , bool singleSourced = false);
 
-GrayImage mask2d(const MeshMask &mask);
+GrayImage mask2d(const MeshMask &mask, bool singleSourced = false);
 
 GrayImage meta2d(const TileIndex &tileIndex, const TileId &tileId);
 
@@ -28,8 +29,8 @@ void saveCreditTile(std::ostream &out, const CreditTile &creditTile
 
 // inlines
 
-inline GrayImage mask2d(const MeshMask &mask) {
-    return mask2d(mask.coverageMask, mask.surfaceReferences);
+inline GrayImage mask2d(const MeshMask &mask, bool singleSourced) {
+    return mask2d(mask.coverageMask, mask.surfaceReferences, singleSourced);
 }
 
 } } // vadstena::vts
