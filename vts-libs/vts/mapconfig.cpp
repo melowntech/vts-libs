@@ -1,3 +1,7 @@
+#include "dbglog/dbglog.hpp"
+
+#include "jsoncpp/as.hpp"
+
 #include "../registry/json.hpp"
 #include "../storage/error.hpp"
 
@@ -110,54 +114,6 @@ Json::Value asJson(const GlueConfig::list &glues
     return s;
 }
 
-void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
-{
-    Json::Value content;
-    content["version"] = VERSION;
-
-    content["srses"] = registry::asJson(mapConfig.srs, true);
-    content["referenceFrame"] = registry::asJson(mapConfig.referenceFrame);
-
-    auto boundLayers(mapConfig.boundLayers);
-
-    // get credits, append all from bound layers
-    auto credits(mapConfig.credits);
-
-    content["surfaces"] = asJson(mapConfig.surfaces, boundLayers);
-    content["glue"] = asJson(mapConfig.glues, boundLayers);
-
-    content["position"] = registry::asJson(mapConfig.position);
-
-    // not implemented (so far)
-    content["freeLayers"] = Json::objectValue;
-    content["rois"] = registry::asJson(mapConfig.rois);
-    content["view"] = registry::asJson(mapConfig.view, boundLayers);
-    content["namedViews"]
-        = registry::asJson(mapConfig.namedViews, boundLayers);;
-
-    // dunno what to put here...
-    content["params"] = Json::objectValue;
-
-    for (const auto &bl : boundLayers) {
-        credits.update(registry::creditsAsDict(bl.second.credits));
-    }
-
-    // grab credits
-    content["credits"] = registry::asJson(credits);
-    // get bound layers, no inline credits
-    content["boundLayers"] = registry::asJson(boundLayers, false);
-
-    content["textureAtlasReady"] = mapConfig.textureAtlasReady;
-
-    // add browser core options if present
-    if (mapConfig.browserOptions) {
-        content["browserOptions"] = mapConfig.browserOptions->value;
-    }
-
-    os.precision(15);
-    Json::StyledStreamWriter().write(os, content);
-}
-
 void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
 {
     out.srs.update(in.srs);
@@ -234,6 +190,100 @@ void MapConfig::merge(const MapConfig &other)
                     , other.surfaces.end());
     glues.insert(glues.end(), other.glues.begin(), other.glues.end());
     mergeRest(*this, other, true);
+}
+
+void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
+{
+    Json::Value content;
+    content["version"] = VERSION;
+
+    content["srses"] = registry::asJson(mapConfig.srs, true);
+    content["referenceFrame"] = registry::asJson(mapConfig.referenceFrame);
+
+    auto boundLayers(mapConfig.boundLayers);
+
+    // get credits, append all from bound layers
+    auto credits(mapConfig.credits);
+
+    content["surfaces"] = asJson(mapConfig.surfaces, boundLayers);
+    content["glue"] = asJson(mapConfig.glues, boundLayers);
+
+    content["position"] = registry::asJson(mapConfig.position);
+
+    // not implemented (so far)
+    content["freeLayers"] = Json::objectValue;
+    content["rois"] = registry::asJson(mapConfig.rois);
+    content["view"] = registry::asJson(mapConfig.view, boundLayers);
+    content["namedViews"]
+        = registry::asJson(mapConfig.namedViews, boundLayers);;
+
+    // dunno what to put here...
+    content["params"] = Json::objectValue;
+
+    for (const auto &bl : boundLayers) {
+        credits.update(registry::creditsAsDict(bl.second.credits));
+    }
+
+    // grab credits
+    content["credits"] = registry::asJson(credits);
+    // get bound layers, no inline credits
+    content["boundLayers"] = registry::asJson(boundLayers, false);
+
+    content["textureAtlasReady"] = mapConfig.textureAtlasReady;
+
+    // add browser core options if present
+    if (mapConfig.browserOptions) {
+        content["browserOptions"] = mapConfig.browserOptions->value;
+    }
+
+    os.precision(15);
+    Json::StyledStreamWriter().write(os, content);
+}
+
+namespace detail {
+
+void parse1(MapConfig &mapConfig, const Json::Value &config)
+{
+    fromJson(mapConfig.srs, config["srses"]);
+    fromJson(mapConfig.referenceFrame, config["referenceFrame"]);
+    fromJson(mapConfig.credits, config["credits"]);
+    fromJson(mapConfig.boundLayers, config["boundLayers"]);
+}
+
+} // namespace detail
+
+void loadMapConfig(MapConfig &mapConfig, std::istream &in
+                   , const boost::filesystem::path &path)
+{
+    // load json
+    Json::Value config;
+    Json::Reader reader;
+    if (!reader.parse(in, config)) {
+        LOGTHROW(err2, storage::FormatError)
+            << "Unable to parse map config " << path << ": "
+            << reader.getFormattedErrorMessages() << ".";
+    }
+
+    try {
+        int version(0);
+        Json::get(version, config, "version");
+
+        switch (version) {
+        case 1:
+            detail::parse1(mapConfig, config);
+            return;
+        }
+
+        LOGTHROW(err1, storage::FormatError)
+            << "Invalid map config format: unsupported version "
+            << version << ".";
+
+    } catch (const Json::Error &e) {
+        LOGTHROW(err1, storage::FormatError)
+            << "Invalid map config format (" << e.what()
+            << ") in " << path << ".";
+    }
+    throw;
 }
 
 } } // namespace vadstena::vts

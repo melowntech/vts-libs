@@ -364,8 +364,6 @@ void parse(const boost::filesystem::path &path
                     "unsupported version "
                     << version << ".";
             }
-
-
         } catch (const Json::Error &e) {
             LOGTHROW(err1, storage::FormatError)
                 << "Invalid reference frame file format (" << e.what()
@@ -1092,6 +1090,23 @@ void saveBoundLayer(std::ostream &out, const BoundLayer &boundLayer)
     Json::StyledStreamWriter().write(out, content);
 }
 
+BoundLayer loadBoundLayer(std::istream &in
+                          , const boost::filesystem::path &path)
+{
+    // load json
+    Json::Value content;
+    Json::Reader reader;
+    if (!reader.parse(in, content)) {
+        LOGTHROW(err2, storage::FormatError)
+            << "Unable to parse bound layer file " << path << ": "
+            << reader.getFormattedErrorMessages() << ".";
+    }
+
+    BoundLayer boundLayer;
+    parse(boundLayer, content);
+    return boundLayer;
+}
+
 Credit::dict loadCredits(std::istream &in)
 {
     // load json
@@ -1234,11 +1249,9 @@ Json::Value asJson(const Credit::dict &credits)
     return content;
 }
 
-Credit::dict creditsFromJson(const Json::Value &value)
+void fromJson(Credit::dict &credits, const Json::Value &value)
 {
-    Credit::dict credits;
     parse(credits, value);
-    return credits;
 }
 
 Json::Value asJson(const BoundLayer::dict &boundLayers
@@ -1249,11 +1262,9 @@ Json::Value asJson(const BoundLayer::dict &boundLayers
     return content;
 }
 
-BoundLayer::dict boundLayersFromJson(const Json::Value &value)
+void fromJson(BoundLayer::dict &boundLayers, const Json::Value &value)
 {
-    BoundLayer::dict boundLayers;
     parse(boundLayers, value);
-    return boundLayers;
 }
 
 Json::Value asJson(const Position &position)
@@ -1573,6 +1584,28 @@ View::map namedViewsFromJson(const Json::Value &value)
     }
 
     return namedViews;
+}
+
+void fromJson(ReferenceFrame &referenceFrame, const Json::Value &value)
+{
+    int version(0);
+    Json::get(version, value, "version");
+
+    switch (version) {
+    case 1:
+        v1::parse(referenceFrame, value);
+        break;
+
+    default:
+        LOGTHROW(err1, storage::FormatError)
+            << "Invalid reference frame JSON format: "
+            "unsupported version " << version << ".";
+    }
+}
+
+void fromJson(Srs::dict &srs, const Json::Value &value)
+{
+    parse(srs, value);
 }
 
 namespace {

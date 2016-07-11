@@ -106,6 +106,11 @@ struct MapConfig {
  */
 void saveMapConfig(const MapConfig &mapConfig, std::ostream &os);
 
+/** Load map config from a stream.
+ */
+void loadMapConfig(MapConfig &mapConfig, std::istream &is
+                   , const boost::filesystem::path &path = "unknown");
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_mapconfig_hpp_included_

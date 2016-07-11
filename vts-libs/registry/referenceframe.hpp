@@ -265,7 +265,7 @@ struct Credit {
 typedef Dictionary<boost::optional<Credit>, std::string> Credits;
 
 struct BoundLayer {
-    enum Type { raster, vector, external };
+    enum class Type { raster, vector, external };
 
     typedef std::uint16_t NumericId;
 
@@ -293,6 +293,8 @@ struct BoundLayer {
     bool isTransparent;
 
     BoundLayer() : numericId(), isTransparent(false) {}
+
+    bool external() const { return type == Type::external; }
 
     static constexpr char typeName[] = "bound layer";
 
@@ -336,6 +338,10 @@ void saveBoundLayers(const boost::filesystem::path &path
                      , const BoundLayer::dict &bls);
 
 void saveBoundLayer(std::ostream &out, const BoundLayer &bl);
+
+BoundLayer loadBoundLayer(std::istream &in
+                          , const boost::filesystem::path &path
+                          = "unknown");
 
 Credit::dict loadCredits(std::istream &in);
 

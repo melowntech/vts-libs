@@ -25,12 +25,14 @@ public:
     Dictionary() {}
 
     void set(const key_type &id, const T &value);
+    void replace(const key_type &id, const T &value);
     const T* get(const key_type &id, std::nothrow_t) const;
     const T& get(const key_type &id) const;
     bool has(const key_type &id) const;
 
     inline void add(const T &value) { set(value.id, value); }
     inline void add(const T *value) { if (value) { add(*value); } }
+    inline void replace(const T &value) { replace(value.id, value); }
 
     typedef typename map::value_type value_type;
     typedef typename map::const_iterator const_iterator;
@@ -65,6 +67,16 @@ template <typename T, typename Key>
 void Dictionary<T, Key>::set(const key_type &id, const T &value)
 {
     map_.insert(typename map::value_type(id, value));
+}
+
+template <typename T, typename Key>
+void Dictionary<T, Key>::replace(const key_type &id, const T &value)
+{
+    auto res(map_.insert(typename map::value_type(id, value)));
+    if (!res.second) {
+        // already present, replace
+        res.first->second = value;
+    }
 }
 
 template <typename T, typename Key>
