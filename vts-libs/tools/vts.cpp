@@ -262,7 +262,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("dryRun", "Simulate glue creation.")
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
-            ("norefs", "Do not generate references")
+            ("refs", "Do not generate references")
             ;
 
         p.positional.add("tileset", 1);
@@ -312,7 +312,7 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             addOptions_.bumpVersion = vars.count("bumpVersion");
             addOptions_.dryRun = vars.count("dryRun");
-            addOptions_.generateReferences = !vars.count("norefs");
+            addOptions_.generateReferences = vars.count("refs");
         };
     });
 
