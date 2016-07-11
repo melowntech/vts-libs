@@ -62,7 +62,7 @@ public:
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
         addOptions_.dryRun = false;
-        addOptions_.generateReferences = true;
+        addOptions_.generateReferences = false;
 
         relocateOptions_.dryRun = false;
     }
