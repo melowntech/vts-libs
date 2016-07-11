@@ -17,13 +17,38 @@
 
 namespace vadstena { namespace vts {
 
+struct SurfaceUrls3d {
+    std::string meta;
+    std::string mesh;
+    std::string texture;
+    std::string nav;
+};
+
+struct SurfaceUrls2d {
+    std::string meta;
+    std::string mask;
+    std::string ortho;
+    std::string credits;
+};
+
 struct SurfaceCommonConfig {
+    /** Root makes sense only when generating mapconfig.
+     */
     boost::filesystem::path root;
     storage::LodRange lodRange;
     registry::TileRange tileRange;
     boost::optional<std::string> textureLayer;
     bool has2dInterface;
     unsigned int revision;
+
+    /** If not present values are auto filled from root and default templates.
+     */
+    boost::optional<SurfaceUrls3d> urls3d;
+
+    /** If not present values are auto filled from root and default templates.
+     *  Only when has2dInterface is true.
+     */
+    boost::optional<SurfaceUrls2d> urls2d;
 
     SurfaceCommonConfig() : has2dInterface(false), revision(0) {}
 };

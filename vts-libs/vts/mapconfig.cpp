@@ -40,33 +40,47 @@ void asJson(const SurfaceCommonConfig &surface, Json::Value &s
     tileRangeMax.append(surface.tileRange.ur(1));
 
     // paths
-    s["metaUrl"]
-        = (surface.root / fileTemplate(storage::TileFile::meta
-                                       , surface.revision)).string();
-    s["meshUrl"]
-        = (surface.root / fileTemplate(storage::TileFile::mesh
-                                       , surface.revision)).string();
-    s["textureUrl"]
-        = (surface.root / fileTemplate(storage::TileFile::atlas
-                                       , surface.revision)).string();
-    s["navUrl"]
-        = (surface.root / fileTemplate(storage::TileFile::navtile
-                                       , surface.revision)).string();
+    if (surface.urls3d) {
+        s["metaUrl"] = surface.urls3d->meta;
+        s["meshUrl"] = surface.urls3d->mesh;
+        s["textureUrl"] = surface.urls3d->texture;
+        s["navUrl"] = surface.urls3d->nav;
+    } else {
+        s["metaUrl"]
+            = (surface.root / fileTemplate(storage::TileFile::meta
+                                           , surface.revision)).string();
+        s["meshUrl"]
+            = (surface.root / fileTemplate(storage::TileFile::mesh
+                                           , surface.revision)).string();
+        s["textureUrl"]
+            = (surface.root / fileTemplate(storage::TileFile::atlas
+                                           , surface.revision)).string();
+        s["navUrl"]
+            = (surface.root / fileTemplate(storage::TileFile::navtile
+                                           , surface.revision)).string();
+    }
 
     if (surface.has2dInterface) {
         auto &i2d(s["2d"] = Json::objectValue);
-        i2d["metaUrl"]
-            = (surface.root / fileTemplate(storage::TileFile::meta2d
-                                           , surface.revision)).string();
-        i2d["maskUrl"]
-            = (surface.root / fileTemplate(storage::TileFile::mask
-                                           , surface.revision)).string();
-        i2d["orthoUrl"]
-            = (surface.root / fileTemplate(storage::TileFile::ortho
-                                           , surface.revision)).string();
-        i2d["creditsUrl"]
-            = (surface.root / fileTemplate(storage::TileFile::credits
-                                           , surface.revision)).string();
+        if (surface.urls2d) {
+            s["metaUrl"] = surface.urls2d->meta;
+            s["maskUrl"] = surface.urls2d->mask;
+            s["orthoUrl"] = surface.urls2d->ortho;
+            s["creditsUrl"] = surface.urls2d->credits;
+        } else {
+            i2d["metaUrl"]
+                = (surface.root / fileTemplate(storage::TileFile::meta2d
+                                               , surface.revision)).string();
+            i2d["maskUrl"]
+                = (surface.root / fileTemplate(storage::TileFile::mask
+                                               , surface.revision)).string();
+            i2d["orthoUrl"]
+                = (surface.root / fileTemplate(storage::TileFile::ortho
+                                               , surface.revision)).string();
+            i2d["creditsUrl"]
+                = (surface.root / fileTemplate(storage::TileFile::credits
+                                               , surface.revision)).string();
+        }
     }
 
     if (surface.textureLayer) {
@@ -112,6 +126,75 @@ Json::Value asJson(const GlueConfig::list &glues
         s.append(asJson(glue, boundLayers));
     }
     return s;
+}
+
+// parsing
+
+void fromJson(Glue::Id &id, const Json::Value &value)
+{
+    for (const auto &element : value) {
+        Json::check(element, Json::stringValue);
+        id.push_back(element.asString());
+    }
+}
+
+void fromJson(SurfaceCommonConfig &surface, const Json::Value &value)
+{
+    Json::get(surface.lodRange.min, value, "lodRange", 0);
+    Json::get(surface.lodRange.max, value, "lodRange", 1);
+
+    surface.tileRange = registry::tileRangeFromJson(value["tileRange"]);
+
+    surface.urls3d = boost::in_place();
+    Json::get(surface.urls3d->meta, value, "metaUrl");
+    Json::get(surface.urls3d->mesh, value, "meshUrl");
+    Json::get(surface.urls3d->texture, value, "textureUrl");
+    Json::get(surface.urls3d->nav, value, "navUrl");
+
+    if (value.isMember("2d")) {
+        surface.has2dInterface = true;
+        const auto &i2d(value["2d"]);
+        surface.urls2d = boost::in_place();
+        Json::get(surface.urls2d->meta, i2d, "metaUrl");
+        Json::get(surface.urls2d->mask, i2d, "maskUrl");
+        Json::get(surface.urls2d->ortho, i2d, "orthoUrl");
+        Json::get(surface.urls2d->credits, i2d, "creditsUrl");
+    }
+
+    if (value.isMember("textureLayer")) {
+        surface.textureLayer = boost::in_place();
+        Json::get(*surface.textureLayer, value, "textureLayer");
+    }
+}
+
+void fromJson(SurfaceConfig &surface, const Json::Value &value)
+{
+    Json::get(surface.id, value, "id");
+    fromJson(static_cast<SurfaceCommonConfig&>(surface), value);
+}
+
+void fromJson(GlueConfig &glue, const Json::Value &value)
+{
+    fromJson(glue.id, value["id"]);
+    fromJson(static_cast<SurfaceCommonConfig&>(glue), value);
+}
+
+void fromJson(SurfaceConfig::list &surfaces
+              , const Json::Value &value)
+{
+    for (const auto &surface : value) {
+        surfaces.emplace_back();
+        fromJson(surfaces.back(), surface);
+    }
+}
+
+void fromJson(GlueConfig::list &surfaces
+              , const Json::Value &value)
+{
+    for (const auto &surface : value) {
+        surfaces.emplace_back();
+        fromJson(surfaces.back(), surface);
+    }
 }
 
 void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
@@ -248,6 +331,11 @@ void parse1(MapConfig &mapConfig, const Json::Value &config)
     fromJson(mapConfig.referenceFrame, config["referenceFrame"]);
     fromJson(mapConfig.credits, config["credits"]);
     fromJson(mapConfig.boundLayers, config["boundLayers"]);
+
+    fromJson(mapConfig.surfaces, config["surfaces"]);
+    fromJson(mapConfig.glues, config["glue"]);
+
+    fromJson(mapConfig.view, config["view"]);
 }
 
 } // namespace detail

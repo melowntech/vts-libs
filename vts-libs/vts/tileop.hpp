@@ -63,6 +63,7 @@ const TileId& tileId(const RFNode::Id &rfNodeId);
 const TileId& tileId(const NodeInfo &nodeInfo);
 
 TileId local(Lod rootLod, const TileId &tileId);
+TileId local(const NodeInfo &nodeInfo);
 
 TileRange::point_type point(const TileId &tileId);
 TileId tileId(Lod lod, const TileRange::point_type &point);
@@ -314,6 +315,11 @@ inline math::Size2_<TileRange::value_type> tileRangesSize(const TileRange &tr)
 {
     return math::Size2_<TileRange::value_type>
         (tr.ur(0) - tr.ll(0) + 1, tr.ur(1) - tr.ll(1) + 1);
+}
+
+inline TileId local(const NodeInfo &nodeInfo)
+{
+    return local(nodeInfo.rootLod(), nodeInfo.nodeId());
 }
 
 } } // namespace vadstena::vts

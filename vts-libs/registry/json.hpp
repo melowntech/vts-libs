@@ -33,7 +33,9 @@ Position positionFromJson(const Json::Value &value);
 TileRange tileRangeFromJson(const Json::Value &value);
 
 Json::Value asJson(const View &view, BoundLayer::dict &boundLayers);
+void fromJson(View &view, const Json::Value &value);
 View viewFromJson(const Json::Value &value);
+
 Json::Value asJson(const Roi &roi);
 Json::Value asJson(const Roi::list &rois);
 Roi::list roisFromJson(const Json::Value &value);
@@ -62,6 +64,13 @@ inline BoundLayer::dict boundLayersFromJson(const Json::Value &value)
     BoundLayer::dict boundLayers;
     fromJson(boundLayers, value);
     return boundLayers;
+}
+
+inline View viewFromJson(const Json::Value &value)
+{
+    View view;
+    fromJson(view, value);
+    return view;
 }
 
 } } // namespace vadstena::registry

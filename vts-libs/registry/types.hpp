@@ -61,6 +61,17 @@ struct View {
         freeLayers.insert(view.freeLayers.begin(), view.freeLayers.end());
     }
 
+    bool hasSurface(const std::string &surfaceId) const {
+        return surfaces.count(surfaceId);
+    }
+
+    bool hasSurfaces(const std::vector<std::string> &surfaceIds) const {
+        for (const auto &id : surfaceIds) {
+            if (!surfaces.count(id)) { return false; }
+        }
+        return true;
+    }
+
     /** So-called named views
      */
     typedef std::map<std::string, View> map;

@@ -97,6 +97,10 @@ public:
      */
     Lod distanceFromRoot() const { return node_.id.lod - subtree_.id().lod; }
 
+    /** Root lod.
+     */
+    Lod rootLod() const { return subtree_.id().lod; }
+
     /** Returns child node. Uses same child assignment as children() functiom
      *  children() from tileop.
      */

@@ -1454,14 +1454,12 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
     return nv;
 }
 
-View viewFromJson(const Json::Value &value)
+void fromJson(View &view, const Json::Value &value)
 {
     if (!value.isObject()) {
         LOGTHROW(err1, Json::Error)
             << "Type of view is not an object.";
     }
-
-    View view;
 
     if (value.isMember("description")) {
         view.description = boost::in_place();
@@ -1518,8 +1516,6 @@ View viewFromJson(const Json::Value &value)
             view.freeLayers.insert(fl.asString());
         }
     }
-
-    return view;
 }
 
 Json::Value asJson(const Roi &roi)
