@@ -142,4 +142,45 @@ const TileRange* Ranges::tileRange(Lod lod, std::nothrow_t) const
     return &tileRanges_[lod - lodRange_.min];
 }
 
+namespace {
+const TileRange emptyTileRange;
+} //namespace
+
+const TileRange& Ranges::tileRange() const
+{
+    return (tileRanges_.empty() ? emptyTileRange : tileRanges_.front());
+}
+
+void Ranges::update(const Ranges &other)
+{
+    LodRange lr(unite(lodRange_, other.lodRange_));
+    if (lr.empty()) { return; }
+
+    // fill in ranges
+    std::vector<TileRange> tileRanges;
+    for (auto lod : lr) {
+        const auto *tr1(tileRange(lod, std::nothrow));
+        const auto *tr2(other.tileRange(lod, std::nothrow));
+        if (tr1 && tr2) {
+            // merge two ranges
+            tileRanges.push_back(*tr1);
+            math::update(tileRanges.back(), tr2->ll);
+            math::update(tileRanges.back(), tr2->ur);
+        } else if (tr1) {
+            // one range
+            tileRanges.push_back(*tr1);
+        } else if (tr2) {
+            // one range
+            tileRanges.push_back(*tr2);
+        } else if (!tileRanges.empty()) {
+            // single range and something present
+            tileRanges.push_back(childRange(tileRanges.back()));
+        }
+    }
+
+    // store
+    lodRange_ = lr;
+    std::swap(tileRanges_, tileRanges);
+}
+
 } } // namespace vadstena::vts

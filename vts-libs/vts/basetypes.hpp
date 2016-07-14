@@ -60,6 +60,7 @@ struct LodTileRange {
 
 class Ranges {
 public:
+    Ranges() : lodRange_(LodRange::emptyRange()) {}
     Ranges(const LodRange &lodRange, const TileRange &tileRange);
 
     /** Returns range for given lod.
@@ -72,7 +73,17 @@ public:
      */
     const TileRange* tileRange(Lod lod, std::nothrow_t) const;
 
+    /** Returns tile range at minimum lod or 0,0,0,0 if invalid.
+     */
+    const TileRange& tileRange() const;
+
+    /** Returns lod range.
+     */
     const LodRange& lodRange() const { return lodRange_; }
+
+    /** Merge information from multiple ranges.
+     */
+    void update(const Ranges &other);
 
 private:
     LodRange lodRange_;
