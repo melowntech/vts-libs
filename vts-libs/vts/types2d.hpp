@@ -40,6 +40,10 @@ struct Meta2d {
     static bool isMetaId(const TileId &id) {
         return !((id.x & restMask) || (id.y & restMask));
     }
+
+    static TileId localId(const TileId &id) {
+        return TileId(id.lod, restMask & id.x, restMask & id.y);
+    }
 };
 
 struct Mask2d {
