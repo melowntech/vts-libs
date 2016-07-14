@@ -269,4 +269,22 @@ inflateTileExtents(const math::Extents2 &extents
          ,  extents.ur(1) + ts.height * choose(BorderCondition::top));
 }
 
+bool inside(const Ranges &ranges, const TileId &tileId)
+{
+    if (const auto *tileRange = ranges.tileRange(tileId.lod, std::nothrow)) {
+        return math::inside(*tileRange, tileId.x, tileId.y);
+    }
+    return false;
+}
+
+bool overlaps(const Ranges &ranges, const LodTileRange &range)
+{
+    if (const auto *tileRange = ranges.tileRange(range.lod, std::nothrow)) {
+        // calculate overlap and return its validity
+        return math::valid(vts::tileRangesIntersect
+                           (*tileRange, range.range, std::nothrow));
+    }
+    return false;
+}
+
 } } // namespace vadstena::vts

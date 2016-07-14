@@ -1,6 +1,7 @@
 #ifndef vadstena_libs_vts_basetypes_hpp_included_
 #define vadstena_libs_vts_basetypes_hpp_included_
 
+#include <new>
 #include <string>
 
 #include "math/geometry_core.hpp"
@@ -50,6 +51,32 @@ struct LodTileRange {
 
     LodTileRange(Lod lod = 0) : lod(lod) {}
     LodTileRange(Lod lod, const TileRange &range) : lod(lod), range(range) {}
+    LodTileRange(const TileId &tileId, const math::Size2 &size)
+        : lod(tileId.lod)
+        , range(tileId.x, tileId.y, tileId.x + size.width - 1
+                , tileId.y + size.height - 1)
+    {}
+};
+
+class Ranges {
+public:
+    Ranges(const LodRange &lodRange, const TileRange &tileRange);
+
+    /** Returns range for given lod.
+     *  Throws if lod out of range.
+     */
+    const TileRange& tileRange(Lod lod) const;
+
+    /** Returns range for given lod.
+     *  Returns nullptr if lod out of range.
+     */
+    const TileRange* tileRange(Lod lod, std::nothrow_t) const;
+
+    const LodRange& lodRange() const { return lodRange_; }
+
+private:
+    LodRange lodRange_;
+    std::vector<TileRange> tileRanges_;
 };
 
 /** Open mode

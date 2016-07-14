@@ -83,6 +83,14 @@ TileRange tileRangesIntersect(const TileRange &a, const TileRange &b
                               , const std::nothrow_t&);
 math::Size2_<TileRange::value_type> tileRangesSize(const TileRange &tr);
 
+/** Is tile withing given ranges.
+ */
+bool inside(const Ranges &ranges, const TileId &tileId);
+
+/** Does given range overlap with ranges?
+ */
+bool overlaps(const Ranges &ranges, const LodTileRange &range);
+
 class BorderCondition {
 public:
     enum {

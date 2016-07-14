@@ -107,4 +107,39 @@ TileSetGlues::list glueOrder(const TileSetGlues::list &in)
     return out;
 }
 
+Ranges::Ranges(const LodRange &lodRange, const TileRange &tileRange)
+    : lodRange_(lodRange)
+{
+    if (lodRange.empty()) { return; }
+
+    // fill in ranges
+    for (auto lod : lodRange) {
+        (void) lod;
+        if (tileRanges_.empty()) {
+            // original argument
+            tileRanges_.push_back(tileRange);
+        } else {
+            // child range of previous lod
+            tileRanges_.push_back(childRange(tileRanges_.back()));
+        }
+    }
+}
+
+const TileRange& Ranges::tileRange(Lod lod) const
+{
+    if (!in(lod, lodRange_)) {
+        LOGTHROW(err2, vadstena::storage::Error)
+            << "Lod <" << lod << "> outside of lod range <"
+            << lodRange_ << ">.";
+    }
+
+    return tileRanges_[lod - lodRange_.min];
+}
+
+const TileRange* Ranges::tileRange(Lod lod, std::nothrow_t) const
+{
+    if (!in(lod, lodRange_)) { return nullptr; }
+    return &tileRanges_[lod - lodRange_.min];
+}
+
 } } // namespace vadstena::vts
