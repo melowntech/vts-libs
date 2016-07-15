@@ -16,6 +16,7 @@ namespace {
 } // namespace
 
 const char* MapConfig::contentType("application/json; charset=utf-8");
+const char* MeshTilesConfig::contentType("application/json; charset=utf-8");
 
 Json::Value asJson(const Glue::Id &id)
 {

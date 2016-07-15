@@ -279,4 +279,9 @@ MapConfig Delivery::mapConfig(bool includeExtra) const
     return TileSet::mapConfig(*driver_, includeExtra);
 }
 
+MeshTilesConfig Delivery::meshTilesConfig(bool includeExtra) const
+{
+    return TileSet::meshTilesConfig(*driver_, includeExtra);
+}
+
 } } // namespace vadstena::vts

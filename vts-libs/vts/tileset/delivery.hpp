@@ -51,6 +51,8 @@ public:
 
     MapConfig mapConfig(bool includeExtra = true) const;
 
+    MeshTilesConfig meshTilesConfig(bool includeExtra = true) const;
+
 private:
     struct AccessToken {};
 

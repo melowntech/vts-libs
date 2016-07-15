@@ -134,6 +134,8 @@ struct MapConfig {
 struct MeshTilesConfig {
     SurfaceConfig surface;
     registry::Credit::dict credits;
+
+    static const char *contentType;
 };
 
 /** Save map config into stream.
