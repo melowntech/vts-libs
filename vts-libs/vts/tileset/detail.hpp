@@ -150,6 +150,11 @@ public:
 
     static MapConfig mapConfig(const Driver &driver, bool includeExtra);
 
+    MeshTilesConfig meshTilesConfig(bool includeExtra) const;
+
+    static MeshTilesConfig meshTilesConfig(const Driver &driver
+                                           , bool includeExtra);
+
     ExtraTileSetProperties loadExtraConfig() const;
     static ExtraTileSetProperties loadExtraConfig(const Driver &driver);
 

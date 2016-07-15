@@ -76,6 +76,8 @@ struct GlueConfig : SurfaceCommonConfig {
  */
 struct BrowserOptions;
 
+/** Full map configuration
+ */
 struct MapConfig {
     registry::Srs::dict srs;
     registry::ReferenceFrame referenceFrame;
@@ -127,6 +129,13 @@ struct MapConfig {
     void merge(const MapConfig &other);
 };
 
+/** Configuration for meshTiles free layer.
+ */
+struct MeshTilesConfig {
+    SurfaceConfig surface;
+    registry::Credit::dict credits;
+};
+
 /** Save map config into stream.
  */
 void saveMapConfig(const MapConfig &mapConfig, std::ostream &os);
@@ -135,6 +144,10 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os);
  */
 void loadMapConfig(MapConfig &mapConfig, std::istream &is
                    , const boost::filesystem::path &path = "unknown");
+
+/** Convert meshTiles config into free layer definition.
+ */
+registry::FreeLayer freeLayer(const MeshTilesConfig &config);
 
 } } // namespace vadstena::vts
 

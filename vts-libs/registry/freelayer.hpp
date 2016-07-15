@@ -55,16 +55,35 @@ struct FreeLayer {
 UTILITY_GENERATE_ENUM_IO(FreeLayer::Type,
     ((external))
     ((geodata))
-    ((geodataTiles))
-    ((meshTiles))
+    ((geodataTiles)("geodata-tiles"))
+    ((meshTiles)("mesh-tiles"))
 )
 
+void saveFreeLayer(std::ostream &out, const FreeLayer &freeLayer);
 
 // inlines
-template <typename T>
-inline T& FreeLayer::createDefinition()
+
+template <>
+inline FreeLayer::Geodata& FreeLayer::createDefinition<FreeLayer::Geodata>()
 {
-    return boost::get<T>(definition = T());
+    type = Type::geodata;
+    return boost::get<Geodata>(definition = Geodata());
+}
+
+template <>
+inline FreeLayer::GeodataTiles&
+FreeLayer::createDefinition<FreeLayer::GeodataTiles>()
+{
+    type = Type::geodataTiles;
+    return boost::get<GeodataTiles>(definition = GeodataTiles());
+}
+
+template <>
+inline FreeLayer::MeshTiles&
+FreeLayer::createDefinition<FreeLayer::MeshTiles>()
+{
+    type = Type::meshTiles;
+    return boost::get<MeshTiles>(definition = MeshTiles());
 }
 
 } } // namespace vadstena::registry

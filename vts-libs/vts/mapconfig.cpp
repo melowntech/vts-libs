@@ -374,4 +374,33 @@ void loadMapConfig(MapConfig &mapConfig, std::istream &in
     throw;
 }
 
+registry::FreeLayer freeLayer(const MeshTilesConfig &config)
+{
+    registry::FreeLayer fl;
+
+    fl.id = config.surface.id;
+    for (const auto &credit : config.credits) {
+        fl.credits.set(credit.first, credit.second);
+    }
+
+    auto &def(fl.createDefinition<registry::FreeLayer::MeshTiles>());
+
+    const auto &surface(config.surface);
+    def.lodRange = surface.lodRange;
+    def.tileRange = surface.tileRange;
+
+    def.metaUrl
+        = (surface.root / fileTemplate(storage::TileFile::meta
+                                       , surface.revision)).string();
+    def.meshUrl
+        = (surface.root / fileTemplate(storage::TileFile::mesh
+                                       , surface.revision)).string();
+
+    def.textureUrl
+        = (surface.root / fileTemplate(storage::TileFile::atlas
+                                       , surface.revision)).string();
+    // done
+    return fl;
+}
+
 } } // namespace vadstena::vts

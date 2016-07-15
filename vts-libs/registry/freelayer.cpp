@@ -9,7 +9,7 @@
 
 namespace vadstena { namespace registry {
 
-constexpr char BoundLayer::typeName[];
+constexpr char FreeLayer::typeName[];
 
 namespace {
 
@@ -178,6 +178,14 @@ Json::Value asJson(const FreeLayer::dict &freeLayers
 void fromJson(FreeLayer::dict &freeLayers, const Json::Value &value)
 {
     parse(freeLayers, value);
+}
+
+void saveFreeLayer(std::ostream &out, const FreeLayer &freeLayer)
+{
+    Json::Value content;
+    build(content, freeLayer);
+    out.precision(15);
+    Json::StyledStreamWriter().write(out, content);
 }
 
 } } // namespace vadstena::registry

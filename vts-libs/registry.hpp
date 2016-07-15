@@ -7,6 +7,7 @@
 #define vadstena_libs_registry_hpp_included_
 
 #include "./registry/referenceframe.hpp"
+#include "./registry/freelayer.hpp"
 #include "./registry/datafile.hpp"
 
 namespace vadstena { namespace registry {

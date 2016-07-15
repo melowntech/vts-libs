@@ -1214,6 +1214,11 @@ MapConfig TileSet::mapConfig(bool includeExtra) const
     return detail().mapConfig(includeExtra);
 }
 
+MeshTilesConfig TileSet::meshTilesConfig(bool includeExtra) const
+{
+    return detail().meshTilesConfig(includeExtra);
+}
+
 ExtraTileSetProperties TileSet::Detail::loadExtraConfig() const
 {
     return loadExtraConfig(*driver);
@@ -1250,8 +1255,8 @@ MapConfig TileSet::mapConfig(const Driver &driver, bool includeExtra)
 MapConfig TileSet::Detail::mapConfig(const Driver &driver, bool includeExtra)
 {
     return vts::mapConfig(tileset::loadConfig(driver)
-                     , (includeExtra ? loadExtraConfig(driver)
-                     : ExtraTileSetProperties()));
+                          , (includeExtra ? loadExtraConfig(driver)
+                             : ExtraTileSetProperties()));
 }
 
 MapConfig TileSet::Detail::mapConfig(bool includeExtra) const
@@ -1322,6 +1327,66 @@ MapConfig mapConfig(const FullTileSetProperties &properties
     mapConfig.browserOptions = extra.browserOptions;
 
     return mapConfig;
+}
+
+MeshTilesConfig TileSet::meshTilesConfig(const boost::filesystem::path &root
+                                         , bool includeExtra)
+{
+    return Detail::meshTilesConfig(*Driver::open(root), includeExtra);
+}
+
+MeshTilesConfig TileSet::meshTilesConfig(const Driver &driver
+                                         , bool includeExtra)
+{
+    return Detail::meshTilesConfig(driver, includeExtra);
+}
+
+MeshTilesConfig TileSet::Detail::meshTilesConfig(const Driver &driver
+                                                 , bool includeExtra)
+{
+    return vts::meshTilesConfig(tileset::loadConfig(driver)
+                                , (includeExtra ? loadExtraConfig(driver)
+                                   : ExtraTileSetProperties()));
+}
+
+MeshTilesConfig TileSet::Detail::meshTilesConfig(bool includeExtra) const
+{
+    return vts::meshTilesConfig(properties, (includeExtra ? loadExtraConfig()
+                                             : ExtraTileSetProperties()));
+}
+
+MeshTilesConfig
+meshTilesConfig(const FullTileSetProperties &properties
+                , const ExtraTileSetProperties &extra
+                , const boost::optional<boost::filesystem::path> &root)
+{
+    MeshTilesConfig config;
+
+    // prefill with extra entitities
+    config.credits = extra.credits;
+
+    // build
+    config.credits.update(registry::creditsAsDict(properties.credits));
+
+    config.surface.id = properties.id;
+    config.surface.revision = properties.revision;
+
+    if (root) {
+        config.surface.root = *root;
+    } else {
+        driver::MapConfigOverride mco(properties.driverOptions);
+        config.surface.root = mco.root;
+    }
+
+    if (!properties.lodRange.empty()) {
+        config.surface.lodRange = properties.lodRange;
+    }
+
+    if (valid(properties.tileRange)) {
+        config.surface.tileRange = properties.tileRange;
+    }
+
+    return config;
 }
 
 void TileSet::Detail::setPosition(const registry::Position &position)

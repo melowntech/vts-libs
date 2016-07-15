@@ -120,6 +120,13 @@ MapConfig mapConfig(const FullTileSetProperties &properties
                     , const boost::optional<boost::filesystem::path> &root
                     = boost::none);
 
+MeshTilesConfig
+meshTilesConfig(const FullTileSetProperties &properties
+                , const ExtraTileSetProperties &extra
+                = ExtraTileSetProperties()
+                , const boost::optional<boost::filesystem::path> &root
+                = boost::none);
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_tileset_properties_hpp_included_

@@ -65,11 +65,14 @@ public:
     void addBoundLayers(const registry::IdSet &boundLayers);
 
     /** Generates map configuration for this single tile set.
-     * \param root root path of all datasets (surfaces and glues)
      * \param includeExtra include extra configuration in the output.
      * \return map configuration
      */
     MapConfig mapConfig(bool includeExtra = true) const;
+
+    /** Generates meshTiles configutation
+     */
+    MeshTilesConfig meshTilesConfig(bool includeExtra = true) const;
 
     /** Returns tile's mesh.
      */
@@ -257,6 +260,22 @@ public:
      * \return map configuration
      */
     static MapConfig mapConfig(const Driver &driver, bool includeExtra);
+
+    /** Returns meshTiles config for given path.
+     *
+     * \param root root path of all datasets (surfaces and glues)
+     * \return map configuration
+     */
+    static MeshTilesConfig meshTilesConfig(const boost::filesystem::path &root
+                                           , bool includeExtra = true);
+
+    /** Returns meshTiles config for given driver.
+     *
+     * \param driver data source
+     * \return map configuration
+     */
+    static MeshTilesConfig meshTilesConfig(const Driver &driver
+                                           , bool includeExtra);
 
     /** Check for tileset at given path.
      */
