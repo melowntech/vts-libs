@@ -38,6 +38,8 @@ set(vts-common_SOURCES
 set(vts-registry_SOURCES
   registry.hpp registry/registry.cpp
   registry/referenceframe.hpp registry/referenceframe.cpp
+  registry/freelayer.hpp registry/freelayer.cpp
+  registry/json.hpp registry/dict.hpp
   ${CMAKE_CURRENT_BINARY_DIR}/registry/config.cpp
 )
 

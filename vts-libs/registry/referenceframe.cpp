@@ -696,6 +696,32 @@ void build(Json::Value &content, const Credit::dict &credits)
     }
 }
 
+void parse(Credits &credits, const Json::Value &value)
+{
+    if (value.isArray()) {
+        for (const auto &element : value) {
+            credits.set(element.asString(), boost::none);
+        }
+    } else if (value.isObject()) {
+        for (const auto &id : Json::check(value, Json::objectValue)
+                 .getMemberNames())
+        {
+            const auto &element(Json::check(value[id], Json::objectValue));
+            if (element.empty()) {
+                credits.set(id, boost::none);
+            } else {
+                Credit c;
+                c.id = id;
+                parse(c, element);
+                credits.set(id, c);
+            }
+        }
+    } else {
+        LOGTHROW(err1, Json::Error)
+            << "Type of credits is not a list nor an object.";
+    }
+}
+
 void parse(BoundLayer &bl, const Json::Value &content)
 {
     if (content.isMember("id")) {
@@ -720,29 +746,8 @@ void parse(BoundLayer &bl, const Json::Value &content)
 
     bl.tileRange = tileRangeFromJson(content["tileRange"]);
 
-    const auto &credits(content["credits"]);
-    if (credits.isArray()) {
-        for (const auto &element : credits) {
-            bl.credits.set(element.asString(), boost::none);
-        }
-    } else if (credits.isObject()) {
-        for (const auto &id : Json::check(credits, Json::objectValue)
-                 .getMemberNames())
-        {
-            const auto &element(Json::check(credits[id], Json::objectValue));
-            if (element.empty()) {
-                bl.credits.set(id, boost::none);
-            } else {
-                Credit c;
-                c.id = id;
-                parse(c, element);
-                bl.credits.set(id, c);
-            }
-        }
-    } else {
-        LOGTHROW(err1, Json::Error)
-            << "Type of boundLayer[credits] is not a list nor an object.";
-    }
+    // parse credits
+    parse(bl.credits, content["credits"]);
 
     if (content.isMember("availability")) {
         const auto &availability(content["availability"]);
@@ -1240,6 +1245,18 @@ Json::Value asJson(const Srs::dict &srs, bool flatGeoidPath)
     Json::Value content;
     build(content, srs, flatGeoidPath);
     return content;
+}
+
+Json::Value asJson(const Credits &credits, bool inlineCredits)
+{
+    Json::Value content;
+    build(content, credits, inlineCredits);
+    return content;
+}
+
+void fromJson(Credits &credits, const Json::Value &value)
+{
+    parse(credits, value);
 }
 
 Json::Value asJson(const Credit::dict &credits)

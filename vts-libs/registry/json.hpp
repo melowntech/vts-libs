@@ -9,6 +9,7 @@
 #include "jsoncpp/json.hpp"
 
 #include "./referenceframe.hpp"
+#include "./freelayer.hpp"
 
 namespace vadstena { namespace registry {
 
@@ -19,14 +20,22 @@ void fromJson(ReferenceFrame &referenceFrame, const Json::Value &value);
 Json::Value asJson(const Srs::dict &srs, bool flatGeoidPath = false);
 void fromJson(Srs::dict &srs, const Json::Value &value);
 
+Json::Value asJson(const Credits &credits, bool inlineCredits = true);
+void fromJson(Credits &credits, const Json::Value &value);
+
 Json::Value asJson(const Credit::dict &credits);
 Credit::dict creditsFromJson(const Json::Value &value);
-void fromJson(Credit::dict &srs, const Json::Value &value);
+void fromJson(Credit::dict &credits, const Json::Value &value);
 
 Json::Value asJson(const BoundLayer::dict &boundLayers
                    , bool inlineCredits = true);
 BoundLayer::dict boundLayersFromJson(const Json::Value &value);
-void fromJson(BoundLayer::dict &srs, const Json::Value &value);
+void fromJson(BoundLayer::dict &boundLayers, const Json::Value &value);
+
+Json::Value asJson(const FreeLayer::dict &freeLayers
+                   , bool inlineCredits = true);
+FreeLayer::dict freeLayerFromJson(const Json::Value &value);
+void fromJson(FreeLayer::dict &freeLayers, const Json::Value &value);
 
 Json::Value asJson(const Position &position);
 Position positionFromJson(const Json::Value &value);
@@ -64,6 +73,13 @@ inline BoundLayer::dict boundLayersFromJson(const Json::Value &value)
     BoundLayer::dict boundLayers;
     fromJson(boundLayers, value);
     return boundLayers;
+}
+
+inline FreeLayer::dict freeLayersFromJson(const Json::Value &value)
+{
+    FreeLayer::dict freeLayers;
+    fromJson(freeLayers, value);
+    return freeLayers;
 }
 
 inline View viewFromJson(const Json::Value &value)
