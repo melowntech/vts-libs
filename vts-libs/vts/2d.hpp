@@ -27,6 +27,9 @@ GrayImage meta2d(const TileIndex &tileIndex, const TileId &tileId);
 void saveCreditTile(std::ostream &out, const CreditTile &creditTile
                     , bool inlineCredits = true);
 
+CreditTile loadCreditTile(std::istream &in, const boost::filesystem::path &path
+                          = "unknown");
+
 // inlines
 
 inline GrayImage mask2d(const MeshMask &mask, bool singleSourced) {

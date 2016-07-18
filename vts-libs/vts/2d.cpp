@@ -84,4 +84,32 @@ void saveCreditTile(std::ostream &out, const CreditTile &creditTile
     registry::saveCredits(out, creditTile.credits, inlineCredits);
 }
 
+CreditTile loadCreditTile(std::istream &in
+                          , const boost::filesystem::path &path)
+{
+    CreditTile creditTile;
+    registry::loadCredits(in, creditTile.credits, path);
+    return creditTile;
+}
+
+void CreditTile::update(const CreditTile &other)
+{
+    for (const auto &credit : other.credits) {
+        credits.set(credit.first, credit.second);
+    }
+}
+
+void CreditTile::expand(const registry::Credit::dict &dict)
+{
+    registry::Credits tmpCredits;
+
+    for (const auto &item : credits) {
+        if (const auto *credit = dict.get(item.first, std::nothrow)) {
+            tmpCredits.set(item.first, *credit);
+        }
+    }
+
+    std::swap(credits, tmpCredits);
+}
+
 } } // vadstena::vts

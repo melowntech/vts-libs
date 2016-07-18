@@ -747,7 +747,16 @@ void parse(BoundLayer &bl, const Json::Value &content)
     bl.tileRange = tileRangeFromJson(content["tileRange"]);
 
     // parse credits
-    parse(bl.credits, content["credits"]);
+    {
+        const auto &cr(content["credits"]);
+        if (cr.isString()) {
+            // url
+            bl.creditsUrl = cr.asString();
+        } else {
+            // credits
+            parse(bl.credits, cr);
+        }
+    }
 
     if (content.isMember("availability")) {
         const auto &availability(content["availability"]);
@@ -865,7 +874,11 @@ void build(Json::Value &content, const BoundLayer &bl
     tileRangeMax.append(bl.tileRange.ur(0));
     tileRangeMax.append(bl.tileRange.ur(1));
 
-    build(content["credits"], bl.credits, inlineCredits);
+    if (bl.creditsUrl) {
+        content["credits"] = *bl.creditsUrl;
+    } else {
+        build(content["credits"], bl.credits, inlineCredits);
+    }
 
     if (bl.availability) {
         auto &availability(content["availability"] = Json::objectValue);
@@ -1112,14 +1125,15 @@ BoundLayer loadBoundLayer(std::istream &in
     return boundLayer;
 }
 
-Credit::dict loadCredits(std::istream &in)
+Credit::dict loadCredits(std::istream &in
+                         , const boost::filesystem::path &path)
 {
     // load json
     Json::Value content;
     Json::Reader reader;
     if (!reader.parse(in, content)) {
         LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse credits file: "
+            << "Unable to parse credits file "<< path << ": "
             << reader.getFormattedErrorMessages() << ".";
     }
 
@@ -1139,7 +1153,7 @@ Credit::dict loadCredits(const boost::filesystem::path &path)
         LOGTHROW(err1, storage::IOError)
             << "Unable to load credits from file " << path << ".";
     }
-    auto credits(loadCredits(f));
+    auto credits(loadCredits(f, path));
     f.close();
     return credits;
 }
@@ -1166,6 +1180,21 @@ void saveCredits(const boost::filesystem::path &path
     }
     saveCredits(f, credits);
     f.close();
+}
+
+void loadCredits(std::istream &in, Credits &credits
+                 , const boost::filesystem::path &path)
+{
+    // load json
+    Json::Value content;
+    Json::Reader reader;
+    if (!reader.parse(in, content)) {
+        LOGTHROW(err2, storage::FormatError)
+            << "Unable to parse credits file " << path << ": "
+            << reader.getFormattedErrorMessages() << ".";
+    }
+
+    parse(credits, content);
 }
 
 void saveCredits(std::ostream &out, const Credits &credits

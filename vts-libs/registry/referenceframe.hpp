@@ -265,6 +265,8 @@ struct Credit {
 typedef Dictionary<boost::optional<Credit>, std::string> Credits;
 
 struct BoundLayer {
+    static constexpr unsigned int metaBinaryOrder = 8;
+
     enum class Type { raster, vector, external };
 
     typedef std::uint16_t NumericId;
@@ -276,8 +278,12 @@ struct BoundLayer {
     std::string url;
     boost::optional<std::string> maskUrl;
     boost::optional<std::string> metaUrl;
+    boost::optional<std::string> creditsUrl;
     LodRange lodRange;
     TileRange tileRange;
+
+    /** Credits make sense only when creditsUrl is invalid
+     */
     Credits credits;
 
     struct Availability {
@@ -343,7 +349,9 @@ BoundLayer loadBoundLayer(std::istream &in
                           , const boost::filesystem::path &path
                           = "unknown");
 
-Credit::dict loadCredits(std::istream &in);
+Credit::dict loadCredits(std::istream &in
+                         , const boost::filesystem::path &path
+                         = "unknown");
 
 Credit::dict loadCredits(const boost::filesystem::path &path);
 
@@ -351,6 +359,10 @@ void saveCredits(std::ostream &out, const Credit::dict &credits);
 
 void saveCredits(const boost::filesystem::path &path
                  , const Credit::dict &credits);
+
+void loadCredits(std::istream &in, Credits &credits
+                 , const boost::filesystem::path &path
+                 = "unknown");
 
 void saveCredits(std::ostream &out, const Credits &credits
                  , bool inlineCredits = true);

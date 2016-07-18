@@ -67,7 +67,12 @@ struct Mask2d {
 struct CreditTile {
     registry::Credits credits;
 
-    static constexpr unsigned int binaryOrder = 8;
+    void update(const CreditTile &other);
+
+    void expand();
+    void expand(const registry::Credit::dict &dict);
+
+    static constexpr unsigned int binaryOrder = Meta2d::binaryOrder;
 
     static constexpr unsigned int restMask = ((1 << binaryOrder) - 1);
     static constexpr unsigned int idMask = ~restMask;
@@ -80,6 +85,13 @@ struct CreditTile {
         return !((id.x & restMask) || (id.y & restMask));
     }
 };
+
+// inlines
+
+inline void CreditTile::expand()
+{
+    expand(registry::Registry::credits());
+}
 
 } } // namespace vadstena::vts
 
