@@ -647,7 +647,8 @@ class MeshFilter {
 public:
     MeshFilter(const SubMesh &original, int submeshIndex
                , const math::Points3 &originalCoverage
-               , const Input &input, const Coverage &coverage)
+               , const Input &input, const Coverage &coverage
+               , const MergeOptions &options)
         : original_(original), submeshIndex_(submeshIndex)
         , originalCoverage_(originalCoverage)
         , input_(input)
@@ -657,7 +658,7 @@ public:
         , incidentTriangles_(0)
     {
         original_.cloneMetadataInto(mesh_);
-        filter(coverage);
+        filter(coverage, options.clip);
     }
 
     void addTo(Output &out, double uvAreaScale = 1.0);
@@ -672,11 +673,22 @@ public:
     }
 
 private:
-    void filter(const Coverage &coverage) {
+    void filter(const Coverage &coverage, bool clip) {
+        if (!clip) {
+            // no clipping -> just pass all faces
+            for (int f(0), ef(original_.faces.size()); f != ef; ++f) {
+                addFace(f);
+                ++incidentTriangles_;
+            }
+            return;
+        }
+
         // each face covered at least by one pixel is added to new mesh
         for (int f(0), ef(original_.faces.size()); f != ef; ++f) {
+            // clipping -> only when covered
             auto covered(coverage.covered
-                         (original_.faces[f], originalCoverage_, input_.id()));
+                         (original_.faces[f], originalCoverage_
+                          , input_.id()));
             if (std::get<0>(covered)) {
                 addFace(f);
             }
@@ -1058,7 +1070,8 @@ Output mergeTile(const TileId &tileId
                  , const NodeInfo &nodeInfo
                  , const Input::list &currentSource
                  , const TileSource &parentSource
-                 , const MergeConstraints &constraints)
+                 , const MergeConstraints &constraints
+                 , const MergeOptions &options)
 {
     // merge sources for meshes and navtiles
     auto source
@@ -1172,7 +1185,8 @@ Output mergeTile(const TileId &tileId
         for (int m(0), em(mesh.submeshes.size()); m != em; ++m) {
             const auto &sm(mesh[m]);
             // accumulate new mesh
-            MeshFilter mf(sm, m, *icoverageVertices++, input, coverage);
+            MeshFilter mf(sm, m, *icoverageVertices++, input
+                          , coverage, options);
             if (!mf) {
                 // empty result mesh -> nothing to do
                 continue;
@@ -1194,7 +1208,7 @@ Output mergeTile(const TileId &tileId
                                     , mf.maxRefinedFaceCount())));
 
             MeshFilter rmf(refined.mesh, m, refined.projected
-                           , input, coverage);
+                           , input, coverage, options);
             if (rmf) {
                 // add refined
                 rmf.addTo(result, (1 << (2 * localId.lod)));

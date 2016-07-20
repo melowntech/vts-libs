@@ -117,8 +117,12 @@ struct GlueCreationOptions {
      */
     bool generateReferences;
 
+    /** Clip meshes based on merge coverage.
+     */
+    bool clip;
+
     GlueCreationOptions()
-        : textureQuality(), generateReferences(true)
+        : textureQuality(), generateReferences(true), clip(true)
     {}
 };
 
