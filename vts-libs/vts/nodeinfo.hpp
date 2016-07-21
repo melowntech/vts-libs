@@ -51,6 +51,8 @@ public:
                               , unsigned int dilation, const RFNode &node)
         const;
 
+    const registry::Registry& registry() const { return *registry_; }
+
 private:
     bool initSampler() const;
 

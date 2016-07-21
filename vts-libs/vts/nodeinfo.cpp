@@ -388,7 +388,7 @@ bool NodeInfo::inside(const math::Point2 &point) const
 
 const geo::SrsDefinition& NodeInfo::srsDef() const
 {
-    return registry::system.srs(node_.srs).srsDef;
+    return subtree_.registry().srs(node_.srs).srsDef;
 }
 
 NodeInfo::CoveredArea NodeInfo::checkMask(const CoverageMask &mask
