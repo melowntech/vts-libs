@@ -1612,20 +1612,16 @@ Json::Value asJson(const View::map &namedViews
     return v;
 }
 
-View::map namedViewsFromJson(const Json::Value &value)
+void fromJson(View::map &views, const Json::Value &value)
 {
     if (!value.isObject()) {
         LOGTHROW(err1, Json::Error)
             << "Type of named views is not an object.";
     }
 
-    View::map namedViews;
-
     for (const auto &nvId : value.getMemberNames()) {
-        namedViews[nvId] = viewFromJson(value[nvId]);
+        views[nvId] = viewFromJson(value[nvId]);
     }
-
-    return namedViews;
 }
 
 void fromJson(ReferenceFrame &referenceFrame, const Json::Value &value)

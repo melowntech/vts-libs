@@ -337,6 +337,7 @@ void parse1(MapConfig &mapConfig, const Json::Value &config)
     fromJson(mapConfig.glues, config["glue"]);
 
     fromJson(mapConfig.view, config["view"]);
+    fromJson(mapConfig.namedViews, config["namedViews"]);
 }
 
 } // namespace detail
