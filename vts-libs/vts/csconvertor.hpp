@@ -17,27 +17,32 @@ public:
      *
      *  Can result in no-op convertor when srsIdFrom == srsIdTo.
      */
-    CsConvertor(const std::string &srsIdFrom, const std::string &srsIdTo);
+    CsConvertor(const std::string &srsIdFrom, const std::string &srsIdTo
+                , const registry::Registry &reg = registry::system);
 
     /** Combined convertor, never results in no-op convertor.
      */
     CsConvertor(const geo::SrsDefinition &srsFrom
-                , const std::string &srsIdTo);
+                , const std::string &srsIdTo
+                , const registry::Registry &reg = registry::system);
 
     /** Combined convertor, never results in no-op convertor.
      */
     CsConvertor(const std::string &srsIdFrom
-                , const geo::SrsDefinition &srsTo);
+                , const geo::SrsDefinition &srsTo
+                , const registry::Registry &reg = registry::system);
 
     /** Combined convertor, never results in no-op convertor.
      */
     CsConvertor(const ::OGRSpatialReference &srsFrom
-                , const std::string &srsIdTo);
+                , const std::string &srsIdTo
+                , const registry::Registry &reg = registry::system);
 
     /** Combined convertor, never results in no-op convertor.
      */
     CsConvertor(const std::string &srsIdFrom
-                , const ::OGRSpatialReference &srsTo);
+                , const ::OGRSpatialReference &srsTo
+                , const registry::Registry &reg = registry::system);
 
     /** Returns inverse convertor (uses stored pointer to comples SRS
      *  definitions) -- swaps FROM and TO.

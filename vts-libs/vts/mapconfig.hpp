@@ -76,13 +76,11 @@ struct GlueConfig : SurfaceCommonConfig {
  */
 struct BrowserOptions;
 
-/** Full map configuration
+/** Full map configuration.
+ *  Inherited from Registry as it can be used in a registry context.
  */
-struct MapConfig {
-    registry::Srs::dict srs;
+struct MapConfig : public registry::Registry {
     registry::ReferenceFrame referenceFrame;
-    registry::Credit::dict credits;
-    registry::BoundLayer::dict boundLayers;
     registry::Position position;
     bool textureAtlasReady;
 

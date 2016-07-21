@@ -227,7 +227,7 @@ void VtsStorage::configuration(po::options_description &cmdline
                            ? vts::CreateMode::overwrite
                            : vts::CreateMode::failIfExists);
             referenceFrame_
-            = vr::Registry::referenceFrame(storageProperties_.referenceFrame);
+            = vr::system.referenceFrames(storageProperties_.referenceFrame);
         };
     });
 
@@ -916,7 +916,7 @@ void showCredits(std::ostream &out, const vts::MetaNode &node
 
     for (const auto &credit : node.credits()) {
         out << prefix << "    " << credit;
-        if (auto info = vr::Registry::credit(credit, std::nothrow)) {
+        if (const auto *info = vr::system.credits(credit, std::nothrow)) {
             out << ": " << info->id;
         } else {
             out << ": <unknown>";

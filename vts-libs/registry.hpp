@@ -12,50 +12,31 @@
 
 namespace vadstena { namespace registry {
 
-struct Registry {
-    static const Srs* srs(const std::string &id, std::nothrow_t);
-    static const Srs& srs(const std::string &id);
-    static const Srs::dict srsList();
-
-    static const ReferenceFrame*
-    referenceFrame(const std::string &id, std::nothrow_t);
-    static const ReferenceFrame&
-    referenceFrame(const std::string &id);
-    static const ReferenceFrame::dict referenceFrames();
-
-    static const BoundLayer*
-    boundLayer(const std::string &id, std::nothrow_t);
-    static const BoundLayer& boundLayer(const std::string &id);
-    static const BoundLayer*
-    boundLayer(BoundLayer::NumericId id, std::nothrow_t);
-    static const BoundLayer& boundLayer(BoundLayer::NumericId id);
-    static const BoundLayer::dict boundLayers();
-    static const BoundLayer::ndict boundLayers(int);
-
-    static const Credit*
-    credit(const std::string &id, std::nothrow_t);
-    static const Credit& credit(const std::string &id);
-    static const Credit* credit(Credit::NumericId id, std::nothrow_t);
-    static const Credit& credit(Credit::NumericId id);
-    static const Credit::dict credits();
-    static const Credit::ndict credits(int);
-
-    enum DataFileKey { filename, path };
-
-    static const DataFile& dataFile(const std::string &path
-                                    , DataFileKey key);
-    static const DataFile* dataFile(const std::string &path
-                                    , DataFileKey key, std::nothrow_t);
-
-    static void init(const boost::filesystem::path &confRoot);
-
-    static boost::filesystem::path confRoot();
+/** Registry: resource holder.
+ */
+class Registry {
+public:
+    Srs::dict srs;
+    BoundLayer::dict boundLayers;
+    ReferenceFrame::dict referenceFrames;
+    Credit::dict credits;
 };
+
+/** System-wide registry
+ */
+extern Registry system;
+
+void init(const boost::filesystem::path &confRoot);
+boost::filesystem::path confRoot();
 
 /** Returns default path to registry.
  *  NB: implemented in file generated from config.cpp.in template
  */
 boost::filesystem::path defaultPath();
+
+const DataFile& dataFile(const std::string &path, DataFile::Key key);
+const DataFile* dataFile(const std::string &path, DataFile::Key key
+                         , std::nothrow_t);
 
 } } // namespace vadstena::registry
 

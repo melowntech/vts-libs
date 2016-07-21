@@ -669,7 +669,7 @@ void parse(Credit::dict &credits, const Json::Value &content)
             Credit c;
             c.id = id;
             parse(c, Json::check(content[id], Json::objectValue));
-            credits.set(id, c);
+            credits.add(c);
         } catch (const Json::Error &e) {
             LOGTHROW(err1, storage::FormatError)
                 << "Invalid credits file format (" << e.what()
@@ -692,7 +692,7 @@ void build(Json::Value &content, const Credit::dict &credits)
     content = Json::objectValue;
 
     for (const auto &c : credits) {
-        build(content[c.first], c.second);
+        build(content[c.id], c);
     }
 }
 
@@ -810,7 +810,7 @@ void parse(BoundLayer::dict &bls, const Json::Value &content)
             } else {
                 parse(bl, Json::check(value, Json::objectValue));
             }
-            bls.set(id, bl);
+            bls.add(bl);
         } catch (const Json::Error &e) {
             LOGTHROW(err1, storage::FormatError)
                 << "Invalid bound layers file format (" << e.what()
@@ -914,16 +914,13 @@ void build(Json::Value &content, const BoundLayer::dict &bls
 {
     content = Json::objectValue;
 
-    for (const auto &item : bls) {
-        const auto &id(item.first);
-        const auto &bl(item.second);
-
+    for (const auto &bl : bls) {
         if (bl.type == BoundLayer::Type::external) {
             // external bound layer: just URL
-            content[id] = bl.url;
+            content[bl.id] = bl.url;
         } else {
             // regular bound layer
-            build(content[id], bl, inlineCredits);
+            build(content[bl.id], bl, inlineCredits);
         }
     }
 }
@@ -1362,7 +1359,7 @@ Srs::dict listSrs(const ReferenceFrame &referenceFrame)
 
     auto add([&](const std::string &id)
     {
-        srs.set(id, Registry::srs(id));
+        srs.set(id, system.srs(id));
     });
 
     add(referenceFrame.model.physicalSrs);
@@ -1382,7 +1379,7 @@ Credit::dict creditsAsDict(const StringIdSet &credits)
 {
     Credit::dict c;
     for (const auto &id : credits) {
-        c.add(Registry::credit(id, std::nothrow));
+        c.add(system.credits(id, std::nothrow));
     };
     return c;
 }
@@ -1396,7 +1393,7 @@ Credit::dict creditsAsDict(const Credits &credits)
             c.add(*item.second);
         } else {
             // just id, resolve
-            c.add(Registry::credit(item.first, std::nothrow));
+            c.add(system.credits(item.first, std::nothrow));
         }
     };
     return c;
@@ -1406,7 +1403,7 @@ Credit::dict creditsAsDict(const IdSet &credits)
 {
     Credit::dict c;
     for (const auto &id : credits) {
-        c.add(Registry::credit(id, std::nothrow));
+        c.add(system.credits(id, std::nothrow));
     };
     return c;
 }
@@ -1415,7 +1412,7 @@ BoundLayer::dict boundLayersAsDict(const StringIdSet &boundLayers)
 {
     BoundLayer::dict b;
     for (const auto &id : boundLayers) {
-        b.add(Registry::boundLayer(id, std::nothrow));
+        b.add(system.boundLayers(id, std::nothrow));
     };
     return b;
 }
@@ -1424,13 +1421,14 @@ BoundLayer::dict boundLayersAsDict(const IdSet &boundLayers)
 {
     BoundLayer::dict b;
     for (const auto &id : boundLayers) {
-        b.add(Registry::boundLayer(id, std::nothrow));
+        b.add(system.boundLayers(id, std::nothrow));
     };
     return b;
 }
 
-const ReferenceFrame::Division::Node&
-ReferenceFrame::Division::findSubtreeRoot(const Node::Id &nodeId) const
+const ReferenceFrame::Division::Node*
+ReferenceFrame::Division::findSubtreeRoot(const Node::Id &nodeId
+                                          , std::nothrow_t) const
 {
     LOG(debug) << "Finding subtree root for node " << nodeId;
     const Node *candidate(nullptr);
@@ -1450,7 +1448,7 @@ ReferenceFrame::Division::findSubtreeRoot(const Node::Id &nodeId) const
 
         if (treeRoot == nodeId) {
             // exact match -> standing at the root
-            return item.second;
+            return &item.second;
         }
 
         // node bellow possible root -> check if it can be a candidate
@@ -1462,12 +1460,19 @@ ReferenceFrame::Division::findSubtreeRoot(const Node::Id &nodeId) const
         }
     }
 
-    if (!candidate) {
-        LOGTHROW(err1, storage::KeyError)
-            << "Node <" << nodeId << "> has no root in this reference frame.";
+    return candidate;
+}
+
+const ReferenceFrame::Division::Node&
+ReferenceFrame::Division::findSubtreeRoot(const Node::Id &nodeId) const
+{
+    if (const auto *candidate = findSubtreeRoot(nodeId, std::nothrow)) {
+        return *candidate;
     }
 
-    return *candidate;
+    LOGTHROW(err1, storage::KeyError)
+        << "Node <" << nodeId << "> has no root in this reference frame.";
+    throw;
 }
 
 Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
@@ -1489,7 +1494,7 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
             } else {
                 surface.append(blp.id);
             }
-            boundLayers.add(registry::Registry::boundLayer
+            boundLayers.add(registry::system.boundLayers
                             (blp.id, std::nothrow));
         }
     }

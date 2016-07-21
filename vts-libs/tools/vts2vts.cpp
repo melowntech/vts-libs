@@ -172,9 +172,9 @@ void Vts2Vts::configure(const po::variables_map &vars)
 
         vr::BoundLayer layer;
         try {
-            layer = vr::Registry::boundLayer(boost::lexical_cast<int>(value));
+            layer = vr::system.boundLayers(boost::lexical_cast<int>(value));
         } catch (boost::bad_lexical_cast) {
-            layer = vr::Registry::boundLayer(value);
+            layer = vr::system.boundLayers(value);
         }
 
         if (layer.type != vr::BoundLayer::Type::raster) {

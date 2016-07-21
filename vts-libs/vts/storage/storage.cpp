@@ -96,7 +96,7 @@ Storage::Detail::Detail(const boost::filesystem::path &iroot
     : root(fs::absolute(iroot))
     , configPath(root / ConfigFilename)
     , extraConfigPath(root / ExtraConfigFilename)
-    , referenceFrame(registry::Registry::referenceFrame
+    , referenceFrame(registry::system.referenceFrames
                      (properties.referenceFrame))
 {
     // fill in slice
@@ -133,7 +133,7 @@ Storage::Detail::Detail(const boost::filesystem::path &root
 {
     (void) mode;
 
-    referenceFrame = registry::Registry::referenceFrame
+    referenceFrame = registry::system.referenceFrames
         (properties.referenceFrame);
 }
 
@@ -347,7 +347,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
                                      , const TilesetIdSet *subset
                                      , const fs::path &prefix)
 {
-    auto referenceFrame(registry::Registry::referenceFrame
+    auto referenceFrame(registry::system.referenceFrames
                         (properties.referenceFrame));
 
     MapConfig mapConfig;

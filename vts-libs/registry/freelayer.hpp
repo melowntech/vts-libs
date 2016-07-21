@@ -47,7 +47,7 @@ struct FreeLayer {
                            , GeodataTiles, MeshTiles> Definition;
     Definition definition;
 
-    typedef Dictionary<FreeLayer> dict;
+    typedef StringDictionary<FreeLayer> dict;
 
     template <typename T> T& createDefinition();
 };

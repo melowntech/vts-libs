@@ -586,8 +586,8 @@ void HeightMap::warp(const vr::ReferenceFrame &referenceFrame
     std::string srs;
     auto extents(worldExtents(lod, tileRange, referenceFrame, srs));
 
-    auto srcSrs(vr::Registry::srs(srs_));
-    auto dstSrs(vr::Registry::srs(srs));
+    auto srcSrs(vr::system.srs(srs_));
+    auto dstSrs(vr::system.srs(srs));
 
     // create source dataset (extents are inflate by half pixel in each
     // direction to facilitate grid registry)

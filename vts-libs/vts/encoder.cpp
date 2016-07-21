@@ -78,9 +78,9 @@ struct Encoder::Detail {
         , tileSet(*ownTs)
         , properties(tileSet.getProperties())
         , referenceFrame(tileSet.referenceFrame())
-        , physicalSrs(registry::Registry::srs
+        , physicalSrs(registry::system.srs
                       (referenceFrame.model.physicalSrs))
-        , navigationSrs(registry::Registry::srs
+        , navigationSrs(registry::system.srs
                       (referenceFrame.model.navigationSrs))
         , generated_(0), estimated_(0)
     {}
@@ -90,9 +90,9 @@ struct Encoder::Detail {
         , tileSet(tileset)
         , properties(tileSet.getProperties())
         , referenceFrame(tileSet.referenceFrame())
-        , physicalSrs(registry::Registry::srs
+        , physicalSrs(registry::system.srs
                       (referenceFrame.model.physicalSrs))
-        , navigationSrs(registry::Registry::srs
+        , navigationSrs(registry::system.srs
                       (referenceFrame.model.navigationSrs))
         , generated_(0)
     {}

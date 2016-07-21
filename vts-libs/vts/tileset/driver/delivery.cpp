@@ -39,7 +39,7 @@ indexFromDriver(const FullTileSetProperties &properties
 
     // no tileindex available -> load
     auto index(std::make_shared<tileset::Index>
-               (registry::Registry::referenceFrame
+               (registry::system.referenceFrames
                 (properties.referenceFrame).metaBinaryOrder));
 
     tileset::loadTileSetIndex(*index, *driver);
@@ -158,7 +158,7 @@ IStream::pointer credits(const Driver &driver
     auto extract([&](const registry::IdSet &credits)
     {
         for (const auto &cid : credits) {
-            if (const auto *credit = registry::Registry::credit
+            if (const auto *credit = registry::system.credits
                 (cid, std::nothrow))
             {
                 tile.credits.set(credit->id, boost::none);

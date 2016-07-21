@@ -2,12 +2,12 @@
 #include <boost/range/adaptor/reversed.hpp>
 
 #include "utility/progress.hpp"
-#include "geo/csconvertor.hpp"
 
 #include "../../vts.hpp"
 #include "../tileset.hpp"
 #include "../tileindex-io.hpp"
 #include "../io.hpp"
+#include "../csconvertor.hpp"
 #include "./detail.hpp"
 #include "./driver.hpp"
 #include "./config.hpp"
@@ -438,7 +438,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
     , references(tsi.references)
 {
     loadConfig();
-    referenceFrame = registry::Registry::referenceFrame
+    referenceFrame = registry::system.referenceFrames
         (properties.referenceFrame);
 
     if (!driverTsi_) {
@@ -452,7 +452,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
     , driverTsi_()
     , readOnly(false), driver(driver)
     , propertiesChanged(false), metadataChanged(false)
-    , referenceFrame(registry::Registry::referenceFrame
+    , referenceFrame(registry::system.referenceFrames
                      (properties.referenceFrame))
     , metaTiles(MetaCache::create(driver))
     , tsi(tsi_)
@@ -1164,9 +1164,7 @@ void TileSet::Detail::flush()
             position.verticalExtent = 5000;
             position.verticalFov = 90;
 
-            geo::CsConvertor conv(registry::Registry::srs(item.first).srsDef
-                                  , registry::Registry::srs
-                                  (referenceFrame.model.navigationSrs).srsDef);
+            CsConvertor conv(item.first, referenceFrame.model.navigationSrs);
             position.position = conv(position.position);
         }
     }
@@ -1269,7 +1267,7 @@ MapConfig mapConfig(const FullTileSetProperties &properties
                     , const ExtraTileSetProperties &extra
                     , const boost::optional<boost::filesystem::path> &root)
 {
-    auto referenceFrame(registry::Registry::referenceFrame
+    auto referenceFrame(registry::system.referenceFrames
                         (properties.referenceFrame));
 
     MapConfig mapConfig;

@@ -69,7 +69,7 @@ struct CreditTile {
 
     void update(const CreditTile &other);
 
-    void expand();
+    void expand(const registry::Registry &reg = registry::system);
     void expand(const registry::Credit::dict &dict);
 
     static constexpr unsigned int binaryOrder = Meta2d::binaryOrder;
@@ -88,9 +88,9 @@ struct CreditTile {
 
 // inlines
 
-inline void CreditTile::expand()
+inline void CreditTile::expand(const registry::Registry &reg)
 {
-    expand(registry::Registry::credits());
+    expand(reg.credits);
 }
 
 } } // namespace vadstena::vts

@@ -3,34 +3,38 @@
 namespace vadstena { namespace vts {
 
 CsConvertor::CsConvertor(const std::string &srsIdFrom
-                         , const std::string &srsIdTo)
+                         , const std::string &srsIdTo
+                         , const registry::Registry &reg)
 {
-    init(&registry::Registry::srs(srsIdFrom)
-         , &registry::Registry::srs(srsIdTo));
+    init(&reg.srs(srsIdFrom), &reg.srs(srsIdTo));
 }
 
 CsConvertor::CsConvertor(const geo::SrsDefinition &srsFrom
-                         , const std::string &srsIdTo)
+                         , const std::string &srsIdTo
+                         , const registry::Registry &reg)
 {
-    init(srsFrom, registry::Registry::srs(srsIdTo));
+    init(srsFrom, reg.srs(srsIdTo));
 }
 
 CsConvertor::CsConvertor(const std::string &srsIdFrom
-                         , const geo::SrsDefinition &srsTo)
+                         , const geo::SrsDefinition &srsTo
+                         , const registry::Registry &reg)
 {
-    init(registry::Registry::srs(srsIdFrom), srsTo);
+    init(reg.srs(srsIdFrom), srsTo);
 }
 
 CsConvertor::CsConvertor(const ::OGRSpatialReference &srsFrom
-                         , const std::string &srsIdTo)
+                         , const std::string &srsIdTo
+                         , const registry::Registry &reg)
 {
-    init(srsFrom, registry::Registry::srs(srsIdTo));
+    init(srsFrom, reg.srs(srsIdTo));
 }
 
 CsConvertor::CsConvertor(const std::string &srsIdFrom
-                         , const ::OGRSpatialReference &srsTo)
+                         , const ::OGRSpatialReference &srsTo
+                         , const registry::Registry &reg)
 {
-    init(registry::Registry::srs(srsIdFrom), srsTo);
+    init(reg.srs(srsIdFrom), srsTo);
 }
 
 CsConvertor::CsConvertor(const boost::optional<geo::CsConvertor> &conv

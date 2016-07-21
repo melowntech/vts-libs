@@ -27,7 +27,7 @@ void registryConfiguration
 
 void registryConfigure(const boost::program_options::variables_map &vars)
 {
-    Registry::init(vars["registry"].as<boost::filesystem::path>());
+    init(vars["registry"].as<boost::filesystem::path>());
 }
 
 } } // namespace vadstena::registry

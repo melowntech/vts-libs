@@ -60,15 +60,18 @@ bool checkPartial(const RFTreeSubtree &subtree, RFNode &node
 } // namespace
 
 inline NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
-                          , const RFNode &node)
-    : referenceFrame_(&referenceFrame), subtree_(node), node_(node)
+                          , const RFNode &node
+                          , const registry::Registry &reg)
+    : referenceFrame_(&referenceFrame)
+    , subtree_(node, reg), node_(node)
     , partial_(checkPartial(subtree_, node_))
 {}
 
 NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
-                   , const TileId &tileId, bool invalidateWhenMasked)
+                   , const TileId &tileId, bool invalidateWhenMasked
+                   , const registry::Registry &reg)
     : referenceFrame_(&referenceFrame)
-    , subtree_(referenceFrame_->findSubtreeRoot(rfNodeId(tileId)))
+    , subtree_(referenceFrame_->findSubtreeRoot(rfNodeId(tileId)), reg)
     , node_(makeNode(subtree_.root(), tileId))
     , partial_(checkPartial(subtree_, node_, invalidateWhenMasked))
 {}
@@ -171,8 +174,8 @@ NodeInfo NodeInfo::child(Child childDef) const
 
 class RFTreeSubtree::Sampler : boost::noncopyable {
 public:
-    Sampler(const RFNode &root)
-        : conv_(root.srs, root.constraints->extentsSrs)
+    Sampler(const RFNode &root, const registry::Registry &reg)
+        : conv_(root.srs, root.constraints->extentsSrs, reg)
         , extents_(root.constraints->extents)
     {}
 
@@ -192,7 +195,9 @@ private:
 bool RFTreeSubtree::initSampler() const
 {
     if (!root_->constraints) { return false; }
-    if (!sampler_) { sampler_ = std::make_shared<Sampler>(*root_); }
+    if (!sampler_) {
+        sampler_ = std::make_shared<Sampler>(*root_, *registry_);
+    }
     return true;
 }
 
@@ -383,7 +388,7 @@ bool NodeInfo::inside(const math::Point2 &point) const
 
 const geo::SrsDefinition& NodeInfo::srsDef() const
 {
-    return registry::Registry::srs(node_.srs).srsDef;
+    return registry::system.srs(node_.srs).srsDef;
 }
 
 NodeInfo::CoveredArea NodeInfo::checkMask(const CoverageMask &mask

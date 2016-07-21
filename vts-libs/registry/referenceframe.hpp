@@ -62,7 +62,7 @@ struct Srs {
     boost::optional<Periodicity> periodicity;
 
     static constexpr char typeName[] = "spatial reference system";
-    typedef Dictionary<Srs> dict;
+    typedef StringDictionary<Srs> dict;
 
     Srs() : srsModifiers() {}
 
@@ -181,6 +181,11 @@ struct ReferenceFrame {
          */
         const Node& findSubtreeRoot(const Node::Id &nodeId) const;
 
+        /** Finds root node for given node id. Doesn't throw.
+         */
+        const Node* findSubtreeRoot(const Node::Id &nodeId, std::nothrow_t)
+            const;
+
         /** Get list of all SRS's used by this division
          */
         std::set<std::string> srsList() const;
@@ -195,7 +200,7 @@ struct ReferenceFrame {
     unsigned int metaBinaryOrder;
 
     static constexpr char typeName[] = "reference frame";
-    typedef Dictionary<ReferenceFrame> dict;
+    typedef StringDictionary<ReferenceFrame> dict;
 
     const Division::Node& root() const { return division.root(); }
 
@@ -213,6 +218,13 @@ struct ReferenceFrame {
         const
     {
         return division.findSubtreeRoot(nodeId);
+    }
+
+    const Division::Node* findSubtreeRoot(const Division::Node::Id &nodeId
+                                          , std::nothrow_t)
+        const
+    {
+        return division.findSubtreeRoot(nodeId, std::nothrow);
     }
 
     void invalidate(const Division::Node::Id &nodeId);
@@ -258,11 +270,10 @@ struct Credit {
 
     static constexpr char typeName[] = "credit";
 
-    typedef Dictionary<Credit> dict;
-    typedef Dictionary<Credit, Credit::NumericId> ndict;
+    typedef DualDictionary<Credit, Credit::NumericId> dict;
 };
 
-typedef Dictionary<boost::optional<Credit>, std::string> Credits;
+typedef StringDictionary<boost::optional<Credit>> Credits;
 
 struct BoundLayer {
     static constexpr unsigned int metaBinaryOrder = 8;
@@ -312,8 +323,7 @@ struct BoundLayer {
     static math::Size2 tileSize() { return { 256, 256 }; }
     static double tileArea() { return math::area(tileSize()); }
 
-    typedef Dictionary<BoundLayer> dict;
-    typedef Dictionary<BoundLayer, BoundLayer::NumericId> ndict;
+    typedef DualDictionary<BoundLayer, BoundLayer::NumericId> dict;
 };
 
 // general I/O

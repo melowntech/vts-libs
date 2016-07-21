@@ -87,7 +87,7 @@ void asJson(const SurfaceCommonConfig &surface, Json::Value &s
     if (surface.textureLayer) {
         s["textureLayer"] = *surface.textureLayer;
         boundLayers.add
-            (registry::Registry::boundLayer(*surface.textureLayer));
+            (registry::system.boundLayers(*surface.textureLayer));
     }
 }
 
@@ -305,7 +305,7 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     content["params"] = Json::objectValue;
 
     for (const auto &bl : boundLayers) {
-        credits.update(registry::creditsAsDict(bl.second.credits));
+        credits.update(registry::creditsAsDict(bl.credits));
     }
 
     // grab credits
@@ -382,7 +382,7 @@ registry::FreeLayer freeLayer(const MeshTilesConfig &config)
 
     fl.id = config.surface.id;
     for (const auto &credit : config.credits) {
-        fl.credits.set(credit.first, credit.second);
+        fl.credits.set(credit.id, credit);
     }
 
     auto &def(fl.createDefinition<registry::FreeLayer::MeshTiles>());

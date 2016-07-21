@@ -12,8 +12,8 @@ namespace vadstena { namespace vts {
 
 class RFTreeSubtree {
 public:
-    RFTreeSubtree(const RFNode &root)
-        : root_(&root)
+    RFTreeSubtree(const RFNode &root, const registry::Registry &reg)
+        : root_(&root), registry_(&reg)
     {}
 
     const RFNode& root() const { return *root_; }
@@ -57,6 +57,7 @@ private:
     struct Sampler;
 
     const RFNode *root_;
+    const registry::Registry *registry_;
     mutable std::shared_ptr<Sampler> sampler_;
 };
 
@@ -73,11 +74,13 @@ public:
      * \param invalidateWhenMasked masked node is automatically invalidated
      */
     NodeInfo(const registry::ReferenceFrame &referenceFrame
-             , const TileId &tileId, bool invalidateWhenMasked = true);
+             , const TileId &tileId, bool invalidateWhenMasked = true
+             , const registry::Registry &reg = registry::system);
 
     /** Root node info.
      */
-    NodeInfo(const registry::ReferenceFrame &referenceFrame);
+    NodeInfo(const registry::ReferenceFrame &referenceFrame
+             , const registry::Registry &reg = registry::system);
 
     /** Node.
      */
@@ -152,7 +155,8 @@ private:
     /** Node info.
      */
     NodeInfo(const registry::ReferenceFrame &referenceFrame
-             , const RFNode &node);
+             , const RFNode &node
+             , const registry::Registry &reg = registry::system);
 
     /** Associated reference frame
      */
@@ -180,8 +184,10 @@ bool compatible(const NodeInfo &ni1, const NodeInfo &ni2);
 
 // inline functions
 
-inline NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame)
-    : referenceFrame_(&referenceFrame), subtree_(referenceFrame.root())
+inline NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
+                          , const registry::Registry &reg)
+    : referenceFrame_(&referenceFrame)
+    , subtree_(referenceFrame.root(), reg)
     , node_(subtree_.root()), partial_(false)
 {}
 

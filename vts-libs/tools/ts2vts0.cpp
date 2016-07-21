@@ -213,7 +213,7 @@ int TileSet2Vts::run()
           , math::Point2(props.alignment(0) + props.baseTileSize
                          , props.alignment(1) + props.baseTileSize)));
 
-    auto rf(vr::Registry::referenceFrame(referenceFrame_));
+    auto rf(vr::system.referenceFrames(referenceFrame_));
 
     // check
     if (rootExtents != rf.rootExtents()) {

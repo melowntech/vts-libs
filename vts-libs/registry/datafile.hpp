@@ -25,7 +25,8 @@ struct DataFile {
 
     /** Mapping dictionary
      */
-    typedef Dictionary<DataFile> dict;
+    enum class Key { filename, path };
+    typedef StringDictionary<DataFile> dict;
 
     DataFile(const boost::filesystem::path &path);
 };

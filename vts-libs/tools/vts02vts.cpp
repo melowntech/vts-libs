@@ -150,9 +150,9 @@ void Vts02Vts::configure(const po::variables_map &vars)
 
         vr::BoundLayer layer;
         try {
-            layer = vr::Registry::boundLayer(boost::lexical_cast<int>(value));
+            layer = vr::system.boundLayers(boost::lexical_cast<int>(value));
         } catch (boost::bad_lexical_cast) {
-            layer = vr::Registry::boundLayer(value);
+            layer = vr::system.boundLayers(value);
         }
 
         if (layer.type != vr::BoundLayer::Type::raster) {
@@ -170,9 +170,9 @@ void Vts02Vts::configure(const po::variables_map &vars)
         {
             vr::Credit credit;
             try {
-                credit = vr::Registry::credit(boost::lexical_cast<int>(value));
+                credit = vr::system.credits(boost::lexical_cast<int>(value));
             } catch (boost::bad_lexical_cast) {
-                credit = vr::Registry::credit(value);
+                credit = vr::system.credits(value);
             }
 
             config_.credits.insert(credit.numericId);
@@ -223,7 +223,7 @@ determineNtLod(const vts0::TileIndex &ti, const vts0::Properties &prop
                , vr::ReferenceFrame referenceFrame, double pixelSize)
 {
     geo::SrsFactors sf
-        (vr::Registry::srs(referenceFrame.model.physicalSrs).srsDef);
+        (vr::system.srs(referenceFrame.model.physicalSrs).srsDef);
 
     const auto lodRange(ti.lodRange());
 
