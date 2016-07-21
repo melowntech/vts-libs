@@ -63,6 +63,7 @@ public:
         addOptions_.bumpVersion = false;
         addOptions_.dryRun = false;
         addOptions_.generateReferences = false;
+        addOptions_.clip = true;
 
         relocateOptions_.dryRun = false;
     }
@@ -262,7 +263,8 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("dryRun", "Simulate glue creation.")
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
-            ("refs", "Do not generate references")
+            ("refs", "Generate glue surface references")
+            ("clip", "Clip meshes by merge coverage.")
             ;
 
         p.positional.add("tileset", 1);
@@ -313,6 +315,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             addOptions_.bumpVersion = vars.count("bumpVersion");
             addOptions_.dryRun = vars.count("dryRun");
             addOptions_.generateReferences = vars.count("refs");
+            addOptions_.clip = vars.count("clip");
         };
     });
 
@@ -330,7 +333,8 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("dryRun", "Simulate glue creation.")
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
-            ("norefs", "Do not generate references")
+            ("refs", "Do not generate references")
+            ("clip", "Clip meshes by merge coverage.")
             ;
 
         p.positional.add("tilesetId", 1);
@@ -340,7 +344,8 @@ void VtsStorage::configuration(po::options_description &cmdline
             if (vars.count("tmp")) {
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
             }
-            addOptions_.generateReferences = !vars.count("norefs");
+            addOptions_.generateReferences = vars.count("refs");
+            addOptions_.clip = vars.count("clip");
         };
     });
 

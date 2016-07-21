@@ -94,6 +94,12 @@ struct Output {
     }
 };
 
+struct MergeOptions {
+    bool clip;
+
+    MergeOptions() : clip(true) {}
+};
+
 /** Various merging constraints.
  */
 class MergeConstraints {
@@ -137,7 +143,8 @@ Output mergeTile(const TileId &tileId
                  , const NodeInfo &nodeInfo
                  , const Input::list &source
                  , const TileSource &parentSource
-                 , const MergeConstraints &constraints);
+                 , const MergeConstraints &constraints
+                 , const MergeOptions &options);
 
 // inlines
 

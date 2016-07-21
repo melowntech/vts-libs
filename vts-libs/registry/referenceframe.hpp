@@ -300,6 +300,11 @@ struct BoundLayer {
 
     BoundLayer() : numericId(), isTransparent(false) {}
 
+    explicit BoundLayer(const std::string &id, const std::string &url)
+        : id(id), numericId(), type(Type::external)
+        , url(url), isTransparent(false)
+    {}
+
     bool external() const { return type == Type::external; }
 
     static constexpr char typeName[] = "bound layer";

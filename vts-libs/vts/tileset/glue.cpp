@@ -108,10 +108,13 @@ public:
         , topId_(src_.size() - 1), progress_(generate_.count())
         , options_(options)
     {
+        // update merge options
+        mergeOptions_.clip = options.clip;
+
         // make world complete
         world_.complete();
 
-        // ruin
+        // run
         mergeTile(NodeInfo(glue_.referenceFrame));
     }
 
@@ -158,6 +161,7 @@ private:
     utility::Progress progress_;
 
     const GlueCreationOptions options_;
+    merge::MergeOptions mergeOptions_;
 };
 
 inline bool Merger::isAlienTile(const merge::Output &tile) const
@@ -293,7 +297,7 @@ merge::Output Merger::processTile(const NodeInfo &nodeInfo
 
     // run merge operation
     return merge::mergeTile(tileId, nodeInfo, input, parentSource
-                            , constraints);
+                            , constraints, mergeOptions_);
 }
 
 TileIndex buildGenerateSet(const char *dumpRoot
