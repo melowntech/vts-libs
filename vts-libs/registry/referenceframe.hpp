@@ -322,6 +322,10 @@ struct BoundLayer {
 
     static math::Size2 tileSize() { return { 256, 256 }; }
     static double tileArea() { return math::area(tileSize()); }
+    static math::Size2 metaSize() { return { 256, 256 }; }
+    static double metaArea() { return math::area(metaSize()); }
+    static math::Size2 maskSize() { return { 256, 256 }; }
+    static double maskArea() { return math::area(maskSize()); }
 
     typedef DualDictionary<BoundLayer, BoundLayer::NumericId> dict;
 };

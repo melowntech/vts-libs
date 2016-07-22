@@ -33,12 +33,12 @@ struct MetaNode;
  *
  *                NB: if driver cannot clone dataset by its own the dataset se
  *                cloned ad plain dataset (i.e. sameType flag is ignored)
- *    * metaNodeFilter:
+ *    * metaNodeManipulator:
  *                allows metanode change during cloning operation
  */
 class CloneOptions {
 public:
-    typedef std::function<MetaNode (const MetaNode&)> MetaNodeFilter;
+    typedef std::function<MetaNode (const MetaNode&)> MetaNodeManipulator;
 
     CloneOptions()
         : mode_(CreateMode::failIfExists), sameType_(false)
@@ -58,9 +58,12 @@ public:
     }
 
 
-    MetaNodeFilter metaNodeFilter() const { return metaNodeFilter_; };
-    CloneOptions& metaNodeFilter(MetaNodeFilter metaNodeFilter) {
-        metaNodeFilter_ = metaNodeFilter; return *this;
+    MetaNodeManipulator metaNodeManipulator() const {
+        return metaNodeManipulator_;
+    };
+    CloneOptions&
+    metaNodeManipulator(MetaNodeManipulator metaNodeManipulator) {
+        metaNodeManipulator_ = metaNodeManipulator; return *this;
     };
 
     CloneOptions& sameType(bool sameType) {
@@ -72,7 +75,7 @@ private:
     CreateMode mode_;
     boost::optional<std::string> tilesetId_;
     boost::optional<LodRange> lodRange_;
-    MetaNodeFilter metaNodeFilter_;
+    MetaNodeManipulator metaNodeManipulator_;
     bool sameType_;
 };
 

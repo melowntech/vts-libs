@@ -247,7 +247,7 @@ struct TileSet::Factory
                       , const CloneOptions &cloneOptions)
     {
         // simple case? use fully optimized version
-        if (!(cloneOptions.lodRange() || cloneOptions.metaNodeFilter())) {
+        if (!(cloneOptions.lodRange() || cloneOptions.metaNodeManipulator())) {
             return clone(reportName, src, dst);
         }
 
@@ -255,8 +255,8 @@ struct TileSet::Factory
         auto &dd(*dst.driver);
         auto lodRange(cloneOptions.lodRange()
                       ? *cloneOptions.lodRange() : src.lodRange);
-        auto mnf(cloneOptions.metaNodeFilter());
-        
+        auto mnm(cloneOptions.metaNodeManipulator());
+
         const utility::Progress::ratio_t reportRatio(1, 100);
         utility::Progress progress(src.tileIndex.count());
         auto report([&]() { (++progress).report(reportRatio, reportName); });
@@ -300,10 +300,10 @@ struct TileSet::Factory
                          , dd.output(tid, storage::TileFile::navtile));
             }
 
-            if (mnf) {
+            if (mnm) {
                 // filter metanode
-                dst.updateNode(tid, mnf(*metanode)
-                           , (mask & TileIndex::Flag::nonmeta));
+                dst.updateNode(tid, mnm(*metanode)
+                               , (mask & TileIndex::Flag::nonmeta));
             } else {
                 // pass metanode as-is
                 dst.updateNode(tid, *metanode

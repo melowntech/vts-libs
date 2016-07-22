@@ -1354,7 +1354,7 @@ int VtsStorage::clone()
     cloneOptions.lodRange(optLodRange_);
     cloneOptions.mode(createMode_);
     if (!forceCredits_.empty()) {
-        cloneOptions.metaNodeFilter(
+        cloneOptions.metaNodeManipulator(
             [&](vts::MetaNode metanode) -> vts::MetaNode {
                 metanode.setCredits(forceCredits_);
                 return metanode;
