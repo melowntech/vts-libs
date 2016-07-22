@@ -244,10 +244,18 @@ struct TileSet::Factory
 
     static void clone(const std::string &reportName
                       , const Detail &src, Detail &dst
-                      , const LodRange &lodRange)
+                      , const CloneOptions &cloneOptions)
     {
+        // simple case? use fully optimized version
+        if (cloneOptions.lodRange() || cloneOptions.metaNodeFilter()) {
+            return clone(reportName, src, dst);
+        }
+
         const auto &sd(*src.driver);
         auto &dd(*dst.driver);
+        auto lodRange(cloneOptions.lodRange()
+                      ? *cloneOptions.lodRange() : src.lodRange);
+        auto mnf(cloneOptions.metaNodeFilter());
 
         const utility::Progress::ratio_t reportRatio(1, 100);
         utility::Progress progress(src.tileIndex.count());
@@ -255,7 +263,7 @@ struct TileSet::Factory
 
         traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
         {
-            // skip
+            // skip out-of range
             if (!in(lodRange, tid.lod)) {
                 report();
                 return;
@@ -292,8 +300,15 @@ struct TileSet::Factory
                          , dd.output(tid, storage::TileFile::navtile));
             }
 
-            dst.updateNode(tid, *metanode
+            if (mnf) {
+                // filter metanode
+                dst.updateNode(tid, mnf(*metanode)
                            , (mask & TileIndex::Flag::nonmeta));
+            } else {
+                // pass metanode as-is
+                dst.updateNode(tid, *metanode
+                           , (mask & TileIndex::Flag::nonmeta));
+            }
             LOG(info1) << "Stored tile " << tid << ".";
             report();
         });
@@ -326,12 +341,7 @@ struct TileSet::Factory
 
         const auto reportName(str(boost::format("Cloning <%s> ")
                                   % src.detail().properties.id));
-        if (cloneOptions.lodRange()) {
-            clone(reportName, src.detail(), dst.detail()
-                  , *cloneOptions.lodRange());
-        } else {
-            clone(reportName, src.detail(), dst.detail());
-        }
+        clone(reportName, src.detail(), dst.detail(), cloneOptions);
 
         // and flush
         dst.flush();

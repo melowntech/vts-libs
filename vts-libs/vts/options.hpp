@@ -14,6 +14,9 @@
 
 namespace vadstena { namespace vts {
 
+// fwd declaration; include metatile.hpp if MetaNode is needed.
+struct MetaNode;
+
 /** Tilset clone options. Sometimes used for tileset creation.
  *
  *  Options:
@@ -30,9 +33,13 @@ namespace vadstena { namespace vts {
  *
  *                NB: if driver cannot clone dataset by its own the dataset se
  *                cloned ad plain dataset (i.e. sameType flag is ignored)
+ *    * metaNodeFilter:
+ *                allows metanode change during cloning operation
  */
 class CloneOptions {
 public:
+    typedef std::function<MetaNode (const MetaNode&)> MetaNodeFilter;
+
     CloneOptions()
         : mode_(CreateMode::failIfExists), sameType_(false)
     {}
@@ -40,30 +47,32 @@ public:
     CreateMode mode() const { return mode_; }
     CloneOptions& mode(CreateMode mode) { mode_ = mode; return *this; }
 
-    boost::optional<std::string> tilesetId() const {
-        return tilesetId_;
-    }
-
+    boost::optional<std::string> tilesetId() const { return tilesetId_; }
     CloneOptions& tilesetId(boost::optional<std::string> tilesetId) {
         tilesetId_ = tilesetId; return *this;
     }
 
     boost::optional<LodRange> lodRange() const { return lodRange_; }
-
     CloneOptions& lodRange(const boost::optional<LodRange> &lodRange) {
         lodRange_ = lodRange; return *this;
     }
 
+
+    MetaNodeFilter metaNodeFilter() const { return metaNodeFilter_; };
+    CloneOptions& metaNodeFilter(MetaNodeFilter metaNodeFilter) {
+        metaNodeFilter_ = metaNodeFilter; return *this;
+    };
+
     CloneOptions& sameType(bool sameType) {
         sameType_ = sameType; return *this;
     }
-
     bool sameType() const { return sameType_; }
 
 private:
     CreateMode mode_;
     boost::optional<std::string> tilesetId_;
     boost::optional<LodRange> lodRange_;
+    MetaNodeFilter metaNodeFilter_;
     bool sameType_;
 };
 
