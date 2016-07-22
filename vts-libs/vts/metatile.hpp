@@ -148,6 +148,12 @@ struct MetaNode {
         credits_.insert(creditId);
     }
 
+    template <typename CreditIdsType>
+    void setCredits(const CreditIdsType &credits) {
+        credits_.clear();
+        credits_.insert(credits.begin(), credits.end());
+    }
+
     std::size_t internalTextureCount() const {
         return (geometry() ? internalTextureCount_ : 0);
     }

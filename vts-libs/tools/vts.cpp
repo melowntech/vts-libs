@@ -1,4 +1,5 @@
 #include <boost/uuid/uuid_io.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -24,6 +25,8 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 namespace vts = vadstena::vts;
 namespace vr = vadstena::registry;
+namespace vs = vadstena::storage;
+namespace ba = boost::algorithm;
 
 UTILITY_GENERATE_ENUM(Command,
                       ((info))
@@ -176,6 +179,7 @@ private:
     vts::Storage::AddOptions addOptions_;
     vts::RelocateOptions relocateOptions_;
     bool brief_;
+    vs::CreditIds forceCredits_;
 
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
 };
@@ -562,6 +566,9 @@ void VtsStorage::configuration(po::options_description &cmdline
              "tileset path ")
             ("lodRange", po::value<vts::LodRange>()
              , "Limits output to given LOD range from source tileset.")
+            ("forceCredits", po::value<std::string>()
+             , "Comma-separated list of string/numeric credit id to override "
+             "existing credits. If not specified, credits are not touched.")
             ;
 
         p.configure = [&](const po::variables_map &vars) {
@@ -575,6 +582,24 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             if (vars.count("lodRange")) {
                 optLodRange_ = vars["lodRange"].as<vts::LodRange>();
+            }
+
+            if (vars.count("forceCredits")) {
+                std::vector<std::string> parts;
+                for (const auto &value
+                    : ba::split( parts, vars["forceCredits"].as<std::string>()
+                               , ba::is_any_of(",")))
+                {
+                    vr::Credit credit;
+                    try {
+                        credit = vr::system.credits(
+                                    boost::lexical_cast<int>(value));
+                    } catch (boost::bad_lexical_cast) {
+                        credit = vr::system.credits(value);
+                    }
+
+                    forceCredits_.insert(credit.numericId);
+                }
             }
         };
 
@@ -1328,6 +1353,13 @@ int VtsStorage::clone()
     cloneOptions.tilesetId(optTilesetId_);
     cloneOptions.lodRange(optLodRange_);
     cloneOptions.mode(createMode_);
+    if (!forceCredits_.empty()) {
+        cloneOptions.metaNodeFilter(
+            [&](vts::MetaNode metanode) -> vts::MetaNode {
+                metanode.setCredits(forceCredits_);
+                return metanode;
+            });
+    }
 
     switch (vts::datasetType(path_)) {
     case vts::DatasetType::TileSet:

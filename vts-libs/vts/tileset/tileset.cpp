@@ -247,7 +247,7 @@ struct TileSet::Factory
                       , const CloneOptions &cloneOptions)
     {
         // simple case? use fully optimized version
-        if (cloneOptions.lodRange() || cloneOptions.metaNodeFilter()) {
+        if (!(cloneOptions.lodRange() || cloneOptions.metaNodeFilter())) {
             return clone(reportName, src, dst);
         }
 
@@ -256,7 +256,7 @@ struct TileSet::Factory
         auto lodRange(cloneOptions.lodRange()
                       ? *cloneOptions.lodRange() : src.lodRange);
         auto mnf(cloneOptions.metaNodeFilter());
-
+        
         const utility::Progress::ratio_t reportRatio(1, 100);
         utility::Progress progress(src.tileIndex.count());
         auto report([&]() { (++progress).report(reportRatio, reportName); });
