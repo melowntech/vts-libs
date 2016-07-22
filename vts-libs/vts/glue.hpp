@@ -11,7 +11,7 @@
 
 namespace vadstena { namespace vts {
 
-struct Glue : public utility::Supplement {
+struct Glue : public utility::Supplement<Glue> {
     typedef TilesetIdList Id;
     Id id;
     std::string path;
@@ -32,7 +32,7 @@ struct Glue : public utility::Supplement {
 
 /** Tileset with its glues.
  */
-struct TileSetGlues : public utility::Supplement {
+struct TileSetGlues : public utility::Supplement<TileSetGlues> {
     struct EnhancedGlue : Glue {
         template <typename ...Args>
         EnhancedGlue(Args &&...args) : Glue(std::forward<Args>(args)...) {}
