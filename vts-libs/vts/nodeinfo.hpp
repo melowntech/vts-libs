@@ -96,6 +96,8 @@ public:
 
     const std::string& srs() const { return node_.srs; }
 
+    /** Full srs from registry.
+     */
     const geo::SrsDefinition& srsDef() const;
 
     /** Distance from root.
