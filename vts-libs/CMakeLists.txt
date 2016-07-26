@@ -225,6 +225,8 @@ set(vts-core_SOURCES
 
   vts/types2d.hpp
   vts/2d.hpp vts/2d.cpp
+
+  vts/urltemplate.hpp vts/urltemplate.cpp
   )
 
 set(vts_SOURCES
