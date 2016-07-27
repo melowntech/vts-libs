@@ -31,7 +31,7 @@ set(vts-common_SOURCES
   storage/tilar.hpp storage/tilar.cpp
   storage/tilar-io.hpp
 
-  storage/support.hpp
+  storage/support.hpp storage/support.cpp
   )
 
 # registry
