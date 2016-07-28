@@ -59,9 +59,9 @@ struct View {
 
     operator bool() const { return !(surfaces.empty() || freeLayers.empty()); }
 
-    // void add(const std::string &id) {
-    //     surfaces[id];
-    // }
+    BoundLayerParams::list& addSurface(const std::string &id) {
+        return surfaces[id];
+    }
 
     void merge(const View &view) {
         surfaces.insert(view.surfaces.begin(), view.surfaces.end());

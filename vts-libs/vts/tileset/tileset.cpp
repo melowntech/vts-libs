@@ -1329,7 +1329,7 @@ MapConfig mapConfig(const FullTileSetProperties &properties
         mapConfig.view = extra.view;
     } else {
         // just one surface in the view
-        mapConfig.view.add(surface.id);
+        mapConfig.view.addSurface(surface.id);
     }
 
     mapConfig.browserOptions = extra.browserOptions;

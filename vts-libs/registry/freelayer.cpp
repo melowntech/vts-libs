@@ -13,25 +13,29 @@ constexpr char FreeLayer::typeName[];
 
 namespace {
 
-inline void parse(math::Extents2 &extents, const Json::Value &content)
+inline void parse(math::Extents3 &extents, const Json::Value &content)
 {
     get(extents.ll(0), content, "ll", 0);
     get(extents.ll(1), content, "ll", 1);
+    get(extents.ll(2), content, "ll", 2);
     get(extents.ur(0), content, "ur", 0);
     get(extents.ur(1), content, "ur", 1);
+    get(extents.ur(2), content, "ur", 2);
 }
 
-inline void build(Json::Value &content, const math::Extents2 &extents)
+inline void build(Json::Value &content, const math::Extents3 &extents)
 {
     content = Json::objectValue;
 
     auto &ll(content["ll"] = Json::arrayValue);
     ll.append(extents.ll(0));
     ll.append(extents.ll(1));
+    ll.append(extents.ll(2));
 
     auto &ur(content["ur"] = Json::arrayValue);
     ur.append(extents.ur(0));
     ur.append(extents.ur(1));
+    ur.append(extents.ur(2));
 }
 
 inline void build(Json::Value &content, const TileRange &tileRange)
@@ -56,6 +60,7 @@ void build(Json::Value &content, const FreeLayer::Geodata &def)
 {
     build(content["extents"], def.extents);
     content["displaySize"] = def.displaySize;
+    content["label"] = def.label;
     content["geodata"] = def.geodata;
     content["style"] = def.style;
 }
@@ -128,6 +133,7 @@ void parse(FreeLayer::Geodata &def, const Json::Value &content)
 {
     parse(def.extents, content["extents"]);
     Json::get(def.displaySize, content, "displaySize");
+    Json::get(def.label, content, "label");
     Json::get(def.geodata, content, "geodata");
     Json::get(def.style, content, "style");
 }

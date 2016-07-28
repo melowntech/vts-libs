@@ -24,8 +24,9 @@ struct FreeLayer {
     enum class Type { external, geodata, geodataTiles, meshTiles };
 
     struct Geodata {
-        math::Extents2 extents;
+        math::Extents3 extents;
         int displaySize;
+        std::string label;
         std::string geodata;
         std::string style;
     };

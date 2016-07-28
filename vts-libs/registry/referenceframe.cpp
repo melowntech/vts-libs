@@ -953,7 +953,7 @@ ReferenceFrame::dict loadReferenceFrames(const boost::filesystem::path &path)
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to load reference frame file file " << path << ".";
+            << "Unable to load reference frame file " << path << ".";
     }
     auto rfs(loadReferenceFrames(f, path));
     f.close();
@@ -972,14 +972,14 @@ void saveReferenceFrames(std::ostream &out
 void saveReferenceFrames(const boost::filesystem::path &path
                          , const ReferenceFrame::dict &rfs)
 {
-    LOG(info1) << "Saving reference frame file file to " << path  << ".";
+    LOG(info1) << "Saving reference frame file to " << path  << ".";
     std::ofstream f;
     try {
         f.exceptions(std::ios::badbit | std::ios::failbit);
         f.open(path.string(), std::ios_base::out);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to save reference frame file file " << path << ".";
+            << "Unable to save reference frame file " << path << ".";
     }
     saveReferenceFrames(f, rfs);
     f.close();
@@ -1010,7 +1010,7 @@ Srs::dict loadSrs(const boost::filesystem::path &path)
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to load srs file file " << path << ".";
+            << "Unable to load srs file " << path << ".";
     }
     auto srs(loadSrs(f));
     f.close();
@@ -1028,14 +1028,14 @@ void saveSrs(std::ostream &out, const Srs::dict &srs)
 void saveSrs(const boost::filesystem::path &path
              , const Srs::dict &srs)
 {
-    LOG(info1) << "Saving srs file file to " << path  << ".";
+    LOG(info1) << "Saving srs file to " << path  << ".";
     std::ofstream f;
     try {
         f.exceptions(std::ios::badbit | std::ios::failbit);
         f.open(path.string(), std::ios_base::out);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to save srs file file " << path << ".";
+            << "Unable to save srs file " << path << ".";
     }
     saveSrs(f, srs);
     f.close();
@@ -1066,7 +1066,7 @@ BoundLayer::dict loadBoundLayers(const boost::filesystem::path &path)
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to load bound layer file file " << path << ".";
+            << "Unable to load bound layer file " << path << ".";
     }
     auto boundLayers(loadBoundLayers(f));
     f.close();
@@ -1084,14 +1084,14 @@ void saveBoundLayers(std::ostream &out, const BoundLayer::dict &boundLayers)
 void saveBoundLayers(const boost::filesystem::path &path
                      , const BoundLayer::dict &boundLayers)
 {
-    LOG(info1) << "Saving bound layers file file to " << path  << ".";
+    LOG(info1) << "Saving bound layers file to " << path  << ".";
     std::ofstream f;
     try {
         f.exceptions(std::ios::badbit | std::ios::failbit);
         f.open(path.string(), std::ios_base::out);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to save bound Layers file file " << path << ".";
+            << "Unable to save bound Layers file " << path << ".";
     }
     saveBoundLayers(f, boundLayers);
     f.close();
