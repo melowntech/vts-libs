@@ -32,6 +32,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((info))
                       ((create))
                       ((add))
+                      ((addLocal)("add-local"))
                       ((readd))
                       ((remove))
                       ((dumpMetatile)("dump-metatile"))
@@ -120,6 +121,8 @@ private:
     int create();
 
     int add();
+
+    int addLocal();
 
     int readd();
 
@@ -242,6 +245,95 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.options.add_options()
             ("tileset", po::value(&tileset_)->required()
              , "Path to source tileset.")
+            ("tilesetId", po::value<std::string>()
+             , "TilesetId to use in storage, defaults to id "
+             "stored in tileset.")
+
+            ("above", po::value<std::string>()
+             , "Place new tileset right above given one."
+             " Conflicts with --below, --top and --bottom.")
+            ("below", po::value<std::string>()
+             , "Place new tileset right below given one."
+             " Conflicts with --above, --top and --bottom.")
+            ("top", "Place new tileset at the top of the stack."
+             " Conflicts with --above, --below and --bottom.")
+            ("bottom", "Place new tileset at the bottom of the stack."
+             " Conflicts with --above, --below and --top.")
+
+            ("lodRange", po::value<vts::LodRange>()
+             , "Limits used LOD range from source tileset.")
+            ("textureQuality", po::value(&addOptions_.textureQuality)
+             ->required()->default_value(addOptions_.textureQuality)
+             , "Quality of repacked atlases. 0 means no repacking.")
+
+            ("bumpVersion", "Add dataset under new version")
+            ("dryRun", "Simulate glue creation.")
+            ("tmp", po::value<fs::path>()
+             , "Temporary directory where to work with temporary data.")
+            ("refs", "Generate glue surface references")
+            ("clip", "Clip meshes by merge coverage.")
+            ;
+
+        p.positional.add("tileset", 1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            if (vars.count("tilesetId")) {
+                optTilesetId_ = vars["tilesetId"].as<std::string>();
+            }
+            if (vars.count("lodRange")) {
+                addOptions_.filter.lodRange
+                (vars["lodRange"].as<vts::LodRange>());
+            }
+            if (vars.count("tmp")) {
+                addOptions_.tmp = vars["tmp"].as<fs::path>();
+            }
+
+            // handle where options
+            bool above(vars.count("above"));
+            bool below(vars.count("below"));
+            bool top(vars.count("top"));
+            bool bottom(vars.count("bottom"));
+            int sum(above + below + top + bottom);
+            if (!sum) {
+                throw po::validation_error
+                    (po::validation_error::at_least_one_value_required
+                     , "above,below,top,bottom");
+            }
+            if (sum > 1) {
+                throw po::validation_error
+                    (po::validation_error::multiple_values_not_allowed
+                     , "above,below,top,bottom");
+            }
+
+            if (above) {
+                where_.where = vars["above"].as<std::string>();
+                where_.direction = vts::Storage::Location::Direction::above;
+            } else if (below) {
+                where_.where = vars["below"].as<std::string>();
+                where_.direction = vts::Storage::Location::Direction::below;
+            } else if (top) {
+                where_.where.clear();
+                where_.direction = vts::Storage::Location::Direction::below;
+            } else if (bottom) {
+                where_.where.clear();
+                where_.direction = vts::Storage::Location::Direction::above;
+            }
+
+            addOptions_.bumpVersion = vars.count("bumpVersion");
+            addOptions_.dryRun = vars.count("dryRun");
+            addOptions_.generateReferences = vars.count("refs");
+            addOptions_.clip = vars.count("clip");
+        };
+    });
+
+    createParser(cmdline, Command::addLocal
+                 , "--command=add-local: adds new tileset to VTS storage as "
+                   "local tileset."
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileset", po::value(&tileset_)->required()
+             , "Absolute path to source tileset.")
             ("tilesetId", po::value<std::string>()
              , "TilesetId to use in storage, defaults to id "
              "stored in tileset.")
@@ -743,6 +835,7 @@ int VtsStorage::runCommand()
     case Command::info: return info();
     case Command::create: return create();
     case Command::add: return add();
+    case Command::addLocal: return addLocal();
     case Command::readd: return readd();
     case Command::remove: return remove();
     case Command::dumpMetatile: return dumpMetatile();
@@ -913,6 +1006,34 @@ int VtsStorage::add()
                 , optTilesetId_ ? *optTilesetId_ : std::string()
                 , addOptions_);
     return EXIT_SUCCESS;
+}
+
+int VtsStorage::addLocal()
+{
+    // prepare variables for local()
+    fs::path tmpLocalTilesetPath(path_ / fs::path("tmp/local"));
+    auto storagePath(path_);
+
+    localPath_ = tileset_;
+    path_= tmpLocalTilesetPath;
+    createMode_ = vts::CreateMode::overwrite;
+
+    // run local()
+
+    LOG(info3) << "Creating local tileset.";
+    auto res(local());
+
+    if (res != EXIT_SUCCESS) {
+        return res;
+    }
+
+    // prepare variables for add()
+    tileset_ = tmpLocalTilesetPath;
+    path_ = storagePath;
+
+    // run add()
+
+    return add();
 }
 
 int VtsStorage::readd()
