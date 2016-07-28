@@ -13,34 +13,67 @@ constexpr char FreeLayer::typeName[];
 
 namespace {
 
+inline void parse(math::Extents2 &extents, const Json::Value &content)
+{
+    get(extents.ll(0), content, "ll", 0);
+    get(extents.ll(1), content, "ll", 1);
+    get(extents.ur(0), content, "ur", 0);
+    get(extents.ur(1), content, "ur", 1);
+}
+
+inline void build(Json::Value &content, const math::Extents2 &extents)
+{
+    content = Json::objectValue;
+
+    auto &ll(content["ll"] = Json::arrayValue);
+    ll.append(extents.ll(0));
+    ll.append(extents.ll(1));
+
+    auto &ur(content["ur"] = Json::arrayValue);
+    ur.append(extents.ur(0));
+    ur.append(extents.ur(1));
+}
+
+inline void build(Json::Value &content, const TileRange &tileRange)
+{
+    content = Json::arrayValue;
+    auto &tileRangeMin(content.append(Json::arrayValue));
+    tileRangeMin.append(tileRange.ll(0));
+    tileRangeMin.append(tileRange.ll(1));
+    auto &tileRangeMax(content.append(Json::arrayValue));
+    tileRangeMax.append(tileRange.ur(0));
+    tileRangeMax.append(tileRange.ur(1));
+}
+
+inline void build(Json::Value &content, const LodRange &lodRange)
+{
+    content = Json::arrayValue;
+    content.append(lodRange.min);
+    content.append(lodRange.max);
+}
+
 void build(Json::Value &content, const FreeLayer::Geodata &def)
 {
-    (void) content;
-    (void) def;
-    // TODO implement me
+    build(content["extents"], def.extents);
+    content["displaySize"] = def.displaySize;
+    content["geodata"] = def.geodata;
+    content["style"] = def.style;
 }
 
 void build(Json::Value &content, const FreeLayer::GeodataTiles &def)
 {
-    (void) content;
-    (void) def;
-    // TODO implement me
+    build(content["lodRange"], def.lodRange);
+    build(content["tileRange"], def.tileRange);
+
+    content["metaUrl"] = def.metaUrl;
+    content["geodataUrl"] = def.geodataUrl;
+    content["style"] = def.style;
 }
 
 void build(Json::Value &content, const FreeLayer::MeshTiles &def)
 {
-    auto &lodRange(content["lodRange"] = Json::arrayValue);
-    lodRange.append(def.lodRange.min);
-    lodRange.append(def.lodRange.max);
-
-    auto &tileRange(content["tileRange"] = Json::arrayValue);
-    auto &tileRangeMin(tileRange.append(Json::arrayValue));
-    tileRangeMin.append(def.tileRange.ll(0));
-    tileRangeMin.append(def.tileRange.ll(1));
-    auto &tileRangeMax(tileRange.append(Json::arrayValue));
-    tileRangeMax.append(def.tileRange.ur(0));
-    tileRangeMax.append(def.tileRange.ur(1));
-
+    build(content["lodRange"], def.lodRange);
+    build(content["tileRange"], def.tileRange);
     content["metaUrl"] = def.metaUrl;
     content["meshUrl"] = def.meshUrl;
     content["textureUrl"] = def.textureUrl;
@@ -93,16 +126,21 @@ void build(Json::Value &content, const FreeLayer::dict &fls
 
 void parse(FreeLayer::Geodata &def, const Json::Value &content)
 {
-    (void) def;
-    (void) content;
-    // TODO implement me
+    parse(def.extents, content["extents"]);
+    Json::get(def.displaySize, content, "displaySize");
+    Json::get(def.geodata, content, "geodata");
+    Json::get(def.style, content, "style");
 }
 
 void parse(FreeLayer::GeodataTiles &def, const Json::Value &content)
 {
-    (void) def;
-    (void) content;
-    // TODO implement me
+    Json::get(def.lodRange.min, content, "lodRange", 0);
+    Json::get(def.lodRange.max, content, "lodRange", 1);
+    def.tileRange = tileRangeFromJson(content["tileRange"]);
+
+    Json::get(def.metaUrl, content, "metaUrl");
+    Json::get(def.geodataUrl, content, "geodataUrl");
+    Json::get(def.style, content, "style");
 }
 
 void parse(FreeLayer::MeshTiles &def, const Json::Value &content)

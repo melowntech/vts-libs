@@ -18,18 +18,24 @@
 
 namespace vadstena { namespace registry {
 
-
 struct FreeLayer {
     static constexpr char typeName[] = "free layer";
 
     enum class Type { external, geodata, geodataTiles, meshTiles };
 
     struct Geodata {
-        // TODO: fill me in
+        math::Extents2 extents;
+        int displaySize;
+        std::string geodata;
+        std::string style;
     };
 
     struct GeodataTiles {
-        // TODO: fill me in
+        LodRange lodRange;
+        TileRange tileRange;
+        std::string metaUrl;
+        std::string geodataUrl;
+        std::string style;
     };
 
     struct MeshTiles {
@@ -50,18 +56,19 @@ struct FreeLayer {
     typedef StringDictionary<FreeLayer> dict;
 
     template <typename T> T& createDefinition();
-};
 
-UTILITY_GENERATE_ENUM_IO(FreeLayer::Type,
-    ((external))
-    ((geodata))
-    ((geodataTiles)("geodata-tiles"))
-    ((meshTiles)("mesh-tiles"))
-)
+    FreeLayer() = default;
+    FreeLayer(std::string id, std::string externalUrl);
+};
 
 void saveFreeLayer(std::ostream &out, const FreeLayer &freeLayer);
 
 // inlines
+
+inline FreeLayer::FreeLayer(std::string id, std::string externalUrl)
+    : id(std::move(id)), type(Type::external)
+    , definition(std::move(externalUrl))
+{}
 
 template <>
 inline FreeLayer::Geodata& FreeLayer::createDefinition<FreeLayer::Geodata>()
@@ -85,6 +92,12 @@ FreeLayer::createDefinition<FreeLayer::MeshTiles>()
     type = Type::meshTiles;
     return boost::get<MeshTiles>(definition = MeshTiles());
 }
+
+UTILITY_GENERATE_ENUM_IO(FreeLayer::Type,
+    ((external))
+    ((geodata))
+    ((geodataTiles)("geodata-tiles"))
+    ((meshTiles)("mesh-tiles")))
 
 } } // namespace vadstena::registry
 

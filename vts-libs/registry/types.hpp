@@ -44,17 +44,24 @@ struct View {
 
         typedef std::vector<BoundLayerParams> list;
     };
+
+    struct FreeLayerParams {
+        boost::optional<std::string> style;
+        BoundLayerParams::list boundLayers;
+    };
+
     typedef std::map<std::string, BoundLayerParams::list> Surfaces;
+    typedef std::map<std::string, FreeLayerParams> FreeLayers;
 
     boost::optional<std::string> description;
     Surfaces surfaces;
-    registry::StringIdSet freeLayers;
+    FreeLayers freeLayers;
 
-    operator bool() const { return !surfaces.empty(); }
+    operator bool() const { return !(surfaces.empty() || freeLayers.empty()); }
 
-    void add(const std::string &id) {
-        surfaces[id];
-    }
+    // void add(const std::string &id) {
+    //     surfaces[id];
+    // }
 
     void merge(const View &view) {
         surfaces.insert(view.surfaces.begin(), view.surfaces.end());

@@ -87,6 +87,8 @@ struct MapConfig : public registry::Registry {
     SurfaceConfig::list surfaces;
     GlueConfig::list glues;
 
+    registry::FreeLayer::dict freeLayers;
+
     registry::Roi::list rois;
     registry::View view;
     registry::View::map namedViews;

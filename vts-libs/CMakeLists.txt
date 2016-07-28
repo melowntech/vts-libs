@@ -31,7 +31,7 @@ set(vts-common_SOURCES
   storage/tilar.hpp storage/tilar.cpp
   storage/tilar-io.hpp
 
-  storage/support.hpp
+  storage/support.hpp storage/support.cpp
   )
 
 # registry
@@ -225,6 +225,8 @@ set(vts-core_SOURCES
 
   vts/types2d.hpp
   vts/2d.hpp vts/2d.cpp
+
+  vts/urltemplate.hpp vts/urltemplate.cpp
   )
 
 set(vts_SOURCES

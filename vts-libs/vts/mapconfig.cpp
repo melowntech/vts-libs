@@ -294,8 +294,7 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
 
     content["position"] = registry::asJson(mapConfig.position);
 
-    // not implemented (so far)
-    content["freeLayers"] = Json::objectValue;
+    content["freeLayers"] = registry::asJson(mapConfig.freeLayers);
     content["rois"] = registry::asJson(mapConfig.rois);
     content["view"] = registry::asJson(mapConfig.view, boundLayers);
     content["namedViews"]
