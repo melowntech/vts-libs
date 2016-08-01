@@ -75,7 +75,7 @@ bool NodeInfo::help(std::ostream &out, const std::string &what) const
 
 int NodeInfo::run()
 {
-    const auto referenceFrame(vr::Registry::referenceFrame(referenceFrame_));
+    const auto referenceFrame(vr::system.referenceFrames(referenceFrame_));
     vts::NodeInfo ni(referenceFrame, tileId_);
 
     if (!ni.valid()) {
