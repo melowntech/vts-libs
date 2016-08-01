@@ -627,6 +627,15 @@ private:
             }
         }
 
+        // special handling of top-level mesh with empty mask
+        if (sources.back().mesh().coverageMask.empty()) {
+            // top level tile exists but has empty mask (i.e. probably empty
+            // mesh): we have to include it to glue generation otherwise no glue
+            // will exist and original (empty) tile will be rendered
+            indices[sources.size()] = true;
+            hasHoles = true;
+        }
+
         int count(0);
         for (Input::Id id(0), eid(indices.size()); id != eid; ++id) {
             if (!indices[id]) { continue; }
