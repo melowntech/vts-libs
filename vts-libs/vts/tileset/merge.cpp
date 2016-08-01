@@ -632,7 +632,7 @@ private:
             // top level tile exists but has empty mask (i.e. probably empty
             // mesh): we have to include it to glue generation otherwise no glue
             // will exist and original (empty) tile will be rendered
-            indices[sources.size()] = true;
+            indices[sources.back().id()] = true;
             hasHoles = true;
         }
 
