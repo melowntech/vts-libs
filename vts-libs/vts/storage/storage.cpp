@@ -377,7 +377,6 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     for (const auto &tileset : properties.tilesets) {
         // handle tileset as a free layers
         if (freeLayers && (*freeLayers).count(tileset.tilesetId)) {
-            LOG(info4) << "Adding: " << tileset.tilesetId;
             // no inline credits, tileset path as a root
             mapConfig.freeLayers.add
                 (freeLayer
