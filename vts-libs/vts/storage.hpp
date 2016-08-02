@@ -53,9 +53,13 @@ struct ExtraStorageProperties {
      */
     registry::BoundLayer::dict boundLayers;
 
+    /** Free layers definition to include in the output.
+     */
+    registry::FreeLayer::dict freeLayers;
+
     /** Browser core options. Opaque structure.
      */
-    std::shared_ptr<BrowserOptions> browserOptions;
+    boost::any browserOptions;
 
     // TODO: freeLayers
 
@@ -249,10 +253,17 @@ public:
 
     /** Special mapconfig generator to get subset (i.e. storage view) map
      *  configuration.
+     *
+     * \param path path to storage
+     * \param extra extra configuration
+     * \param subset tilesets to put in output
+     * \param freeLayers tilesets to be put in output as mesh-tiles free layers
+     * \param prefix path prefix in all URL templates
      */
     static MapConfig mapConfig(const boost::filesystem::path &path
                                , const ExtraStorageProperties &extra
                                , const TilesetIdSet &subset
+                               , const TilesetIdSet &freeLayers
                                , const boost::filesystem::path &prefix);
 
     /** Check for storage at given path.

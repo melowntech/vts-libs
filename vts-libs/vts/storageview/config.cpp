@@ -35,11 +35,13 @@ void parseSet(std::set<std::string> &ids, const Json::Value &object
 StorageView::Properties parse1(const Json::Value &config)
 {
     StorageView::Properties properties;
-
     std::string stmp;
     Json::get(stmp, config, "storage");
     properties.storagePath = stmp;
     parseSet(properties.tilesets, config, "tilesets");
+    if (config.isMember("freeLayerTilesets")) {
+        parseSet(properties.freeLayerTilesets, config, "freeLayerTilesets");
+    }
 
     // let storage stuff parse the extra configuration
     properties.extra = storage::extraStorageConfigFromJson(1, config);

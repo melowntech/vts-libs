@@ -188,6 +188,7 @@ struct Storage::Detail
                                , const Properties &properties
                                , const ExtraStorageProperties &extra
                                , const TilesetIdSet *subset = nullptr
+                               , const TilesetIdSet *freeLayers = nullptr
                                , const boost::filesystem::path &prefix
                                = boost::filesystem::path());
 };

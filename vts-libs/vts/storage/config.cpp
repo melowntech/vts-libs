@@ -4,7 +4,6 @@
 
 #include "./config.hpp"
 #include "./detail.hpp"
-#include "../json.hpp"
 #include "../../storage/error.hpp"
 #include "../../registry/json.hpp"
 
@@ -286,6 +285,10 @@ ExtraStorageProperties parse1(const Json::Value &config)
         ep.boundLayers = registry::boundLayersFromJson(config["boundLayers"]);
     }
 
+    if (config.isMember("freeLayers")) {
+        ep.freeLayers = registry::freeLayersFromJson(config["freeLayers"]);
+    }
+
     if (config.isMember("rois")) {
         ep.rois = registry::roisFromJson(config["rois"]);
     }
@@ -302,7 +305,7 @@ ExtraStorageProperties parse1(const Json::Value &config)
     if (config.isMember("browserOptions")) {
         const auto &bco(config["browserOptions"]);
         Json::check(bco, Json::objectValue);
-        ep.browserOptions = std::make_shared<BrowserOptions>(bco);
+        ep.browserOptions = bco;
     }
 
     return ep;
@@ -322,6 +325,10 @@ void build(Json::Value &config, const ExtraStorageProperties &ep)
         config["boundLayers"] = registry::asJson(ep.boundLayers);
     }
 
+    if (!ep.freeLayers.empty()) {
+        config["freeLayers"] = registry::asJson(ep.freeLayers);
+    }
+
     if (!ep.rois.empty()) {
         config["rois"] = registry::asJson(ep.rois);
     }
@@ -337,8 +344,13 @@ void build(Json::Value &config, const ExtraStorageProperties &ep)
         config["view"] = registry::asJson(ep.view, tmp);
     }
 
-    if (ep.browserOptions) {
-        config["browserOptions"] = ep.browserOptions->value;
+    if (!ep.browserOptions.empty()) {
+        try {
+            config["browserOptions"]
+                = boost::any_cast<Json::Value>(ep.browserOptions);
+        } catch (boost::bad_any_cast) {
+            // ignore
+        }
     }
 }
 

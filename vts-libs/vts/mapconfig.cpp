@@ -5,7 +5,6 @@
 #include "../registry/json.hpp"
 #include "../storage/error.hpp"
 
-#include "./json.hpp"
 #include "./tileop.hpp"
 #include "./mapconfig.hpp"
 
@@ -315,8 +314,13 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     content["textureAtlasReady"] = mapConfig.textureAtlasReady;
 
     // add browser core options if present
-    if (mapConfig.browserOptions) {
-        content["browserOptions"] = mapConfig.browserOptions->value;
+    if (!mapConfig.browserOptions.empty()) {
+        try {
+            content["browserOptions"]
+                = boost::any_cast<Json::Value>(mapConfig.browserOptions);
+        } catch (boost::bad_any_cast) {
+            // ignore
+        }
     }
 
     os.precision(15);
@@ -375,13 +379,19 @@ void loadMapConfig(MapConfig &mapConfig, std::istream &in
     throw;
 }
 
-registry::FreeLayer freeLayer(const MeshTilesConfig &config)
+registry::FreeLayer freeLayer(const MeshTilesConfig &config
+                              , bool inlineCredits
+                              , const boost::filesystem::path &root)
 {
     registry::FreeLayer fl;
 
     fl.id = config.surface.id;
     for (const auto &credit : config.credits) {
-        fl.credits.set(credit.id, credit);
+        if (inlineCredits) {
+            fl.credits.set(credit.id, credit);
+        } else {
+            fl.credits.set(credit.id, boost::none);
+        }
     }
 
     auto &def(fl.createDefinition<registry::FreeLayer::MeshTiles>());
@@ -390,16 +400,17 @@ registry::FreeLayer freeLayer(const MeshTilesConfig &config)
     def.lodRange = surface.lodRange;
     def.tileRange = surface.tileRange;
 
-    def.metaUrl
-        = (surface.root / fileTemplate(storage::TileFile::meta
-                                       , surface.revision)).string();
-    def.meshUrl
-        = (surface.root / fileTemplate(storage::TileFile::mesh
-                                       , surface.revision)).string();
+    auto useRoot(surface.root.empty() ? root : surface.root);
 
+    def.metaUrl
+        = (useRoot / fileTemplate(storage::TileFile::meta
+                                  , surface.revision)).string();
+    def.meshUrl
+        = (useRoot / fileTemplate(storage::TileFile::mesh
+                                  , surface.revision)).string();
     def.textureUrl
-        = (surface.root / fileTemplate(storage::TileFile::atlas
-                                       , surface.revision)).string();
+        = (useRoot / fileTemplate(storage::TileFile::atlas
+                                  , surface.revision)).string();
     // done
     return fl;
 }

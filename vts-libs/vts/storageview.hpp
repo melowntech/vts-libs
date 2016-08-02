@@ -35,6 +35,10 @@ struct StorageViewProperties  {
      */
     TilesetIdSet tilesets;
 
+    /** Set of tilesets returned as free surfaces.
+     */
+    TilesetIdSet freeLayerTilesets;
+
     /** Extra properties.
      */
     ExtraStorageProperties extra;

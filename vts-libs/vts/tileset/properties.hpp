@@ -105,11 +105,13 @@ struct ExtraTileSetProperties {
      */
     registry::BoundLayer::dict boundLayers;
 
+    /** Free layers definition to include in the output.
+     */
+    registry::FreeLayer::dict freeLayers;
+
     /** Browser core options. Opaque structure.
      */
-    std::shared_ptr<BrowserOptions> browserOptions;
-
-    // TODO: freeLayers
+    boost::any browserOptions;
 
     ExtraTileSetProperties() {}
 };

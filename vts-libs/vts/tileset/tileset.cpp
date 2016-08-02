@@ -1285,6 +1285,7 @@ MapConfig mapConfig(const FullTileSetProperties &properties
     // prefill with extra entitities
     mapConfig.credits = extra.credits;
     mapConfig.boundLayers = extra.boundLayers;
+    mapConfig.freeLayers = extra.freeLayers;
 
     // build
     mapConfig.referenceFrame = referenceFrame;

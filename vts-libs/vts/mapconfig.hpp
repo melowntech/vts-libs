@@ -72,10 +72,6 @@ struct GlueConfig : SurfaceCommonConfig {
     typedef std::vector<GlueConfig> list;
 };
 
-/** Opaque to outer world.
- */
-struct BrowserOptions;
-
 /** Full map configuration.
  *  Inherited from Registry as it can be used in a registry context.
  */
@@ -95,7 +91,7 @@ struct MapConfig : public registry::Registry {
 
     /** Opaque structure holding browser setup.
      */
-    std::shared_ptr<BrowserOptions> browserOptions;
+    boost::any browserOptions;
 
     static const char *contentType;
 
@@ -149,7 +145,10 @@ void loadMapConfig(MapConfig &mapConfig, std::istream &is
 
 /** Convert meshTiles config into free layer definition.
  */
-registry::FreeLayer freeLayer(const MeshTilesConfig &config);
+registry::FreeLayer freeLayer(const MeshTilesConfig &config
+                              , bool inlineCredits = true
+                              , const boost::filesystem::path &root
+                              = boost::filesystem::path());
 
 } } // namespace vadstena::vts
 

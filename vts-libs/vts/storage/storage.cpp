@@ -351,6 +351,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
                                      , const Storage::Properties &properties
                                      , const ExtraStorageProperties &extra
                                      , const TilesetIdSet *subset
+                                     , const TilesetIdSet *freeLayers
                                      , const fs::path &prefix)
 {
     auto referenceFrame(registry::system.referenceFrames
@@ -364,6 +365,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     // prefill extra configuration
     mapConfig.credits = extra.credits;
     mapConfig.boundLayers = extra.boundLayers;
+    mapConfig.freeLayers = extra.freeLayers;
 
     // get in mapconfigs of tilesets and their glues; do not use any tileset's
     // extra configuration
@@ -373,6 +375,19 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
 
     // tilesets
     for (const auto &tileset : properties.tilesets) {
+        // handle tileset as a free layers
+        if (freeLayers && (*freeLayers).count(tileset.tilesetId)) {
+            LOG(info4) << "Adding: " << tileset.tilesetId;
+            // no inline credits, tileset path as a root
+            mapConfig.freeLayers.add
+                (freeLayer
+                 (TileSet::meshTilesConfig
+                  (storage_paths::tilesetPath(root, tileset.tilesetId), false)
+                  , false, prefix / storage_paths::tilesetRoot()
+                  / tileset.tilesetId));
+        }
+
+        // handle tileset as a surface
         if (!allowed(unique, tileset.tilesetId)) { continue; }
         mapConfig.mergeTileSet
             (TileSet::mapConfig
@@ -413,10 +428,11 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
 MapConfig Storage::mapConfig(const boost::filesystem::path &root
                              , const ExtraStorageProperties &extra
                              , const TilesetIdSet &subset
+                             , const TilesetIdSet &freeLayers
                              , const fs::path &prefix)
 {
-    return Detail::mapConfig(root, Detail::loadConfig(root), extra, &subset
-                             , prefix);
+    return Detail::mapConfig(root, Detail::loadConfig(root)
+                             , extra, &subset, &freeLayers, prefix);
 }
 
 bool Storage::check(const boost::filesystem::path &root)

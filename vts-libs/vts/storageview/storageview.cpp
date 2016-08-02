@@ -140,7 +140,7 @@ StorageView::Detail::mapConfig(const boost::filesystem::path &configPath
     // NB: view behaves like a directory although it is a single file
     return Storage::mapConfig
         (properties.storagePath, properties.extra
-         , properties.tilesets
+         , properties.tilesets, properties.freeLayerTilesets
          , utility::relpath(configPath, properties.storagePath));
 }
 

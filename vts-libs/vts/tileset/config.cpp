@@ -9,7 +9,6 @@
 #include "./config.hpp"
 #include "./detail.hpp"
 #include "./driver.hpp"
-#include "../json.hpp"
 #include "../../storage/error.hpp"
 #include "../../registry/json.hpp"
 
@@ -400,6 +399,10 @@ ExtraTileSetProperties parse1(const Json::Value &config)
         ep.boundLayers = registry::boundLayersFromJson(config["boundLayers"]);
     }
 
+    if (config.isMember("freeLayers")) {
+        ep.freeLayers = registry::freeLayersFromJson(config["freeLayers"]);
+    }
+
     if (config.isMember("rois")) {
         ep.rois = registry::roisFromJson(config["rois"]);
     }
@@ -416,7 +419,7 @@ ExtraTileSetProperties parse1(const Json::Value &config)
     if (config.isMember("browserOptions")) {
         const auto &bco(config["browserOptions"]);
         Json::check(bco, Json::objectValue);
-        ep.browserOptions = std::make_shared<BrowserOptions>(bco);
+        ep.browserOptions = bco;
     }
 
     return ep;
