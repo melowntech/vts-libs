@@ -19,7 +19,7 @@
 
 #include "utility/streams.hpp"
 #include "utility/guarded-call.hpp"
-#include "utility/streams.hpp"
+#include "utility/path.hpp"
 
 #include "../../storage/error.hpp"
 #include "../storage.hpp"
@@ -159,7 +159,9 @@ void Storage::Detail::saveConfig()
 {
     // save json
     try {
-        storage::saveConfig(configPath, properties);
+        auto tmpPath(utility::addExtension(configPath, ".tmp"));
+        storage::saveConfig(tmpPath, properties);
+        fs::rename(tmpPath, configPath);
     } catch (const std::exception &e) {
         LOGTHROW(err2, vadstena::storage::Error)
             << "Unable to write config: <" << e.what() << ">.";
@@ -250,6 +252,10 @@ TilesetIdList Storage::tilesets() const
         list.push_back(stored.tilesetId);
     }
     return list;
+}
+
+StoredTileset::list Storage::storedTilesets() const {
+    return detail().properties.tilesets;
 }
 
 Glue::map Storage::glues() const
@@ -615,6 +621,36 @@ void Storage::relocate(const boost::filesystem::path &root
         TileSet::relocate(storage_paths::tilesetPath(root, tileset.tilesetId)
                           , ro, prefix + "    ");
     }
+}
+
+void Storage::updateTags(const TilesetId &tilesetId
+                         , const Tags &add, const Tags &remove)
+{
+    detail().updateTags(tilesetId, add, remove);
+}
+
+void Storage::Detail::updateTags(const TilesetId &tilesetId
+                                 , const Tags &add, const Tags &remove)
+{
+    (void) tilesetId;
+    (void) add;
+    (void) remove;
+
+    auto *tileset(properties.findTileset(tilesetId));
+    if (!tileset) {
+        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+            << "Tileset <" << tilesetId << "> not found in storage "
+            << root << ".";
+    }
+
+    // add tags to be added
+    tileset->tags.insert(add.begin(), add.end());
+
+    // remove tags to be removed
+    for (const auto &tag : remove) { tileset->tags.erase(tag); }
+
+    // store config
+    saveConfig();
 }
 
 } } // namespace vadstena::vts

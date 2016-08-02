@@ -62,6 +62,8 @@ struct ExtraStorageProperties {
     ExtraStorageProperties() {}
 };
 
+typedef std::set<std::string> Tags;
+
 /** Info about stored tileset
  */
 struct StoredTileset {
@@ -77,7 +79,13 @@ struct StoredTileset {
      */
     int version;
 
+    /** Tileset tags
+     */
+    Tags tags;
+
     typedef std::vector<StoredTileset> list;
+
+    typedef std::vector<const StoredTileset*> constptrlist;
 
     StoredTileset() : version(version) {}
 
@@ -132,12 +140,14 @@ public:
      *  textureQuality: JPEG quality of glue textures 0 means no atlas repacking
      *  filter optional: filter for input dataset
      *  dryRun: do not modify anything, simulate add
+     *  tags: set of tags assigned to added tileset
      */
     struct AddOptions : public GlueCreationOptions {
         bool bumpVersion;
         TileFilter filter;
         bool dryRun;
         boost::optional<boost::filesystem::path> tmp;
+        Tags tags;
 
         AddOptions()
             : bumpVersion(false), filter(), dryRun(false)
@@ -170,6 +180,7 @@ public:
      */
     void remove(const TilesetIdList &tilesetIds);
 
+
     /** Flattens content of this storage into new tileset at tilesetPath.
      *
      * \param tilesetPath path to tileset
@@ -180,9 +191,14 @@ public:
                   , const CloneOptions &createOptions
                   , const TilesetIdSet *subset = nullptr) const;
 
-    /** Returns list of tileses in the stacked order (bottom to top);
+    /** Returns list of tileset ID's of tilesets in the stacked order (bottom to
+     *  top);
      */
     TilesetIdList tilesets() const;
+
+    /** Returns list of stored tilesets in the stacked order (bottom to top);
+     */
+    StoredTileset::list storedTilesets() const;
 
     /** Returns list of existing glues.
      */
@@ -219,6 +235,9 @@ public:
     boost::filesystem::path path(const TilesetId &tilesetId) const;
 
     boost::filesystem::path path(const Glue &glue) const;
+
+    void updateTags(const TilesetId &tilesetId
+                    , const Tags &add, const Tags &remove);
 
     /** Generates map configuration for this storage.
      */

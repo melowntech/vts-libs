@@ -43,9 +43,13 @@ void parseTileset(StoredTileset &tileset, const Json::Value &value)
         Json::get(tileset.baseId, value, "base");
         Json::get(tileset.version, value, "version");
     } else {
-        // non-versioned -> base sameId as tilesetId and no version
+        // non-versioned -> baseId is same as tilesetId and no version
         tileset.baseId = tileset.tilesetId;
         tileset.version = 0;
+    }
+
+    for (const auto &tag : value["tags"]) {
+        tileset.tags.insert(tag.asString());
     }
 }
 
@@ -131,6 +135,13 @@ void buildTileset(const StoredTileset &tileset, Json::Value &object)
     if (tileset.version > 0) {
         object["base"] = tileset.baseId;
         object["version"] = tileset.version;
+    }
+
+    if (!tileset.tags.empty()) {
+        auto &tags(object["tags"] = Json::arrayValue);
+        for (const auto &tag : tileset.tags) {
+            tags.append(tag);
+        }
     }
 }
 

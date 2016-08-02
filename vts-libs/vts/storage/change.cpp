@@ -39,6 +39,7 @@
 
 #include "./config.hpp"
 #include "./paths.hpp"
+#include "./gluerules.hpp"
 
 namespace fs = boost::filesystem;
 
@@ -95,10 +96,14 @@ void rmrf(const fs::path &path)
     remove_all(path, ec);
 }
 
-class Tx {
+class Tx : boost::noncopyable {
 public:
     Tx(const fs::path &root, const boost::optional<fs::path> &tmpRoot)
-        : root_(root), tmpRoot_(tmpRoot) {}
+        : root_(root), tmpRoot_(tmpRoot)
+    {
+        prepare();
+    }
+
     ~Tx();
 
     void add(const fs::path &work, const fs::path &dst);
@@ -131,17 +136,28 @@ public:
 
     void commit();
 
+    const GlueRule::list& glueRules() const { return glueRules_; }
+
 private:
     void rollback();
 
     fs::path createPath(const fs::path &path) const;
+
+    void prepare();
 
     const fs::path root_;
     const boost::optional<fs::path> &tmpRoot_;
 
     typedef std::map<fs::path, fs::path> Mapping;
     Mapping mapping_;
+
+    GlueRule::list glueRules_;
 };
+
+void Tx::prepare()
+{
+    glueRules_ = loadGlueRules(root_ / storage_paths::glueRulesPath(), true);
+}
 
 Tx::~Tx() {
     if (std::uncaught_exception()) {
@@ -272,7 +288,7 @@ struct Ts {
 
     /** Stored ID.
      */
-    StoredTileset storedId;
+    StoredTileset stored;
 
     /** Set of tilesets that overlap with this one.
      */
@@ -281,7 +297,7 @@ struct Ts {
     Ts(int index, const TileSet &tileset, const LodRange &lodRange
        , const Storage::Properties &properties, bool added)
         : index(index), added(added), set(tileset)
-        , storedId(properties.tilesets[index])
+        , stored(properties.tilesets[index])
         , lodRange(lodRange)
     {}
 
@@ -290,9 +306,9 @@ struct Ts {
             (other.sphereOfInfluence(), TileIndex::Flag::any);
     }
 
-    std::string id() const { return storedId.tilesetId; }
+    std::string id() const { return stored.tilesetId; }
 
-    std::string base() const { return storedId.baseId; }
+    std::string base() const { return stored.baseId; }
 
     const TileIndex& sphereOfInfluence() const {
         if (!sphereOfInfluence_) {
@@ -376,7 +392,7 @@ struct GlueDescriptor {
     typedef std::vector<GlueDescriptor> list;
 };
 
-GlueDescriptor::list prepareGlues(Ts::list &tilesets, Ts &added)
+GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
 {
     Ts::ptrlist incidentSets;
     {
@@ -453,6 +469,7 @@ GlueDescriptor::list prepareGlues(Ts::list &tilesets, Ts &added)
         do {
             TileSet::const_ptrlist combination;
             Glue glue;
+            GlueRuleChecker ruleChecker(tx.glueRules());
 
             auto buildCombination([&]() -> bool
             {
@@ -463,6 +480,12 @@ GlueDescriptor::list prepareGlues(Ts::list &tilesets, Ts &added)
                         // this base tileset has already been seen
                         return false;
                     }
+
+                    if (!ruleChecker(ts.stored)) {
+                        // glue rule prevents glue generation
+                        return false;
+                    }
+
                     combination.push_back(&ts.set);
                     glue.id.push_back(ts.id());
                     return true;
@@ -536,7 +559,7 @@ createGlues(Tx &tx, Storage::Properties properties
     }
 
     // prepare glues
-    auto gds(prepareGlues(tilesets, tilesets[std::get<1>(tsets)]));
+    auto gds(prepareGlues(tx, tilesets, tilesets[std::get<1>(tsets)]));
 
     {
         int glueNumber(1);
@@ -621,7 +644,8 @@ createGlues(Tx &tx, Storage::Properties properties
 
 std::tuple<Storage::Properties, StoredTileset>
 Storage::Detail::addTileset(const Properties &properties
-                            , const TilesetId &tilesetId, bool bumpVersion
+                            , const TilesetId &tilesetId
+                            , const AddOptions &addOptions
                             , const Location &where) const
 {
     if (tilesetId.find('@') != std::string::npos) {
@@ -634,7 +658,7 @@ Storage::Detail::addTileset(const Properties &properties
         tileset.baseId = tilesetId;
         auto lastVersion(properties.lastVersion(tilesetId));
         if (lastVersion >= 0) {
-            if (!bumpVersion) {
+            if (!addOptions.bumpVersion) {
                 LOGTHROW(err1, vadstena::storage::TileSetAlreadyExists)
                     << "Tileset <" << tilesetId
                     << "> already present in storage "
@@ -654,6 +678,9 @@ Storage::Detail::addTileset(const Properties &properties
             tileset.baseId = tileset.tilesetId = tilesetId;
             tileset.version = 0;
         }
+
+        // assign tags
+        tileset.tags = addOptions.tags;
     }
 
     if (properties.hasTileset(tileset.tilesetId)) {
@@ -759,7 +786,7 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
     Properties nProperties;
     StoredTileset tilesetInfo;
     std::tie(nProperties, tilesetInfo)
-        = addTileset(properties, tilesetId, addOptions.bumpVersion, where);
+        = addTileset(properties, tilesetId, addOptions, where);
 
 
     LOG(info3)

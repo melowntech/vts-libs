@@ -1,5 +1,6 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -32,7 +33,6 @@ UTILITY_GENERATE_ENUM(Command,
                       ((info))
                       ((create))
                       ((add))
-                      ((addLocal)("add-local"))
                       ((readd))
                       ((remove))
                       ((dumpMetatile)("dump-metatile"))
@@ -50,6 +50,8 @@ UTILITY_GENERATE_ENUM(Command,
                       ((relocate)("relocate"))
                       ((tilePick)("tile-pick"))
                       ((file)("file"))
+                      ((tags)("tags"))
+                      ((glueRulesSyntax)("glue-rules-syntax"))
                       )
 
 
@@ -122,11 +124,11 @@ private:
 
     int add();
 
-    int addLocal();
-
     int readd();
 
     int remove();
+
+    int tags();
 
     int dumpMetatile();
 
@@ -157,6 +159,8 @@ private:
 
     int file();
 
+    int glueRulesSyntax();
+
     bool noexcept_;
     fs::path path_;
     Command command_;
@@ -183,9 +187,24 @@ private:
     vts::RelocateOptions relocateOptions_;
     bool brief_;
     vs::CreditIds forceCredits_;
+    vts::Tags addTags_;
+    vts::Tags removeTags_;
 
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
 };
+
+namespace {
+
+void getTags(vts::Tags &tags, const po::variables_map &vars
+             , const std::string &option)
+{
+    if (vars.count(option)) {
+        const auto &value(vars[option].as<std::vector<std::string>>());
+        tags.insert(value.begin(), value.end());
+    }
+}
+
+} // namespace
 
 void VtsStorage::configuration(po::options_description &cmdline
                                , po::options_description&
@@ -272,6 +291,11 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "Temporary directory where to work with temporary data.")
             ("refs", "Generate glue surface references")
             ("clip", "Clip meshes by merge coverage.")
+            ("tag", po::value<std::vector<std::string>>()
+             , "Set of tags (string identifiers) assigned to tileset. "
+             "Glue rules (stored in user-editable file "
+             "storage-path/glue.rules) are applied on tags and glues that "
+             "result in incompatible combination of tags are not generated.")
             ;
 
         p.positional.add("tileset", 1);
@@ -323,95 +347,8 @@ void VtsStorage::configuration(po::options_description &cmdline
             addOptions_.dryRun = vars.count("dryRun");
             addOptions_.generateReferences = vars.count("refs");
             addOptions_.clip = vars.count("clip");
-        };
-    });
 
-    createParser(cmdline, Command::addLocal
-                 , "--command=add-local: adds new tileset to VTS storage as "
-                   "local tileset."
-                 , [&](UP &p)
-    {
-        p.options.add_options()
-            ("tileset", po::value(&tileset_)->required()
-             , "Absolute path to source tileset.")
-            ("tilesetId", po::value<std::string>()
-             , "TilesetId to use in storage, defaults to id "
-             "stored in tileset.")
-
-            ("above", po::value<std::string>()
-             , "Place new tileset right above given one."
-             " Conflicts with --below, --top and --bottom.")
-            ("below", po::value<std::string>()
-             , "Place new tileset right below given one."
-             " Conflicts with --above, --top and --bottom.")
-            ("top", "Place new tileset at the top of the stack."
-             " Conflicts with --above, --below and --bottom.")
-            ("bottom", "Place new tileset at the bottom of the stack."
-             " Conflicts with --above, --below and --top.")
-
-            ("lodRange", po::value<vts::LodRange>()
-             , "Limits used LOD range from source tileset.")
-            ("textureQuality", po::value(&addOptions_.textureQuality)
-             ->required()->default_value(addOptions_.textureQuality)
-             , "Quality of repacked atlases. 0 means no repacking.")
-
-            ("bumpVersion", "Add dataset under new version")
-            ("dryRun", "Simulate glue creation.")
-            ("tmp", po::value<fs::path>()
-             , "Temporary directory where to work with temporary data.")
-            ("refs", "Generate glue surface references")
-            ("clip", "Clip meshes by merge coverage.")
-            ;
-
-        p.positional.add("tileset", 1);
-
-        p.configure = [&](const po::variables_map &vars) {
-            if (vars.count("tilesetId")) {
-                optTilesetId_ = vars["tilesetId"].as<std::string>();
-            }
-            if (vars.count("lodRange")) {
-                addOptions_.filter.lodRange
-                (vars["lodRange"].as<vts::LodRange>());
-            }
-            if (vars.count("tmp")) {
-                addOptions_.tmp = vars["tmp"].as<fs::path>();
-            }
-
-            // handle where options
-            bool above(vars.count("above"));
-            bool below(vars.count("below"));
-            bool top(vars.count("top"));
-            bool bottom(vars.count("bottom"));
-            int sum(above + below + top + bottom);
-            if (!sum) {
-                throw po::validation_error
-                    (po::validation_error::at_least_one_value_required
-                     , "above,below,top,bottom");
-            }
-            if (sum > 1) {
-                throw po::validation_error
-                    (po::validation_error::multiple_values_not_allowed
-                     , "above,below,top,bottom");
-            }
-
-            if (above) {
-                where_.where = vars["above"].as<std::string>();
-                where_.direction = vts::Storage::Location::Direction::above;
-            } else if (below) {
-                where_.where = vars["below"].as<std::string>();
-                where_.direction = vts::Storage::Location::Direction::below;
-            } else if (top) {
-                where_.where.clear();
-                where_.direction = vts::Storage::Location::Direction::below;
-            } else if (bottom) {
-                where_.where.clear();
-                where_.direction = vts::Storage::Location::Direction::above;
-            }
-
-            addOptions_.bumpVersion = vars.count("bumpVersion");
-            addOptions_.dryRun = vars.count("dryRun");
-            addOptions_.generateReferences = vars.count("refs");
-            addOptions_.clip = vars.count("clip");
+            getTags(addOptions_.tags, vars, "tag");
         };
     });
 
@@ -742,8 +679,49 @@ void VtsStorage::configuration(po::options_description &cmdline
         };
     });
 
+    createParser(cmdline, Command::tags
+                 , "--command=tags: operate on tileset's tags inside storage"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileset", po::value<std::string>()
+             , "Id of tileset which tags to edit or display. Optional "
+             "when dislaying tag info (all tilesets are shown).")
+            ("addTag", po::value<std::vector<std::string>>()
+             , "Tags to add. All positional arguments are treated as tags "
+             "to be added")
+            ("removeTag", po::value<std::vector<std::string>>()
+             , "Tags to remove.")
+            ;
+
+        p.positional.add("addTag", -1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            getTags(addTags_, vars, "addTag");
+            getTags(removeTags_, vars, "removeTag");
+
+            if (!addTags_.empty() || !removeTags_.empty()) {
+                if (!vars.count("tileset")) {
+                    throw po::required_option("tileset");
+                }
+
+                tilesetId_ = vars["tileset"].as<std::string>();
+            } else if (vars.count("tileset")) {
+                optTilesetId_ = vars["tileset"].as<std::string>();
+            }
+        };
+    });
+
     createParser(cmdline, Command::file
                  , "--command=file: fetch file from dataset"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ;
+    });
+
+    createParser(cmdline, Command::glueRulesSyntax
+                 , "--command=glue-rule-syntax: show syntax of glue rules"
                  , [&](UP &p)
     {
         p.options.add_options()
@@ -833,11 +811,14 @@ int VtsStorage::runCommand()
 {
     switch (command_) {
     case Command::info: return info();
+
+    // storage related stuff
     case Command::create: return create();
     case Command::add: return add();
-    case Command::addLocal: return addLocal();
     case Command::readd: return readd();
     case Command::remove: return remove();
+    case Command::tags: return tags();
+
     case Command::dumpMetatile: return dumpMetatile();
     case Command::mapConfig: return mapConfig();
     case Command::dumpTileIndex: return dumpTileIndex();
@@ -853,6 +834,7 @@ int VtsStorage::runCommand()
     case Command::tilePick: return tilePick();
     case Command::relocate: return relocate();
     case Command::file: return file();
+    case Command::glueRulesSyntax: return glueRulesSyntax();
     }
     std::cerr << "vts: no operation requested" << std::endl;
     return EXIT_FAILURE;
@@ -929,14 +911,18 @@ int tilesetInfo(const std::string &prefix, const fs::path &path
     return EXIT_SUCCESS;
 }
 
-int storageInfo(const std::string &prefix, const fs::path &path
-                , bool brief)
+int storageInfo(const std::string &prefix, const fs::path &path, bool brief)
 {
     auto s(vts::openStorage(path));
     std::cout << prefix << "Tile sets:" << std::endl;
-    for (const auto &tid : s.tilesets()) {
-        tilesetInfo(prefix + "    ", s.path(tid), brief);
+    for (const auto &tileset : s.storedTilesets()) {
+        auto subprefix(prefix + "    ");
+        tilesetInfo(subprefix, s.path(tileset.tilesetId), brief);
         if (!brief) {
+            if (!tileset.tags.empty()) {
+                std::cout << subprefix << "Tags: "
+                          << utility::join(tileset.tags, ", ") << std::endl;
+            }
             std::cout << std::endl;
         }
     }
@@ -998,42 +984,66 @@ int VtsStorage::create()
     return EXIT_SUCCESS;
 }
 
+namespace {
+
+bool isLocal(const fs::path &path)
+{
+    return ba::starts_with(path.string(), "local:");
+}
+
+fs::path localPart(const fs::path &path)
+{
+    if (isLocal(path)) { return path.string().substr(6); }
+    return path;
+}
+
+bool isRemote(const fs::path &path)
+{
+    return (ba::istarts_with(path.string(), "http://")
+            || ba::istarts_with(path.string(), "https://"));
+}
+
+} // namespace
+
 int VtsStorage::add()
 {
+    const auto tmpPath(path_ / "tmp/tileset-to-add");
+
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+
+    if (isLocal(tileset_)) {
+        // local: URL, create temporary tileset
+        auto local(localPart(tileset_));
+
+        LOG(info3)
+            << "Requested to add local tileset pointing to " << local
+            << ". Generating temporary local tileset.";
+
+        vts::CloneOptions createOptions;
+        createOptions.tilesetId(optTilesetId_);
+        createOptions.mode(vts::CreateMode::overwrite);
+        vts::createLocalTileSet
+            (tmpPath, local, createOptions);
+        tileset_ = tmpPath;
+    } else if (isRemote(tileset_)) {
+        // http:// or https:// URL, create remote tileset
+
+        LOG(info3)
+            << "Requested to add remote tileset pointing to " << tileset_
+            << ". Generating temporary remote tileset.";
+
+        vts::CloneOptions createOptions;
+        createOptions.tilesetId(optTilesetId_);
+        createOptions.mode(vts::CreateMode::overwrite);
+
+        vts::createRemoteTileSet(tmpPath, tileset_.string(), createOptions);
+        tileset_ = tmpPath;
+    }
 
     storage.add(tileset_, where_
                 , optTilesetId_ ? *optTilesetId_ : std::string()
                 , addOptions_);
     return EXIT_SUCCESS;
-}
-
-int VtsStorage::addLocal()
-{
-    // prepare variables for local()
-    fs::path tmpLocalTilesetPath(path_ / fs::path("tmp/local"));
-    auto storagePath(path_);
-
-    localPath_ = tileset_;
-    path_= tmpLocalTilesetPath;
-    createMode_ = vts::CreateMode::overwrite;
-
-    // run local()
-
-    LOG(info3) << "Creating local tileset.";
-    auto res(local());
-
-    if (res != EXIT_SUCCESS) {
-        return res;
-    }
-
-    // prepare variables for add()
-    tileset_ = tmpLocalTilesetPath;
-    path_ = storagePath;
-
-    // run add()
-
-    return add();
 }
 
 int VtsStorage::readd()
@@ -1047,6 +1057,27 @@ int VtsStorage::remove()
 {
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
     storage.remove(tilesetIds_);
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::tags()
+{
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+    if (!addTags_.empty() || !removeTags_.empty()) {
+        storage.updateTags(tilesetId_, addTags_, removeTags_);
+
+        // let the info code print result
+        optTilesetId_ = tilesetId_;
+    }
+
+    for (const auto &tileset : storage.storedTilesets()) {
+        if (optTilesetId_ && (tileset.tilesetId != optTilesetId_)) {
+            continue;
+        }
+        std::cout << tileset.tilesetId << ": "
+                  << utility::join(tileset.tags, ", ") << std::endl;
+    }
+
     return EXIT_SUCCESS;
 }
 
@@ -1578,6 +1609,50 @@ int VtsStorage::file()
 
     std::cerr << "Unrecognized content " << path_ << "." << std::endl;
     return EXIT_FAILURE;
+}
+
+int VtsStorage::glueRulesSyntax()
+{
+    std::cout <<
+        R"RAW(Syntax of glue.rules file
+
+glue.rules file is used to limit number of generated glues between tileset
+inside a storage in a consistent way. Each tileset in the storage can be
+assigned number of tags.
+
+When adding tileset to the storage rules are consulted whether glue can be
+generated for each considered combination of glues. If any rule reports
+failure glue is not generated. So far, glues check only tags.
+
+There are these rules available:
+
+ * unique-tag(TAG)
+
+    Rule checks whether given TAG is present in all tileset at most once. If TAG
+    is present more than once this rule fails and glue is not generated.
+
+    TAG is any combination of characters in [-_.a-zA-Z0-9*?].
+
+    Example: unique-tag(world)
+    Effect: only one tileset with tag "world" can exist in any glue.
+
+
+ * unique-tag-match(GLOB-PATTERN)
+
+    Rule matches all tags in all tilesets agains GLOB-PATTERN (the same way as
+    shell processes wildcards). Rule fails if there are more tags
+    that match given pattern.
+
+    GLOB-PATTERN is any combination of characters in [-_.a-zA-Z0-9*?], * and ?
+    are interpreted as shell wildcards.
+
+    Example: unique-tag-match(user.*)
+    Effect: if tags of tilesets contain tag user.XXX and user.YYY then
+            glue is not generated; if there is only user.XXX or no user.*
+            at all glue is generated.
+
+)RAW";
+    return EXIT_SUCCESS;
 }
 
 int main(int argc, char *argv[])

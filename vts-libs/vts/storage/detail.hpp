@@ -163,8 +163,8 @@ struct Storage::Detail
     void remove(const TilesetIdList &tilesetIds);
 
     std::tuple<Properties, StoredTileset>
-    addTileset(const Properties &properties
-               , const TilesetId &tilesetId, bool bumpVersion
+    addTileset(const Properties &properties, const TilesetId &tilesetId
+               , const AddOptions &addOptions
                , const Location &where) const;
 
     /** Removes given tileset from properties and returns new properties and
@@ -176,6 +176,9 @@ struct Storage::Detail
         const;
 
     bool externallyChanged() const;
+
+    void updateTags(const TilesetId &tilesetId, const Tags &add
+                    , const Tags &remove);
 
     MapConfig mapConfig() const;
 

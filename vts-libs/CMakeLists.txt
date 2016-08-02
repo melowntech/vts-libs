@@ -215,6 +215,7 @@ set(vts-core_SOURCES
   vts/storage/detail.hpp
   vts/storage/storage.cpp
   vts/storage/config.hpp vts/storage/config.cpp
+  vts/storage/gluerules.hpp vts/storage/gluerules.cpp
 
   vts/storageview.hpp
   vts/storageview/detail.hpp

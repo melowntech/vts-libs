@@ -23,6 +23,10 @@ inline boost::filesystem::path tilesetRoot() { return "tilesets"; }
  */
 inline boost::filesystem::path glueRoot() { return "glues"; }
 
+/** Get (local) path to glue rules.
+ */
+inline boost::filesystem::path glueRulesPath() { return "glue.rules"; }
+
 /** Generate path for storage tileset. If tmp is false regular storage path is
  *  generated.
  *  Otherwise root / "tmp" is used unless different tmpRoot is provided.
