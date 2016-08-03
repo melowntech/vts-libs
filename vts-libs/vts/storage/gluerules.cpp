@@ -54,20 +54,20 @@ bool check(const GlueRule::list &rules
 
 namespace rules {
 
-class UniqueTag
+class TagSoleOccurrence
     : public GlueRule
-    , public std::enable_shared_from_this<UniqueTag>
+    , public std::enable_shared_from_this<TagSoleOccurrence>
 {
 public:
-    typedef std::shared_ptr<const UniqueTag> ThisConstRule;
+    typedef std::shared_ptr<const TagSoleOccurrence> ThisConstRule;
 
-    UniqueTag(std::string tag) : tag_(std::move(tag)) {}
+    TagSoleOccurrence(std::string tag) : tag_(std::move(tag)) {}
 
     static pointer factory(std::string tag) {
-        return std::make_shared<UniqueTag>(std::move(tag));
+        return std::make_shared<TagSoleOccurrence>(std::move(tag));
     }
 
-    static const char *name() { return "unique-tag"; }
+    static const char *name() { return "tag.sole-occurrence"; }
 
 private:
     struct Matcher : public MatcherBase {
@@ -83,7 +83,7 @@ private:
     };
     friend struct Matcher;
 
-    virtual MatcherBase::pointer matcher_impl() const {
+    virtual MatcherBase::pointer matcher_impl() {
         return std::make_shared<Matcher>(shared_from_this());
     }
 
@@ -96,20 +96,20 @@ private:
     const std::string tag_;
 };
 
-class UniqueTagMatch
+class TagCommonMatch
     : public GlueRule
-    , public std::enable_shared_from_this<UniqueTagMatch>
+    , public std::enable_shared_from_this<TagCommonMatch>
 {
 public:
-    typedef std::shared_ptr<const UniqueTagMatch> ThisConstRule;
+    typedef std::shared_ptr<const TagCommonMatch> ThisConstRule;
 
-    UniqueTagMatch(std::string pattern) : pattern_(std::move(pattern)) {}
+    TagCommonMatch(std::string pattern) : pattern_(std::move(pattern)) {}
 
     static pointer factory(std::string pattern) {
-        return std::make_shared<UniqueTagMatch>(std::move(pattern));
+        return std::make_shared<TagCommonMatch>(std::move(pattern));
     }
 
-    static const char *name() { return "unique-tag-match"; }
+    static const char *name() { return "tag.common-match"; }
 
 private:
     struct Matcher : public MatcherBase {
@@ -139,7 +139,7 @@ private:
     };
     friend struct Matcher;
 
-    virtual MatcherBase::pointer matcher_impl() const {
+    virtual MatcherBase::pointer matcher_impl() {
         return std::make_shared<Matcher>(shared_from_this());
     }
 
@@ -150,6 +150,41 @@ private:
     }
 
     const std::string pattern_;
+};
+
+class TagNoGlue
+    : public GlueRule
+    , public GlueRule::MatcherBase
+    , public std::enable_shared_from_this<TagNoGlue>
+{
+public:
+    TagNoGlue(std::string tag) : tag_(std::move(tag)) {}
+
+    static GlueRule::pointer factory(std::string tag) {
+        return std::make_shared<TagNoGlue>(std::move(tag));
+    }
+
+    static const char *name() { return "tag.no-glue"; }
+
+private:
+    virtual bool check_impl(const StoredTileset &tileset) {
+        for (const auto &tag : tileset.tags) {
+            if (tag == tag_) { return false; }
+        }
+        return true;
+    }
+
+    virtual GlueRule::MatcherBase::pointer matcher_impl() {
+        return shared_from_this();
+    }
+
+    virtual std::ostream& dump_impl(std::ostream &os
+                                    , const std::string &prefix) const
+    {
+        return os << prefix << name() << '(' << tag_ << ')';
+    }
+
+    const std::string tag_;
 };
 
 } // namespace rules
@@ -199,10 +234,12 @@ struct single_tag_rule_parser : qi::grammar<Iterator, SingleTagRule(), Skipper>
     single_tag_rule_parser() : single_tag_rule_parser::base_type(start) {
         // fill in symbol table
         symbols.add
-            (rules::UniqueTag::name()
-             , &rules::UniqueTag::factory)
-            (rules::UniqueTagMatch::name()
-             , &rules::UniqueTagMatch::factory)
+            (rules::TagSoleOccurrence::name()
+             , &rules::TagSoleOccurrence::factory)
+            (rules::TagCommonMatch::name()
+             , &rules::TagCommonMatch::factory)
+            (rules::TagNoGlue::name()
+             , &rules::TagNoGlue::factory)
             ;
 
         start %= symbols >> qi::omit[qi::char_('(')]

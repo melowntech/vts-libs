@@ -1626,18 +1626,18 @@ failure glue is not generated. So far, glues check only tags.
 
 There are these rules available:
 
- * unique-tag(TAG)
+ * tag.sole-occurrence(TAG)
 
     Rule checks whether given TAG is present in all tileset at most once. If TAG
     is present more than once this rule fails and glue is not generated.
 
     TAG is any combination of characters in [-_.a-zA-Z0-9*?].
 
-    Example: unique-tag(world)
+    Example: tag.sole-occurrence(world)
     Effect: only one tileset with tag "world" can exist in any glue.
 
 
- * unique-tag-match(GLOB-PATTERN)
+ * tag.common-match(GLOB-PATTERN)
 
     Rule matches all tags in all tilesets agains GLOB-PATTERN (the same way as
     shell processes wildcards). Rule fails if there are more tags
@@ -1646,10 +1646,18 @@ There are these rules available:
     GLOB-PATTERN is any combination of characters in [-_.a-zA-Z0-9*?], * and ?
     are interpreted as shell wildcards.
 
-    Example: unique-tag-match(user.*)
+    Example: tag.common-match(user.*)
     Effect: if tags of tilesets contain tag user.XXX and user.YYY then
             glue is not generated; if there is only user.XXX or no user.*
             at all glue is generated.
+
+ * tag.no-glue(TAG)
+
+   If any tileset contains given TAG no glue will be generated because that
+   tileset doesn't like to make any glue.
+
+   Example: tag.no-glue(no-glue)
+   Effect: no glues will be generated for tilesets having tag "no-glue".
 
 )RAW";
     return EXIT_SUCCESS;

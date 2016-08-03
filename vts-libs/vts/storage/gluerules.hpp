@@ -40,7 +40,7 @@ public:
 
     /** Generate Matcher
      */
-    MatcherBase::pointer matcher() const;
+    MatcherBase::pointer matcher();
 
     /** Dump information into stream. Should follow the same representation as
      *  is parsed from input.
@@ -48,7 +48,7 @@ public:
     std::ostream& dump(std::ostream &os, const std::string &prefix) const;
 
 private:
-    virtual MatcherBase::pointer matcher_impl() const = 0;
+    virtual MatcherBase::pointer matcher_impl() = 0;
 
     virtual std::ostream& dump_impl(std::ostream &os
                                     , const std::string &prefix) const = 0;
@@ -86,7 +86,7 @@ GlueRule::list loadGlueRules(const boost::filesystem::path &path
 
 // inlines
 
-inline GlueRule::MatcherBase::pointer GlueRule::matcher() const
+inline GlueRule::MatcherBase::pointer GlueRule::matcher()
 {
     return matcher_impl();
 }
