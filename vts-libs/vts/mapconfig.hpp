@@ -162,6 +162,10 @@ registry::FreeLayer freeLayer(const MeshTilesConfig &config
                               , const boost::filesystem::path &root
                               = boost::filesystem::path());
 
+/** Save map config as a list of directories into stream.
+ */
+void saveDirs(const MapConfig &mapConfig, std::ostream &os);
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_mapconfig_hpp_included_

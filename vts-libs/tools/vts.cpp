@@ -37,6 +37,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((remove))
                       ((dumpMetatile)("dump-metatile"))
                       ((mapConfig)("map-config"))
+                      ((dirs)("dirs"))
                       ((dumpTileIndex)("dump-tileindex"))
                       ((tileInfo)("tile-info"))
                       ((dumpMesh)("dump-mesh"))
@@ -133,6 +134,8 @@ private:
     int dumpMetatile();
 
     int mapConfig();
+
+    int dirs();
 
     int dumpTileIndex();
 
@@ -417,7 +420,16 @@ void VtsStorage::configuration(po::options_description &cmdline
     });
 
     createParser(cmdline, Command::mapConfig
-                 , "--command=map-config: dump tileset/storage map-config"
+                 , "--command=map-config: dump tileset/storage[view] "
+                 "map-config"
+                 , [&](UP &p)
+    {
+        (void) p;
+    });
+
+    createParser(cmdline, Command::dirs
+                 , "--command=dirs: dump tileset/storage[view] "
+                 "list of directories"
                  , [&](UP &p)
     {
         (void) p;
@@ -821,6 +833,7 @@ int VtsStorage::runCommand()
 
     case Command::dumpMetatile: return dumpMetatile();
     case Command::mapConfig: return mapConfig();
+    case Command::dirs: return dirs();
     case Command::dumpTileIndex: return dumpTileIndex();
     case Command::tileInfo: return tileInfo();
     case Command::dumpMesh: return dumpMesh();
@@ -1200,6 +1213,28 @@ int VtsStorage::mapConfig()
     default: break;
     }
     std::cerr << "Path " << path_ << " cannot produce any mapConfig."
+              << std::endl;
+    return EXIT_FAILURE;
+}
+
+int VtsStorage::dirs()
+{
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::TileSet:
+        saveDirs(vts::TileSet::mapConfig(path_), std::cout);
+        return EXIT_SUCCESS;
+
+    case vts::DatasetType::Storage:
+        saveDirs(vts::Storage::mapConfig(path_), std::cout);
+        return EXIT_SUCCESS;
+
+    case vts::DatasetType::StorageView:
+        saveDirs(vts::StorageView::mapConfig(path_), std::cout);
+        return EXIT_SUCCESS;
+
+    default: break;
+    }
+    std::cerr << "Path " << path_ << " cannot produce any directory listing."
               << std::endl;
     return EXIT_FAILURE;
 }
