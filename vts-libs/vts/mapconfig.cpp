@@ -446,7 +446,12 @@ typedef std::set<fs::path> Dirs;
 
 inline void addBase(Dirs &dirs, const fs::path &path) {
     if (path.has_filename()) {
-        dirs.insert(path.parent_path());
+        auto tmp(path.parent_path());
+        if (tmp.empty()) {
+            dirs.insert(".");
+        } else {
+            dirs.insert(std::move(tmp));
+        }
     } else {
         dirs.insert(path);
     }
@@ -463,7 +468,11 @@ inline void addBase(Dirs &dirs, const boost::optional<std::string> &path) {
 inline void extractDirs(Dirs &dirs, const SurfaceCommonConfig &surface
                         , std::set<std::string> &boundLayers)
 {
-    dirs.insert(surface.root.string());
+    if (surface.root.empty()) {
+        dirs.insert(".");
+    } else {
+        dirs.insert(surface.root);
+    }
     if (surface.textureLayer) { boundLayers.insert(*surface.textureLayer); }
 }
 
