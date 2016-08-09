@@ -34,6 +34,8 @@ void fromJson(BoundLayer::dict &boundLayers, const Json::Value &value);
 
 Json::Value asJson(const FreeLayer::dict &freeLayers
                    , bool inlineCredits = true);
+Json::Value asJson(const FreeLayer &freeLayer
+                   , bool inlineCredits = true);
 FreeLayer::dict freeLayerFromJson(const Json::Value &value);
 void fromJson(FreeLayer::dict &freeLayers, const Json::Value &value);
 

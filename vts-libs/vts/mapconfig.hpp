@@ -72,6 +72,17 @@ struct GlueConfig : SurfaceCommonConfig {
     typedef std::vector<GlueConfig> list;
 };
 
+/** Configuration for meshTiles free layer.
+ */
+struct MeshTilesConfig {
+    SurfaceConfig surface;
+    registry::Credit::dict credits;
+
+    static const char *contentType;
+
+    typedef std::vector<MeshTilesConfig> list;
+};
+
 /** Full map configuration.
  *  Inherited from Registry as it can be used in a registry context.
  */
@@ -82,6 +93,8 @@ struct MapConfig : public registry::Registry {
 
     SurfaceConfig::list surfaces;
     GlueConfig::list glues;
+
+    MeshTilesConfig::list meshTiles;
 
     registry::FreeLayer::dict freeLayers;
 
@@ -117,21 +130,20 @@ struct MapConfig : public registry::Registry {
                    , const Glue &glue
                    , const boost::filesystem::path &root);
 
+    /** Adds in MeshTilesConfig
+     *
+     * \param meshTilesConfig single mesh tiles configuration
+     * \param root path to tileset
+     */
+    void addMeshTilesConfig(const MeshTilesConfig &meshTilesConfig
+                            , const boost::filesystem::path &root);
+
     /** Merges in other map config.
      *
      *  Copies reference frame from other configuration if not set yet;
      *  otherwise check for same reference frame (only ID, not content).
      */
     void merge(const MapConfig &other);
-};
-
-/** Configuration for meshTiles free layer.
- */
-struct MeshTilesConfig {
-    SurfaceConfig surface;
-    registry::Credit::dict credits;
-
-    static const char *contentType;
 };
 
 /** Save map config into stream.

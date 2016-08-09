@@ -60,6 +60,12 @@ struct FreeLayer {
 
     FreeLayer() = default;
     FreeLayer(std::string id, std::string externalUrl);
+
+    bool external() const { return type == Type::external; }
+
+    const std::string& externalUrl() const {
+        return boost::get<std::string>(definition);
+    }
 };
 
 void saveFreeLayer(std::ostream &out, const FreeLayer &freeLayer);

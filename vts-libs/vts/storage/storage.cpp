@@ -377,13 +377,12 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     for (const auto &tileset : properties.tilesets) {
         // handle tileset as a free layers
         if (freeLayers && (*freeLayers).count(tileset.tilesetId)) {
-            // no inline credits, tileset path as a root
-            mapConfig.freeLayers.add
-                (freeLayer
-                 (TileSet::meshTilesConfig
-                  (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-                  , false, prefix / storage_paths::tilesetRoot()
-                  / tileset.tilesetId));
+            // tileset path as a root
+            mapConfig.addMeshTilesConfig
+                (TileSet::meshTilesConfig
+                 (storage_paths::tilesetPath(root, tileset.tilesetId), false)
+                 , prefix / storage_paths::tilesetRoot()
+                 / tileset.tilesetId);
         }
 
         // handle tileset as a surface

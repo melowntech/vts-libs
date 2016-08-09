@@ -202,6 +202,7 @@ void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
     out.srs.update(in.srs);
     out.credits.update(in.credits);
     out.boundLayers.update(in.boundLayers);
+    out.freeLayers.update(in.freeLayers);
 
     // merge views
     if (surface) {
@@ -230,6 +231,14 @@ void MapConfig::mergeTileSet(const MapConfig &tilesetMapConfig
     surfaces.push_back(s);
 
     mergeRest(*this, tilesetMapConfig, true);
+}
+
+void MapConfig::addMeshTilesConfig(const MeshTilesConfig &meshTilesConfig
+                                   , const boost::filesystem::path &root)
+{
+    meshTiles.push_back(meshTilesConfig);
+    auto &s(meshTiles.back().surface);
+    if (s.root.empty()) { s.root = root; }
 }
 
 void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
@@ -299,6 +308,15 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     content["namedViews"]
         = registry::asJson(mapConfig.namedViews, boundLayers);;
 
+    // fill in free tilesets as free layers
+    for (const auto &config : mapConfig.meshTiles) {
+        // no inline credits
+        content["freeLayers"][config.surface.id]
+            = asJson(freeLayer(config, false), false);
+        // and fetch credits
+        credits.update(config.credits);
+    }
+
     // dunno what to put here...
     content["params"] = Json::objectValue;
 
@@ -335,6 +353,7 @@ void parse1(MapConfig &mapConfig, const Json::Value &config)
     fromJson(mapConfig.referenceFrame, config["referenceFrame"]);
     fromJson(mapConfig.credits, config["credits"]);
     fromJson(mapConfig.boundLayers, config["boundLayers"]);
+    fromJson(mapConfig.freeLayers, config["freeLayers"]);
 
     fromJson(mapConfig.surfaces, config["surfaces"]);
     fromJson(mapConfig.glues, config["glue"]);

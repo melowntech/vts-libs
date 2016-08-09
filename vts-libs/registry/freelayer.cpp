@@ -219,6 +219,14 @@ Json::Value asJson(const FreeLayer::dict &freeLayers
     return content;
 }
 
+Json::Value asJson(const FreeLayer &freeLayer
+                   , bool inlineCredits)
+{
+    Json::Value content;
+    build(content, freeLayer, inlineCredits);
+    return content;
+}
+
 void fromJson(FreeLayer::dict &freeLayers, const Json::Value &value)
 {
     parse(freeLayers, value);
