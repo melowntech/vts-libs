@@ -442,75 +442,115 @@ registry::FreeLayer freeLayer(const MeshTilesConfig &config
 
 namespace {
 
-typedef std::set<fs::path> Dirs;
+typedef std::string ResourceId;
 
-inline void addBase(Dirs &dirs, const fs::path &path) {
+typedef std::vector<ResourceId> Resources;
+
+typedef std::map<std::string, Resources> Dirs;
+
+inline void update(Dirs &dirs, const std::string &path
+                   , const Resources &resources)
+{
+    auto &dst(dirs[path]);
+    dst.insert(dst.begin(), resources.begin(), resources.end());
+}
+
+inline void update(Dirs &dirs, const std::string &path
+                   , const ResourceId &resourceId)
+{
+    dirs[path].push_back(resourceId);
+}
+
+inline void addBase(Dirs &dirs, const fs::path &path
+                    , const ResourceId &resourceId)
+{
     if (path.has_filename()) {
         auto tmp(path.parent_path());
         if (tmp.empty()) {
-            dirs.insert(".");
+            update(dirs, ".", resourceId);
         } else {
-            dirs.insert(std::move(tmp));
+            update(dirs, tmp.string(), resourceId);
         }
     } else {
-        dirs.insert(path);
+        update(dirs, path.string(), resourceId);
     }
 }
 
-inline void addBase(Dirs &dirs, const std::string &path) {
-    addBase(dirs, fs::path(path));
+inline void addBase(Dirs &dirs, const std::string &path
+                    , const ResourceId &resourceId)
+{
+    addBase(dirs, fs::path(path), resourceId);
 }
 
-inline void addBase(Dirs &dirs, const boost::optional<std::string> &path) {
-    if (path) { addBase(dirs, fs::path(*path)); }
+inline void addBase(Dirs &dirs, const boost::optional<std::string> &path
+                    , const ResourceId &resourceId)
+{
+    if (path) { addBase(dirs, fs::path(*path), resourceId); }
 }
 
-inline void extractDirs(Dirs &dirs, const SurfaceCommonConfig &surface
+inline void extractDirs(Dirs &dirs, const SurfaceConfig &surface
                         , std::set<std::string> &boundLayers)
 {
     if (surface.root.empty()) {
-        dirs.insert(".");
+        update(dirs, ".", surface.id);
     } else {
-        dirs.insert(surface.root);
+        update(dirs, surface.root.string(), surface.id);
     }
-    if (surface.textureLayer) { boundLayers.insert(*surface.textureLayer); }
+    if (surface.textureLayer) {
+        boundLayers.insert(*surface.textureLayer);
+    }
+}
+
+inline void extractDirs(Dirs &dirs, const GlueConfig &surface
+                        , std::set<std::string> &boundLayers)
+{
+    if (surface.root.empty()) {
+        update(dirs, ".", surface.id);
+    } else {
+        update(dirs, surface.root.string(), surface.id);
+    }
+    if (surface.textureLayer) {
+        boundLayers.insert(*surface.textureLayer);
+    }
 }
 
 class ExtractVisitor : public boost::static_visitor<> {
 public:
-    ExtractVisitor(Dirs &dirs) : dirs_(dirs) {}
+    ExtractVisitor(Dirs &dirs, const ResourceId &id)
+        : dirs_(dirs), id_(id) {}
 
     void operator()(const std::string &def) {
-        addBase(dirs_, def);
+        addBase(dirs_, def, id_);
     }
 
     void operator()(const registry::FreeLayer::Geodata &def) {
-        addBase(dirs_, def.geodata);
-        addBase(dirs_, def.style);
+        addBase(dirs_, def.geodata, id_);
+        addBase(dirs_, def.style, id_);
     }
 
     void operator()(const registry::FreeLayer::GeodataTiles &def) {
-        addBase(dirs_, def.metaUrl);
-        addBase(dirs_, def.geodataUrl);
-        addBase(dirs_, def.style);
+        addBase(dirs_, def.metaUrl, id_);
+        addBase(dirs_, def.geodataUrl, id_);
+        addBase(dirs_, def.style, id_);
     }
 
     void operator()(const registry::FreeLayer::MeshTiles &def) {
-        addBase(dirs_, def.metaUrl);
-        addBase(dirs_, def.meshUrl);
-        addBase(dirs_, def.textureUrl);
+        addBase(dirs_, def.metaUrl, id_);
+        addBase(dirs_, def.meshUrl, id_);
+        addBase(dirs_, def.textureUrl, id_);
     }
 
 private:
     Dirs &dirs_;
+    const ResourceId &id_;
 };
 
 inline void extractDirs(Dirs &dirs, const registry::BoundLayer &bl)
 {
-    addBase(dirs, bl.url);
-    addBase(dirs, bl.maskUrl);
-    addBase(dirs, bl.metaUrl);
-    addBase(dirs, bl.creditsUrl);
+    addBase(dirs, bl.url, bl.id);
+    addBase(dirs, bl.maskUrl, bl.id);
+    addBase(dirs, bl.metaUrl, bl.id);
+    addBase(dirs, bl.creditsUrl, bl.id);
 }
 
 Dirs extractDirs(const MapConfig &mapConfig)
@@ -530,8 +570,8 @@ Dirs extractDirs(const MapConfig &mapConfig)
         extractDirs(dirs, meshTiles.surface, boundLayers);
     }
 
-    ExtractVisitor ev(dirs);
     for (const auto &pair : mapConfig.freeLayers) {
+        ExtractVisitor ev(dirs, pair.first);
         boost::apply_visitor(ev, pair.second.definition);
     }
 
@@ -555,19 +595,16 @@ Dirs extractDirs(const MapConfig &mapConfig)
 
 void saveDirs(const MapConfig &mapConfig, std::ostream &os)
 {
-    os << "[\n";
+    Json::Value content(Json::objectValue);
 
-    const char *prefix("\t");
-    bool first(true);
-    for (const auto &dir : extractDirs(mapConfig)) {
-        os << prefix << dir << "\n";
-        if (first) {
-            first = false;
-            prefix = "\t, ";
+    for (const auto &item : extractDirs(mapConfig)) {
+        auto &resources(content[item.first] = Json::arrayValue);
+        for (const auto &rid : item.second) {
+            resources.append(rid);
         }
     }
 
-    os << "]\n";
+    Json::StyledStreamWriter().write(os, content);
 }
 
 } } // namespace vadstena::vts
