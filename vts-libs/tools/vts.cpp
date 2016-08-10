@@ -290,8 +290,8 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
             ("refs", "Generate glue surface references")
-            ("clip", "Clip meshes by merge coverage.")
-            ("tag", po::value<std::vector<std::string>>()
+            ("no-clip", "Don't clip meshes by merge coverage.")
+            ("addTag", po::value<std::vector<std::string>>()
              , "Set of tags (string identifiers) assigned to tileset. "
              "Glue rules (stored in user-editable file "
              "storage-path/glue.rules) are applied on tags and glues that "
@@ -346,9 +346,9 @@ void VtsStorage::configuration(po::options_description &cmdline
             addOptions_.bumpVersion = vars.count("bumpVersion");
             addOptions_.dryRun = vars.count("dryRun");
             addOptions_.generateReferences = vars.count("refs");
-            addOptions_.clip = vars.count("clip");
+            addOptions_.clip = !vars.count("no-clip");
 
-            getTags(addOptions_.tags, vars, "tag");
+            getTags(addOptions_.tags, vars, "addTag");
         };
     });
 
@@ -367,7 +367,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
             ("refs", "Do not generate references")
-            ("clip", "Clip meshes by merge coverage.")
+            ("no-clip", "Don't clip meshes by merge coverage.")
             ;
 
         p.positional.add("tilesetId", 1);
@@ -378,7 +378,7 @@ void VtsStorage::configuration(po::options_description &cmdline
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
             }
             addOptions_.generateReferences = vars.count("refs");
-            addOptions_.clip = vars.count("clip");
+            addOptions_.clip = !vars.count("no-clip");
         };
     });
 
