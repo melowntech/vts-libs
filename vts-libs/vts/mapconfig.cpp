@@ -1,3 +1,7 @@
+#include <set>
+
+#include <boost/filesystem/path.hpp>
+
 #include "dbglog/dbglog.hpp"
 
 #include "jsoncpp/as.hpp"
@@ -7,6 +11,8 @@
 
 #include "./tileop.hpp"
 #include "./mapconfig.hpp"
+
+namespace fs = boost::filesystem;
 
 namespace vadstena { namespace vts {
 
@@ -202,6 +208,7 @@ void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
     out.srs.update(in.srs);
     out.credits.update(in.credits);
     out.boundLayers.update(in.boundLayers);
+    out.freeLayers.update(in.freeLayers);
 
     // merge views
     if (surface) {
@@ -230,6 +237,14 @@ void MapConfig::mergeTileSet(const MapConfig &tilesetMapConfig
     surfaces.push_back(s);
 
     mergeRest(*this, tilesetMapConfig, true);
+}
+
+void MapConfig::addMeshTilesConfig(const MeshTilesConfig &meshTilesConfig
+                                   , const boost::filesystem::path &root)
+{
+    meshTiles.push_back(meshTilesConfig);
+    auto &s(meshTiles.back().surface);
+    if (s.root.empty()) { s.root = root; }
 }
 
 void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
@@ -299,6 +314,15 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     content["namedViews"]
         = registry::asJson(mapConfig.namedViews, boundLayers);;
 
+    // fill in free tilesets as free layers
+    for (const auto &config : mapConfig.meshTiles) {
+        // no inline credits
+        content["freeLayers"][config.surface.id]
+            = asJson(freeLayer(config, false), false);
+        // and fetch credits
+        credits.update(config.credits);
+    }
+
     // dunno what to put here...
     content["params"] = Json::objectValue;
 
@@ -335,6 +359,7 @@ void parse1(MapConfig &mapConfig, const Json::Value &config)
     fromJson(mapConfig.referenceFrame, config["referenceFrame"]);
     fromJson(mapConfig.credits, config["credits"]);
     fromJson(mapConfig.boundLayers, config["boundLayers"]);
+    fromJson(mapConfig.freeLayers, config["freeLayers"]);
 
     fromJson(mapConfig.surfaces, config["surfaces"]);
     fromJson(mapConfig.glues, config["glue"]);
@@ -413,6 +438,136 @@ registry::FreeLayer freeLayer(const MeshTilesConfig &config
                                   , surface.revision)).string();
     // done
     return fl;
+}
+
+namespace {
+
+typedef std::set<fs::path> Dirs;
+
+inline void addBase(Dirs &dirs, const fs::path &path) {
+    if (path.has_filename()) {
+        auto tmp(path.parent_path());
+        if (tmp.empty()) {
+            dirs.insert(".");
+        } else {
+            dirs.insert(std::move(tmp));
+        }
+    } else {
+        dirs.insert(path);
+    }
+}
+
+inline void addBase(Dirs &dirs, const std::string &path) {
+    addBase(dirs, fs::path(path));
+}
+
+inline void addBase(Dirs &dirs, const boost::optional<std::string> &path) {
+    if (path) { addBase(dirs, fs::path(*path)); }
+}
+
+inline void extractDirs(Dirs &dirs, const SurfaceCommonConfig &surface
+                        , std::set<std::string> &boundLayers)
+{
+    if (surface.root.empty()) {
+        dirs.insert(".");
+    } else {
+        dirs.insert(surface.root);
+    }
+    if (surface.textureLayer) { boundLayers.insert(*surface.textureLayer); }
+}
+
+class ExtractVisitor : public boost::static_visitor<> {
+public:
+    ExtractVisitor(Dirs &dirs) : dirs_(dirs) {}
+
+    void operator()(const std::string &def) {
+        addBase(dirs_, def);
+    }
+
+    void operator()(const registry::FreeLayer::Geodata &def) {
+        addBase(dirs_, def.geodata);
+        addBase(dirs_, def.style);
+    }
+
+    void operator()(const registry::FreeLayer::GeodataTiles &def) {
+        addBase(dirs_, def.metaUrl);
+        addBase(dirs_, def.geodataUrl);
+        addBase(dirs_, def.style);
+    }
+
+    void operator()(const registry::FreeLayer::MeshTiles &def) {
+        addBase(dirs_, def.metaUrl);
+        addBase(dirs_, def.meshUrl);
+        addBase(dirs_, def.textureUrl);
+    }
+
+private:
+    Dirs &dirs_;
+};
+
+inline void extractDirs(Dirs &dirs, const registry::BoundLayer &bl)
+{
+    addBase(dirs, bl.url);
+    addBase(dirs, bl.maskUrl);
+    addBase(dirs, bl.metaUrl);
+    addBase(dirs, bl.creditsUrl);
+}
+
+Dirs extractDirs(const MapConfig &mapConfig)
+{
+    Dirs dirs;
+    std::set<std::string> boundLayers;
+
+    for (const auto &surface : mapConfig.surfaces) {
+        extractDirs(dirs, surface, boundLayers);
+    }
+
+    for (const auto &glue : mapConfig.glues) {
+        extractDirs(dirs, glue, boundLayers);
+    }
+
+    for (const auto &meshTiles : mapConfig.meshTiles) {
+        extractDirs(dirs, meshTiles.surface, boundLayers);
+    }
+
+    ExtractVisitor ev(dirs);
+    for (const auto &pair : mapConfig.freeLayers) {
+        boost::apply_visitor(ev, pair.second.definition);
+    }
+
+    for (const auto &bl : mapConfig.boundLayers) {
+        extractDirs(dirs, bl);
+    }
+
+    // extra bound layers
+    for (const auto &blId : boundLayers) {
+        if (const auto *bl
+            = registry::system.boundLayers(blId, std::nothrow))
+        {
+            extractDirs(dirs, *bl);
+        }
+    }
+
+    return dirs;
+}
+
+} // namespace
+
+void saveDirs(const MapConfig &mapConfig, std::ostream &os)
+{
+    os << "[\n";
+
+    const char *prefix("\t");
+    bool first(true);
+    for (const auto &dir : extractDirs(mapConfig)) {
+        os << prefix << dir << "\n";
+        if (first) {
+            first = false;
+            prefix = "\t, ";
+        }
+    }
+
+    os << "]\n";
 }
 
 } } // namespace vadstena::vts
