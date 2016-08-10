@@ -558,6 +558,9 @@ Dirs extractDirs(const MapConfig &mapConfig)
     Dirs dirs;
     std::set<std::string> boundLayers;
 
+    // add this directory (whatever it is)
+    dirs["."];
+
     for (const auto &surface : mapConfig.surfaces) {
         extractDirs(dirs, surface, boundLayers);
     }
