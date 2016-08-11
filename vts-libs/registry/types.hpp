@@ -57,7 +57,7 @@ struct View {
     Surfaces surfaces;
     FreeLayers freeLayers;
 
-    operator bool() const { return !(surfaces.empty() || freeLayers.empty()); }
+    operator bool() const { return !(surfaces.empty() && freeLayers.empty()); }
 
     BoundLayerParams::list& addSurface(const std::string &id) {
         return surfaces[id];

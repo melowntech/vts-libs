@@ -1574,7 +1574,7 @@ void fromJson(View &view, const Json::Value &value)
     if (!freeLayers.isNull()) {
         if (!freeLayers.isObject()) {
             LOGTHROW(err1, Json::Error)
-                << "Type of view[freeLayers] member is not a list.";
+                << "Type of view[freeLayers] member is not an object.";
         }
 
         for (const auto &fId : freeLayers.getMemberNames()) {
