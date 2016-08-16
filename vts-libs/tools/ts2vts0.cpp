@@ -45,6 +45,7 @@ public:
     TileSet2Vts()
         : service::Cmdline("ts2vts", BUILD_TARGET_VERSION)
         , createMode_(vts::CreateMode::failIfExists)
+        , rootDelta_(0.0,0.0)
     {
     }
 
@@ -66,6 +67,7 @@ private:
     ts::Locator input_;
     fs::path output_;
     std::string referenceFrame_;
+    math::Point2 rootDelta_;
 };
 
 void TileSet2Vts::configuration(po::options_description &cmdline
@@ -169,8 +171,15 @@ vts::LodLevels asVts(const ts::LodLevels &src)
     return dst;
 }
 
+ts::TileId applyDelta(const ts::TileId &tileId, const math::Point2 &delta) {
+    return ts::TileId( tileId.lod
+                     , tileId.easting + long(delta(0))
+                     , tileId.northing + long(delta(1)));
+}
+
 void clone(const ts::Properties &srcProps
-           , ts::TileSet &src, vts::TileSet &dst)
+          , ts::TileSet &src, vts::TileSet &dst
+          , const math::Point2 &delta)
 {
     // move alignment to upper-left corner
     auto alignment(srcProps.alignment);
@@ -185,7 +194,9 @@ void clone(const ts::Properties &srcProps
     // process all tiles
     asrc.traverseTiles([&](const ts::TileId &tileId)
     {
-        auto dTileId(asVts(alignment, srcProps.baseTileSize, tileId));
+        auto dTileId( asVts(alignment, srcProps.baseTileSize
+                    , applyDelta(tileId, delta)));
+        LOG(info1) << "Converting " << tileId << " -> " << dTileId;
         const auto *metanode(asrc.findMetaNode(tileId));
         if (!metanode) {
             LOG(warn2)
@@ -224,9 +235,14 @@ int TileSet2Vts::run()
 
     // check
     if (rootExtents != rf.rootExtents()) {
-        LOGTHROW(err3, std::runtime_error)
-            << "Reference frame has different extents than extents computed "
-            "from alignment and baseTileSize.";
+        if (rootExtents.size() != rf.rootExtents().size()) { 
+            LOGTHROW(err3, std::runtime_error)
+                << "Reference frame has different extents than extents computed "
+                "from alignment and baseTileSize and different size, unable to translate.";
+        }
+        LOG(warn3) << "Root extents have different origin, translating.";
+        rootDelta_ = rootExtents.ll - rf.rootExtents().ll;
+        LOG(info2) << "Origin delta is " << rootDelta_;
     }
 
     // create destination tileset
@@ -236,11 +252,7 @@ int TileSet2Vts::run()
     staticProperties.id(props.id);
     staticProperties.srs(props.srs);
     staticProperties.metaLevels(asVts(props.metaLevels));
-    staticProperties.extents
-        (math::Extents2
-         (props.alignment
-          , math::Point2(props.alignment(0) + props.baseTileSize
-                         , props.alignment(1) + props.baseTileSize)));
+    staticProperties.extents(rf.rootExtents());
     staticProperties.referenceFrame(referenceFrame_);
 
     auto settableProperties(cprops.settableSetter());
@@ -251,7 +263,7 @@ int TileSet2Vts::run()
 
     auto dst(vts::createTileSet(output_, cprops, createMode_));
 
-    clone(props, *src, *dst);
+    clone(props, *src, *dst, rootDelta_);
 
     dst->flush();
 
