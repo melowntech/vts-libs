@@ -123,7 +123,14 @@ inline vts::TileId asVts(const ts::Index &i)
 inline vts::TileId asVts(const ts::Alignment &alignment, long baseTileSize
                          , const ts::TileId &tid)
 {
-    return asVts(tileIndex(alignment, baseTileSize, tid));
+    const auto tileId(asVts(tileIndex(alignment, baseTileSize, tid)));
+
+    if ((tileId.x >> tileId.lod) || (tileId.y >> tileId.lod)) {
+        LOGTHROW(err3, std::runtime_error)
+            << "TS tile " << tid << " is outside of reference frame extents.";
+    }
+
+    return tileId;
 }
 
 inline vts::TileFile asVts(const ts::TileFile &f)
