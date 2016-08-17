@@ -6,6 +6,8 @@
 
 #include <curl/curl.h>
 
+#include "utility/uri.hpp"
+
 #include "../../../storage/error.hpp"
 #include "../../tileop.hpp"
 #include "./httpfetcher.hpp"
@@ -255,11 +257,29 @@ IStream::pointer fetchAsStream(::CURL *handle
     return tryFetch();
 }
 
+std::string fixUrl(const std::string &input)
+{
+    utility::Uri uri(input);
+    if (!uri.absolute()) {
+        LOGTHROW(err2, storage::IOError)
+            << "Uri <" << input << "> is not absolute uri.";
+    }
+
+    if (!uri.scheme().empty()) {
+        // we have uri with scheme -> fine
+        return input;
+    }
+
+    // no scheme, both http and https should work, force http
+    uri.scheme("http");
+    return str(uri);
+}
+
 } // namespace
 
 HttpFetcher::HttpFetcher(const std::string &rootUrl
                          , const Options &options)
-    : rootUrl_(rootUrl), options_(options), handle_(createCurl())
+    : rootUrl_(fixUrl(rootUrl)), options_(options), handle_(createCurl())
 {}
 
 IStream::pointer HttpFetcher::input(File type, bool noSuchFile)

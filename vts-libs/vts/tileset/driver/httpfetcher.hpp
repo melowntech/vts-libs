@@ -27,7 +27,7 @@ public:
                            , bool noSuchFile = true) const;
 
 private:
-    const std::string &rootUrl_;
+    const std::string rootUrl_;
     Options options_;
     std::shared_ptr<void> handle_;
 };
