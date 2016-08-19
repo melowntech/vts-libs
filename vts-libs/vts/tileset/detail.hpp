@@ -158,6 +158,9 @@ public:
     ExtraTileSetProperties loadExtraConfig() const;
     static ExtraTileSetProperties loadExtraConfig(const Driver &driver);
 
+    registry::RegistryBase loadRegistry() const;
+    static registry::RegistryBase loadRegistry(const Driver &driver);
+
     Detail& other(TileSet &otherSet) {
         return otherSet.detail();
     }

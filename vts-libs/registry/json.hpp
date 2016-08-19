@@ -8,8 +8,7 @@
 
 #include "jsoncpp/json.hpp"
 
-#include "./referenceframe.hpp"
-#include "./freelayer.hpp"
+#include "../registry.hpp"
 
 namespace vadstena { namespace registry {
 
@@ -54,6 +53,9 @@ Json::Value asJson(const View::map &namedViews
                    , BoundLayer::dict &boundLayers);
 void fromJson(View::map &views, const Json::Value &value);
 View::map namedViewsFromJson(const Json::Value &value);
+
+Json::Value asJson(const RegistryBase &r);
+void fromJson(RegistryBase &r, const Json::Value &value);
 
 // inlines
 

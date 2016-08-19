@@ -12,14 +12,24 @@
 
 namespace vadstena { namespace registry {
 
-/** Registry: resource holder.
+/** Base registry: credits and bound layers only
  */
-class Registry {
-public:
-    Srs::dict srs;
+struct RegistryBase {
     BoundLayer::dict boundLayers;
-    ReferenceFrame::dict referenceFrames;
     Credit::dict credits;
+
+    RegistryBase() {};
+};
+
+/** Full registry
+ */
+struct Registry : RegistryBase {
+    Srs::dict srs;
+    ReferenceFrame::dict referenceFrames;
+
+    Registry() = default;
+    Registry(const Registry&) = default;
+    Registry(const RegistryBase &base) : RegistryBase(base) {}
 };
 
 /** System-wide registry
@@ -37,6 +47,16 @@ boost::filesystem::path defaultPath();
 const DataFile& dataFile(const std::string &path, DataFile::Key key);
 const DataFile* dataFile(const std::string &path, DataFile::Key key
                          , std::nothrow_t);
+
+void load(RegistryBase &rb, const boost::filesystem::path &path);
+
+void load(RegistryBase &rb, std::istream &in
+          , const boost::filesystem::path &path
+          = "UNKNOWN");
+
+void save(const boost::filesystem::path &path, const RegistryBase &rb);
+
+void save(std::ostream &out, const RegistryBase &rb);
 
 } } // namespace vadstena::registry
 

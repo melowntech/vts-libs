@@ -117,6 +117,7 @@ struct ExtraTileSetProperties {
 };
 
 MapConfig mapConfig(const FullTileSetProperties &properties
+                    , const registry::RegistryBase &localRegistry
                     , const ExtraTileSetProperties &extra
                     = ExtraTileSetProperties()
                     , const boost::optional<boost::filesystem::path> &root

@@ -110,6 +110,9 @@ struct MapConfig : public registry::Registry {
 
     MapConfig() : textureAtlasReady(false) {}
 
+    MapConfig(const registry::RegistryBase &base)
+        : registry::Registry(base), textureAtlasReady(false) {}
+
     /** Merges in mapConfig for one tileset.
      *
      * \param tilesetMapConfig single tileset mapConfig

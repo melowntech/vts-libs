@@ -41,8 +41,20 @@ set(vts-registry_SOURCES
   registry/freelayer.hpp registry/freelayer.cpp
   registry/json.hpp registry/dict.hpp
   ${CMAKE_CURRENT_BINARY_DIR}/registry/config.cpp
-)
+  )
 
+set(vts-registry_python_DEPENDS)
+if(VTS_REGISTRY_PYTHON)
+  message(STATUS "vts-libs-core: compiling in python support")
+  list(APPEND vts-registry_python_DEPENDS
+    pysupport pydbglog Boost_PYTHON)
+  set(vts-registry_python_SOURCES
+    registry/py.hpp registry/py.cpp
+    )
+else()
+  message(STATUS "vts-libs-core: compiling without python support")
+  set(vts-registry_python_SOURCES)
+endif()
 
 # old tilestorage browser files
 set(tilestorage_BROWSER_SOURCES
@@ -249,6 +261,7 @@ set(vts_SOURCES
 # vts core library
 define_module(LIBRARY vts-libs-core DEPENDS
   geo imgproc math utility dbglog jsoncpp half
+  ${vts-registry_python_DEPENDS}
   Boost_IOSTREAMS
   Boost_FILESYSTEM
   CURL PNG
@@ -257,6 +270,7 @@ define_module(LIBRARY vts-libs-core DEPENDS
 add_library(vts-libs-core STATIC
   ${vts-common_SOURCES}
   ${vts-registry_SOURCES}
+  ${vts-registry_python_SOURCES}
 
   ${vts_BROWSER_SOURCES}
   ${vts-core_SOURCES}

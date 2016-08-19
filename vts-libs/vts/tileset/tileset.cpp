@@ -1234,14 +1234,25 @@ ExtraTileSetProperties TileSet::Detail::loadExtraConfig() const
 
 ExtraTileSetProperties TileSet::Detail::loadExtraConfig(const Driver &driver)
 {
-    IStream::pointer is;
-    try {
-        is = driver.input(File::extraConfig);
-    } catch (std::exception) {
-        return {};
+    if (auto is = driver.input(File::extraConfig, NullWhenNotFound)) {
+        tileset::loadExtraConfig(*is);
     }
+    return {};
+}
 
-    return tileset::loadExtraConfig(*is);
+registry::RegistryBase TileSet::Detail::loadRegistry() const
+{
+    return loadRegistry(*driver);
+}
+
+registry::RegistryBase TileSet::Detail::loadRegistry(const Driver &driver)
+{
+    if (auto is = driver.input(File::registry, NullWhenNotFound)) {
+        registry::RegistryBase rb;
+        registry::load(rb, *is);
+        return rb;
+    }
+    return {};
 }
 
 const TileIndex& TileSet::tileIndex() const
@@ -1263,28 +1274,34 @@ MapConfig TileSet::mapConfig(const Driver &driver, bool includeExtra)
 MapConfig TileSet::Detail::mapConfig(const Driver &driver, bool includeExtra)
 {
     return vts::mapConfig(tileset::loadConfig(driver)
+                          , loadRegistry(driver)
                           , (includeExtra ? loadExtraConfig(driver)
                              : ExtraTileSetProperties()));
 }
 
 MapConfig TileSet::Detail::mapConfig(bool includeExtra) const
 {
-    return vts::mapConfig(properties, (includeExtra ? loadExtraConfig()
-                                       : ExtraTileSetProperties()));
+    return vts::mapConfig(properties
+                          , loadRegistry()
+                          , (includeExtra ? loadExtraConfig()
+                             : ExtraTileSetProperties()));
 }
 
 MapConfig mapConfig(const FullTileSetProperties &properties
+                    , const registry::RegistryBase &localRegistry
                     , const ExtraTileSetProperties &extra
                     , const boost::optional<boost::filesystem::path> &root)
 {
     auto referenceFrame(registry::system.referenceFrames
                         (properties.referenceFrame));
 
-    MapConfig mapConfig;
+    // initialize mapconfif with local registry (NB: mapconfig is full blown
+    // registry with some extra stuff)
+    MapConfig mapConfig(localRegistry);
 
     // prefill with extra entitities
-    mapConfig.credits = extra.credits;
-    mapConfig.boundLayers = extra.boundLayers;
+    mapConfig.credits.update(extra.credits);
+    mapConfig.boundLayers.update(extra.boundLayers);
     mapConfig.freeLayers = extra.freeLayers;
 
     // build

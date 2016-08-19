@@ -11,7 +11,7 @@ enum class TileFile {
    , meta2d, mask, ortho, credits
 };
 
-enum class File { config, tileIndex, extraConfig };
+enum class File { config, tileIndex, extraConfig, registry };
 
 } } // namespace vadstena::storage
 

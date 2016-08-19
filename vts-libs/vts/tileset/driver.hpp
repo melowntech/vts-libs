@@ -240,6 +240,10 @@ private:
      */
     boost::filesystem::path extraConfigPath_;
 
+    /** Path to registry
+     */
+    boost::filesystem::path registryPath_;
+
     boost::any options_;
 
     /** Information about root when tileset was open in read-only mode.
@@ -253,6 +257,10 @@ private:
     /** Information about extra-config when tileset was open in read-only mode.
      */
     FileStat extraConfigStat_;
+
+    /** Information about registry when tileset was open in read-only mode.
+     */
+    FileStat registryStat_;
 
     /** Runnable associated with the driver.
      */

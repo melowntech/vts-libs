@@ -35,13 +35,14 @@ namespace {
 const std::string ConfigName("tileset.conf");
 const std::string ExtraConfigName("extra.conf");
 const std::string TileIndexName("tileset.index");
+const std::string RegistryName("tileset.registry");
 
-const std::string filePath(File type)
-{
+const std::string filePath(File type) {
     switch (type) {
     case File::config: return ConfigName;
     case File::extraConfig: return ExtraConfigName;
     case File::tileIndex: return TileIndexName;
+    case File::registry: return RegistryName;
     default: break;
     }
     throw "unknown file type";
@@ -78,6 +79,11 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
 
     // clone tile index
     copyFile(fetcher_.input(File::tileIndex), output(File::tileIndex));
+
+    // clone registry if exists
+    if (auto registry = fetcher_.input(File::registry, false)) {
+        copyFile(registry, output(File::registry));
+    }
 
     // and load it
     tileset::loadTileSetIndex(tsi_, *this);

@@ -37,6 +37,7 @@ namespace {
     const std::string ConfigName("tileset.conf");
     const std::string ExtraConfigName("extra.conf");
     const std::string TileIndexName("tileset.index");
+    const std::string RegistryName("tileset.registry");
 
     const std::string filePath(File type)
     {
@@ -44,6 +45,7 @@ namespace {
         case File::config: return ConfigName;
         case File::extraConfig: return ExtraConfigName;
         case File::tileIndex: return TileIndexName;
+        case File::registry: return RegistryName;
         default: break;
         }
         throw "unknown file type";
@@ -61,6 +63,7 @@ Driver::Driver(const boost::filesystem::path &root
     , readOnly_(false)
     , configPath_(root_ / filePath(File::config))
     , extraConfigPath_(root_ / filePath(File::extraConfig))
+    , registryPath_(root_ / filePath(File::registry))
     , options_(options)
     , runnable_(), lastModified_()
 {
@@ -81,6 +84,7 @@ Driver::Driver(const boost::any &options, CreateMode)
     , readOnly_(true)
     , configPath_(root_ / filePath(File::config))
     , extraConfigPath_(root_ / filePath(File::extraConfig))
+    , registryPath_(root_ / filePath(File::registry))
     , options_(options)
     , runnable_(), lastModified_()
 {}
@@ -91,13 +95,16 @@ Driver::Driver(const boost::filesystem::path &root
     , readOnly_(true)
     , configPath_(root_ / filePath(File::config))
     , extraConfigPath_(root_ / filePath(File::extraConfig))
+    , registryPath_(root_ / filePath(File::registry))
     , options_(options)
     , rootStat_(FileStat::stat(root_))
     , configStat_(FileStat::stat(configPath_))
     , extraConfigStat_(FileStat::stat(extraConfigPath_, std::nothrow))
+    , registryStat_(FileStat::stat(registryPath_, std::nothrow))
     , runnable_()
     , lastModified_(std::max({ rootStat_.lastModified, configStat_.lastModified
-                    , extraConfigStat_.lastModified }))
+                    , extraConfigStat_.lastModified
+                    , registryStat_.lastModified}))
 {
 }
 
@@ -110,7 +117,9 @@ bool Driver::externallyChanged() const
     return (rootStat_.changed(FileStat::stat(root_))
             || configStat_.changed(FileStat::stat(configPath_))
             || extraConfigStat_.changed(FileStat::stat
-                                        (extraConfigPath_, std::nothrow)));
+                                        (extraConfigPath_, std::nothrow))
+            || registryStat_.changed(FileStat::stat
+                                        (registryPath_, std::nothrow)));
 }
 
 bool Driver::readOnly() const

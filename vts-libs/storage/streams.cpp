@@ -103,8 +103,12 @@ FileStat FileStat::stat(int fd, std::nothrow_t)
 
 const char* contentType(File type)
 {
-    if (type == File::config) {
+    switch (type) {
+    case File::config:
+    case File::registry:
         return "application/json; charset=utf-8";
+
+    default: break;
     }
     return "application/octet-stream";
 }

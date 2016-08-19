@@ -644,6 +644,8 @@ void build(Json::Value &content, const Srs::dict &srs
     }
 }
 
+/** NB: Do Not forget to update fromPython function in py.cpp!
+ */
 void parse(Credit &c, const Json::Value &content)
 {
     Json::get(c.numericId, content, "id");
@@ -672,7 +674,7 @@ void parse(Credit::dict &credits, const Json::Value &content)
             credits.add(c);
         } catch (const Json::Error &e) {
             LOGTHROW(err1, storage::FormatError)
-                << "Invalid credits file format (" << e.what()
+                << "Invalid credits collection format (" << e.what()
                 << ").";
         }
     }
@@ -722,6 +724,8 @@ void parse(Credits &credits, const Json::Value &value)
     }
 }
 
+/** NB: Do Not forget to update fromPython function in py.cpp!
+ */
 void parse(BoundLayer &bl, const Json::Value &content)
 {
     if (content.isMember("id")) {
@@ -813,7 +817,7 @@ void parse(BoundLayer::dict &bls, const Json::Value &content)
             bls.add(bl);
         } catch (const Json::Error &e) {
             LOGTHROW(err1, storage::FormatError)
-                << "Invalid bound layers file format (" << e.what()
+                << "Invalid bound layers collection format (" << e.what()
                 << ").";
         }
     }
@@ -1715,6 +1719,80 @@ void ReferenceFrame::invalidate(const Division::Node::Id &nodeId)
 
     // force invalid node
     nodes[nodeId] = Node(nodeId, PartitioningMode::none);
+}
+
+Json::Value asJson(const RegistryBase &rb)
+{
+    Json::Value value(Json::objectValue);
+    if (!rb.credits.empty()) {
+        build(value["credits"], rb.credits);
+    }
+    if (!rb.boundLayers.empty()) {
+        build(value["boundLayers"], rb.boundLayers);
+    }
+    return value;
+}
+
+void fromJson(RegistryBase &rb, const Json::Value &value)
+{
+    // parse value
+    if (value.isMember("credits")) {
+        parse(rb.credits, value["credits"]);
+    }
+    if (value.isMember("boundLayers")) {
+        parse(rb.boundLayers, value["boundLayers"]);
+    }
+}
+
+void load(RegistryBase &rb, std::istream &in
+          , const boost::filesystem::path &path)
+{
+    // load json
+    Json::Value content;
+    Json::Reader reader;
+    if (!reader.parse(in, content)) {
+        LOGTHROW(err2, storage::FormatError)
+            << "Unable to parse resource base file " << path << ": "
+            << reader.getFormattedErrorMessages() << ".";
+    }
+    fromJson(rb, content);
+}
+
+void load(RegistryBase &rb, const boost::filesystem::path &path)
+{
+    LOG(info1) << "Loading registry base from file from " << path  << ".";
+    std::ifstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    try {
+        f.open(path.string(), std::ios_base::in);
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::IOError)
+            << "Unable to load registry base file " << path << ".";
+    }
+
+    load(rb, f, path);
+    f.close();
+}
+
+void save(std::ostream &out, const RegistryBase &rb)
+{
+    out.precision(15);
+    Json::StyledStreamWriter().write(out, asJson(rb));
+}
+
+void save(const boost::filesystem::path &path, const RegistryBase &rb)
+{
+    LOG(info1) << "Saving registry base file to " << path  << ".";
+    std::ofstream f;
+    try {
+        f.exceptions(std::ios::badbit | std::ios::failbit);
+        f.open(path.string(), std::ios_base::out);
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::IOError)
+            << "Unable to save registry base file " << path << ".";
+    }
+    save(f, rb);
+    f.close();
 }
 
 } } // namespace vadstena::registry
