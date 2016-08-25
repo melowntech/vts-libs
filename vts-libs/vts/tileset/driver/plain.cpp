@@ -31,6 +31,7 @@ namespace {
     const std::string ConfigName("tileset.conf");
     const std::string ExtraConfigName("extra.conf");
     const std::string TileIndexName("tileset.index");
+    const std::string RegistryName("tileset.registry");
 
     const std::string filePath(File type)
     {
@@ -38,6 +39,7 @@ namespace {
         case File::config: return ConfigName;
         case File::extraConfig: return ExtraConfigName;
         case File::tileIndex: return TileIndexName;
+        case File::registry: return RegistryName;
         default: break;
         }
         throw "unknown file type";
