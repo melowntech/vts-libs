@@ -87,6 +87,10 @@ math::Size2_<TileRange::value_type> tileRangesSize(const TileRange &tr);
  */
 bool inside(const Ranges &ranges, const TileId &tileId);
 
+/** Is tile withing given ranges or is somewhere below.
+ */
+bool under(const Ranges &ranges, const TileId &tileId);
+
 /** Does given range overlap with ranges?
  */
 bool overlaps(const Ranges &ranges, const LodTileRange &range);

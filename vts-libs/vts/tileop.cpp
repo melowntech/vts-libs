@@ -277,6 +277,16 @@ bool inside(const Ranges &ranges, const TileId &tileId)
     return false;
 }
 
+bool under(const Ranges &ranges, const TileId &tileId)
+{
+    // first, check for tile being in above or at max lod
+    auto max(ranges.lodRange().max);
+    if (tileId.lod <= max) { return inside(ranges, tileId); }
+
+    // tile is somewhere under the max lod, test its parent at max lod
+    return inside(ranges, parent(tileId, tileId.lod - max));
+}
+
 bool overlaps(const Ranges &ranges, const LodTileRange &range)
 {
     if (const auto *tileRange = ranges.tileRange(range.lod, std::nothrow)) {
