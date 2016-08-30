@@ -416,7 +416,7 @@ UTILITY_GENERATE_ENUM_IO(Position::Type,
 )
 
 UTILITY_GENERATE_ENUM_IO(Position::HeightMode,
-    ((fixed))
+    ((fixed)("fixed")("fix"))
     ((floating)("float"))
 )
 
