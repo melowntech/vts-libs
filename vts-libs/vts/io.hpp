@@ -26,6 +26,14 @@ operator<<(std::basic_ostream<CharT, Traits> &os
     return os << ltr.lod << '/' << ltr.range;
 }
 
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os
+           , const Ranges &ranges)
+{
+    return os << ranges.lodRange() << '/' << ranges.tileRange();
+}
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_io_hpp_included_
