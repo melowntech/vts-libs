@@ -396,6 +396,9 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
 {
     Ts::ptrlist incidentSets;
     {
+        //save first for added tileset itself
+        incidentSets.push_back(&added);
+
         for (auto &ts : tilesets) {
             // ignore added tileset
             if (ts.added) {continue; }
@@ -409,6 +412,8 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
             // incidence between spheres of influence -> remember
             LOG(info1) << "Adding <" << ts.id() << "> to incident set.";
             incidentSets.push_back(&ts);
+            // note that added tileset coincides with this
+            incidentSets[0]->incidentSets.insert(ts.index);
         }
     }
 
@@ -420,7 +425,7 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
         {
             auto &first(**iincidentSets);
 
-            // process all remaining tilesets, add self
+            // process all remaining tilesets
             for (auto iincidentSets2(std::next(iincidentSets));
                  iincidentSets2 != eincidentSets; ++iincidentSets2)
             {
@@ -434,9 +439,73 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
         }
     }
 
-    // result
-    GlueDescriptor::list gd;
+    /* Build putative glues:
+     * do a depth-first search where any two consecutive datasets are incident
+     * this may yield some false positives ( A->B, A->C, B->C coincide does not
+     * imply ABC coincide) but these will be ruled out in the next step.
+     */
 
+    GlueDescriptor::list gd;
+    {
+        auto buildGlueCombination[&]( const Ts& tsToAdd
+            //, const decltype(incidentSets.end().incidentSets.end()) iIdxToTry
+            , Ts::list glueMembers
+            , GlueRuleChecker ruleChecker
+            , std::set<TilesetId> seenBases) -> void
+        {
+            if (!seenBases.insert(tsToAdd.base()).second) {
+                // this base tileset has already been seen
+                LOG(info1) << "Backtracking due to different version.";
+                return;
+            }
+
+            if (!ruleChecker(tsToAdd.stored)) {
+                // glue rule prevents glue generation
+                LOG(info1) << "Backtracking due to rule check failed."
+                return;
+            }
+
+            // seems fine, add tileset
+            glueMembers.push_back(tsToAdd);
+
+            if (glueMembers.size() > 1) {
+                // sort glue content
+                std::sort( glueMembers.begin(), glueMembers.end()
+                         , [](const Ts& a, const Ts& b) {
+                            return a.index < b.index;
+                         } );
+
+                Glue glue;
+                TileSet::const_ptrlist combination;
+
+                for (const auto& gts : glueMembers) {
+                    glue.id.push_back(gts.id());
+                    combination.push_back(&gts.set);
+                }
+
+                auto glueSetId(boost::lexical_cast<std::string>
+                           (utility::join(glue.id, "_")));
+                glue.path = glueSetId;
+
+                // create glue
+                gd.emplace_back(combination, glue, glueSetId);
+            }
+
+            // try tilesets incident with this tileset
+            for ( its(tsToAdd.incidentSets.begin())
+                ; its != tsToAdd.incidentSets.end(); ++its)
+            {
+                buildGlueCombination( tilesets[*its], glueMembers
+                                    , ruleChecker, seenBases);
+            }
+        };
+
+        buildGlueCombination(added, {}, GlueRuleChecker(tx.glueRules()), {});
+    }
+
+    // result
+    
+#if 0
     for (const auto &tsp : incidentSets) {
         const auto &ts(*tsp);
 
@@ -529,7 +598,8 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
             gd.emplace_back(combination, glue, glueSetId);
         } while (flags.increment());
     }
-
+#endif
+    
     return gd;
 }
 
