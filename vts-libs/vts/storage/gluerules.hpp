@@ -34,8 +34,11 @@ public:
          */
         bool check(const StoredTileset &tileset);
 
+        pointer clone() const;
+
     private:
         virtual bool check_impl(const StoredTileset &tileset) = 0;
+        virtual pointer clone_impl() const = 0;
     };
 
     /** Generate Matcher
@@ -61,6 +64,10 @@ public:
     /** Creates glue rule checker.
      */
     GlueRuleChecker(const GlueRule::list &rules);
+
+    /** Deep copy constructor.
+     */
+    GlueRuleChecker(const GlueRuleChecker &other);
 
     /** Check whether this tileset can be added to glue.
      */
@@ -100,6 +107,11 @@ inline std::ostream& GlueRule::dump(std::ostream &os
 inline bool GlueRule::MatcherBase::check(const StoredTileset &tags)
 {
     return check_impl(tags);
+}
+
+inline GlueRule::MatcherBase::pointer GlueRule::MatcherBase::clone() const
+{
+    return clone_impl();
 }
 
 } } // namespace vadstena::vts

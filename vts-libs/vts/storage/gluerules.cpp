@@ -26,6 +26,13 @@ GlueRuleChecker::GlueRuleChecker(const GlueRule::list &rules)
     }
 }
 
+GlueRuleChecker::GlueRuleChecker(const GlueRuleChecker &other)
+{
+    for (const auto &matcher : other.matchers_) {
+        matchers_.push_back(matcher->clone());
+    }
+}
+
 bool GlueRuleChecker::operator()(const StoredTileset &tileset) const
 {
     for (const auto &matcher : matchers_) {
@@ -70,12 +77,16 @@ public:
     static const char *name() { return "tag.sole-occurrence"; }
 
 private:
-    struct Matcher : public MatcherBase {
+    struct Matcher : public MatcherBase  {
         Matcher(const ThisConstRule &rule): rule(rule), count() {}
 
         virtual bool check_impl(const StoredTileset &tileset) {
             count += tileset.tags.count(rule->tag_);
             return (count < 2);
+        }
+
+        virtual pointer clone_impl() const {
+            return std::make_shared<Matcher>(*this);
         }
 
         ThisConstRule rule;
@@ -134,6 +145,10 @@ private:
             return true;
         }
 
+        virtual pointer clone_impl() const {
+            return std::make_shared<Matcher>(*this);
+        }
+
         ThisConstRule rule;
         std::string match;
     };
@@ -172,6 +187,10 @@ private:
             if (tag == tag_) { return false; }
         }
         return true;
+    }
+
+    virtual GlueRule::MatcherBase::pointer clone_impl() const {
+        return std::make_shared<TagNoGlue>(*this);
     }
 
     virtual GlueRule::MatcherBase::pointer matcher_impl() {
