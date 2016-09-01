@@ -11,6 +11,7 @@
 #include <exception>
 #include <algorithm>
 #include <iterator>
+#include <functional>
 
 #include <boost/optional.hpp>
 #include <boost/noncopyable.hpp>
@@ -447,12 +448,13 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
 
     GlueDescriptor::list gd;
     {
-        auto buildGlueCombination[&]( const Ts& tsToAdd
-            //, const decltype(incidentSets.end().incidentSets.end()) iIdxToTry
+        std::function<void(const Ts&, Ts::list, GlueRuleChecker, std::set<TilesetId>)> buildGlueCombination;
+        buildGlueCombination = ([&]( const Ts& tsToAdd
             , Ts::list glueMembers
             , GlueRuleChecker ruleChecker
             , std::set<TilesetId> seenBases) -> void
         {
+            LOG(info2) << "Trying tileset: " << tsToAdd.index << " <" << tsToAdd.id() << "> ";
             if (!seenBases.insert(tsToAdd.base()).second) {
                 // this base tileset has already been seen
                 LOG(info1) << "Backtracking due to different version.";
@@ -461,7 +463,7 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
 
             if (!ruleChecker(tsToAdd.stored)) {
                 // glue rule prevents glue generation
-                LOG(info1) << "Backtracking due to rule check failed."
+                LOG(info1) << "Backtracking due to rule check failed.";
                 return;
             }
 
@@ -492,13 +494,13 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
             }
 
             // try tilesets incident with this tileset
-            for ( its(tsToAdd.incidentSets.begin())
+            for ( auto its(tsToAdd.incidentSets.begin())
                 ; its != tsToAdd.incidentSets.end(); ++its)
             {
                 buildGlueCombination( tilesets[*its], glueMembers
                                     , ruleChecker, seenBases);
             }
-        };
+        });
 
         buildGlueCombination(added, {}, GlueRuleChecker(tx.glueRules()), {});
     }
