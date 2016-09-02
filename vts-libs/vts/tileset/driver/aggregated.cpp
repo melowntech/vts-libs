@@ -1,6 +1,8 @@
 /** Aggregated driver: on the fly surface aggregator
  *
  * TODO: cache stuff to make it a bit faster
+ *
+ * TODO: compose registry from all sub tilesets
  */
 
 #include <stdexcept>
@@ -41,6 +43,7 @@ namespace {
 const std::string ConfigName("tileset.conf");
 const std::string ExtraConfigName("extra.conf");
 const std::string TileIndexName("tileset.index");
+const std::string RegistryName("tileset.registry");
 
 const std::string filePath(File type)
 {
@@ -48,6 +51,7 @@ const std::string filePath(File type)
     case File::config: return ConfigName;
     case File::extraConfig: return ExtraConfigName;
     case File::tileIndex: return TileIndexName;
+    case File::registry: return RegistryName;
     default: break;
     }
     throw "unknown file type";
