@@ -448,9 +448,9 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
 
     GlueDescriptor::list gd;
     {
-        std::function<void(const Ts&, Ts::list, GlueRuleChecker, std::set<TilesetId>)> buildGlueCombination;
+        std::function<void(const Ts&, Ts::const_ptrlist, GlueRuleChecker, std::set<TilesetId>)> buildGlueCombination;
         buildGlueCombination = ([&]( const Ts& tsToAdd
-            , Ts::list glueMembers
+            , Ts::const_ptrlist glueMembers
             , GlueRuleChecker ruleChecker
             , std::set<TilesetId> seenBases) -> void
         {
@@ -467,22 +467,30 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
                 return;
             }
 
+            // test if really incident with all already added
+            for (auto & ats : glueMembers) {
+                if (ats->incidentSets.find(tsToAdd.index) == ats->incidentSets.end()) {
+                    LOG(info1) << "Backtracking due to not incident with all previous tilesets.";
+                    return;
+                }
+            }
+
             // seems fine, add tileset
-            glueMembers.push_back(tsToAdd);
+            glueMembers.push_back(&tsToAdd);
 
             if (glueMembers.size() > 1) {
                 // sort glue content
                 std::sort( glueMembers.begin(), glueMembers.end()
-                         , [](const Ts& a, const Ts& b) {
-                            return a.index < b.index;
+                         , [](const Ts* a, const Ts* b) {
+                            return a->index < b->index;
                          } );
 
                 Glue glue;
                 TileSet::const_ptrlist combination;
 
-                for (const auto& gts : glueMembers) {
-                    glue.id.push_back(gts.id());
-                    combination.push_back(&gts.set);
+                for (const auto gts : glueMembers) {
+                    glue.id.push_back(gts->id());
+                    combination.push_back(&gts->set);
                 }
 
                 auto glueSetId(boost::lexical_cast<std::string>
