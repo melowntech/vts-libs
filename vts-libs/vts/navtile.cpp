@@ -1,5 +1,7 @@
 #include "dbglog/dbglog.hpp"
 
+#include "utility/binaryio.hpp"
+
 #include "../storage/error.hpp"
 
 #include "./navtile.hpp"
@@ -65,6 +67,37 @@ void NavTile::coverageMask(const CoverageMask &mask)
 {
     checkMaskSize(mask);
     coverageMask_ = mask;
+}
+
+multifile::Table RawNavTile::serialize_impl(std::ostream &os) const
+{
+    using utility::binaryio::write;
+
+    // write
+    multifile::Table table;
+    auto pos(os.tellp());
+
+    write(os, image_.data(), image_.size());
+    pos = table.add(pos, image_.size());
+
+    return table;
+}
+
+void RawNavTile::deserialize_impl(const HeightRange &heightRange
+                                  , std::istream &is
+                                  , const boost::filesystem::path &path
+                                  , const multifile::Table &table)
+{
+    (void) path;
+    using utility::binaryio::read;
+
+    heightRange_ = heightRange;
+
+    const auto &entry(table[imageIndex()]);
+
+    is.seekg(entry.start);
+    image_.resize(entry.size);
+    read(is, image_.data(), image_.size());
 }
 
 } } // namespace vadstena::vts

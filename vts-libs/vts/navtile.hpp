@@ -59,6 +59,33 @@ private:
     CoverageMask coverageMask_;
 };
 
+class RawNavTile : public NavTile {
+public:
+    typedef std::shared_ptr<RawNavTile> pointer;
+
+    RawNavTile() : coverageMask_(size(), CoverageMask::InitMode::FULL) {}
+
+    virtual ~RawNavTile() {}
+
+    virtual HeightRange heightRange() const { return heightRange_; }
+
+    typedef std::vector<unsigned char> Image;
+
+    const Image& get() const { return image_; }
+
+private:
+    virtual multifile::Table serialize_impl(std::ostream &os) const;
+
+    virtual void deserialize_impl(const HeightRange &heightRange
+                                  , std::istream &is
+                                  , const boost::filesystem::path &path
+                                  , const multifile::Table &table);
+
+    HeightRange heightRange_;
+    Image image_;
+    CoverageMask coverageMask_;
+};
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_navtile_hpp

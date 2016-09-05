@@ -53,6 +53,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((file)("file"))
                       ((tags)("tags"))
                       ((glueRulesSyntax)("glue-rules-syntax"))
+                      ((dumpNavtile)("dump-navtile"))
                       )
 
 
@@ -163,6 +164,8 @@ private:
     int file();
 
     int glueRulesSyntax();
+
+    int dumpNavtile();
 
     bool noexcept_;
     fs::path path_;
@@ -739,6 +742,20 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.options.add_options()
             ;
     });
+
+    createParser(cmdline, Command::dumpNavtile
+                 , "--command=dump-navtile: navtile"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileId", po::value(&tileId_)->required()
+             , "ID of tile to query.")
+            ("output", po::value(&outputPath_)->required()
+             , "Path of output image.")
+            ;
+
+        p.positional.add("output", 1);
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -848,6 +865,7 @@ int VtsStorage::runCommand()
     case Command::relocate: return relocate();
     case Command::file: return file();
     case Command::glueRulesSyntax: return glueRulesSyntax();
+    case Command::dumpNavtile: return dumpNavtile();
     }
     std::cerr << "vts: no operation requested" << std::endl;
     return EXIT_FAILURE;
@@ -1695,6 +1713,24 @@ There are these rules available:
    Effect: no glues will be generated for tilesets having tag "no-glue".
 
 )RAW";
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::dumpNavtile()
+{
+    auto ts(vts::openTileSet(path_));
+
+    if (!(ts.tileIndex().get(tileId_) & vts::TileIndex::Flag::navtile)) {
+        std::cerr << tileId_ << ": has no navtile" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    vts::RawNavTile navtile;
+    ts.getNavTile(tileId_, navtile);
+    const auto &image(navtile.get());
+
+    utility::write(outputPath_, image.data(), image.size());
+
     return EXIT_SUCCESS;
 }
 
