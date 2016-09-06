@@ -1235,7 +1235,7 @@ ExtraTileSetProperties TileSet::Detail::loadExtraConfig() const
 ExtraTileSetProperties TileSet::Detail::loadExtraConfig(const Driver &driver)
 {
     if (auto is = driver.input(File::extraConfig, NullWhenNotFound)) {
-        tileset::loadExtraConfig(*is);
+        return tileset::loadExtraConfig(*is);
     }
     return {};
 }
