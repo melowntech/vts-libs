@@ -139,7 +139,9 @@ buildMeta(const TileSetInfo::list &tsil, const fs::path &root
 const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
                                 , const TileId &tileId)
 {
+#if 0
     typedef TileIndex::Flag TiFlag;
+#endif
 
     auto trySet([&](const EnhancedInfo &info) -> const EnhancedInfo*
     {

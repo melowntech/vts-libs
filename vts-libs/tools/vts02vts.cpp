@@ -375,8 +375,9 @@ private:
             << "This atlas is serialize-only.";
     }
 
-    virtual math::Size2 imageSize_impl(std::size_t index) const {
+    virtual math::Size2 imageSize_impl(std::size_t index) const
         UTILITY_OVERRIDE
+    {
         if (index) {
             LOGTHROW(err4, std::runtime_error)
                 << "This atlas has just one image.";

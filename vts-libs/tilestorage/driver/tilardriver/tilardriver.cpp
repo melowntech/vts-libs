@@ -54,7 +54,7 @@ namespace {
      , class = typename std::enable_if<std::is_unsigned<T>::value>::type>
     T getOption(const DriverProperties::Options &options
                 , const std::string &key
-                , const boost::optional<T> &defaultValue = boost::none)
+                , const boost::optional<T> &defaultValue)
     {
         auto foptions(options.find(key));
         if (foptions == options.end()) {

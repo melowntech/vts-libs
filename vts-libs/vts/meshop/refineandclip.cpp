@@ -337,7 +337,9 @@ void Clipper::refine(std::size_t faceCount)
     LOG(info2) << "Refining " << faces_.size() << " faces to " << faceCount
                << " faces.";
 
+#if 0
     typedef PointMapper<math::Point3d> Vertices;
+#endif
 
     /** Edge key, keys is held automatically sorted.
      */

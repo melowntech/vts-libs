@@ -40,7 +40,7 @@ struct View {
 
         /** Tells whether these bound layer parameters are complex.
          */
-        bool isComplex() const { return alpha; }
+        bool isComplex() const { return bool(alpha); }
 
         typedef std::vector<BoundLayerParams> list;
     };

@@ -29,7 +29,7 @@ namespace {
 struct TileIdReader {
     boost::optional<vts::TileId> id;
 
-    operator bool() const { return id; }
+    operator bool() const { return bool(id); }
 };
 
 template<typename CharT, typename Traits>

@@ -91,10 +91,10 @@ struct StoredTileset {
 
     typedef std::vector<const StoredTileset*> constptrlist;
 
-    StoredTileset() : version(version) {}
+    StoredTileset() : version() {}
 
     StoredTileset(const TilesetId &tilesetId)
-        : tilesetId(tilesetId), version(version)
+        : tilesetId(tilesetId), version()
     {}
 };
 
