@@ -96,8 +96,7 @@ public:
     struct Detail;
 
 private:
-    struct DetailDeleter { void operator()(Detail*); };
-    std::unique_ptr<Detail, DetailDeleter> detail_;
+    std::shared_ptr<Detail> detail_;
     Detail& detail() { return *detail_; }
     const Detail& detail() const { return *detail_; }
 

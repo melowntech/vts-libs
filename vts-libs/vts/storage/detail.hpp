@@ -193,8 +193,6 @@ struct Storage::Detail
                                = boost::filesystem::path());
 };
 
-inline void Storage::DetailDeleter::operator()(Detail *d) { delete d; }
-
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_storage_detail_hpp_included_

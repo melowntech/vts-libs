@@ -71,14 +71,14 @@ Storage openStorage(const boost::filesystem::path &path
 }
 
 Storage::Storage(const boost::filesystem::path &path, OpenMode mode)
-    : detail_(new Detail(path, mode))
+    : detail_(std::make_shared<Detail>(path, mode))
 {
 }
 
 Storage::Storage(const boost::filesystem::path &path
                  , const StorageProperties &properties
                  , CreateMode mode)
-    : detail_(new Detail(path, properties, mode))
+    : detail_(std::make_shared<Detail>(path, properties, mode))
 {}
 
 Storage::~Storage()

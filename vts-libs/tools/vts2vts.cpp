@@ -504,15 +504,6 @@ math::Size2 navpaneSizeInPixels(const math::Size2 &sizeInTiles)
             , 1 + sizeInTiles.height * (s.height - 1) };
 }
 
-namespace def {
-
-float Infinity(std::numeric_limits<float>::infinity());
-float InvalidHeight(Infinity);
-
-const auto *DumpDir(::getenv("HEIGHTMAP_DUMP_DIR"));
-
-} // namespace def
-
 vts::NavTile::pointer
 warpNavtiles(const vts::TileId &tileId
              , const vr::ReferenceFrame &referenceFrame

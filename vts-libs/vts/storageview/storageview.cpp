@@ -79,7 +79,7 @@ fs::path relpath(const fs::path &src, const fs::path &dst)
 namespace vadstena { namespace vts {
 
 StorageView::StorageView(const boost::filesystem::path &path)
-    : detail_(new Detail(path))
+    : detail_(std::make_shared<Detail>(path))
 {
 }
 
