@@ -13,6 +13,8 @@
 
 #include "service/cmdline.hpp"
 
+#include "imgproc/rastermask/cvmat.hpp"
+
 #include "../registry/po.hpp"
 #include "../vts.hpp"
 #include "../vts/io.hpp"
@@ -54,6 +56,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((tags)("tags"))
                       ((glueRulesSyntax)("glue-rules-syntax"))
                       ((dumpNavtile)("dump-navtile"))
+                      ((dumpNavtileMask)("dump-navtile-mask"))
                       )
 
 
@@ -166,6 +169,7 @@ private:
     int glueRulesSyntax();
 
     int dumpNavtile();
+    int dumpNavtileMask();
 
     bool noexcept_;
     fs::path path_;
@@ -756,6 +760,20 @@ void VtsStorage::configuration(po::options_description &cmdline
 
         p.positional.add("output", 1);
     });
+
+    createParser(cmdline, Command::dumpNavtileMask
+                 , "--command=dump-navtile-mask: navtile mask as an image"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileId", po::value(&tileId_)->required()
+             , "ID of tile to query.")
+            ("output", po::value(&outputPath_)->required()
+             , "Path of output image.")
+            ;
+
+        p.positional.add("output", 1);
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -866,6 +884,7 @@ int VtsStorage::runCommand()
     case Command::file: return file();
     case Command::glueRulesSyntax: return glueRulesSyntax();
     case Command::dumpNavtile: return dumpNavtile();
+    case Command::dumpNavtileMask: return dumpNavtileMask();
     }
     std::cerr << "vts: no operation requested" << std::endl;
     return EXIT_FAILURE;
@@ -1730,6 +1749,26 @@ int VtsStorage::dumpNavtile()
     const auto &image(navtile.get());
 
     utility::write(outputPath_, image.data(), image.size());
+
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::dumpNavtileMask()
+{
+    auto ts(vts::openTileSet(path_));
+
+    if (!(ts.tileIndex().get(tileId_) & vts::TileIndex::Flag::navtile)) {
+        std::cerr << tileId_ << ": has no navtile" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    vts::RawNavTile navtile;
+    ts.getNavTile(tileId_, navtile);
+
+    auto coverage(asCvMat(navtile.coverageMask()));
+
+    create_directories(outputPath_.parent_path());
+    imwrite(outputPath_.string(), coverage);
 
     return EXIT_SUCCESS;
 }
