@@ -112,7 +112,7 @@ void Vts2Vts::configuration(po::options_description &cmdline
 
     cmdline.add_options()
         ("input", po::value(&input_)->required()
-         , "Path to input (vts0) tile set.")
+         , "Path to input (vts) tile set.")
         ("output", po::value(&output_)->required()
          , "Path to output (vts) tile set.")
         ("overwrite", "Existing tile set gets overwritten if set.")
