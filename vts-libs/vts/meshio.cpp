@@ -16,7 +16,12 @@ namespace vadstena { namespace vts { namespace detail {
 namespace {
     // mesh proper
     const char MAGIC[2] = { 'M', 'E' };
-    const std::uint16_t VERSION = 2;
+    const int VERSION = 3;
+
+    // quantization coefficients
+    const int GeomQuant = 1024;
+    const int TexCoordQuant = 2048;
+    const int ExtTexCoordQuant = 2048;
 
     struct SubMeshFlag { enum : std::uint8_t {
         internalTexture = 0x1
@@ -26,8 +31,274 @@ namespace {
     }; };
 } // namespace
 
+namespace {
 
-void saveMeshProper(std::ostream &out, const Mesh &mesh)
+#define FORSYTH_IMPLEMENTATION
+#include "./forsyth.h"
+
+} // namespace
+
+/** Calculate Forsyth's cache optimized ordering of faces, vertices and
+ *  texcoords. On return, forder, vorder, torder contain a new index for each
+ *  face, vertex and texcoord, respectively.
+ */
+void getMeshOrdering(const SubMesh &submesh,
+                     std::vector<int> &forder,
+                     std::vector<int> &vorder,
+                     std::vector<int> &torder)
+{
+    int nfaces = submesh.faces.size();
+    int nvertices = submesh.vertices.size();
+    int ntexcoords = submesh.tc.size();
+
+#if 1
+    std::vector<ForsythVertexIndexType> indices;
+    indices.reserve(3*nfaces);
+    for (const auto &face : submesh.faces) {
+        indices.push_back(face(0));
+        indices.push_back(face(1));
+        indices.push_back(face(2));
+    }
+
+    // get face ordering with Forsyth's algorithm
+    forder.resize(nfaces);
+    forsythReorder(forder.data(), indices.data(), nfaces, nvertices);
+    // TODO: forsythReorder currently does not take texcoords into account!
+#else
+    forder.resize(nfaces);
+    for (int i = 0; i < nfaces; i++) { forder[i] = i; }
+#endif
+
+    vorder.assign(nvertices, -1);
+    torder.assign(ntexcoords, -1);
+
+    // face ordering induces vertex and texcoord ordering
+    int vnext = 0, tnext = 0;
+    for (int i = 0; i < nfaces; i++) {
+
+        const auto &face(submesh.faces[forder[i]]);
+        for (int j = 0; j < 3; j++) {
+            int &vindex = vorder[face(j)];
+            if (vindex < 0) { vindex = vnext++; }
+        }
+
+        if (submesh.facesTc.size()) {
+            const auto &facetc(submesh.facesTc[forder[i]]);
+            for (int j = 0; j < 3; j++) {
+                int &tindex = torder[facetc(j)];
+                if (tindex < 0) { tindex = tnext++; }
+            }
+        }
+    }
+    assert(vnext == nvertices);
+    assert(tnext == ntexcoords);
+}
+
+/** Helper class to write 16-bit signed/unsigned deltas variably as 1-2 bytes
+ *  and collect statistics.
+ */
+class DeltaWriter
+{
+public:
+    DeltaWriter(std::ostream &out)
+        : out_(out), nbytes_(), nsmall_(), nbig_() {}
+
+    void writeWord(unsigned word)
+    {
+        assert(word < (1 << 15));
+        if (word < 0x80) {
+            bin::write(out_, std::uint8_t(word));
+            nsmall_++;
+            nbytes_++;
+        }
+        else {
+            bin::write(out_, std::uint8_t(0x80 | (word & 0x7f)));
+            bin::write(out_, std::uint8_t(word >> 7));
+            nbig_++;
+            nbytes_ += 2;
+        }
+    }
+
+    void writeDelta(int value, int &last)
+    {
+        signed delta = value - last;
+        unsigned zigzag = (delta << 1) ^ (delta >> 31);
+        writeWord(zigzag);
+        last = value;
+    }
+
+    int nbytes() const { return nbytes_; }
+    int nsmall() const { return nsmall_; }
+    int nbig() const { return nbig_; }
+
+private:
+    std::ostream &out_;
+    int nbytes_, nsmall_, nbig_;
+};
+
+namespace {
+
+void invertIndex(const std::vector<int> &in, std::vector<int> &out)
+{
+    out.resize(in.size());
+    for (unsigned i = 0; i < in.size(); i++) {
+        out[in[i]] = i;
+    }
+}
+
+} // namespace
+
+void saveMeshVersion3(std::ostream &out, const Mesh &mesh)
+{
+    // write header
+    bin::write(out, MAGIC);
+    bin::write(out, 3);
+
+    // no mean undulation
+    bin::write(out, double(0.0));
+
+    bin::write(out, std::uint16_t(mesh.submeshes.size()));
+
+    // write submeshes
+    for (const SubMesh &sm : mesh)
+    {
+        // get a good ordering of faces, vertices and texcoords
+        std::vector<int> forder, vorder, torder;
+        getMeshOrdering(sm, forder, vorder, torder);
+
+        auto bbox(extents(sm));
+        math::Point3d bbsize(bbox.ur - bbox.ll);
+        math::Point3d center(0.5*(bbox.ll + bbox.ur));
+        double scale(1.0 / std::max(bbsize(0), std::max(bbsize(1), bbsize(2))));
+
+        // build and write flags
+        std::uint8_t flags(0);
+        if (!sm.tc.empty()) {
+            flags |= SubMeshFlag::internalTexture;
+        }
+        if (!sm.etc.empty()) {
+            flags |= SubMeshFlag::externalTexture;
+        }
+        if (sm.textureMode == SubMesh::TextureMode::external) {
+            flags |= SubMeshFlag::textureMode;
+        }
+        bin::write(out, flags);
+
+        // surface reference (defaults to 1)
+        bin::write(out, std::uint8_t(sm.surfaceReference));
+
+        // write (external) texture layer information
+        if (sm.textureLayer) {
+            bin::write(out, std::uint16_t(*sm.textureLayer));
+        } else {
+            // save zero
+            bin::write(out, std::uint16_t(0));
+        }
+
+        // write extents
+        bin::write(out, bbox.ll(0));
+        bin::write(out, bbox.ll(1));
+        bin::write(out, bbox.ll(2));
+        bin::write(out, bbox.ur(0));
+        bin::write(out, bbox.ur(1));
+        bin::write(out, bbox.ur(2));
+
+        DeltaWriter dw(out);
+
+        // write delta coded vertices
+        int b1 = dw.nbytes();
+        {
+            int nv(sm.vertices.size());
+            bin::write(out, std::uint16_t(nv));
+            bin::write(out, std::uint16_t(GeomQuant));
+
+            std::vector<int> ivorder;
+            invertIndex(vorder, ivorder);
+
+            int last[3] = {0, 0, 0};
+            for (int i = 0; i < nv; i++) {
+                const auto &v(sm.vertices[ivorder[i]]);
+                for (int j = 0; j < 3; j++)
+                {
+                    double ncoord = (v(j) - center(j)) * scale;
+                    int qcoord = round(ncoord * GeomQuant);
+                    dw.writeDelta(qcoord, last[j]);
+                }
+            }
+        }
+
+        // write delta coded texcoords
+        int b2 = dw.nbytes();
+        {
+            int ntc(sm.tc.size());
+            bin::write(out, uint16_t(ntc));
+            bin::write(out, uint16_t(TexCoordQuant));
+            bin::write(out, uint16_t(TexCoordQuant));
+
+            std::vector<int> itorder;
+            invertIndex(torder, itorder);
+
+            int last[2] = {0, 0};
+            for (int i = 0; i < ntc; i++) {
+                const auto &t(sm.tc[itorder[i]]);
+                for (int j = 0; j < 2; j++)
+                {
+                    int qcoord = round(t(j) * TexCoordQuant);
+                    dw.writeDelta(qcoord, last[j]);
+                }
+            }
+        }
+
+        // write faces
+        int b3, b4;
+        {
+            int nf(sm.faces.size());
+            bin::write(out, uint16_t(nf));
+
+            // write delta coded vertex indices
+            b3 = dw.nbytes();
+            for (int i = 0, high = -1; i < nf; i++) {
+                const auto &face = sm.faces[forder[i]];
+                for (int j = 0; j < 3; j++)
+                {
+                    int index = vorder[face(j)];
+                    dw.writeWord(high+1 - index);
+                    if (index > high) { high = index; }
+                }
+            }
+
+            // write delta coded texcoord indices
+            b4 = dw.nbytes();
+            for (int i = 0, high = -1; i < nf; i++) {
+                const auto &face = sm.facesTc[forder[i]];
+                for (int j = 0; j < 3; j++)
+                {
+                    int index = torder[face(j)];
+                    dw.writeWord(high+1 - index);
+                    if (index > high) { high = index; }
+                }
+            }
+        }
+#if 0
+        int sm = dw.nsmall(), bg = dw.nbig();
+
+        LOG(info1) << "nsmall = " << sm;
+        LOG(info1) << "nbig = " << bg << " (" << double(bg)/(bg+sm)*100 << "%).";
+
+        double total = (dw.nbytes() - b1) / 100;
+        int vsize = b2 - b1 - 4, tsize = b3 - b2 - 6;
+        int isize1 = b4 - b3, isize2 = dw.nbytes() - b4;
+
+        LOG(info1) << "vertices: " << vsize << " B (" << vsize/total << "%).";
+        LOG(info1) << "texcoords: " << tsize << " B (" << tsize/total << "%).";
+        LOG(info1) << "v. indices: " << isize1 << " B (" << isize1/total << "%).";
+        LOG(info1) << "t. indices: " << isize2 << " B (" << isize2/total << "%).";
+#endif
+        (void) b1; (void) b2; (void) b3; (void) b4;
+    }
+}
+
+void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
 {
     // helper functions
     auto saveVertexComponent([&out](double v, double o, double s) -> void
@@ -47,7 +318,7 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
 
     // write header
     bin::write(out, MAGIC);
-    bin::write(out, VERSION);
+    bin::write(out, 2);
 
     // no mean undulation
     bin::write(out, double(0.0));
@@ -136,6 +407,18 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
     }
 }
 
+void saveMeshProper(std::ostream &out, const Mesh &mesh)
+{
+    if (std::getenv("USE_MESH_COMPRESSION")) {
+        saveMeshVersion3(out, mesh);
+    }
+    else {
+        saveMeshVersion2(out, mesh);
+    }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
 {
