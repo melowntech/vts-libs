@@ -186,6 +186,7 @@ set(vts-core_SOURCES
   vts/nodeinfo.hpp vts/nodeinfo.cpp
   vts/multifile.hpp vts/multifile.cpp
   vts/mesh.hpp vts/mesh.cpp
+  vts/meshio.hpp vts/meshio.cpp
   vts/metatile.hpp vts/metatile.cpp
   vts/atlas.hpp vts/atlas.cpp
   vts/navtile.hpp vts/navtile.cpp

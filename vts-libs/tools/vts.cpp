@@ -15,6 +15,8 @@
 
 #include "imgproc/rastermask/cvmat.hpp"
 
+#include "geo/geodataset.hpp"
+
 #include "../registry/po.hpp"
 #include "../vts.hpp"
 #include "../vts/io.hpp"
@@ -23,6 +25,7 @@
 #include "../vts/metaflags.hpp"
 #include "../vts/encodeflags.hpp"
 #include "../vts/opencv/colors.hpp"
+#include "../vts/opencv/navtile.hpp"
 #include "../vts/tileset/delivery.hpp"
 
 namespace po = boost::program_options;
@@ -58,6 +61,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((glueRulesSyntax)("glue-rules-syntax"))
                       ((dumpNavtile)("dump-navtile"))
                       ((dumpNavtileMask)("dump-navtile-mask"))
+                      ((navtile2dem))
                       )
 
 
@@ -173,6 +177,7 @@ private:
 
     int dumpNavtile();
     int dumpNavtileMask();
+    int navtile2dem();
 
     bool noexcept_;
     fs::path path_;
@@ -780,6 +785,20 @@ void VtsStorage::configuration(po::options_description &cmdline
 
         p.positional.add("output", 1);
     });
+
+    createParser(cmdline, Command::navtile2dem
+                 , "--command=navtile2dem: write navtile as GDAL DEM"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileId", po::value(&tileId_)->required()
+             , "ID of tile to query.")
+            ("output", po::value(&outputPath_)->required()
+             , "Path of output GDAL dataset (geo tiff).")
+            ;
+
+        p.positional.add("output", 1);
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -891,6 +910,7 @@ int VtsStorage::runCommand()
     case Command::glueRulesSyntax: return glueRulesSyntax();
     case Command::dumpNavtile: return dumpNavtile();
     case Command::dumpNavtileMask: return dumpNavtileMask();
+    case Command::navtile2dem: return navtile2dem();
     }
     std::cerr << "vts: no operation requested" << std::endl;
     return EXIT_FAILURE;
@@ -1777,6 +1797,56 @@ int VtsStorage::dumpNavtileMask()
 
     create_directories(outputPath_.parent_path());
     imwrite(outputPath_.string(), coverage);
+
+    return EXIT_SUCCESS;
+}
+
+namespace {
+math::Extents2 extentsPlusHalfPixel(const math::Extents2 &extents
+                                    , const math::Size2 &pixels)
+
+{
+    auto es(math::size(extents));
+    const math::Size2f px(es.width / pixels.width, es.height / pixels.height);
+    const math::Point2 hpx(px.width / 2, px.height / 2);
+    return math::Extents2(extents.ll - hpx, extents.ur + hpx);
+}
+} // namespace
+
+int VtsStorage::navtile2dem()
+{
+    auto ts(vts::openTileSet(path_));
+
+    if (!(ts.tileIndex().get(tileId_) & vts::TileIndex::Flag::navtile)) {
+        std::cerr << tileId_ << ": has no navtile" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    vts::NodeInfo nodeInfo(ts.referenceFrame(), tileId_);
+
+    vts::opencv::NavTile navtile;
+    ts.getNavTile(tileId_, navtile);
+
+    auto size(vts::NavTile::size());
+
+    create_directories(outputPath_.parent_path());
+    auto ds(geo::GeoDataset::create
+            (outputPath_, nodeInfo.srsDef()
+             , extentsPlusHalfPixel(nodeInfo.extents(), size), size
+             , geo::GeoDataset::Format::dsm()
+             , geo::GeoDataset::NodataValue(-1e6)));
+
+    // convert navtile to 64 bit matrix
+    cv::Mat tmp;
+    navtile.data().convertTo(tmp, CV_64F);
+    // assign data
+    ds.data() = tmp;
+
+    // set mask
+    ds.mask() = navtile.coverageMask();
+
+    // flush
+    ds.flush();
 
     return EXIT_SUCCESS;
 }
