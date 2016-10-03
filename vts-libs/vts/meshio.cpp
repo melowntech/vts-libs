@@ -20,8 +20,8 @@ namespace {
 
     // quantization coefficients
     const int GeomQuant = 1024;
-    const int TexCoordQuant = 2048;
-    const int ExtTexCoordQuant = 2048;
+    const int TexCoordQuant = 2048; // FIXME
+    const int SubPixelBits = 2;
 
     struct SubMeshFlag { enum : std::uint8_t {
         internalTexture = 0x1
@@ -35,8 +35,6 @@ namespace {
 
 #define FORSYTH_IMPLEMENTATION
 #include "./forsyth.h"
-
-} // namespace
 
 /** Calculate Forsyth's cache optimized ordering of faces, vertices and
  *  texcoords. On return, forder, vorder, torder contain a new index for each
@@ -65,6 +63,7 @@ void getMeshOrdering(const SubMesh &submesh,
     forsythReorder(forder.data(), indices.data(), nfaces, nvertices);
     // TODO: forsythReorder currently does not take texcoords into account!
 #else
+    // for testing lack of ordering
     forder.resize(nfaces);
     for (int i = 0; i < nfaces; i++) { forder[i] = i; }
 #endif
@@ -136,8 +135,6 @@ private:
     int nbytes_, nsmall_, nbig_;
 };
 
-namespace {
-
 void invertIndex(const std::vector<int> &in, std::vector<int> &out)
 {
     out.resize(in.size());
@@ -145,8 +142,6 @@ void invertIndex(const std::vector<int> &in, std::vector<int> &out)
         out[in[i]] = i;
     }
 }
-
-} // namespace
 
 void saveMeshVersion3(std::ostream &out, const Mesh &mesh)
 {
@@ -226,6 +221,9 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh)
                 }
             }
         }
+
+        // write delta coded external coordinates
+        // TODO
 
         // write delta coded texcoords
         int b2 = dw.nbytes();
@@ -407,6 +405,8 @@ void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
     }
 }
 
+} // namespace
+
 void saveMeshProper(std::ostream &out, const Mesh &mesh)
 {
     if (std::getenv("USE_MESH_COMPRESSION")) {
@@ -420,7 +420,131 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
+namespace {
+
+class DeltaReader
+{
+public:
+    DeltaReader(std::istream &in) : in_(in) {}
+
+    unsigned readWord()
+    {
+        uint8_t byte1, byte2;
+        bin::read(in_, byte1);
+        if (byte1 & 0x80) {
+            bin::read(in_, byte2);
+            return (int(byte1) & 0x7f) | (int(byte2) << 7);
+        }
+        return byte1;
+    }
+
+    int readDelta(int &last)
+    {
+        unsigned word = readWord();
+        int delta = (word >> 1) ^ (-(word & 1));
+        return (last += delta);
+    }
+
+private:
+    std::istream &in_;
+};
+
+
+void loadSubmeshVersion3(std::istream &in, SubMesh &sm, std::uint8_t flags
+                         , const math::Extents3 &bbox)
+{
+    math::Point3d center = 0.5*(bbox.ll + bbox.ur);
+    math::Point3d bbsize(bbox.ur - bbox.ll);
+    double scale = std::max(bbsize(0), std::max(bbsize(1), bbsize(2)));
+
+    DeltaReader dr(in);
+
+    // load vertices
+    std::uint16_t vertexCount;
+    {
+        bin::read(in, vertexCount);
+        sm.vertices.resize(vertexCount);
+
+        std::uint16_t quant;
+        bin::read(in, quant);
+
+        int last[3] = {0, 0, 0};
+        double multiplier = 1.0 / quant;
+        for (auto& vertex : sm.vertices) {
+            for (int i = 0; i < 3; i++)
+            {
+                int qcoord = dr.readDelta(last[i]);
+                double coord = double(qcoord) * multiplier;
+                vertex(i) = coord*scale + center(i);
+            }
+        }
+    }
+
+    //
+    if (flags & SubMeshFlag::externalTexture)
+    {
+        sm.etc.resize(vertexCount);
+        // TODO
+    }
+
+    // load texcoords
+    if (flags & SubMeshFlag::internalTexture)
+    {
+        std::uint16_t tcCount;
+        bin::read(in, tcCount);
+        sm.tc.resize(tcCount);
+
+        std::uint16_t tquant[2];
+        bin::read(in, tquant[0]);
+        bin::read(in, tquant[1]);
+
+        int last[3] = {0, 0, 0};
+        double multiplier[2] = {1.0 / tquant[0], 1.0 / tquant[1]};
+        for (auto &texc : sm.tc) {
+            for (int i = 0; i < 2; i++)
+            {
+                int qcoord = dr.readDelta(last[i]);
+                texc(i) = double(qcoord) * multiplier[i];
+            }
+        }
+    }
+
+    // load faces
+    {
+        std::uint16_t faceCount;
+        bin::read(in, faceCount);
+        sm.faces.resize(faceCount);
+
+        int high = 0;
+        for (auto &face : sm.faces) {
+            for (int i = 0; i < 3; i++)
+            {
+                int delta = dr.readWord();
+                int index = high - delta;
+                if (!delta) { high++; }
+                face(i) = index;
+            }
+        }
+
+        if (flags & SubMeshFlag::internalTexture) {
+            sm.facesTc.resize(faceCount);
+
+            int high = 0;
+            for (auto &face : sm.facesTc) {
+                for (int i = 0; i < 3; i++)
+                {
+                    int delta = dr.readWord();
+                    int index = high - delta;
+                    if (!delta) { high++; }
+                    face(i) = index;
+                }
+            }
+        }
+    }
+}
+
+void loadSubmeshVersion2(std::istream &in, SubMesh &sm, std::uint8_t flags
+                         , const math::Extents3 &bbox)
 {
     // helper functions
     auto loadVertexComponent([&in](double o, double s) -> double
@@ -437,6 +561,70 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
         return (double(v) / std::numeric_limits<std::uint16_t>::max());
     });
 
+    math::Point3d bbsize(bbox.ur - bbox.ll);
+
+    std::uint16_t vertexCount;
+    bin::read(in, vertexCount);
+    sm.vertices.resize(vertexCount);
+
+    if (flags & SubMeshFlag::externalTexture) {
+        sm.etc.resize(vertexCount);
+    }
+
+    // load all vertex components
+    auto ietc(sm.etc.begin());
+    for (auto &vertex : sm.vertices) {
+        vertex(0) = loadVertexComponent(bbox.ll(0), bbsize(0));
+        vertex(1) = loadVertexComponent(bbox.ll(1), bbsize(1));
+        vertex(2) = loadVertexComponent(bbox.ll(2), bbsize(2));
+
+        if (flags & SubMeshFlag::externalTexture) {
+            (*ietc)(0) = loadTexCoord();
+            (*ietc)(1) = loadTexCoord();
+            ++ietc;
+        }
+    }
+
+    // load (internal) texture coordinates
+    if (flags & SubMeshFlag::internalTexture) {
+        std::uint16_t tcCount;
+        bin::read(in, tcCount);
+        sm.tc.resize(tcCount);
+        for (auto &tc : sm.tc) {
+            tc(0) = loadTexCoord();
+            tc(1) = loadTexCoord();
+        }
+    }
+
+    // load faces
+    std::uint16_t faceCount;
+    bin::read(in, faceCount);
+    sm.faces.resize(faceCount);
+
+    if (flags & SubMeshFlag::internalTexture) {
+        sm.facesTc.resize(faceCount);
+    }
+    auto ifacesTc(sm.facesTc.begin());
+
+    for (auto &face : sm.faces) {
+        bin::read(in, face(0));
+        bin::read(in, face(1));
+        bin::read(in, face(2));
+
+        // load (optional) texture coordinate indices
+        if (flags & SubMeshFlag::internalTexture) {
+            bin::read(in, (*ifacesTc)(0));
+            bin::read(in, (*ifacesTc)(1));
+            bin::read(in, (*ifacesTc)(2));
+            ++ifacesTc;
+        }
+    }
+}
+
+} // namespace
+
+void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
+{
     // Load mesh headers first
     char magic[sizeof(MAGIC)];
     std::uint16_t version;
@@ -495,66 +683,13 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
         bin::read(in, bbox.ur(1));
         bin::read(in, bbox.ur(2));
 
-        math::Point3d bbsize(bbox.ur - bbox.ll);
-
-        std::uint16_t vertexCount;
-        bin::read(in, vertexCount);
-        sm.vertices.resize(vertexCount);
-
-        if (flags & SubMeshFlag::externalTexture) {
-            sm.etc.resize(vertexCount);
+        if (version >= 3) {
+            loadSubmeshVersion3(in, sm, flags, bbox);
         }
-
-        // load all vertex components
-        auto ietc(sm.etc.begin());
-        for (auto &vertex : sm.vertices) {
-            vertex(0) = loadVertexComponent(bbox.ll(0), bbsize(0));
-            vertex(1) = loadVertexComponent(bbox.ll(1), bbsize(1));
-            vertex(2) = loadVertexComponent(bbox.ll(2), bbsize(2));
-
-            if (flags & SubMeshFlag::externalTexture) {
-                (*ietc)(0) = loadTexCoord();
-                (*ietc)(1) = loadTexCoord();
-                ++ietc;
-            }
-        }
-
-        // load (internal) texture coordinates
-        if (flags & SubMeshFlag::internalTexture) {
-            std::uint16_t tcCount;
-            bin::read(in, tcCount);
-            sm.tc.resize(tcCount);
-            for (auto &tc : sm.tc) {
-                tc(0) = loadTexCoord();
-                tc(1) = loadTexCoord();
-            }
-        }
-
-        // load faces
-        std::uint16_t faceCount;
-        bin::read(in, faceCount);
-        sm.faces.resize(faceCount);
-
-        if (flags & SubMeshFlag::internalTexture) {
-            sm.facesTc.resize(faceCount);
-        }
-        auto ifacesTc(sm.facesTc.begin());
-
-        for (auto &face : sm.faces) {
-            bin::read(in, face(0));
-            bin::read(in, face(1));
-            bin::read(in, face(2));
-
-            // load (optional) texture coordinate indices
-            if (flags & SubMeshFlag::internalTexture) {
-                bin::read(in, (*ifacesTc)(0));
-                bin::read(in, (*ifacesTc)(1));
-                bin::read(in, (*ifacesTc)(2));
-                ++ifacesTc;
-            }
+        else {
+            loadSubmeshVersion2(in, sm, flags, bbox);
         }
     }
 }
 
 } } } // namespace vadstena::vts::detail
-
