@@ -201,6 +201,7 @@ set(vts-core_SOURCES
 
   vts/tileflags.hpp vts/tileflags.cpp
   vts/metaflags.hpp vts/metaflags.cpp
+  vts/encodeflags.hpp vts/encodeflags.cpp
 
   vts/tileset.hpp
   vts/tileset/detail.hpp

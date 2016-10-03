@@ -21,6 +21,7 @@
 #include "../vts/atlas.hpp"
 #include "../vts/tileflags.hpp"
 #include "../vts/metaflags.hpp"
+#include "../vts/encodeflags.hpp"
 #include "../vts/opencv/colors.hpp"
 #include "../vts/tileset/delivery.hpp"
 
@@ -68,7 +69,9 @@ public:
         : service::Cmdline("vts", BUILD_TARGET_VERSION
                            , (service::DISABLE_EXCESSIVE_LOGGING
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
-        , noexcept_(false), command_(Command::info), brief_(false)
+        , noexcept_(false), command_(Command::info)
+        , tileFlags_(), metaFlags_(), encodeFlags_()
+        , brief_(false)
     {
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
@@ -189,6 +192,7 @@ private:
     fs::path outputPath_;
     vts::TileFlags tileFlags_;
     vts::MetaFlags metaFlags_;
+    vts::EncodeFlags encodeFlags_;
     std::vector<vts::TileId> tileIds_;
     std::string remoteUrl_;
     fs::path localPath_;
@@ -617,6 +621,8 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("forceCredits", po::value<std::string>()
              , "Comma-separated list of string/numeric credit id to override "
              "existing credits. If not specified, credits are not touched.")
+            ("reencode", po::value(&encodeFlags_)->default_value(0)
+             ,"Comma-separated list of clone options: mesh, inpaint.")
             ;
 
         p.configure = [&](const po::variables_map &vars) {
@@ -1577,6 +1583,8 @@ int VtsStorage::clone()
     cloneOptions.tilesetId(optTilesetId_);
     cloneOptions.lodRange(optLodRange_);
     cloneOptions.mode(createMode_);
+    cloneOptions.encodeFlags(encodeFlags_.value);
+
     if (!forceCredits_.empty()) {
         cloneOptions.metaNodeManipulator(
             [&](vts::MetaNode metanode) -> vts::MetaNode {
