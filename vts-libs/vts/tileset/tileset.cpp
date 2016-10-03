@@ -242,12 +242,57 @@ struct TileSet::Factory
         dst.propertiesChanged = true;
     }
 
+    static void reencode(const TileId &tileId
+                         , const Driver &sd, Driver &dd
+                         , bool hasMesh, bool hasAtlas
+                         , CloneOptions::EncodeFlag::value_type eflags)
+    {
+        Mesh mesh;
+        RawAtlas atlas;
+
+        if (hasMesh) {
+            mesh = loadMesh(sd.input(tileId, storage::TileFile::mesh));
+        }
+
+        if (hasAtlas) {
+            auto is(sd.input(tileId, storage::TileFile::atlas));
+            atlas.deserialize(is->get(), is->name());
+        }
+
+        if (hasMesh) {
+            if (eflags & CloneOptions::EncodeFlag::mesh) {
+                // reencode mesh
+                // TODO: use atlas
+                auto os(dd.output(tileId, storage::TileFile::mesh));
+                saveMesh(os, mesh);
+                os->close();
+            } else {
+                // just copy file
+                copyFile(sd.input(tileId, storage::TileFile::mesh)
+                         , dd.output(tileId, storage::TileFile::mesh));
+            }
+        }
+
+        if (hasAtlas) {
+            // TODO: implement me when inpaint is working
+            (void) atlas;
+
+            // just copy file
+            copyFile(sd.input(tileId, storage::TileFile::atlas)
+                     , dd.output(tileId, storage::TileFile::atlas));
+        }
+    }
+
     static void clone(const std::string &reportName
                       , const Detail &src, Detail &dst
                       , const CloneOptions &cloneOptions)
     {
+        LOG(info4) << "cloneOptions.encodeFlags(): " << cloneOptions.encodeFlags();
         // simple case? use fully optimized version
-        if (!(cloneOptions.lodRange() || cloneOptions.metaNodeManipulator())) {
+        if (!(cloneOptions.lodRange()
+              || cloneOptions.metaNodeManipulator()
+              || cloneOptions.encodeFlags()))
+        {
             return clone(reportName, src, dst);
         }
 
@@ -260,6 +305,8 @@ struct TileSet::Factory
         const utility::Progress::ratio_t reportRatio(1, 100);
         utility::Progress progress(src.tileIndex.count());
         auto report([&]() { (++progress).report(reportRatio, reportName); });
+
+        const auto eflags(cloneOptions.encodeFlags());
 
         traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
         {
@@ -280,17 +327,23 @@ struct TileSet::Factory
                 report();
                 return;
             }
+            bool mesh(mask & TileIndex::Flag::mesh);
+            bool atlas(mask & TileIndex::Flag::atlas);
 
-            if (mask & TileIndex::Flag::mesh) {
-                // copy mesh
-                copyFile(sd.input(tid, storage::TileFile::mesh)
-                         , dd.output(tid, storage::TileFile::mesh));
-            }
+            if (eflags) {
+                reencode(tid, sd, dd, mesh, atlas, eflags);
+            } else {
+                if (mesh) {
+                    // copy mesh
+                    copyFile(sd.input(tid, storage::TileFile::mesh)
+                             , dd.output(tid, storage::TileFile::mesh));
+                }
 
-            if (mask & TileIndex::Flag::atlas) {
-                // copy atlas
-                copyFile(sd.input(tid, storage::TileFile::atlas)
-                         , dd.output(tid, storage::TileFile::atlas));
+                if (atlas) {
+                    // copy atlas
+                    copyFile(sd.input(tid, storage::TileFile::atlas)
+                             , dd.output(tid, storage::TileFile::atlas));
+                }
             }
 
             if (mask & TileIndex::Flag::navtile)
@@ -606,8 +659,10 @@ registry::ReferenceFrame TileSet::referenceFrame() const
     return detail().referenceFrame;
 }
 
-void TileSet::Detail::save(const OStream::pointer &os, const Mesh &mesh) const
+void TileSet::Detail::save(const OStream::pointer &os, const Mesh &mesh
+                           , const Atlas *atlas) const
 {
+    (void) atlas;
     saveMesh(*os, mesh);
     os->close();
 }
@@ -915,7 +970,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile
 
     // save data
     if (mesh) {
-        save(driver->output(tileId, TileFile::mesh), *mesh);
+        save(driver->output(tileId, TileFile::mesh), *mesh, atlas);
     }
     if (atlas) {
         save(driver->output(tileId, TileFile::atlas), *atlas);

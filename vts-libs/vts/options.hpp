@@ -42,6 +42,7 @@ public:
 
     CloneOptions()
         : mode_(CreateMode::failIfExists), sameType_(false)
+        , encodeFlags_(0x0)
     {}
 
     CreateMode mode() const { return mode_; }
@@ -71,12 +72,28 @@ public:
     }
     bool sameType() const { return sameType_; }
 
+    /** Encoding flags, using any of these flags can lead to long cloning time
+     */
+    struct EncodeFlag {
+        typedef int value_type;
+        enum : value_type {
+            mesh = 0x1      // reencode meshes
+            , inpaint = 0x2 // inpaint atlas textures
+        };
+    };
+
+    CloneOptions& encodeFlags(EncodeFlag::value_type encodeFlags) {
+        encodeFlags_ = encodeFlags; return *this;
+    }
+    EncodeFlag::value_type encodeFlags() const { return encodeFlags_; }
+
 private:
     CreateMode mode_;
     boost::optional<std::string> tilesetId_;
     boost::optional<LodRange> lodRange_;
     MetaNodeManipulator metaNodeManipulator_;
     bool sameType_;
+    EncodeFlag::value_type encodeFlags_;
 };
 
 class RelocateOptions {

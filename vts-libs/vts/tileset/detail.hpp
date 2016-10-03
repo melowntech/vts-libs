@@ -106,7 +106,8 @@ public:
     std::uint8_t metaOrder() const;
     TileId metaId(TileId tileId) const;
 
-    void save(const OStream::pointer &os, const Mesh &mesh) const;
+    void save(const OStream::pointer &os, const Mesh &mesh
+              , const Atlas *atlas = nullptr) const;
     void save(const OStream::pointer &os, const Atlas &atlas) const;
     void save(const OStream::pointer &os, const NavTile &navtile) const;
 

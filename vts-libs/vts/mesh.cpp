@@ -1,3 +1,6 @@
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+
 #include "dbglog/dbglog.hpp"
 
 #include "utility/binaryio.hpp"
@@ -19,6 +22,7 @@
 #include "./tileindex.hpp"
 
 namespace fs = boost::filesystem;
+namespace bio = boost::iostreams;
 namespace bin = utility::binaryio;
 
 namespace half = half_float::detail;
@@ -146,7 +150,16 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
     multifile::Table table(MF_VERSION, MF_MAGIC);
 
     auto p(out.tellp());
-    detail::saveMeshProper(out, mesh);
+
+    {
+        // save gzipped (level=9, a bit bigger buffer)
+        bio::filtering_ostream gzipped;
+        gzipped.push(bio::gzip_compressor(bio::gzip_params(9), 1 << 16));
+        gzipped.push(out);
+        detail::saveMeshProper(gzipped, mesh);
+        gzipped.flush();
+    }
+
     p = table.add(p, out.tellp() - p);
 
     // save mask + surface references (used by 2d interface)
@@ -213,7 +226,16 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
     Mesh mesh;
 
     in.seekg(table.entries[0].start);
-    detail::loadMeshProper(in, path, mesh);
+    if (in.peek() == 0x1f) {
+        // looks like a gzip
+        bio::filtering_istream gzipped;
+        gzipped.push(bio::gzip_decompressor());
+        gzipped.push(in);
+        detail::loadMeshProper(gzipped, path, mesh);
+    } else {
+        // raw file
+        detail::loadMeshProper(in, path, mesh);
+    }
 
     in.seekg(table.entries[1].start);
     mesh.coverageMask.load(in, path);
