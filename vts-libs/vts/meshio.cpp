@@ -5,6 +5,7 @@
 #include "math/math.hpp"
 
 #include "../storage/error.hpp"
+#include "../registry/referenceframe.hpp"
 
 #include "./mesh.hpp"
 
@@ -16,7 +17,7 @@ namespace vadstena { namespace vts { namespace detail {
 namespace {
     // mesh proper
     const char MAGIC[2] = { 'M', 'E' };
-    const int VERSION = 3;
+    const std::uint16_t VERSION = 3;
 
     // quantization coefficients
     const int GeomQuant = 1024;
@@ -147,7 +148,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh)
 {
     // write header
     bin::write(out, MAGIC);
-    bin::write(out, 3);
+    bin::write(out, std::uint16_t(3));
 
     // no mean undulation
     bin::write(out, double(0.0));
@@ -220,17 +221,33 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh)
                     dw.writeDelta(qcoord, last[j]);
                 }
             }
+
+            // write delta coded external coordinates
+            if (flags & SubMeshFlag::externalTexture)
+            {
+                const auto &tsize(vadstena::registry::BoundLayer::tileSize());
+                int quant = tsize.width * (1 << SubPixelBits);
+                bin::write(out, std::uint16_t(quant));
+
+                int last[2] = {0, 0};
+                for (int i = 0; i < nv; i++) {
+                    const auto &etc(sm.etc[ivorder[i]]);
+                    for (int j = 0; j < 2; j++)
+                    {
+                        int qcoord = round(etc(j) * quant);
+                        dw.writeDelta(qcoord, last[j]);
+                    }
+                }
+            }
         }
 
-        // write delta coded external coordinates
-        // TODO
-
-        // write delta coded texcoords
+        // write delta coded internal texcoords
         int b2 = dw.nbytes();
+        if (flags & SubMeshFlag::internalTexture)
         {
             int ntc(sm.tc.size());
             bin::write(out, uint16_t(ntc));
-            bin::write(out, uint16_t(TexCoordQuant));
+            bin::write(out, uint16_t(TexCoordQuant)); // FIXME
             bin::write(out, uint16_t(TexCoordQuant));
 
             std::vector<int> itorder;
@@ -267,13 +284,16 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh)
 
             // write delta coded texcoord indices
             b4 = dw.nbytes();
-            for (int i = 0, high = -1; i < nf; i++) {
-                const auto &face = sm.facesTc[forder[i]];
-                for (int j = 0; j < 3; j++)
-                {
-                    int index = torder[face(j)];
-                    dw.writeWord(high+1 - index);
-                    if (index > high) { high = index; }
+            if (flags & SubMeshFlag::internalTexture)
+            {
+                for (int i = 0, high = -1; i < nf; i++) {
+                    const auto &face = sm.facesTc[forder[i]];
+                    for (int j = 0; j < 3; j++)
+                    {
+                        int index = torder[face(j)];
+                        dw.writeWord(high+1 - index);
+                        if (index > high) { high = index; }
+                    }
                 }
             }
         }
@@ -316,7 +336,7 @@ void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
 
     // write header
     bin::write(out, MAGIC);
-    bin::write(out, 2);
+    bin::write(out, std::uint16_t(2));
 
     // no mean undulation
     bin::write(out, double(0.0));
@@ -409,10 +429,10 @@ void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
 
 void saveMeshProper(std::ostream &out, const Mesh &mesh)
 {
-    if (std::getenv("USE_MESH_COMPRESSION")) {
+/*    if (std::getenv("USE_MESH_COMPRESSION")) {
         saveMeshVersion3(out, mesh);
     }
-    else {
+    else*/ {
         saveMeshVersion2(out, mesh);
     }
 }
@@ -480,11 +500,23 @@ void loadSubmeshVersion3(std::istream &in, SubMesh &sm, std::uint8_t flags
         }
     }
 
-    //
+    // load external coords
     if (flags & SubMeshFlag::externalTexture)
     {
         sm.etc.resize(vertexCount);
-        // TODO
+
+        std::uint16_t quant;
+        bin::read(in, quant);
+
+        int last[2] = {0, 0};
+        double multiplier = 1.0 / quant;
+        for (auto& etc : sm.etc) {
+            for (int i = 0; i < 2; i++)
+            {
+                int qcoord = dr.readDelta(last[i]);
+                etc(i) = double(qcoord) * multiplier;
+            }
+        }
     }
 
     // load texcoords
