@@ -151,13 +151,16 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
 
     auto p(out.tellp());
 
-    {
+    // TODO: remove when delivery is ready
+    if (std::getenv("USE_MESH_GZIP")) {
         // save gzipped (level=9, a bit bigger buffer)
         bio::filtering_ostream gzipped;
         gzipped.push(bio::gzip_compressor(bio::gzip_params(9), 1 << 16));
         gzipped.push(out);
         detail::saveMeshProper(gzipped, mesh);
         gzipped.flush();
+    } else {
+        detail::saveMeshProper(out, mesh);
     }
 
     p = table.add(p, out.tellp() - p);
