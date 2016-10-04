@@ -6,7 +6,8 @@
 namespace vadstena { namespace vts { namespace detail {
 
 
-void saveMeshProper(std::ostream &out, const Mesh &mesh);
+void saveMeshProper(std::ostream &out, const Mesh &mesh
+                    , const Atlas *atlas);
 
 void loadMeshProper(std::istream &in, const boost::filesystem::path &path
                     , Mesh &mesh);

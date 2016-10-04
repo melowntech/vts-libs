@@ -23,6 +23,9 @@ typedef math::Point3_<std::uint16_t> Point3u16;
 typedef Point3u16 Face;
 typedef std::vector<Face> Faces;
 
+// fwd
+class Atlas;
+
 struct SubMesh {
     /** Vertices
      */
@@ -194,19 +197,23 @@ void updateCoverage(Mesh &mesh, const SubMesh &sm
                     , std::uint8_t smIndex = 1);
 
 // IO
-void saveMesh(std::ostream &out, const Mesh &mesh);
-void saveMesh(const boost::filesystem::path &path, const Mesh &mesh);
+void saveMesh(std::ostream &out, const Mesh &mesh
+              , const Atlas *atlas = nullptr);
+void saveMesh(const boost::filesystem::path &path, const Mesh &mesh
+              , const Atlas *atlas = nullptr);
 
 Mesh loadMesh(std::istream &in, const boost::filesystem::path &path
               = "unknown");
 Mesh loadMesh(const boost::filesystem::path &path);
 
-void saveMesh(const storage::OStream::pointer &out, const Mesh &mesh);
+void saveMesh(const storage::OStream::pointer &out, const Mesh &mesh
+              , const Atlas *atlas = nullptr);
 Mesh loadMesh(const storage::IStream::pointer &in);
 
 /** Saves mesh as is.
  */
-void saveMeshProper(std::ostream &out, const Mesh &mesh);
+void saveMeshProper(std::ostream &out, const Mesh &mesh
+                    , const Atlas *atlas = nullptr);
 
 multifile::Table readMeshTable(std::istream &is
                                , const boost::filesystem::path &path
@@ -249,9 +256,10 @@ UTILITY_GENERATE_ENUM_IO(SubMesh::TextureMode,
     ((external))
 )
 
-inline void saveMesh(const storage::OStream::pointer &out, const Mesh &mesh)
+inline void saveMesh(const storage::OStream::pointer &out, const Mesh &mesh
+                     , const Atlas *atlas)
 {
-    return saveMesh(*out, mesh);
+    return saveMesh(*out, mesh, atlas);
 }
 
 inline Mesh loadMesh(const storage::IStream::pointer &in)

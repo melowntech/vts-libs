@@ -8,6 +8,7 @@
 #include "../registry/referenceframe.hpp"
 
 #include "./mesh.hpp"
+#include "./atlas.hpp"
 
 namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;
@@ -144,8 +145,24 @@ void invertIndex(const std::vector<int> &in, std::vector<int> &out)
     }
 }
 
-void saveMeshVersion3(std::ostream &out, const Mesh &mesh)
+/** Returns size of submesh texture at given index. If atlas is null or there is
+ *  no such texture, default size is returned.
+ */
+math::Size2 textureSize(const Atlas *atlas, std::size_t submesh
+                        , const math::Size2 &dflt)
 {
+    // fallback to default
+    if (!atlas || (submesh >= atlas->size())) { return dflt; }
+
+    return atlas->imageSize(submesh);
+}
+
+void saveMeshVersion3(std::ostream &out, const Mesh &mesh
+                      , const Atlas *atlas)
+{
+    // TODO: use textureSize(atlas, index, someDefault) to get size of texture
+    (void) atlas;
+
     // write header
     bin::write(out, MAGIC);
     bin::write(out, std::uint16_t(3));
@@ -427,10 +444,10 @@ void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
 
 } // namespace
 
-void saveMeshProper(std::ostream &out, const Mesh &mesh)
+void saveMeshProper(std::ostream &out, const Mesh &mesh, const Atlas *atlas)
 {
     if (std::getenv("USE_MESH_COMPRESSION")) {
-        saveMeshVersion3(out, mesh);
+        saveMeshVersion3(out, mesh, atlas);
     }
     else {
         saveMeshVersion2(out, mesh);

@@ -145,7 +145,8 @@ void saveSurfaceMapping(std::ostream &out, const Mesh &mesh)
 
 } // namespace
 
-void saveMesh(std::ostream &out, const Mesh &mesh)
+void saveMesh(std::ostream &out, const Mesh &mesh
+              , const Atlas *atlas)
 {
     multifile::Table table(MF_VERSION, MF_MAGIC);
 
@@ -157,10 +158,10 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
         bio::filtering_ostream gzipped;
         gzipped.push(bio::gzip_compressor(bio::gzip_params(9), 1 << 16));
         gzipped.push(out);
-        detail::saveMeshProper(gzipped, mesh);
+        detail::saveMeshProper(gzipped, mesh, atlas);
         gzipped.flush();
     } else {
-        detail::saveMeshProper(out, mesh);
+        detail::saveMeshProper(out, mesh, atlas);
     }
 
     p = table.add(p, out.tellp() - p);
@@ -176,10 +177,10 @@ void saveMesh(std::ostream &out, const Mesh &mesh)
     multifile::writeTable(table, out);
 }
 
-void saveMesh(const fs::path &path, const Mesh &mesh)
+void saveMesh(const fs::path &path, const Mesh &mesh, const Atlas *atlas)
 {
     utility::ofstreambuf f(path.string());
-    saveMesh(f, mesh);
+    saveMesh(f, mesh, atlas);
     f.close();
 }
 

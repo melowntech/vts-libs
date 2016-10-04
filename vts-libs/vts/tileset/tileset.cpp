@@ -662,8 +662,7 @@ registry::ReferenceFrame TileSet::referenceFrame() const
 void TileSet::Detail::save(const OStream::pointer &os, const Mesh &mesh
                            , const Atlas *atlas) const
 {
-    (void) atlas;
-    saveMesh(*os, mesh);
+    saveMesh(*os, mesh, atlas);
     os->close();
 }
 
