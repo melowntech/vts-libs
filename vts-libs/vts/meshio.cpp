@@ -429,10 +429,10 @@ void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
 
 void saveMeshProper(std::ostream &out, const Mesh &mesh)
 {
-/*    if (std::getenv("USE_MESH_COMPRESSION")) {
+    if (std::getenv("USE_MESH_COMPRESSION")) {
         saveMeshVersion3(out, mesh);
     }
-    else*/ {
+    else {
         saveMeshVersion2(out, mesh);
     }
 }
