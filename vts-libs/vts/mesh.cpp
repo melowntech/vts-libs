@@ -230,7 +230,7 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
     Mesh mesh;
 
     in.seekg(table.entries[0].start);
-    if (in.peek() == 0x1f) {
+    if (storage::gzipped(in)) {
         // looks like a gzip
         bio::filtering_istream gzipped;
         gzipped.push(bio::gzip_decompressor());

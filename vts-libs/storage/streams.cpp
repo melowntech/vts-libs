@@ -132,5 +132,26 @@ const char* contentType(TileFile type)
     return "application/octet-stream";
 }
 
+bool gzipped(std::istream &s)
+{
+    return (s.peek() == 0x1f);
+}
+
+bool gzipped(const IStream::pointer &s)
+{
+    return (gzipped(*s));
+}
+
+bool gzipped(std::istream &s, std::size_t offset)
+{
+    s.seekg(offset);
+    return gzipped(s);
+}
+
+bool gzipped(const IStream::pointer &s, std::size_t offset)
+{
+    return gzipped(*s, offset);
+}
+
 } } // namespace vadstena::storage
 

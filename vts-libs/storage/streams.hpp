@@ -152,6 +152,24 @@ void copyFile(const IStream::pointer &in, const OStream::pointer &out);
 void copyFile(std::istream &in, const OStream::pointer &out);
 void copyFile(const IStream::pointer &in, std::ostream &out);
 
+/** Tells whether stream is gzipped. Doesn't seek nor read anything.
+ */
+bool gzipped(std::istream &s);
+
+/** Tells whether stream is gzipped. Doesn't seek nor read anything.
+ */
+bool gzipped(const IStream::pointer &s);
+
+/** Tells whether stream is gzipped at given position.
+ *  Seeks at given position but does not read anything.
+ */
+bool gzipped(std::istream &s, std::size_t offset);
+
+/** Tells whether stream is gzipped at given position.
+ *  Seeks at given position but does not read anything.
+ */
+bool gzipped(const IStream::pointer &s, std::size_t offset);
+
 // inlines
 inline FileStat StreamBase::stat() const
 {
