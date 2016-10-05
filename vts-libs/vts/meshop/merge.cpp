@@ -22,6 +22,7 @@
 #include "imgproc/scanconversion.hpp"
 #include "imgproc/const-raster.hpp"
 #include "imgproc/reconstruct.hpp"
+#include "imgproc/inpaint.hpp"
 
 #include "../opencv/atlas.hpp"
 
@@ -1012,8 +1013,6 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
 std::tuple<cv::Mat, math::Points2d, Faces>
 joinTextures(const TileId &tileId, TextureInfo::list texturing)
 {
-    const int inpaintMargin(4);
-
     std::tuple<cv::Mat, math::Points2d, Faces> res;
     auto &tex(std::get<0>(res));
     auto &tc(std::get<1>(res));
@@ -1047,29 +1046,8 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
                           ? cv::Scalar(0x80, 0x80, 0x80)
                           : cv::Scalar(0x0, 0x0, 0x0));
 
-    // create temporary texture a bit larger due to inpaint bug
-    cv::Mat tmpTex(packedSize.height + 2 * inpaintMargin
-                    , packedSize.width + 2 * inpaintMargin, CV_8UC3
-                    , background);
-
-    // fixes texture to point to proper matrix
-    auto fixTexture([&](cv::Mat &ref)
-    {
-        // real texture
-        tex = cv::Mat
-            (ref, cv::Range(inpaintMargin, packedSize.height + inpaintMargin)
-             , cv::Range(inpaintMargin, packedSize.width + inpaintMargin));
-    });
-
-    fixTexture(tmpTex);
-
-    // create temporary mask a bit larger due to inpaint bug
-    cv::Mat tmpMask(tmpTex.rows, tmpTex.cols, CV_8U, cv::Scalar(0x00));
-
-    // real mask
-    cv::Mat mask
-        (tmpMask, cv::Range(inpaintMargin, packedSize.height + inpaintMargin)
-         , cv::Range(inpaintMargin, packedSize.width + inpaintMargin));
+    tex.create(packedSize.height, packedSize.width, CV_8UC3);
+    tex.setTo(background);
 
     // denormalized result texture coordinates
     math::Points2d dnTc;
@@ -1106,14 +1084,13 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
         }
     }
 
-    // TODO: make faster, then make default
-    if (0) {
+    if (1) {
         // rasterize valid triangles
+        cv::Mat mask(tex.rows, tex.cols, CV_8U, cv::Scalar(0x00));
         rasterizeMask(mask, faces, dnTc);
 
-        cv::Mat tmp(tmpTex.rows, tmpTex.cols, CV_8UC3);
-        cv::inpaint(tmpTex, tmpMask, tmp, 3, cv::INPAINT_TELEA);
-        fixTexture(tmp);
+        // inpaint JPEG blocks
+        imgproc::jpegBlockInpaint(tex, mask);
     }
 
     // done
