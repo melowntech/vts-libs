@@ -22,8 +22,8 @@ namespace {
 
     // quantization coefficients
     const int GeomQuant = 1024;
-    const int TexCoordQuant = 2048; // FIXME
-    const int SubPixelBits = 2;
+    const int TexCoordSubPixelBits = 3;
+    const int DefaultTextureSize = 256; // if atlas size unknown
 
     struct SubMeshFlag { enum : std::uint8_t {
         internalTexture = 0x1
@@ -160,9 +160,6 @@ math::Size2 textureSize(const Atlas *atlas, std::size_t submesh
 void saveMeshVersion3(std::ostream &out, const Mesh &mesh
                       , const Atlas *atlas)
 {
-    // TODO: use textureSize(atlas, index, someDefault) to get size of texture
-    (void) atlas;
-
     // write header
     bin::write(out, MAGIC);
     bin::write(out, std::uint16_t(3));
@@ -173,8 +170,11 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
     bin::write(out, std::uint16_t(mesh.submeshes.size()));
 
     // write submeshes
+    int smIndex(-1);
     for (const SubMesh &sm : mesh)
     {
+        smIndex++;
+
         // get a good ordering of faces, vertices and texcoords
         std::vector<int> forder, vorder, torder;
         getMeshOrdering(sm, forder, vorder, torder);
@@ -242,8 +242,8 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
             // write delta coded external coordinates
             if (flags & SubMeshFlag::externalTexture)
             {
-                const auto &tsize(vadstena::registry::BoundLayer::tileSize());
-                int quant = tsize.width * (1 << SubPixelBits);
+                const auto &ts(vadstena::registry::BoundLayer::tileSize());
+                int quant = int(ts.width) << TexCoordSubPixelBits;
                 bin::write(out, std::uint16_t(quant));
 
                 int last[2] = {0, 0};
@@ -264,8 +264,16 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
         {
             int ntc(sm.tc.size());
             bin::write(out, uint16_t(ntc));
-            bin::write(out, uint16_t(TexCoordQuant)); // FIXME
-            bin::write(out, uint16_t(TexCoordQuant));
+
+            math::Size2 dflt{DefaultTextureSize, DefaultTextureSize};
+            auto ts(textureSize(atlas, smIndex, dflt));
+
+            int quant[2] = {
+                int(ts.width) << TexCoordSubPixelBits,
+                int(ts.height) << TexCoordSubPixelBits
+            };
+            bin::write(out, uint16_t(quant[0]));
+            bin::write(out, uint16_t(quant[1]));
 
             std::vector<int> itorder;
             invertIndex(torder, itorder);
@@ -275,7 +283,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
                 const auto &t(sm.tc[itorder[i]]);
                 for (int j = 0; j < 2; j++)
                 {
-                    int qcoord = round(t(j) * TexCoordQuant);
+                    int qcoord = round(t(j) * quant[j]);
                     dw.writeDelta(qcoord, last[j]);
                 }
             }
