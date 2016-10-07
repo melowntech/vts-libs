@@ -74,6 +74,7 @@ struct SubMesh {
     double uvAreaScale;
 
     typedef std::vector<SubMesh> list;
+
     SubMesh()
         : textureMode(TextureMode::internal), surfaceReference(1)
         , uvAreaScale(1.0)
@@ -84,6 +85,10 @@ struct SubMesh {
     void cloneMetadataInto(SubMesh &dst) const;
 
     bool empty() const { return vertices.empty(); }
+
+    /** Filter out degenerate faces and unused vertices, return a new submesh.
+     */
+    SubMesh cleanUp() const;
 };
 
 /** Mesh with submeshes and mask.

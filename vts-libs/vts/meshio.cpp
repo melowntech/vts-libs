@@ -171,9 +171,12 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
 
     // write submeshes
     int smIndex(-1);
-    for (const SubMesh &sm : mesh)
+    for (const SubMesh &submesh : mesh)
     {
         smIndex++;
+
+        // remove degenerate faces
+        SubMesh sm(submesh.cleanUp());
 
         // get a good ordering of faces, vertices and texcoords
         std::vector<int> forder, vorder, torder;

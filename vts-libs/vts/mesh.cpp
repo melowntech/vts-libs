@@ -112,6 +112,75 @@ MeshArea area(const Mesh &mesh)
     return out;
 }
 
+SubMesh SubMesh::cleanUp() const
+{
+    SubMesh ret;
+
+    ret.vertices.reserve(vertices.size());
+    ret.etc.reserve(etc.size());
+    ret.tc.reserve(tc.size());
+    ret.faces.reserve(faces.size());
+    ret.facesTc.reserve(facesTc.size());
+
+    bool have_etc = !etc.empty();
+    bool have_itc = !tc.empty();
+    auto itc = facesTc.cbegin();
+
+    std::vector<int> vindex(vertices.size(), -1);
+    std::vector<int> tindex(tc.size(), -1);
+
+    // copy faces, skip degenerate ones
+    for (const auto &face : faces)
+    {
+        if (face(0) != face(1) &&
+            face(1) != face(2) &&
+            face(2) != face(0))
+        {
+            ret.faces.push_back(face);
+            if (have_itc) {
+                ret.facesTc.push_back(*itc);
+            }
+
+            // copy vertices, renumber indices
+            Face &rface(ret.faces.back());
+            for (int i = 0; i < 3; i++)
+            {
+                int &idx(vindex[rface(i)]);
+                if (idx < 0) {
+                    idx = ret.vertices.size();
+                    ret.vertices.push_back(vertices[rface(i)]);
+                    if (have_etc) {
+                        ret.etc.push_back(etc[rface(i)]);
+                    }
+                }
+                rface(i) = idx;
+            }
+
+            if (have_itc) {
+                Face &tface(ret.facesTc.back());
+                for (int i = 0; i < 3; i++)
+                {
+                    int &idx(tindex[tface(i)]);
+                    if (idx < 0) {
+                        idx = ret.tc.size();
+                        ret.tc.push_back(tc[tface(i)]);
+                    }
+                    tface(i) = idx;
+                }
+            }
+        }
+
+        if (have_itc) { itc++; }
+    }
+
+    ret.textureMode = textureMode;
+    ret.textureLayer = textureLayer;
+    ret.surfaceReference = surfaceReference;
+    ret.uvAreaScale = uvAreaScale;
+
+    return ret;
+}
+
 namespace {
 
 void saveMeshProperties(std::uint16_t version, std::ostream &out
