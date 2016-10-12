@@ -221,12 +221,7 @@ void saveMesh(std::ostream &out, const Mesh &mesh
 
     auto p(out.tellp());
 
-    // save gzipped (level=9, a bit bigger buffer)
-    bio::filtering_ostream gzipped;
-    gzipped.push(bio::gzip_compressor(bio::gzip_params(9), 1 << 16));
-    gzipped.push(out);
-    detail::saveMeshProper(gzipped, mesh, atlas);
-    gzipped.flush();
+    saveMeshProper(out, mesh, atlas);
 
     p = table.add(p, out.tellp() - p);
 
@@ -251,7 +246,12 @@ void saveMesh(const fs::path &path, const Mesh &mesh, const Atlas *atlas)
 void saveMeshProper(std::ostream &out, const Mesh &mesh
                     , const Atlas *atlas)
 {
-    detail::saveMeshProper(out, mesh, atlas);
+    // save gzipped (level=9, a bit bigger buffer)
+    bio::filtering_ostream gzipped;
+    gzipped.push(bio::gzip_compressor(bio::gzip_params(9), 1 << 16));
+    gzipped.push(out);
+    detail::saveMeshProper(gzipped, mesh, atlas);
+    gzipped.flush();
 }
 
 namespace {
