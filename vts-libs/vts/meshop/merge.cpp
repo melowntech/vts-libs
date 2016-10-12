@@ -1084,7 +1084,7 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
         }
     }
 
-    if (std::getenv("USE_ATLAS_INPAINT"))
+    if (!std::getenv("NO_ATLAS_INPAINT"))
     {
         // rasterize valid triangles
         cv::Mat mask(tex.rows, tex.cols, CV_8U, cv::Scalar(0x00));
