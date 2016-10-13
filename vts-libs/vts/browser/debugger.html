@@ -13,7 +13,7 @@
   <div id="debugger" style="width:100%;height:100%;position:absolute;left:0px;top:0px"></div>
 
     <script>
-      function loadFreeLayer(callback) {
+          function loadFreeLayer(callback) {
           var x = new XMLHttpRequest();
           x.overrideMimeType("application/json");
           x.open("GET", "freelayer.json", true);
@@ -26,9 +26,13 @@
           x.send(null);
       }
 
-      var map = new L.Map("debugger");
+      var crs = L.CRS.Simple;
+
+      var map = new L.Map("debugger", { crs: crs });
 
       loadFreeLayer(function (fl) {
+          var startZoom = fl.lodRange[0];
+
           var url = fl.meshUrl.replace(/{lod}/g, "{z}")
               .replace(/bin/g, "mask.dbg");
           var maskLayer = new L.TileLayer(url, {
@@ -44,7 +48,15 @@
           L.control.layers(layers, overlays).addTo(map);
           map.addLayer(maskLayer);
 
-          map.setView(new L.LatLng(50, 15), fl.lodRange[0]);
+          // set view to center of tile range at min lod
+          var center = [ (fl.tileRange[0][0] + fl.tileRange[1][0]) / 2.0 + 0.5
+                         , (fl.tileRange[0][1] + fl.tileRange[1][1]) / 2.0 + 0.5];
+
+          alert(center);
+
+          map.setView(crs.pointToLatLng(L.point(center[0] / Math.pow(2, startZoom - 8)
+                                                , center[1] / Math.pow(2, startZoom - 8)))
+                      , startZoom);
       });
     </script>
 
