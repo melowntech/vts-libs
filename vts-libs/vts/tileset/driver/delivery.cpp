@@ -74,7 +74,7 @@ IStream::pointer meta2d(const Driver &driver
 }
 
 IStream::pointer mask(const Driver &driver, const TileId &tileId
-                      , bool noSuchFile)
+                      , FileFlavor flavor, bool noSuchFile)
 {
     auto is(noSuchFile
             ? driver.input(tileId, TileFile::mesh)
@@ -85,11 +85,15 @@ IStream::pointer mask(const Driver &driver, const TileId &tileId
 
     // generate mask image from mask, serialize it as a png and wrap in input
     // stream
+
+    const auto meshMask(loadMeshMask(is));
+    const auto png((flavor == FileFlavor::debug)
+                   ? imgproc::png::serialize
+                   (debugMask(meshMask, driver.capabilities().flattener), 9)
+                   : imgproc::png::serialize
+                   (mask2d(meshMask, driver.capabilities().flattener), 9));
     return vs::memIStream(TileFile::mask
-                          , imgproc::png::serialize
-                          (mask2d(loadMeshMask(is)
-                                  , driver.capabilities().flattener), 9)
-                          , is->stat().lastModified
+                          , png, is->stat().lastModified
                           , filename(driver.root(), tileId, TileFile::mask));
 }
 
@@ -220,13 +224,14 @@ IStream::pointer Delivery::input(File type, const NullWhenNotFound_t&) const
     return driver_->input(type, NullWhenNotFound);
 }
 
-IStream::pointer Delivery::input(const TileId &tileId, TileFile type) const
+IStream::pointer Delivery::input(const TileId &tileId, TileFile type
+                                 , FileFlavor flavor) const
 {
     switch (type) {
     case TileFile::meta2d:
         return meta2d(*driver_, *index_, tileId, true);
     case TileFile::mask:
-        return mask(*driver_, tileId, true);
+        return mask(*driver_, tileId, flavor, true);
     case TileFile::credits:
         return credits(*driver_, *index_, properties_, tileId, true);
     default:
@@ -235,13 +240,14 @@ IStream::pointer Delivery::input(const TileId &tileId, TileFile type) const
 }
 
 IStream::pointer Delivery::input(const TileId &tileId, TileFile type
+                                 , FileFlavor flavor
                                  , const NullWhenNotFound_t&) const
 {
     switch (type) {
     case TileFile::meta2d:
         return meta2d(*driver_, *index_, tileId, false);
     case TileFile::mask:
-        return mask(*driver_, tileId, false);
+        return mask(*driver_, tileId, flavor, false);
     case TileFile::credits:
         return credits(*driver_, *index_, properties_, tileId, false);
     default:

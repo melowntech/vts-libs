@@ -34,9 +34,11 @@ public:
 
     IStream::pointer input(File type, const NullWhenNotFound_t&) const;
 
-    IStream::pointer input(const TileId &tileId, TileFile type) const;
+    IStream::pointer input(const TileId &tileId, TileFile type
+                           , FileFlavor flavor) const;
 
     IStream::pointer input(const TileId &tileId, TileFile type
+                           , FileFlavor flavor
                            , const NullWhenNotFound_t&) const;
 
     FileStat stat(File type) const;

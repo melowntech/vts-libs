@@ -125,11 +125,16 @@ RgbImage debugMask(const Mesh::CoverageMask &coverageMask
     rasterize(coverageMask, outView
               , [&](QTree::value_type value) -> bgil::rgb8_pixel_t
     {
-        // convert submesh index into surface reference and then to color via
-        // color table
-        return gil::palette256[singleSourced
-                               ? 1
-                               : surfaceReferences[value - 1]];
+        // apply mapping
+        if (singleSourced) {
+            // single sourced -> always 1
+            value = 1;
+        } else if (value <= surfaceReferences.size()) {
+            // value surface reference -> translate
+            surfaceReferences[value - 1];
+        }
+
+        return gil::palette256[value];
     });
 
     return out;

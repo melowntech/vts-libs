@@ -1679,14 +1679,15 @@ int serveFile(const vts::Delivery::pointer &delivery
     vts::TileId tileId;
     vts::TileFile type;
     unsigned int subTileIndex;
+    vts::FileFlavor flavor;
 
-    if (!vts::fromFilename(tileId, type, subTileIndex, filename)) {
+    if (!vts::fromFilename(tileId, type, subTileIndex, filename, 0, &flavor)) {
         std::cerr << "Unrecognized filename " << filename << "." << std::endl;
         return EXIT_FAILURE;
     }
 
     // open file
-    auto is(delivery->input(tileId, type));
+    auto is(delivery->input(tileId, type, flavor));
 
     // copy file to stdout
     copyFile(is, std::cout);
