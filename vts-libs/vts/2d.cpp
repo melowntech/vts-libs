@@ -3,8 +3,9 @@
 #include "./2d.hpp"
 #include "./qtree-rasterize.hpp"
 #include "./tileop.hpp"
+#include "./gil/colors.hpp"
 
-namespace gil = boost::gil;
+namespace bgil = boost::gil;
 
 namespace vadstena { namespace vts {
 
@@ -13,12 +14,12 @@ GrayImage mask2d(const Mesh::CoverageMask &coverageMask
                  &surfaceReferences, bool singleSourced)
 {
     auto size(Mask2d::size());
-    GrayImage out(size.width, size.height, gil::gray8_pixel_t(0x00), 0);
+    GrayImage out(size.width, size.height, bgil::gray8_pixel_t(0x00), 0);
 
     auto outView(view(out));
 
     auto maskSize(Mask2d::maskSize());
-    auto maskView(gil::subimage_view
+    auto maskView(bgil::subimage_view
                   (outView, 0, 0, maskSize.width, maskSize.height));
     rasterize(coverageMask, maskView);
 
@@ -52,7 +53,7 @@ GrayImage meta2d(const TileIndex &tileIndex, const TileId &tileId)
 
     auto size(Meta2d::size());
 
-    GrayImage out(size.width, size.height, gil::gray8_pixel_t(0x00), 0);
+    GrayImage out(size.width, size.height, bgil::gray8_pixel_t(0x00), 0);
     auto outView(view(out));
 
     if (const auto *tree = tileIndex.tree(tileId.lod)) {
@@ -110,6 +111,28 @@ void CreditTile::expand(const registry::Credit::dict &dict)
     }
 
     std::swap(credits, tmpCredits);
+}
+
+RgbImage debugMask(const Mesh::CoverageMask &coverageMask
+                   , const std::vector<SubMesh::SurfaceReference>
+                   &surfaceReferences, bool singleSourced)
+{
+    auto size(Mesh::coverageSize());
+    RgbImage out(size.width, size.height, bgil::gray8_pixel_t(0x00), 0);
+
+    auto outView(view(out));
+
+    rasterize(coverageMask, outView
+              , [&](QTree::value_type value) -> bgil::rgb8_pixel_t
+    {
+        // convert submesh index into surface reference and then to color via
+        // color table
+        return gil::palette256[singleSourced
+                               ? 1
+                               : surfaceReferences[value - 1]];
+    });
+
+    return out;
 }
 
 } } // vadstena::vts

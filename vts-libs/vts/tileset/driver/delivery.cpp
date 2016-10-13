@@ -67,7 +67,7 @@ IStream::pointer meta2d(const Driver &driver
     // generate mask image from tileindex, serialize it as a png and wrap in
     // input stream
     return vs::memIStream(TileFile::mask
-                          , imgproc::serialize
+                          , imgproc::png::serialize
                           (meta2d(index.tileIndex, tileId), 9)
                           , driver.lastModified()
                           , filename(driver.root(), tileId, TileFile::meta2d));
@@ -86,7 +86,7 @@ IStream::pointer mask(const Driver &driver, const TileId &tileId
     // generate mask image from mask, serialize it as a png and wrap in input
     // stream
     return vs::memIStream(TileFile::mask
-                          , imgproc::serialize
+                          , imgproc::png::serialize
                           (mask2d(loadMeshMask(is)
                                   , driver.capabilities().flattener), 9)
                           , is->stat().lastModified

@@ -45,10 +45,14 @@ std::pair<double, double> area(const Tile &tile);
 
 std::string asFilename(const TileId &tileId, TileFile type);
 
+enum class FileFlavor {
+    regular, raw, debug
+};
+
 bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileIndex
                   , const std::string &str
                   , std::string::size_type offset = 0
-                  , bool *raw = nullptr);
+                  , FileFlavor *flavor = nullptr);
 
 std::string fileTemplate(TileFile type
                          , boost::optional<unsigned int> revision

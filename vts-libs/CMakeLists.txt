@@ -177,6 +177,9 @@ file_to_cpp(vts_BROWSER_SOURCES
 file_to_cpp(vts_BROWSER_SOURCES
   vadstena::vts::browser::skydome_jpg
   vts/browser/skydome.jpg)
+file_to_cpp(vts_BROWSER_SOURCES
+  vadstena::vts::browser::debugger_html
+  vts/browser/debugger.html)
 
 # vts core files
 set(vts-core_SOURCES
@@ -242,6 +245,8 @@ set(vts-core_SOURCES
   vts/2d.hpp vts/2d.cpp
 
   vts/urltemplate.hpp vts/urltemplate.cpp
+
+  vts/gil/colors.hpp vts/gil/colors.cpp
   )
 
 set(vts_SOURCES

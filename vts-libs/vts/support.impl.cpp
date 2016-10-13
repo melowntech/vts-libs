@@ -20,5 +20,13 @@ const storage::SupportFile::Files supportFiles =
             , "image/jpeg"
             , false
         }
+    }, { "debugger.html"
+      , {
+            browser::debugger_html
+            , sizeof(browser::debugger_html)
+            , browser::debugger_html_attr_lastModified
+            , "text/html; charset=utf-8"
+            , true
+        }
     }
 };

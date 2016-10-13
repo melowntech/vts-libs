@@ -4,6 +4,6 @@ namespace vadstena { namespace vts { namespace opencv {
 
 /** Palette of 256 distinct colors.
  */
-extern cv::Scalar palette256[256];
+extern const cv::Scalar palette256[256];
 
 } } } // namespace vadstena::vts::opencv

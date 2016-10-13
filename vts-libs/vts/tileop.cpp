@@ -26,6 +26,8 @@ namespace {
     const std::string RawAtlasExt("ratlas");
     const std::string RawNavTileExt("rnavtile");
 
+    const std::string DebugMaskExt("mask.dbg");
+
     inline const std::string& extension(TileFile type) {
         switch (type) {
         case TileFile::meta: return MetaExt;
@@ -44,8 +46,10 @@ namespace {
         throw;
     }
 
-    inline const char* tileFile(const char *p, TileFile &type, bool *raw) {
-        if (raw) {*raw = false; }
+    inline const char* tileFile(const char *p, TileFile &type
+                                , FileFlavor *flavor)
+    {
+        if (flavor) { *flavor = FileFlavor::regular; }
 #define HANDLE_EXT(EXT, TYPE)                   \
         if (!EXT.compare(p)) {                  \
             type = TileFile::TYPE;              \
@@ -60,13 +64,13 @@ namespace {
         HANDLE_EXT(MaskExt, mask)
         HANDLE_EXT(OrthoExt, ortho)
         HANDLE_EXT(CreditsExt, credits)
-        if (!raw) { return nullptr; }
-
+        if (!flavor) { return nullptr; }
 #undef HANDLE_EXT
+
 #define HANDLE_EXT(EXT, TYPE)                   \
         if (!EXT.compare(p)) {                  \
             type = TileFile::TYPE;              \
-            *raw = true;                        \
+            *flavor = FileFlavor::raw;          \
             return p + EXT.size();              \
         }
 
@@ -75,13 +79,23 @@ namespace {
         HANDLE_EXT(RawNavTileExt, navtile)
 #undef HANDLE_EXT
 
+#define HANDLE_EXT(EXT, TYPE)                   \
+        if (!EXT.compare(p)) {                  \
+            type = TileFile::TYPE;              \
+            *flavor = FileFlavor::debug;        \
+            return p + EXT.size();              \
+        }
+
+        HANDLE_EXT(DebugMaskExt, mask)
+#undef HANDLE_EXT
+
         return nullptr;
     }
 
     inline const char* tileFile(const char *p, TileFile &type, bool hasSubFile
-                                , bool *raw)
+                                , FileFlavor *flavor)
     {
-        auto pp(tileFile(p, type, raw));
+        auto pp(tileFile(p, type, flavor));
         if (!pp) { return pp; }
 
         // subfile is mandatory for given non-raw files
@@ -89,7 +103,7 @@ namespace {
                 switch (type) {
                 case TileFile::atlas:
                 case TileFile::ortho:
-                    return !(raw && *raw);
+                    return !(flavor && (*flavor != FileFlavor::regular));
                     break;
 
                 default: break;
@@ -170,7 +184,7 @@ inline const char* parsePart(const char *p, T &value)
 
 bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileFile
                   , const std::string &str
-                  , std::string::size_type offset, bool *raw)
+                  , std::string::size_type offset, FileFlavor *flavor)
 {
     if (str.size() <= offset) { return false; }
 
@@ -195,7 +209,7 @@ bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileFile
     if (*p++ != '.') { return false; }
 
     if (!*p) { return false; }
-    auto pp(tileFile(p, type, hasSubFile, raw));
+    auto pp(tileFile(p, type, hasSubFile, flavor));
 
     if (!pp) { return false; }
     return !*pp;

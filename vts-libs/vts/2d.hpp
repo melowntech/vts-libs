@@ -13,7 +13,7 @@ namespace vadstena { namespace vts {
 
 typedef boost::gil::gray8_image_t GrayImage;
 
-typedef boost::gil::gray8_image_t GrayImage;
+typedef boost::gil::rgb8_image_t RgbImage;
 
 GrayImage mask2d(const Mesh::CoverageMask &coverageMask
                  , const std::vector<SubMesh::SurfaceReference>
@@ -30,10 +30,21 @@ void saveCreditTile(std::ostream &out, const CreditTile &creditTile
 CreditTile loadCreditTile(std::istream &in, const boost::filesystem::path &path
                           = "unknown");
 
+RgbImage debugMask(const Mesh::CoverageMask &coverageMask
+                   , const std::vector<SubMesh::SurfaceReference>
+                   &surfaceReferences
+                   , bool singleSourced = false);
+
+RgbImage debugMask(const MeshMask &mask, bool singleSourced = false);
+
 // inlines
 
 inline GrayImage mask2d(const MeshMask &mask, bool singleSourced) {
     return mask2d(mask.coverageMask, mask.surfaceReferences, singleSourced);
+}
+
+inline RgbImage debugMask(const MeshMask &mask, bool singleSourced) {
+    return debugMask(mask.coverageMask, mask.surfaceReferences, singleSourced);
 }
 
 } } // vadstena::vts
