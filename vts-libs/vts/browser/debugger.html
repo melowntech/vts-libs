@@ -52,8 +52,6 @@
           var center = [ (fl.tileRange[0][0] + fl.tileRange[1][0]) / 2.0 + 0.5
                          , (fl.tileRange[0][1] + fl.tileRange[1][1]) / 2.0 + 0.5];
 
-          alert(center);
-
           map.setView(crs.pointToLatLng(L.point(center[0] / Math.pow(2, startZoom - 8)
                                                 , center[1] / Math.pow(2, startZoom - 8)))
                       , startZoom);
