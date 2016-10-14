@@ -645,6 +645,17 @@ MetaNode& MetaNode::setChildFromId(const TileId &tileId, bool value)
     return set(Flag::ulChild << child(tileId), value);
 }
 
+void MetaNode::setChildFromId(Flag::value_type &flags, const TileId &tileId
+                              , bool value)
+{
+    Flag::value_type flag(Flag::ulChild << child(tileId));
+    if (value) {
+        flags |= flag;
+    } else {
+        flags &= ~flag;
+    }
+}
+
 MetaNode& MetaNode::mergeExtents(const MetaNode &other)
 {
     if (other.extents.ll == other.extents.ur) {

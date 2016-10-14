@@ -4,6 +4,7 @@
 #include "vts/browser/index-offline.html.hpp"
 #include "vts/browser/skydome.jpg.hpp"
 #include "vts/browser/debugger.html.hpp"
+#include "vts/browser/debugger.js.hpp"
 
 namespace vadstena { namespace vts {
 

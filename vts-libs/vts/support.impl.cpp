@@ -26,7 +26,15 @@ const storage::SupportFile::Files supportFiles =
             , sizeof(browser::debugger_html)
             , browser::debugger_html_attr_lastModified
             , "text/html; charset=utf-8"
-            , true
+            , false
+        }
+    }, { "debugger.js"
+      , {
+            browser::debugger_js
+            , sizeof(browser::debugger_js)
+            , browser::debugger_js_attr_lastModified
+            , "application/javascript; charset=utf-8"
+            , false
         }
     }
 };

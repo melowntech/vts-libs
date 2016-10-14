@@ -2,6 +2,7 @@
 #define vadstena_libs_vts_tileflags_hpp_included_
 
 #include <iostream>
+#include <sstream>
 
 #include "./tileindex.hpp"
 
@@ -19,6 +20,21 @@ struct TileFlags {
     typedef std::pair<Match, const char*> TileFlag;
     static std::vector<TileFlag> mapping;
 };
+
+template <typename Func>
+void forEachFlag(const TileFlags &f, const Func &callback)
+{
+    std::ostringstream os;
+
+    for (const auto &flag : TileFlags::mapping) {
+        const auto &match(flag.first);
+        if ((f.value & match.first) == match.second) {
+            os.str("");
+            os << flag.second;
+            callback(os.str());
+        }
+    }
+}
 
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&

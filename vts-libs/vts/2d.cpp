@@ -113,17 +113,29 @@ void CreditTile::expand(const registry::Credit::dict &dict)
     std::swap(credits, tmpCredits);
 }
 
-RgbImage debugMask(const Mesh::CoverageMask &coverageMask
-                   , const std::vector<SubMesh::SurfaceReference>
-                   &surfaceReferences, bool singleSourced)
+namespace {
+
+bgil::rgba8_pixel_t rgb2rgba(const bgil::rgb8_pixel_t &p
+                             , const uint8_t opacity = 0xff)
+{
+    return bgil::rgba8_pixel_t(p[0], p[1], p[2], opacity);
+}
+
+} // namespace
+
+RgbaImage debugMask(const Mesh::CoverageMask &coverageMask
+                    , const std::vector<SubMesh::SurfaceReference>
+                    &surfaceReferences, bool singleSourced)
 {
     auto size(Mesh::coverageSize());
-    RgbImage out(size.width, size.height, bgil::gray8_pixel_t(0x00), 0);
+    RgbaImage out(size.width, size.height
+                  , bgil::rgba8_pixel_t(0x00, 0x00, 0x00, 0x00)
+                 , 0);
 
     auto outView(view(out));
 
     rasterize(coverageMask, outView
-              , [&](QTree::value_type value) -> bgil::rgb8_pixel_t
+              , [&](QTree::value_type value) -> bgil::rgba8_pixel_t
     {
         // apply mapping
         if (singleSourced) {
@@ -134,10 +146,17 @@ RgbImage debugMask(const Mesh::CoverageMask &coverageMask
             surfaceReferences[value - 1];
         }
 
-        return gil::palette256[value];
+        return rgb2rgba(gil::palette256[value]);
     });
 
     return out;
+}
+
+RgbaImage emptyDebugMask()
+{
+    auto size(Mesh::coverageSize());
+    return RgbaImage(size.width, size.height
+                     , bgil::rgba8_pixel_t(0xFF, 0xFF, 0xFF, 0x00), 0);
 }
 
 } } // vadstena::vts

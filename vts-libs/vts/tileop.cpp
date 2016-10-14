@@ -27,6 +27,7 @@ namespace {
     const std::string RawNavTileExt("rnavtile");
 
     const std::string DebugMaskExt("mask.dbg");
+    const std::string DebugMetaExt("meta.dbg");
 
     inline const std::string& extension(TileFile type) {
         switch (type) {
@@ -86,6 +87,7 @@ namespace {
             return p + EXT.size();              \
         }
 
+        HANDLE_EXT(DebugMetaExt, meta)
         HANDLE_EXT(DebugMaskExt, mask)
 #undef HANDLE_EXT
 

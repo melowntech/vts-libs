@@ -134,6 +134,11 @@ struct MetaNode {
      */
     MetaNode& setChildFromId(const TileId &tileId, bool value = true);
 
+    /** Sets/unsets child flag based on LSB of tileId in external flags.
+     */
+    static void setChildFromId(Flag::value_type &flags, const TileId &tileId
+                               , bool value = true);
+
     MetaNode& mergeExtents(const MetaNode &other);
 
     const storage::CreditIds& credits() const {  return credits_; }

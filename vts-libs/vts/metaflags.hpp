@@ -22,6 +22,23 @@ struct MetaFlags {
     static std::vector<MetaFlag> mapping;
 };
 
+template <typename Func>
+void forEachFlag(const MetaFlags &f, const Func &callback)
+{
+    std::ostringstream os;
+
+    for (const auto &flag : MetaFlags::mapping) {
+        if (f.value & flag.first) {
+            os.str("");
+            os << flag.second;
+            callback(os.str());
+        }
+    }
+    if (f.reference) {
+        callback("reference");
+    }
+}
+
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits> &os, const MetaFlags &f)

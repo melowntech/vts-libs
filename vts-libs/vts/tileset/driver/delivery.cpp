@@ -15,6 +15,7 @@
 #include "../../io.hpp"
 #include "../../2d.hpp"
 #include "../../tileset.hpp"
+#include "../../debug.hpp"
 
 #include "../delivery.hpp"
 #include "../driver.hpp"
@@ -73,21 +74,38 @@ IStream::pointer meta2d(const Driver &driver
                           , filename(driver.root(), tileId, TileFile::meta2d));
 }
 
+namespace constants {
+
+const auto EmptyMask = imgproc::png::serialize(emptyDebugMask(), 9);
+
+} // namespace constants
+
 IStream::pointer mask(const Driver &driver, const TileId &tileId
                       , FileFlavor flavor, bool noSuchFile)
 {
-    auto is(noSuchFile
+    const auto debug(flavor == FileFlavor::debug);
+
+    auto is((noSuchFile && !debug)
             ? driver.input(tileId, TileFile::mesh)
             : driver.input(tileId, TileFile::mesh, NullWhenNotFound));
 
-    // invalid pointer only if asked to use it -> just pass
-    if (!is) { return is; }
+    if (!is) {
+        if (debug) {
+            // no data and debug mode -> return transparent tile
+            return vs::memIStream
+                (TileFile::mask, constants::EmptyMask
+                 , -1, filename(driver.root(), tileId, TileFile::mask));
+        }
+
+        // not found
+        return {};
+    }
 
     // generate mask image from mask, serialize it as a png and wrap in input
     // stream
 
     const auto meshMask(loadMeshMask(is));
-    const auto png((flavor == FileFlavor::debug)
+    const auto png(debug
                    ? imgproc::png::serialize
                    (debugMask(meshMask, driver.capabilities().flattener), 9)
                    : imgproc::png::serialize
@@ -95,6 +113,28 @@ IStream::pointer mask(const Driver &driver, const TileId &tileId
     return vs::memIStream(TileFile::mask
                           , png, is->stat().lastModified
                           , filename(driver.root(), tileId, TileFile::mask));
+}
+
+IStream::pointer meta(const Driver &driver, const tileset::Index &index
+                      , const FullTileSetProperties &properties
+                      , const TileId &tileId, FileFlavor flavor
+                      , bool noSuchFile)
+{
+    if (flavor != FileFlavor::debug) {
+        return (noSuchFile
+                ? driver.input(tileId, TileFile::meta)
+                : driver.input(tileId, TileFile::meta, NullWhenNotFound));
+    }
+
+    // generate debug metanode
+    const auto debugNode(getNodeDebugInfo(index.tileIndex, tileId));
+
+    std::ostringstream os;
+    saveDebug(os, debugNode);
+    return vs::memIStream("application/json; charset=utf-8"
+                          , os.str(), -1 // where to get last modified?
+                          , filename(driver.root(), tileId, TileFile::meta));
+    (void) properties;
 }
 
 bool creditsFromMetatiles(const Driver &driver
@@ -230,10 +270,16 @@ IStream::pointer Delivery::input(const TileId &tileId, TileFile type
     switch (type) {
     case TileFile::meta2d:
         return meta2d(*driver_, *index_, tileId, true);
+
     case TileFile::mask:
         return mask(*driver_, tileId, flavor, true);
+
     case TileFile::credits:
         return credits(*driver_, *index_, properties_, tileId, true);
+
+    case TileFile::meta:
+        return meta(*driver_, *index_, properties_, tileId, flavor, true);
+
     default:
         return driver_->input(tileId, type);
     }
@@ -246,10 +292,16 @@ IStream::pointer Delivery::input(const TileId &tileId, TileFile type
     switch (type) {
     case TileFile::meta2d:
         return meta2d(*driver_, *index_, tileId, false);
+
     case TileFile::mask:
         return mask(*driver_, tileId, flavor, false);
+
     case TileFile::credits:
         return credits(*driver_, *index_, properties_, tileId, false);
+
+    case TileFile::meta:
+        return meta(*driver_, *index_, properties_, tileId, flavor, false);
+
     default:
         return driver_->input(tileId, type, NullWhenNotFound);
     }

@@ -180,6 +180,9 @@ file_to_cpp(vts_BROWSER_SOURCES
 file_to_cpp(vts_BROWSER_SOURCES
   vadstena::vts::browser::debugger_html
   vts/browser/debugger.html)
+file_to_cpp(vts_BROWSER_SOURCES
+  vadstena::vts::browser::debugger_js
+  vts/browser/debugger.js)
 
 # vts core files
 set(vts-core_SOURCES
@@ -247,6 +250,7 @@ set(vts-core_SOURCES
   vts/urltemplate.hpp vts/urltemplate.cpp
 
   vts/gil/colors.hpp vts/gil/colors.cpp
+  vts/debug.hpp vts/debug.cpp
   )
 
 set(vts_SOURCES
