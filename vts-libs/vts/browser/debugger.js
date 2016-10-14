@@ -165,7 +165,10 @@ function processFreeLayer(fl) {
     var maskLayer = new L.TileLayer(maskUrl, {
         minZoom: 0
         , maxZoom: fl.lodRange[1]
+        , continuousWorld: true
         , noWrap: true
+        , bounds: L.latLngBounds(crs.pointToLatLng(L.point(0, 0))
+                                 , crs.pointToLatLng(L.point(256, 256)))
     });
 
     var layers = {};
