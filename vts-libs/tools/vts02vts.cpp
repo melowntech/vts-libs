@@ -678,7 +678,7 @@ void Encoder::finish(vts::TileSet &ts)
         pos.heightMode = vr::Position::HeightMode::fixed;
         pos.orientation = { 0.0, -90.0, 0.0 };
         pos.verticalExtent = bestPosition.verticalExtent;
-        pos.verticalFov = 90;
+        pos.verticalFov = 55;
         ts.setPosition(pos);
     }
 }
