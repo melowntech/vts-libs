@@ -22,6 +22,7 @@ namespace {
 
 const char* MapConfig::contentType("application/json; charset=utf-8");
 const char* MeshTilesConfig::contentType("application/json; charset=utf-8");
+const char* DebugConfig::contentType("application/json; charset=utf-8");
 
 Json::Value asJson(const Glue::Id &id)
 {
@@ -440,6 +441,25 @@ registry::FreeLayer freeLayer(const MeshTilesConfig &config
     return fl;
 }
 
+DebugConfig debugConfig(const MeshTilesConfig &config
+                        , const boost::filesystem::path &root)
+{
+    DebugConfig dc;
+    const auto &surface(config.surface);
+    dc.lodRange = surface.lodRange;
+    dc.tileRange = surface.tileRange;
+
+    const auto useRoot(surface.root.empty() ? root : surface.root);
+
+    dc.meta
+        = (useRoot / fileTemplate(storage::TileFile::meta, FileFlavor::debug
+                                  , surface.revision)).string();
+    dc.mask
+        = (useRoot / fileTemplate(storage::TileFile::mask, FileFlavor::debug
+                                  , surface.revision)).string();
+    return dc;
+}
+
 namespace {
 
 typedef std::string ResourceId;
@@ -607,6 +627,33 @@ void saveDirs(const MapConfig &mapConfig, std::ostream &os)
         }
     }
 
+    Json::StyledStreamWriter().write(os, content);
+}
+
+
+void asJson(const DebugConfig &debug, Json::Value &content)
+{
+    auto &lodRange(content["lodRange"] = Json::arrayValue);
+    lodRange.append(debug.lodRange.min);
+    lodRange.append(debug.lodRange.max);
+
+    auto &tileRange(content["tileRange"] = Json::arrayValue);
+    auto &tileRangeMin(tileRange.append(Json::arrayValue));
+    tileRangeMin.append(debug.tileRange.ll(0));
+    tileRangeMin.append(debug.tileRange.ll(1));
+    auto &tileRangeMax(tileRange.append(Json::arrayValue));
+    tileRangeMax.append(debug.tileRange.ur(0));
+    tileRangeMax.append(debug.tileRange.ur(1));
+
+    content["metaUrl"] = debug.meta;
+    content["maskUrl"] = debug.mask;
+}
+
+void saveDebug(std::ostream &os, const DebugConfig &debug)
+{
+    Json::Value content(Json::objectValue);
+    asJson(debug, content);
+    os.precision(15);
     Json::StyledStreamWriter().write(os, content);
 }
 

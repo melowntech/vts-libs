@@ -106,6 +106,10 @@ typedef std::string TilesetId;
 typedef std::vector<TilesetId> TilesetIdList;
 typedef std::set<TilesetId> TilesetIdSet;
 
+enum class FileFlavor {
+    regular, raw, debug
+};
+
 // inline stuff
 
 UTILITY_GENERATE_ENUM_IO(OpenMode,
@@ -116,6 +120,12 @@ UTILITY_GENERATE_ENUM_IO(OpenMode,
 UTILITY_GENERATE_ENUM_IO(CreateMode,
     ((failIfExists))
     ((overwrite))
+)
+
+UTILITY_GENERATE_ENUM_IO(FileFlavor,
+    ((regular))
+    ((raw))
+    ((debug))
 )
 
 } } // namespace vadstena::vts

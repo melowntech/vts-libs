@@ -169,6 +169,28 @@ registry::FreeLayer freeLayer(const MeshTilesConfig &config
  */
 void saveDirs(const MapConfig &mapConfig, std::ostream &os);
 
+/** Debug config.
+ */
+struct DebugConfig {
+    storage::LodRange lodRange;
+    registry::TileRange tileRange;
+
+    std::string meta;
+    std::string mask;
+
+    static const char *contentType;
+};
+
+/** Generates debug config from mesh tiles config.
+ */
+DebugConfig debugConfig(const MeshTilesConfig &config
+                        , const boost::filesystem::path &root
+                        = boost::filesystem::path());
+
+/** Save debug config to stream.
+ */
+void saveDebug(std::ostream &os, const DebugConfig &debug);
+
 } } // namespace vadstena::vts
 
 #endif // vadstena_libs_vts_mapconfig_hpp_included_

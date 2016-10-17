@@ -2,6 +2,7 @@
 #define vadstena_libs_vts_debug_hpp_included_
 
 #include "./tileindex.hpp"
+#include "./mapconfig.hpp"
 
 namespace vadstena { namespace vts {
 

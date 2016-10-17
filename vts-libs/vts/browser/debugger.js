@@ -129,10 +129,10 @@ var MetaLayer = L.GridLayer.extend({
     }
 });
 
-function loadFreeLayer(callback) {
+function loadConfig(callback) {
     var xhr = new XMLHttpRequest();
     xhr.overrideMimeType("application/json");
-    xhr.open("GET", "freelayer.json", true);
+    xhr.open("GET", "debug.json", true);
     xhr.onreadystatechange = function () {
         if (((xhr.readyState) == 4)
             && ((xhr.status == 200) || (xhr.status == 0)))
@@ -144,17 +144,15 @@ function loadFreeLayer(callback) {
 }
 
 
-function processFreeLayer(fl) {
+function processConfig(config) {
     var crs = L.CRS.Simple;
     var map = new L.Map("debugger", { crs: crs });
 
-    var startZoom = fl.lodRange[0];
+    var startZoom = config.lodRange[0];
 
-    var maskUrl = fl.meshUrl.replace(/{lod}/g, "{z}")
-        .replace(/bin/g, "mask.dbg");
+    var maskUrl = config.maskUrl.replace(/{lod}/g, "{z}");
 
-    var metaUrl = fl.metaUrl.replace(/{lod}/g, "{z}")
-        .replace(/meta/g, "meta.dbg");
+    var metaUrl = config.metaUrl.replace(/{lod}/g, "{z}");
 
     var gridLayer = new TileGridLayer();
     map.addLayer(gridLayer);
@@ -164,7 +162,7 @@ function processFreeLayer(fl) {
 
     var maskLayer = new L.TileLayer(maskUrl, {
         minZoom: 0
-        , maxZoom: fl.lodRange[1]
+        , maxZoom: config.lodRange[1]
         , continuousWorld: true
         , noWrap: true
         , bounds: L.latLngBounds(crs.pointToLatLng(L.point(0, 0))
@@ -181,8 +179,8 @@ function processFreeLayer(fl) {
     map.addLayer(maskLayer);
 
     // set view to center of tile range at min lod
-    var center = [ (fl.tileRange[0][0] + fl.tileRange[1][0]) / 2.0 + 0.5
-                   , (fl.tileRange[0][1] + fl.tileRange[1][1]) / 2.0 + 0.5];
+    var center = [ (config.tileRange[0][0] + config.tileRange[1][0]) / 2.0 + 0.5
+                   , (config.tileRange[0][1] + config.tileRange[1][1]) / 2.0 + 0.5];
 
     map.setView(crs.pointToLatLng(L.point(center[0] / Math.pow(2, startZoom - 8)
                                           , center[1] / Math.pow(2, startZoom - 8)))
@@ -190,5 +188,5 @@ function processFreeLayer(fl) {
 };
 
 function startDebugger() {
-    loadFreeLayer(processFreeLayer);
+    loadConfig(processConfig);
 }

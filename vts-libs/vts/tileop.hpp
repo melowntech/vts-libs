@@ -45,9 +45,7 @@ std::pair<double, double> area(const Tile &tile);
 
 std::string asFilename(const TileId &tileId, TileFile type);
 
-enum class FileFlavor {
-    regular, raw, debug
-};
+std::string asFilename(const TileId &tileId, TileFile type, FileFlavor flavor);
 
 bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileIndex
                   , const std::string &str
@@ -55,6 +53,10 @@ bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileIndex
                   , FileFlavor *flavor = nullptr);
 
 std::string fileTemplate(TileFile type
+                         , boost::optional<unsigned int> revision
+                         = boost::none);
+
+std::string fileTemplate(TileFile type, FileFlavor flavor
                          , boost::optional<unsigned int> revision
                          = boost::none);
 
@@ -347,6 +349,17 @@ inline math::Size2_<TileRange::value_type> tileRangesSize(const TileRange &tr)
 inline TileId local(const NodeInfo &nodeInfo)
 {
     return local(nodeInfo.rootLod(), nodeInfo.nodeId());
+}
+
+inline std::string fileTemplate(TileFile type
+                                , boost::optional<unsigned int> revision)
+{
+    return fileTemplate(type, FileFlavor::regular, revision);
+}
+
+inline std::string asFilename(const TileId &tileId, TileFile type)
+{
+    return asFilename(tileId, type, FileFlavor::regular);
 }
 
 } } // namespace vadstena::vts

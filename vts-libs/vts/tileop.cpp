@@ -29,21 +29,53 @@ namespace {
     const std::string DebugMaskExt("mask.dbg");
     const std::string DebugMetaExt("meta.dbg");
 
-    inline const std::string& extension(TileFile type) {
+    inline const std::string& extension(TileFile type, FileFlavor flavor)
+    {
         switch (type) {
-        case TileFile::meta: return MetaExt;
-        case TileFile::mesh: return MeshExt;
-        case TileFile::atlas: return AtlasExt;
-        case TileFile::navtile: return NavTileExt;
+        case TileFile::meta:
+            switch (flavor) {
+            case FileFlavor::regular: return MetaExt;
+            case FileFlavor::raw: break;
+            case FileFlavor::debug: return DebugMetaExt;
+            }
+            break;
+        case TileFile::mesh:
+            switch (flavor) {
+            case FileFlavor::regular: return MeshExt;
+            case FileFlavor::raw: return RawMeshExt;
+            case FileFlavor::debug: break;
+            }
+            break;
+        case TileFile::atlas:
+            switch (flavor) {
+            case FileFlavor::regular: return AtlasExt;
+            case FileFlavor::raw: return RawAtlasExt;
+            case FileFlavor::debug: break;
+            }
+            break;
+        case TileFile::navtile:
+            switch (flavor) {
+            case FileFlavor::regular: return NavTileExt;
+            case FileFlavor::raw: return RawNavTileExt;
+            case FileFlavor::debug: break;
+            }
+            break;
         case TileFile::meta2d: return Meta2dExt;
-        case TileFile::mask: return MaskExt;
+        case TileFile::mask:
+            switch (flavor) {
+            case FileFlavor::regular: return MaskExt;
+            case FileFlavor::raw: break;
+            case FileFlavor::debug: return DebugMaskExt;
+            }
+            break;
         case TileFile::ortho: return OrthoExt;
         case TileFile::credits: return CreditsExt;
-        default:
-            utility::raise<std::string>
-                ("Unexpected TileFile value <%s>. Go fix your program."
-                 , type);
+        default: break;
         }
+
+        utility::raise<std::string>
+            ("Unexpected TileFile value <%s>/<%s>. Go fix your program."
+             , type, flavor);
         throw;
     }
 
@@ -118,17 +150,18 @@ namespace {
     }
 }
 
-std::string asFilename(const TileId &tileId, TileFile type)
+std::string asFilename(const TileId &tileId, TileFile type, FileFlavor flavor)
 {
     return str(boost::format("%s-%07d-%07d.%s")
                % tileId.lod % tileId.x % tileId.y
-               % extension(type));
+               % extension(type, flavor));
 }
 
-std::string fileTemplate(TileFile type, boost::optional<unsigned int> revision)
+std::string fileTemplate(TileFile type, FileFlavor flavor
+                         , boost::optional<unsigned int> revision)
 {
 
-    std::string ext(extension(type));
+    std::string ext(extension(type, flavor));
     if (revision) {
         ext = str(boost::format("%s?%s") % ext % *revision);
     }
