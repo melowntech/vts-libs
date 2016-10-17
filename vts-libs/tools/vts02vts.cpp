@@ -42,8 +42,7 @@
 #include "../vts/opencv/navtile.hpp"
 #include "../vts/io.hpp"
 #include "../vts/csconvertor.hpp"
-
-#include "./heightmap.hpp"
+#include "../vts/heightmap.hpp"
 
 namespace po = boost::program_options;
 namespace vs = vadstena::storage;
@@ -333,7 +332,7 @@ private:
     vts0::TileSet::AdvancedApi aa_;
     const vts0::TileIndex &ti_;
     vts0::TileIndex cti_;
-    HeightMap::Accumulator hma_;
+    vts::HeightMap::Accumulator hma_;
 };
 
 vts0::Mesh loadMesh(const vs::IStream::pointer &is)
@@ -640,10 +639,10 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
 
 void Encoder::finish(vts::TileSet &ts)
 {
-    HeightMap hm(std::move(hma_), referenceFrame()
-                 , config_.dtmExtractionRadius / ntSourceLodPixelSize_);
+    vts::HeightMap hm(std::move(hma_), referenceFrame()
+                      , config_.dtmExtractionRadius / ntSourceLodPixelSize_);
 
-    HeightMap::BestPosition bestPosition;
+    vts::HeightMap::BestPosition bestPosition;
 
     // iterate in nt lod range backwards: iterate from start and invert forward
     // lod into backward lod
@@ -678,7 +677,7 @@ void Encoder::finish(vts::TileSet &ts)
         pos.heightMode = vr::Position::HeightMode::fixed;
         pos.orientation = { 0.0, -90.0, 0.0 };
         pos.verticalExtent = bestPosition.verticalExtent;
-        pos.verticalFov = 90;
+        pos.verticalFov = 55;
         ts.setPosition(pos);
     }
 }

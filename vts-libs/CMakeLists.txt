@@ -267,6 +267,9 @@ set(vts_SOURCES
   # dump support
   vts/tileindex-dump.cpp
   vts/qtree-dump.cpp
+
+  # heightmap
+  vts/heightmap.hpp vts/heightmap.cpp
   )
 
 # vts core library

@@ -14,12 +14,14 @@
 
 #include "geo/geodataset.hpp"
 
-#include "vts-libs/vts/io.hpp"
-#include "vts-libs/vts/tileop.hpp"
-#include "vts-libs/vts/csconvertor.hpp"
-#include "vts-libs/vts/opencv/navtile.hpp"
+#include "./io.hpp"
+#include "./tileop.hpp"
+#include "./csconvertor.hpp"
+#include "./opencv/navtile.hpp"
 
 #include "./heightmap.hpp"
+
+namespace vadstena { namespace vts {
 
 typedef vts::opencv::NavTile::DataType NTDataType;
 
@@ -182,7 +184,7 @@ void debugDump(const HeightMap &hm, const std::string &format, Args &&...args)
 }
 
 math::Extents2 worldExtents(vts::Lod lod, const vts::TileRange &tileRange
-                            , const vr::ReferenceFrame &referenceFrame
+                            , const registry::ReferenceFrame &referenceFrame
                             , std::string &srs)
 {
     if (!valid(tileRange)) { return math::Extents2(math::InvalidExtents{}); }
@@ -224,7 +226,7 @@ math::Size2 calculateSizeInPixels(const math::Size2 &tileGrid
 
 } // namespace
 
-HeightMapBase::HeightMapBase(const vr::ReferenceFrame &referenceFrame
+HeightMapBase::HeightMapBase(const registry::ReferenceFrame &referenceFrame
                              , vts::Lod lod, vts::TileRange tileRange)
     : referenceFrame_(&referenceFrame)
     , tileSize_(vts::NavTile::size())
@@ -240,7 +242,7 @@ HeightMapBase::HeightMapBase(const vr::ReferenceFrame &referenceFrame
 {}
 
 HeightMap::HeightMap(Accumulator &&a
-                     , const vr::ReferenceFrame &referenceFrame
+                     , const registry::ReferenceFrame &referenceFrame
                      , double dtmExtractionRadius)
     : HeightMapBase(referenceFrame, a.lod_, a.tileRange_)
 {
@@ -290,7 +292,7 @@ vts::TileRange tileRange(const vts::MeshOpInput::list &source)
 
 HeightMap::HeightMap(const vts::TileId &tileId
                      , const vts::MeshOpInput::list &source
-                     , const vr::ReferenceFrame &referenceFrame)
+                     , const registry::ReferenceFrame &referenceFrame)
     : HeightMapBase(referenceFrame, lod(source), tileRange(source))
 {
     for (const auto &input : source) {
@@ -572,7 +574,7 @@ math::Extents2 addHalfPixel(const math::Extents2 &e
 
 } // namespace
 
-void HeightMap::warp(const vr::ReferenceFrame &referenceFrame
+void HeightMap::warp(const registry::ReferenceFrame &referenceFrame
                      , vts::Lod lod, const vts::TileRange &tileRange)
 {
     if (empty()) { return; }
@@ -586,8 +588,8 @@ void HeightMap::warp(const vr::ReferenceFrame &referenceFrame
     std::string srs;
     auto extents(worldExtents(lod, tileRange, referenceFrame, srs));
 
-    auto srcSrs(vr::system.srs(srs_));
-    auto dstSrs(vr::system.srs(srs));
+    auto srcSrs(registry::system.srs(srs_));
+    auto dstSrs(registry::system.srs(srs));
 
     // create source dataset (extents are inflate by half pixel in each
     // direction to facilitate grid registry)
@@ -685,3 +687,6 @@ void HeightMap::warp(const vts::NodeInfo &nodeInfo)
          , vts::TileRange(point(nodeInfo)));
     debugDump(*this, "hm-warped-%s-%s.png", srs_, nodeInfo.nodeId());
 }
+
+} } // vadstena::vts
+

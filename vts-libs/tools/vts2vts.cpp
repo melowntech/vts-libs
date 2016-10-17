@@ -37,8 +37,8 @@
 #include "../vts/csconvertor.hpp"
 #include "../vts/meshopinput.hpp"
 #include "../vts/meshop.hpp"
+#include "../vts/heightmap.hpp"
 
-#include "./heightmap.hpp"
 
 namespace po = boost::program_options;
 namespace vs = vadstena::storage;
@@ -512,7 +512,7 @@ warpNavtiles(const vts::TileId &tileId
 {
     // TODO: Check for different lodding/SDS and process accordingly
 
-    HeightMap hm(tileId, source, referenceFrame);
+    vts::HeightMap hm(tileId, source, referenceFrame);
     if (hm.empty()) { return {}; }
     hm.warp(nodeInfo);
 

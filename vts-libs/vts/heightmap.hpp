@@ -5,30 +5,29 @@
 
 #include <opencv2/core/core.hpp>
 
-#include "vts-libs/registry.hpp"
-#include "vts-libs/vts/basetypes.hpp"
-#include "vts-libs/vts/opencv/navtile.hpp"
-#include "vts-libs/vts/meshopinput.hpp"
+#include "../registry.hpp"
+#include "./basetypes.hpp"
+#include "./opencv/navtile.hpp"
+#include "./meshopinput.hpp"
 
-namespace vts = vadstena::vts;
-namespace vr = vadstena::registry;
+namespace vadstena { namespace vts {
 
 /** Missing delegation ctor workaround.
  */
 struct HeightMapBase {
-    const vr::ReferenceFrame *referenceFrame_;
+    const registry::ReferenceFrame *referenceFrame_;
     math::Size2 tileSize_;
     math::Size2 tileGrid_;
-    vts::Lod lod_;
-    vts::TileRange tileRange_;
+    Lod lod_;
+    TileRange tileRange_;
     math::Size2 sizeInTiles_;
     math::Size2 sizeInPixels_;
     cv::Mat pane_;
     std::string srs_; // registry srs
     math::Extents2 worldExtents_;
 
-    HeightMapBase(const vr::ReferenceFrame &referenceFrame
-                  , vts::Lod lod, vts::TileRange tileRange);
+    HeightMapBase(const registry::ReferenceFrame &referenceFrame
+                  , Lod lod, TileRange tileRange);
 };
 
 class HeightMap : private HeightMapBase {
@@ -38,13 +37,13 @@ public:
     /** Heightmap generation constructor.
      */
     HeightMap(Accumulator &&accumulator
-              , const vr::ReferenceFrame &referenceFrame
+              , const registry::ReferenceFrame &referenceFrame
               , double dtmExtractionRadius);
 
     /** Existing heightmap warping constructo.
      */
-    HeightMap(const vts::TileId &tileId, const vts::MeshOpInput::list &source
-              , const vr::ReferenceFrame &referenceFrame);
+    HeightMap(const TileId &tileId, const MeshOpInput::list &source
+              , const registry::ReferenceFrame &referenceFrame);
 
     math::Size2 size() const { return sizeInPixels_; };
 
@@ -55,22 +54,22 @@ public:
      *  (lod == lod_) no-op
      *  (lod > lod_): error
      */
-    void resize(vts::Lod lod);
+    void resize(Lod lod);
 
     /** Warps heightmap to given node.
      *  Works for single destination tile.
      */
-    void warp(const vts::NodeInfo &nodeInfo);
+    void warp(const NodeInfo &nodeInfo);
 
     /** Generic warper.
      */
-    void warp(const vr::ReferenceFrame &referenceFrame
-              , vts::Lod lod, const vts::TileRange &tileRange);
+    void warp(const registry::ReferenceFrame &referenceFrame
+              , Lod lod, const TileRange &tileRange);
 
     /** Returns navtile for given tile.
      *  Throws when tileId.lod != lod_.
      */
-    vts::NavTile::pointer navtile(const vts::TileId &tileId) const;
+    NavTile::pointer navtile(const TileId &tileId) const;
 
     /** Dump heightmap as grayscale image. Masked-out pixels are set to black.
      */
@@ -99,22 +98,24 @@ struct HeightMap::BestPosition {
  */
 class HeightMap::Accumulator {
 public:
-    Accumulator(vts::Lod lod);
+    Accumulator(Lod lod);
 
-    cv::Mat& tile(const vts::TileId &tileId);
+    cv::Mat& tile(const TileId &tileId);
 
     const math::Size2& tileSize() const { return tileSize_; }
 
-    typedef vts::TileRange::point_type Index;
+    typedef TileRange::point_type Index;
 
 private:
     friend class HeightMap;
 
-    vts::Lod lod_;
+    Lod lod_;
     math::Size2 tileSize_;
     typedef std::map<Index, cv::Mat> Tiles;
     Tiles tiles_;
-    vts::TileRange tileRange_;
+    TileRange tileRange_;
 };
+
+} } // namespace vadstena::vts
 
 #endif // vts_heightmap_hpp_included_
