@@ -17,6 +17,8 @@ DatasetType datasetType(const boost::filesystem::path &path)
         return DatasetType::Storage;
     } else if (StorageView::check(path)) {
         return DatasetType::StorageView;
+    } else if (TileIndex::check(path)) {
+        return DatasetType::TileIndex;
     }
 
     return DatasetType::Unknown;

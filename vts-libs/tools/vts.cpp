@@ -1047,10 +1047,15 @@ int VtsStorage::info()
     case vts::DatasetType::StorageView:
         return storageViewInfo(std::string(), path_, brief_);
 
+    case vts::DatasetType::TileIndex:
+        std::cerr << "Tile index is not supported." << std::endl;
+        return EXIT_FAILURE;
+
     default: break;
     }
+
     std::cerr << "Unrecognized content " << path_ << "." << std::endl;
-    return EXIT_SUCCESS;
+    return EXIT_FAILURE;
 }
 
 int VtsStorage::create()

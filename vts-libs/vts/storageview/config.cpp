@@ -57,7 +57,7 @@ StorageView::Properties loadConfig(std::istream &in)
     Json::Value config;
     Json::Reader reader;
     if (!reader.parse(in, config)) {
-        LOGTHROW(err2, vadstena::storage::FormatError)
+        LOGTHROW(err1, vadstena::storage::FormatError)
             << "Unable to parse config: "
             << reader.getFormattedErrorMessages() << ".";
     }
@@ -143,6 +143,27 @@ void saveConfig(const boost::filesystem::path &path
     f.open(path.string(), std::ios_base::out);
     detail::saveConfig(f, properties);
     f.close();
+}
+
+bool checkConfig(std::istream &in)
+{
+    try {
+        in.exceptions(std::ios::badbit | std::ios::failbit);
+        loadConfig(in);
+    } catch (const vadstena::storage::Error&) {
+        return false;
+    }
+    return true;
+}
+
+bool checkConfig(const boost::filesystem::path &path)
+{
+    LOG(info1) << "Checking storage view config at " << path  << ".";
+    std::ifstream f;
+    f.open(path.string(), std::ios_base::in);
+    f.peek();
+    if (!f) { return false; }
+    return checkConfig(f);
 }
 
 } } } // namespace vadstena::vts::storageview

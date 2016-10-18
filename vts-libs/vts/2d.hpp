@@ -39,6 +39,8 @@ RgbaImage debugMask(const MeshMask &mask, bool singleSourced = false);
 
 RgbaImage emptyDebugMask();
 
+RgbaImage fullDebugMask();
+
 // inlines
 
 inline GrayImage mask2d(const MeshMask &mask, bool singleSourced) {

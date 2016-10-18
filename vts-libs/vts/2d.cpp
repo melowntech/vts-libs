@@ -159,4 +159,11 @@ RgbaImage emptyDebugMask()
                      , bgil::rgba8_pixel_t(0xFF, 0xFF, 0xFF, 0x00), 0);
 }
 
+RgbaImage fullDebugMask()
+{
+    auto size(Mesh::coverageSize());
+    return RgbaImage(size.width, size.height
+                     , bgil::rgba8_pixel_t(0xFF, 0xFF, 0xFF, 0xFF), 0);
+}
+
 } } // vadstena::vts

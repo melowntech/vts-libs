@@ -21,6 +21,10 @@ StorageView::Properties loadConfig(const boost::filesystem::path &path);
 void saveConfig(const boost::filesystem::path &path
                 , const StorageView::Properties &properties);
 
+bool checkConfig(std::istream &in);
+
+bool checkConfig(const boost::filesystem::path &path);
+
 } } } // namespace vadstena::vts::storageview
 
 #endif // vadstena_libs_vts_storageview_config_hpp_included_

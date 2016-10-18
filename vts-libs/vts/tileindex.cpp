@@ -79,14 +79,29 @@ void TileIndex::fill(const TileIndex &other)
     }
 }
 
-void TileIndex::load(std::istream &f, const fs::path &path)
+namespace {
+
+bool checkMagic(std::istream &f)
 {
     using utility::binaryio::read;
 
     char magic[sizeof(TILE_INDEX_IO_MAGIC)];
     read(f, magic);
+    if (!f) { return false; }
 
     if (std::memcmp(magic, TILE_INDEX_IO_MAGIC, sizeof(TILE_INDEX_IO_MAGIC))) {
+        return false;
+    }
+    return true;
+}
+
+} // namespace
+
+void TileIndex::load(std::istream &f, const fs::path &path)
+{
+    using utility::binaryio::read;
+
+    if (!checkMagic(f)) {
         LOGTHROW(err2, storage::Error)
             << "TileIndex " << path << " has wrong magic.";
     }
@@ -704,6 +719,18 @@ TileIndex& TileIndex::makeAvailable(const LodRange &lodRange)
 TileIndex& TileIndex::makeAbsolute()
 {
     return makeAvailable(LodRange(0, maxLod()));
+}
+
+
+bool TileIndex::check(const boost::filesystem::path &path)
+{
+    std::ifstream f;
+
+    f.open(path.string(), std::ios_base::in | std::ifstream::binary);
+    f.peek();
+    if (!f) { return false; }
+
+    return checkMagic(f);
 }
 
 } } // namespace vadstena::vts

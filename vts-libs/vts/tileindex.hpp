@@ -335,6 +335,10 @@ public:
 
     Flag::value_type allSetFlags() const { return allSetFlags_; }
 
+    /** Returns true if given file is (or seams to be) a tile index file.
+     */
+    static bool check(const boost::filesystem::path &path);
+
 private:
     QTree* tree(Lod lod, bool create = false);
 

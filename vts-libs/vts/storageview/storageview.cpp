@@ -144,14 +144,9 @@ StorageView::Detail::mapConfig(const boost::filesystem::path &configPath
          , utility::relpath(configPath, properties.storagePath));
 }
 
-bool StorageView::check(const boost::filesystem::path &path)
+bool StorageView::check(const boost::filesystem::path &root)
 {
-    try {
-        Detail::loadConfig(path);
-    } catch (const vadstena::storage::Error&) {
-        return false;
-    }
-    return true;
+    return storageview::checkConfig(root);
 }
 
 bool StorageView::externallyChanged() const

@@ -23,7 +23,9 @@
 
 namespace vadstena { namespace vts {
 
-enum class DatasetType { Unknown, TileSet, Storage, StorageView };
+enum class DatasetType {
+    Unknown, TileSet, Storage, StorageView, TileIndex
+};
 
 DatasetType datasetType(const boost::filesystem::path &path);
 

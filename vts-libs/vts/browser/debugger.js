@@ -90,6 +90,8 @@ var MetaLayer = L.GridLayer.extend({
             ctx.textBaseline = "middle";
             ctx.fillText(tileId, center.x, center.y);
 
+            var flags = [];
+
             node.flags.forEach(function(flag) {
                 switch (flag) {
                 case "ul":
@@ -104,8 +106,12 @@ var MetaLayer = L.GridLayer.extend({
                 case "lr":
                     this.child(ctx, size.x, size.y, -childTagSize, -childTagSize);
                     break;
+
+                default: flags.push(flag); break;
                 }
             }.bind(this));
+
+            ctx.fillText(flags.join(","), center.x, center.y + 20);
 
             // tile is ready
             done(0, tile);
@@ -151,7 +157,6 @@ function processConfig(config) {
     var startZoom = config.lodRange[0];
 
     var maskUrl = config.maskUrl.replace(/{lod}/g, "{z}");
-
     var metaUrl = config.metaUrl.replace(/{lod}/g, "{z}");
 
     var gridLayer = new TileGridLayer();
