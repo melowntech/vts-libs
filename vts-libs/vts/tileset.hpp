@@ -180,6 +180,10 @@ public:
      */
     LodRange lodRange() const;
 
+    /** Returns lod range at given lod. Calculated on the fly.
+     */
+    TileRange tileRange(Lod lod) const;
+
     /** Referce frame in charge.
      */
     registry::ReferenceFrame referenceFrame() const;
@@ -243,6 +247,10 @@ public:
     /** Returns type information.
      */
     std::string typeInfo() const;
+
+    /** Get node info for given tile.
+     */
+    NodeInfo nodeInfo(const TileId &tileId) const;
 
     /** Returns mapConfig for given path.
      *

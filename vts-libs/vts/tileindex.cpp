@@ -733,4 +733,24 @@ bool TileIndex::check(const boost::filesystem::path &path)
     return checkMagic(f);
 }
 
+TileRange TileIndex::tileRange(Lod lod, QTree::value_type mask) const
+{
+    TileRange tr(math::InvalidExtents{});
+
+    const auto *t(tree(lod));
+    if (!t) { return tr; }
+
+    t->forEachNode([&](unsigned int x, unsigned int y, unsigned int size
+                       , QTree::value_type v)
+    {
+        if (!(v & mask)) { return; }
+
+        // update tile range
+        math::update(tr, x, y);
+        math::update(tr, x + size - 1, y + size - 1);
+    });
+
+    return tr;
+}
+
 } } // namespace vadstena::vts

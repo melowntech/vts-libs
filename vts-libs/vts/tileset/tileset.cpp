@@ -156,6 +156,11 @@ LodRange TileSet::lodRange() const
     return detail().properties.lodRange;
 }
 
+TileRange TileSet::tileRange(Lod lod) const
+{
+    return detail().tileIndex.tileRange(lod, TileIndex::Flag::real);
+}
+
 struct TileSet::Factory
 {
     static TileSet create(const fs::path &path
@@ -1690,6 +1695,11 @@ void TileSet::relocate(const boost::filesystem::path &root
                        , const std::string &prefix)
 {
     Driver::relocate(root, options, prefix);
+}
+
+NodeInfo TileSet::nodeInfo(const TileId &tileId) const
+{
+    return NodeInfo(detail().referenceFrame, tileId);
 }
 
 } } // namespace vadstena::vts

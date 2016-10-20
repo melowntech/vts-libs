@@ -240,6 +240,10 @@ public:
      */
     std::pair<LodRange, TileRange> ranges(QTree::value_type mask) const;
 
+    /** Get range at given lod.
+     */
+    TileRange tileRange(Lod lod, QTree::value_type mask) const;
+
     /** Translates node values.
      */
     template <typename Op>
