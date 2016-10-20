@@ -5,6 +5,8 @@
 
 #include <opencv2/core/core.hpp>
 
+#include "geo/geodataset.hpp"
+
 #include "../registry.hpp"
 #include "./basetypes.hpp"
 #include "./opencv/navtile.hpp"
@@ -115,6 +117,16 @@ private:
     Tiles tiles_;
     TileRange tileRange_;
 };
+
+/** DTMize geodataset. Applies morphological opening `count` times in each
+ *  direction.
+ *
+ *  Each iteration affects 1-pixel neighbourhood around each pixel.
+ *
+ * \param dataset geo dataset to be dtmized
+ * \param count number of filter passes
+ */
+void dtmize(geo::GeoDataset &dataset, const math::Size2 &count);
 
 } } // namespace vadstena::vts
 

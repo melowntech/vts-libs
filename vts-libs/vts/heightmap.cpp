@@ -74,8 +74,11 @@ namespace {
 template <typename Operator>
 class Morphology {
 public:
-    Morphology(cv::Mat &data, cv::Mat &tmp, math::Size2i kernelRadius)
-        : in_(data), tmp_(tmp)
+    typedef typename Operator::value_type value_type;
+
+    Morphology(cv::Mat &data, cv::Mat &tmp, math::Size2i kernelRadius
+               , boost::optional<value_type> invalidValue)
+        : in_(data), tmp_(tmp), invalidValue_(invalidValue)
     {
         tmp_ = cv::Scalar(def::InvalidHeight);
         run(kernelRadius);
@@ -85,8 +88,13 @@ public:
 private:
     void run(math::Size2i kernelRadius);
 
+    bool valid(value_type value) const {
+        return !invalidValue_ || (value != *invalidValue_);
+    }
+
     cv::Mat &in_;
     cv::Mat &tmp_;
+    const boost::optional<value_type> invalidValue_;
 };
 
 template <typename Operator>
@@ -95,7 +103,7 @@ void Morphology<Operator>::run(math::Size2i kernelRadius)
     for (int y(0); y != in_.rows; ++y) {
         for (int x(0); x != in_.cols; ++x) {
             // skip invalid data
-            if (in_.template at<NTDataType>(y, x) == def::InvalidHeight) {
+            if (!valid(in_.at<value_type>(y, x))) {
                 continue;
             }
 
@@ -109,7 +117,9 @@ void Morphology<Operator>::run(math::Size2i kernelRadius)
                     const int xx(x + i);
                     if ((xx < 0) || (xx >= in_.cols)) { continue; }
 
-                    op(in_.template at<NTDataType>(yy, xx));
+                    auto value(in_.at<value_type>(yy, xx));
+                    if (!valid(value)) { continue; }
+                    op(value);
                 }
             }
 
@@ -117,43 +127,49 @@ void Morphology<Operator>::run(math::Size2i kernelRadius)
             if (!op.valid()) { continue; }
 
             // store
-            tmp_.template at<NTDataType>(y, x) = op.get();
+            tmp_.at<value_type>(y, x) = op.get();
         }
     }
 }
 
+template <typename ValueType>
 class Erosion {
 public:
-    Erosion() : value_(def::Infinity) {}
+    typedef ValueType value_type;
+    static constexpr value_type InvalidValue
+    = std::numeric_limits<value_type>::max();
 
-    inline void operator()(NTDataType value) {
-        if (value != def::InvalidHeight) {
-            value_ = std::min(value_, value);
-        }
+    Erosion() : value_(InvalidValue) {}
+
+    inline void operator()(value_type value) {
+        value_ = std::min(value_, value);
     }
 
-    inline bool valid() const { return value_ != def::Infinity; }
-    inline NTDataType get() const { return value_; }
+    inline bool valid() const { return value_ != InvalidValue; }
+    inline value_type get() const { return value_; }
 
 private:
-    NTDataType value_;
+    value_type value_;
 };
 
+template <typename ValueType>
 class Dilation {
 public:
-    inline Dilation() : value_(-def::Infinity) {}
+    typedef ValueType value_type;
+    static constexpr value_type InvalidValue
+    = std::numeric_limits<value_type>::lowest();
 
-    inline void operator()(NTDataType value) {
-        if (value != def::InvalidHeight) {
-            value_ = std::max(value_, value);
-        }
+    inline Dilation() : value_(InvalidValue) {}
+
+    inline void operator()(value_type value) {
+        value_ = std::max(value_, value);
     }
 
-    inline bool valid() const { return value_ != -def::Infinity; }
-    inline NTDataType get() const { return value_; }
+    inline bool valid() const { return value_ != InvalidValue; }
+    inline value_type get() const { return value_; }
 
 private:
-    NTDataType value_;
+    value_type value_;
 };
 
 void dtmize(cv::Mat &pane, int count)
@@ -164,14 +180,18 @@ void dtmize(cv::Mat &pane, int count)
     cv::Mat tmp(pane.rows, pane.cols, pane.type());
 
     LOG(info2) << "Eroding heightmap Y (" << count << " radius).";
-    Morphology<Erosion>(pane, tmp, {0,count});
+    Morphology<Erosion<NTDataType>>
+        (pane, tmp, {0, count}, def::InvalidHeight);
     LOG(info2) << "Eroding heightmap X (" << count << " radius).";
-    Morphology<Erosion>(pane, tmp, {count,0});
+    Morphology<Erosion<NTDataType>>
+        (pane, tmp, {count, 0}, def::InvalidHeight);
 
     LOG(info2) << "Dilating heightmap Y (" << count << " radius).";
-    Morphology<Dilation>(pane, tmp, {0,count});
+    Morphology<Dilation<NTDataType>>
+        (pane, tmp, {0, count}, def::InvalidHeight);
     LOG(info2) << "Dilating heightmap X (" << count << " radius).";
-    Morphology<Dilation>(pane, tmp, {count,0});
+    Morphology<Dilation<NTDataType>>
+        (pane, tmp, {count, 0}, def::InvalidHeight);
 }
 
 template <typename ...Args>
@@ -686,6 +706,29 @@ void HeightMap::warp(const vts::NodeInfo &nodeInfo)
     warp(nodeInfo.referenceFrame(), nodeInfo.nodeId().lod
          , vts::TileRange(point(nodeInfo)));
     debugDump(*this, "hm-warped-%s-%s.png", srs_, nodeInfo.nodeId());
+}
+
+void dtmize(geo::GeoDataset &dataset, const math::Size2 &count)
+{
+    // get double matrix from dataset
+    auto &pane(dataset.data());
+
+    LOG(info3) << "Generating DTM from heightmap ("
+               << pane.cols << "x" << pane.rows << " pixels).";
+
+    cv::Mat tmp(pane.rows, pane.cols, pane.type());
+
+    auto ndv(dataset.rawNodataValue());
+
+    LOG(info2) << "Eroding heightmap Y (" << count.height << " radius).";
+    Morphology<Erosion<double>> (pane, tmp, {0, count.height}, ndv);
+    LOG(info2) << "Eroding heightmap X (" << count.width << " radius).";
+    Morphology<Erosion<double>>(pane, tmp, {count.width, 0}, ndv);
+
+    LOG(info2) << "Dilating heightmap Y (" << count.height << " radius).";
+    Morphology<Dilation<double>>(pane, tmp, {0, count.height}, ndv);
+    LOG(info2) << "Dilating heightmap X (" << count.width << " radius).";
+    Morphology<Dilation<double>>(pane, tmp, {count.width, 0}, ndv);
 }
 
 } } // vadstena::vts
