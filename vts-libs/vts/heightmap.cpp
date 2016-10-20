@@ -80,7 +80,10 @@ public:
                , boost::optional<value_type> invalidValue)
         : in_(data), tmp_(tmp), invalidValue_(invalidValue)
     {
-        tmp_ = cv::Scalar(def::InvalidHeight);
+        if (invalidValue_) {
+            // invalidate
+            tmp_ = cv::Scalar(*invalidValue_);
+        }
         run(kernelRadius);
         std::swap(in_, tmp_);
     }
