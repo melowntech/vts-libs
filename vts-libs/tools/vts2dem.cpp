@@ -28,6 +28,7 @@
 #include "geo/csconvertor.hpp"
 #include "geo/coordinates.hpp"
 #include "geo/geodataset.hpp"
+#include "geo/srsfactors.hpp"
 
 #include "../registry/po.hpp"
 #include "../vts.hpp"
@@ -52,15 +53,16 @@ namespace ublas = boost::numeric::ublas;
 namespace {
 
 struct Config {
-
-    Config()
-        : samplesPerTile(128, 128), geoidGrid("egm96_15.gtx")
-    {}
-
     boost::optional<vts::Lod> lod;
     math::Size2 samplesPerTile;
     boost::optional<std::string> srs;
     std::string geoidGrid;
+    double dtmExtractionRadius;
+
+    Config()
+        : samplesPerTile(128, 128), geoidGrid("egm96_15.gtx")
+        , dtmExtractionRadius(10)
+    {}
 };
 
 class Vts2Dem : public service::Cmdline
@@ -95,7 +97,7 @@ private:
 };
 
 void Vts2Dem::configuration(po::options_description &cmdline
-                             , po::options_description &config
+                             , po::options_description&
                              , po::positional_options_description &pd)
 {
     vr::registryConfiguration(cmdline, vr::defaultPath());
@@ -121,12 +123,15 @@ void Vts2Dem::configuration(po::options_description &cmdline
         ("geoidGrid", po::value(&config_.geoidGrid)
          ->default_value(config_.geoidGrid)->required()
          , "Geoid grid of output dataset.")
+
+        ("dtmExtraction.radius"
+         , po::value(&config_.dtmExtractionRadius)
+         ->default_value(config_.dtmExtractionRadius)->required()
+         , "Radius (in meters) of DTM extraction element (in meters).")
         ;
 
     pd.add("input", 1);
     pd.add("output", 1);
-
-    (void) config;
 }
 
 void Vts2Dem::configure(const po::variables_map &vars)
@@ -143,7 +148,7 @@ void Vts2Dem::configure(const po::variables_map &vars)
 bool Vts2Dem::help(std::ostream &out, const std::string &what) const
 {
     if (what.empty()) {
-        out << R"RAW(vts2dem
+        out << R"RAW(vts2dem: generates OUTPUT DEM from INPUT VTS dataset
 usage
     vts2vts INPUT OUTPUT [OPTIONS]
 
@@ -260,10 +265,9 @@ void process(cv::Mat &data, geo::GeoDataset::Mask &mask
                 ((tileId.x - tileRange.ll(0)) * size.width
                  , (tileId.y - tileRange.ll(1)) * size.height);
 
-            LOG(info4) << tileId << ": " << vts::TileFlags(flags)
-                       << " (" << offset << ")";
-
-            LOG(info4) << data.size();
+            LOG(info3)
+                << "Processing " << tileId << ": " << vts::TileFlags(flags)
+                << " (" << offset << ")";
 
             cv::Mat_<double> pane
                 (data, cv::Range(offset(1), offset(1) + size.height)
@@ -333,19 +337,59 @@ int Vts2Dem::run()
         config_.lod = lr.max;
     }
 
-    const auto tr(input.tileRange(*config_.lod));
+    const auto lod(*config_.lod);
 
-    // TODO: clip tile range to tile range under rootId
-
-    if (!valid(tr)) {
-        LOG(fatal)
-            << "Nothing to rasterize at LOD " << *config_.lod << ".";
+    // sanity check
+    if (lod < rootId.lod) {
+        LOG(fatal) << "LOD " << lod << " is not in SDS subtree "
+            "defined by SRS (" << *config_.srs << ").";
         return EXIT_FAILURE;
     }
 
+    // clip tile range to tile range under rootId
+    const auto tr(vts::tileRangesIntersect(input.tileRange(lod)
+                                           , vts::childRange(rootId, lod)
+                                           , std::nothrow));
+
+    if (!valid(tr)) {
+        LOG(fatal)
+            << "Nothing to rasterize at LOD " << lod << ".";
+        return EXIT_FAILURE;
+    }
+
+    // check for same SRS in root and tiles
+    if (vts::NodeInfo(rf, vts::tileId(lod, tr.ll)).srs() != *config_.srs) {
+        LOG(fatal)
+            << "SRS " << *config_.srs << " is not available at lod " << lod
+            << ".";
+        return EXIT_FAILURE;
+    }
+
+    // compute pixel size in real meters in center tile
+    const auto dtmKernelSize([&]() -> math::Size2
+    {
+        // get center tile id
+        const auto centerId(vts::tileId(lod, math::center(tr)));
+        vts::NodeInfo ni(rf, centerId);
+        const auto ec(math::center(ni.extents()));
+        const auto es(math::size(ni.extents()));
+
+        // get projection factors
+        const auto factors(geo::SrsFactors(srs)(ec));
+
+        const auto &gs(config_.samplesPerTile);
+
+        // pixel size
+        return math::Size2
+            (((factors.parallelScale * gs.width
+               * config_.dtmExtractionRadius) / es.width)
+             , ((factors.meridionalScale * gs.height
+                 * config_.dtmExtractionRadius) / es.height));
+    }());
+
     const auto sizeInTiles(vts::tileRangesSize(tr));
 
-    const auto extents(geoExtents(rf, *config_.lod, tr));
+    const auto extents(geoExtents(rf, lod, tr));
     const math::Size2 size
         (sizeInTiles.width * config_.samplesPerTile.width
          , sizeInTiles.height * config_.samplesPerTile.height);
@@ -360,16 +404,18 @@ int Vts2Dem::run()
     auto output(geo::GeoDataset::create(output_, srs, extents, size
                                         , geo::GeoDataset::Format::dsm()
                                         , ndv));
+    output.data() = cv::Scalar(*ndv);
 
     // tile -> SRS covertor
     const vts::CsConvertor phys2sd(rf.model.physicalSrs, srs);
 
     LOG(info3) << "Rasterizing " << sizeInTiles << "tiles ("
-               << tr << ") at LOD " << *config_.lod << ".";
+               << tr << ") at LOD " << lod << ".";
 
-    output.data() = cv::Scalar(*ndv);
-    process(output.data(), output.mask(), input, *config_.lod
-            , tr, config_, phys2sd);
+    process(output.data(), output.mask(), input, lod, tr, config_, phys2sd);
+
+    // filter via "DTM" filter
+    vts::dtmize(output, dtmKernelSize);
 
     output.flush();
 
