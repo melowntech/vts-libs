@@ -52,6 +52,7 @@ if (TARGET service)
     vts_libs_tool(vts2vts vts2vts.cpp)
     vts_libs_tool(vts02vts vts02vts.cpp)
     vts_libs_tool(vts2dem vts2dem.cpp)
+    vts_libs_tool(vts2ophoto vts2ophoto.cpp)
 
     vts_libs_tool(vts0
       vts0/vts0.cpp vts0/commands.hpp vts0/fallback.cpp

@@ -21,7 +21,7 @@ public:
 
     void set(std::size_t index, const Image &image);
 
-    Image get(std::size_t index) { return images_[index]; }
+    Image get(std::size_t index) const { return images_[index]; }
 
 private:
     virtual multifile::Table serialize_impl(std::ostream &os) const;
