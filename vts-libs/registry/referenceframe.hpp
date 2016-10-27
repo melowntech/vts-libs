@@ -255,6 +255,9 @@ struct Position {
     {}
 
     bool valid() { return orientation != math::Point3(0, 0, 0); }
+
+    bool operator==(const Position &p) const;
+    bool operator!=(const Position &p) const { return !operator==(p); }
 };
 
 struct Credit {
@@ -488,6 +491,16 @@ inline math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
             , (extents.ur(0) - fe.ll(0)) / s.width
             , (extents.ur(1) - fe.ll(1)) / s.height
             , (extents.ur(2) - fe.ll(2)) / s.depth };
+}
+
+inline bool Position::operator==(const Position &p) const
+{
+    return ((type == p.type)
+            && (heightMode == p.heightMode)
+            && (position == p.position)
+            && (orientation == p.orientation)
+            && (verticalExtent == p.verticalExtent)
+            && (verticalFov == p.verticalFov));
 }
 
 Srs::dict listSrs(const ReferenceFrame &referenceFrame);
