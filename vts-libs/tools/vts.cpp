@@ -64,6 +64,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((dumpNavtile)("dump-navtile"))
                       ((dumpNavtileMask)("dump-navtile-mask"))
                       ((navtile2dem))
+                      ((lockerApi)("locker-api"))
                       )
 
 
@@ -184,6 +185,8 @@ private:
     int dumpNavtile();
     int dumpNavtileMask();
     int navtile2dem();
+
+    int lockerApi();
 
     bool noexcept_;
     fs::path path_;
@@ -838,6 +841,14 @@ void VtsStorage::configuration(po::options_description &cmdline
 
         p.positional.add("output", 1);
     });
+
+    createParser(cmdline, Command::lockerApi
+                 , "--command=locker-api: show API of external locking program"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ;
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -950,6 +961,7 @@ int VtsStorage::runCommand()
     case Command::dumpNavtile: return dumpNavtile();
     case Command::dumpNavtileMask: return dumpNavtileMask();
     case Command::navtile2dem: return navtile2dem();
+    case Command::lockerApi: return lockerApi();
     }
     std::cerr << "vts: no operation requested" << std::endl;
     return EXIT_FAILURE;
@@ -1905,6 +1917,63 @@ int VtsStorage::navtile2dem()
     // flush
     ds.flush();
 
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::lockerApi()
+{
+    std::cout <<
+        R"RAW(Eexternal locking program interface
+
+PREREQUISITES
+
+Locking takes effect only iff user runs one of these commands:
+    --add
+    --readd
+    --remove
+and the storage contains executable file `locker`.
+
+NB: If `locker` exists but is not executable it is silently ignored.
+
+NB: It is an error to run vts tool with --lock paramter while `locker` is not
+    available.
+
+API
+
+`locker` program is run in a child process with stdin and stdout connected to
+pipes from main (vts) process.
+
+First commandline argument is set either to an empty string or to value of
+--lock parameter.
+
+Stdin pipe is never written to and is closed automatically when the vts process
+is terminated. This is the way how vts process termination is reported to the
+locking process.
+
+During startup phase vts process expect locking process to try to acquire a lock
+(or use provided lock). If lock acquisition succeeds locking process must write
+single line "OK\n" which signals vts process to go on.
+
+If lock acquisition fails locker process should write single short line
+describing the problem to stdout.
+
+When locking process detects termination of vts process (via closed stdin) it
+should release to lock and terminate itself.
+
+Locking process is expected to hold lock whole time vts process is running. When
+unrecoverable problem with held lock is detected during locking process lifetime
+if must terminate vts process (i.e. kill its parent).
+
+Process management:
+
+    * vts process terminates on SIGCHLD, i.e. when locking process unexpectedly
+      dies
+
+    * locking process is moved to its own process group to be imune to terminal
+      signal handling, i.e. Ctrl-C is delivered only to vts process and locking
+      process can safely release the lock
+
+)RAW";
     return EXIT_SUCCESS;
 }
 
