@@ -110,9 +110,6 @@ Lock::Lock(const fs::path &storage, const boost::optional<std::string> &lock)
         std::exit(EXIT_FAILURE);
     }
 
-    // locker runs, we want to terminate when child dies
-    ::signal(SIGCHLD, &vts_libs_tools_locker_sigchild_handler);
-
     // TODO: wait for info on pipe (with timeout)
     //       timed out -> kill child and terminate
     //       error -> terminate
@@ -195,6 +192,9 @@ Lock::Lock(const fs::path &storage, const boost::optional<std::string> &lock)
     }
 
     LOG(info3) << "Lock acquired by external lock program.";
+
+    // locker runs, we want to terminate when child dies
+    ::signal(SIGCHLD, &vts_libs_tools_locker_sigchild_handler);
 
     // up and running
 }
