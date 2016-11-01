@@ -28,6 +28,8 @@
 #include "../vts/opencv/navtile.hpp"
 #include "../vts/tileset/delivery.hpp"
 
+#include "./locker.hpp"
+
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 namespace vts = vadstena::vts;
@@ -128,6 +130,10 @@ private:
     UP::optional getParser(Command command)
         const;
 
+    void lockConfiguration(po::options_description &config);
+
+    void lockConfigure(const po::variables_map &vars);
+
     int runCommand();
 
     int info();
@@ -209,6 +215,10 @@ private:
     vts::Tags addTags_;
     vts::Tags removeTags_;
 
+    /** External lock.
+     */
+    boost::optional<std::string> lock_;
+
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
 };
 
@@ -224,6 +234,20 @@ void getTags(vts::Tags &tags, const po::variables_map &vars
 }
 
 } // namespace
+
+void VtsStorage::lockConfiguration(po::options_description &config)
+{
+    config.add_options()
+        ("lock", po::value<std::string>()
+         , "Externally held lock.");
+}
+
+void VtsStorage::lockConfigure(const po::variables_map &vars)
+{
+    if (vars.count("lock")) {
+        lock_ = vars["lock"].as<std::string>();
+    }
+}
 
 void VtsStorage::configuration(po::options_description &cmdline
                                , po::options_description&
@@ -280,6 +304,8 @@ void VtsStorage::configuration(po::options_description &cmdline
                  , "--command=add: adds new tileset to VTS storage"
                  , [&](UP &p)
     {
+        lockConfiguration(p.options);
+
         p.options.add_options()
             ("tileset", po::value(&tileset_)->required()
              , "Path to source tileset.")
@@ -320,6 +346,8 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.positional.add("tileset", 1);
 
         p.configure = [&](const po::variables_map &vars) {
+            lockConfigure(vars);
+
             if (vars.count("tilesetId")) {
                 optTilesetId_ = vars["tilesetId"].as<std::string>();
             }
@@ -368,6 +396,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             addOptions_.clip = !vars.count("no-clip");
 
             getTags(addOptions_.tags, vars, "addTag");
+
         };
     });
 
@@ -376,6 +405,8 @@ void VtsStorage::configuration(po::options_description &cmdline
                  " in the storage"
                  , [&](UP &p)
     {
+        lockConfiguration(p.options);
+
         p.options.add_options()
             ("tilesetId", po::value(&tilesetId_)->required()
              , "TilesetId to work with.")
@@ -392,6 +423,8 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.positional.add("tilesetId", 1);
 
         p.configure = [&](const po::variables_map &vars) {
+            lockConfigure(vars);
+
             addOptions_.dryRun = vars.count("dryRun");
             if (vars.count("tmp")) {
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
@@ -405,12 +438,18 @@ void VtsStorage::configuration(po::options_description &cmdline
                  , "--command=remove: removes tileset from VTS storage"
                  , [&](UP &p)
     {
+        lockConfiguration(p.options);
+
         p.options.add_options()
             ("tileset", po::value(&tilesetIds_)->required()
              , "Id of tileset to remove (can be used more than once).")
             ;
 
         p.positional.add("tileset", -1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            lockConfigure(vars);
+        };
     });
 
     createParser(cmdline, Command::dumpMetatile
@@ -1092,6 +1131,9 @@ int VtsStorage::add()
 
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
 
+    // lock if external locking program is available
+    Lock lock(path_, lock_);
+
     if (isLocal(tileset_)) {
         // local: URL, create temporary tileset
         auto local(localPart(tileset_));
@@ -1130,6 +1172,10 @@ int VtsStorage::add()
 int VtsStorage::readd()
 {
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+
+    // lock if external locking program is available
+    Lock lock(path_, lock_);
+
     storage.readd(tilesetId_, addOptions_);
     return EXIT_SUCCESS;
 }
@@ -1137,6 +1183,10 @@ int VtsStorage::readd()
 int VtsStorage::remove()
 {
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+
+    // lock if external locking program is available
+    Lock lock(path_, lock_);
+
     storage.remove(tilesetIds_);
     return EXIT_SUCCESS;
 }
@@ -1808,15 +1858,16 @@ int VtsStorage::dumpNavtileMask()
 }
 
 namespace {
+
 math::Extents2 extentsPlusHalfPixel(const math::Extents2 &extents
                                     , const math::Size2 &pixels)
-
 {
     auto es(math::size(extents));
     const math::Size2f px(es.width / pixels.width, es.height / pixels.height);
     const math::Point2 hpx(px.width / 2, px.height / 2);
     return math::Extents2(extents.ll - hpx, extents.ur + hpx);
 }
+
 } // namespace
 
 int VtsStorage::navtile2dem()

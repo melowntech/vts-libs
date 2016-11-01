@@ -47,7 +47,7 @@ if (TARGET service)
       PRIVATE ${MODULE_DEFINITIONS})
     buildsys_binary(vts-measure-dataset)
 
-    vts_libs_tool(vts vts.cpp)
+    vts_libs_tool(vts vts.cpp locker.hpp locker.cpp)
 
     vts_libs_tool(vts2vts vts2vts.cpp)
     vts_libs_tool(vts02vts vts02vts.cpp)
