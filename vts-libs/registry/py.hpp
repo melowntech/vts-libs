@@ -24,6 +24,8 @@ void fromPython(Credits &credits, const boost::python::object &value);
 
 void fromPython(RegistryBase &rb, const boost::python::dict &value);
 
+void fromPython(Position &position, const boost::python::object &value);
+
 } } // namespace vadstena::registry
 
 #endif // vadstena_libs_registry_py_hpp_included_

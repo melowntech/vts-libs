@@ -193,4 +193,22 @@ void fromPython(Credits &credits, const python::object &value)
         << "Type of credits is not a (python) list nor an (python) object.";
 }
 
+void fromPython(Position &p, const boost::python::object &value)
+{
+    p.type = boost::lexical_cast<registry::Position::Type>
+        (py2utf8(value[0]));
+    p.position(0) = python::extract<double>(value[1]);
+    p.position(1) = python::extract<double>(value[2]);
+    p.heightMode = boost::lexical_cast<registry::Position::HeightMode>
+        (py2utf8(value[3]));
+    p.position(2) = python::extract<double>(value[4]);
+
+    p.orientation(0) = python::extract<double>(value[5]);
+    p.orientation(1) = python::extract<double>(value[6]);
+    p.orientation(2) = python::extract<double>(value[7]);
+
+    p.verticalExtent = python::extract<double>(value[8]);
+    p.verticalFov = python::extract<double>(value[9]);
+}
+
 } } // namespace vadstena::registry
