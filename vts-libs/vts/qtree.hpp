@@ -205,14 +205,26 @@ private:
 
         void contract();
 
-        void save(std::ostream &os) const;
-        std::tuple<std::size_t, value_type>
-        load(unsigned int mask, std::istream &is);
+        void saveChildren(std::ostream &os) const;
+
+        // std::tuple<std::size_t, value_type>
+        // loadV2(unsigned int mask, std::istream &is);
 
         /** Load node from raster mask node.
          */
         std::tuple<std::size_t, value_type>
         loadRasterMask(unsigned int mask, std::istream &is);
+
+        /** Load version 1.
+         */
+        std::tuple<std::size_t, value_type>
+        loadV1(unsigned int mask, std::istream &is);
+
+        std::tuple<std::size_t, QTree::value_type>
+        loadChildren(unsigned int mask, std::istream &is);
+
+        std::tuple<std::size_t, QTree::value_type>
+        load(unsigned int mask, std::istream &is, std::uint8_t flags);
 
         /** Called from QTree::forEachNode */
         template <typename Op>

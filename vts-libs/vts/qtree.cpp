@@ -12,7 +12,6 @@ namespace vadstena { namespace vts {
 
 namespace detail {
     enum : QTree::value_type { GrayNode = 0xff };
-    enum : QTree::value_type { GrayNodeReplacement = 0x7f };
 } // namespace detail
 
 QTree::QTree(unsigned int order, value_type value)
@@ -70,7 +69,7 @@ QTree::value_type QTree::get(unsigned int depth
 void QTree::set(unsigned int x, unsigned int y, value_type value)
 {
     // size check and value
-    if ((x >= size_) || (y >= size_) || (value == detail::GrayNode)) {
+    if ((x >= size_) || (y >= size_)) {
         return;
     }
     count_ += root_.set(size_ >> 1, x, y, value);
@@ -83,7 +82,6 @@ void QTree::set(unsigned int x1, unsigned int y1
 
     // check for block completely outside the pane
     if ((x1 >= size_) || (y1 >= size_)) { return; }
-    if (value == detail::GrayNode) { return; }
 
     // clip to pane
     if (x2 >= size_) { x2 = size_ - 1; }
@@ -268,18 +266,78 @@ void QTree::Node::contract()
 }
 
 namespace {
-    const char MAGIC[2] = { 'Q', 'T' };
 
-    const char RASTERMASK_MAGIC_PREFIX[2] = { 'Q', 'M' };
-    const char RASTERMASK_MAGIC_SUFFIX[3] = { 'A', 'S', 'K' };
+const char MAGIC_OLD[2] = { 'Q', 'T' };
+const char MAGIC[2] = { 'q', 't' };
+
+const char RASTERMASK_MAGIC_PREFIX[2] = { 'Q', 'M' };
+const char RASTERMASK_MAGIC_SUFFIX[3] = { 'A', 'S', 'K' };
+
+namespace limits {
+std::uint32_t byte(1 << 8);
+std::uint32_t word(1 << 16);
+} // namespace limits
+
+namespace node_flags {
+
+constexpr std::uint8_t children(0x0);
+constexpr std::uint8_t byte(0x1);
+constexpr std::uint8_t word(0x2);
+constexpr std::uint8_t dword(0x3);
+constexpr std::uint8_t mask(0x3);
+constexpr int shift(2);
+
+inline std::uint8_t flags(std::uint32_t value)
+{
+    if (value < limits::byte) { return byte; }
+    if (value < limits::word) { return word; }
+    return dword;
+}
+
+inline std::uint8_t type(std::uint8_t flags)
+{
+    return flags & mask;
+}
+
+} // namespace node_flags
+
+inline void saveValue(std::ostream &os, std::uint32_t value)
+{
+    // write value based on limits
+    if (value < limits::byte) {
+        // LOG(debug) << "Saving value: " << std::bitset<8>(value);
+        bin::write(os, std::uint8_t(value));
+    } else if (value < limits::word) {
+        // LOG(debug) << "Saving value: " << std::bitset<16>(value);
+        bin::write(os, std::uint16_t(value));
+    } else {
+        // LOG(debug) << "Saving value: " << std::bitset<32>(value);
+        bin::write(os, std::uint32_t(value));
+    }
+}
+
 } // namesapce
 
 void QTree::save(std::ostream &os) const
 {
+    // header
+    // LOG(debug) << "writing magic";
     bin::write(os, MAGIC);
+    bin::write(os, std::uint16_t(2));
     bin::write(os, std::uint8_t(order_));
 
-    root_.save(os);
+    // write this node
+    if (root_.children) {
+        // node has children -> save children
+        bin::write(os, std::uint8_t(0));
+        // LOG(debug) << "Write flags: " << std::bitset<8>(0);
+        root_.saveChildren(os);
+    } else {
+        bin::write(os, node_flags::flags(root_.value));
+        // LOG(debug) << "Write flags: "
+        //            << std::bitset<8>(node_flags::flags(root_.value));
+        saveValue(os, root_.value);
+    }
 }
 
 namespace {
@@ -302,12 +360,14 @@ void QTree::load(std::istream &is, const fs::path &path)
     char magic[sizeof(MAGIC)];
     bin::read(is, magic);
 
-    if (std::memcmp(magic, MAGIC, sizeof(MAGIC))) {
-        if (std::memcmp(magic, RASTERMASK_MAGIC_PREFIX, sizeof(MAGIC))) {
-            LOGTHROW(err1, storage::BadFileFormat)
-                << "File " << path << " is not a VTS qtree file.";
-        }
-
+    std::uint16_t version(0);
+    if (!std::memcmp(magic, MAGIC, sizeof(MAGIC))) {
+        // new format, version follows
+        bin::read(is, version);
+    } else if (!std::memcmp(magic, MAGIC_OLD, sizeof(MAGIC_OLD))) {
+        // old format, 1
+        version = 1;
+    } else if (!std::memcmp(magic, RASTERMASK_MAGIC_PREFIX, sizeof(MAGIC))) {
         // seems like old plain raster mask -> load
         char magic2[sizeof(RASTERMASK_MAGIC_SUFFIX)];
         bin::read(is, magic2);
@@ -338,32 +398,68 @@ void QTree::load(std::istream &is, const fs::path &path)
         recreate(order);
         std::tie(count_, allSetFlags_) = root_.loadRasterMask(size_, is);
         return;
+    } else {
+        LOGTHROW(err1, storage::BadFileFormat)
+            << "File " << path << " is not a VTS qtree file.";
     }
 
-    std::uint8_t order;
-    bin::read(is, order);
-    recreate(order);
-    std::tie(count_, allSetFlags_) = root_.load(size_, is);
+    switch (version) {
+    case 1: {
+        std::uint8_t order;
+        bin::read(is, order);
+        recreate(order);
+        std::tie(count_, allSetFlags_) = root_.loadV1(size_, is);
+    } break;
+
+    case 2: {
+        // LOG(debug) << "magic: " << magic[0] << ", " << magic[1]
+        //            << " (" << is.tellg() << ")";
+
+        std::uint8_t order;
+        bin::read(is, order);
+        recreate(order);
+        std::uint8_t flags;
+        bin::read(is, flags);
+        // LOG(debug) << "Read flags: " << std::bitset<8>(flags);
+
+        // process root node
+        std::tie(count_, allSetFlags_) = root_.load(size_, is, flags);
+    } break;
+
+    default:
+        LOGTHROW(err1, storage::BadFileFormat)
+            << "File " << path << " invalid VTS qtree file version <"
+            << version << ">.";
+    }
 }
 
-void QTree::Node::save(std::ostream &os) const
+void QTree::Node::saveChildren(std::ostream &os) const
 {
-    if (children) {
-        // mark as gray node
-        bin::write(os, std::uint8_t(detail::GrayNode));
-        for (const auto &node : children->nodes) { node.save(os); }
-    } else {
-        // just value
-        std::uint8_t u8(value);
-        if (u8 == detail::GrayNode) {
-            u8 = detail::GrayNodeReplacement;
+    // collect and write child flags
+    std::uint8_t flags(0);
+    int shift(0);
+    for (const auto &node : children->nodes) {
+        if (!node.children) {
+            flags |= node_flags::flags(node.value) << shift;
         }
-        bin::write(os, u8);
+        shift += node_flags::shift;
+    }
+    // LOG(debug) << "Write flags: " << std::bitset<8>(flags);
+    bin::write(os, flags);
+
+    // write children
+    for (const auto &node : children->nodes) {
+        if (node.children) {
+            // node has children -> save children
+            node.saveChildren(os);
+        } else {
+            saveValue(os, node.value);
+        }
     }
 }
 
 std::tuple<std::size_t, QTree::value_type>
-QTree::Node::load(unsigned int mask, std::istream &is)
+QTree::Node::loadV1(unsigned int mask, std::istream &is)
 {
     std::uint8_t u8;
     bin::read(is, u8);
@@ -371,9 +467,9 @@ QTree::Node::load(unsigned int mask, std::istream &is)
         children.reset(new Children());
         std::tuple<std::size_t, value_type> res(0, 0);
         for (auto &node : children->nodes) {
-            auto sub(node.load(mask >> 1, is));
+            const auto sub(node.loadV1(mask >> 1, is));
             std::get<0>(res) += std::get<0>(sub);
-            std::get<1>(res) += std::get<1>(sub);
+            std::get<1>(res) |= std::get<1>(sub);
         }
         return res;
     }
@@ -381,6 +477,65 @@ QTree::Node::load(unsigned int mask, std::istream &is)
     value = u8;
     return std::tuple<std::size_t, value_type>
         ((value > 0) * (mask * mask), value);
+}
+
+std::tuple<std::size_t, QTree::value_type>
+QTree::Node::load(unsigned int mask, std::istream &is
+                  , std::uint8_t flags)
+{
+    switch (node_flags::type(flags)) {
+    case node_flags::children:
+        // handle node's children
+        children.reset(new Children());
+        return loadChildren(mask >> 1, is);
+
+    case node_flags::byte: {
+        std::uint8_t v;
+        bin::read(is, v);
+        value = v;
+        // LOG(debug) << "Loading value: " << std::bitset<8>(value);
+    } break;
+
+    case node_flags::word: {
+        std::uint16_t v;
+        bin::read(is, v);
+        value = v;
+        // LOG(debug) << "Loading value: " << std::bitset<16>(value);
+    } break;
+
+    case node_flags::dword: {
+        std::uint32_t v;
+        bin::read(is, v);
+        value = v;
+        // LOG(debug) << "Loading value: " << std::bitset<32>(value);
+    } break;
+    }
+
+    return std::tuple<std::size_t, value_type>
+        ((value > 0) * (mask * mask), value);
+}
+
+std::tuple<std::size_t, QTree::value_type>
+QTree::Node::loadChildren(unsigned int mask, std::istream &is)
+{
+    std::tuple<std::size_t, value_type> statistics;
+
+    std::uint8_t flags;
+    bin::read(is, flags);
+    // LOG(debug) << "Read flags: " << std::bitset<8>(flags);
+    for (auto &node : children->nodes) {
+        // process node
+        const auto sub(node.load(mask, is, flags));
+
+        // update statistics
+        std::get<0>(statistics) += std::get<0>(sub);
+        std::get<1>(statistics) |= std::get<1>(sub);
+
+        // next node flags
+        flags >>= node_flags::shift;
+    }
+
+    return statistics;
 }
 
 std::tuple<std::size_t, QTree::value_type>

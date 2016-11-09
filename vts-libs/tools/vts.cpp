@@ -51,6 +51,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((dumpMesh)("dump-mesh"))
                       ((dumpMeshMask)("dump-mesh-mask"))
                       ((tileIndexInfo)("tileindex-info"))
+                      ((convertTileIndex)("convert-tileindex"))
                       ((concat)("concat"))
                       ((aggregate)("aggregate"))
                       ((remote)("remote"))
@@ -163,6 +164,8 @@ private:
     int dumpMeshMask();
 
     int tileIndexInfo();
+
+    int convertTileIndex();
 
     int concat();
 
@@ -553,6 +556,18 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "ID's of tiles to query.")
             ;
         p.positional.add("tileId", -1);
+    });
+
+    createParser(cmdline, Command::convertTileIndex
+                 , "--command=convert-tileindex: tile-index conversion to "
+                 "latest version"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("output", po::value(&outputPath_)->required()
+             , "Path of output tileindex.")
+            ;
+        p.positional.add("output", -1);
     });
 
     createParser(cmdline, Command::concat
@@ -949,6 +964,7 @@ int VtsStorage::runCommand()
     case Command::dumpMesh: return dumpMesh();
     case Command::dumpMeshMask: return dumpMeshMask();
     case Command::tileIndexInfo: return tileIndexInfo();
+    case Command::convertTileIndex: return convertTileIndex();
     case Command::concat: return concat();
     case Command::aggregate: return aggregate();
     case Command::remote: return remote();
@@ -1592,6 +1608,15 @@ int VtsStorage::tileIndexInfo()
         auto flags(ti.get(tileId));
         std::cout << tileId << ": " << vts::TileFlags(flags) << std::endl;
     }
+
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::convertTileIndex()
+{
+    vts::TileIndex ti;
+    ti.load(path_);
+    ti.save(outputPath_);
 
     return EXIT_SUCCESS;
 }
