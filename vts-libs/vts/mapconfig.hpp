@@ -172,6 +172,7 @@ void saveDirs(const MapConfig &mapConfig, std::ostream &os);
 /** Debug config.
  */
 struct DebugConfig {
+    std::string referenceFrame;
     storage::LodRange lodRange;
     registry::TileRange tileRange;
 
@@ -184,6 +185,7 @@ struct DebugConfig {
 /** Generates debug config from mesh tiles config.
  */
 DebugConfig debugConfig(const MeshTilesConfig &config
+                        , const std::string &referenceFrameId
                         , const boost::filesystem::path &root
                         = boost::filesystem::path());
 

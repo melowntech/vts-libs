@@ -1,3 +1,10 @@
+// mapping between reference frame and map overlay tile URL
+// can be external mapping service (lile mapy.cz for ppspace) or boundlayer tile url
+var MapMapping = {
+    "melown2015": "//cdn.melown.com/mario/proxy/melown2015/tms/melown/bing-world/{z}-{x}-{y}"
+    , "ppspace": "//m1.mapserver.mapy.cz/ophoto/{z}_{ppx}_{ppy}"
+};
+
 var childTagSize = 20;
 
 var prepareTile = function(layer, coords, generator) {
@@ -135,6 +142,48 @@ var MetaLayer = L.GridLayer.extend({
     }
 });
 
+function hex(num, size) {
+    var value = num.toString(16);
+    while (value.length < size) {
+        value = "0" + value;
+    }
+    return value;
+}
+
+function ppx(zoom, x) {
+    return hex(x << (28 - zoom), 7)
+}
+
+function ppy(zoom, y) {
+    return hex((1 << 28) - ((y + 1) << (28 - zoom)), 7)
+}
+
+var MapLayer = L.TileLayer.extend({
+    getTileUrl: function (coords) {
+        // updated function from sources
+        var z = this._getZoomForUrl();
+        var data = {
+            r: L.Browser.retina ? '@2x' : '',
+            s: this._getSubdomain(coords),
+            x: coords.x,
+            y: coords.y,
+            z: z,
+            ppx: ppx(z, coords.x),
+            ppy: ppy(z, coords.y)
+        };
+        if (this._map && !this._map.options.crs.infinite) {
+            var invertedY = this._globalTileRange.max.y - coords.y;
+            if (this.options.tms) {
+                data['y'] = invertedY;
+            }
+            data['-y'] = invertedY;
+        }
+
+		return L.Util.template(this._url, L.extend(data, this.options));
+    }
+});
+
+
 function loadConfig(callback) {
     var xhr = new XMLHttpRequest();
     xhr.overrideMimeType("application/json");
@@ -174,10 +223,25 @@ function processConfig(config) {
                                  , crs.pointToLatLng(L.point(256, 256)))
     });
 
+    var mapLayer = null;
+    var mapUrl = MapMapping[config.referenceFrame];
+    if (mapUrl) {
+        mapLayer = new MapLayer(mapUrl, {
+            minZoom: 0
+            , maxZoom: config.lodRange[1]
+            , continuousWorld: true
+            , noWrap: true
+            , bounds: L.latLngBounds(crs.pointToLatLng(L.point(0, 0))
+                                     , crs.pointToLatLng(L.point(256, 256)))
+            , opacity: 0.25
+        });
+    }
+
     var layers = {};
     var overlays = {};
     overlays["grid"] = gridLayer;
     overlays["meta"] = metaLayer;
+    if (mapLayer) { overlays["map"] = mapLayer; }
     layers["mask"] = maskLayer;
 
     L.control.layers(layers, overlays).addTo(map);
