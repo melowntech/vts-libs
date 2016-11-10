@@ -95,13 +95,24 @@ private:
     static boost::uuids::uuid generateUuid();
 };
 
-struct AggregatedOptions {
+struct OldAggregatedOptions {
     boost::filesystem::path storagePath;
     TilesetIdSet tilesets;
 
     boost::any relocate(const RelocateOptions &options
                         , const std::string &prefix) const;
 };
+
+#if 0
+struct AggregatedOptions {
+    boost::filesystem::path storagePath;
+    TilesetIdSet tilesets;
+    std::string tsMap;
+
+    boost::any relocate(const RelocateOptions &options
+                        , const std::string &prefix) const;
+};
+#endif
 
 struct RemoteOptions {
     std::string url;

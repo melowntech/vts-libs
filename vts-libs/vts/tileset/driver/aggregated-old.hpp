@@ -12,40 +12,40 @@ namespace vadstena { namespace vts { namespace driver {
 
 /** Helper class.
  */
-struct AggregatedDriverBase {
-    AggregatedDriverBase() {}
-    AggregatedDriverBase(const CloneOptions &cloneOptions);
+struct OldAggregatedDriverBase {
+    OldAggregatedDriverBase() {}
+    OldAggregatedDriverBase(const CloneOptions &cloneOptions);
 };
 
-class AggregatedDriver : private AggregatedDriverBase, public Driver {
+class OldAggregatedDriver : private OldAggregatedDriverBase, public Driver {
 public:
-    typedef std::shared_ptr<AggregatedDriver> pointer;
+    typedef std::shared_ptr<OldAggregatedDriver> pointer;
 
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.
      */
-    AggregatedDriver(const boost::filesystem::path &root
-                     , const AggregatedOptions &options
+    OldAggregatedDriver(const boost::filesystem::path &root
+                     , const OldAggregatedOptions &options
                      , const CloneOptions &cloneOptions);
 
     /** Creates in-memory storage.
      */
-    AggregatedDriver(const AggregatedOptions &options
+    OldAggregatedDriver(const OldAggregatedOptions &options
                      , const CloneOptions &cloneOptions);
 
     /** Opens storage.
      */
-    AggregatedDriver(const boost::filesystem::path &root
-                     , const AggregatedOptions &options);
+    OldAggregatedDriver(const boost::filesystem::path &root
+                     , const OldAggregatedOptions &options);
 
     /** Cloner
      */
-    AggregatedDriver(const boost::filesystem::path &root
-                     , const AggregatedOptions &options
+    OldAggregatedDriver(const boost::filesystem::path &root
+                     , const OldAggregatedOptions &options
                      , const CloneOptions &cloneOptions
-                     , const AggregatedDriver &src);
+                     , const OldAggregatedDriver &src);
 
-    virtual ~AggregatedDriver();
+    virtual ~OldAggregatedDriver();
 
     /** Base class for tileset and glue info.
      */
@@ -145,13 +145,13 @@ private:
 
     virtual const tileset::Index* getTileIndex_impl() const { return &tsi_; }
 
-    inline const AggregatedOptions& options() const {
-        return Driver::options<const AggregatedOptions&>();
+    inline const OldAggregatedOptions& options() const {
+        return Driver::options<const OldAggregatedOptions&>();
     }
 
     TileSetInfo::list buildTilesetInfo() const;
 
-    TileSet::Properties build(const AggregatedOptions &options
+    TileSet::Properties build(const OldAggregatedOptions &options
                               , const CloneOptions &cloneOptions);
 
     Storage storage_;

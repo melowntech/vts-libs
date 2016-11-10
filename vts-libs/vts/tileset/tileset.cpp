@@ -446,7 +446,7 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
                           , const CloneOptions &co
                           , const TilesetIdSet &tilesets)
 {
-    driver::AggregatedOptions dopts;
+    driver::OldAggregatedOptions dopts;
     dopts.storagePath = fs::absolute(storage.path());
     dopts.tilesets = tilesets;
 
@@ -464,7 +464,7 @@ TileSet aggregateTileSets(const Storage &storage
                           , const CloneOptions &co
                           , const TilesetIdSet &tilesets)
 {
-    driver::AggregatedOptions dopts;
+    driver::OldAggregatedOptions dopts;
     dopts.storagePath = fs::absolute(storage.path());
     dopts.tilesets = tilesets;
 

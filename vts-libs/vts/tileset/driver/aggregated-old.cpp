@@ -30,7 +30,7 @@
 #include "../../tileflags.hpp"
 #include "../config.hpp"
 #include "../detail.hpp"
-#include "./aggregated.hpp"
+#include "./aggregated-old.hpp"
 
 namespace vadstena { namespace vts { namespace driver {
 
@@ -62,9 +62,9 @@ void unite(registry::IdSet &out, const registry::IdSet &in)
     out.insert(in.begin(), in.end());
 }
 
-typedef AggregatedDriver::TileSetInfo TileSetInfo;
+typedef OldAggregatedDriver::TileSetInfo TileSetInfo;
 typedef TileSetInfo::GlueInfo GlueInfo;
-typedef AggregatedDriver::EnhancedInfo EnhancedInfo;
+typedef OldAggregatedDriver::EnhancedInfo EnhancedInfo;
 
 IStream::pointer
 buildMeta(const TileSetInfo::list &tsil, const fs::path &root
@@ -139,10 +139,6 @@ buildMeta(const TileSetInfo::list &tsil, const fs::path &root
 const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
                                 , const TileId &tileId)
 {
-#if 0
-    typedef TileIndex::Flag TiFlag;
-#endif
-
     auto trySet([&](const EnhancedInfo &info) -> const EnhancedInfo*
     {
         if (info.tsi->real(tileId, info.isAlien)) {
@@ -214,8 +210,8 @@ const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
 
 } // namespace
 
-AggregatedDriver::TileSetInfo::list
-AggregatedDriver::buildTilesetInfo() const
+OldAggregatedDriver::TileSetInfo::list
+OldAggregatedDriver::buildTilesetInfo() const
 {
     LOG(info1) << "Building tileset info";
     // Step #1: grab all allowed tilesets and their glues
@@ -333,7 +329,7 @@ AggregatedDriver::buildTilesetInfo() const
     return out;
 }
 
-AggregatedDriverBase::AggregatedDriverBase(const CloneOptions &cloneOptions)
+OldAggregatedDriverBase::OldAggregatedDriverBase(const CloneOptions &cloneOptions)
 {
     if (!cloneOptions.tilesetId()) {
         LOGTHROW(err2, storage::NoSuchTileSet)
@@ -342,10 +338,10 @@ AggregatedDriverBase::AggregatedDriverBase(const CloneOptions &cloneOptions)
     }
 }
 
-AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
-                                   , const AggregatedOptions &options
+OldAggregatedDriver::OldAggregatedDriver(const boost::filesystem::path &root
+                                   , const OldAggregatedOptions &options
                                    , const CloneOptions &cloneOptions)
-    : AggregatedDriverBase(cloneOptions)
+    : OldAggregatedDriverBase(cloneOptions)
     , Driver(root, options, cloneOptions.mode())
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
@@ -364,9 +360,9 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     readOnly(true);
 }
 
-AggregatedDriver::AggregatedDriver(const AggregatedOptions &options
+OldAggregatedDriver::OldAggregatedDriver(const OldAggregatedOptions &options
                                    , const CloneOptions &cloneOptions)
-    : AggregatedDriverBase(cloneOptions)
+    : OldAggregatedDriverBase(cloneOptions)
     , Driver(options, cloneOptions.mode())
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
@@ -380,7 +376,7 @@ AggregatedDriver::AggregatedDriver(const AggregatedOptions &options
     memProperties_ = build(options, cloneOptions);
 }
 
-TileSet::Properties AggregatedDriver::build(const AggregatedOptions &options
+TileSet::Properties OldAggregatedDriver::build(const OldAggregatedOptions &options
                                             , const CloneOptions &cloneOptions)
 {
     TileSet::Properties properties;
@@ -505,8 +501,8 @@ TileSet::Properties AggregatedDriver::build(const AggregatedOptions &options
     return properties;
 }
 
-AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
-                                   , const AggregatedOptions &options)
+OldAggregatedDriver::OldAggregatedDriver(const boost::filesystem::path &root
+                                   , const OldAggregatedOptions &options)
     : Driver(root, options)
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
@@ -519,10 +515,10 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     tileset::loadTileSetIndex(tsi_, *this);
 }
 
-AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
-                                   , const AggregatedOptions &options
+OldAggregatedDriver::OldAggregatedDriver(const boost::filesystem::path &root
+                                   , const OldAggregatedOptions &options
                                    , const CloneOptions &cloneOptions
-                                   , const AggregatedDriver &src)
+                                   , const OldAggregatedDriver &src)
     : Driver(root, options, cloneOptions.mode())
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
@@ -554,17 +550,17 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
 }
 
 Driver::pointer
-AggregatedDriver::clone_impl(const boost::filesystem::path &root
+OldAggregatedDriver::clone_impl(const boost::filesystem::path &root
                              , const CloneOptions &cloneOptions)
     const
 {
-    return std::make_shared<AggregatedDriver>
+    return std::make_shared<OldAggregatedDriver>
         (root, options(), cloneOptions, *this);
 }
 
-AggregatedDriver::~AggregatedDriver() {}
+OldAggregatedDriver::~OldAggregatedDriver() {}
 
-OStream::pointer AggregatedDriver::output_impl(File type)
+OStream::pointer OldAggregatedDriver::output_impl(File type)
 {
     if (readOnly()) {
         LOGTHROW(err2, storage::ReadOnlyError)
@@ -576,7 +572,7 @@ OStream::pointer AggregatedDriver::output_impl(File type)
     return fileOStream(type, path);
 }
 
-IStream::pointer AggregatedDriver::input_mem(File type) const
+IStream::pointer OldAggregatedDriver::input_mem(File type) const
 {
     // this is an in-memory driver
 
@@ -606,7 +602,7 @@ IStream::pointer AggregatedDriver::input_mem(File type) const
     return s;
 }
 
-IStream::pointer AggregatedDriver::input_impl(File type, bool noSuchFile)
+IStream::pointer OldAggregatedDriver::input_impl(File type, bool noSuchFile)
     const
 {
     // in-memory -> alternative branch
@@ -620,14 +616,14 @@ IStream::pointer AggregatedDriver::input_impl(File type, bool noSuchFile)
     return fileIStream(type, path, NullWhenNotFound);
 }
 
-OStream::pointer AggregatedDriver::output_impl(const TileId&, TileFile)
+OStream::pointer OldAggregatedDriver::output_impl(const TileId&, TileFile)
 {
     LOGTHROW(err2, storage::ReadOnlyError)
         << "This driver supports read access only.";
     return {};
 }
 
-IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
+IStream::pointer OldAggregatedDriver::input_impl(const TileId &tileId
                                               , TileFile type
                                               , bool noSuchFile) const
 {
@@ -657,7 +653,7 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
     return {};
 }
 
-FileStat AggregatedDriver::stat_impl(File type) const
+FileStat OldAggregatedDriver::stat_impl(File type) const
 {
     const auto name(filePath(type));
     const auto path(root() / name);
@@ -665,7 +661,7 @@ FileStat AggregatedDriver::stat_impl(File type) const
     return FileStat::stat(path);
 }
 
-FileStat AggregatedDriver::stat_impl(const TileId &tileId, TileFile type) const
+FileStat OldAggregatedDriver::stat_impl(const TileId &tileId, TileFile type) const
 {
     if (!tsi_.check(tileId, type)) {
         LOGTHROW(err1, vs::NoSuchFile)
@@ -688,7 +684,7 @@ FileStat AggregatedDriver::stat_impl(const TileId &tileId, TileFile type) const
     throw;
 }
 
-storage::Resources AggregatedDriver::resources_impl() const
+storage::Resources OldAggregatedDriver::resources_impl() const
 {
     // accumulate resources
     storage::Resources resources;
@@ -701,18 +697,18 @@ storage::Resources AggregatedDriver::resources_impl() const
     return resources;
 }
 
-void AggregatedDriver::flush_impl() {
+void OldAggregatedDriver::flush_impl() {
     LOGTHROW(err2, storage::ReadOnlyError)
         << "This driver supports read access only.";
 }
 
-void AggregatedDriver::drop_impl()
+void OldAggregatedDriver::drop_impl()
 {
     LOGTHROW(err2, storage::ReadOnlyError)
         << "This driver supports read access only.";
 }
 
-std::string AggregatedDriver::info_impl() const
+std::string OldAggregatedDriver::info_impl() const
 {
     auto o(options());
     std::ostringstream os;
@@ -721,8 +717,8 @@ std::string AggregatedDriver::info_impl() const
     return os.str();
 }
 
-boost::any AggregatedOptions::relocate(const RelocateOptions &options
-                                       , const std::string &prefix) const
+boost::any OldAggregatedOptions::relocate(const RelocateOptions &options
+                                          , const std::string &prefix) const
 {
     auto res(options.apply(storagePath.string()));
 
