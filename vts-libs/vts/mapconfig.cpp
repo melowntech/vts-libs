@@ -442,10 +442,12 @@ registry::FreeLayer freeLayer(const MeshTilesConfig &config
 }
 
 DebugConfig debugConfig(const MeshTilesConfig &config
+                        , const std::string &referenceFrameId
                         , const boost::filesystem::path &root)
 {
     DebugConfig dc;
     const auto &surface(config.surface);
+    dc.referenceFrame = referenceFrameId;
     dc.lodRange = surface.lodRange;
     dc.tileRange = surface.tileRange;
 
@@ -633,6 +635,7 @@ void saveDirs(const MapConfig &mapConfig, std::ostream &os)
 
 void asJson(const DebugConfig &debug, Json::Value &content)
 {
+    content["referenceFrame"] = debug.referenceFrame;
     auto &lodRange(content["lodRange"] = Json::arrayValue);
     lodRange.append(debug.lodRange.min);
     lodRange.append(debug.lodRange.max);
