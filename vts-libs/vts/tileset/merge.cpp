@@ -132,8 +132,13 @@ MeshOpInput::MeshOpInput(Id id, const TileSet::Detail &owner
     , flags_(owner_->tileIndex.get(tileId))
     , nodeInfo_(nodeInfo)
     , nodeLoaded_(false), node_()
+    , mergeableRange_(owner_->lodRange)
 {
     prepare(lazy);
+
+    if (auto bottom = owner_->properties.mergeBottomLod) {
+        mergeableRange_.max = bottom;
+    }
 }
 
 MeshOpInput::MeshOpInput(Id id, const TileSet &owner, const TileId &tileId
@@ -142,8 +147,13 @@ MeshOpInput::MeshOpInput(Id id, const TileSet &owner, const TileId &tileId
     , flags_(owner_->tileIndex.get(tileId))
     , nodeInfo_(nodeInfo)
     , nodeLoaded_(false), node_()
+    , mergeableRange_(owner_->lodRange)
 {
     prepare(lazy);
+
+    if (auto bottom = owner_->properties.mergeBottomLod) {
+        mergeableRange_.max = bottom;
+    }
 }
 
 bool MeshOpInput::loadNode() const
@@ -325,9 +335,18 @@ Input::list mergeSource(const Input::list &currentSource
                 if (include(ps)) { source.push_back(ps); }
                 ++iparentSource;
             } else {
-                if (include(ts)) {
+                bool its(include(ts)), ips(include(ps));
+                if (its && ips) {
+                    if (ts.inMergeableRange()) {
+                        LOG(info2) << "Using tile source: " << ts.tileId();
+                        source.push_back(ts);
+                    } else {
+                        LOG(info2) << "Using parent tile source: " << ps.tileId();
+                        source.push_back(ps);
+                    }
+                } else if (its) {
                     source.push_back(ts);
-                } else if (include(ps)) {
+                } else if (ips) {
                     source.push_back(ps);
                 }
                 ++icurrentSource;

@@ -90,6 +90,10 @@ public:
 
     bool operator<(const MeshOpInput &o) const { return id_ < o.id_; }
 
+    bool inMergeableRange() const { 
+        LOG(info2) << "testing if " << tileId_ << " in mergeable range " << mergeableRange_;
+        return in(mergeableRange_, tileId_.lod); }
+
 private:
     void prepare(bool lazy);
 
@@ -118,6 +122,8 @@ private:
     /** Valid only when not using exernal node info
      */
     boost::optional<NodeInfo> ownNodeInfo_;
+
+    LodRange mergeableRange_;
 };
 
 } } // namespace vadstena::vts

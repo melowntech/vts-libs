@@ -69,10 +69,17 @@ struct FullTileSetProperties : TileSetProperties {
      */
     SpatialDivisionExtents spatialDivisionExtents;
 
-    FullTileSetProperties() : revision(0) {}
+    /** Hint for merge - physically load only tiles at LODs same or above
+     * for merging finer tiles use tile from this lod as source.
+     * Comes handy when merging deep and large tilesets where fine LODs
+     * do not bring any new information.
+     */
+    Lod mergeBottomLod;
+
+    FullTileSetProperties() : revision(0), mergeBottomLod(0) {}
 
     FullTileSetProperties(const TileSetProperties &slice)
-        : TileSetProperties(slice), revision(0)
+        : TileSetProperties(slice), revision(0), mergeBottomLod(0)
     {}
 };
 
