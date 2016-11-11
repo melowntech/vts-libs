@@ -310,7 +310,8 @@ void build(Json::Value &config, const FullTileSetProperties &properties)
     build(config["spatialDivisionExtents"], properties.spatialDivisionExtents);
 
     if (properties.mergeBottomLod) {
-        config["mergeBootomLod"] = properties.mergeBottomLod;
+        LOG(info4) << "Saving bottom LOD: " << properties.mergeBottomLod;
+        config["mergeBottomLod"] = properties.mergeBottomLod;
     }
 }
 

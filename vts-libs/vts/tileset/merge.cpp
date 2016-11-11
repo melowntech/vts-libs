@@ -132,9 +132,11 @@ MeshOpInput::MeshOpInput(Id id, const TileSet::Detail &owner
     , flags_(owner_->tileIndex.get(tileId))
     , nodeInfo_(nodeInfo)
     , nodeLoaded_(false), node_()
-    , mergeableRange_(owner_->lodRange)
+    , mergeableRange_(owner_->properties.lodRange)
 {
     prepare(lazy);
+
+    LOG(info2) << "Mesh input LODrange: " << owner_->properties.lodRange;
 
     if (auto bottom = owner_->properties.mergeBottomLod) {
         mergeableRange_.max = bottom;
@@ -147,9 +149,11 @@ MeshOpInput::MeshOpInput(Id id, const TileSet &owner, const TileId &tileId
     , flags_(owner_->tileIndex.get(tileId))
     , nodeInfo_(nodeInfo)
     , nodeLoaded_(false), node_()
-    , mergeableRange_(owner_->lodRange)
+    , mergeableRange_(owner_->properties.lodRange)
 {
     prepare(lazy);
+
+    LOG(info2) << "Mesh input LODrange2: " << owner_->properties.lodRange;
 
     if (auto bottom = owner_->properties.mergeBottomLod) {
         mergeableRange_.max = bottom;
