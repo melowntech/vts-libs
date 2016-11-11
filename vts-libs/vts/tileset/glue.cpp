@@ -359,19 +359,26 @@ TileIndex optimizeGenerateSet(const TileIndex & generateSet
     // get all indices from all sets in full LOD range
     auto all(tileIndices(sets, lr, TileIndex::Flag::watertight));
 
-    // take all but bottom dataset
-    boost::sub_range<TileIndexList> allbutbottom(std::next(all.begin()), all.end());
+    // bottom dataset is discarded, top handled separatelly
+    boost::sub_range<TileIndexList> subset( std::next(all.begin())
+                                          , std::prev(all.end()));
 
     // unite all watertight tiles - that is where the glue will not be generated
     TileIndex watertight;
 
-    for (const auto &r : allbutbottom) {
+    for (const auto &r : subset) {
         if (watertight.empty()) {
             watertight = TileIndex(r).completeDownFromBottom();
         } else {
+            // FIX: fix case when last LOD has only non-watertight tiles - in
+            // this case completeDownFromBottom won't work as intended
             watertight = unite(watertight, TileIndex(r).completeDownFromBottom());
         }
     }
+
+    // add watertight from top dataset - do not complete down as this may be
+    // needed to override lower LODS 
+    watertight = unite(watertight, all.back()); 
 
     // now we have tileset showing where at least one (except bottom) set is
     // watertight -> no glue
@@ -418,13 +425,13 @@ void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
     const LodRange lr(range(sets));
     LOG(info2) << "LOD range: " << lr;
 
-    auto generateRaw(buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
+    auto generate(buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
                                    , TileIndex::Flag::mesh));
 
-    dumpTileIndex(dumpRoot, "generate-raw", generateRaw, referenceFrameId);
+    //dumpTileIndex(dumpRoot, "generate-raw", generateRaw, referenceFrameId);
 
-    auto generate(optimizeGenerateSet( generateRaw, dumpRoot
-                                     , referenceFrameId, lr, sets));
+    //auto generate(optimizeGenerateSet( generateRaw, dumpRoot
+    //                                 , referenceFrameId, lr, sets));
 
     dumpTileIndex(dumpRoot, "generate", generate, referenceFrameId);
     LOG(info1) << "generate: " << generate.count();
