@@ -37,8 +37,11 @@ public:
             // flags not present in metatiles
             , nonmeta = (watertight | multimesh)
 
-            // cannot be 0xff since it is reserved value!
-            , any = 0x7f
+            // any flags
+            , any = 0xff
+
+            // all flags without alien flag
+            , nonAlien = any & ~alien
 
             // no flag set
             , none = 0x00
@@ -63,6 +66,10 @@ public:
         static bool isAlien(value_type flags) {
             return check(flags, mesh | alien, mesh | alien);
         };
+
+        static value_type getReference(value_type flags) {
+            return flags >> 16;
+        }
     };
 
     TileIndex() : minLod_() {}

@@ -108,6 +108,23 @@ bool Index::check(const TileId &tileId, TileFile type) const
     }
 }
 
+TileIndex::Flag::value_type
+Index::checkAndGetFlags(const TileId &tileId, TileFile type) const
+{
+    const auto flags(tileIndex.get(tileId));
+
+    switch (type) {
+    case TileFile::mesh:
+        return (flags & TileIndex::Flag::mesh) ? flags : 0;
+    case TileFile::atlas:
+        return (flags & TileIndex::Flag::atlas) ? flags : 0;
+    case TileFile::navtile:
+        return (flags & TileIndex::Flag::navtile) ? flags : 0;
+
+    default: return 0;
+    }
+}
+
 int Index::getReference(const TileId &tileId) const
 {
     // reference tile must have set reference flag and unset mesh flag

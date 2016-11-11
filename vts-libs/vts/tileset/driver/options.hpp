@@ -95,6 +95,8 @@ private:
     static boost::uuids::uuid generateUuid();
 };
 
+/** Old, unoptimized aggregated driver.
+ */
 struct OldAggregatedOptions {
     boost::filesystem::path storagePath;
     TilesetIdSet tilesets;
@@ -103,7 +105,8 @@ struct OldAggregatedOptions {
                         , const std::string &prefix) const;
 };
 
-#if 0
+/** Optimized aggregated driver.
+ */
 struct AggregatedOptions {
     boost::filesystem::path storagePath;
     TilesetIdSet tilesets;
@@ -112,7 +115,6 @@ struct AggregatedOptions {
     boost::any relocate(const RelocateOptions &options
                         , const std::string &prefix) const;
 };
-#endif
 
 struct RemoteOptions {
     std::string url;

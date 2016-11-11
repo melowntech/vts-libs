@@ -254,6 +254,17 @@ TilesetIdList Storage::tilesets() const
     return list;
 }
 
+TilesetIdList Storage::tilesets(const TilesetIdSet &subset) const
+{
+    TilesetIdList list;
+    for (const auto &stored : detail().properties.tilesets) {
+        if (subset.count(stored.tilesetId)) {
+            list.push_back(stored.tilesetId);
+        }
+    }
+    return list;
+}
+
 StoredTileset::list Storage::storedTilesets() const {
     return detail().properties.tilesets;
 }
@@ -592,14 +603,29 @@ boost::filesystem::path Storage::path(const TilesetId &tilesetId) const
 boost::filesystem::path Storage::path(const Glue &glue) const
 {
     const auto &root(detail().root);
-    if (!detail().properties.hasGlue(glue.id)) {
-        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
-            << "Glue <" << utility::join(glue.id, ",")
-            << "> not found in storage "
-            << root << ".";
+    if (const auto *g = detail().properties.getGlue(glue.id)) {
+        return storage_paths::gluePath(root, *g);
     }
 
-    return storage_paths::gluePath(root, glue);
+    LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+        << "Glue <" << utility::join(glue.id, ",")
+        << "> not found in storage "
+        << root << ".";
+    throw;
+}
+
+boost::filesystem::path Storage::path(const Glue::Id &glueId) const
+{
+    const auto &root(detail().root);
+    if (const auto *g = detail().properties.getGlue(glueId)) {
+        return storage_paths::gluePath(root, *g);
+    }
+
+    LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+        << "Glue <" << utility::join(glueId, ",")
+        << "> not found in storage "
+        << root << ".";
+    throw;
 }
 
 TileSet Storage::clone(const boost::filesystem::path &tilesetPath

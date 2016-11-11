@@ -44,6 +44,11 @@ public:
 
     bool meta(const TileId &tileId) const;
 
+    /** Checks file type and returns flags in case of match.
+     */
+    TileIndex::Flag::value_type
+    checkAndGetFlags(const TileId &tileId, TileFile type) const;
+
     TileIndex deriveMetaIndex() const;
 
     unsigned int metaBinaryOrder() const { return metaBinaryOrder_; }

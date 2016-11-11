@@ -172,7 +172,6 @@ private:
     void recount();
 
     struct Node {
-        // NB: value MSB is used as value marker in serialized data!
         QTree::value_type value;
 
         struct Children;

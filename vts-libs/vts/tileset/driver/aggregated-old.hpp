@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileset_driver_aggregated_hpp_included_
-#define vadstena_libs_vts_tileset_driver_aggregated_hpp_included_
+#ifndef vadstena_libs_vts_tileset_driver_aggregated_old_hpp_included_
+#define vadstena_libs_vts_tileset_driver_aggregated_old_hpp_included_
 
 #include <set>
 #include <map>

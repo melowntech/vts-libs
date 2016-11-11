@@ -89,6 +89,11 @@ struct Storage::Properties : StorageProperties {
         return findGlue(glue) != glues.end();
     }
 
+    const Glue* getGlue(const Glue::Id& glue) const {
+        auto fglues(findGlue(glue));
+        return (fglues != glues.end()) ? &fglues->second : nullptr;
+    }
+
     /** Return set of unique tilesets.
      *
      *  Either use tileset specified in subset or choose tilesets with highest

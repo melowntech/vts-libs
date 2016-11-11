@@ -24,6 +24,7 @@
 // drivers:
 #include "./plain.hpp"
 #include "./aggregated-old.hpp"
+#include "./aggregated.hpp"
 #include "./remote.hpp"
 #include "./local.hpp"
 
@@ -160,6 +161,11 @@ Driver::pointer Driver::create(const boost::filesystem::path &root
     {
         return std::make_shared<driver::OldAggregatedDriver>
             (root, *o, cloneOptions);
+    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
+               (&genericOptions))
+    {
+        return std::make_shared<driver::AggregatedDriver>
+            (root, *o, cloneOptions);
     } else if (auto o = boost::any_cast<const driver::RemoteOptions>
                (&genericOptions))
     {
@@ -187,6 +193,11 @@ Driver::pointer Driver::create(const boost::any &genericOptions
     {
         return std::make_shared<driver::OldAggregatedDriver>
             (*o, cloneOptions);
+    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
+        (&genericOptions))
+    {
+        return std::make_shared<driver::AggregatedDriver>
+            (*o, cloneOptions);
     }
 
     LOGTHROW(err2, storage::BadFileFormat)
@@ -208,6 +219,10 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
                (&genericOptions))
     {
         return std::make_shared<driver::OldAggregatedDriver>(root, *o);
+    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
+               (&genericOptions))
+    {
+        return std::make_shared<driver::AggregatedDriver>(root, *o);
     } else if (auto o = boost::any_cast<const driver::RemoteOptions>
                (&genericOptions))
     {
@@ -236,6 +251,10 @@ boost::any relocateOptions(const boost::any &options
     {
         return o->relocate(relocateOptions, prefix);
     } else if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
+               (&options))
+    {
+        return o->relocate(relocateOptions, prefix);
+    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&options))
     {
         return o->relocate(relocateOptions, prefix);

@@ -196,9 +196,14 @@ public:
                   , const TilesetIdSet *subset = nullptr) const;
 
     /** Returns list of tileset ID's of tilesets in the stacked order (bottom to
-     *  top);
+     *  top).
      */
     TilesetIdList tilesets() const;
+
+    /** Returns list of tileset ID's of tilesets in the stacked order (bottom to
+     *  top); only subset matching given set is returned.
+     */
+    TilesetIdList tilesets(const TilesetIdSet &subset) const;
 
     /** Returns list of stored tilesets in the stacked order (bottom to top);
      */
@@ -239,6 +244,8 @@ public:
     boost::filesystem::path path(const TilesetId &tilesetId) const;
 
     boost::filesystem::path path(const Glue &glue) const;
+
+    boost::filesystem::path path(const Glue::Id &glueId) const;
 
     void updateTags(const TilesetId &tilesetId
                     , const Tags &add, const Tags &remove);

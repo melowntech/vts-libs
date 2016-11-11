@@ -48,6 +48,9 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const TileFlags &f)
             prefix = ",";
         }
     }
+    if (auto reference = TileIndex::Flag::getReference(f.value)) {
+        os << prefix << "reference=" << reference;
+    }
     return os;
 }
 
