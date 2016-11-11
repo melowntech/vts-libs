@@ -1446,14 +1446,18 @@ int VtsStorage::dumpMesh()
 
     int index(0);
     for (const auto &sm : mesh.submeshes) {
-        std::cout << "submesh[" << index << "]:" << std::endl;
+        std::cout << "submesh[" << index << "] (" 
+                  << sm.vertices.size() << " vertices):" << std::endl;
 
         const auto &v(sm.vertices);
 
-        std::cout << "faces[" << index << "]" << std::endl;
+        std::cout << "faces[" << index << "] (" 
+                  << sm.faces.size() << " faces):" << std::endl;
         for (const auto &f : sm.faces) {
             std::cout
                 << std::fixed << "    " << f(0) << ", " << f(1) << ", " << f(2)
+                << std::flush;
+            std::cout
                 << " -> " << v[f(0)] << ", " << v[f(1)]
                 << ", " << v[f(2)] << "\n";
         }
