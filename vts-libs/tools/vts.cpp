@@ -13,6 +13,7 @@
 
 #include "service/cmdline.hpp"
 
+#include "imgproc/png.hpp"
 #include "imgproc/rastermask/cvmat.hpp"
 
 #include "geo/geodataset.hpp"
@@ -27,6 +28,7 @@
 #include "../vts/opencv/colors.hpp"
 #include "../vts/opencv/navtile.hpp"
 #include "../vts/tileset/delivery.hpp"
+#include "../vts/2d.hpp"
 
 #include "./locker.hpp"
 
@@ -1574,24 +1576,8 @@ int VtsStorage::dumpMeshMask()
         return EXIT_FAILURE;
     }
 
-    auto mesh(ts.getMesh(tileId_));
-
-    cv::Mat coverage(mesh.coverageMask.size().height
-                     , mesh.coverageMask.size().width, CV_8UC3);
-    coverage = cv::Scalar(0x00, 0x00, 0x00);
-
-    mesh.coverageMask.forEachNode([&](uint xstart, uint ystart, uint size
-                                      , std::uint8_t color)
-    {
-        cv::Point2i start(xstart, ystart);
-        cv::Point2i end(xstart + size - 1, ystart + size - 1);
-
-        cv::rectangle(coverage, start, end, vts::opencv::palette256[color]
-                      , CV_FILLED, 4);
-    }, vts::Mesh::CoverageMask::Filter::white);
-
-    create_directories(outputPath_.parent_path());
-    imwrite(outputPath_.string(), coverage);
+    imgproc::png::write
+        (outputPath_, vts::debugMask(ts.getMeshMask(tileId_)), 9);
 
     return EXIT_SUCCESS;
 }

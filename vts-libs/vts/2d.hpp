@@ -37,6 +37,8 @@ RgbaImage debugMask(const Mesh::CoverageMask &coverageMask
 
 RgbaImage debugMask(const MeshMask &mask, bool singleSourced = false);
 
+RgbaImage debugMask(const Mesh &mesh, bool singleSourced = false);
+
 RgbaImage emptyDebugMask();
 
 RgbaImage fullDebugMask();

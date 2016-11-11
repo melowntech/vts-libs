@@ -78,6 +78,10 @@ public:
      */
     Mesh getMesh(const TileId &tileId) const;
 
+    /** Returns tile's mesh mask.
+     */
+    MeshMask getMeshMask(const TileId &tileId) const;
+
     /** Returns tiles' atlas.
      */
     void getAtlas(const TileId &tileId, Atlas &atlas) const;
