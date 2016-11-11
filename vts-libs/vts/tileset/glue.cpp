@@ -316,7 +316,7 @@ TileIndex buildGenerateSet(const char *dumpRoot
     // make complete up and down trees for top (up: every tile has parent, down:
     // every tile has all children)
     const auto topUp(TileIndex(top).growUp());
-    const auto topDown(TileIndex(top).completeDown());
+    const auto topDown(TileIndex(top).completeDownFromBottom());
 
     dumpTileIndex(dumpRoot, "top-round", top, referenceFrameId);
     dumpTileIndex(dumpRoot, "top-up", topUp, referenceFrameId);
@@ -331,7 +331,7 @@ TileIndex buildGenerateSet(const char *dumpRoot
     for (const auto &r : rest) {
         // make up and down complete tree
         auto rUp(TileIndex(r).complete());
-        auto rDown(TileIndex(r).completeDown());
+        auto rDown(TileIndex(r).completeDownFromBottom());
 
         // intersect up and down trees with top up and down trees
         auto i1(topUp.intersect(rDown));
@@ -348,6 +348,53 @@ TileIndex buildGenerateSet(const char *dumpRoot
 
     // done
     return *generate;
+}
+
+TileIndex optimizeGenerateSet(const TileIndex & generateSet
+                           , const char *dumpRoot
+                           , const std::string &referenceFrameId
+                           , const LodRange &lr
+                           , const TileSet::const_ptrlist &sets)
+{
+    // get all indices from all sets in full LOD range
+    auto all(tileIndices(sets, lr, TileIndex::Flag::watertight));
+
+    // take all but bottom dataset
+    boost::sub_range<TileIndexList> allbutbottom(std::next(all.begin()), all.end());
+
+    // unite all watertight tiles - that is where the glue will not be generated
+    TileIndex watertight;
+
+    for (const auto &r : allbutbottom) {
+        if (watertight.empty()) {
+            watertight = TileIndex(r).completeDownFromBottom();
+        } else {
+            watertight = unite(watertight, TileIndex(r).completeDownFromBottom());
+        }
+    }
+
+    // now we have tileset showing where at least one (except bottom) set is
+    // watertight -> no glue
+
+    dumpTileIndex(dumpRoot, "watertight-union", watertight, referenceFrameId);
+
+    // invert and intersect with generate set
+    watertight.invert(1);
+
+    dumpTileIndex(dumpRoot, "watertight-inverse", watertight, referenceFrameId);
+
+    watertight = watertight.intersect(generateSet);
+
+    dumpTileIndex(dumpRoot, "optimized-raw", watertight, referenceFrameId);
+
+    // make optimized set a complete tree to min LOD
+
+    LOG(info1) << "Completing to min LOD: " << lr.min;
+
+    watertight.complete(1, true);
+
+    // done
+    return watertight;
 }
 
 
@@ -371,8 +418,13 @@ void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
     const LodRange lr(range(sets));
     LOG(info2) << "LOD range: " << lr;
 
-    auto generate(buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
+    auto generateRaw(buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
                                    , TileIndex::Flag::mesh));
+
+    dumpTileIndex(dumpRoot, "generate-raw", generateRaw, referenceFrameId);
+
+    auto generate(optimizeGenerateSet( generateRaw, dumpRoot
+                                     , referenceFrameId, lr, sets));
 
     dumpTileIndex(dumpRoot, "generate", generate, referenceFrameId);
     LOG(info1) << "generate: " << generate.count();
