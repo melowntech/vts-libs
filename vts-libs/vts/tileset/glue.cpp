@@ -448,16 +448,19 @@ void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
 
     LOG(info3) << "(glue) Generate set calculated.";
 
-    generate = TileIndex();
-
     // calculate navtile generate set
     const LodRange navLr( range(sets, TileIndex::Flag::navtile) );
 
     LOG(info2) << "Navtile LOD range: " << navLr;
     
-    auto navtileGenerate
+    auto navtileGenerateRaw
         (buildGenerateSet(dumpRoot, referenceFrameId, navLr, sets
                           , TileIndex::Flag::navtile));
+    dumpTileIndex(dumpRoot, "generate-navtile-raw", navtileGenerateRaw
+                  , referenceFrameId);
+
+    auto navtileGenerate(optimizeGenerateSet( navtileGenerateRaw, dumpRoot
+                                            , referenceFrameId, navLr, sets));
     dumpTileIndex(dumpRoot, "generate-navtile", navtileGenerate
                   , referenceFrameId);
 

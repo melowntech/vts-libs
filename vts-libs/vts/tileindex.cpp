@@ -644,7 +644,7 @@ TileIndex& TileIndex::unset(Flag::value_type type)
     return *this;
 }
 
-TileIndex& clamp(const LodRange & lr)
+TileIndex& TileIndex::clamp(const LodRange & lr)
 {
     const LodRange curLr(minLod_, minLod_ + trees_.size() - 1);
 
@@ -657,7 +657,7 @@ TileIndex& clamp(const LodRange & lr)
 
     // clamp end by resize
     if (lr.max < curLr.max) {
-        trees_.resize(curLr.max - lr.max + 1);
+        trees_.resize(lr.max - curLr.min + 1);
     }
 
     // clamp begin by erase
