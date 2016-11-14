@@ -343,59 +343,17 @@ TileIndex buildGenerateSet(const char *dumpRoot
     // create spheres of influence of all indices and intersect them
     auto generate( sphereOfInfluenceForMerge(all.back()) );
 
+    dumpTileIndex(dumpRoot, "top-sphere", generate, referenceFrameId);
+
     boost::sub_range<TileIndexList> rest(all.begin(), std::prev(all.end()));
 
     for (const auto &r : rest) { 
         // intersect generate set with other spheres of influence
+        dumpTileIndex(dumpRoot, "rest-sphere", sphereOfInfluenceForMerge(r), referenceFrameId);
         generate = generate.intersect( sphereOfInfluenceForMerge(r) );
     }
 
     return generate;
-
-#if 0
-    // get all indices from all sets in full LOD range
-    auto all(tileIndices(sets, lr, mask));
-    auto &top(all.back());
-    dumpTileIndex(dumpRoot, "top", top, referenceFrameId);
-
-    // make top round (i.e. quad condition is satisfied for every tile)
-    top.round();
-    // make complete up and down trees for top (up: every tile has parent, down:
-    // every tile has all children)
-    const auto topUp(TileIndex(top).growUp());
-    const auto topDown(TileIndex(top).completeDownFromBottom());
-
-    dumpTileIndex(dumpRoot, "top-round", top, referenceFrameId);
-    dumpTileIndex(dumpRoot, "top-up", topUp, referenceFrameId);
-    dumpTileIndex(dumpRoot, "top-down", topDown, referenceFrameId);
-
-    // grab all tile indices except the top one
-    boost::sub_range<TileIndexList> rest(all.begin(), std::prev(all.end()));
-
-    // output generate set
-    boost::optional<TileIndex> generate;
-
-    for (const auto &r : rest) {
-        // make up and down complete tree
-        auto rUp(TileIndex(r).complete());
-        auto rDown(TileIndex(r).completeDownFromBottom());
-
-        // intersect up and down trees with top up and down trees
-        auto i1(topUp.intersect(rDown));
-        auto i2(topDown.intersect(rUp));
-
-        if (!generate) {
-            // first iteration -> just unite both trees
-            generate = unite(i1, i2);
-        } else {
-            // next iteration -> unite up, down and intersect with the result
-            generate = generate->intersect(unite(i1, i2));
-        }
-    }
-
-    // done
-    return *generate;
-#endif
 }
 
 TileIndex optimizeGenerateSet(const TileIndex & generateSet
@@ -487,8 +445,13 @@ void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
 
     LOG(info3) << "(glue) Generate set calculated.";
 
+    generate = TileIndex();
+
     // calculate navtile generate set
     const LodRange navLr( range(sets, TileIndex::Flag::navtile) );
+
+    LOG(info2) << "Navtile LOD range: " << navLr;
+    
     auto navtileGenerate
         (buildGenerateSet(dumpRoot, referenceFrameId, navLr, sets
                           , TileIndex::Flag::navtile));
