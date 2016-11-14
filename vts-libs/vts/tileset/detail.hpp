@@ -68,7 +68,6 @@ public:
     /** Index of existing tiles.
      */
     TileIndex &tileIndex;
-    TileIndex &references;
 
     LodRange lodRange;
 

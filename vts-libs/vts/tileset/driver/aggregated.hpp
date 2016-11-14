@@ -54,8 +54,17 @@ public:
     typedef std::vector<TilesetReferences> TilesetReferencesList;
 
     struct DriverEntry {
+        /** Driver.
+         */
         Driver::pointer driver;
+
+        /** Derived metatile index.
+         */
         TilesetReferences tilesets;
+
+        /** Derived metatile index.
+         */
+        TileIndex metaIndex;
 
         typedef std::vector<DriverEntry> list;
 
@@ -63,6 +72,21 @@ public:
                     , const TilesetReferences &tilesets)
             : driver(driver), tilesets(tilesets)
         {}
+    };
+
+    class Index : public tileset::Index {
+    public:
+        Index(unsigned int metaBinaryOrder, DriverEntry::list &drivers)
+            : tileset::Index(metaBinaryOrder), drivers_(drivers)
+        {}
+
+        virtual void loadRest_impl(std::istream &f
+                                   , const boost::filesystem::path &path);
+
+        virtual void saveRest_impl(std::ostream &f) const;
+
+    private:
+        DriverEntry::list &drivers_;
     };
 
 private:
@@ -132,7 +156,7 @@ private:
 
     DriverEntry::list drivers_;
 
-    tileset::Index tsi_;
+    Index tsi_;
 
     boost::optional<TileSet::Properties> memProperties_;
 };

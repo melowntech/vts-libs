@@ -92,8 +92,15 @@ public:
               = "unknown");
     void load(const boost::filesystem::path &path);
 
-    void save(std::ostream &os) const;
-    void save(const boost::filesystem::path &path) const;
+    struct SaveParams : QTree::SaveParams {
+        SaveParams() = default;
+        SaveParams(const QTree::SaveParams &sp) : QTree::SaveParams(sp) {}
+    };
+
+    void save(std::ostream &os, const SaveParams &params = SaveParams()) const;
+    void save(const boost::filesystem::path &path
+              , const SaveParams &params = SaveParams())
+        const;
 
     bool exists(const TileId &tileId) const { return get(tileId); }
 

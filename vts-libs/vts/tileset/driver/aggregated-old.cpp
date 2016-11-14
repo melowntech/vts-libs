@@ -75,7 +75,6 @@ buildMeta(const TileSetInfo::list &tsil, const fs::path &root
     // output metatile
     auto bo(referenceFrame.metaBinaryOrder);
     MetaTile ometa(tileId, bo);
-    MetaTile::References references(ometa.makeReferences());
 
     auto loadMeta([&](const TileId &tileId, const Driver::pointer &driver)
                   -> MetaTile
@@ -92,14 +91,13 @@ buildMeta(const TileSetInfo::list &tsil, const fs::path &root
         for (const auto &gi : tsi.glues) {
             // apply metatile from glue
             if (gi.tsi->check(tileId, TileFile::meta)) {
-                ometa.update(loadMeta(tileId, gi.driver), references
-                             , idx, &gi.indices, gi.isAlien);
+                ometa.update(loadMeta(tileId, gi.driver), gi.isAlien);
             }
         }
 
         // apply metatile from tileset
         if (tsi.tsi->check(tileId, TileFile::meta)) {
-            ometa.update(loadMeta(tileId, tsi.driver), references, idx);
+            ometa.update(loadMeta(tileId, tsi.driver));
         }
     }
 
@@ -157,45 +155,24 @@ const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
         return nullptr;
     });
 
-    typedef std::tuple<const EnhancedInfo*, int> GlueResult;
-
-    auto tryGlues([&](const GlueInfo::list &glues, int idx)
-                  -> GlueResult
+    auto tryGlues([&](const GlueInfo::list &glues) -> const EnhancedInfo*
     {
         for (const auto &glue : glues) {
             if (const auto *result = trySet(glue)) {
-                return GlueResult(result, 0);
-            } if (auto reference = glue.tsi->getReference(tileId)) {
-                auto redirect(glue.indices[reference - 1] + 1);
-                if (redirect <= idx) {
-                    LOG(debug)
-                        << "Redirected to <" << glue.id[reference - 1]
-                        << ">.";
-                    return GlueResult(nullptr, redirect);
-                }
-                LOG(debug)
-                    << "Unexpected forward reference <"
-                    << glue.id[reference - 1] << ">.";
+                return result;
             }
         }
 
-        return GlueResult(nullptr, -1);
+        return nullptr;
     });
 
     for (std::size_t idx(tsil.size()); idx;) {
         const auto &tsi(tsil[--idx]);
 
         // try glues first
-        const EnhancedInfo *glueResult;
-        int reference;
-        std::tie(glueResult, reference) = tryGlues(tsi.glues, idx);
-
-        if (glueResult) {
+        if (auto glueResult = tryGlues(tsi.glues)) {
             // found tile in one of glues
             return glueResult;
-        } else if (reference > 0) {
-            // found reference in one of glues -> redirect
-            idx = reference;
         } else {
             // nothing found in glues, try tileset itself
             if (const auto *result = trySet(tsi)) {
@@ -339,170 +316,7 @@ OldAggregatedDriverBase::OldAggregatedDriverBase(const CloneOptions &cloneOption
 }
 
 OldAggregatedDriver::OldAggregatedDriver(const boost::filesystem::path &root
-                                   , const OldAggregatedOptions &options
-                                   , const CloneOptions &cloneOptions)
-    : OldAggregatedDriverBase(cloneOptions)
-    , Driver(root, options, cloneOptions.mode())
-    , storage_(this->options().storagePath, OpenMode::readOnly)
-    , referenceFrame_(storage_.referenceFrame())
-    , tsi_(referenceFrame_.metaBinaryOrder)
-    , tilesetInfo_(buildTilesetInfo())
-{
-    // we flatten the content
-    capabilities().flattener = true;
-
-    // build driver information
-    auto properties(build(options, cloneOptions));
-
-    // save stuff (allow write for a brief moment)
-    tileset::saveConfig(this->root() / filePath(File::config), properties);
-    tileset::saveTileSetIndex(tsi_, *this);
-    readOnly(true);
-}
-
-OldAggregatedDriver::OldAggregatedDriver(const OldAggregatedOptions &options
-                                   , const CloneOptions &cloneOptions)
-    : OldAggregatedDriverBase(cloneOptions)
-    , Driver(options, cloneOptions.mode())
-    , storage_(this->options().storagePath, OpenMode::readOnly)
-    , referenceFrame_(storage_.referenceFrame())
-    , tsi_(referenceFrame_.metaBinaryOrder)
-    , tilesetInfo_(buildTilesetInfo())
-{
-    // we flatten the content
-    capabilities().flattener = true;
-
-    // build driver information and cache it
-    memProperties_ = build(options, cloneOptions);
-}
-
-TileSet::Properties OldAggregatedDriver::build(const OldAggregatedOptions &options
-                                            , const CloneOptions &cloneOptions)
-{
-    TileSet::Properties properties;
-    properties.id = *cloneOptions.tilesetId();
-    properties.driverOptions = options;
-
-    // try to get previous revision (and reuse)
-    if (auto oldR = oldRevision()) {
-        properties.revision = *oldR + 1;
-    }
-
-    // get reference frame
-    properties.referenceFrame = storage_.getProperties().referenceFrame;
-    properties.tileRange = TileRange(math::InvalidExtents{});
-    properties.lodRange = LodRange::emptyRange();
-
-    // compose tile index and other properties
-    TileIndex &ti(tsi_.tileIndex);
-
-    typedef TileIndex::Flag TiFlag;
-    typedef TiFlag::value_type value_type;
-
-    auto addFlags([](value_type &value, value_type flags)
-    {
-        // clear flags, keep reference (which is shared)
-        value &= (0xffff0000u);
-        value |= (flags & 0xff);
-    });
-
-    auto getFlags([](value_type value)
-    {
-        return (value & 0xff);
-    });
-
-    auto addIdx([](value_type &value, value_type idx)
-    {
-        value &= 0x0000ffffu;
-        value |= (idx << 16);
-    });
-
-    auto getIdx([](value_type value)
-    {
-        return (value >> 16);
-    });
-
-    bool first(true);
-    for (std::size_t idx(tilesetInfo_.size()); idx; --idx) {
-        // marks alien tileset
-        bool alien(false);
-
-        auto combiner([&](value_type o, value_type n) -> value_type
-        {
-            if (o & TiFlag::mesh) {
-                // already occupied by existing tile
-                return o;
-            }
-
-            if (auto reference = getIdx(o)) {
-                // we have valid reference here
-                if (reference != idx) {
-                    return o;
-                }
-            }
-
-            // store flags only if node is of same type
-            if (alien == TiFlag::isAlien(n)) {
-                addFlags(o, n);
-            }
-            return o;
-        });
-
-        const auto &tsg(tilesetInfo_[idx - 1]);
-        const auto &tilesetId(tsg.tilesetId);
-        LOG(info2) << "Adding tileset <" << tilesetId << "> (" << idx << ").";
-
-        for (const auto &glue : tsg.glues) {
-            LOG(info2) << "    adding glue: " << glue.name;
-            // remember references to be applied when referenced tileset is
-            // processed
-            auto storeReferences([&](value_type o, value_type n) -> value_type
-            {
-                // valid reference + no mesh tile stored + no reference marked
-                // -> mark reference
-                if (n && !(o & TileIndex::Flag::mesh) && !getIdx(o)) {
-                    addIdx(o, glue.indices[n - 1] + 1);
-                }
-                return o;
-            });
-
-            ti.combine(glue.tsi->references, storeReferences);
-            alien = glue.isAlien;
-            ti.combine(glue.tsi->tileIndex, combiner);
-        }
-
-        const auto tsProp(tileset::loadConfig(*tsg.driver));
-        alien = false;
-        ti.combine(tsg.tsi->tileIndex, combiner);
-
-        // unite referenced registry entities
-        unite(properties.credits, tsProp.credits);
-        unite(properties.boundLayers, tsProp.boundLayers);
-
-        // TODO: spatial division extents
-
-        // copy position from first tileset
-        if (first) {
-            properties.position = tsProp.position;
-            first = false;
-        }
-    }
-
-    // remove nonsense flags
-    ti.unset(TiFlag::reference | 0xffff0000u);
-
-    // update extents
-    {
-        auto ranges(ti.ranges(TiFlag::mesh | TiFlag::reference));
-        properties.lodRange = ranges.first;
-        properties.tileRange = ranges.second;
-    }
-
-    return properties;
-}
-
-OldAggregatedDriver::OldAggregatedDriver(const boost::filesystem::path &root
-                                   , const OldAggregatedOptions &options)
+                                         , const OldAggregatedOptions &options)
     : Driver(root, options)
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())

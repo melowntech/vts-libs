@@ -62,7 +62,20 @@ public:
 
     void reset(value_type value);
 
-    void save(std::ostream &os) const;
+    /** Save parameters.
+     */
+    class SaveParams {
+    public:
+        SaveParams() : bw_(false) {}
+
+        inline SaveParams& bw(bool value) { bw_ = value; return *this; }
+        inline bool bw() const { return bw_; }
+
+    private:
+        bool bw_;
+    };
+
+    void save(std::ostream &os, const SaveParams &params = SaveParams()) const;
     void load(std::istream &is, const boost::filesystem::path &path);
 
     void recreate(unsigned int order = 0, value_type value = 0);
@@ -204,7 +217,7 @@ private:
 
         void contract();
 
-        void saveChildren(std::ostream &os) const;
+        void saveChildren(std::ostream &os, const SaveParams &params) const;
 
         // std::tuple<std::size_t, value_type>
         // loadV2(unsigned int mask, std::istream &is);
@@ -220,10 +233,12 @@ private:
         loadV1(unsigned int mask, std::istream &is);
 
         std::tuple<std::size_t, QTree::value_type>
-        loadChildren(unsigned int mask, std::istream &is);
+        loadChildren(unsigned int mask, std::istream &is
+                     , const SaveParams &params);
 
         std::tuple<std::size_t, QTree::value_type>
-        load(unsigned int mask, std::istream &is, std::uint8_t flags);
+        load(unsigned int mask, std::istream &is, const SaveParams &params
+             , std::uint8_t flags);
 
         /** Called from QTree::forEachNode */
         template <typename Op>

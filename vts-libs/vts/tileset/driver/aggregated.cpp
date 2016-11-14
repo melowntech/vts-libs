@@ -152,6 +152,80 @@ openDrivers(Storage &storage, const AggregatedOptions &options)
     return drivers;
 }
 
+IStream::pointer
+buildMeta(const AggregatedDriver::DriverEntry::list &drivers
+          , const fs::path &root
+          , const registry::ReferenceFrame &referenceFrame
+          , std::time_t lastModified, const TileId &tileId
+          , const TileIndex &tileIndex, bool noSuchFile = true)
+{
+    // output metatile
+    auto bo(referenceFrame.metaBinaryOrder);
+    MetaTile ometa(tileId, bo);
+
+    auto loadMeta([&](const TileId &tileId, const Driver::pointer &driver)
+                  -> MetaTile
+    {
+        auto ms(driver->input(tileId, TileFile::meta));
+        return loadMetaTile(*ms, bo, ms->name());
+    });
+
+    (void) drivers;
+
+#if 0
+    // process whole input
+    for (std::size_t idx(tsil.size()); idx; --idx) {
+        const auto &tsi(tsil[idx - 1]);
+
+        // process all glues
+        for (const auto &gi : tsi.glues) {
+            // apply metatile from glue
+            if (gi.tsi->check(tileId, TileFile::meta)) {
+                ometa.update(loadMeta(tileId, gi.driver), references
+                             , idx, &gi.indices, gi.isAlien);
+            }
+        }
+
+        // apply metatile from tileset
+        if (tsi.tsi->check(tileId, TileFile::meta)) {
+            ometa.update(loadMeta(tileId, tsi.driver), references, idx);
+        }
+    }
+#endif
+
+    if (ometa.empty()) {
+        if (noSuchFile) {
+            LOGTHROW(err1, vs::NoSuchFile)
+                << "There is no metatile for " << tileId << ".";
+        }
+        return {};
+    }
+
+    // generate child flags based on tile index
+    // TODO: make better by some quadtree magic
+    ometa.for_each([&](const TileId &nodeId, MetaNode &node)
+    {
+        for (const auto &child : vts::children(nodeId)) {
+            node.setChildFromId
+                (child, tileIndex.validSubtree(child));
+        }
+    });
+
+    // create stream and serialize metatile
+
+    // create in-memory stream
+    auto fname(root / str(boost::format("%s.%s") % tileId % TileFile::meta));
+    auto s(std::make_shared<StringIStream>
+           (TileFile::meta, fname.string(), lastModified));
+
+    // and serialize metatile
+    ometa.save(s->sink());
+    s->updateSize();
+
+    // done
+    return s;
+}
+
 } // namespace
 
 AggregatedDriverBase::AggregatedDriverBase(const CloneOptions &cloneOptions)
@@ -170,7 +244,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     , Driver(root, options, cloneOptions.mode())
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
-    , tsi_(referenceFrame_.metaBinaryOrder)
+    , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
 {
     // we flatten the content
     capabilities().flattener = true;
@@ -191,7 +265,7 @@ AggregatedDriver::AggregatedDriver(const AggregatedOptions &options
     , Driver(options, cloneOptions.mode())
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
-    , tsi_(referenceFrame_.metaBinaryOrder)
+    , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
 {
     // we flatten the content
     capabilities().flattener = true;
@@ -211,7 +285,7 @@ inline SetId setIdFromFlags(TileIndex::Flag::value_type flags)
     return flags >> 16;
 }
 
-void addTileIndex(TileIndex &ti, const Driver::pointer &driver
+void addTileIndex(TileIndex &ti, AggregatedDriver::DriverEntry &de
                   , SetId setId, bool alien)
 {
     auto combiner([&](value_type o, value_type n) -> value_type
@@ -232,11 +306,33 @@ void addTileIndex(TileIndex &ti, const Driver::pointer &driver
 
     // process tileindex
     tileset::Index work;
-    tileset::loadTileSetIndex(work, *driver);
+    tileset::loadTileSetIndex(work, *de.driver);
     ti.combine(work.tileIndex, combiner);
+
+    // derive metatile index from tileset's tile index
+    if (!alien) {
+        de.metaIndex = work.deriveMetaIndex();
+    }
 }
 
 } // namespace
+
+void AggregatedDriver::Index::loadRest_impl(std::istream &f
+                                            , const fs::path &path)
+{
+    for (auto &de : drivers_) {
+        LOG(info4) << "Loading tileset metaindex.";
+        de.metaIndex.load(f, path);
+    }
+}
+
+void AggregatedDriver::Index::saveRest_impl(std::ostream &f) const
+{
+    for (const auto &de : drivers_) {
+        LOG(info4) << "Saving tileset metaindex.";
+        de.metaIndex.save(f, TileIndex::SaveParams().bw(true));
+    }
+}
 
 TileSet::Properties AggregatedDriver::build(AggregatedOptions options
                                             , const CloneOptions &cloneOptions)
@@ -359,8 +455,7 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
     });
 
     // list of drivers and tileset mapping (make room for all instances)
-    DriverEntry::list drivers;
-    drivers.reserve(setCount);
+    drivers_.reserve(setCount);
 
     typedef std::map<Glue::Id, DriverEntry*> Glue2Driver;
     Glue2Driver glue2driver;
@@ -371,11 +466,11 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
         LOG(info4) << "<" << tsg.tilesetId << ">";
 
         // first, remember tileset
-        drivers.emplace_back
+        drivers_.emplace_back
             (Driver::open(storage_.path(tsg.tilesetId))
              , tileset2references(tsg.tilesetId));
-        auto &de(drivers.back());
-        const auto setId(drivers.size() - 1);
+        auto &de(drivers_.back());
+        const auto setId(drivers_.size() - 1);
         tsMap.push_back(de.tilesets);
 
         // then process all glues
@@ -384,11 +479,11 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
             DriverEntry *de(nullptr);
 
             if (!alien) {
-                drivers.emplace_back
+                drivers_.emplace_back
                     (Driver::open(storage_.path(glue))
                      , glue2references(glue.id));
 
-                de = &drivers.back();
+                de = &drivers_.back();
                 glue2driver[glue.id] = de;
                 tsMap.push_back(de->tilesets);
 
@@ -403,11 +498,11 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
             }
 
             // merge-in glue's tile index
-            addTileIndex(ti, de->driver, drivers.size() - 1, alien);
+            addTileIndex(ti, *de, drivers_.size() - 1, alien);
         }
 
         // and merge-in tileset's tile index last
-        addTileIndex(ti, de.driver, setId, false);
+        addTileIndex(ti, de, setId, false);
     }
 
     // update extents
@@ -431,7 +526,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , drivers_(openDrivers(storage_, options))
-    , tsi_(referenceFrame_.metaBinaryOrder)
+    , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
 {
     // we flatten the content
     capabilities().flattener = true;
@@ -446,7 +541,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     : Driver(root, options, cloneOptions.mode())
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
-    , tsi_(referenceFrame_.metaBinaryOrder)
+    , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
 {
     // we flatten the content
     capabilities().flattener = true;
@@ -552,14 +647,6 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
                                               , TileFile type
                                               , bool noSuchFile) const
 {
-    // if (!tsi_.check(tileId, type)) {
-    //     if (noSuchFile) {
-    //         LOGTHROW(err1, vs::NoSuchFile)
-    //             << "There is no " << type << " for " << tileId << ".";
-    //     }
-    //     return {};
-    // }
-
     if (type == TileFile::meta) {
         if (!tsi_.meta(tileId)) {
             if (noSuchFile) {
@@ -569,11 +656,9 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
             return {};
         }
 
-#if 0
-        return buildMeta(tilesetInfo_, root(), referenceFrame_
+        return buildMeta(drivers_, root(), referenceFrame_
                          , configStat().lastModified, tileId
                          , tsi_.tileIndex, noSuchFile);
-#endif
     }
 
     const auto flags(tsi_.checkAndGetFlags(tileId, type));
@@ -610,23 +695,30 @@ FileStat AggregatedDriver::stat_impl(File type) const
 
 FileStat AggregatedDriver::stat_impl(const TileId &tileId, TileFile type) const
 {
-#if 0
-    if (!tsi_.check(tileId, type)) {
-        LOGTHROW(err1, vs::NoSuchFile)
-            << "There is no " << type << " for " << tileId << ".";
-    }
-
     if (type == TileFile::meta) {
-        // TODO: make better
-        return buildMeta(tilesetInfo_, root(), referenceFrame_
+        if (!tsi_.meta(tileId)) {
+            LOGTHROW(err1, vs::NoSuchFile)
+                << "There is no " << type << " for " << tileId << ".";
+            return {};
+        }
+
+        return buildMeta(drivers_, root(), referenceFrame_
                          , configStat().lastModified, tileId
                          , tsi_.tileIndex)->stat();
     }
 
-    if (const auto *tsi = findTileSet(tilesetInfo_, tileId)) {
-        return tsi->driver->stat(tileId, type);
+    const auto flags(tsi_.checkAndGetFlags(tileId, type));
+    if (!flags) {
+        LOGTHROW(err1, vs::NoSuchFile)
+            << "There is no " << type << " for " << tileId << ".";
     }
-#endif
+
+    // get dataset id
+    const auto setId(setIdFromFlags(flags));
+
+    if (setId < drivers_.size()) {
+        return drivers_[setId].driver->stat(tileId, type);
+    }
 
     LOGTHROW(err1, vs::NoSuchFile)
         << "There is no " << type << " for " << tileId << ".";

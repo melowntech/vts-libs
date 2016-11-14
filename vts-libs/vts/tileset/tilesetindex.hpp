@@ -26,13 +26,11 @@ public:
         : metaBinaryOrder_(metaBinaryOrder)
     {}
 
+    virtual ~Index() {};
+
     /** Tile index (tile data presence flags)
      */
     TileIndex tileIndex;
-
-    /** Tileset references.
-     */
-    TileIndex references;
 
     bool check(const TileId &tileId, TileFile type) const;
 
@@ -53,7 +51,28 @@ public:
 
     unsigned int metaBinaryOrder() const { return metaBinaryOrder_; }
 
+    /** Loads rest of data from tile index.
+     *  Default implementation loads old references tree.
+     */
+    void loadRest(std::istream &f, const boost::filesystem::path &path);
+
+    /** Save rest of data to tile index.
+     *  Default implementation saves old references tree.
+     */
+    void saveRest(std::ostream &f) const;
+
 private:
+    /** Loads rest of data from tile index.
+     *  Default implementation loads old references tree.
+     */
+    virtual void loadRest_impl(std::istream &f
+                               , const boost::filesystem::path &path);
+
+    /** Save rest of data to tile index.
+     *  Default implementation saves old references tree.
+     */
+    virtual void saveRest_impl(std::ostream &f) const;
+
     unsigned int metaBinaryOrder_;
 };
 
@@ -79,6 +98,17 @@ inline bool Index::real(const TileId &tileId) const
 inline bool Index::real(const TileId &tileId, bool alien) const
 {
     return tileIndex.real(tileId, alien);
+}
+
+inline void Index::loadRest(std::istream &f
+                            , const boost::filesystem::path &path)
+{
+    return loadRest_impl(f, path);
+}
+
+inline void Index::saveRest(std::ostream &f) const
+{
+    return saveRest_impl(f);
 }
 
 } } } // namespace vadstena::vts::tileset

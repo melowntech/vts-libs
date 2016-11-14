@@ -137,28 +137,28 @@ void TileIndex::load(const fs::path &path)
     f.close();
 }
 
-void TileIndex::save(std::ostream &f) const
+void TileIndex::save(std::ostream &f, const SaveParams &params) const
 {
     using utility::binaryio::write;
 
-    write(f, TILE_INDEX_IO_MAGIC); // 7 bytes
+    write(f, TILE_INDEX_IO_MAGIC); // 2 bytes
 
     write(f, uint8_t(minLod_));
     write(f, uint8_t(trees_.size()));
 
     // save lod-tree mapping
     for (const auto &tree : trees_) {
-        tree.save(f);
+        tree.save(f, params);
     }
 }
 
-void TileIndex::save(const fs::path &path) const
+void TileIndex::save(const fs::path &path, const SaveParams &params) const
 {
     utility::ofstreambuf f;
     f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
     f.open(path.string(), std::ifstream::out | std::ifstream::trunc);
 
-    save(f);
+    save(f, params);
 
     f.close();
 }
@@ -672,7 +672,7 @@ TileIndex& TileIndex::shrinkAndComplete(unsigned int trim)
     if (empty()) { return *this; }
 
     auto applyTrim([&](Lod l) { return (l > trim) ? (l - trim) : 0; });
-    auto any([&](QTree::value_type value) { return value; });
+    auto any([&](QTree::value_type value) { return bool(value); });
 
     // grab last tree and shrink it by trim-levels
     auto lod(lodRange().max);

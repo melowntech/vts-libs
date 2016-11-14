@@ -287,6 +287,8 @@ constexpr std::uint8_t dword(0x3);
 constexpr std::uint8_t mask(0x3);
 constexpr int shift(2);
 
+constexpr std::uint8_t bw(0x80);
+
 inline std::uint8_t flags(std::uint32_t value)
 {
     if (value < limits::byte) { return byte; }
@@ -301,8 +303,11 @@ inline std::uint8_t type(std::uint8_t flags)
 
 } // namespace node_flags
 
-inline void saveValue(std::ostream &os, std::uint32_t value)
+inline void saveValue(std::ostream &os, const QTree::SaveParams &params
+                      , std::uint32_t value)
 {
+    if (params.bw()) { return; }
+
     // write value based on limits
     if (value < limits::byte) {
         // LOG(debug) << "Saving value: " << std::bitset<8>(value);
@@ -316,9 +321,24 @@ inline void saveValue(std::ostream &os, std::uint32_t value)
     }
 }
 
+template <typename T>
+inline QTree::value_type loadValue(std::istream &is
+                                   , const QTree::SaveParams &params)
+{
+    if (params.bw()) {
+        // LOG(debug) << "Loading value: " << std::bitset<sizeof(T) * 8>(1);
+        return 1;
+    }
+
+    T value;
+    bin::read(is, value);
+    // LOG(debug) << "Loading value: " << std::bitset<sizeof(T) * 8>(value);
+    return value;
+}
+
 } // namesapce
 
-void QTree::save(std::ostream &os) const
+void QTree::save(std::ostream &os, const SaveParams &params) const
 {
     // header
     // LOG(debug) << "writing magic";
@@ -326,17 +346,20 @@ void QTree::save(std::ostream &os) const
     bin::write(os, std::uint16_t(2));
     bin::write(os, std::uint8_t(order_));
 
+    std::uint8_t baseFlags(params.bw() ? node_flags::bw : 0);
+
     // write this node
     if (root_.children) {
         // node has children -> save children
-        bin::write(os, std::uint8_t(0));
+        bin::write(os, std::uint8_t(baseFlags));
         // LOG(debug) << "Write flags: " << std::bitset<8>(0);
-        root_.saveChildren(os);
+        root_.saveChildren(os, params);
     } else {
-        bin::write(os, node_flags::flags(root_.value));
         // LOG(debug) << "Write flags: "
         //            << std::bitset<8>(node_flags::flags(root_.value));
-        saveValue(os, root_.value);
+        bin::write
+            (os, std::uint8_t(baseFlags | node_flags::flags(root_.value)));
+        saveValue(os, params, root_.value);
     }
 }
 
@@ -422,8 +445,11 @@ void QTree::load(std::istream &is, const fs::path &path)
         bin::read(is, flags);
         // LOG(debug) << "Read flags: " << std::bitset<8>(flags);
 
+        SaveParams params;
+        params.bw(flags & node_flags::bw);
+
         // process root node
-        std::tie(count_, allSetFlags_) = root_.load(size_, is, flags);
+        std::tie(count_, allSetFlags_) = root_.load(size_, is, params, flags);
     } break;
 
     default:
@@ -433,7 +459,8 @@ void QTree::load(std::istream &is, const fs::path &path)
     }
 }
 
-void QTree::Node::saveChildren(std::ostream &os) const
+void QTree::Node::saveChildren(std::ostream &os, const SaveParams &params)
+    const
 {
     // collect and write child flags
     std::uint8_t flags(0);
@@ -451,9 +478,10 @@ void QTree::Node::saveChildren(std::ostream &os) const
     for (const auto &node : children->nodes) {
         if (node.children) {
             // node has children -> save children
-            node.saveChildren(os);
+            node.saveChildren(os, params);
         } else {
-            saveValue(os, node.value);
+            // we have to write actual value
+            saveValue(os, params, node.value);
         }
     }
 }
@@ -481,34 +509,26 @@ QTree::Node::loadV1(unsigned int mask, std::istream &is)
 
 std::tuple<std::size_t, QTree::value_type>
 QTree::Node::load(unsigned int mask, std::istream &is
+                  , const SaveParams &params
                   , std::uint8_t flags)
 {
     switch (node_flags::type(flags)) {
     case node_flags::children:
         // handle node's children
         children.reset(new Children());
-        return loadChildren(mask >> 1, is);
+        return loadChildren(mask >> 1, is, params);
 
-    case node_flags::byte: {
-        std::uint8_t v;
-        bin::read(is, v);
-        value = v;
-        // LOG(debug) << "Loading value: " << std::bitset<8>(value);
-    } break;
+    case node_flags::byte:
+        value = loadValue<std::uint8_t>(is, params);
+        break;
 
-    case node_flags::word: {
-        std::uint16_t v;
-        bin::read(is, v);
-        value = v;
-        // LOG(debug) << "Loading value: " << std::bitset<16>(value);
-    } break;
+    case node_flags::word:
+        value = loadValue<std::uint16_t>(is, params);
+        break;
 
-    case node_flags::dword: {
-        std::uint32_t v;
-        bin::read(is, v);
-        value = v;
-        // LOG(debug) << "Loading value: " << std::bitset<32>(value);
-    } break;
+    case node_flags::dword:
+        value = loadValue<std::uint32_t>(is, params);
+        break;
     }
 
     return std::tuple<std::size_t, value_type>
@@ -516,7 +536,8 @@ QTree::Node::load(unsigned int mask, std::istream &is
 }
 
 std::tuple<std::size_t, QTree::value_type>
-QTree::Node::loadChildren(unsigned int mask, std::istream &is)
+QTree::Node::loadChildren(unsigned int mask, std::istream &is
+                          , const SaveParams &params)
 {
     std::tuple<std::size_t, value_type> statistics;
 
@@ -525,7 +546,7 @@ QTree::Node::loadChildren(unsigned int mask, std::istream &is)
     // LOG(debug) << "Read flags: " << std::bitset<8>(flags);
     for (auto &node : children->nodes) {
         // process node
-        const auto sub(node.load(mask, is, flags));
+        const auto sub(node.load(mask, is, params, flags));
 
         // update statistics
         std::get<0>(statistics) += std::get<0>(sub);

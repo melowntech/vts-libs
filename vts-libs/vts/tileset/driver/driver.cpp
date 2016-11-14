@@ -156,11 +156,6 @@ Driver::pointer Driver::create(const boost::filesystem::path &root
     {
         return std::make_shared<driver::PlainDriver>
             (root, *o, cloneOptions);
-    } else if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
-               (&genericOptions))
-    {
-        return std::make_shared<driver::OldAggregatedDriver>
-            (root, *o, cloneOptions);
     } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&genericOptions))
     {
@@ -188,12 +183,7 @@ Driver::pointer Driver::create(const boost::filesystem::path &root
 Driver::pointer Driver::create(const boost::any &genericOptions
                                , const CloneOptions &cloneOptions)
 {
-    if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
-        (&genericOptions))
-    {
-        return std::make_shared<driver::OldAggregatedDriver>
-            (*o, cloneOptions);
-    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
+    if (auto o = boost::any_cast<const driver::AggregatedOptions>
         (&genericOptions))
     {
         return std::make_shared<driver::AggregatedDriver>

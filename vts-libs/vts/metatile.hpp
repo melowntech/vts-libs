@@ -240,7 +240,6 @@ public:
      */
     template <typename F> void for_each(F f);
 
-    typedef std::vector<int> References;
     typedef std::vector<int> Indices;
 
     /** Updates this metatile with data from input metatiles while resolving
@@ -257,16 +256,9 @@ public:
      *     true: take only alien nodes into account
      *
      * \param in input metatile
-     * \param references grid with stored references during computation
-     * \param indices mapping between glue surface reference and surface index
-     * \param index index of current surface being processed
      * \param alien marks processing or regular or alien nodes
      */
-    void update(const MetaTile &in, References &references
-                , int index, const Indices *indices = nullptr
-                , bool alien = false);
-
-    References makeReferences() const;
+    void update(const MetaTile &in, bool alien = false);
 
     bool empty() const { return !math::valid(valid_); }
 

@@ -508,7 +508,6 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
     , metaTiles(MetaCache::create(driver))
     , tsi(driverTsi_ ? *driverTsi_ : tsi_)
     , tileIndex(tsi.tileIndex)
-    , references(tsi.references)
 {
     loadConfig();
     referenceFrame = registry::system.referenceFrames
@@ -529,7 +528,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
                      (properties.referenceFrame))
     , metaTiles(MetaCache::create(driver))
     , tsi(tsi_)
-    , tileIndex(tsi.tileIndex), references(tsi.references)
+    , tileIndex(tsi.tileIndex)
     , lodRange(LodRange::emptyRange())
 {
     if (properties.id.empty()) {
@@ -774,12 +773,6 @@ void TileSet::Detail::updateNode(TileId tileId
               | TileIndex::Flag::reference | TileIndex::Flag::alien);
     auto flags(flagsFromNode(*node.metanode));
     flags |= extraFlags;
-
-    // process reference
-    if (auto r = node.metanode->reference()) {
-        flags |= TileIndex::Flag::reference;
-        references.set(tileId, r);
-    }
 
     // set tile index
     tileIndex.setMask(tileId, mask, flags);
@@ -1586,11 +1579,6 @@ bool TileSet::canContain(const NodeInfo &nodeInfo) const
     auto fsde(sde.find(nodeInfo.srs()));
     if (fsde == sde.end()) { return false; }
     return overlaps(fsde->second, nodeInfo.extents());
-}
-
-int TileSet::getReference(const TileId &tileId) const
-{
-    return detail().tsi.getReference(tileId);
 }
 
 void TileSet::paste(const TileSet &srcSet

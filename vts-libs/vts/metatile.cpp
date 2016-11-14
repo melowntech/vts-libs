@@ -713,14 +713,7 @@ MetaTile::extents_type MetaTile::validExtents() const
                         , origin_.y + valid_.ur(1));
 }
 
-MetaTile::References MetaTile::makeReferences() const
-{
-    return References(size_ * size_, 0);
-}
-
-void MetaTile::update(const MetaTile &in, References &references
-                      , int surfaceIndex, const Indices *indices
-                      , bool alien)
+void MetaTile::update(const MetaTile &in, bool alien)
 {
     // sanity check
     if ((origin_ != in.origin_) || (binaryOrder_ != in.binaryOrder_)) {
@@ -739,28 +732,6 @@ void MetaTile::update(const MetaTile &in, References &references
 
             // get input
             const auto &inn(in.grid_[idx]);
-
-            // check for reference
-            if (auto reference = inn.reference()) {
-                // we have reference, store if we can
-                auto &outr(references[idx]);
-                // if (!outr && indices) {
-                if (!outr) {
-                    // translate glue reference info surface index
-                    auto surfaceReference((*indices)[reference - 1] + 1);
-
-                    // unset output references -> store
-                    outr = surfaceReference;
-                }
-                continue;
-            }
-
-            // check for tileset skip
-            auto storedReference(references[idx]);
-            if (storedReference && (storedReference != surfaceIndex)) {
-                // valid stored reference differes from current index -> skip
-                continue;
-            }
 
             // update valid extents
             math::update(valid_, point_type(i, j));
