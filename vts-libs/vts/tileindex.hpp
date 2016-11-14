@@ -310,6 +310,10 @@ public:
      */
     TileIndex& unset(Flag::value_type type = Flag::none);
 
+    /** Clamp tileIndex to given LOD range. Tile index is never expanded.
+     */
+    TileIndex& clamp(const LodRange & lr);
+
     /** Combines this tile index with other.
      *
      * Combiner prototype:

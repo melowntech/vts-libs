@@ -644,6 +644,31 @@ TileIndex& TileIndex::unset(Flag::value_type type)
     return *this;
 }
 
+TileIndex& clamp(const LodRange & lr)
+{
+    const LodRange curLr(minLod_, minLod_ + trees_.size() - 1);
+
+    // if ranges do not overlap, erase all
+    if ( (lr.min > curLr.max) || (curLr.min > lr.max) ) {
+        trees_.clear();
+        minLod_ = 0;
+        return *this;
+    }
+
+    // clamp end by resize
+    if (lr.max < curLr.max) {
+        trees_.resize(curLr.max - lr.max + 1);
+    }
+
+    // clamp begin by erase
+    if (lr.min > curLr.min) {
+        trees_.erase(trees_.begin(), trees_.begin() + lr.min - curLr.min);
+        minLod_ = lr.min;
+    }
+
+    return *this;
+}
+
 TileRange TileIndex::Stat::computeTileRange() const
 {
     if (lodRange.empty()) { return TileRange(math::InvalidExtents{}); }

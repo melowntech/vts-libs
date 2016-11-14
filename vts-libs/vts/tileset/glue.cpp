@@ -29,6 +29,9 @@ tileIndices(const TileSet::const_ptrlist &sets
     std::vector<TileIndex> indices;
     for (const auto &set : sets) {
         indices.push_back(set->tileIndex(lodRange).simplify(mask));
+
+        // and clamp them to desired range
+        indices.back().clamp(lodRange);
     }
     return indices;
 }
