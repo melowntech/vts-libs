@@ -1024,7 +1024,7 @@ void mergeNavtile(Output &output)
 {
     auto nt(opencv::NavTile::createData());
     cv::Mat mask(nt.rows, nt.cols, CV_8U, cv::Scalar(0));
-    for (const auto input : output.source.navtile) {
+    for (const auto &input : output.source.navtile) {
         if (output.derived(input)) {
             renderNavtile(nt, mask, local(input.tileId().lod, output.tileId)
                           , input.navtile());
