@@ -138,6 +138,13 @@ public:
     void forEachNode(unsigned int depth, unsigned int x, unsigned int y
                      , const Op &op, Filter filter = Filter::both) const;
 
+    /** Runs op(x, y, value) for each pixel based on filter in subtree starting
+     *  at given index.
+     */
+    template <typename Op>
+    void forEach(unsigned int depth, unsigned int x, unsigned int y
+                 , const Op &op, Filter filter = Filter::both) const;
+
     /** Translates value of every node.
      *  Calls value = op(value) for every node.
      */
@@ -387,6 +394,26 @@ inline void QTree::forEachNode(unsigned int depth
 {
     auto subdepth((depth < order_) ? (order_ - depth) : 1);
     root_.find(depth, x, y).descend(1 << subdepth, 0, 0, op, filter);
+}
+
+template <typename Op>
+inline void QTree::forEach(unsigned int depth, unsigned int x, unsigned int y
+                           , const Op &op, Filter filter) const
+{
+    this->forEachNode(depth, x, y
+                      , [&](unsigned int x, unsigned int y, unsigned int size
+                            , value_type value)
+    {
+        // rasterize node
+        uint ex(x + size);
+        uint ey(y + size);
+
+        for (uint j(y); j < ey; ++j) {
+            for (uint i(x); i < ex; ++i) {
+                op(i, j, value);
+            }
+        }
+    }, filter);
 }
 
 template <typename Op>

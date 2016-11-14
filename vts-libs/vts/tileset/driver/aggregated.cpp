@@ -118,6 +118,45 @@ deserializeTsMap(const std::string &raw)
     return tsMap;
 }
 
+typedef TileIndex::Flag TiFlag;
+typedef TiFlag::value_type value_type;
+typedef std::uint16_t SetId;
+
+inline SetId setIdFromFlags(TileIndex::Flag::value_type flags)
+{
+    return flags >> 16;
+}
+
+void addTileIndex(TileIndex &ti, AggregatedDriver::DriverEntry &de
+                  , SetId setId, bool alien)
+{
+    auto combiner([&](value_type o, value_type n) -> value_type
+    {
+        if (o & TiFlag::mesh) {
+            // already occupied by existing tile
+            return o;
+        }
+
+        if (alien != TiFlag::isAlien(n)) {
+            // different alien flag
+            return o;
+        }
+
+        // combine flags with set id
+        return (n & TiFlag::nonAlien) | (setId << 16);
+    });
+
+    // process tileindex
+    tileset::Index work;
+    tileset::loadTileSetIndex(work, *de.driver);
+    ti.combine(work.tileIndex, combiner);
+
+    // derive metatile index from tileset's tile index
+    if (!alien) {
+        de.metaIndex = work.deriveMetaIndex();
+    }
+}
+
 AggregatedDriver::DriverEntry::list
 openDrivers(Storage &storage, const AggregatedOptions &options)
 {
@@ -159,39 +198,49 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
           , std::time_t lastModified, const TileId &tileId
           , const TileIndex &tileIndex, bool noSuchFile = true)
 {
-    // output metatile
-    auto bo(referenceFrame.metaBinaryOrder);
-    MetaTile ometa(tileId, bo);
+    const auto bo(referenceFrame.metaBinaryOrder);
+    // parent tile at meta-binary-order levels above us
+    const auto parentId(parent(tileId, bo));
+    // shrinked tile id to be used in meta-index
+    const TileId shrinkedId(tileId.lod, parentId.x, parentId.y);
 
     auto loadMeta([&](const TileId &tileId, const Driver::pointer &driver)
                   -> MetaTile
     {
-        auto ms(driver->input(tileId, TileFile::meta));
+        auto ms(noSuchFile
+                ? driver->input(tileId, TileFile::meta)
+                : driver->input(tileId, TileFile::meta, NullWhenNotFound));
         return loadMetaTile(*ms, bo, ms->name());
     });
 
-    (void) drivers;
+    // output metatile
+    MetaTile ometa(tileId, bo);
 
-#if 0
-    // process whole input
-    for (std::size_t idx(tsil.size()); idx; --idx) {
-        const auto &tsi(tsil[idx - 1]);
-
-        // process all glues
-        for (const auto &gi : tsi.glues) {
-            // apply metatile from glue
-            if (gi.tsi->check(tileId, TileFile::meta)) {
-                ometa.update(loadMeta(tileId, gi.driver), references
-                             , idx, &gi.indices, gi.isAlien);
-            }
-        }
-
-        // apply metatile from tileset
-        if (tsi.tsi->check(tileId, TileFile::meta)) {
-            ometa.update(loadMeta(tileId, tsi.driver), references, idx);
-        }
+    if (const auto *tree = tileIndex.tree(tileId.lod)) {
+        tree->forEach
+            (parentId.lod, parentId.x, parentId.y
+             , [&](unsigned int x, unsigned int y, QTree::value_type value)
+        {
+            ometa.setUpdateReference
+                (TileId(tileId.lod, tileId.x + x, tileId.y + y)
+                 , setIdFromFlags(value));
+        }, QTree::Filter::white);
+    } else {
+        LOGTHROW(err1, vs::NoSuchFile)
+            << "There is no metatile for " << tileId << ".";
     }
-#endif
+
+    int idx(-1);
+    for (const auto &de : drivers) {
+        // next index
+        ++idx;
+
+        // check for metatile existence
+        if (!de.metaIndex.get(shrinkedId)) { continue; }
+
+        // load metatile from this tileset and update output metatile
+        ometa.update(idx, loadMeta(tileId, de.driver));
+    }
 
     if (ometa.empty()) {
         if (noSuchFile) {
@@ -274,54 +323,11 @@ AggregatedDriver::AggregatedDriver(const AggregatedOptions &options
     memProperties_ = build(options, cloneOptions);
 }
 
-namespace {
-
-typedef TileIndex::Flag TiFlag;
-typedef TiFlag::value_type value_type;
-typedef std::uint16_t SetId;
-
-inline SetId setIdFromFlags(TileIndex::Flag::value_type flags)
-{
-    return flags >> 16;
-}
-
-void addTileIndex(TileIndex &ti, AggregatedDriver::DriverEntry &de
-                  , SetId setId, bool alien)
-{
-    auto combiner([&](value_type o, value_type n) -> value_type
-    {
-        if (o & TiFlag::mesh) {
-            // already occupied by existing tile
-            return o;
-        }
-
-        if (alien != TiFlag::isAlien(n)) {
-            // different alien flag
-            return o;
-        }
-
-        // combine flags with set id
-        return (n & TiFlag::nonAlien) | (setId << 16);
-    });
-
-    // process tileindex
-    tileset::Index work;
-    tileset::loadTileSetIndex(work, *de.driver);
-    ti.combine(work.tileIndex, combiner);
-
-    // derive metatile index from tileset's tile index
-    if (!alien) {
-        de.metaIndex = work.deriveMetaIndex();
-    }
-}
-
-} // namespace
-
 void AggregatedDriver::Index::loadRest_impl(std::istream &f
                                             , const fs::path &path)
 {
     for (auto &de : drivers_) {
-        LOG(info4) << "Loading tileset metaindex.";
+        LOG(debug) << "Loading tileset metaindex.";
         de.metaIndex.load(f, path);
     }
 }
@@ -329,7 +335,7 @@ void AggregatedDriver::Index::loadRest_impl(std::istream &f
 void AggregatedDriver::Index::saveRest_impl(std::ostream &f) const
 {
     for (const auto &de : drivers_) {
-        LOG(info4) << "Saving tileset metaindex.";
+        LOG(debug) << "Saving tileset metaindex.";
         de.metaIndex.save(f, TileIndex::SaveParams().bw(true));
     }
 }

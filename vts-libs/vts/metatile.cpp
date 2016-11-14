@@ -674,6 +674,24 @@ MetaNode& MetaNode::mergeExtents(const MetaNode &other)
     return *this;
 }
 
+MetaNode& MetaNode::mergeExtents(const math::Extents3 &other)
+{
+    if (other.ll == other.ur) {
+        // nothing to do
+        return *this;
+    }
+
+    if (extents.ll == extents.ur) {
+        // use other's extents
+        extents = other;
+        return *this;
+    }
+
+    // merge
+    extents = unite(extents, other);
+    return *this;
+}
+
 MetaNode& MetaNode::internalTextureCount(std::size_t value)
 {
     if (!geometry()) {
@@ -750,6 +768,72 @@ void MetaTile::update(const MetaTile &in, bool alien)
             // both are virtual nodes:
             // update extents
             outn.mergeExtents(inn);
+        }
+    }
+}
+
+// NB: in following code, heightRange.min is used as a placeholder for
+// referenceId; this can change in the future
+
+void MetaTile::setUpdateReference(const TileId &tileId, Reference referenceId)
+{
+    auto gi(gridIndex(tileId, false));
+    grid_[index(gi)].heightRange.min = referenceId;
+}
+
+void MetaTile::update(Reference referenceId, const MetaTile &in)
+{
+    // sanity check
+    if ((origin_ != in.origin_) || (binaryOrder_ != in.binaryOrder_)) {
+        LOGTHROW(err1, storage::Error)
+            << "Incompatible metatiles.";
+    }
+
+    for (auto j(in.valid_.ll(1)); j <= in.valid_.ur(1); ++j) {
+        for (auto i(in.valid_.ll(0)); i <= in.valid_.ur(0); ++i) {
+            // first, skip real output tiles
+            auto idx(j * in.size_ + i);
+            auto &outn(grid_[idx]);
+
+            // get input
+            const auto &inn(in.grid_[idx]);
+
+            if (!inn.real() && math::empty(inn.extents)) {
+                // nonexistent node, ignore
+                continue;
+            }
+
+            if (outn.real()) {
+                // we already have valid output
+
+                // just update geometry extents
+                outn.mergeExtents(inn);
+                continue;
+            }
+
+            // update metatile valid extents
+            math::update(valid_, point_type(i, j));
+
+            if (referenceId != outn.heightRange.min) {
+                // difference reference, just update geometry extents
+                outn.mergeExtents(inn);
+                continue;
+            }
+
+            // found matching node, copy
+
+            // we need to keep current geometry extents since they are rewritten
+            // by node copy
+            const auto savedExtents(outn.extents);
+
+            // copy
+            outn = inn;
+
+            // and apply saved geometry extents
+            outn.mergeExtents(savedExtents);
+
+            // reset children and alien flags
+            outn.reset(MetaNode::Flag::allChildren | MetaNode::Flag::alien);
         }
     }
 }

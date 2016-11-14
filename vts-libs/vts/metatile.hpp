@@ -98,6 +98,8 @@ struct MetaNode {
 
     void update(Flag::value_type flags) { flags_ |= flags; }
 
+    void reset(Flag::value_type flags) { flags_ &= ~flags; }
+
     /** Normalized extents in range 0.0-1.0.
      */
     math::Extents3 extents;
@@ -140,6 +142,8 @@ struct MetaNode {
                                , bool value = true);
 
     MetaNode& mergeExtents(const MetaNode &other);
+
+    MetaNode& mergeExtents(const math::Extents3 &other);
 
     const storage::CreditIds& credits() const {  return credits_; }
 
@@ -259,6 +263,17 @@ public:
      * \param alien marks processing or regular or alien nodes
      */
     void update(const MetaTile &in, bool alien = false);
+
+
+    typedef std::uint16_t Reference;
+
+    /** Sets expected reference in metanode at tileId.
+     */
+    void setUpdateReference(const TileId &tileId, Reference referenceId);
+
+    /** Update this metatile with another metatile honoring references.
+     */
+    void update(Reference referenceId, const MetaTile &in);
 
     bool empty() const { return !math::valid(valid_); }
 
