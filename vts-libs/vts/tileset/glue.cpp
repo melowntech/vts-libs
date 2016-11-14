@@ -33,7 +33,8 @@ tileIndices(const TileSet::const_ptrlist &sets
     return indices;
 }
 
-LodRange range(const TileSet::const_ptrlist &sets)
+LodRange range( const TileSet::const_ptrlist &sets
+              , const TileIndex::Flag::value_type mask = TileIndex::Flag::any)
 {
     // no set -> no lod range
     if (sets.empty()) { return LodRange::emptyRange(); }
@@ -42,7 +43,13 @@ LodRange range(const TileSet::const_ptrlist &sets)
     LodRange r(0, 0);
 
     for (const auto &set : sets) {
-        r = unite(r, set->lodRange());
+        if (mask != TileIndex::Flag::any) {
+            // NB: probably can be done more efficiently not using statMask
+            auto stat(set->tileIndex().statMask(mask, mask));
+            r = unite(r, stat.lodRange);
+        } else {
+            r = unite(r, set->lodRange());
+        }
     }
     return r;
 }
@@ -425,13 +432,13 @@ void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
     const LodRange lr(range(sets));
     LOG(info2) << "LOD range: " << lr;
 
-    auto generate(buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
+    auto generateRaw(buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
                                    , TileIndex::Flag::mesh));
 
-    //dumpTileIndex(dumpRoot, "generate-raw", generateRaw, referenceFrameId);
+    dumpTileIndex(dumpRoot, "generate-raw", generateRaw, referenceFrameId);
 
-    //auto generate(optimizeGenerateSet( generateRaw, dumpRoot
-    //                                 , referenceFrameId, lr, sets));
+    auto generate(optimizeGenerateSet( generateRaw, dumpRoot
+                                     , referenceFrameId, lr, sets));
 
     dumpTileIndex(dumpRoot, "generate", generate, referenceFrameId);
     LOG(info1) << "generate: " << generate.count();
@@ -444,8 +451,9 @@ void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
     LOG(info3) << "(glue) Generate set calculated.";
 
     // calculate navtile generate set
+    const LodRange navLr( range(sets, TileIndex::Flag::navtile) );
     auto navtileGenerate
-        (buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
+        (buildGenerateSet(dumpRoot, referenceFrameId, navLr, sets
                           , TileIndex::Flag::navtile));
     dumpTileIndex(dumpRoot, "generate-navtile", navtileGenerate
                   , referenceFrameId);
