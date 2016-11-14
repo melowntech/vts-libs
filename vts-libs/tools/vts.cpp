@@ -13,6 +13,7 @@
 
 #include "service/cmdline.hpp"
 
+#include "imgproc/png.hpp"
 #include "imgproc/rastermask/cvmat.hpp"
 
 #include "geo/geodataset.hpp"
@@ -27,6 +28,7 @@
 #include "../vts/opencv/colors.hpp"
 #include "../vts/opencv/navtile.hpp"
 #include "../vts/tileset/delivery.hpp"
+#include "../vts/2d.hpp"
 
 #include "./locker.hpp"
 
@@ -51,6 +53,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((dumpMesh)("dump-mesh"))
                       ((dumpMeshMask)("dump-mesh-mask"))
                       ((tileIndexInfo)("tileindex-info"))
+                      ((convertTileIndex)("convert-tileindex"))
                       ((concat)("concat"))
                       ((aggregate)("aggregate"))
                       ((remote)("remote"))
@@ -163,6 +166,8 @@ private:
     int dumpMeshMask();
 
     int tileIndexInfo();
+
+    int convertTileIndex();
 
     int concat();
 
@@ -553,6 +558,18 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "ID's of tiles to query.")
             ;
         p.positional.add("tileId", -1);
+    });
+
+    createParser(cmdline, Command::convertTileIndex
+                 , "--command=convert-tileindex: tile-index conversion to "
+                 "latest version"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("output", po::value(&outputPath_)->required()
+             , "Path of output tileindex.")
+            ;
+        p.positional.add("output", -1);
     });
 
     createParser(cmdline, Command::concat
@@ -949,6 +966,7 @@ int VtsStorage::runCommand()
     case Command::dumpMesh: return dumpMesh();
     case Command::dumpMeshMask: return dumpMeshMask();
     case Command::tileIndexInfo: return tileIndexInfo();
+    case Command::convertTileIndex: return convertTileIndex();
     case Command::concat: return concat();
     case Command::aggregate: return aggregate();
     case Command::remote: return remote();
@@ -1508,14 +1526,18 @@ int VtsStorage::dumpMesh()
 
     int index(0);
     for (const auto &sm : mesh.submeshes) {
-        std::cout << "submesh[" << index << "]:" << std::endl;
+        std::cout << "submesh[" << index << "] (" 
+                  << sm.vertices.size() << " vertices):" << std::endl;
 
         const auto &v(sm.vertices);
 
-        std::cout << "faces[" << index << "]" << std::endl;
+        std::cout << "faces[" << index << "] (" 
+                  << sm.faces.size() << " faces):" << std::endl;
         for (const auto &f : sm.faces) {
             std::cout
                 << std::fixed << "    " << f(0) << ", " << f(1) << ", " << f(2)
+                << std::flush;
+            std::cout
                 << " -> " << v[f(0)] << ", " << v[f(1)]
                 << ", " << v[f(2)] << "\n";
         }
@@ -1558,24 +1580,8 @@ int VtsStorage::dumpMeshMask()
         return EXIT_FAILURE;
     }
 
-    auto mesh(ts.getMesh(tileId_));
-
-    cv::Mat coverage(mesh.coverageMask.size().height
-                     , mesh.coverageMask.size().width, CV_8UC3);
-    coverage = cv::Scalar(0x00, 0x00, 0x00);
-
-    mesh.coverageMask.forEachNode([&](uint xstart, uint ystart, uint size
-                                      , std::uint8_t color)
-    {
-        cv::Point2i start(xstart, ystart);
-        cv::Point2i end(xstart + size - 1, ystart + size - 1);
-
-        cv::rectangle(coverage, start, end, vts::opencv::palette256[color]
-                      , CV_FILLED, 4);
-    }, vts::Mesh::CoverageMask::Filter::white);
-
-    create_directories(outputPath_.parent_path());
-    imwrite(outputPath_.string(), coverage);
+    imgproc::png::write
+        (outputPath_, vts::debugMask(ts.getMeshMask(tileId_)), 9);
 
     return EXIT_SUCCESS;
 }
@@ -1592,6 +1598,15 @@ int VtsStorage::tileIndexInfo()
         auto flags(ti.get(tileId));
         std::cout << tileId << ": " << vts::TileFlags(flags) << std::endl;
     }
+
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::convertTileIndex()
+{
+    vts::TileIndex ti;
+    ti.load(path_);
+    ti.save(outputPath_);
 
     return EXIT_SUCCESS;
 }

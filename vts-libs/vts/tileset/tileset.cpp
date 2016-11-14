@@ -51,6 +51,11 @@ Mesh TileSet::getMesh(const TileId &tileId) const
     return detail().getMesh(tileId);
 }
 
+MeshMask TileSet::getMeshMask(const TileId &tileId) const
+{
+    return detail().getMeshMask(tileId);
+}
+
 void TileSet::getAtlas(const TileId &tileId, Atlas &atlas) const
 {
     detail().getAtlas(tileId, atlas);
@@ -690,6 +695,12 @@ void TileSet::Detail::load(const IStream::pointer &os, Mesh &mesh) const
     mesh = loadMesh(os);
 }
 
+void TileSet::Detail::load(const IStream::pointer &os, MeshMask &meshMask)
+    const
+{
+    meshMask = loadMeshMask(os);
+}
+
 void TileSet::Detail::load(const IStream::pointer &os, Atlas &atlas) const
 {
     atlas.deserialize(os->get(), os->name());
@@ -1089,6 +1100,30 @@ Mesh TileSet::Detail::getMesh(const TileId &tileId
     Mesh mesh;
     load(driver->input(tileId, TileFile::mesh), mesh);
     return mesh;
+}
+
+MeshMask TileSet::Detail::getMeshMask(const TileId &tileId
+                                      , const MetaNode *node)
+    const
+{
+    if (!node) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "There is no tile at " << tileId << ".";
+    }
+
+    if (!node->geometry()) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "Tile " << tileId << " has no mesh.";
+    }
+
+    MeshMask meshMask;
+    load(driver->input(tileId, TileFile::mesh), meshMask);
+    return meshMask;
+}
+
+MeshMask TileSet::Detail::getMeshMask(const TileId &tileId) const
+{
+    return getMeshMask(tileId, findMetaNode(tileId));
 }
 
 void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas

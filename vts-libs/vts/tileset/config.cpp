@@ -138,7 +138,7 @@ boost::any parsePlainDriver(const Json::Value &value)
 
 boost::any parseAggregatedDriver(const Json::Value &value)
 {
-    driver::AggregatedOptions driverOptions;
+    driver::OldAggregatedOptions driverOptions;
 
     std::string storagePath;
     Json::get(storagePath, value, "storage");
@@ -215,7 +215,7 @@ Json::Value buildDriver(const boost::any &d)
         value["uuid"] = to_string(opts->uuid());
         return value;
     } else if (auto opts = boost::any_cast
-               <const driver::AggregatedOptions>(&d))
+               <const driver::OldAggregatedOptions>(&d))
     {
         value["type"] = "aggregated";
         value["storage"] = opts->storagePath.string();

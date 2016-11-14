@@ -23,7 +23,7 @@
 
 // drivers:
 #include "./plain.hpp"
-#include "./aggregated.hpp"
+#include "./aggregated-old.hpp"
 #include "./remote.hpp"
 #include "./local.hpp"
 
@@ -155,10 +155,10 @@ Driver::pointer Driver::create(const boost::filesystem::path &root
     {
         return std::make_shared<driver::PlainDriver>
             (root, *o, cloneOptions);
-    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
+    } else if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
                (&genericOptions))
     {
-        return std::make_shared<driver::AggregatedDriver>
+        return std::make_shared<driver::OldAggregatedDriver>
             (root, *o, cloneOptions);
     } else if (auto o = boost::any_cast<const driver::RemoteOptions>
                (&genericOptions))
@@ -182,10 +182,10 @@ Driver::pointer Driver::create(const boost::filesystem::path &root
 Driver::pointer Driver::create(const boost::any &genericOptions
                                , const CloneOptions &cloneOptions)
 {
-    if (auto o = boost::any_cast<const driver::AggregatedOptions>
+    if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
         (&genericOptions))
     {
-        return std::make_shared<driver::AggregatedDriver>
+        return std::make_shared<driver::OldAggregatedDriver>
             (*o, cloneOptions);
     }
 
@@ -204,10 +204,10 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
         (&genericOptions))
     {
         return std::make_shared<driver::PlainDriver>(root, *o);
-    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
+    } else if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
                (&genericOptions))
     {
-        return std::make_shared<driver::AggregatedDriver>(root, *o);
+        return std::make_shared<driver::OldAggregatedDriver>(root, *o);
     } else if (auto o = boost::any_cast<const driver::RemoteOptions>
                (&genericOptions))
     {
@@ -235,7 +235,7 @@ boost::any relocateOptions(const boost::any &options
     if (auto o = boost::any_cast<const driver::PlainOptions>(&options))
     {
         return o->relocate(relocateOptions, prefix);
-    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
+    } else if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
                (&options))
     {
         return o->relocate(relocateOptions, prefix);

@@ -692,6 +692,8 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
     bin::read(in, magic);
     bin::read(in, version);
 
+    LOG(info1) << "Mesh version: " << version;
+
     if (std::memcmp(magic, MAGIC, sizeof(MAGIC))) {
         LOGTHROW(err1, storage::BadFileFormat)
             << "File " << path << " is not a VTS mesh file.";

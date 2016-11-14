@@ -143,7 +143,7 @@ RgbaImage debugMask(const Mesh::CoverageMask &coverageMask
             value = 1;
         } else if (value <= surfaceReferences.size()) {
             // value surface reference -> translate
-            surfaceReferences[value - 1];
+            value = surfaceReferences[value - 1];
         }
 
         return rgb2rgba(gil::palette256[value]);
