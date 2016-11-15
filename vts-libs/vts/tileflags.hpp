@@ -34,6 +34,12 @@ void forEachFlag(const TileFlags &f, const Func &callback)
             callback(os.str());
         }
     }
+
+    if (auto reference = TileIndex::Flag::getReference(f.value)) {
+        os.str("");
+        os << "reference=" << reference;
+        callback(os.str());
+    }
 }
 
 template<typename CharT, typename Traits>

@@ -148,8 +148,12 @@ void addTileIndex(unsigned int metaBinaryOrder
             return o;
         }
 
-        // combine flags with set id
-        return (n & TiFlag::nonAlien) | (setId << 16);
+        if (n & TiFlag::mesh) {
+            // combine flags with set id
+            return (n & TiFlag::nonAlien) | (setId << 16);
+        }
+
+        return o;
     });
 
     // process tileindex
