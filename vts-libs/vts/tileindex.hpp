@@ -288,13 +288,19 @@ public:
     TileIndex& simplify(Flag::value_type type = Flag::any);
 
     /** Makes tileindex complete -> every existing tile has its parent.
+     *  If stopAtCeiling is set, coarsest empty LODs are not affected by complete
+     *  and stay empty.
      */
-    TileIndex& complete(Flag::value_type type = Flag::any);
+    TileIndex& complete(Flag::value_type type = Flag::any, bool stopAtCeiling = false);
 
     /** Makes tileindex complete down the tree -> every existing tile has its
      *  child.
      */
     TileIndex& completeDown(Flag::value_type type = Flag::any);
+
+    /** Finds fines nonempty LOD and runs completeDown from that LOD.
+     */
+    TileIndex& completeDownFromBottom(Flag::value_type type = Flag::any);
 
     /** Ensures that quad-tree comdition is met: every tile has its sibling.
      */
@@ -303,6 +309,10 @@ public:
     /** Unsets every occurence of given flag(s).
      */
     TileIndex& unset(Flag::value_type type = Flag::none);
+
+    /** Clamp tileIndex to given LOD range. Tile index is never expanded.
+     */
+    TileIndex& clamp(const LodRange & lr);
 
     /** Combines this tile index with other.
      *

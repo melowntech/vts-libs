@@ -29,11 +29,15 @@ tileIndices(const TileSet::const_ptrlist &sets
     std::vector<TileIndex> indices;
     for (const auto &set : sets) {
         indices.push_back(set->tileIndex(lodRange).simplify(mask));
+
+        // and clamp them to desired range
+        indices.back().clamp(lodRange);
     }
     return indices;
 }
 
-LodRange range(const TileSet::const_ptrlist &sets)
+LodRange range( const TileSet::const_ptrlist &sets
+              , const TileIndex::Flag::value_type mask = TileIndex::Flag::any)
 {
     // no set -> no lod range
     if (sets.empty()) { return LodRange::emptyRange(); }
@@ -42,7 +46,13 @@ LodRange range(const TileSet::const_ptrlist &sets)
     LodRange r(0, 0);
 
     for (const auto &set : sets) {
-        r = unite(r, set->lodRange());
+        if (mask != TileIndex::Flag::any) {
+            // NB: probably can be done more efficiently not using statMask
+            auto stat(set->tileIndex().statMask(mask, mask));
+            r = unite(r, stat.lodRange);
+        } else {
+            r = unite(r, set->lodRange());
+        }
     }
     return r;
 }
@@ -300,54 +310,103 @@ merge::Output Merger::processTile(const NodeInfo &nodeInfo
                             , constraints, mergeOptions_);
 }
 
+// Make black-white tileindex complete to ceiling and round -> each 
+// node has parent/is accessible and quad condition is satisfied for
+// all tiles
+// NB: idempotent operation: f(f(x)) = f(x)
+void finalize(TileIndex & index) {
+    index.complete(1,true);
+    index.round();
+}
+
+// Expects sane tilesets: tileset is compact representation of its finest LOD data.
+// The representation need not to be perfect (additonal tiles at lower LODS) but
+// these imperfections are not meant to significantly influence merge output or
+// propagate to finer LODs
+// NB: union and intersection of SoI is again a SoI
+TileIndex sphereOfInfluenceForMerge(const TileIndex & i) {
+    auto index(i);
+    index.completeDownFromBottom();
+    finalize(index);
+    return index;
+}
+
 TileIndex buildGenerateSet(const char *dumpRoot
                            , const std::string &referenceFrameId
                            , const LodRange &lr
                            , const TileSet::const_ptrlist &sets
                            , TileIndex::Flag::value_type mask)
 {
+    (void) dumpRoot;
+    (void) &referenceFrameId;
+
     // get all indices from all sets in full LOD range
     auto all(tileIndices(sets, lr, mask));
-    auto &top(all.back());
-    dumpTileIndex(dumpRoot, "top", top, referenceFrameId);
 
-    // make top round (i.e. quad condition is satisfied for every tile)
-    top.round();
-    // make complete up and down trees for top (up: every tile has parent, down:
-    // every tile has all children)
-    const auto topUp(TileIndex(top).growUp());
-    const auto topDown(TileIndex(top).completeDown());
+    // create spheres of influence of all indices and intersect them
+    auto generate( sphereOfInfluenceForMerge(all.back()) );
 
-    dumpTileIndex(dumpRoot, "top-round", top, referenceFrameId);
-    dumpTileIndex(dumpRoot, "top-up", topUp, referenceFrameId);
-    dumpTileIndex(dumpRoot, "top-down", topDown, referenceFrameId);
+    dumpTileIndex(dumpRoot, "top-sphere", generate, referenceFrameId);
 
-    // grab all tile indices except the top one
     boost::sub_range<TileIndexList> rest(all.begin(), std::prev(all.end()));
 
-    // output generate set
-    boost::optional<TileIndex> generate;
+    for (const auto &r : rest) { 
+        // intersect generate set with other spheres of influence
+        dumpTileIndex(dumpRoot, "rest-sphere", sphereOfInfluenceForMerge(r), referenceFrameId);
+        generate = generate.intersect( sphereOfInfluenceForMerge(r) );
+    }
 
-    for (const auto &r : rest) {
-        // make up and down complete tree
-        auto rUp(TileIndex(r).complete());
-        auto rDown(TileIndex(r).completeDown());
+    return generate;
+}
 
-        // intersect up and down trees with top up and down trees
-        auto i1(topUp.intersect(rDown));
-        auto i2(topDown.intersect(rUp));
+TileIndex optimizeGenerateSet(const TileIndex & generateSet
+                           , const char *dumpRoot
+                           , const std::string &referenceFrameId
+                           , const LodRange &lr
+                           , const TileSet::const_ptrlist &sets)
+{
+    // get all indices from all sets in full LOD range
+    auto all(tileIndices(sets, lr, TileIndex::Flag::watertight));
 
-        if (!generate) {
-            // first iteration -> just unite both trees
-            generate = unite(i1, i2);
+    // bottom dataset is discarded, top handled separatelly
+    boost::sub_range<TileIndexList> subset( std::next(all.begin())
+                                          , std::prev(all.end()));
+
+    // unite watertight tileindices - that is where the glue will not 
+    // be generated
+    TileIndex watertight;
+
+    for (const auto &r : subset) {
+        if (watertight.empty()) {
+            watertight = TileIndex(r).completeDownFromBottom();
         } else {
-            // next iteration -> unite up, down and intersect with the result
-            generate = generate->intersect(unite(i1, i2));
+            // FIX: fix case when last LOD has only non-watertight tiles - in
+            // this case completeDownFromBottom won't work as intended
+            watertight = unite(watertight, TileIndex(r).completeDownFromBottom());
         }
     }
 
-    // done
-    return *generate;
+    // add watertight from top dataset - do not complete down as this may be
+    // needed to override lower LODS 
+    watertight = unite(watertight, all.back()); 
+
+    // now we have tileset showing where at least one (except bottom) set is
+    // watertight -> no glue
+
+    dumpTileIndex(dumpRoot, "watertight-union", watertight, referenceFrameId);
+
+    // invert and intersect with generate set
+    watertight.invert(1);
+
+    dumpTileIndex(dumpRoot, "watertight-inverse", watertight, referenceFrameId);
+
+    watertight = watertight.intersect(generateSet);
+
+    dumpTileIndex(dumpRoot, "optimized-raw", watertight, referenceFrameId);
+
+    finalize(watertight);
+    
+    return watertight;
 }
 
 
@@ -371,8 +430,13 @@ void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
     const LodRange lr(range(sets));
     LOG(info2) << "LOD range: " << lr;
 
-    auto generate(buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
+    auto generateRaw(buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
                                    , TileIndex::Flag::mesh));
+
+    dumpTileIndex(dumpRoot, "generate-raw", generateRaw, referenceFrameId);
+
+    auto generate(optimizeGenerateSet( generateRaw, dumpRoot
+                                     , referenceFrameId, lr, sets));
 
     dumpTileIndex(dumpRoot, "generate", generate, referenceFrameId);
     LOG(info1) << "generate: " << generate.count();
@@ -385,9 +449,18 @@ void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
     LOG(info3) << "(glue) Generate set calculated.";
 
     // calculate navtile generate set
-    auto navtileGenerate
-        (buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
+    const LodRange navLr( range(sets, TileIndex::Flag::navtile) );
+
+    LOG(info2) << "Navtile LOD range: " << navLr;
+    
+    auto navtileGenerateRaw
+        (buildGenerateSet(dumpRoot, referenceFrameId, navLr, sets
                           , TileIndex::Flag::navtile));
+    dumpTileIndex(dumpRoot, "generate-navtile-raw", navtileGenerateRaw
+                  , referenceFrameId);
+
+    auto navtileGenerate(optimizeGenerateSet( navtileGenerateRaw, dumpRoot
+                                            , referenceFrameId, navLr, sets));
     dumpTileIndex(dumpRoot, "generate-navtile", navtileGenerate
                   , referenceFrameId);
 

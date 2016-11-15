@@ -472,6 +472,35 @@ TileIndex& TileIndex::completeDown(Flag::value_type type)
 
 }
 
+TileIndex& TileIndex::completeDownFromBottom(Flag::value_type type)
+{
+    auto filter([type](QTree::value_type value) { return (value & type); });
+
+    if (trees_.empty()) { return *this; }
+
+    // traverse trees from bottom and find first nonempty tree
+    auto lod(lodRange().max);
+    auto ritrees(trees_.rbegin());
+    
+    for (auto retrees(trees_.rend()); 
+         ritrees->empty() && ritrees != retrees; ++ritrees, --lod);
+
+    auto nonEmptyLod(lod++);
+    
+    // traverse from found nonempty to bottom and copy data to empty
+    for (auto ctrees(ritrees.base()), etrees(trees_.end());
+         ctrees != etrees; ++ctrees, ++lod)
+    {
+        LOG(debug) << "gdfb: " << nonEmptyLod << " -> " << lod;
+
+        // data mask is merged-in into empty tree, ignore its size
+        ctrees->merge(*ritrees, filter);
+    }
+
+    return *this;
+
+}
+
 TileIndex& TileIndex::growDown(Flag::value_type type)
 {
     auto filter([type](QTree::value_type value) { return (value & type); });
@@ -553,13 +582,24 @@ TileIndex& TileIndex::simplify(Flag::value_type type)
     return *this;
 }
 
-TileIndex& TileIndex::complete(Flag::value_type type)
+TileIndex& TileIndex::complete(Flag::value_type type, bool stopAtCeiling)
 {
     auto filter([type](QTree::value_type value) { return (value & type); });
 
     if (trees_.size() < 2) {
         // nothing to grow
         return *this;
+    }
+
+    // find ceiling
+
+    auto ceiling(trees_.begin());
+    Lod ceilingLod(lodRange().min);
+
+    if (stopAtCeiling) {
+        for (auto etrees(trees_.end()); ceiling != etrees; ++ceiling, ++ceilingLod) {
+            if ( !ceiling->empty() ) break;
+        }
     }
 
     // traverse trees bottom to top and coarsen -> propagates tiles from bottom
@@ -571,7 +611,9 @@ TileIndex& TileIndex::complete(Flag::value_type type)
         for (auto itrees(ctrees + 1), etrees(trees_.rend());
              itrees != etrees; ++itrees, ++ctrees, --lod)
         {
-            LOG(debug) << "gu: " << lod << " -> " << (lod - 1);
+            if (ceilingLod >= lod) break;
+
+            LOG(debug) << "cmpl: " << lod << " -> " << (lod - 1);
 
             // make copy of child
             auto child(*ctrees);
@@ -597,6 +639,31 @@ TileIndex& TileIndex::unset(Flag::value_type type)
 
     for (auto &tree : trees_) {
         tree.translateEachNode(translator);
+    }
+
+    return *this;
+}
+
+TileIndex& TileIndex::clamp(const LodRange & lr)
+{
+    const LodRange curLr(minLod_, minLod_ + trees_.size() - 1);
+
+    // if ranges do not overlap, erase all
+    if ( (lr.min > curLr.max) || (curLr.min > lr.max) ) {
+        trees_.clear();
+        minLod_ = 0;
+        return *this;
+    }
+
+    // clamp end by resize
+    if (lr.max < curLr.max) {
+        trees_.resize(lr.max - curLr.min + 1);
+    }
+
+    // clamp begin by erase
+    if (lr.min > curLr.min) {
+        trees_.erase(trees_.begin(), trees_.begin() + lr.min - curLr.min);
+        minLod_ = lr.min;
     }
 
     return *this;

@@ -268,6 +268,12 @@ FullTileSetProperties parse1(const Json::Value &config)
     parseSpatialDivisionExtents(properties.spatialDivisionExtents
                                 , config, "spatialDivisionExtents");
 
+    if (config.isMember("mergeBottomLod")) {
+        Json::get(properties.mergeBottomLod, config, "mergeBottomLod");
+    } else {
+        properties.mergeBottomLod = 0;
+    }
+
     return properties;
 }
 
@@ -302,6 +308,10 @@ void build(Json::Value &config, const FullTileSetProperties &properties)
     tileRange.append(properties.tileRange.ur(1));
 
     build(config["spatialDivisionExtents"], properties.spatialDivisionExtents);
+
+    if (properties.mergeBottomLod) {
+        config["mergeBottomLod"] = properties.mergeBottomLod;
+    }
 }
 
 } // namespace detail
