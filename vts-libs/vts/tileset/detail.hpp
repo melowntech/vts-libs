@@ -115,6 +115,7 @@ public:
     void load(const IStream::pointer &os, Atlas &atlas) const;
     void load(const NavTile::HeightRange &heightRange
               , const IStream::pointer &os, NavTile &navtile) const;
+    void load(const IStream::pointer &os, MeshMask &meshMask) const;
 
     MetaTile::pointer addNewMetaTile(const TileId &tileId) const;
 
@@ -123,12 +124,14 @@ public:
 
     bool exists(const TileId &tileId) const;
     Mesh getMesh(const TileId &tileId) const;
+    MeshMask getMeshMask(const TileId &tileId) const;
     void getAtlas(const TileId &tileId, Atlas &atlas) const;
     void getNavTile(const TileId &tileId, NavTile &navtile) const;
 
     /** Trusts that findMetaNode(tileId) yields the same value as node.
      */
     Mesh getMesh(const TileId &tileId, const MetaNode *node) const;
+    MeshMask getMeshMask(const TileId &tileId, const MetaNode *node) const;
     void getAtlas(const TileId &tileId, Atlas &atlas
                   , const MetaNode *node) const;
     void getNavTile(const TileId &tileId, NavTile &navtile

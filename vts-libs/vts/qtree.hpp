@@ -112,11 +112,18 @@ public:
     template <typename Op>
     void forEachNode(const Op &op, Filter filter = Filter::both) const;
 
-    /** Runs op(x, y, value) for each element base on filter.
+    /** Runs op(x, y, value) for each element based on filter.
      *  Uses forEachNode and rasterizes node internally.
      */
     template <typename Op>
     void forEach(const Op &op, Filter filter = Filter::both) const;
+
+    /** Runs op(x, y, value) for each node based on filter in subtree starting
+     *  at given index.
+     */
+    template <typename Op>
+    void forEachNode(unsigned int depth, unsigned int x, unsigned int y
+                     , const Op &op, Filter filter = Filter::both) const;
 
     /** Translates value of every node.
      *  Calls value = op(value) for every node.
@@ -326,13 +333,14 @@ inline void QTree::Node::descend(unsigned int mask, unsigned int x
     const
 {
     if (children) {
-        // process children
-        auto nmask(mask >> 1);
-        const auto &n(children->nodes);
-        n[0].descend(nmask, x, y, op, filter);
-        n[1].descend(nmask, x + nmask, y, op, filter);
-        n[2].descend(nmask, x, y + nmask, op, filter);
-        n[3].descend(nmask, x + nmask, y + nmask, op, filter);
+        // process children if allowed by depth
+        if (auto nmask = (mask >> 1)) {
+            const auto &n(children->nodes);
+            n[0].descend(nmask, x, y, op, filter);
+            n[1].descend(nmask, x + nmask, y, op, filter);
+            n[2].descend(nmask, x, y + nmask, op, filter);
+            n[3].descend(nmask, x + nmask, y + nmask, op, filter);
+        }
         return;
     }
 
@@ -344,6 +352,15 @@ inline void QTree::Node::descend(unsigned int mask, unsigned int x
 
     // call operation for node
     op(x, y, mask, value);
+}
+
+template <typename Op>
+inline void QTree::forEachNode(unsigned int depth
+                               , unsigned int x, unsigned int y
+                               , const Op &op, Filter filter) const
+{
+    auto subdepth((depth < order_) ? (order_ - depth) : 1);
+    root_.find(depth, x, y).descend(1 << subdepth, 0, 0, op, filter);
 }
 
 template <typename Op>
