@@ -224,7 +224,8 @@ private:
 
         void contract();
 
-        void saveChildren(std::ostream &os, const SaveParams &params) const;
+        void saveChildren(std::ostream &os) const;
+        void saveChildrenBw(std::ostream &os) const;
 
         // std::tuple<std::size_t, value_type>
         // loadV2(unsigned int mask, std::istream &is);
@@ -240,12 +241,16 @@ private:
         loadV1(unsigned int mask, std::istream &is);
 
         std::tuple<std::size_t, QTree::value_type>
-        loadChildren(unsigned int mask, std::istream &is
-                     , const SaveParams &params);
+        loadChildren(unsigned int mask, std::istream &is);
 
         std::tuple<std::size_t, QTree::value_type>
-        load(unsigned int mask, std::istream &is, const SaveParams &params
-             , std::uint8_t flags);
+        loadChildrenBw(unsigned int mask, std::istream &is);
+
+        std::tuple<std::size_t, QTree::value_type>
+        load(unsigned int mask, std::istream &is, std::uint8_t flags);
+
+        std::tuple<std::size_t, QTree::value_type>
+        loadBw(unsigned int mask, std::istream &is, std::uint8_t flags);
 
         /** Called from QTree::forEachNode */
         template <typename Op>

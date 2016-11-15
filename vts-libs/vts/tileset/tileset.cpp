@@ -1347,6 +1347,11 @@ const TileIndex& TileSet::tileIndex() const
     return detail().tileIndex;
 }
 
+TileIndex TileSet::metaIndex() const
+{
+    return detail().tsi.deriveMetaIndex();
+}
+
 MapConfig TileSet::mapConfig(const boost::filesystem::path &root
                              , bool includeExtra)
 {

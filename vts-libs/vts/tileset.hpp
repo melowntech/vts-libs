@@ -212,6 +212,10 @@ public:
      */
     TileIndex tileIndex(const LodRange &lodRange) const;
 
+    /** Derives metatile index from tile index
+     */
+    TileIndex metaIndex() const;
+
     /** Returns sphere of influence of this tileset.
      *
      *  SoI are all tiles that have giventype and also tiles above and below

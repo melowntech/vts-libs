@@ -68,6 +68,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((dumpNavtileMask)("dump-navtile-mask"))
                       ((navtile2dem))
                       ((lockerApi)("locker-api"))
+                      ((deriveMetaIndex)("derive-metaindex"))
                       )
 
 
@@ -192,6 +193,8 @@ private:
     int navtile2dem();
 
     int lockerApi();
+
+    int deriveMetaIndex();
 
     bool noexcept_;
     fs::path path_;
@@ -866,6 +869,17 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.options.add_options()
             ;
     });
+
+    createParser(cmdline, Command::deriveMetaIndex
+                 , "--command=derive-metaindex: "
+                 "generate metaindex from tileindex"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("output", po::value(&outputPath_)->required()
+             , "Path to generated metaindex file.")
+            ;
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -980,6 +994,7 @@ int VtsStorage::runCommand()
     case Command::dumpNavtileMask: return dumpNavtileMask();
     case Command::navtile2dem: return navtile2dem();
     case Command::lockerApi: return lockerApi();
+    case Command::deriveMetaIndex: return deriveMetaIndex();
     }
     std::cerr << "vts: no operation requested" << std::endl;
     return EXIT_FAILURE;
@@ -1985,6 +2000,14 @@ Process management:
       process can safely release the lock
 
 )RAW";
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::deriveMetaIndex()
+{
+    auto ts(vts::openTileSet(path_));
+    ts.metaIndex().save(outputPath_, vts::TileIndex::SaveParams().bw(true));
+
     return EXIT_SUCCESS;
 }
 

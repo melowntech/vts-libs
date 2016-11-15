@@ -672,7 +672,7 @@ TileIndex& TileIndex::shrinkAndComplete(unsigned int trim)
     if (empty()) { return *this; }
 
     auto applyTrim([&](Lod l) { return (l > trim) ? (l - trim) : 0; });
-    auto any([&](QTree::value_type value) { return bool(value); });
+    auto any([&](QTree::value_type value) { return value; });
 
     // grab last tree and shrink it by trim-levels
     auto lod(lodRange().max);

@@ -60,6 +60,11 @@ inline const std::string filePath(File type)
     throw "unknown file type";
 }
 
+void unite(registry::IdSet &out, const registry::IdSet &in)
+{
+    out.insert(in.begin(), in.end());
+}
+
 const char TM_MAGIC[2] = { 'T', 'M' };
 
 inline std::string
@@ -127,7 +132,8 @@ inline SetId setIdFromFlags(TileIndex::Flag::value_type flags)
     return flags >> 16;
 }
 
-void addTileIndex(TileIndex &ti, AggregatedDriver::DriverEntry &de
+void addTileIndex(unsigned int metaBinaryOrder
+                  , TileIndex &ti, AggregatedDriver::DriverEntry &de
                   , SetId setId, bool alien)
 {
     auto combiner([&](value_type o, value_type n) -> value_type
@@ -147,7 +153,7 @@ void addTileIndex(TileIndex &ti, AggregatedDriver::DriverEntry &de
     });
 
     // process tileindex
-    tileset::Index work;
+    tileset::Index work(metaBinaryOrder);
     tileset::loadTileSetIndex(work, *de.driver);
     ti.combine(work.tileIndex, combiner);
 
@@ -198,11 +204,15 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
           , std::time_t lastModified, const TileId &tileId
           , const TileIndex &tileIndex, bool noSuchFile = true)
 {
-    const auto bo(referenceFrame.metaBinaryOrder);
+    const auto mbo(referenceFrame.metaBinaryOrder);
     // parent tile at meta-binary-order levels above us
-    const auto parentId(parent(tileId, bo));
+    const auto parentId(parent(tileId, mbo));
     // shrinked tile id to be used in meta-index
     const TileId shrinkedId(tileId.lod, parentId.x, parentId.y);
+
+    LOG(info4) << "tileId: " << tileId;
+    LOG(info4) << "parentId: " << parentId;
+    LOG(info4) << "shrinkedId: " << shrinkedId;
 
     auto loadMeta([&](const TileId &tileId, const Driver::pointer &driver)
                   -> MetaTile
@@ -210,11 +220,11 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
         auto ms(noSuchFile
                 ? driver->input(tileId, TileFile::meta)
                 : driver->input(tileId, TileFile::meta, NullWhenNotFound));
-        return loadMetaTile(*ms, bo, ms->name());
+        return loadMetaTile(*ms, mbo, ms->name());
     });
 
     // output metatile
-    MetaTile ometa(tileId, bo);
+    MetaTile ometa(tileId, mbo);
 
     if (const auto *tree = tileIndex.tree(tileId.lod)) {
         tree->forEach
@@ -468,8 +478,10 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
 
     TilesetReferencesList tsMap;
 
+    const auto mbo(referenceFrame_.metaBinaryOrder);
+    bool first(true);
     for (const auto &tsg : go) {
-        LOG(info4) << "<" << tsg.tilesetId << ">";
+        LOG(info2) << "<" << tsg.tilesetId << ">";
 
         // first, remember tileset
         drivers_.emplace_back
@@ -493,22 +505,36 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
                 glue2driver[glue.id] = de;
                 tsMap.push_back(de->tilesets);
 
-                LOG(info4)
+                LOG(info2)
                     << "    <" << utility::join(glue.id, ",") << "> ("
                     << de->driver << ")";
             } else {
                 de = glue2driver.at(glue.id);
-                LOG(info4)
+                LOG(info2)
                     << "   *<" << utility::join(glue.id, ",") << "> ("
                     << de->driver << ")";
             }
 
             // merge-in glue's tile index
-            addTileIndex(ti, *de, drivers_.size() - 1, alien);
+            addTileIndex(mbo, ti, *de, drivers_.size() - 1, alien);
         }
 
         // and merge-in tileset's tile index last
-        addTileIndex(ti, de, setId, false);
+        addTileIndex(mbo, ti, de, setId, false);
+
+        // merge-in tileset's config
+        {
+            const auto tsp(tileset::loadConfig(*de.driver));
+
+            unite(properties.credits, tsp.credits);
+            unite(properties.boundLayers, tsp.boundLayers);
+
+            // copy position from first tileset
+            if (first) {
+                properties.position = tsp.position;
+                first = false;
+            }
+        }
     }
 
     // update extents
