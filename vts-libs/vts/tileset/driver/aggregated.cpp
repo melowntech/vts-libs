@@ -180,6 +180,7 @@ openDrivers(Storage &storage, const AggregatedOptions &options)
 
     for (const auto &references : tsMap) {
         // construct glue id
+        // TODO: check for proper index
         Glue::Id glueId;
         for (auto reference : references) {
             glueId.push_back(tilesets[reference]);
@@ -187,12 +188,12 @@ openDrivers(Storage &storage, const AggregatedOptions &options)
 
         if (glueId.size() == 1) {
             // tileset
-            LOG(info4) << "opening <" << glueId.front() << ">";
+            LOG(info1) << "opening <" << glueId.front() << ">";
             drivers.emplace_back(Driver::open(storage.path(glueId.front()))
                                  , references);
         } else {
             // glue
-            LOG(info4) << "opening <" << utility::join(glueId, ",") << ">";
+            LOG(info1) << "opening <" << utility::join(glueId, ",") << ">";
             drivers.emplace_back(Driver::open(storage.path(glueId))
                                  , references);
         }
@@ -213,10 +214,6 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
     const auto parentId(parent(tileId, mbo));
     // shrinked tile id to be used in meta-index
     const TileId shrinkedId(tileId.lod, parentId.x, parentId.y);
-
-    LOG(info4) << "tileId: " << tileId;
-    LOG(info4) << "parentId: " << parentId;
-    LOG(info4) << "shrinkedId: " << shrinkedId;
 
     auto loadMeta([&](const TileId &tileId, const Driver::pointer &driver)
                   -> MetaTile
@@ -443,7 +440,7 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
     // fill in tileset ID to tileset index
     TilesetId2Index tilesetId2Index;
     {
-        int id(1);
+        int id(0);
         for (const auto &tilesetId : storage_.tilesets(options.tilesets)) {
             tilesetId2Index[tilesetId] = id++;
         }
