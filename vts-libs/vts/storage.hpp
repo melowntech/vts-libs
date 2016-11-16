@@ -20,6 +20,7 @@
 #include "./tileset.hpp"
 #include "./basetypes.hpp"
 #include "./glue.hpp"
+#include "./virtualsurface.hpp"
 #include "./options.hpp"
 
 namespace vadstena { namespace vts {
@@ -180,10 +181,24 @@ public:
 
     /** Removes given tileset from the storage.
      *
+     * Removes all glues and virtual surfaces that reference given tileset.
+     *
      *  \param tilesetIds Ids of tilesets to remove
      */
     void remove(const TilesetIdList &tilesetIds);
 
+
+    /** Creates a virtual surface .
+     *
+     *  Operation fails if given virtual surface is already present in the stack
+     *  (unless mode is Create::Mode overwrite) or any tileset referenced by
+     *  virtual surface doesn't exist.
+     *
+     *  \param virtualSurfaceId virtual surface ID
+     *  \param mode create mode
+     */
+    void createVirtualSurface(const TilesetIdSet &tilesets
+                              , CreateMode mode);
 
     /** Flattens content of this storage into new tileset at tilesetPath.
      *
@@ -225,6 +240,23 @@ public:
                      , const std::function<bool(const Glue::Id&)> &filter)
         const;
 
+    /** Returns list of existing virtualSurfaces.
+     */
+    VirtualSurface::map virtualSurfaces() const;
+
+    /** Return list of tileset's virtualSurfaces (virtualSurfaces that have
+     *  given tileset at the top of the stack).
+     */
+    VirtualSurface::list virtualSurfaces(const TilesetId &tilesetId) const;
+
+    /** Return list of tileset's virtualSurfaces (virtualSurfaces that have
+     *  given tileset at the top of the stack).
+     */
+    VirtualSurface::list
+    virtualSurfaces(const TilesetId &tilesetId
+                    , const std::function<bool(const VirtualSurface::Id&)>
+                    &filter) const;
+
     bool externallyChanged() const;
 
     std::time_t lastModified() const;
@@ -246,6 +278,8 @@ public:
     boost::filesystem::path path(const Glue &glue) const;
 
     boost::filesystem::path path(const Glue::Id &glueId) const;
+
+    boost::filesystem::path path(const VirtualSurface &virtualSurface) const;
 
     void updateTags(const TilesetId &tilesetId
                     , const Tags &add, const Tags &remove);

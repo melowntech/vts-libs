@@ -23,6 +23,10 @@ inline boost::filesystem::path tilesetRoot() { return "tilesets"; }
  */
 inline boost::filesystem::path glueRoot() { return "glues"; }
 
+/** Get root for storage virtualSurfaces.
+ */
+inline boost::filesystem::path virtualSurfaceRoot() { return "vs"; }
+
 /** Get (local) path to glue rules.
  */
 inline boost::filesystem::path glueRulesPath() { return "glue.rules"; }
@@ -46,6 +50,17 @@ gluePath(const boost::filesystem::path &root, const Glue &glue
          , bool tmp = false
          , const boost::optional<boost::filesystem::path> &tmpRoot
          = boost::none);
+
+/** Generate path for storage virtualSurface. If tmp is false regular storage
+ *  path is generated.  Otherwise root / "tmp" is used unless different tmpRoot
+ *  is provided.
+ */
+boost::filesystem::path
+virtualSurfacePath(const boost::filesystem::path &root
+                   , const VirtualSurface &virtualSurface
+                   , bool tmp = false
+                   , const boost::optional<boost::filesystem::path> &tmpRoot
+                   = boost::none);
 
 // inlines
 
@@ -77,6 +92,22 @@ gluePath(const boost::filesystem::path &root, const Glue &glue
     }
 
     return root / glueRoot() / glue.path;
+}
+
+inline boost::filesystem::path
+virtualSurfacePath(const boost::filesystem::path &root
+                   , const VirtualSurface &virtualSurface
+                   , bool tmp
+                   , const boost::optional<boost::filesystem::path> &tmpRoot)
+{
+    if (tmp) {
+        if (tmpRoot) {
+            return *tmpRoot / virtualSurface.path;
+        }
+        return root / "tmp" / virtualSurface.path;
+    }
+
+    return root / virtualSurfaceRoot() / virtualSurface.path;
 }
 
 } } } // namespace vadstena::vts::storage_paths

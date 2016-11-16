@@ -54,6 +54,13 @@ StorageView openStorageView(const boost::filesystem::path &path);
 /** Creates aggreagated tileset from storage subset.
  */
 TileSet aggregateTileSets(const boost::filesystem::path &path
+                          , const boost::filesystem::path &storagePath
+                          , const CloneOptions &createOptions
+                          , const TilesetIdSet &tilesets);
+
+/** Creates aggreagated tileset from storage subset.
+ */
+TileSet aggregateTileSets(const boost::filesystem::path &path
                           , const Storage &storage
                           , const CloneOptions &createOptions
                           , const TilesetIdList &tilesets);

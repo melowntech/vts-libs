@@ -63,6 +63,10 @@ struct Storage::Properties : StorageProperties {
      */
     Glue::map glues;
 
+    /** List of virtual surfaces
+     */
+    VirtualSurface::map virtualSurfaces;
+
     /** Information about removed tilesets/glues.
      */
     TrashBin trashBin;
@@ -92,6 +96,22 @@ struct Storage::Properties : StorageProperties {
     const Glue* getGlue(const Glue::Id& glue) const {
         auto fglues(findGlue(glue));
         return (fglues != glues.end()) ? &fglues->second : nullptr;
+    }
+
+    VirtualSurface::map::iterator
+    findVirtualSurface(const VirtualSurface::Id& virtualSurface);
+    VirtualSurface::map::const_iterator
+    findVirtualSurface(const VirtualSurface::Id& virtualSurface) const;
+
+    bool hasVirtualSurface(const VirtualSurface::Id& virtualSurface) const {
+        return findVirtualSurface(virtualSurface) != virtualSurfaces.end();
+    }
+
+    const VirtualSurface*
+    getVirtualSurface(const VirtualSurface::Id& virtualSurface) const {
+        auto fvirtualSurfaces(findVirtualSurface(virtualSurface));
+        return (fvirtualSurfaces != virtualSurfaces.end())
+            ? &fvirtualSurfaces->second : nullptr;
     }
 
     /** Return set of unique tilesets.
@@ -166,6 +186,8 @@ struct Storage::Detail
     void readd(const TilesetId &tilesetId, const AddOptions &addOptions);
 
     void remove(const TilesetIdList &tilesetIds);
+
+    void createVirtualSurface(const TilesetIdSet &tilesets, CreateMode mode);
 
     std::tuple<Properties, StoredTileset>
     addTileset(const Properties &properties, const TilesetId &tilesetId

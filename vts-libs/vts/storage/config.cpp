@@ -92,6 +92,34 @@ void parseGlues(Glue::map &glues, const Json::Value &value)
     }
 }
 
+void parseVirtualSurface(VirtualSurface &virtualSurface
+                         , const Json::Value &value)
+{
+    if (!value.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of virtualSurface is not an object.";
+    }
+
+    parseList(virtualSurface.id, value, "id");
+    Json::get(virtualSurface.path, value, "dir");
+}
+
+void parseVirtualSurfaces(VirtualSurface::map &virtualSurfaces
+                          , const Json::Value &value)
+{
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of virtualSurfaces is not an array.";
+    }
+
+    for (const auto &element : value) {
+        Json::check(element, Json::objectValue);
+        VirtualSurface g;
+        parseVirtualSurface(g, element);
+        virtualSurfaces.insert(VirtualSurface::map::value_type(g.id, g));
+    }
+}
+
 void parseTrash(TrashBin &trashBin, const Json::Value &value)
 {
     // ignore missing trash bin
@@ -169,6 +197,24 @@ void buildGlues(const Glue::map &glues, Json::Value &object)
     }
 }
 
+void buildVirtualSurface(const VirtualSurface &virtualSurface
+                         , Json::Value &object)
+{
+    object = Json::objectValue;
+    buildList(virtualSurface.id, object["id"]);
+    object["dir"] = virtualSurface.path;
+}
+
+void buildVirtualSurfaces(const VirtualSurface::map &virtualSurfaces
+                          , Json::Value &object)
+{
+    object = Json::arrayValue;
+
+    for (const auto &item : virtualSurfaces) {
+        buildVirtualSurface(item.second, object.append(Json::nullValue));
+    }
+}
+
 Storage::Properties parse1(const Json::Value &config)
 {
     Storage::Properties properties;
@@ -178,6 +224,11 @@ Storage::Properties parse1(const Json::Value &config)
 
     parseTilesets(properties.tilesets, config["tilesets"]);
     parseGlues(properties.glues, config["glues"]);
+    if (config.isMember("virtualSurfaces")) {
+        parseVirtualSurfaces
+            (properties.virtualSurfaces
+             , config["virtualSurfaces"]);
+    }
     parseTrash(properties.trashBin, config["trashBin"]);
 
     return properties;
@@ -193,6 +244,8 @@ void build(Json::Value &config, const Storage::Properties &properties)
 
     buildTilesets(properties.tilesets, config["tilesets"]);
     buildGlues(properties.glues, config["glues"]);
+    buildVirtualSurfaces(properties.virtualSurfaces
+                         , config["virtualSurfaces"]);
     buildTrash(properties.trashBin, config["trashBin"]);
 }
 

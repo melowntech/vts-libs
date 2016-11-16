@@ -89,6 +89,12 @@ void Storage::remove(const TilesetIdList &tilesetIds)
     detail().remove(tilesetIds);
 }
 
+void Storage::createVirtualSurface(const TilesetIdSet &tilesets
+                                   , CreateMode mode)
+{
+    detail().createVirtualSurface(tilesets, mode);
+}
+
 namespace {
 
 void rmrf(const fs::path &path)
@@ -125,6 +131,14 @@ public:
                           (root_, glue, tmp, tmpRoot_));
     }
 
+    fs::path virtualSurfacePath(const VirtualSurface &virtualSurface
+                                , bool tmp = false)
+        const
+    {
+        return createPath(storage_paths::virtualSurfacePath
+                          (root_, virtualSurface, tmp, tmpRoot_));
+    }
+
     TileSet open(const TilesetId &tilesetId) const;
 
     TileSet open(const Glue &glue) const;
@@ -132,6 +146,8 @@ public:
     fs::path addGlue(const Glue &glue);
 
     fs::path addTileset(const std::string &tilesetId);
+
+    fs::path addVirtualSurface(const VirtualSurface &virtualSurface);
 
     void remove(const fs::path &path);
 
@@ -221,6 +237,13 @@ fs::path Tx::addTileset(const std::string &tilesetId)
 {
     auto tmp(tilesetPath(tilesetId, true));
     add(tmp, tilesetPath(tilesetId));
+    return tmp;
+}
+
+fs::path Tx::addVirtualSurface(const VirtualSurface &virtualSurface)
+{
+    auto tmp(virtualSurfacePath(virtualSurface, true));
+    add(tmp, virtualSurfacePath(virtualSurface));
     return tmp;
 }
 
@@ -968,5 +991,75 @@ void Storage::Detail::remove(const TilesetIdList &tilesetIds)
     }
 }
 
-} } // namespace vadstena::vts
+void Storage::Detail::createVirtualSurface(const TilesetIdSet &tilesets
+                                           , CreateMode mode)
+{
+    auto tmp(tilesets);
 
+    VirtualSurface vs;
+    for (const auto &stored : properties.tilesets) {
+        auto ftmp(tmp.find(stored.tilesetId));
+        if (ftmp == tmp.end()) { continue; }
+
+        vs.id.push_back(stored.tilesetId);
+        tmp.erase(ftmp);
+    }
+
+    if (!tmp.empty()) {
+        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+            << "Tileset(S) <" << utility::join(tmp, ", ")
+            << "> not found in storage " << root << ".";
+    }
+
+    if ((mode == CreateMode::failIfExists)
+        && properties.getVirtualSurface(vs.id))
+    {
+        LOGTHROW(err1, vadstena::storage::TileSetAlreadyExists)
+            << "Virtual surface <" << utility::join(vs.id, ",")
+            << "> already present in storage "
+            << root << ".";
+    }
+
+    LOG(info4)
+        << "About to create virtual surface <" << utility::join(vs.id, ",")
+               << ">.";
+
+    auto vsSetId(boost::lexical_cast<std::string>
+                 (utility::join(vs.id, "_")));
+    vs.path = vsSetId;
+
+    auto nProperties(properties);
+    {
+        Tx tx(root, boost::none);
+
+        auto vsPath(tx.addVirtualSurface(vs));
+
+        auto ts(vts::aggregateTileSets
+                (vsPath, root
+                 , CloneOptions()
+                 .mode(CreateMode::overwrite)
+                 .tilesetId(vsSetId)
+                 , TilesetIdSet(vs.id.begin(), vs.id.end())));
+
+        // TODO: make path relative!
+
+        nProperties.virtualSurfaces[vs.id] = vs;
+
+        tx.commit();
+    }
+
+    // commit properties
+    properties = nProperties;
+    saveConfig();
+
+#if 0
+    boost::filesystem::path path(const VirtualSurface &virtualSurface) const;
+
+    auto ts(aggregateTileSets(const boost::filesystem::path &path
+                          , const boost::filesystem::path &storagePath
+                          , const CloneOptions &co
+                          , const TilesetIdSet &tilesets)
+#endif
+}
+
+} } // namespace vadstena::vts

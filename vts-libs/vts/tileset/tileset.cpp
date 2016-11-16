@@ -449,12 +449,12 @@ TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src
 /** Core implementation.
  */
 TileSet aggregateTileSets(const boost::filesystem::path &path
-                          , const Storage &storage
+                          , const boost::filesystem::path &storagePath
                           , const CloneOptions &co
                           , const TilesetIdSet &tilesets)
 {
     driver::AggregatedOptions dopts;
-    dopts.storagePath = fs::absolute(storage.path());
+    dopts.storagePath = fs::absolute(storagePath);
     dopts.tilesets = tilesets;
 
     // TODO: use first non-empty path element

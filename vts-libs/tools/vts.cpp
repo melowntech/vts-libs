@@ -69,6 +69,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((navtile2dem))
                       ((lockerApi)("locker-api"))
                       ((deriveMetaIndex)("derive-metaindex"))
+                      ((virtualSurfaceCreate)("vs-create"))
                       )
 
 
@@ -195,6 +196,8 @@ private:
     int lockerApi();
 
     int deriveMetaIndex();
+
+    int virtualSurfaceCreate();
 
     bool noexcept_;
     fs::path path_;
@@ -880,6 +883,36 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "Path to generated metaindex file.")
             ;
     });
+
+    createParser(cmdline, Command::virtualSurfaceCreate
+                 , "--command=vs-create: creates new virtual "
+                 "surface in VTS storage"
+                 , [&](UP &p)
+    {
+        lockConfiguration(p.options);
+
+        p.options.add_options()
+            ("tileset", po::value(&tilesetIds_)
+             , "Id of tileset to aggreage (mandatory "
+             "if working with storage).")
+            ("overwrite", "Overwrite existing output tileset.")
+            ;
+        p.positional.add("tileset", -1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            lockConfigure(vars);
+
+            if (tilesetIds_.size() <= 1) {
+                throw po::validation_error
+                    (po::validation_error::invalid_option_value
+                     , "tileset");
+            }
+
+            createMode_ = (vars.count("overwrite")
+                           ? vts::CreateMode::overwrite
+                           : vts::CreateMode::failIfExists);
+        };
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -971,6 +1004,8 @@ int VtsStorage::runCommand()
     case Command::readd: return readd();
     case Command::remove: return remove();
     case Command::tags: return tags();
+
+    case Command::virtualSurfaceCreate: return virtualSurfaceCreate();
 
     case Command::dumpMetatile: return dumpMetatile();
     case Command::mapConfig: return mapConfig();
@@ -1099,6 +1134,25 @@ int storageInfo(const std::string &prefix, const fs::path &path, bool brief)
 
             tilesetInfo(prefix + "    ",  s.path(gitem.second), brief);
             std::cout << std::endl;
+        }
+    }
+
+    const auto vs(s.virtualSurfaces());
+    if (!vs.empty()) {
+        std::cout << prefix << "VirtualSurfaces:" << std::endl;
+        for (const auto &vsitem : s.virtualSurfaces()) {
+            if (brief) {
+                std::cout
+                    << prefix << "    " << utility::join(vsitem.first, ", ")
+                    << std::endl;
+            } else {
+                std::cout << prefix << "    VirtualSurface-Id: "
+                          << utility::join(vsitem.first, ", ")
+                          << std::endl;
+
+                tilesetInfo(prefix + "    ",  s.path(vsitem.second), brief);
+                std::cout << std::endl;
+            }
         }
     }
 
@@ -2017,6 +2071,22 @@ int VtsStorage::deriveMetaIndex()
 {
     auto ts(vts::openTileSet(path_));
     ts.metaIndex().save(outputPath_, vts::TileIndex::SaveParams().bw(true));
+
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::virtualSurfaceCreate()
+{
+    const auto tmpPath(path_ / "tmp/tileset-to-add");
+
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+
+    // lock if external locking program is available
+    Lock lock(path_, lock_);
+
+    storage.createVirtualSurface
+        (vts::TilesetIdSet(tilesetIds_.begin(), tilesetIds_.end())
+         , createMode_);
 
     return EXIT_SUCCESS;
 }
