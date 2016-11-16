@@ -454,7 +454,9 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
                           , const TilesetIdSet &tilesets)
 {
     driver::AggregatedOptions dopts;
-    dopts.storagePath = fs::absolute(storagePath);
+    dopts.storagePath = (co.absolutize()
+                         ? fs::absolute(storagePath)
+                         : storagePath);
     dopts.tilesets = tilesets;
 
     // TODO: use first non-empty path element
@@ -472,7 +474,9 @@ TileSet aggregateTileSets(const Storage &storage
                           , const TilesetIdSet &tilesets)
 {
     driver::AggregatedOptions dopts;
-    dopts.storagePath = fs::absolute(storage.path());
+    dopts.storagePath = (co.absolutize()
+                         ? fs::absolute(storage.path())
+                         : storage.path());
     dopts.tilesets = tilesets;
 
     auto driver(Driver::create(dopts, co));

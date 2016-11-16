@@ -1034,12 +1034,13 @@ void Storage::Detail::createVirtualSurface(const TilesetIdSet &tilesets
 
         auto vsPath(tx.addVirtualSurface(vs));
 
-        auto ts(vts::aggregateTileSets
-                (vsPath, root
-                 , CloneOptions()
-                 .mode(CreateMode::overwrite)
-                 .tilesetId(vsSetId)
-                 , TilesetIdSet(vs.id.begin(), vs.id.end())));
+        vts::aggregateTileSets
+            (vsPath, "../.."
+             , CloneOptions()
+             .mode(CreateMode::overwrite)
+             .tilesetId(vsSetId)
+             .absolutize(false)
+             , TilesetIdSet(vs.id.begin(), vs.id.end()));
 
         // TODO: make path relative!
 
@@ -1051,15 +1052,6 @@ void Storage::Detail::createVirtualSurface(const TilesetIdSet &tilesets
     // commit properties
     properties = nProperties;
     saveConfig();
-
-#if 0
-    boost::filesystem::path path(const VirtualSurface &virtualSurface) const;
-
-    auto ts(aggregateTileSets(const boost::filesystem::path &path
-                          , const boost::filesystem::path &storagePath
-                          , const CloneOptions &co
-                          , const TilesetIdSet &tilesets)
-#endif
 }
 
 } } // namespace vadstena::vts
