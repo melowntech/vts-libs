@@ -1,5 +1,6 @@
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
+#include <boost/iostreams/restrict.hpp>
 
 #include "dbglog/dbglog.hpp"
 
@@ -303,8 +304,18 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
     if (storage::gzipped(in)) {
         // looks like a gzip
         bio::filtering_istream gzipped;
-        gzipped.push(bio::gzip_decompressor());
-        gzipped.push(in);
+
+        // create and add decompressor
+        gzipped.push
+            (bio::gzip_decompressor(bio::gzip_params().window_bits, 1 << 16));
+
+        // add input restricted to mesh data
+        auto rin(bio::restrict(in, table.entries[0].start,
+                                   table.entries[0].size));
+        gzipped.push(rin);
+
+        gzipped.exceptions(in.exceptions());
+
         detail::loadMeshProper(gzipped, path, mesh);
     } else {
         // raw file
