@@ -303,7 +303,8 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                                    , const CloneOptions &cloneOptions)
     : AggregatedDriverBase(cloneOptions)
     , Driver(root, options, cloneOptions.mode())
-    , storage_(this->options().storagePath, OpenMode::readOnly)
+    , storage_(fs::absolute(this->options().storagePath, root)
+               , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
 {
@@ -566,7 +567,8 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
 AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                                    , const AggregatedOptions &options)
     : Driver(root, options)
-    , storage_(this->options().storagePath, OpenMode::readOnly)
+    , storage_(fs::absolute(this->options().storagePath, root)
+               , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , drivers_(openDrivers(storage_, options))
     , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
@@ -582,7 +584,8 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                                    , const CloneOptions &cloneOptions
                                    , const AggregatedDriver &src)
     : Driver(root, options, cloneOptions.mode())
-    , storage_(this->options().storagePath, OpenMode::readOnly)
+    , storage_(fs::absolute(this->options().storagePath, root)
+               , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
 {
