@@ -1455,13 +1455,19 @@ int VtsStorage::tileInfo()
         }
 
         if (node.applyTexelSize()) {
-            std::cout << "    texelSize: " << node.texelSize << std::endl;
+            std::cout << "    texel size: " << node.texelSize << std::endl;
         }
         if (node.applyDisplaySize()) {
-            std::cout << "    displaySize: " << node.displaySize << std::endl;
+            std::cout << "    display size: " << node.displaySize << std::endl;
         }
         if (node.navtile()) {
-            std::cout << "    heightRange: " << node.heightRange << std::endl;
+            std::cout << "    height range: " << node.heightRange << std::endl;
+        }
+
+        if (node.sourceReference) {
+            std::cout
+                << "    source reference: " << node.sourceReference
+                << std::endl;
         }
 
         showCredits(std::cout, node, "    ");
