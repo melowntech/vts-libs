@@ -177,8 +177,18 @@ struct MetaNode {
     }
     MetaNode& reference(std::size_t value);
 
-    void load(std::istream &in, Lod lod);
-    void save(std::ostream &out, Lod lod) const;
+    enum class BackingType { none, uint8, uint16 };
+
+    struct StoreParams {
+        Lod lod;
+        BackingType sourceReference;
+
+        StoreParams(Lod lod, BackingType sourceReference)
+            : lod(lod), sourceReference(sourceReference) {}
+    };
+
+    void load(std::istream &in, const StoreParams &sp);
+    void save(std::ostream &out, const StoreParams &sp) const;
 
 private:
     bool check(Flag::value_type flag) const { return flags_ & flag; }

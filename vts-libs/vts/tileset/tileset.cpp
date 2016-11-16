@@ -207,6 +207,8 @@ struct TileSet::Factory
 
         traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
         {
+            LOG(debug) << "Storing tile " << tid << ".";
+
             if (mask & TileIndex::Flag::mesh) {
                 // copy mesh
                 copyFile(sd.input(tid, storage::TileFile::mesh)

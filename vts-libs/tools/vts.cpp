@@ -1345,6 +1345,10 @@ int VtsStorage::dumpMetatile()
         if (node.navtile()) {
             std::cout << "    height range: " << node.heightRange << std::endl;
         }
+        if (node.sourceReference) {
+            std::cout
+                << "    source reference: " << node.sourceReference << std::endl;
+        }
 
         showCredits(std::cout, node, "    ");
 

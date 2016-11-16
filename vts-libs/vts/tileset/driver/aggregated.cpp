@@ -475,7 +475,17 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
     // list of drivers and tileset mapping (make room for all instances)
     drivers_.reserve(setCount);
 
-    typedef std::map<Glue::Id, DriverEntry*> Glue2Driver;
+    struct GlueDriver {
+        MetaNode::SourceReference setId;
+        DriverEntry *de;
+
+        GlueDriver(MetaNode::SourceReference setId = 0
+                   , DriverEntry *de = nullptr)
+            : setId(setId), de(de)
+        {}
+    };
+
+    typedef std::map<Glue::Id, GlueDriver> Glue2Driver;
     Glue2Driver glue2driver;
 
     TilesetReferencesList tsMap;
@@ -483,8 +493,6 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
     const auto mbo(referenceFrame_.metaBinaryOrder);
     bool first(true);
     for (const auto &tsg : go) {
-        LOG(info2) << "<" << tsg.tilesetId << ">";
-
         // first, remember tileset
         drivers_.emplace_back
             (Driver::open(storage_.path(tsg.tilesetId))
@@ -492,33 +500,34 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
         auto &de(drivers_.back());
         const auto setId(drivers_.size());
         tsMap.push_back(de.tilesets);
+        LOG(info2) << "<" << tsg.tilesetId << "> [" << setId << "]";
 
         // then process all glues
         for (const auto &glue : tsg.glues) {
             bool alien(glue.id.back() != tsg.tilesetId);
-            DriverEntry *de(nullptr);
-
             if (!alien) {
                 drivers_.emplace_back
                     (Driver::open(storage_.path(glue))
                      , glue2references(glue.id));
 
-                de = &drivers_.back();
-                glue2driver[glue.id] = de;
-                tsMap.push_back(de->tilesets);
+                auto &de(drivers_.back());
+                tsMap.push_back(de.tilesets);
+                glue2driver[glue.id] = GlueDriver(drivers_.size(), &de);
 
                 LOG(info2)
                     << "    <" << utility::join(glue.id, ",") << "> ("
-                    << de->driver << ")";
+                    << de.driver << ") [" << drivers_.size() << "]";
+
+                // merge-in glue's tile index
+                addTileIndex(mbo, ti, de, drivers_.size(), alien);
             } else {
-                de = glue2driver.at(glue.id);
+                auto gd(glue2driver.at(glue.id));
                 LOG(info2)
                     << "   *<" << utility::join(glue.id, ",") << "> ("
-                    << de->driver << ")";
+                    << gd.de->driver << ") [" << gd.setId << "]";
+                // merge-in glue's tile index
+                addTileIndex(mbo, ti, *gd.de, gd.setId, alien);
             }
-
-            // merge-in glue's tile index
-            addTileIndex(mbo, ti, *de, drivers_.size(), alien);
         }
 
         // and merge-in tileset's tile index last
