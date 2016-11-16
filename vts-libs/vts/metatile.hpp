@@ -115,8 +115,8 @@ struct MetaNode {
     SourceReference sourceReference;
 
     MetaNode()
-        : texelSize(), displaySize(), heightRange(), flags_()
-        , internalTextureCount_()
+        : texelSize(), displaySize(), heightRange(), sourceReference()
+        , flags_(), internalTextureCount_()
     {}
 
     Flag::value_type flags() const { return flags_; }
