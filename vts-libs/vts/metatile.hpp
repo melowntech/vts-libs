@@ -110,6 +110,10 @@ struct MetaNode {
 
     Range<std::int16_t> heightRange;
 
+    typedef std::int16_t SourceReference;
+
+    SourceReference sourceReference;
+
     MetaNode()
         : texelSize(), displaySize(), heightRange(), flags_()
         , internalTextureCount_()
@@ -265,15 +269,14 @@ public:
     void update(const MetaTile &in, bool alien = false);
 
 
-    typedef std::uint16_t Reference;
-
     /** Sets expected reference in metanode at tileId.
      */
-    void setUpdateReference(const TileId &tileId, Reference referenceId);
+    void expectReference(const TileId &tileId
+                         , MetaNode::SourceReference sourceReference);
 
     /** Update this metatile with another metatile honoring references.
      */
-    void update(Reference referenceId, const MetaTile &in);
+    void update(MetaNode::SourceReference sourceReference, const MetaTile &in);
 
     bool empty() const { return !math::valid(valid_); }
 

@@ -235,7 +235,7 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
             (parentId.lod, parentId.x, parentId.y
              , [&](unsigned int x, unsigned int y, QTree::value_type value)
         {
-            ometa.setUpdateReference
+            ometa.expectReference
                 (TileId(tileId.lod, tileId.x + x, tileId.y + y)
                  , setIdFromFlags(value));
         }, QTree::Filter::white);
@@ -244,7 +244,8 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
             << "There is no metatile for " << tileId << ".";
     }
 
-    int idx(-1);
+    // start from zero so first round gets 1
+    int idx(0);
     for (const auto &de : drivers) {
         // next index
         ++idx;
@@ -442,7 +443,7 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
     // fill in tileset ID to tileset index
     TilesetId2Index tilesetId2Index;
     {
-        int id(0);
+        int id(1);
         for (const auto &tilesetId : storage_.tilesets(options.tilesets)) {
             tilesetId2Index[tilesetId] = id++;
         }
@@ -492,7 +493,7 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
             (Driver::open(storage_.path(tsg.tilesetId))
              , tileset2references(tsg.tilesetId));
         auto &de(drivers_.back());
-        const auto setId(drivers_.size() - 1);
+        const auto setId(drivers_.size());
         tsMap.push_back(de.tilesets);
 
         // then process all glues
@@ -520,7 +521,7 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
             }
 
             // merge-in glue's tile index
-            addTileIndex(mbo, ti, *de, drivers_.size() - 1, alien);
+            addTileIndex(mbo, ti, *de, drivers_.size(), alien);
         }
 
         // and merge-in tileset's tile index last

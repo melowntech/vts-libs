@@ -775,13 +775,15 @@ void MetaTile::update(const MetaTile &in, bool alien)
 // NB: in following code, heightRange.min is used as a placeholder for
 // referenceId; this can change in the future
 
-void MetaTile::setUpdateReference(const TileId &tileId, Reference referenceId)
+void MetaTile::expectReference(const TileId &tileId
+                               , MetaNode::SourceReference sourceReference)
 {
     auto gi(gridIndex(tileId, false));
-    grid_[index(gi)].heightRange.min = referenceId;
+    grid_[index(gi)].sourceReference = sourceReference;
 }
 
-void MetaTile::update(Reference referenceId, const MetaTile &in)
+void MetaTile::update(MetaNode::SourceReference sourceReference
+                      , const MetaTile &in)
 {
     // sanity check
     if ((origin_ != in.origin_) || (binaryOrder_ != in.binaryOrder_)) {
@@ -814,7 +816,7 @@ void MetaTile::update(Reference referenceId, const MetaTile &in)
             // update metatile valid extents
             math::update(valid_, point_type(i, j));
 
-            if (referenceId != outn.heightRange.min) {
+            if (sourceReference != outn.sourceReference) {
                 // difference reference, just update geometry extents
                 outn.mergeExtents(inn);
                 continue;
@@ -828,6 +830,9 @@ void MetaTile::update(Reference referenceId, const MetaTile &in)
 
             // copy
             outn = inn;
+
+            // store reference so it is serialized
+            outn.sourceReference = sourceReference;
 
             // and apply saved geometry extents
             outn.mergeExtents(savedExtents);
