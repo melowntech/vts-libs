@@ -125,16 +125,16 @@ deserializeTsMap(const std::string &raw)
 
 typedef TileIndex::Flag TiFlag;
 typedef TiFlag::value_type value_type;
-typedef std::uint16_t SetId;
 
-inline SetId setIdFromFlags(TileIndex::Flag::value_type flags)
+inline MetaNode::SourceReference
+setIdFromFlags(TileIndex::Flag::value_type flags)
 {
     return flags >> 16;
 }
 
 void addTileIndex(unsigned int metaBinaryOrder
                   , TileIndex &ti, AggregatedDriver::DriverEntry &de
-                  , SetId setId, bool alien)
+                  , MetaNode::SourceReference setId, bool alien)
 {
     auto combiner([&](value_type o, value_type n) -> value_type
     {

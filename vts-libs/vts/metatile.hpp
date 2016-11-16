@@ -110,7 +110,7 @@ struct MetaNode {
 
     Range<std::int16_t> heightRange;
 
-    typedef std::int16_t SourceReference;
+    typedef std::uint16_t SourceReference;
 
     SourceReference sourceReference;
 
