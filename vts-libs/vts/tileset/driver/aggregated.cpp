@@ -127,7 +127,7 @@ typedef TileIndex::Flag TiFlag;
 typedef TiFlag::value_type value_type;
 
 inline MetaNode::SourceReference
-setIdFromFlags(TileIndex::Flag::value_type flags)
+sourceReferenceFromFlags(TileIndex::Flag::value_type flags)
 {
     return flags >> 16;
 }
@@ -234,7 +234,7 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
         {
             ometa.expectReference
                 (TileId(tileId.lod, tileId.x + x, tileId.y + y)
-                 , setIdFromFlags(value));
+                 , sourceReferenceFromFlags(value));
         }, QTree::Filter::white);
     } else {
         LOGTHROW(err1, vs::NoSuchFile)
@@ -705,10 +705,11 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
     }
 
     // get dataset id
-    const auto setId(setIdFromFlags(flags));
+    const auto sourceReference(sourceReferenceFromFlags(flags));
 
-    if (setId < drivers_.size()) {
-        return drivers_[setId].driver->input(tileId, type);
+    // NB: source reference is 1-based
+    if (sourceReference && (sourceReference <= drivers_.size())) {
+        return drivers_[sourceReference - 1].driver->input(tileId, type);
     }
 
     if (noSuchFile) {
@@ -748,10 +749,10 @@ FileStat AggregatedDriver::stat_impl(const TileId &tileId, TileFile type) const
     }
 
     // get dataset id
-    const auto setId(setIdFromFlags(flags));
+    const auto sourceReference(sourceReferenceFromFlags(flags));
 
-    if (setId < drivers_.size()) {
-        return drivers_[setId].driver->stat(tileId, type);
+    if (sourceReference && (sourceReference <= drivers_.size())) {
+        return drivers_[sourceReference - 1].driver->stat(tileId, type);
     }
 
     LOGTHROW(err1, vs::NoSuchFile)
