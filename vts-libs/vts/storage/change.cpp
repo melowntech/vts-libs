@@ -1020,9 +1020,8 @@ void Storage::Detail::createVirtualSurface(const TilesetIdSet &tilesets
             << root << ".";
     }
 
-    LOG(info4)
-        << "About to create virtual surface <" << utility::join(vs.id, ",")
-               << ">.";
+    LOG(info3) << "Creating virtual surface <" << utility::join(vs.id, ",")
+               << "> in storage " << root << ".";
 
     auto vsSetId(boost::lexical_cast<std::string>
                  (utility::join(vs.id, "_")));

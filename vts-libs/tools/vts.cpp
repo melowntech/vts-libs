@@ -83,7 +83,7 @@ public:
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
         , tileFlags_(), metaFlags_(), encodeFlags_()
-        , brief_(false)
+        , brief_(true)
     {
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
@@ -282,15 +282,15 @@ void VtsStorage::configuration(po::options_description &cmdline
     pd.add("path", 1);
 
     createParser(cmdline, Command::info
-                 , "--command=info: show VTS storage info"
+                 , "--command=info: show VTS tileset/storage/storageview info"
                  , [&](UP &p)
     {
         p.options.add_options()
-            ("brief", "Brief output.")
+            ("verbose", "Verbose output.")
             ;
 
         p.configure = [&](const po::variables_map &vars) {
-            brief_ = vars.count("brief");
+            brief_ = !vars.count("verbose");
         };
     });
 
@@ -902,12 +902,6 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.configure = [&](const po::variables_map &vars) {
             lockConfigure(vars);
 
-            if (tilesetIds_.size() <= 1) {
-                throw po::validation_error
-                    (po::validation_error::invalid_option_value
-                     , "tileset");
-            }
-
             createMode_ = (vars.count("overwrite")
                            ? vts::CreateMode::overwrite
                            : vts::CreateMode::failIfExists);
@@ -1139,7 +1133,7 @@ int storageInfo(const std::string &prefix, const fs::path &path, bool brief)
 
     const auto vs(s.virtualSurfaces());
     if (!vs.empty()) {
-        std::cout << prefix << "VirtualSurfaces:" << std::endl;
+        std::cout << prefix << "Virtual surfaces:" << std::endl;
         for (const auto &vsitem : s.virtualSurfaces()) {
             if (brief) {
                 std::cout
@@ -2077,17 +2071,46 @@ int VtsStorage::deriveMetaIndex()
 
 int VtsStorage::virtualSurfaceCreate()
 {
-    const auto tmpPath(path_ / "tmp/tileset-to-add");
+    vts::TilesetIdSet tids;
 
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::Storage:
+        if (tilesetIds_.empty()) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value
+                 , "tileset");
+        }
+
+        tids.insert(tilesetIds_.begin(), tilesetIds_.end());
+        break;
+
+    case vts::DatasetType::StorageView:
+        if (!tilesetIds_.empty()) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value
+                 , "tileset");
+        }
+
+        {
+            // open storage view and grab info
+            const auto view(vts::openStorageView(path_));
+            path_ = view.storagePath();
+            tids = view.tilesets();
+        }
+        break;
+
+    default:
+        std::cerr << "Cannot create virtual surface in "
+                  << path_ << "." << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite));
 
     // lock if external locking program is available
     Lock lock(path_, lock_);
 
-    storage.createVirtualSurface
-        (vts::TilesetIdSet(tilesetIds_.begin(), tilesetIds_.end())
-         , createMode_);
-
+    storage.createVirtualSurface(tids, createMode_);
     return EXIT_SUCCESS;
 }
 
