@@ -667,9 +667,11 @@ bool TileIndex::validSubtree(const TileId &tileId) const
     return validSubtree(tileId.lod, tileId);
 }
 
-TileIndex& TileIndex::shrinkAndComplete(unsigned int trim)
+TileIndex& TileIndex::shrinkAndComplete(unsigned int trim, bool absolute)
 {
     if (empty()) { return *this; }
+
+    if (absolute) { makeAbsolute(); };
 
     auto applyTrim([&](Lod l) { return (l > trim) ? (l - trim) : 0; });
     auto any([&](QTree::value_type value) { return value; });
@@ -703,6 +705,54 @@ TileIndex& TileIndex::shrinkAndComplete(unsigned int trim)
 
     // done
     return *this;
+}
+
+std::size_t TileIndex::shrinkedCount(unsigned int trim, bool absolute)
+    const
+{
+    auto applyTrim([&](Lod l) { return (l > trim) ? (l - trim) : 0; });
+    auto any([&](QTree::value_type value) { return value; });
+
+    std::size_t total(0);
+
+    // grab last tree and shrink it by trim-levels
+    auto lod(lodRange().max);
+    auto accumulator(trees_.back());
+    accumulator.shrink(applyTrim(lod));
+    total += accumulator.count();
+    --lod;
+
+    // process lods in reverse order
+    for (auto itrees(trees_.rbegin() + 1), etrees(trees_.rend());
+         itrees != etrees; ++itrees, --lod)
+    {
+        // get copy of a tree
+        auto tree(*itrees);
+
+        // shrink
+        tree.shrink(applyTrim(lod));
+
+        // and make complete by merging-in lower level
+
+        // coarsen and resize accumulator to match this lod
+        accumulator.coarsen(any, true);
+
+        // and merge shrined tree into accumulator
+        accumulator.merge(tree, any);
+
+        // grab count of tiles at this lod
+        total += accumulator.count();
+    }
+
+    // process head of tree
+    while (absolute && (lod < minLod_)) {
+        // coarsen and resize accumulator to match this lod
+        accumulator.coarsen(any, true);
+        total += accumulator.count();
+        --lod;
+    }
+
+    return total;
 }
 
 TileIndex& TileIndex::makeAvailable(const LodRange &lodRange)

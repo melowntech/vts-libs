@@ -88,9 +88,12 @@ public:
     void merge(const QTree &other, const FilterOp &filter);
 
     /** Coarsen one level up.
+     *
+     * \param filter filtering operation
+     * \param resize decrement order (halve size) if true
      */
     template <typename FilterOp>
-    void coarsen(const FilterOp &filter);
+    void coarsen(const FilterOp &filter, bool resize = false);
 
     /** Intersect nodes.
      */
@@ -185,6 +188,8 @@ public:
     {
         return { *this, order, depth, x, y };
     }
+
+    void swap(QTree &other);
 
 private:
     /** Re-calculates number of non-zero elements.
@@ -313,6 +318,8 @@ private:
                          , unsigned int y) const;
 
         void force(value_type value);
+
+        void swap(Node &other);
     };
 
     unsigned int order_;
@@ -472,9 +479,13 @@ inline void QTree::merge(const QTree &other, const FilterOp &filter)
 }
 
 template <typename FilterOp>
-void QTree::coarsen(const FilterOp &filter)
+void QTree::coarsen(const FilterOp &filter, bool resize)
 {
     root_.coarsen(size_, filter);
+    if (resize && order_) {
+        --order_;
+        size_ = 1 << order_;
+    }
     recount();
 }
 
@@ -820,6 +831,20 @@ long QTree::Node::update(unsigned int size, unsigned int x, unsigned int y
     // contract nodes of same value
     contract();
     return res;
+}
+
+inline void QTree::swap(QTree &other) {
+    std::swap(order_, other.order_);
+    std::swap(size_, other.size_);
+    root_.swap(other.root_);
+    std::swap(count_, other.count_);
+    std::swap(allSetFlags_, other.allSetFlags_);
+}
+
+inline void QTree::Node::swap(Node &other)
+{
+    std::swap(value, other.value);
+    std::swap(children, other.children);
 }
 
 } } // namespace vadstena::vts

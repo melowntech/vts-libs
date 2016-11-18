@@ -1056,8 +1056,6 @@ void tiInfo(const vts::TileIndex &ti, const std::string &prefix = "")
                 , Flags(TiFlag::navtile, TiFlag::navtile)
                 , Flags(TiFlag::alien | TiFlag::mesh
                         , TiFlag::alien | TiFlag::mesh)
-                , Flags(TiFlag::reference | TiFlag::mesh
-                        , TiFlag::reference)
                 })
     {
         auto stat(ti.statMask(flag.first, flag.second));
@@ -1078,6 +1076,21 @@ void tiInfo(const vts::TileIndex &ti, const std::string &prefix = "")
     }
 }
 
+void miInfo(const vts::TileIndex &ti, const vr::ReferenceFrame &rf
+            , const std::string &prefix = "")
+{
+    const auto metaCount(ti.shrinkedCount(rf.metaBinaryOrder));
+    // get tile range and make from zero if non-empty
+    auto lr(ti.lodRange());
+    if (!lr.empty()) { update(lr, vts::Lod(0)); }
+
+    std::cout
+            << prefix << "    meta:\n"
+            << prefix << "        lodRange: " << lr << std::endl
+            << prefix << "        count = " << metaCount << std::endl
+            ;
+}
+
 int tilesetInfo(const std::string &prefix, const fs::path &path
                 , bool brief)
 {
@@ -1094,6 +1107,7 @@ int tilesetInfo(const std::string &prefix, const fs::path &path
                   << std::endl;
 
         std::cout << prefix << "Tile type info:" << std::endl;
+        miInfo(ts.tileIndex(), ts.referenceFrame(), prefix);
         tiInfo(ts.tileIndex(), prefix);
     }
 

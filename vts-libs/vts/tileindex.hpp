@@ -337,8 +337,16 @@ public:
                        , const LodRange &lodRange = LodRange::emptyRange());
 
     /** Trims trim levels from each lod and makes the tree complete.
+     *  Tile index is made absolute if absolute is set.
+     *
+     *  All values are transformed to 1 (i.e. every level is a b&w tree)
      */
-    TileIndex& shrinkAndComplete(unsigned int trim);
+    TileIndex& shrinkAndComplete(unsigned int trim, bool absolute = true);
+
+    /** Creates virtual shrinked tree (see shrinkAndComplete) and returns
+     *  accumulated count of existing tiles.
+     */
+    std::size_t shrinkedCount(unsigned int trim, bool absolute = true) const;
 
     /** Makes given lod range available.
      */

@@ -711,10 +711,7 @@ void QTree::shrink(unsigned int depth)
     LOG(info1) << "Shrinking tree with order " << order_
                << " to " << depth << ".";
     // sanity check
-    if (depth > order_) {
-        depth = order_;
-        return;
-    }
+    if (depth > order_) { return; }
 
     root_.shrink(depth);
 

@@ -128,10 +128,7 @@ TileIndex Index::deriveMetaIndex() const
     if (tileIndex.empty()) { return {}; }
 
     // clone tile index
-    TileIndex out(tileIndex);
-    // make absolute (i.e. from LOD 0) and shrink every tree by
-    // metaBinaryOrder_ levels
-    return out.makeAbsolute().shrinkAndComplete(metaBinaryOrder_);
+    return TileIndex(tileIndex).shrinkAndComplete(metaBinaryOrder_);
 }
 
 void Index::loadRest_impl(std::istream&, const boost::filesystem::path&) {}
