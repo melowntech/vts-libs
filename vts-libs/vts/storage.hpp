@@ -188,7 +188,7 @@ public:
     void remove(const TilesetIdList &tilesetIds);
 
 
-    /** Creates a virtual surface .
+    /** Creates a virtual surface from storage.
      *
      *  Operation fails if given virtual surface is already present in the stack
      *  (unless mode is Create::Mode overwrite) or any tileset referenced by
@@ -199,6 +199,12 @@ public:
      */
     void createVirtualSurface(const TilesetIdSet &tilesets
                               , CreateMode mode);
+
+    /** Removes a virtual surface from storage.
+     *
+     *  \param virtualSurfaceId virtual surface ID
+     */
+    void removeVirtualSurface(const TilesetIdSet &tilesets);
 
     /** Flattens content of this storage into new tileset at tilesetPath.
      *

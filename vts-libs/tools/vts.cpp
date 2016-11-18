@@ -70,6 +70,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((lockerApi)("locker-api"))
                       ((deriveMetaIndex)("derive-metaindex"))
                       ((virtualSurfaceCreate)("vs-create"))
+                      ((virtualSurfaceRemove)("vs-remove"))
                       )
 
 
@@ -198,6 +199,7 @@ private:
     int deriveMetaIndex();
 
     int virtualSurfaceCreate();
+    int virtualSurfaceRemove();
 
     bool noexcept_;
     fs::path path_;
@@ -907,6 +909,25 @@ void VtsStorage::configuration(po::options_description &cmdline
                            : vts::CreateMode::failIfExists);
         };
     });
+
+    createParser(cmdline, Command::virtualSurfaceRemove
+                 , "--command=vs-remove: removes a virtual "
+                 "surface from a VTS storage"
+                 , [&](UP &p)
+    {
+        lockConfiguration(p.options);
+
+        p.options.add_options()
+            ("tileset", po::value(&tilesetIds_)
+             , "Id of tileset to de-aggregate (mandatory "
+             "if working with storage).")
+            ;
+        p.positional.add("tileset", -1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            lockConfigure(vars);
+        };
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -1000,6 +1021,7 @@ int VtsStorage::runCommand()
     case Command::tags: return tags();
 
     case Command::virtualSurfaceCreate: return virtualSurfaceCreate();
+    case Command::virtualSurfaceRemove: return virtualSurfaceRemove();
 
     case Command::dumpMetatile: return dumpMetatile();
     case Command::mapConfig: return mapConfig();
@@ -2125,6 +2147,51 @@ int VtsStorage::virtualSurfaceCreate()
     Lock lock(path_, lock_);
 
     storage.createVirtualSurface(tids, createMode_);
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::virtualSurfaceRemove()
+{
+    vts::TilesetIdSet tids;
+
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::Storage:
+        if (tilesetIds_.empty()) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value
+                 , "tileset");
+        }
+
+        tids.insert(tilesetIds_.begin(), tilesetIds_.end());
+        break;
+
+    case vts::DatasetType::StorageView:
+        if (!tilesetIds_.empty()) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value
+                 , "tileset");
+        }
+
+        {
+            // open storage view and grab info
+            const auto view(vts::openStorageView(path_));
+            path_ = view.storagePath();
+            tids = view.tilesets();
+        }
+        break;
+
+    default:
+        std::cerr << "Cannot remopve virtual surface from "
+                  << path_ << "." << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite));
+
+    // lock if external locking program is available
+    Lock lock(path_, lock_);
+
+    storage.removeVirtualSurface(tids);
     return EXIT_SUCCESS;
 }
 

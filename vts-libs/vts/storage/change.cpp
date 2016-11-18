@@ -95,6 +95,11 @@ void Storage::createVirtualSurface(const TilesetIdSet &tilesets
     detail().createVirtualSurface(tilesets, mode);
 }
 
+void Storage::removeVirtualSurface(const TilesetIdSet &tilesets)
+{
+    detail().removeVirtualSurface(tilesets);
+}
+
 namespace {
 
 void rmrf(const fs::path &path)
@@ -830,12 +835,13 @@ Storage::Detail::addTileset(const Properties &properties
     return res;
 }
 
-std::tuple<Storage::Properties, Glue::map>
+std::tuple<Storage::Properties, Glue::map, VirtualSurface::map>
 Storage::Detail::removeTilesets(const Properties &properties
                                 , const TilesetIdList &tilesetIds)
     const
 {
-    std::tuple<Properties, Glue::map> res(properties, {});
+    std::tuple<Properties, Glue::map, VirtualSurface::map>
+        res(properties, {}, {});
     auto &p(std::get<0>(res));
     auto &tilesets(p.tilesets);
 
@@ -861,6 +867,46 @@ Storage::Detail::removeTilesets(const Properties &properties
             } else {
                 ++iglues;
             }
+        }
+    }
+
+    auto &virtualSurfaces(p.virtualSurfaces);
+    auto &resVirtualSurfaces(std::get<2>(res));
+    for (const auto &tilesetId : tilesetIds) {
+        for (auto ivirtualSurfaces(virtualSurfaces.begin());
+             ivirtualSurfaces != virtualSurfaces.end(); )
+        {
+            if (ivirtualSurfaces->second.references(tilesetId)) {
+                resVirtualSurfaces.insert(*ivirtualSurfaces);
+                ivirtualSurfaces = virtualSurfaces.erase(ivirtualSurfaces);
+            } else {
+                ++ivirtualSurfaces;
+            }
+        }
+    }
+
+    return res;
+}
+
+std::tuple<Storage::Properties, VirtualSurface::map>
+Storage::Detail::removeVirtualSurfaces(const Properties &properties
+                                       , const VirtualSurface::Ids &ids)
+    const
+{
+    std::tuple<Properties, VirtualSurface::map> res(properties, {});
+    auto &p(std::get<0>(res));
+    auto &resVirtualSurfaces(std::get<1>(res));
+
+    for (const auto &id : ids) {
+        auto fvirtualSurfaces(p.findVirtualSurface(id));
+        if (fvirtualSurfaces == p.virtualSurfaces.end()) {
+            LOG(warn2)
+                << "Virtual surface <"
+                << utility::join(id, ",") << "> "
+                "not found in storage " << root << ".";
+        } else {
+            resVirtualSurfaces.insert(*fvirtualSurfaces);
+            p.virtualSurfaces.erase(fvirtualSurfaces);
         }
     }
 
@@ -968,7 +1014,9 @@ void Storage::Detail::remove(const TilesetIdList &tilesetIds)
 
     Properties nProperties;
     Glue::map glues;
-    std::tie(nProperties, glues) = removeTilesets(properties, tilesetIds);
+    VirtualSurface::map virtualSurfaces;
+    std::tie(nProperties, glues, virtualSurfaces)
+        = removeTilesets(properties, tilesetIds);
 
     LOG(info3)
         << "Removing tilesets <" << utility::join(tilesetIds, ", ") << ">.";
@@ -979,14 +1027,25 @@ void Storage::Detail::remove(const TilesetIdList &tilesetIds)
     // physical removal
     for (const auto &tilesetId : tilesetIds) {
         auto path(storage_paths::tilesetPath(root, tilesetId));
-        LOG(info3) << "Removing " << path << ".";
+        LOG(info3) << "Removing tileset <" << tilesetId
+                   << "> from " << path << ".";
         rmrf(path);
     }
 
     for (const auto &item : glues) {
         const auto &glue(item.second);
         auto path(storage_paths::gluePath(root, glue));
-        LOG(info3) << "Removing glue " << glue.path << ".";
+        LOG(info3) << "Removing glue <" << utility::join(glue.id, ",")
+                   << "> from " << glue.path << ".";
+        rmrf(path);
+    }
+
+    for (const auto &item : virtualSurfaces) {
+        const auto &virtualSurface(item.second);
+        auto path(storage_paths::virtualSurfacePath(root, virtualSurface));
+        LOG(info3) << "Removing virtual surface <"
+                   << utility::join(virtualSurface.id, ",")
+                   << "> from " << virtualSurface.path << ".";
         rmrf(path);
     }
 }
@@ -1051,6 +1110,42 @@ void Storage::Detail::createVirtualSurface(const TilesetIdSet &tilesets
     // commit properties
     properties = nProperties;
     saveConfig();
+}
+
+void Storage::Detail::removeVirtualSurface(const TilesetIdSet &tilesets)
+{
+    auto tmp(tilesets);
+
+    VirtualSurface::Id vsId;
+    for (const auto &stored : properties.tilesets) {
+        auto ftmp(tmp.find(stored.tilesetId));
+        if (ftmp == tmp.end()) { continue; }
+
+        vsId.push_back(stored.tilesetId);
+        tmp.erase(ftmp);
+    }
+
+    if (!tmp.empty()) {
+        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+            << "Tileset(S) <" << utility::join(tmp, ", ")
+            << "> not found in storage " << root << ".";
+    }
+
+    Properties nProperties;
+    VirtualSurface::map virtualSurfaces;
+    std::tie(nProperties, virtualSurfaces)
+        = removeVirtualSurfaces(properties, { vsId });
+
+    properties = nProperties;
+    saveConfig();
+
+    for (const auto &item : virtualSurfaces) {
+        const auto &virtualSurface(item.second);
+        auto path(storage_paths::virtualSurfacePath(root, virtualSurface));
+        LOG(info3)
+            << "Removing virtual Surface " << virtualSurface.path << ".";
+        rmrf(path);
+    }
 }
 
 } } // namespace vadstena::vts

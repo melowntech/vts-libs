@@ -189,17 +189,27 @@ struct Storage::Detail
 
     void createVirtualSurface(const TilesetIdSet &tilesets, CreateMode mode);
 
+    void removeVirtualSurface(const TilesetIdSet &tilesets);
+
     std::tuple<Properties, StoredTileset>
     addTileset(const Properties &properties, const TilesetId &tilesetId
                , const AddOptions &addOptions
                , const Location &where) const;
 
     /** Removes given tileset from properties and returns new properties and
-     *  list of removed glues.
+     *  list of removed glues and virtual surfaces.
      */
-    std::tuple<Properties, Glue::map>
+    std::tuple<Properties, Glue::map, VirtualSurface::map>
     removeTilesets(const Properties &properties
                    , const TilesetIdList &tilesetIds)
+        const;
+
+    /** Removes given virtual surfaces from properties and returns new
+     *  properties and list of removed virtual surfaces.
+     */
+    std::tuple<Properties, VirtualSurface::map>
+    removeVirtualSurfaces(const Properties &properties
+                          , const VirtualSurface::Ids &ids)
         const;
 
     bool externallyChanged() const;

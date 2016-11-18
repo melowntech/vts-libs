@@ -191,6 +191,11 @@ bool Glue::references(const std::string &tilesetId) const
     return (std::find(id.begin(), id.end(), tilesetId) != id.end());
 }
 
+bool VirtualSurface::references(const std::string &tilesetId) const
+{
+    return (std::find(id.begin(), id.end(), tilesetId) != id.end());
+}
+
 StoredTileset::list::iterator
 Storage::Properties::findTilesetIt(const TilesetId &tilesetId)
 {
