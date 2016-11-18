@@ -62,7 +62,20 @@ public:
 
     void reset(value_type value);
 
-    void save(std::ostream &os) const;
+    /** Save parameters.
+     */
+    class SaveParams {
+    public:
+        SaveParams() : bw_(false) {}
+
+        inline SaveParams& bw(bool value) { bw_ = value; return *this; }
+        inline bool bw() const { return bw_; }
+
+    private:
+        bool bw_;
+    };
+
+    void save(std::ostream &os, const SaveParams &params = SaveParams()) const;
     void load(std::istream &is, const boost::filesystem::path &path);
 
     void recreate(unsigned int order = 0, value_type value = 0);
@@ -75,9 +88,12 @@ public:
     void merge(const QTree &other, const FilterOp &filter);
 
     /** Coarsen one level up.
+     *
+     * \param filter filtering operation
+     * \param resize decrement order (halve size) if true
      */
     template <typename FilterOp>
-    void coarsen(const FilterOp &filter);
+    void coarsen(const FilterOp &filter, bool resize = false);
 
     /** Intersect nodes.
      */
@@ -125,6 +141,13 @@ public:
     void forEachNode(unsigned int depth, unsigned int x, unsigned int y
                      , const Op &op, Filter filter = Filter::both) const;
 
+    /** Runs op(x, y, value) for each pixel based on filter in subtree starting
+     *  at given index.
+     */
+    template <typename Op>
+    void forEach(unsigned int depth, unsigned int x, unsigned int y
+                 , const Op &op, Filter filter = Filter::both) const;
+
     /** Translates value of every node.
      *  Calls value = op(value) for every node.
      */
@@ -166,13 +189,14 @@ public:
         return { *this, order, depth, x, y };
     }
 
+    void swap(QTree &other);
+
 private:
     /** Re-calculates number of non-zero elements.
      */
     void recount();
 
     struct Node {
-        // NB: value MSB is used as value marker in serialized data!
         QTree::value_type value;
 
         struct Children;
@@ -205,14 +229,30 @@ private:
 
         void contract();
 
-        void save(std::ostream &os) const;
-        std::tuple<std::size_t, value_type>
-        load(unsigned int mask, std::istream &is);
+        void saveChildren(std::ostream &os) const;
+        void saveChildrenBw(std::ostream &os) const;
 
         /** Load node from raster mask node.
          */
         std::tuple<std::size_t, value_type>
         loadRasterMask(unsigned int mask, std::istream &is);
+
+        /** Load version 1.
+         */
+        std::tuple<std::size_t, value_type>
+        loadV1(unsigned int mask, std::istream &is);
+
+        std::tuple<std::size_t, QTree::value_type>
+        loadChildren(unsigned int mask, std::istream &is);
+
+        std::tuple<std::size_t, QTree::value_type>
+        loadChildrenBw(unsigned int mask, std::istream &is);
+
+        std::tuple<std::size_t, QTree::value_type>
+        load(unsigned int mask, std::istream &is, std::uint8_t flags);
+
+        std::tuple<std::size_t, QTree::value_type>
+        loadBw(unsigned int mask, std::istream &is, std::uint8_t flags);
 
         /** Called from QTree::forEachNode */
         template <typename Op>
@@ -275,6 +315,8 @@ private:
                          , unsigned int y) const;
 
         void force(value_type value);
+
+        void swap(Node &other);
     };
 
     unsigned int order_;
@@ -364,6 +406,26 @@ inline void QTree::forEachNode(unsigned int depth
 }
 
 template <typename Op>
+inline void QTree::forEach(unsigned int depth, unsigned int x, unsigned int y
+                           , const Op &op, Filter filter) const
+{
+    this->forEachNode(depth, x, y
+                      , [&](unsigned int x, unsigned int y, unsigned int size
+                            , value_type value)
+    {
+        // rasterize node
+        uint ex(x + size);
+        uint ey(y + size);
+
+        for (uint j(y); j < ey; ++j) {
+            for (uint i(x); i < ex; ++i) {
+                op(i, j, value);
+            }
+        }
+    }, filter);
+}
+
+template <typename Op>
 void QTree::translateEachNode(const Op &op)
 {
     root_.translate(op);
@@ -414,9 +476,13 @@ inline void QTree::merge(const QTree &other, const FilterOp &filter)
 }
 
 template <typename FilterOp>
-void QTree::coarsen(const FilterOp &filter)
+void QTree::coarsen(const FilterOp &filter, bool resize)
 {
     root_.coarsen(size_, filter);
+    if (resize && order_) {
+        --order_;
+        size_ = 1 << order_;
+    }
     recount();
 }
 
@@ -762,6 +828,20 @@ long QTree::Node::update(unsigned int size, unsigned int x, unsigned int y
     // contract nodes of same value
     contract();
     return res;
+}
+
+inline void QTree::swap(QTree &other) {
+    std::swap(order_, other.order_);
+    std::swap(size_, other.size_);
+    root_.swap(other.root_);
+    std::swap(count_, other.count_);
+    std::swap(allSetFlags_, other.allSetFlags_);
+}
+
+inline void QTree::Node::swap(Node &other)
+{
+    std::swap(value, other.value);
+    std::swap(children, other.children);
 }
 
 } } // namespace vadstena::vts

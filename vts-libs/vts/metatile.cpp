@@ -23,7 +23,7 @@ namespace vadstena { namespace vts {
 
 namespace {
     const char MAGIC[2] = { 'M', 'T' };
-    const std::uint16_t VERSION = 2;
+    const std::uint16_t VERSION = 3;
 
     const std::size_t MIN_GEOM_BITS(2);
 } // namespace
@@ -94,20 +94,9 @@ namespace {
 
 std::size_t geomLen(Lod lod)
 {
-    // calculate lenght in bits, top it to the closest byte and calculate number
+    // calculate length in bits, top it to the closest byte and calculate number
     // of bytes
     return (6 * (lod + MIN_GEOM_BITS) + 7) / 8;
-}
-
-std::uint8_t nodeSize(Lod lod)
-{
-    return (1 // flags
-            + geomLen(lod)
-            + 1 // internalTextureCount/reference
-            + 2 // texelSize
-            + 2 // displaySize
-            + 2 + 2 // navtile height range
-            );
 }
 
 std::vector<std::uint8_t>
@@ -223,7 +212,15 @@ struct MetaTileFlag {
     typedef std::uint8_t value_type;
 
     enum : value_type {
+        // flag planes
         alienPlane = 0x01
+        // NB: do not forget to add other flag planes here
+        , flagPlanes = (alienPlane)
+
+        // other flags
+        , sourceReferenceByte = 0x40
+        , sourceReferenceShort = 0x80
+        , sourceReference = (sourceReferenceByte | sourceReferenceShort)
     };
 
     typedef std::pair<value_type, MetaNode::Flag::value_type> FlagMapping;
@@ -237,7 +234,27 @@ struct MetaTileFlag {
                 flags |= mapping.first;
             }
         }
+
+        if (node.sourceReference) {
+            if (node.sourceReference < 256) {
+                flags |= sourceReferenceByte;
+            } else {
+                flags |= sourceReferenceShort;
+            }
+        }
+
         return flags;
+    }
+
+    static MetaNode::BackingType
+    sourceReferenceSize(value_type flags)
+    {
+        if (flags & MetaTileFlag::sourceReferenceShort) {
+            return MetaNode::BackingType::uint16;
+        } else if (flags & MetaTileFlag::sourceReferenceByte) {
+            return MetaNode::BackingType::uint8;
+        }
+        return MetaNode::BackingType::none;
     }
 };
 
@@ -265,13 +282,52 @@ std::uint16_t loadVersion(std::istream &in, const fs::path &path)
     return version;
 }
 
+template <typename T1, typename T2>
+inline T1 readHelper(std::istream &in)
+{
+    T2 value;
+    bin::read(in, value);
+    return value;
+}
+
+template <typename T>
+inline T readVariable(std::istream &in, MetaNode::BackingType type)
+{
+    switch (type) {
+    case MetaNode::BackingType::none: break;
+
+    case MetaNode::BackingType::uint8:
+        return readHelper<T, std::uint8_t>(in);
+
+    case MetaNode::BackingType::uint16:
+        return readHelper<T, std::uint16_t>(in);
+    }
+    return 0;
+}
+
+template <typename T>
+inline void writeVariable(std::ostream &out, MetaNode::BackingType type
+                          , T value)
+{
+    switch (type) {
+    case MetaNode::BackingType::none: break;
+
+    case MetaNode::BackingType::uint8:
+        bin::write(out, std::uint8_t(value));
+        break;
+    case MetaNode::BackingType::uint16:
+        bin::write(out, std::uint16_t(value));
+        break;
+    }
+}
+
 } // namespace
 
-inline void MetaNode::save(std::ostream &out, Lod lod) const
+inline void MetaNode::save(std::ostream &out, const StoreParams &sp) const
 {
     bin::write(out, std::uint8_t(flags_));
 
-    bin::write(out, buildGeomExtents(lod, extents));
+    bin::write(out, buildGeomExtents(sp.lod, extents));
 
     bin::write(out, (geometry()
                      ? std::uint8_t(internalTextureCount_)
@@ -286,6 +342,8 @@ inline void MetaNode::save(std::ostream &out, Lod lod) const
 
     bin::write(out, std::int16_t(heightRange.min));
     bin::write(out, std::int16_t(heightRange.max));
+
+    writeVariable(out, sp.sourceReference, sourceReference);
 }
 
 void MetaTile::save(std::ostream &out) const
@@ -298,13 +356,7 @@ void MetaTile::save(std::ostream &out) const
     });
 
     bin::write(out, MAGIC);
-
-    if (flags) {
-        bin::write(out, VERSION);
-    } else {
-        // VERSION=1: no metatile flags -> write old format
-        bin::write(out, std::uint16_t(1));
-    }
+    bin::write(out, VERSION);
 
     // tile id information
     bin::write(out, std::uint8_t(origin_.lod));
@@ -345,31 +397,12 @@ void MetaTile::save(std::ostream &out) const
         }
     }
 
-    if (flags) {
-        // store flags
-        bin::write(out, std::uint8_t(flags));
-        bin::write(out, std::uint8_t(credits.size()));
-    } else {
-        // VERSION=1: write node size
-        bin::write(out, nodeSize(origin_.lod));
-        // VERSION=1: write node size
-        if (credits.empty() || math::empty(validSize)) {
-            // no credits -> credit block size is irrelevant
-            bin::write(out, std::uint8_t(0));
-            bin::write(out, std::uint16_t(0));
-        } else {
-            // write credit count
-            bin::write(out, std::uint8_t(credits.size()));
-
-            // create credit plane bitmap
-            imgproc::bitfield::RasterMask
-                bitmap(validSize.width, validSize.height);
-            bin::write(out, std::uint16_t(bitmap.byteCount()));
-        }
-    }
+    // store flags
+    bin::write(out, std::uint8_t(flags));
+    bin::write(out, std::uint8_t(credits.size()));
 
     // store flag planes (if any)
-    if (flags) {
+    if (flags & MetaTileFlag::flagPlanes) {
         imgproc::bitfield::RasterMask bitmap;
 
         // save flag planes
@@ -424,9 +457,12 @@ void MetaTile::save(std::ostream &out) const
     // write nodes if any
     if (!valid(valid_)) { return; }
 
+    const MetaNode::StoreParams sp
+        (origin_.lod, MetaTileFlag::sourceReferenceSize(flags));
+
     for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
         for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
-            grid_[j * size_ + i].save(out, origin_.lod);
+            grid_[j * size_ + i].save(out, sp);
         }
     }
 }
@@ -438,17 +474,19 @@ void saveMetaTile(const fs::path &path, const MetaTile &meta)
     f.close();
 }
 
-inline void MetaNode::load(std::istream &in, Lod lod)
+inline void MetaNode::load(std::istream &in, const StoreParams &sp)
 {
     // NB: flags are accumulated because they can be pre-initialized from
     // another source
-    std::uint8_t f;
-    bin::read(in, f);
-    flags_ |= f;
+    {
+        std::uint8_t f;
+        bin::read(in, f);
+        flags_ |= f;
+    }
 
-    std::vector<std::uint8_t> geomExtents(geomLen(lod));
+    std::vector<std::uint8_t> geomExtents(geomLen(sp.lod));
     bin::read(in, geomExtents);
-    parseGeomExtents(lod, extents, geomExtents);
+    parseGeomExtents(sp.lod, extents, geomExtents);
 
     std::uint8_t u8;
     std::uint16_t u16;
@@ -462,11 +500,13 @@ inline void MetaNode::load(std::istream &in, Lod lod)
 
     bin::read(in, i16); heightRange.min = i16;
     bin::read(in, i16); heightRange.max = i16;
+
+    sourceReference = readVariable<SourceReference>(in, sp.sourceReference);
 }
 
 void MetaTile::load(std::istream &in, const fs::path &path)
 {
-    auto version(loadVersion(in, path));
+    const auto version(loadVersion(in, path));
 
     std::uint8_t u8;
     std::uint16_t u16;
@@ -512,7 +552,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
     }
 
     // load flags
-    if (flags) {
+    if (flags & MetaTileFlag::flagPlanes) {
         for (const auto &mapping : MetaTileFlag::flagMapping) {
             if (!(mapping.first & flags)) { continue; }
 
@@ -572,9 +612,12 @@ void MetaTile::load(std::istream &in, const fs::path &path)
     // read rest of nodes if any
     if (!valid(valid_)) { return; }
 
+    const MetaNode::StoreParams sp
+        (origin_.lod, MetaTileFlag::sourceReferenceSize(flags));
+
     for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
         for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
-            grid_[j * size_ + i].load(in, origin_.lod);
+            grid_[j * size_ + i].load(in, sp);
         }
     }
 
@@ -674,6 +717,24 @@ MetaNode& MetaNode::mergeExtents(const MetaNode &other)
     return *this;
 }
 
+MetaNode& MetaNode::mergeExtents(const math::Extents3 &other)
+{
+    if (other.ll == other.ur) {
+        // nothing to do
+        return *this;
+    }
+
+    if (extents.ll == extents.ur) {
+        // use other's extents
+        extents = other;
+        return *this;
+    }
+
+    // merge
+    extents = unite(extents, other);
+    return *this;
+}
+
 MetaNode& MetaNode::internalTextureCount(std::size_t value)
 {
     if (!geometry()) {
@@ -713,14 +774,7 @@ MetaTile::extents_type MetaTile::validExtents() const
                         , origin_.y + valid_.ur(1));
 }
 
-MetaTile::References MetaTile::makeReferences() const
-{
-    return References(size_ * size_, 0);
-}
-
-void MetaTile::update(const MetaTile &in, References &references
-                      , int surfaceIndex, const Indices *indices
-                      , bool alien)
+void MetaTile::update(const MetaTile &in, bool alien)
 {
     // sanity check
     if ((origin_ != in.origin_) || (binaryOrder_ != in.binaryOrder_)) {
@@ -740,28 +794,6 @@ void MetaTile::update(const MetaTile &in, References &references
             // get input
             const auto &inn(in.grid_[idx]);
 
-            // check for reference
-            if (auto reference = inn.reference()) {
-                // we have reference, store if we can
-                auto &outr(references[idx]);
-                // if (!outr && indices) {
-                if (!outr) {
-                    // translate glue reference info surface index
-                    auto surfaceReference((*indices)[reference - 1] + 1);
-
-                    // unset output references -> store
-                    outr = surfaceReference;
-                }
-                continue;
-            }
-
-            // check for tileset skip
-            auto storedReference(references[idx]);
-            if (storedReference && (storedReference != surfaceIndex)) {
-                // valid stored reference differes from current index -> skip
-                continue;
-            }
-
             // update valid extents
             math::update(valid_, point_type(i, j));
 
@@ -779,6 +811,77 @@ void MetaTile::update(const MetaTile &in, References &references
             // both are virtual nodes:
             // update extents
             outn.mergeExtents(inn);
+        }
+    }
+}
+
+// NB: in following code, heightRange.min is used as a placeholder for
+// referenceId; this can change in the future
+
+void MetaTile::expectReference(const TileId &tileId
+                               , MetaNode::SourceReference sourceReference)
+{
+    auto gi(gridIndex(tileId, false));
+    grid_[index(gi)].sourceReference = sourceReference;
+}
+
+void MetaTile::update(MetaNode::SourceReference sourceReference
+                      , const MetaTile &in)
+{
+    // sanity check
+    if ((origin_ != in.origin_) || (binaryOrder_ != in.binaryOrder_)) {
+        LOGTHROW(err1, storage::Error)
+            << "Incompatible metatiles.";
+    }
+
+    for (auto j(in.valid_.ll(1)); j <= in.valid_.ur(1); ++j) {
+        for (auto i(in.valid_.ll(0)); i <= in.valid_.ur(0); ++i) {
+            // first, skip real output tiles
+            auto idx(j * in.size_ + i);
+            auto &outn(grid_[idx]);
+
+            // get input
+            const auto &inn(in.grid_[idx]);
+
+            if (!inn.real() && math::empty(inn.extents)) {
+                // nonexistent node, ignore
+                continue;
+            }
+
+            if (outn.real()) {
+                // we already have valid output
+
+                // just update geometry extents
+                outn.mergeExtents(inn);
+                continue;
+            }
+
+            // update metatile valid extents
+            math::update(valid_, point_type(i, j));
+
+            if (sourceReference != outn.sourceReference) {
+                // difference reference, just update geometry extents
+                outn.mergeExtents(inn);
+                continue;
+            }
+
+            // found matching node, copy
+
+            // we need to keep current geometry extents since they are rewritten
+            // by node copy
+            const auto savedExtents(outn.extents);
+
+            // copy
+            outn = inn;
+
+            // store reference so it is serialized
+            outn.sourceReference = sourceReference;
+
+            // and apply saved geometry extents
+            outn.mergeExtents(savedExtents);
+
+            // reset children and alien flags
+            outn.reset(MetaNode::Flag::allChildren | MetaNode::Flag::alien);
         }
     }
 }

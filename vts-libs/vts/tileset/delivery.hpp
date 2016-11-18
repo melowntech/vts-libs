@@ -45,6 +45,13 @@ public:
 
     FileStat stat(const TileId &tileId, TileFile type) const;
 
+    IStream::pointer input(const std::string &name) const;
+
+    IStream::pointer input(const std::string &name
+                           , const NullWhenNotFound_t&) const;
+
+    FileStat stat(const std::string &name) const;
+
     Resources resources() const;
 
     bool externallyChanged() const;

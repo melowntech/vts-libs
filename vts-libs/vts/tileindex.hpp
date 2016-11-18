@@ -37,8 +37,11 @@ public:
             // flags not present in metatiles
             , nonmeta = (watertight | multimesh)
 
-            // cannot be 0xff since it is reserved value!
-            , any = 0x7f
+            // any flags
+            , any = 0xff
+
+            // all flags without alien flag
+            , nonAlien = any & ~alien
 
             // no flag set
             , none = 0x00
@@ -63,6 +66,10 @@ public:
         static bool isAlien(value_type flags) {
             return check(flags, mesh | alien, mesh | alien);
         };
+
+        static value_type getReference(value_type flags) {
+            return flags >> 16;
+        }
     };
 
     TileIndex() : minLod_() {}
@@ -85,8 +92,15 @@ public:
               = "unknown");
     void load(const boost::filesystem::path &path);
 
-    void save(std::ostream &os) const;
-    void save(const boost::filesystem::path &path) const;
+    struct SaveParams : QTree::SaveParams {
+        SaveParams() = default;
+        SaveParams(const QTree::SaveParams &sp) : QTree::SaveParams(sp) {}
+    };
+
+    void save(std::ostream &os, const SaveParams &params = SaveParams()) const;
+    void save(const boost::filesystem::path &path
+              , const SaveParams &params = SaveParams())
+        const;
 
     bool exists(const TileId &tileId) const { return get(tileId); }
 
@@ -333,8 +347,16 @@ public:
                        , const LodRange &lodRange = LodRange::emptyRange());
 
     /** Trims trim levels from each lod and makes the tree complete.
+     *  Tile index is made absolute if absolute is set.
+     *
+     *  All values are transformed to 1 (i.e. every level is a b&w tree)
      */
-    TileIndex& shrinkAndComplete(unsigned int trim);
+    TileIndex& shrinkAndComplete(unsigned int trim, bool absolute = true);
+
+    /** Creates virtual shrinked tree (see shrinkAndComplete) and returns
+     *  accumulated count of existing tiles.
+     */
+    std::size_t shrinkedCount(unsigned int trim, bool absolute = true) const;
 
     /** Makes given lod range available.
      */

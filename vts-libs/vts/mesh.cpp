@@ -304,11 +304,18 @@ Mesh loadMesh(std::istream &in, const fs::path &path)
     if (storage::gzipped(in)) {
         // looks like a gzip
         bio::filtering_istream gzipped;
-        gzipped.exceptions(in.exceptions());
-        gzipped.push(bio::gzip_decompressor());
+
+        // create and add decompressor
+        gzipped.push
+            (bio::gzip_decompressor(bio::gzip_params().window_bits, 1 << 16));
+
+        // add input restricted to mesh data
         auto rin(bio::restrict(in, table.entries[0].start,
                                    table.entries[0].size));
         gzipped.push(rin);
+
+        gzipped.exceptions(in.exceptions());
+
         detail::loadMeshProper(gzipped, path, mesh);
     } else {
         // raw file

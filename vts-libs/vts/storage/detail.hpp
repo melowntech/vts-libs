@@ -63,6 +63,10 @@ struct Storage::Properties : StorageProperties {
      */
     Glue::map glues;
 
+    /** List of virtual surfaces
+     */
+    VirtualSurface::map virtualSurfaces;
+
     /** Information about removed tilesets/glues.
      */
     TrashBin trashBin;
@@ -87,6 +91,27 @@ struct Storage::Properties : StorageProperties {
 
     bool hasGlue(const Glue::Id& glue) const {
         return findGlue(glue) != glues.end();
+    }
+
+    const Glue* getGlue(const Glue::Id& glue) const {
+        auto fglues(findGlue(glue));
+        return (fglues != glues.end()) ? &fglues->second : nullptr;
+    }
+
+    VirtualSurface::map::iterator
+    findVirtualSurface(const VirtualSurface::Id& virtualSurface);
+    VirtualSurface::map::const_iterator
+    findVirtualSurface(const VirtualSurface::Id& virtualSurface) const;
+
+    bool hasVirtualSurface(const VirtualSurface::Id& virtualSurface) const {
+        return findVirtualSurface(virtualSurface) != virtualSurfaces.end();
+    }
+
+    const VirtualSurface*
+    getVirtualSurface(const VirtualSurface::Id& virtualSurface) const {
+        auto fvirtualSurfaces(findVirtualSurface(virtualSurface));
+        return (fvirtualSurfaces != virtualSurfaces.end())
+            ? &fvirtualSurfaces->second : nullptr;
     }
 
     /** Return set of unique tilesets.
@@ -162,17 +187,29 @@ struct Storage::Detail
 
     void remove(const TilesetIdList &tilesetIds);
 
+    void createVirtualSurface(const TilesetIdSet &tilesets, CreateMode mode);
+
+    void removeVirtualSurface(const TilesetIdSet &tilesets);
+
     std::tuple<Properties, StoredTileset>
     addTileset(const Properties &properties, const TilesetId &tilesetId
                , const AddOptions &addOptions
                , const Location &where) const;
 
     /** Removes given tileset from properties and returns new properties and
-     *  list of removed glues.
+     *  list of removed glues and virtual surfaces.
      */
-    std::tuple<Properties, Glue::map>
+    std::tuple<Properties, Glue::map, VirtualSurface::map>
     removeTilesets(const Properties &properties
                    , const TilesetIdList &tilesetIds)
+        const;
+
+    /** Removes given virtual surfaces from properties and returns new
+     *  properties and list of removed virtual surfaces.
+     */
+    std::tuple<Properties, VirtualSurface::map>
+    removeVirtualSurfaces(const Properties &properties
+                          , const VirtualSurface::Ids &ids)
         const;
 
     bool externallyChanged() const;

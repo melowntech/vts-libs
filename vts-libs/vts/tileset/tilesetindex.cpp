@@ -14,9 +14,9 @@ void loadTileSetIndex(Index &tsi, const Driver &driver)
         auto f(driver.input(File::tileIndex));
         tsi.tileIndex.load(*f, f->name());
 
-        if (f->get().peek() != std::istream::traits_type::eof()) {
-            tsi.references.load(*f, f->name());
-        }
+        // load rest of data
+        tsi.loadRest(*f, f->name());
+
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
@@ -36,7 +36,7 @@ void saveTileSetIndex(const Index &tsi, Driver &driver)
     try {
         auto f(driver.output(File::tileIndex));
         tsi.tileIndex.save(*f);
-        tsi.references.save(*f);
+        tsi.saveRest(*f);
         f->close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)
@@ -52,9 +52,7 @@ void loadTileSetIndex(Index &tsi, const fs::path &path)
         tsi.tileIndex = {};
         tsi.tileIndex.load(f, path);
 
-        if (f.peek() != std::istream::traits_type::eof()) {
-            tsi.references.load(f, path);
-        }
+        tsi.loadRest(f, path);
         f.close();
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::Error)
@@ -67,7 +65,7 @@ void saveTileSetIndex(const Index &tsi, const fs::path &path)
     try {
         utility::ofstreambuf f(path.c_str());
         tsi.tileIndex.save(f);
-        tsi.references.save(f);
+        tsi.saveRest(f);
         f.close();
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::Error)
@@ -79,7 +77,7 @@ void saveTileSetIndex(const Index &tsi, std::ostream &os)
 {
     try {
         tsi.tileIndex.save(os);
-        tsi.references.save(os);
+        tsi.saveRest(os);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::Error)
             << "Unable to save tile index: " << e.what() << ".";
@@ -108,15 +106,21 @@ bool Index::check(const TileId &tileId, TileFile type) const
     }
 }
 
-int Index::getReference(const TileId &tileId) const
+TileIndex::Flag::value_type
+Index::checkAndGetFlags(const TileId &tileId, TileFile type) const
 {
-    // reference tile must have set reference flag and unset mesh flag
-    if (!tileIndex.checkMask(tileId, TileIndex::Flag::reference
-                             , TileIndex::Flag::mesh))
-    {
-        return 0;
+    const auto flags(tileIndex.get(tileId));
+
+    switch (type) {
+    case TileFile::mesh:
+        return (flags & TileIndex::Flag::mesh) ? flags : 0;
+    case TileFile::atlas:
+        return (flags & TileIndex::Flag::atlas) ? flags : 0;
+    case TileFile::navtile:
+        return (flags & TileIndex::Flag::navtile) ? flags : 0;
+
+    default: return 0;
     }
-    return references.get(tileId);
 }
 
 TileIndex Index::deriveMetaIndex() const
@@ -124,10 +128,11 @@ TileIndex Index::deriveMetaIndex() const
     if (tileIndex.empty()) { return {}; }
 
     // clone tile index
-    TileIndex out(tileIndex);
-    // make absolute (i.e. from LOD 0) and shrink every tree by
-    // metaBinaryOrder_ levels
-    return out.makeAbsolute().shrinkAndComplete(metaBinaryOrder_);
+    return TileIndex(tileIndex).shrinkAndComplete(metaBinaryOrder_);
 }
+
+void Index::loadRest_impl(std::istream&, const boost::filesystem::path&) {}
+
+void Index::saveRest_impl(std::ostream&) const {}
 
 } } } // namespace vadstena::vts::tileset

@@ -55,6 +55,14 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
                              , storageView.tilesets());
 }
 
+TileSet aggregateTileSets(const boost::filesystem::path &path
+                          , const Storage &storage
+                          , const CloneOptions &createOptions
+                          , const TilesetIdSet &tilesets)
+{
+    return aggregateTileSets(path, storage.path(), createOptions, tilesets);
+}
+
 std::istream& operator>>(std::istream &is, RelocateOptions::Rule &rule)
 {
     bool prefix(true);

@@ -14,6 +14,7 @@
 #include "../registry.hpp"
 #include "./basetypes.hpp"
 #include "./glue.hpp"
+#include "./virtualsurface.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -72,6 +73,17 @@ struct GlueConfig : SurfaceCommonConfig {
     typedef std::vector<GlueConfig> list;
 };
 
+struct VirtualSurfaceConfig : SurfaceCommonConfig {
+    VirtualSurface::Id id;
+
+    VirtualSurfaceConfig() {}
+    VirtualSurfaceConfig(const SurfaceConfig &surface)
+        : SurfaceCommonConfig(surface)
+    {}
+
+    typedef std::vector<VirtualSurfaceConfig> list;
+};
+
 /** Configuration for meshTiles free layer.
  */
 struct MeshTilesConfig {
@@ -93,6 +105,7 @@ struct MapConfig : public registry::Registry {
 
     SurfaceConfig::list surfaces;
     GlueConfig::list glues;
+    VirtualSurfaceConfig::list virtualSurfaces;
 
     MeshTilesConfig::list meshTiles;
 
@@ -132,6 +145,18 @@ struct MapConfig : public registry::Registry {
     void mergeGlue(const MapConfig &tilesetMapConfig
                    , const Glue &glue
                    , const boost::filesystem::path &root);
+
+    /** Merges in mapConfig for one tileset as a virtual surface.
+     *
+     * \param virtualSurfaceMapConfig single tileset mapConfig
+     * \param virtualSurface virtualSurface definition
+     * \param root path to virtualSurfaces
+     *
+     * NB: virtualSurface path is composed as root / virtualSurface.path
+     */
+    void mergeVirtualSurface(const MapConfig &tilesetMapConfig
+                             , const VirtualSurface &virtualSurface
+                             , const boost::filesystem::path &root);
 
     /** Adds in MeshTilesConfig
      *

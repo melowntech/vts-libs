@@ -207,6 +207,8 @@ struct TileSet::Factory
 
         traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
         {
+            LOG(debug) << "Storing tile " << tid << ".";
+
             if (mask & TileIndex::Flag::mesh) {
                 // copy mesh
                 copyFile(sd.input(tid, storage::TileFile::mesh)
@@ -447,12 +449,14 @@ TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src
 /** Core implementation.
  */
 TileSet aggregateTileSets(const boost::filesystem::path &path
-                          , const Storage &storage
+                          , const boost::filesystem::path &storagePath
                           , const CloneOptions &co
                           , const TilesetIdSet &tilesets)
 {
-    driver::OldAggregatedOptions dopts;
-    dopts.storagePath = fs::absolute(storage.path());
+    driver::AggregatedOptions dopts;
+    dopts.storagePath = (co.absolutize()
+                         ? fs::absolute(storagePath)
+                         : storagePath);
     dopts.tilesets = tilesets;
 
     // TODO: use first non-empty path element
@@ -469,8 +473,10 @@ TileSet aggregateTileSets(const Storage &storage
                           , const CloneOptions &co
                           , const TilesetIdSet &tilesets)
 {
-    driver::OldAggregatedOptions dopts;
-    dopts.storagePath = fs::absolute(storage.path());
+    driver::AggregatedOptions dopts;
+    dopts.storagePath = (co.absolutize()
+                         ? fs::absolute(storage.path())
+                         : storage.path());
     dopts.tilesets = tilesets;
 
     auto driver(Driver::create(dopts, co));
@@ -508,7 +514,6 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
     , metaTiles(MetaCache::create(driver))
     , tsi(driverTsi_ ? *driverTsi_ : tsi_)
     , tileIndex(tsi.tileIndex)
-    , references(tsi.references)
 {
     loadConfig();
     referenceFrame = registry::system.referenceFrames
@@ -529,7 +534,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
                      (properties.referenceFrame))
     , metaTiles(MetaCache::create(driver))
     , tsi(tsi_)
-    , tileIndex(tsi.tileIndex), references(tsi.references)
+    , tileIndex(tsi.tileIndex)
     , lodRange(LodRange::emptyRange())
 {
     if (properties.id.empty()) {
@@ -774,12 +779,6 @@ void TileSet::Detail::updateNode(TileId tileId
               | TileIndex::Flag::reference | TileIndex::Flag::alien);
     auto flags(flagsFromNode(*node.metanode));
     flags |= extraFlags;
-
-    // process reference
-    if (auto r = node.metanode->reference()) {
-        flags |= TileIndex::Flag::reference;
-        references.set(tileId, r);
-    }
 
     // set tile index
     tileIndex.setMask(tileId, mask, flags);
@@ -1354,6 +1353,11 @@ const TileIndex& TileSet::tileIndex() const
     return detail().tileIndex;
 }
 
+TileIndex TileSet::metaIndex() const
+{
+    return detail().tsi.deriveMetaIndex();
+}
+
 MapConfig TileSet::mapConfig(const boost::filesystem::path &root
                              , bool includeExtra)
 {
@@ -1586,11 +1590,6 @@ bool TileSet::canContain(const NodeInfo &nodeInfo) const
     auto fsde(sde.find(nodeInfo.srs()));
     if (fsde == sde.end()) { return false; }
     return overlaps(fsde->second, nodeInfo.extents());
-}
-
-int TileSet::getReference(const TileId &tileId) const
-{
-    return detail().tsi.getReference(tileId);
 }
 
 void TileSet::paste(const TileSet &srcSet

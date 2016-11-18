@@ -317,6 +317,22 @@ FileStat Delivery::stat(const TileId &tileId, TileFile type) const
     return driver_->stat(tileId, type);
 }
 
+IStream::pointer Delivery::input(const std::string &name) const
+{
+    return driver_->input(name);
+}
+
+IStream::pointer Delivery::input(const std::string &name
+                                 , const NullWhenNotFound_t&) const
+{
+    return driver_->input(name, NullWhenNotFound);
+}
+
+FileStat Delivery::stat(const std::string &name) const
+{
+    return driver_->stat(name);
+}
+
 Resources Delivery::resources() const
 {
     return driver_->resources();

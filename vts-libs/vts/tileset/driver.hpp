@@ -86,6 +86,19 @@ public:
 
     FileStat stat(const TileId &tileId, TileFile type) const;
 
+    /** Extra files provided by driver.
+     */
+    IStream::pointer input(const std::string &name) const;
+
+    /** Extra files provided by driver.
+     */
+    IStream::pointer input(const std::string &name
+                           , const NullWhenNotFound_t&) const;
+
+    /** Extra files provided by driver.
+     */
+    FileStat stat(const std::string &name) const;
+
     Resources resources() const;
 
     void flush();
@@ -206,6 +219,19 @@ private:
 
     virtual FileStat stat_impl(const TileId &tileId, TileFile type)
         const = 0;
+
+    /** Extra files provided by driver. Optional.
+     */
+    virtual IStream::pointer input_impl(const std::string &name) const;
+
+    /** Extra files provided by driver. Optional.
+     */
+    virtual IStream::pointer input_impl(const std::string &name
+                                   , const NullWhenNotFound_t&) const;
+
+    /** Extra files provided by driver. Optional.
+     */
+    virtual FileStat stat_impl(const std::string &name) const;
 
     virtual Resources resources_impl() const = 0;
 
@@ -376,6 +402,26 @@ inline tileset::Index* Driver::getTileIndex()
 inline const tileset::Index* Driver::getTileIndex() const
 {
     return getTileIndex_impl();
+}
+
+inline IStream::pointer Driver::input(const std::string &name) const
+{
+    checkRunning();
+    return input_impl(name);
+}
+
+inline IStream::pointer Driver::input(const std::string &name
+                                      , const NullWhenNotFound_t&)
+    const
+{
+    checkRunning();
+    return input_impl(name, NullWhenNotFound);
+}
+
+inline FileStat Driver::stat(const std::string &name) const
+{
+    checkRunning();
+    return stat_impl(name);
 }
 
 } } // namespace vadstena::vts

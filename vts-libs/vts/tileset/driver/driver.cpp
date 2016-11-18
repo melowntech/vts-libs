@@ -24,6 +24,7 @@
 // drivers:
 #include "./plain.hpp"
 #include "./aggregated-old.hpp"
+#include "./aggregated.hpp"
 #include "./remote.hpp"
 #include "./local.hpp"
 
@@ -155,10 +156,10 @@ Driver::pointer Driver::create(const boost::filesystem::path &root
     {
         return std::make_shared<driver::PlainDriver>
             (root, *o, cloneOptions);
-    } else if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
+    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&genericOptions))
     {
-        return std::make_shared<driver::OldAggregatedDriver>
+        return std::make_shared<driver::AggregatedDriver>
             (root, *o, cloneOptions);
     } else if (auto o = boost::any_cast<const driver::RemoteOptions>
                (&genericOptions))
@@ -182,10 +183,10 @@ Driver::pointer Driver::create(const boost::filesystem::path &root
 Driver::pointer Driver::create(const boost::any &genericOptions
                                , const CloneOptions &cloneOptions)
 {
-    if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
+    if (auto o = boost::any_cast<const driver::AggregatedOptions>
         (&genericOptions))
     {
-        return std::make_shared<driver::OldAggregatedDriver>
+        return std::make_shared<driver::AggregatedDriver>
             (*o, cloneOptions);
     }
 
@@ -208,6 +209,10 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
                (&genericOptions))
     {
         return std::make_shared<driver::OldAggregatedDriver>(root, *o);
+    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
+               (&genericOptions))
+    {
+        return std::make_shared<driver::AggregatedDriver>(root, *o);
     } else if (auto o = boost::any_cast<const driver::RemoteOptions>
                (&genericOptions))
     {
@@ -236,6 +241,10 @@ boost::any relocateOptions(const boost::any &options
     {
         return o->relocate(relocateOptions, prefix);
     } else if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
+               (&options))
+    {
+        return o->relocate(relocateOptions, prefix);
+    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&options))
     {
         return o->relocate(relocateOptions, prefix);
@@ -295,6 +304,28 @@ bool Driver::check(const boost::filesystem::path &root)
         return false;
     }
     return true;
+}
+
+IStream::pointer Driver::input_impl(const std::string &name) const
+{
+    LOGTHROW(err1, storage::NoSuchFile)
+        << "This driver doesn't serve file \"" << name << "\".";
+    throw;
+}
+
+IStream::pointer Driver::input_impl(const std::string &name
+                                    , const NullWhenNotFound_t&)
+    const
+{
+    LOG(err1) << "This driver doesn't serve file \"" << name << "\".";
+    return {};
+}
+
+FileStat Driver::stat_impl(const std::string &name) const
+{
+    LOGTHROW(err1, storage::NoSuchFile)
+        << "This driver doesn't serve file \"" << name << "\".";
+    throw;
 }
 
 namespace driver {

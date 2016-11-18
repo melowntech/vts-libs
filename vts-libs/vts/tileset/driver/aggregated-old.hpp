@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileset_driver_aggregated_hpp_included_
-#define vadstena_libs_vts_tileset_driver_aggregated_hpp_included_
+#ifndef vadstena_libs_vts_tileset_driver_aggregated_old_hpp_included_
+#define vadstena_libs_vts_tileset_driver_aggregated_old_hpp_included_
 
 #include <set>
 #include <map>
@@ -20,18 +20,6 @@ struct OldAggregatedDriverBase {
 class OldAggregatedDriver : private OldAggregatedDriverBase, public Driver {
 public:
     typedef std::shared_ptr<OldAggregatedDriver> pointer;
-
-    /** Creates new storage. Existing storage is overwritten only if mode ==
-     *  CreateMode::overwrite.
-     */
-    OldAggregatedDriver(const boost::filesystem::path &root
-                     , const OldAggregatedOptions &options
-                     , const CloneOptions &cloneOptions);
-
-    /** Creates in-memory storage.
-     */
-    OldAggregatedDriver(const OldAggregatedOptions &options
-                     , const CloneOptions &cloneOptions);
 
     /** Opens storage.
      */

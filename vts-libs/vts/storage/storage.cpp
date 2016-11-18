@@ -34,11 +34,13 @@ namespace fs = boost::filesystem;
 
 namespace vadstena { namespace vts {
 
+constexpr char VirtualSurface::TilesetMappingPath[];
+constexpr char VirtualSurface::TilesetMappingContentType[];
+
 namespace {
     const fs::path ConfigFilename("storage.conf");
     const fs::path ExtraConfigFilename("extra.conf");
 }
-
 
 void TrashBin::add(const TilesetIdList &id, const Item &item)
 {
@@ -191,6 +193,11 @@ bool Glue::references(const std::string &tilesetId) const
     return (std::find(id.begin(), id.end(), tilesetId) != id.end());
 }
 
+bool VirtualSurface::references(const std::string &tilesetId) const
+{
+    return (std::find(id.begin(), id.end(), tilesetId) != id.end());
+}
+
 StoredTileset::list::iterator
 Storage::Properties::findTilesetIt(const TilesetId &tilesetId)
 {
@@ -245,11 +252,34 @@ Storage::Properties::findGlue(const Glue::Id& glue) const
     return glues.find(glue);
 }
 
+VirtualSurface::map::iterator Storage::Properties
+::findVirtualSurface(const VirtualSurface::Id &virtualSurface)
+{
+    return virtualSurfaces.find(virtualSurface);
+}
+
+VirtualSurface::map::const_iterator Storage::Properties
+::findVirtualSurface(const VirtualSurface::Id& virtualSurface) const
+{
+    return virtualSurfaces.find(virtualSurface);
+}
+
 TilesetIdList Storage::tilesets() const
 {
     TilesetIdList list;
     for (const auto &stored : detail().properties.tilesets) {
         list.push_back(stored.tilesetId);
+    }
+    return list;
+}
+
+TilesetIdList Storage::tilesets(const TilesetIdSet &subset) const
+{
+    TilesetIdList list;
+    for (const auto &stored : detail().properties.tilesets) {
+        if (subset.count(stored.tilesetId)) {
+            list.push_back(stored.tilesetId);
+        }
     }
     return list;
 }
@@ -261,6 +291,11 @@ StoredTileset::list Storage::storedTilesets() const {
 Glue::map Storage::glues() const
 {
     return detail().properties.glues;
+}
+
+VirtualSurface::map Storage::virtualSurfaces() const
+{
+    return detail().properties.virtualSurfaces;
 }
 
 MapConfig Storage::mapConfig() const
@@ -403,6 +438,18 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             (TileSet::mapConfig
              (storage_paths::gluePath(root, glue), false)
              , glue, prefix / storage_paths::glueRoot());
+    }
+
+    // virtualSurfaces
+    for (const auto &item : properties.virtualSurfaces) {
+        // limit to tileset subset
+        if (!allowed(unique, item.first)) { continue; }
+
+        const auto &virtualSurface(item.second);
+        mapConfig.mergeVirtualSurface
+            (TileSet::mapConfig
+             (storage_paths::virtualSurfacePath(root, virtualSurface), false)
+             , virtualSurface, prefix / storage_paths::virtualSurfaceRoot());
     }
 
     if (extra.position) {
@@ -577,6 +624,38 @@ Storage::glues(const TilesetId &tilesetId
     return glues;
 }
 
+VirtualSurface::list Storage::virtualSurfaces(const TilesetId &tilesetId) const
+{
+    VirtualSurface::list virtualSurfaces;
+
+    for (const auto &item : detail().properties.virtualSurfaces) {
+        const auto &virtualSurface(item.second);
+        if (virtualSurface.id.back() == tilesetId) {
+            virtualSurfaces.push_back(virtualSurface);
+        }
+    }
+
+    return virtualSurfaces;
+}
+
+VirtualSurface::list Storage
+::virtualSurfaces(const TilesetId &tilesetId
+                  , const std::function<bool(const VirtualSurface::Id&)>
+                  &filter) const
+{
+    VirtualSurface::list virtualSurfaces;
+
+    for (const auto &item : detail().properties.virtualSurfaces) {
+        const auto &virtualSurface(item.second);
+        if (virtualSurface.id.back() == tilesetId) {
+            if (!filter(virtualSurface.id)) { continue; }
+            virtualSurfaces.push_back(virtualSurface);
+        }
+    }
+
+    return virtualSurfaces;
+}
+
 boost::filesystem::path Storage::path(const TilesetId &tilesetId) const
 {
     const auto &root(detail().root);
@@ -592,14 +671,45 @@ boost::filesystem::path Storage::path(const TilesetId &tilesetId) const
 boost::filesystem::path Storage::path(const Glue &glue) const
 {
     const auto &root(detail().root);
-    if (!detail().properties.hasGlue(glue.id)) {
-        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
-            << "Glue <" << utility::join(glue.id, ",")
-            << "> not found in storage "
-            << root << ".";
+    if (const auto *g = detail().properties.getGlue(glue.id)) {
+        return storage_paths::gluePath(root, *g);
     }
 
-    return storage_paths::gluePath(root, glue);
+    LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+        << "Glue <" << utility::join(glue.id, ",")
+        << "> not found in storage "
+        << root << ".";
+    throw;
+}
+
+boost::filesystem::path Storage::path(const Glue::Id &glueId) const
+{
+    const auto &root(detail().root);
+    if (const auto *g = detail().properties.getGlue(glueId)) {
+        return storage_paths::gluePath(root, *g);
+    }
+
+    LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+        << "Glue <" << utility::join(glueId, ",")
+        << "> not found in storage "
+        << root << ".";
+    throw;
+}
+
+boost::filesystem::path Storage::path(const VirtualSurface &virtualSurface)
+    const
+{
+    const auto &root(detail().root);
+    if (const auto *vs
+        = detail().properties.getVirtualSurface(virtualSurface.id)) {
+        return storage_paths::virtualSurfacePath(root, *vs);
+    }
+
+    LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+        << "VirtualSurface <" << utility::join(virtualSurface.id, ",")
+        << "> not found in storage "
+        << root << ".";
+    throw;
 }
 
 TileSet Storage::clone(const boost::filesystem::path &tilesetPath

@@ -257,21 +257,8 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
         // place alien tiles to alien glue and proper tiles to glue
         glue_.setTile(tileId
                       , tile.tile(options_.textureQuality)
-                      .setAlien(!options_.generateReferences
-                                && isAlienTile(tile))
+                      .setAlien(isAlienTile(tile))
                       , &nodeInfo);
-
-    } else if (g && options_.generateReferences
-               && !tile.source.mesh.empty())
-    {
-        // we are allowed to generate references
-        // no tile generated but there are some data to generate it
-        auto topSourceId(tile.source.mesh.back().id());
-        if (topSourceId != topId_) {
-            // tile references single tile in other set -> store reference
-            LOG(info1) << "Setting reference " << topSourceId + 1;
-            glue_.setReferenceTile(tileId, topSourceId + 1, &nodeInfo);
-        }
     }
 
     if (g) {

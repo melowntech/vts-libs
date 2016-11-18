@@ -98,6 +98,8 @@ struct MetaNode {
 
     void update(Flag::value_type flags) { flags_ |= flags; }
 
+    void reset(Flag::value_type flags) { flags_ &= ~flags; }
+
     /** Normalized extents in range 0.0-1.0.
      */
     math::Extents3 extents;
@@ -108,9 +110,13 @@ struct MetaNode {
 
     Range<std::int16_t> heightRange;
 
+    typedef std::uint16_t SourceReference;
+
+    SourceReference sourceReference;
+
     MetaNode()
-        : texelSize(), displaySize(), heightRange(), flags_()
-        , internalTextureCount_()
+        : texelSize(), displaySize(), heightRange(), sourceReference()
+        , flags_(), internalTextureCount_()
     {}
 
     Flag::value_type flags() const { return flags_; }
@@ -141,6 +147,8 @@ struct MetaNode {
 
     MetaNode& mergeExtents(const MetaNode &other);
 
+    MetaNode& mergeExtents(const math::Extents3 &other);
+
     const storage::CreditIds& credits() const {  return credits_; }
 
     template <typename CreditIdsType>
@@ -169,8 +177,18 @@ struct MetaNode {
     }
     MetaNode& reference(std::size_t value);
 
-    void load(std::istream &in, Lod lod);
-    void save(std::ostream &out, Lod lod) const;
+    enum class BackingType { none, uint8, uint16 };
+
+    struct StoreParams {
+        Lod lod;
+        BackingType sourceReference;
+
+        StoreParams(Lod lod, BackingType sourceReference)
+            : lod(lod), sourceReference(sourceReference) {}
+    };
+
+    void load(std::istream &in, const StoreParams &sp);
+    void save(std::ostream &out, const StoreParams &sp) const;
 
 private:
     bool check(Flag::value_type flag) const { return flags_ & flag; }
@@ -240,7 +258,6 @@ public:
      */
     template <typename F> void for_each(F f);
 
-    typedef std::vector<int> References;
     typedef std::vector<int> Indices;
 
     /** Updates this metatile with data from input metatiles while resolving
@@ -257,16 +274,19 @@ public:
      *     true: take only alien nodes into account
      *
      * \param in input metatile
-     * \param references grid with stored references during computation
-     * \param indices mapping between glue surface reference and surface index
-     * \param index index of current surface being processed
      * \param alien marks processing or regular or alien nodes
      */
-    void update(const MetaTile &in, References &references
-                , int index, const Indices *indices = nullptr
-                , bool alien = false);
+    void update(const MetaTile &in, bool alien = false);
 
-    References makeReferences() const;
+
+    /** Sets expected reference in metanode at tileId.
+     */
+    void expectReference(const TileId &tileId
+                         , MetaNode::SourceReference sourceReference);
+
+    /** Update this metatile with another metatile honoring references.
+     */
+    void update(MetaNode::SourceReference sourceReference, const MetaTile &in);
 
     bool empty() const { return !math::valid(valid_); }
 

@@ -68,6 +68,9 @@ UTILITY_GENERATE_ENUM(Command,
                       ((dumpNavtileMask)("dump-navtile-mask"))
                       ((navtile2dem))
                       ((lockerApi)("locker-api"))
+                      ((deriveMetaIndex)("derive-metaindex"))
+                      ((virtualSurfaceCreate)("vs-create"))
+                      ((virtualSurfaceRemove)("vs-remove"))
                       )
 
 
@@ -81,12 +84,11 @@ public:
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
         , tileFlags_(), metaFlags_(), encodeFlags_()
-        , brief_(false)
+        , brief_(true)
     {
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
         addOptions_.dryRun = false;
-        addOptions_.generateReferences = false;
         addOptions_.clip = true;
 
         relocateOptions_.dryRun = false;
@@ -193,6 +195,11 @@ private:
 
     int lockerApi();
 
+    int deriveMetaIndex();
+
+    int virtualSurfaceCreate();
+    int virtualSurfaceRemove();
+
     bool noexcept_;
     fs::path path_;
     Command command_;
@@ -276,15 +283,15 @@ void VtsStorage::configuration(po::options_description &cmdline
     pd.add("path", 1);
 
     createParser(cmdline, Command::info
-                 , "--command=info: show VTS storage info"
+                 , "--command=info: show VTS tileset/storage/storageview info"
                  , [&](UP &p)
     {
         p.options.add_options()
-            ("brief", "Brief output.")
+            ("verbose", "Verbose output.")
             ;
 
         p.configure = [&](const po::variables_map &vars) {
-            brief_ = vars.count("brief");
+            brief_ = !vars.count("verbose");
         };
     });
 
@@ -342,7 +349,6 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("dryRun", "Simulate glue creation.")
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
-            ("refs", "Generate glue surface references")
             ("no-clip", "Don't clip meshes by merge coverage.")
             ("addTag", po::value<std::vector<std::string>>()
              , "Set of tags (string identifiers) assigned to tileset. "
@@ -400,7 +406,6 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             addOptions_.bumpVersion = vars.count("bumpVersion");
             addOptions_.dryRun = vars.count("dryRun");
-            addOptions_.generateReferences = vars.count("refs");
             addOptions_.clip = !vars.count("no-clip");
 
             getTags(addOptions_.tags, vars, "addTag");
@@ -424,7 +429,6 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("dryRun", "Simulate glue creation.")
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
-            ("refs", "Do not generate references")
             ("no-clip", "Don't clip meshes by merge coverage.")
             ;
 
@@ -437,7 +441,6 @@ void VtsStorage::configuration(po::options_description &cmdline
             if (vars.count("tmp")) {
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
             }
-            addOptions_.generateReferences = vars.count("refs");
             addOptions_.clip = !vars.count("no-clip");
         };
     });
@@ -866,6 +869,60 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.options.add_options()
             ;
     });
+
+    createParser(cmdline, Command::deriveMetaIndex
+                 , "--command=derive-metaindex: "
+                 "generate metaindex from tileindex"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("output", po::value(&outputPath_)->required()
+             , "Path to generated metaindex file.")
+            ;
+    });
+
+    createParser(cmdline, Command::virtualSurfaceCreate
+                 , "--command=vs-create: creates new virtual "
+                 "surface in VTS storage"
+                 , [&](UP &p)
+    {
+        lockConfiguration(p.options);
+
+        p.options.add_options()
+            ("tileset", po::value(&tilesetIds_)
+             , "Id of tileset to aggreage (mandatory "
+             "if working with storage).")
+            ("overwrite", "Overwrite existing output tileset.")
+            ;
+        p.positional.add("tileset", -1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            lockConfigure(vars);
+
+            createMode_ = (vars.count("overwrite")
+                           ? vts::CreateMode::overwrite
+                           : vts::CreateMode::failIfExists);
+        };
+    });
+
+    createParser(cmdline, Command::virtualSurfaceRemove
+                 , "--command=vs-remove: removes a virtual "
+                 "surface from a VTS storage"
+                 , [&](UP &p)
+    {
+        lockConfiguration(p.options);
+
+        p.options.add_options()
+            ("tileset", po::value(&tilesetIds_)
+             , "Id of tileset to de-aggregate (mandatory "
+             "if working with storage).")
+            ;
+        p.positional.add("tileset", -1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            lockConfigure(vars);
+        };
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -958,6 +1015,9 @@ int VtsStorage::runCommand()
     case Command::remove: return remove();
     case Command::tags: return tags();
 
+    case Command::virtualSurfaceCreate: return virtualSurfaceCreate();
+    case Command::virtualSurfaceRemove: return virtualSurfaceRemove();
+
     case Command::dumpMetatile: return dumpMetatile();
     case Command::mapConfig: return mapConfig();
     case Command::dirs: return dirs();
@@ -980,6 +1040,7 @@ int VtsStorage::runCommand()
     case Command::dumpNavtileMask: return dumpNavtileMask();
     case Command::navtile2dem: return navtile2dem();
     case Command::lockerApi: return lockerApi();
+    case Command::deriveMetaIndex: return deriveMetaIndex();
     }
     std::cerr << "vts: no operation requested" << std::endl;
     return EXIT_FAILURE;
@@ -1012,8 +1073,6 @@ void tiInfo(const vts::TileIndex &ti, const std::string &prefix = "")
                 , Flags(TiFlag::navtile, TiFlag::navtile)
                 , Flags(TiFlag::alien | TiFlag::mesh
                         , TiFlag::alien | TiFlag::mesh)
-                , Flags(TiFlag::reference | TiFlag::mesh
-                        , TiFlag::reference)
                 })
     {
         auto stat(ti.statMask(flag.first, flag.second));
@@ -1034,6 +1093,21 @@ void tiInfo(const vts::TileIndex &ti, const std::string &prefix = "")
     }
 }
 
+void miInfo(const vts::TileIndex &ti, const vr::ReferenceFrame &rf
+            , const std::string &prefix = "")
+{
+    const auto metaCount(ti.shrinkedCount(rf.metaBinaryOrder));
+    // get tile range and make from zero if non-empty
+    auto lr(ti.lodRange());
+    if (!lr.empty()) { update(lr, vts::Lod(0)); }
+
+    std::cout
+            << prefix << "    meta:\n"
+            << prefix << "        lodRange: " << lr << std::endl
+            << prefix << "        count = " << metaCount << std::endl
+            ;
+}
+
 int tilesetInfo(const std::string &prefix, const fs::path &path
                 , bool brief)
 {
@@ -1050,6 +1124,7 @@ int tilesetInfo(const std::string &prefix, const fs::path &path
                   << std::endl;
 
         std::cout << prefix << "Tile type info:" << std::endl;
+        miInfo(ts.tileIndex(), ts.referenceFrame(), prefix);
         tiInfo(ts.tileIndex(), prefix);
     }
 
@@ -1084,6 +1159,25 @@ int storageInfo(const std::string &prefix, const fs::path &path, bool brief)
 
             tilesetInfo(prefix + "    ",  s.path(gitem.second), brief);
             std::cout << std::endl;
+        }
+    }
+
+    const auto vs(s.virtualSurfaces());
+    if (!vs.empty()) {
+        std::cout << prefix << "Virtual surfaces:" << std::endl;
+        for (const auto &vsitem : s.virtualSurfaces()) {
+            if (brief) {
+                std::cout
+                    << prefix << "    " << utility::join(vsitem.first, ", ")
+                    << std::endl;
+            } else {
+                std::cout << prefix << "    VirtualSurface-Id: "
+                          << utility::join(vsitem.first, ", ")
+                          << std::endl;
+
+                tilesetInfo(prefix + "    ",  s.path(vsitem.second), brief);
+                std::cout << std::endl;
+            }
         }
     }
 
@@ -1330,6 +1424,10 @@ int VtsStorage::dumpMetatile()
         if (node.navtile()) {
             std::cout << "    height range: " << node.heightRange << std::endl;
         }
+        if (node.sourceReference) {
+            std::cout
+                << "    source reference: " << node.sourceReference << std::endl;
+        }
 
         showCredits(std::cout, node, "    ");
 
@@ -1436,13 +1534,19 @@ int VtsStorage::tileInfo()
         }
 
         if (node.applyTexelSize()) {
-            std::cout << "    texelSize: " << node.texelSize << std::endl;
+            std::cout << "    texel size: " << node.texelSize << std::endl;
         }
         if (node.applyDisplaySize()) {
-            std::cout << "    displaySize: " << node.displaySize << std::endl;
+            std::cout << "    display size: " << node.displaySize << std::endl;
         }
         if (node.navtile()) {
-            std::cout << "    heightRange: " << node.heightRange << std::endl;
+            std::cout << "    height range: " << node.heightRange << std::endl;
+        }
+
+        if (node.sourceReference) {
+            std::cout
+                << "    source reference: " << node.sourceReference
+                << std::endl;
         }
 
         showCredits(std::cout, node, "    ");
@@ -1989,6 +2093,104 @@ Process management:
       process can safely release the lock
 
 )RAW";
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::deriveMetaIndex()
+{
+    auto ts(vts::openTileSet(path_));
+    ts.metaIndex().save(outputPath_, vts::TileIndex::SaveParams().bw(true));
+
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::virtualSurfaceCreate()
+{
+    vts::TilesetIdSet tids;
+
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::Storage:
+        if (tilesetIds_.empty()) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value
+                 , "tileset");
+        }
+
+        tids.insert(tilesetIds_.begin(), tilesetIds_.end());
+        break;
+
+    case vts::DatasetType::StorageView:
+        if (!tilesetIds_.empty()) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value
+                 , "tileset");
+        }
+
+        {
+            // open storage view and grab info
+            const auto view(vts::openStorageView(path_));
+            path_ = view.storagePath();
+            tids = view.tilesets();
+        }
+        break;
+
+    default:
+        std::cerr << "Cannot create virtual surface in "
+                  << path_ << "." << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite));
+
+    // lock if external locking program is available
+    Lock lock(path_, lock_);
+
+    storage.createVirtualSurface(tids, createMode_);
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::virtualSurfaceRemove()
+{
+    vts::TilesetIdSet tids;
+
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::Storage:
+        if (tilesetIds_.empty()) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value
+                 , "tileset");
+        }
+
+        tids.insert(tilesetIds_.begin(), tilesetIds_.end());
+        break;
+
+    case vts::DatasetType::StorageView:
+        if (!tilesetIds_.empty()) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value
+                 , "tileset");
+        }
+
+        {
+            // open storage view and grab info
+            const auto view(vts::openStorageView(path_));
+            path_ = view.storagePath();
+            tids = view.tilesets();
+        }
+        break;
+
+    default:
+        std::cerr << "Cannot remopve virtual surface from "
+                  << path_ << "." << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite));
+
+    // lock if external locking program is available
+    Lock lock(path_, lock_);
+
+    storage.removeVirtualSurface(tids);
     return EXIT_SUCCESS;
 }
 

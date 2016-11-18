@@ -35,6 +35,9 @@ struct MetaNode;
  *                cloned ad plain dataset (i.e. sameType flag is ignored)
  *    * metaNodeManipulator:
  *                allows metanode change during cloning operation
+ *
+ *    * absolutize:
+ *                Make references to another entities absolute.
  */
 class CloneOptions {
 public:
@@ -42,7 +45,7 @@ public:
 
     CloneOptions()
         : mode_(CreateMode::failIfExists), sameType_(false)
-        , encodeFlags_(0x0)
+        , encodeFlags_(0x0), absolutize_(true)
     {}
 
     CreateMode mode() const { return mode_; }
@@ -87,6 +90,11 @@ public:
     }
     EncodeFlag::value_type encodeFlags() const { return encodeFlags_; }
 
+    CloneOptions& absolutize(bool absolutize) {
+        absolutize_ = absolutize; return *this;
+    }
+    bool absolutize() const { return absolutize_; }
+
 private:
     CreateMode mode_;
     boost::optional<std::string> tilesetId_;
@@ -94,6 +102,7 @@ private:
     MetaNodeManipulator metaNodeManipulator_;
     bool sameType_;
     EncodeFlag::value_type encodeFlags_;
+    bool absolutize_;
 };
 
 class RelocateOptions {
@@ -142,16 +151,12 @@ struct GlueCreationOptions {
      */
     int textureQuality;
 
-    /** Generate old glues with references and without aliens.
-     */
-    bool generateReferences;
-
     /** Clip meshes based on merge coverage.
      */
     bool clip;
 
     GlueCreationOptions()
-        : textureQuality(), generateReferences(true), clip(true)
+        : textureQuality(), clip(true)
     {}
 };
 

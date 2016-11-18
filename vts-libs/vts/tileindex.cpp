@@ -137,28 +137,28 @@ void TileIndex::load(const fs::path &path)
     f.close();
 }
 
-void TileIndex::save(std::ostream &f) const
+void TileIndex::save(std::ostream &f, const SaveParams &params) const
 {
     using utility::binaryio::write;
 
-    write(f, TILE_INDEX_IO_MAGIC); // 7 bytes
+    write(f, TILE_INDEX_IO_MAGIC); // 2 bytes
 
     write(f, uint8_t(minLod_));
     write(f, uint8_t(trees_.size()));
 
     // save lod-tree mapping
     for (const auto &tree : trees_) {
-        tree.save(f);
+        tree.save(f, params);
     }
 }
 
-void TileIndex::save(const fs::path &path) const
+void TileIndex::save(const fs::path &path, const SaveParams &params) const
 {
     utility::ofstreambuf f;
     f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
     f.open(path.string(), std::ifstream::out | std::ifstream::trunc);
 
-    save(f);
+    save(f, params);
 
     f.close();
 }
@@ -734,9 +734,11 @@ bool TileIndex::validSubtree(const TileId &tileId) const
     return validSubtree(tileId.lod, tileId);
 }
 
-TileIndex& TileIndex::shrinkAndComplete(unsigned int trim)
+TileIndex& TileIndex::shrinkAndComplete(unsigned int trim, bool absolute)
 {
     if (empty()) { return *this; }
+
+    if (absolute) { makeAbsolute(); };
 
     auto applyTrim([&](Lod l) { return (l > trim) ? (l - trim) : 0; });
     auto any([&](QTree::value_type value) { return value; });
@@ -770,6 +772,54 @@ TileIndex& TileIndex::shrinkAndComplete(unsigned int trim)
 
     // done
     return *this;
+}
+
+std::size_t TileIndex::shrinkedCount(unsigned int trim, bool absolute)
+    const
+{
+    auto applyTrim([&](Lod l) { return (l > trim) ? (l - trim) : 0; });
+    auto any([&](QTree::value_type value) { return value; });
+
+    std::size_t total(0);
+
+    // grab last tree and shrink it by trim-levels
+    auto lod(lodRange().max);
+    auto accumulator(trees_.back());
+    accumulator.shrink(applyTrim(lod));
+    total += accumulator.count();
+    --lod;
+
+    // process lods in reverse order
+    for (auto itrees(trees_.rbegin() + 1), etrees(trees_.rend());
+         itrees != etrees; ++itrees, --lod)
+    {
+        // get copy of a tree
+        auto tree(*itrees);
+
+        // shrink
+        tree.shrink(applyTrim(lod));
+
+        // and make complete by merging-in lower level
+
+        // coarsen and resize accumulator to match this lod
+        accumulator.coarsen(any, true);
+
+        // and merge shrined tree into accumulator
+        accumulator.merge(tree, any);
+
+        // grab count of tiles at this lod
+        total += accumulator.count();
+    }
+
+    // process head of tree
+    while (absolute && (lod < minLod_)) {
+        // coarsen and resize accumulator to match this lod
+        accumulator.coarsen(any, true);
+        total += accumulator.count();
+        --lod;
+    }
+
+    return total;
 }
 
 TileIndex& TileIndex::makeAvailable(const LodRange &lodRange)

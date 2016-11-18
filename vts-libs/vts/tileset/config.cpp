@@ -4,6 +4,7 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include "dbglog/dbglog.hpp"
+#include "utility/base64.hpp"
 #include "jsoncpp/as.hpp"
 
 #include "./config.hpp"
@@ -138,7 +139,22 @@ boost::any parsePlainDriver(const Json::Value &value)
 
 boost::any parseAggregatedDriver(const Json::Value &value)
 {
-    driver::OldAggregatedOptions driverOptions;
+    if (!value.isMember("tsMap")) {
+        // non-optimized aggregated driver
+        driver::OldAggregatedOptions driverOptions;
+
+        std::string storagePath;
+        Json::get(storagePath, value, "storage");
+        driverOptions.storagePath = storagePath;
+
+        parseIdArray(std::inserter(driverOptions.tilesets
+                                   , driverOptions.tilesets.begin())
+                     , value, "tilesets");
+        return driverOptions;
+    }
+
+    // non-optimized aggregated driver
+    driver::AggregatedOptions driverOptions;
 
     std::string storagePath;
     Json::get(storagePath, value, "storage");
@@ -147,6 +163,9 @@ boost::any parseAggregatedDriver(const Json::Value &value)
     parseIdArray(std::inserter(driverOptions.tilesets
                                , driverOptions.tilesets.begin())
                  , value, "tilesets");
+    Json::get(driverOptions.tsMap, value, "tsMap");
+
+    driverOptions.tsMap = utility::base64::decode(driverOptions.tsMap);
 
     return driverOptions;
 }
@@ -221,6 +240,15 @@ Json::Value buildDriver(const boost::any &d)
         value["storage"] = opts->storagePath.string();
         value["tilesets"] = buildIdArray(opts->tilesets.begin()
                                          , opts->tilesets.end());
+        return value;
+    } else if (auto opts = boost::any_cast
+               <const driver::AggregatedOptions>(&d))
+    {
+        value["type"] = "aggregated";
+        value["storage"] = opts->storagePath.string();
+        value["tilesets"] = buildIdArray(opts->tilesets.begin()
+                                         , opts->tilesets.end());
+        value["tsMap"] = utility::base64::encode(opts->tsMap);
         return value;
     } else if (auto opts = boost::any_cast
                <const driver::RemoteOptions>(&d))

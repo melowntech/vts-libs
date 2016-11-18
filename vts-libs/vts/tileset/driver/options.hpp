@@ -95,9 +95,22 @@ private:
     static boost::uuids::uuid generateUuid();
 };
 
+/** Old, unoptimized aggregated driver.
+ */
 struct OldAggregatedOptions {
     boost::filesystem::path storagePath;
     TilesetIdSet tilesets;
+
+    boost::any relocate(const RelocateOptions &options
+                        , const std::string &prefix) const;
+};
+
+/** Optimized aggregated driver.
+ */
+struct AggregatedOptions {
+    boost::filesystem::path storagePath;
+    TilesetIdSet tilesets;
+    std::string tsMap;
 
     boost::any relocate(const RelocateOptions &options
                         , const std::string &prefix) const;
