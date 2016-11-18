@@ -24,10 +24,10 @@
 #include "utility/streams.hpp"
 #include "utility/path.hpp"
 #include "utility/binaryio.hpp"
-#include "utility/base64.hpp"
 
 #include "../../../storage/error.hpp"
 #include "../../../storage/fstreams.hpp"
+#include "../../../storage/sstreams.hpp"
 #include "../../../storage/io.hpp"
 #include "../../io.hpp"
 #include "../../tileflags.hpp"
@@ -87,14 +87,14 @@ serializeTsMap(const AggregatedDriver::TilesetReferencesList &tsMap)
         }
     }
 
-    return utility::base64::encode(os.str());
+    return os.str();
 }
 
 inline AggregatedDriver::TilesetReferencesList
 deserializeTsMap(const std::string &raw)
 {
     using utility::binaryio::read;
-    std::istringstream is(utility::base64::decode(raw));
+    std::istringstream is(raw);
     is.exceptions(std::istream::failbit | std::istream::badbit);
 
     char magic[sizeof(TM_MAGIC)];
@@ -237,8 +237,12 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
                  , sourceReferenceFromFlags(value));
         }, QTree::Filter::white);
     } else {
-        LOGTHROW(err1, vs::NoSuchFile)
-            << "There is no metatile for " << tileId << ".";
+        if (noSuchFile) {
+            LOGTHROW(err1, vs::NoSuchFile)
+                << "There is no metatile for " << tileId << ".";
+        }
+        LOG(err1) << "There is no metatile for " << tileId << ".";
+        return {};
     }
 
     // start from zero so first round gets 1
@@ -259,6 +263,7 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
             LOGTHROW(err1, vs::NoSuchFile)
                 << "There is no metatile for " << tileId << ".";
         }
+        LOG(err1) << "There is no metatile for " << tileId << ".";
         return {};
     }
 
@@ -676,10 +681,9 @@ IStream::pointer AggregatedDriver::input_impl(File type, bool noSuchFile)
 
     const auto path(root() / filePath(type));
     LOG(info1) << "Loading from " << path << ".";
-    if (noSuchFile) {
-        return fileIStream(type, path);
-    }
-    return fileIStream(type, path, NullWhenNotFound);
+    return ((noSuchFile)
+            ? fileIStream(type, path)
+            : fileIStream(type, path, NullWhenNotFound));
 }
 
 OStream::pointer AggregatedDriver::output_impl(const TileId&, TileFile)
@@ -699,6 +703,8 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
                 LOGTHROW(err1, vs::NoSuchFile)
                     << "There is no " << type << " for " << tileId << ".";
             }
+            LOG(err1)
+                << "There is no " << type << " for " << tileId << ".";
             return {};
         }
 
@@ -713,6 +719,8 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
             LOGTHROW(err1, vs::NoSuchFile)
                 << "There is no " << type << " for " << tileId << ".";
         }
+        LOG(err1)
+            << "There is no " << type << " for " << tileId << ".";
         return {};
     }
 
@@ -729,6 +737,7 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
             << "There is no " << type << " for " << tileId << ".";
     }
 
+    LOG(err1) << "There is no " << type << " for " << tileId << ".";
     return {};
 }
 
@@ -837,6 +846,38 @@ boost::any AggregatedOptions::relocate(const RelocateOptions &options
     Storage::relocate(res.follow, options, prefix + "    ");
 
     return ret;
+}
+
+IStream::pointer AggregatedDriver::input_impl(const std::string &name
+                                              , bool noSuchFile) const
+{
+    if (name == VirtualSurface::TilesetMappingPath) {
+        return storage::memIStream
+            (VirtualSurface::TilesetMappingContentType
+             , options().tsMap, configStat().lastModified, name);
+    }
+
+    if (noSuchFile) {
+        LOGTHROW(err1, storage::NoSuchFile)
+            << "This driver doesn't serve file \"" << name << "\".";
+    }
+    LOG(err1)
+        << "This driver doesn't serve file \"" << name << "\".";
+    return {};
+}
+
+FileStat AggregatedDriver::stat_impl(const std::string &name) const
+{
+    if (name == VirtualSurface::TilesetMappingPath) {
+        auto stat(configStat());
+        stat.size = options().tsMap.size();
+        stat.contentType = VirtualSurface::TilesetMappingContentType;
+        return stat;
+    }
+
+    LOGTHROW(err1, storage::NoSuchFile)
+        << "This driver doesn't serve file \"" << name << "\".";
+    return {};
 }
 
 } } } // namespace vadstena::vts::driver

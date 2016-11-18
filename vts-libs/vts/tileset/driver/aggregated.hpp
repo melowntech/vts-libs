@@ -150,6 +150,21 @@ private:
     TileSet::Properties build(AggregatedOptions options
                               , const CloneOptions &cloneOptions);
 
+    inline IStream::pointer input_impl(const std::string &name) const {
+        return input_impl(name, true);
+    }
+
+    inline IStream::pointer input_impl(const std::string &name
+                                       , const NullWhenNotFound_t&) const
+    {
+        return input_impl(name, false);
+    }
+
+    IStream::pointer input_impl(const std::string &name
+                                , bool noSuchFile) const;
+
+    FileStat stat_impl(const std::string &name) const;
+
     Storage storage_;
 
     registry::ReferenceFrame referenceFrame_;

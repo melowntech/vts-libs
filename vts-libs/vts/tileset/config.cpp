@@ -4,6 +4,7 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include "dbglog/dbglog.hpp"
+#include "utility/base64.hpp"
 #include "jsoncpp/as.hpp"
 
 #include "./config.hpp"
@@ -163,6 +164,9 @@ boost::any parseAggregatedDriver(const Json::Value &value)
                                , driverOptions.tilesets.begin())
                  , value, "tilesets");
     Json::get(driverOptions.tsMap, value, "tsMap");
+
+    driverOptions.tsMap = utility::base64::decode(driverOptions.tsMap);
+
     return driverOptions;
 }
 
@@ -244,7 +248,7 @@ Json::Value buildDriver(const boost::any &d)
         value["storage"] = opts->storagePath.string();
         value["tilesets"] = buildIdArray(opts->tilesets.begin()
                                          , opts->tilesets.end());
-        value["tsMap"] = opts->tsMap;
+        value["tsMap"] = utility::base64::encode(opts->tsMap);
         return value;
     } else if (auto opts = boost::any_cast
                <const driver::RemoteOptions>(&d))

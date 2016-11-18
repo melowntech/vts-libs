@@ -306,6 +306,28 @@ bool Driver::check(const boost::filesystem::path &root)
     return true;
 }
 
+IStream::pointer Driver::input_impl(const std::string &name) const
+{
+    LOGTHROW(err1, storage::NoSuchFile)
+        << "This driver doesn't serve file \"" << name << "\".";
+    throw;
+}
+
+IStream::pointer Driver::input_impl(const std::string &name
+                                    , const NullWhenNotFound_t&)
+    const
+{
+    LOG(err1) << "This driver doesn't serve file \"" << name << "\".";
+    return {};
+}
+
+FileStat Driver::stat_impl(const std::string &name) const
+{
+    LOGTHROW(err1, storage::NoSuchFile)
+        << "This driver doesn't serve file \"" << name << "\".";
+    throw;
+}
+
 namespace driver {
 
 MapConfigOverride::MapConfigOverride(const boost::any &options)
