@@ -34,11 +34,13 @@ namespace fs = boost::filesystem;
 
 namespace vadstena { namespace vts {
 
+constexpr char VirtualSurface::TilesetMappingPath[];
+constexpr char VirtualSurface::TilesetMappingContentType[];
+
 namespace {
     const fs::path ConfigFilename("storage.conf");
     const fs::path ExtraConfigFilename("extra.conf");
 }
-
 
 void TrashBin::add(const TilesetIdList &id, const Item &item)
 {
@@ -436,6 +438,18 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             (TileSet::mapConfig
              (storage_paths::gluePath(root, glue), false)
              , glue, prefix / storage_paths::glueRoot());
+    }
+
+    // virtualSurfaces
+    for (const auto &item : properties.virtualSurfaces) {
+        // limit to tileset subset
+        if (!allowed(unique, item.first)) { continue; }
+
+        const auto &virtualSurface(item.second);
+        mapConfig.mergeVirtualSurface
+            (TileSet::mapConfig
+             (storage_paths::virtualSurfacePath(root, virtualSurface), false)
+             , virtualSurface, prefix / storage_paths::virtualSurfaceRoot());
     }
 
     if (extra.position) {

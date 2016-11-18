@@ -31,8 +31,7 @@ Json::Value asJson(const Glue::Id &id)
     return value;
 }
 
-void asJson(const SurfaceCommonConfig &surface, Json::Value &s
-            , registry::BoundLayer::dict &boundLayers)
+void addRanges(const SurfaceCommonConfig &surface, Json::Value &s)
 {
     auto &lodRange(s["lodRange"] = Json::arrayValue);
     lodRange.append(surface.lodRange.min);
@@ -45,6 +44,12 @@ void asJson(const SurfaceCommonConfig &surface, Json::Value &s
     auto &tileRangeMax(tileRange.append(Json::arrayValue));
     tileRangeMax.append(surface.tileRange.ur(0));
     tileRangeMax.append(surface.tileRange.ur(1));
+}
+
+void asJson(const SurfaceCommonConfig &surface, Json::Value &s
+            , registry::BoundLayer::dict &boundLayers)
+{
+    addRanges(surface, s);
 
     // paths
     if (surface.urls3d) {
@@ -115,6 +120,27 @@ Json::Value asJson(const GlueConfig &glue
     return s;
 }
 
+Json::Value asJson(const VirtualSurfaceConfig &vs)
+{
+    Json::Value s(Json::objectValue);
+    s["id"] = asJson(vs.id);
+    addRanges(vs, s);
+
+    // paths
+    if (vs.urls3d) {
+        s["metaUrl"] = vs.urls3d->meta;
+    } else {
+        s["metaUrl"]
+            = (vs.root / fileTemplate(storage::TileFile::meta
+                                      , vs.revision)).string();
+    }
+
+    s["mapping"] = (vs.root / VirtualSurface::TilesetMappingPath).string();
+
+    // TODO: implement me
+    return s;
+}
+
 Json::Value asJson(const SurfaceConfig::list &surfaces
                    , registry::BoundLayer::dict &boundLayers)
 {
@@ -131,6 +157,15 @@ Json::Value asJson(const GlueConfig::list &glues
     Json::Value s(Json::arrayValue);
     for (const auto &glue : glues) {
         s.append(asJson(glue, boundLayers));
+    }
+    return s;
+}
+
+Json::Value asJson(const VirtualSurfaceConfig::list &virtualSurfaces)
+{
+    Json::Value s(Json::arrayValue);
+    for (const auto &virtualSurface : virtualSurfaces) {
+        s.append(asJson(virtualSurface));
     }
     return s;
 }
@@ -266,6 +301,24 @@ void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
     mergeRest(*this, tilesetMapConfig, false);
 }
 
+void MapConfig::mergeVirtualSurface(const MapConfig &tilesetMapConfig
+                                    , const VirtualSurface &virtualSurface
+                                    , const boost::filesystem::path &root)
+{
+    if (tilesetMapConfig.surfaces.size() != 1) {
+        LOGTHROW(err1, storage::NoSuchTileSet)
+            << "Cannot merge tileset mapConfig as a virtual surface: "
+            "there must be just one surface in the input mapConfig.";
+    }
+
+    VirtualSurfaceConfig vs(tilesetMapConfig.surfaces.front());
+    vs.id = virtualSurface.id;
+    vs.root = root / virtualSurface.path;
+    virtualSurfaces.push_back(vs);
+
+    mergeRest(*this, tilesetMapConfig, false);
+}
+
 void MapConfig::merge(const MapConfig &other)
 {
     if (referenceFrame.id.empty()) {
@@ -288,6 +341,8 @@ void MapConfig::merge(const MapConfig &other)
     surfaces.insert(surfaces.end(), other.surfaces.begin()
                     , other.surfaces.end());
     glues.insert(glues.end(), other.glues.begin(), other.glues.end());
+    virtualSurfaces.insert(virtualSurfaces.end(), other.virtualSurfaces.begin()
+                           , other.virtualSurfaces.end());
     mergeRest(*this, other, true);
 }
 
@@ -306,6 +361,7 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
 
     content["surfaces"] = asJson(mapConfig.surfaces, boundLayers);
     content["glue"] = asJson(mapConfig.glues, boundLayers);
+    content["virtualSurfaces"] = asJson(mapConfig.virtualSurfaces);
 
     content["position"] = registry::asJson(mapConfig.position);
 

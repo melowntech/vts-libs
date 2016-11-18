@@ -10,6 +10,10 @@
 namespace vadstena { namespace vts {
 
 struct VirtualSurface {
+    static constexpr char TilesetMappingPath[] = "tileset.map";
+    static constexpr char TilesetMappingContentType[]
+    = "application/octet-stream";
+
     typedef TilesetIdList Id;
     Id id;
     std::string path;
