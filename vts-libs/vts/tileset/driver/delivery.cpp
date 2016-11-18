@@ -34,7 +34,7 @@ indexFromDriver(const FullTileSetProperties &properties
                 , const Driver::pointer &driver)
 {
     if (auto *i = driver->getTileIndex()) {
-        // driver privides tile index, reuse with empty deleter
+        // driver provides tile index, reuse with empty deleter
         return { i, [](void*) {} };
     }
 
@@ -241,6 +241,17 @@ IStream::pointer credits(const Driver &driver
     return s;
 }
 
+IStream::pointer filterConfig(const IStream::pointer &raw)
+{
+    // load config and reset driver
+    auto props(tileset::loadConfig(raw->get(), raw->name()));
+    props.driverOptions = boost::any();
+    auto s(std::make_shared<storage::StringIStream>(*raw));
+    tileset::saveConfig(s->sink(), props);
+    s->updateSize();
+    return s;
+}
+
 } // namespace
 
 Delivery::Delivery(AccessToken, const boost::filesystem::path &root)
@@ -256,11 +267,21 @@ Delivery::pointer Delivery::open(const boost::filesystem::path &root)
 
 IStream::pointer Delivery::input(File type) const
 {
+    switch (type) {
+    case File::config:
+        return filterConfig(driver_->input(type));
+    default: break;
+    }
     return driver_->input(type);
 }
 
 IStream::pointer Delivery::input(File type, const NullWhenNotFound_t&) const
 {
+    switch (type) {
+    case File::config:
+        return filterConfig(driver_->input(type, NullWhenNotFound));
+    default: break;
+    }
     return driver_->input(type, NullWhenNotFound);
 }
 
