@@ -24,6 +24,7 @@ public:
     /** Opens storage.
      */
     PlainDriver(const boost::filesystem::path &root
+                , const OpenOptions &openOptions
                 , const PlainOptions &options);
 
     virtual ~PlainDriver();

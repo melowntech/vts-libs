@@ -58,7 +58,8 @@ public:
 
     /** Opens driver for existing dataset.
      */
-    static pointer open(const boost::filesystem::path &root);
+    static pointer open(const boost::filesystem::path &root
+                        , const OpenOptions &openOptions = OpenOptions());
 
     /** Check for valid configuration.
      */
@@ -182,16 +183,18 @@ protected:
 
     /** Opens storage.
      */
-    Driver(const boost::filesystem::path &root
+    Driver(const boost::filesystem::path &root, const OpenOptions &openOptions
            , const boost::any &options);
 
     void readOnly(bool value);
 
-    const FileStat& configStat() const { return configStat_; }
+    inline const FileStat& configStat() const { return configStat_; }
 
     /** Allow driver to change its capabilities.
      */
     inline Capabilities& capabilities() { return capabilities_; }
+
+    inline const OpenOptions& openOptions() const { return openOptions_; }
 
 private:
     virtual OStream::pointer output_impl(const File type) = 0;
@@ -270,6 +273,12 @@ private:
      */
     boost::filesystem::path registryPath_;
 
+    /** Open options.
+     */
+    const OpenOptions openOptions_;
+
+    /** Driver options.
+     */
     boost::any options_;
 
     /** Information about root when tileset was open in read-only mode.

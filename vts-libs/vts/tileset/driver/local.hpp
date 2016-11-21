@@ -30,7 +30,8 @@ public:
     /** Opens storage.
      */
     LocalDriver(const boost::filesystem::path &root
-                     , const LocalOptions &options);
+                , const OpenOptions &openOptions
+                , const LocalOptions &options);
 
     virtual ~LocalDriver();
 

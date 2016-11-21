@@ -71,9 +71,10 @@ LocalDriver::LocalDriver(const boost::filesystem::path &root
 }
 
 LocalDriver::LocalDriver(const boost::filesystem::path &root
-                       , const LocalOptions &options)
-    : Driver(root, options)
-    , driver_(Driver::open(options.path))
+                         , const OpenOptions &openOptions
+                         , const LocalOptions &options)
+    : Driver(root, openOptions, options)
+    , driver_(Driver::open(options.path, openOptions))
 {}
 
 Driver::pointer

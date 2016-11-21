@@ -262,7 +262,8 @@ OldAggregatedDriver::buildTilesetInfo() const
         auto &tsi(out.back());
 
         // open tileset
-        tsi.driver = Driver::open(storage_.path(tsi.tilesetId));
+        tsi.driver = Driver::open
+            (storage_.path(tsi.tilesetId), openOptions());
         tileset::loadTileSetIndex(*tsi.tsi, *tsi.driver);
         tsi.name = tsi.tilesetId;
 
@@ -276,7 +277,8 @@ OldAggregatedDriver::buildTilesetInfo() const
 
             auto fglueMap(glueMap.find(glue.name));
             if (fglueMap == glueMap.end()) {
-                glue.driver = Driver::open(storage_.path(glue));
+                glue.driver = Driver::open
+                    (storage_.path(glue), openOptions());
                 tileset::loadTileSetIndex(*glue.tsi, *glue.driver);
 
                 glue.hasAlienTiles = TileIndex::Flag::isAlien
@@ -316,8 +318,9 @@ OldAggregatedDriverBase::OldAggregatedDriverBase(const CloneOptions &cloneOption
 }
 
 OldAggregatedDriver::OldAggregatedDriver(const boost::filesystem::path &root
+                                         , const OpenOptions &openOptions
                                          , const OldAggregatedOptions &options)
-    : Driver(root, options)
+    : Driver(root, openOptions, options)
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , tsi_(referenceFrame_.metaBinaryOrder)

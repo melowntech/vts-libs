@@ -31,6 +31,10 @@ inline boost::filesystem::path virtualSurfaceRoot() { return "vs"; }
  */
 inline boost::filesystem::path glueRulesPath() { return "glue.rules"; }
 
+/** Get (local) path to merge configuration.
+ */
+inline boost::filesystem::path mergeConfPath() { return "merge.conf"; }
+
 /** Generate path for storage tileset. If tmp is false regular storage path is
  *  generated.
  *  Otherwise root / "tmp" is used unless different tmpRoot is provided.

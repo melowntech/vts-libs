@@ -306,8 +306,6 @@ private:
 
     size_type index(const point_type &gi) const;
 
-    /** Calculates serialized node size.
-     */
     /** Metatile ID, origin of first node in the metatile.
      */
     TileId origin_;

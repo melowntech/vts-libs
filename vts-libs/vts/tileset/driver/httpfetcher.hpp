@@ -9,13 +9,24 @@ namespace vadstena { namespace vts { namespace driver {
 
 class HttpFetcher {
 public:
-    struct Options {
+    class Options {
+    public:
+        Options() : tries_(-1) {}
+
+        int tries() const { return tries_; }
+        Options& tries(int tries) { tries_ = tries; return *this; }
+
+        const OpenOptions::CNames cnames() const { return cnames_; }
+        Options& cnames(const OpenOptions::CNames &cnames) {
+            cnames_ = cnames; return *this;
+        }
+
+    private:
         /** Number of attempts to do before failing.
          *  Negative number means forever (default).
          */
-        int tries;
-
-        Options() : tries(-1) {}
+        int tries_;
+        OpenOptions::CNames cnames_;
     };
 
     HttpFetcher(const std::string &rootUrl, const Options &options);

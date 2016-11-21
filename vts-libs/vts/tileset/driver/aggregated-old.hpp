@@ -24,7 +24,8 @@ public:
     /** Opens storage.
      */
     OldAggregatedDriver(const boost::filesystem::path &root
-                     , const OldAggregatedOptions &options);
+                        , const OpenOptions &openOptions
+                        , const OldAggregatedOptions &options);
 
     /** Cloner
      */

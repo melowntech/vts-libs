@@ -301,7 +301,8 @@ public:
      *  You need to include tileset/driver.hpp to access it.
      */
     static std::shared_ptr<Driver>
-    openDriver(const boost::filesystem::path &root);
+    openDriver(const boost::filesystem::path &root
+               , const OpenOptions &openOptions = OpenOptions());
 
     static void relocate(const boost::filesystem::path &root
                          , const RelocateOptions &options

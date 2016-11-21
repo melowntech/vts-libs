@@ -33,7 +33,8 @@ TileSet createTileSet(const boost::filesystem::path &path
                       , const TileSetProperties &properties
                       , CreateMode mode = CreateMode::failIfExists);
 
-TileSet openTileSet(const boost::filesystem::path &path);
+TileSet openTileSet(const boost::filesystem::path &path
+                    , const OpenOptions &openOptions = OpenOptions());
 
 TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src
                      , const CloneOptions &cloneOptions);

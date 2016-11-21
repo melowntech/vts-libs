@@ -41,6 +41,7 @@
 #include "./config.hpp"
 #include "./paths.hpp"
 #include "./gluerules.hpp"
+#include "./mergeconf.hpp"
 
 namespace fs = boost::filesystem;
 
@@ -66,22 +67,41 @@ void reportMemoryUsage(const std::string&) {}
 
 #endif
 
+Storage::AddOptions updateAddOptions(Storage::AddOptions addOptions
+                                     , const MergeConf &mergeConf)
+{
+    addOptions.openOptions.updateCNames(mergeConf.cnames);
+    return addOptions;
+}
+
 } // namespace
 
 void Storage::add(const boost::filesystem::path &tilesetPath
                   , const Location &where, const TilesetId &tilesetId
                   , const AddOptions &addOptions)
 {
-    auto ts(openTileSet(tilesetPath));
+    const auto ao
+        (updateAddOptions
+         (addOptions
+          , loadMergeConf(detail().root / storage_paths::mergeConfPath()
+                          , true)));
+
+    auto ts(openTileSet(tilesetPath, ao.openOptions));
     detail().add(ts, where
                  , (tilesetId.empty() ? ts.getProperties().id : tilesetId)
-                 , addOptions);
+                 , ao);
 }
 
 void Storage::readd(const TilesetId &tilesetId
                     , const AddOptions &addOptions)
 {
-    detail().readd(tilesetId, addOptions);
+    const auto ao
+        (updateAddOptions
+         (addOptions
+          , loadMergeConf(detail().root / storage_paths::mergeConfPath()
+                          , true)));
+
+    detail().readd(tilesetId, ao);
 }
 
 void Storage::remove(const TilesetIdList &tilesetIds)
@@ -110,8 +130,9 @@ void rmrf(const fs::path &path)
 
 class Tx : boost::noncopyable {
 public:
-    Tx(const fs::path &root, const boost::optional<fs::path> &tmpRoot)
-        : root_(root), tmpRoot_(tmpRoot)
+    Tx(const fs::path &root, const boost::optional<fs::path> &tmpRoot
+       , const OpenOptions &openOptions = OpenOptions())
+        : root_(root), tmpRoot_(tmpRoot), openOptions_(openOptions)
     {
         prepare();
     }
@@ -169,6 +190,7 @@ private:
 
     const fs::path root_;
     const boost::optional<fs::path> &tmpRoot_;
+    const OpenOptions openOptions_;
 
     typedef std::map<fs::path, fs::path> Mapping;
     Mapping mapping_;
@@ -223,12 +245,12 @@ void Tx::commit()
 
 TileSet Tx::open(const TilesetId &tilesetId) const
 {
-    return openTileSet(tilesetPath(tilesetId));
+    return openTileSet(tilesetPath(tilesetId), openOptions_);
 }
 
 TileSet Tx::open(const Glue &glue) const
 {
-    return openTileSet(gluePath(glue));
+    return openTileSet(gluePath(glue), openOptions_);
 }
 
 fs::path Tx::addGlue(const Glue &glue)
@@ -542,102 +564,6 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
     }
 
     // result
-    
-#if 0
-    for (const auto &tsp : incidentSets) {
-        const auto &ts(*tsp);
-
-        LOG(info2)
-            << "Sets <" << added.id() << "> and <"
-            << ts.id() << "> (" << added.index << ", " << ts.index
-            << ") overlap with [" << utility::join(ts.incidentSets, ", ")
-            << "].";
-
-        // initialize tileset mapping
-        constexpr int emptyPlaceholder(-1);
-        constexpr int addedPlaceholder(-2);
-        constexpr int thisPlaceholder(-3);
-
-        std::vector<int> mapping(tilesets.size(), emptyPlaceholder);
-        mapping[ts.index] = thisPlaceholder;
-        mapping[added.index] = addedPlaceholder;
-        {
-            int index(0);
-            for (auto its : ts.incidentSets) {
-                mapping[its] = index;
-                ++index;
-            }
-        }
-
-        // build all combinations (ts, added and any combination of incident
-        // sets)
-        BitSet flags(ts.incidentSets.size());
-
-        do {
-            TileSet::const_ptrlist combination;
-            Glue glue;
-            GlueRuleChecker ruleChecker(tx.glueRules());
-
-            auto buildCombination([&]() -> bool
-            {
-                std::set<TilesetId> seen;
-                auto addTs([&](const Ts &ts) -> bool
-                {
-                    if (!seen.insert(ts.base()).second) {
-                        // this base tileset has already been seen
-                        return false;
-                    }
-
-                    if (!ruleChecker(ts.stored)) {
-                        // glue rule prevents glue generation
-                        return false;
-                    }
-
-                    combination.push_back(&ts.set);
-                    glue.id.push_back(ts.id());
-                    return true;
-                });
-
-                for (std::size_t index(0), e(mapping.size());
-                     index != e; ++ index)
-                {
-                    auto value(mapping[index]);
-                    switch (value) {
-                    case emptyPlaceholder:
-                        continue;
-
-                    case addedPlaceholder:
-                        if (!addTs(added)) {
-                            return false;
-                        }
-                        continue;
-
-                    case thisPlaceholder:
-                        if (!addTs(*tsp)) {
-                            return false;
-                        }
-                        continue;
-                    }
-
-                    if (flags[value] && !addTs(tilesets[index])) {
-                        return false;
-                    }
-                }
-                return true;
-            });
-
-            if (!buildCombination()) { continue; }
-
-            // create glue
-            auto glueSetId(boost::lexical_cast<std::string>
-                           (utility::join(glue.id, "_")));
-            glue.path = glueSetId;
-
-            gd.emplace_back(combination, glue, glueSetId);
-        } while (flags.increment());
-    }
-#endif
-    
     return gd;
 }
 
@@ -943,7 +869,7 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
         << tileset.root() << ").";
 
     {
-        Tx tx(root, addOptions.tmp);
+        Tx tx(root, addOptions.tmp, addOptions.openOptions);
 
         auto dst([&]() -> TileSet
         {
@@ -956,7 +882,9 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
                                 .mode(CreateMode::overwrite)
                                 .sameType(true)
                                 .tilesetId(tilesetInfo.tilesetId)
-                                .lodRange(addOptions.filter.lodRange()));
+                                .lodRange(addOptions.filter.lodRange())
+                                .openOptions(addOptions.openOptions)
+                                );
         }());
 
         auto tilesets(openTilesets(tx, nProperties.tilesets
@@ -987,9 +915,10 @@ void Storage::Detail::readd(const TilesetId &tilesetId
 
     auto nProperties(properties);
     {
-        Tx tx(root, addOptions.tmp);
+        Tx tx(root, addOptions.tmp, addOptions.openOptions);
 
-        auto dst(openTileSet(storage_paths::tilesetPath(root, tilesetId)));
+        auto dst(openTileSet(storage_paths::tilesetPath(root, tilesetId)
+                             , addOptions.openOptions));
 
         // create glues only if tileset participates in any glue
         auto tilesets(openTilesets(tx, properties.tilesets, dst, dst.id()));

@@ -36,6 +36,7 @@ public:
     /** Opens storage.
      */
     AggregatedDriver(const boost::filesystem::path &root
+                     , const OpenOptions &openOptions
                      , const AggregatedOptions &options);
 
     /** Cloner

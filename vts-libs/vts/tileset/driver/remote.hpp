@@ -25,20 +25,21 @@ public:
      *  CreateMode::overwrite.
      */
     RemoteDriver(const boost::filesystem::path &root
-                     , const RemoteOptions &options
-                     , const CloneOptions &cloneOptions);
+                 , const RemoteOptions &options
+                 , const CloneOptions &cloneOptions);
 
     /** Opens storage.
      */
     RemoteDriver(const boost::filesystem::path &root
-                     , const RemoteOptions &options);
+                 , const OpenOptions &openOptions
+                 , const RemoteOptions &options);
 
     /** Cloner
      */
     RemoteDriver(const boost::filesystem::path &root
-                     , const RemoteOptions &options
-                     , const CloneOptions &cloneOptions
-                     , const RemoteDriver &src);
+                 , const RemoteOptions &options
+                 , const CloneOptions &cloneOptions
+                 , const RemoteDriver &src);
 
     virtual ~RemoteDriver();
 

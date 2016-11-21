@@ -74,8 +74,9 @@ PlainDriver::PlainDriver(const boost::filesystem::path &root
 {}
 
 PlainDriver::PlainDriver(const boost::filesystem::path &root
+                         , const OpenOptions &openOptions
                          , const PlainOptions &options)
-    : Driver(root, options)
+    : Driver(root, openOptions, options)
     , cache_(this->root(), this->options<PlainOptions>(), true)
 {
 }

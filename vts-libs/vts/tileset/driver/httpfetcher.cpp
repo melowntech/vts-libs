@@ -3,6 +3,7 @@
 
 #include <boost/format.hpp>
 #include <boost/iostreams/device/array.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include <curl/curl.h>
 
@@ -11,6 +12,8 @@
 #include "../../../storage/error.hpp"
 #include "../../tileop.hpp"
 #include "./httpfetcher.hpp"
+
+namespace ba = boost::algorithm;
 
 namespace vadstena { namespace vts { namespace driver {
 
@@ -247,7 +250,7 @@ IStream::pointer fetchAsStream(::CURL *handle
             (std::move(buffer), contentType, url, lastModified);
     });
 
-    for (auto tries(options.tries); tries; (tries > 0) ? --tries : 0) {
+    for (auto tries(options.tries()); tries; (tries > 0) ? --tries : 0) {
         try {
             return tryFetch();
         } catch (const storage::IOError &e) {
@@ -259,7 +262,8 @@ IStream::pointer fetchAsStream(::CURL *handle
     return tryFetch();
 }
 
-std::string fixUrl(const std::string &input)
+std::string fixUrl(const std::string &input
+                   , const HttpFetcher::Options &options)
 {
     utility::Uri uri(input);
     if (!uri.absolute()) {
@@ -267,13 +271,30 @@ std::string fixUrl(const std::string &input)
             << "Uri <" << input << "> is not absolute uri.";
     }
 
-    if (!uri.scheme().empty()) {
-        // we have uri with scheme -> fine
+    const auto &cnames(options.cnames());
+
+    if (!uri.scheme().empty() && cnames.empty()) {
+        // nothing to be changed, return as-is
         return input;
     }
 
+    // something has to be changed
+
     // no scheme, both http and https should work, force http
-    uri.scheme("http");
+    if (uri.scheme().empty()) {
+        uri.scheme("http");
+    }
+
+    if (!cnames.empty()) {
+        // apply cnames, case-insensitive way
+        for (const auto &item : cnames) {
+            if (ba::iequals(uri.host(), item.first)) {
+                uri.host(item.second);
+                break;
+            }
+        }
+    }
+
     return str(uri);
 }
 
@@ -281,8 +302,11 @@ std::string fixUrl(const std::string &input)
 
 HttpFetcher::HttpFetcher(const std::string &rootUrl
                          , const Options &options)
-    : rootUrl_(fixUrl(rootUrl)), options_(options), handle_(createCurl())
-{}
+    : rootUrl_(fixUrl(rootUrl, options))
+    , options_(options), handle_(createCurl())
+{
+    LOG(info4) << "Using URI: <" << rootUrl_ << ">.";
+}
 
 IStream::pointer HttpFetcher::input(File type, bool noSuchFile)
     const

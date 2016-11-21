@@ -91,12 +91,14 @@ Driver::Driver(const boost::any &options, CreateMode)
 {}
 
 Driver::Driver(const boost::filesystem::path &root
+               , const OpenOptions &openOptions
                , const boost::any &options)
     : root_(absolute(root))
     , readOnly_(true)
     , configPath_(root_ / filePath(File::config))
     , extraConfigPath_(root_ / filePath(File::extraConfig))
     , registryPath_(root_ / filePath(File::registry))
+    , openOptions_(openOptions)
     , options_(options)
     , rootStat_(FileStat::stat(root_))
     , configStat_(FileStat::stat(configPath_))
@@ -196,7 +198,8 @@ Driver::pointer Driver::create(const boost::any &genericOptions
     throw;
 }
 
-Driver::pointer Driver::open(const boost::filesystem::path &root)
+Driver::pointer Driver::open(const boost::filesystem::path &root
+                             , const OpenOptions &openOptions)
 {
     auto genericOptions(tileset::loadConfig(root / filePath(File::config))
                         .driverOptions);
@@ -204,23 +207,27 @@ Driver::pointer Driver::open(const boost::filesystem::path &root)
     if (auto o = boost::any_cast<const driver::PlainOptions>
         (&genericOptions))
     {
-        return std::make_shared<driver::PlainDriver>(root, *o);
+        return std::make_shared<driver::PlainDriver>(root, openOptions, *o);
     } else if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
                (&genericOptions))
     {
-        return std::make_shared<driver::OldAggregatedDriver>(root, *o);
+        return std::make_shared<driver::OldAggregatedDriver>
+            (root, openOptions, *o);
     } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&genericOptions))
     {
-        return std::make_shared<driver::AggregatedDriver>(root, *o);
+        return std::make_shared<driver::AggregatedDriver>
+            (root, openOptions, *o);
     } else if (auto o = boost::any_cast<const driver::RemoteOptions>
                (&genericOptions))
     {
-        return std::make_shared<driver::RemoteDriver>(root, *o);
+        return std::make_shared<driver::RemoteDriver>
+            (root, openOptions, *o);
     } else if (auto o = boost::any_cast<const driver::LocalOptions>
                (&genericOptions))
     {
-        return std::make_shared<driver::LocalDriver>(root, *o);
+        return std::make_shared<driver::LocalDriver>
+            (root, openOptions, *o);
     }
 
     LOGTHROW(err2, storage::BadFileFormat)

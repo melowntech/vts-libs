@@ -153,6 +153,7 @@ public:
         bool dryRun;
         boost::optional<boost::filesystem::path> tmp;
         Tags tags;
+        OpenOptions openOptions;
 
         AddOptions()
             : bumpVersion(false), filter(), dryRun(false)

@@ -183,9 +183,9 @@ struct TileSet::Factory
         return TileSet(driver);
     }
 
-    static TileSet open(const fs::path &path)
+    static TileSet open(const fs::path &path, const OpenOptions &openOptions)
     {
-        auto driver(Driver::open(path));
+        auto driver(Driver::open(path, openOptions));
         return TileSet(driver);
     }
 
@@ -435,9 +435,10 @@ TileSet createTileSet(const boost::filesystem::path &path
          , CloneOptions().mode(mode).tilesetId(properties.id));
 }
 
-TileSet openTileSet(const boost::filesystem::path &path)
+TileSet openTileSet(const boost::filesystem::path &path
+                    , const OpenOptions &openOptions)
 {
-    return TileSet::Factory::open(path);
+    return TileSet::Factory::open(path, openOptions);
 }
 
 TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src
@@ -1553,9 +1554,10 @@ bool TileSet::check(const boost::filesystem::path &root)
 }
 
 std::shared_ptr<Driver>
-TileSet::openDriver(const boost::filesystem::path &root)
+TileSet::openDriver(const boost::filesystem::path &root
+                    , const OpenOptions &openOptions)
 {
-    return Driver::open(root);
+    return Driver::open(root, openOptions);
 }
 
 bool TileSet::externallyChanged() const

@@ -17,6 +17,29 @@ namespace vadstena { namespace vts {
 // fwd declaration; include metatile.hpp if MetaNode is needed.
 struct MetaNode;
 
+/** Tileset open options.
+ *
+ *  Available options:
+ *      relocate: temporary dataset reloaction; really useful only for URLs
+ */
+class OpenOptions {
+public:
+    OpenOptions() {}
+
+    typedef std::map<std::string, std::string> CNames;
+
+    const CNames& cnames() const { return cnames_; }
+    OpenOptions& cnames(const CNames &cnames) {
+        cnames_ = cnames; return *this;
+    }
+    void updateCNames(const CNames &cnames) {
+        cnames_.insert(cnames.begin(), cnames.end());
+    }
+
+private:
+    CNames cnames_;
+};
+
 /** Tilset clone options. Sometimes used for tileset creation.
  *
  *  Options:
@@ -38,6 +61,8 @@ struct MetaNode;
  *
  *    * absolutize:
  *                Make references to another entities absolute.
+ *
+ *    * openOptions: open time options
  */
 class CloneOptions {
 public:
@@ -95,6 +120,11 @@ public:
     }
     bool absolutize() const { return absolutize_; }
 
+    const OpenOptions& openOptions() const { return openOptions_; }
+    CloneOptions& openOptions(const OpenOptions &openOptions) {
+        openOptions_ = openOptions; return *this;
+    }
+
 private:
     CreateMode mode_;
     boost::optional<std::string> tilesetId_;
@@ -103,6 +133,7 @@ private:
     bool sameType_;
     EncodeFlag::value_type encodeFlags_;
     bool absolutize_;
+    OpenOptions openOptions_;
 };
 
 class RelocateOptions {

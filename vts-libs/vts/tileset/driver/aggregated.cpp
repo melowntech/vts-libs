@@ -168,7 +168,8 @@ void addTileIndex(unsigned int metaBinaryOrder
 }
 
 AggregatedDriver::DriverEntry::list
-openDrivers(Storage &storage, const AggregatedOptions &options)
+openDrivers(Storage &storage, const OpenOptions &openOptions
+            , const AggregatedOptions &options)
 {
     // get list of tilesets (in proper order)
     const auto tilesets(storage.tilesets(options.tilesets));
@@ -189,12 +190,14 @@ openDrivers(Storage &storage, const AggregatedOptions &options)
         if (glueId.size() == 1) {
             // tileset
             LOG(info1) << "opening <" << glueId.front() << ">";
-            drivers.emplace_back(Driver::open(storage.path(glueId.front()))
+            drivers.emplace_back(Driver::open(storage.path(glueId.front())
+                                              , openOptions)
                                  , references);
         } else {
             // glue
             LOG(info1) << "opening <" << utility::join(glueId, ",") << ">";
-            drivers.emplace_back(Driver::open(storage.path(glueId))
+            drivers.emplace_back(Driver::open(storage.path(glueId)
+                                              , openOptions)
                                  , references);
         }
     }
@@ -570,12 +573,13 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
 }
 
 AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
+                                   , const OpenOptions &openOptions
                                    , const AggregatedOptions &options)
-    : Driver(root, options)
+    : Driver(root, openOptions, options)
     , storage_(fs::absolute(this->options().storagePath, root)
                , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
-    , drivers_(openDrivers(storage_, options))
+    , drivers_(openDrivers(storage_, openOptions, options))
     , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
 {
     // we flatten the content
@@ -611,7 +615,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     // clone tile index
     copyFile(src.input(File::tileIndex), output(File::tileIndex));
 
-    drivers_ = openDrivers(storage_, options);
+    drivers_ = openDrivers(storage_, cloneOptions.openOptions(), options);
 
     // and load it
     tileset::loadTileSetIndex(tsi_, *this);
