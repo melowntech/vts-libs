@@ -64,6 +64,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((file)("file"))
                       ((tags)("tags"))
                       ((glueRulesSyntax)("glue-rules-syntax"))
+                      ((mergeConfSyntax)("merge-conf-syntax"))
                       ((dumpNavtile)("dump-navtile"))
                       ((dumpNavtileMask)("dump-navtile-mask"))
                       ((navtile2dem))
@@ -188,6 +189,7 @@ private:
     int file();
 
     int glueRulesSyntax();
+    int mergeConfSyntax();
 
     int dumpNavtile();
     int dumpNavtileMask();
@@ -812,8 +814,9 @@ void VtsStorage::configuration(po::options_description &cmdline
             ;
     });
 
-    createParser(cmdline, Command::glueRulesSyntax
-                 , "--command=glue-rule-syntax: show syntax of glue rules"
+    createParser(cmdline, Command::mergeConfSyntax
+                 , "--command=merge-conf-syntax: "
+                 "show syntax of merge configuration"
                  , [&](UP &p)
     {
         p.options.add_options()
@@ -1036,6 +1039,7 @@ int VtsStorage::runCommand()
     case Command::relocate: return relocate();
     case Command::file: return file();
     case Command::glueRulesSyntax: return glueRulesSyntax();
+    case Command::mergeConfSyntax: return mergeConfSyntax();
     case Command::dumpNavtile: return dumpNavtile();
     case Command::dumpNavtileMask: return dumpNavtileMask();
     case Command::navtile2dem: return navtile2dem();
@@ -1945,6 +1949,34 @@ There are these rules available:
 
    Example: tag.no-glue(no-glue)
    Effect: no glues will be generated for tilesets having tag "no-glue".
+
+)RAW";
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::mergeConfSyntax()
+{
+    std::cout <<
+        R"RAW(Syntax of merge.conf file
+
+merge.conf file to specify tileset open and glue create options for add/readd
+operations.
+
+merge.conf is regular INI config file.
+
+Supported options:
+
+CNAME: Maps hostname stored inside remote tileset URL to another hostname during
+       merge. Can be used to fetch data from local machine instead of from
+       global CDN with longer round trip.
+
+       Syntax example:
+
+           [cname]
+           cds.melown.com = cdn-source.melown.com
+
+       effect: all URLs that point to cdn.melown.com are rewritten to
+       cdn-source.melown.com before resource is fetched.
 
 )RAW";
     return EXIT_SUCCESS;
