@@ -133,6 +133,12 @@ public:
         : IStream(type), stat_(0, lastModified), name_(name)
     {}
 
+    StringIStream(const IStream &is)
+        : IStream(is.stat().contentType)
+        , stat_(0, is.stat().lastModified)
+        , name_(is.name())
+    {}
+
     std::stringstream& sink() { return ss_; }
 
     void updateSize() { stat_.size = ss_.tellp(); }
