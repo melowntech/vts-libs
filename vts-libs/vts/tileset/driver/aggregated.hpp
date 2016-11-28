@@ -175,6 +175,8 @@ private:
     Index tsi_;
 
     boost::optional<TileSet::Properties> memProperties_;
+
+    bool surfaceReferences_;
 };
 
 } } } // namespace vadstena::vts::driver

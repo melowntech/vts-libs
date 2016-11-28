@@ -815,9 +815,6 @@ void MetaTile::update(const MetaTile &in, bool alien)
     }
 }
 
-// NB: in following code, heightRange.min is used as a placeholder for
-// referenceId; this can change in the future
-
 void MetaTile::expectReference(const TileId &tileId
                                , MetaNode::SourceReference sourceReference)
 {

@@ -111,9 +111,12 @@ struct AggregatedOptions {
     boost::filesystem::path storagePath;
     TilesetIdSet tilesets;
     std::string tsMap;
+    bool surfaceReferences;
 
     boost::any relocate(const RelocateOptions &options
                         , const std::string &prefix) const;
+
+    AggregatedOptions() : surfaceReferences(false) {}
 };
 
 struct RemoteOptions {

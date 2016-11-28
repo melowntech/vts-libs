@@ -455,10 +455,11 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
                           , const TilesetIdSet &tilesets)
 {
     driver::AggregatedOptions dopts;
-    dopts.storagePath = (co.absolutize()
-                         ? fs::absolute(storagePath)
-                         : storagePath);
+    dopts.storagePath = ((co.createFlags() & AggreateFlags::dontAbsolutize)
+                         ? storagePath : fs::absolute(storagePath));
     dopts.tilesets = tilesets;
+    dopts.surfaceReferences = (co.createFlags()
+                               & AggreateFlags::sourceReferencesInMetatiles);
 
     // TODO: use first non-empty path element
     CloneOptions useCo(co);
@@ -475,10 +476,12 @@ TileSet aggregateTileSets(const Storage &storage
                           , const TilesetIdSet &tilesets)
 {
     driver::AggregatedOptions dopts;
-    dopts.storagePath = (co.absolutize()
-                         ? fs::absolute(storage.path())
-                         : storage.path());
+    dopts.storagePath = ((co.createFlags() & AggreateFlags::dontAbsolutize)
+                         ? storage.path()
+                         : fs::absolute(storage.path()));
     dopts.tilesets = tilesets;
+    dopts.surfaceReferences = (co.createFlags()
+                               & AggreateFlags::sourceReferencesInMetatiles);
 
     auto driver(Driver::create(dopts, co));
     return TileSet::Factory::open(driver);

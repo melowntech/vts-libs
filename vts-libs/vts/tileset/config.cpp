@@ -167,6 +167,13 @@ boost::any parseAggregatedDriver(const Json::Value &value)
 
     driverOptions.tsMap = utility::base64::decode(driverOptions.tsMap);
 
+    if (value.isMember("surfaceReferences")) {
+        Json::get(driverOptions.surfaceReferences, value, "surfaceReferences");
+    } else {
+        // force default
+        driverOptions.surfaceReferences = true;
+    }
+
     return driverOptions;
 }
 
@@ -249,6 +256,7 @@ Json::Value buildDriver(const boost::any &d)
         value["tilesets"] = buildIdArray(opts->tilesets.begin()
                                          , opts->tilesets.end());
         value["tsMap"] = utility::base64::encode(opts->tsMap);
+        value["surfaceReferences"] = opts->surfaceReferences;
         return value;
     } else if (auto opts = boost::any_cast
                <const driver::RemoteOptions>(&d))
