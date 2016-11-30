@@ -210,7 +210,8 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
           , const fs::path &root
           , const registry::ReferenceFrame &referenceFrame
           , std::time_t lastModified, const TileId &tileId
-          , const TileIndex &tileIndex, bool noSuchFile = true)
+          , const TileIndex &tileIndex, bool keepSurfaceReferences
+          , bool noSuchFile = true)
 {
     const auto mbo(referenceFrame.metaBinaryOrder);
     // parent tile at meta-binary-order levels above us
@@ -274,6 +275,10 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
     // TODO: make better by some quadtree magic
     ometa.for_each([&](const TileId &nodeId, MetaNode &node)
     {
+        if (!keepSurfaceReferences) {
+            // do not keep surface references -> reset
+            node.sourceReference = 0;
+        }
         for (const auto &child : vts::children(nodeId)) {
             node.setChildFromId
                 (child, tileIndex.validSubtree(child));
@@ -315,6 +320,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
+    , surfaceReferences_(this->options().surfaceReferences)
 {
     // we flatten the content
     capabilities().flattener = true;
@@ -336,6 +342,7 @@ AggregatedDriver::AggregatedDriver(const AggregatedOptions &options
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
+    , surfaceReferences_(this->options().surfaceReferences)
 {
     // we flatten the content
     capabilities().flattener = true;
@@ -581,6 +588,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     , referenceFrame_(storage_.referenceFrame())
     , drivers_(openDrivers(storage_, openOptions, options))
     , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
+    , surfaceReferences_(this->options().surfaceReferences)
 {
     // we flatten the content
     capabilities().flattener = true;
@@ -597,6 +605,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
+    , surfaceReferences_(this->options().surfaceReferences)
 {
     // we flatten the content
     capabilities().flattener = true;
@@ -714,7 +723,7 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
 
         return buildMeta(drivers_, root(), referenceFrame_
                          , configStat().lastModified, tileId
-                         , tsi_.tileIndex, noSuchFile);
+                         , tsi_.tileIndex, surfaceReferences_, noSuchFile);
     }
 
     const auto flags(tsi_.checkAndGetFlags(tileId, type));
@@ -764,7 +773,7 @@ FileStat AggregatedDriver::stat_impl(const TileId &tileId, TileFile type) const
 
         return buildMeta(drivers_, root(), referenceFrame_
                          , configStat().lastModified, tileId
-                         , tsi_.tileIndex)->stat();
+                         , tsi_.tileIndex, surfaceReferences_)->stat();
     }
 
     const auto flags(tsi_.checkAndGetFlags(tileId, type));
@@ -811,7 +820,13 @@ std::string AggregatedDriver::info_impl() const
     auto o(options());
     std::ostringstream os;
     os << "aggregated[optimized] (storage=" << o.storagePath
-       << ", tilesets=[" << utility::join(o.tilesets, " ") << "])";
+       << ", tilesets=[" << utility::join(o.tilesets, " ") << "]";
+
+    if (o.surfaceReferences) {
+        os << ", surfaceReferences";
+    }
+    os << ")";
+
     return os.str();
 }
 

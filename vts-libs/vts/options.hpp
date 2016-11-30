@@ -59,8 +59,9 @@ private:
  *    * metaNodeManipulator:
  *                allows metanode change during cloning operation
  *
- *    * absolutize:
- *                Make references to another entities absolute.
+ *    * createFlags:
+ *                Generic flags interpreted by lower layers.
+ *                See configuration of given tileset/driver.
  *
  *    * openOptions: open time options
  */
@@ -70,7 +71,7 @@ public:
 
     CloneOptions()
         : mode_(CreateMode::failIfExists), sameType_(false)
-        , encodeFlags_(0x0), absolutize_(true)
+        , encodeFlags_(0x0), createFlags_(0)
     {}
 
     CreateMode mode() const { return mode_; }
@@ -115,14 +116,15 @@ public:
     }
     EncodeFlag::value_type encodeFlags() const { return encodeFlags_; }
 
-    CloneOptions& absolutize(bool absolutize) {
-        absolutize_ = absolutize; return *this;
-    }
-    bool absolutize() const { return absolutize_; }
-
     const OpenOptions& openOptions() const { return openOptions_; }
     CloneOptions& openOptions(const OpenOptions &openOptions) {
         openOptions_ = openOptions; return *this;
+    }
+
+    typedef std::uint32_t CreateFlags;
+    const CreateFlags& createFlags() const { return createFlags_; }
+    CloneOptions& createFlags(const CreateFlags &createFlags) {
+        createFlags_ = createFlags; return *this;
     }
 
 private:
@@ -132,8 +134,8 @@ private:
     MetaNodeManipulator metaNodeManipulator_;
     bool sameType_;
     EncodeFlag::value_type encodeFlags_;
-    bool absolutize_;
     OpenOptions openOptions_;
+    CreateFlags createFlags_;
 };
 
 class RelocateOptions {

@@ -52,6 +52,14 @@ Storage createStorage(const boost::filesystem::path &path
 
 StorageView openStorageView(const boost::filesystem::path &path);
 
+/** These flags can be passed via createOptions.createFlags() to
+ *  aggregateTileSets.
+ */
+struct AggreateFlags { enum : CloneOptions::CreateFlags {
+    dontAbsolutize = 0x1
+    , sourceReferencesInMetatiles = 0x2
+}; };
+
 /** Creates aggreagated tileset from storage subset.
  */
 TileSet aggregateTileSets(const boost::filesystem::path &path

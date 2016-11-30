@@ -1026,10 +1026,9 @@ void Storage::Detail::createVirtualSurface(const TilesetIdSet &tilesets
              , CloneOptions()
              .mode(CreateMode::overwrite)
              .tilesetId(vsSetId)
-             .absolutize(false)
+             .createFlags(AggreateFlags::dontAbsolutize
+                          | AggreateFlags::sourceReferencesInMetatiles)
              , TilesetIdSet(vs.id.begin(), vs.id.end()));
-
-        // TODO: make path relative!
 
         nProperties.virtualSurfaces[vs.id] = vs;
 
