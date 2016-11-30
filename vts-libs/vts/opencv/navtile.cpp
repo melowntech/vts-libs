@@ -39,9 +39,9 @@ multifile::Table NavTile::serialize_impl(std::ostream &os) const
 {
     // convert data to image
     const auto ts(NavTile::size());
-    const auto hr(heightRange());
+    storage::Range<double> hr(heightRange());
 
-    auto size(hr.size());
+    double size(hr.size());
     if (size < 1e-6) {
         // flat -> single value
         return writeImage

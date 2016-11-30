@@ -26,6 +26,11 @@ struct Range
     Range(T l) : min(l), max(l) {}
     Range(T min, T max) : min(min), max(max) {}
 
+    template <typename U>
+    explicit Range(const Range<U> &r)
+        : min(r.min), max(r.max)
+    {}
+
     T size() const { return max - min; }
 
     bool empty() const { return max < min; }
