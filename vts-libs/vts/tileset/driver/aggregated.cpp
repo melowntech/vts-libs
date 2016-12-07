@@ -240,13 +240,6 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
                 (TileId(tileId.lod, tileId.x + x, tileId.y + y)
                  , sourceReferenceFromFlags(value));
         }, QTree::Filter::white);
-    } else {
-        if (noSuchFile) {
-            LOGTHROW(err1, vs::NoSuchFile)
-                << "There is no metatile for " << tileId << ".";
-        }
-        LOG(err1) << "There is no metatile for " << tileId << ".";
-        return {};
     }
 
     // start from zero so first round gets 1
