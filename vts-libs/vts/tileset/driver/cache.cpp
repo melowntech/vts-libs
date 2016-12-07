@@ -305,14 +305,14 @@ Tilar* Cache::Archives::open(const TileId &archive, bool noSuchFile)
 
 IStream::pointer Cache::input(const TileId tileId, TileFile type)
 {
-    auto index(options_.index(tileId, fileType(type)));
+    auto index(options_.index(tileId, type, fileType(type)));
     return getArchives(type).open(index.archive)->input(index.file);
 }
 
 IStream::pointer Cache::input(const TileId tileId, TileFile type
                               , const NullWhenNotFound_t&)
 {
-    auto index(options_.index(tileId, fileType(type)));
+    auto index(options_.index(tileId, type, fileType(type)));
     auto *file(getArchives(type).open(index.archive, false));
     if (!file) { return {}; }
     return file->input(index.file, NullWhenNotFound);
@@ -320,19 +320,19 @@ IStream::pointer Cache::input(const TileId tileId, TileFile type
 
 OStream::pointer Cache::output(const TileId tileId, TileFile type)
 {
-    auto index(options_.index(tileId, fileType(type)));
+    auto index(options_.index(tileId, type, fileType(type)));
     return getArchives(type).open(index.archive)->output(index.file);
 }
 
 std::size_t Cache::size(const TileId tileId, TileFile type)
 {
-    auto index(options_.index(tileId, fileType(type)));
+    auto index(options_.index(tileId, type, fileType(type)));
     return getArchives(type).open(index.archive)->size(index.file);
 }
 
 FileStat Cache::stat(const TileId tileId, TileFile type)
 {
-    auto index(options_.index(tileId, fileType(type)));
+    auto index(options_.index(tileId, type, fileType(type)));
     return getArchives(type).open(index.archive)->stat(index.file);
 }
 

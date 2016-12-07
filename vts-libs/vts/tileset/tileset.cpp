@@ -166,6 +166,20 @@ TileRange TileSet::tileRange(Lod lod) const
     return detail().tileIndex.tileRange(lod, TileIndex::Flag::real);
 }
 
+namespace {
+
+driver::PlainOptions plainOptions(const TileSetProperties &properties)
+{
+    // find reference frame
+    const auto &referenceFrame(registry::system.referenceFrames
+                               (properties.referenceFrame));
+
+    // force aggregation to 5, set meta-unused-bits to meta-binary-order
+    return driver::PlainOptions(5, referenceFrame.metaBinaryOrder);
+}
+
+} // namespace
+
 struct TileSet::Factory
 {
     static TileSet create(const fs::path &path
@@ -400,7 +414,7 @@ struct TileSet::Factory
         // assisted cloning must be performed
 
         // regular type
-        properties.driverOptions = driver::PlainOptions(5);
+        properties.driverOptions = plainOptions(src.getProperties());
 
         auto dst(TileSet::Factory::create(path, properties, cloneOptions));
 
@@ -420,7 +434,8 @@ TileSet createTileSet(const boost::filesystem::path &path
                       , CreateMode mode)
 {
     TileSet::Properties tsprop(properties);
-    tsprop.driverOptions = driver::PlainOptions(5);
+    tsprop.driverOptions = plainOptions(properties);
+
     return TileSet::Factory::create
         (path, tsprop
          , CloneOptions().mode(mode).tilesetId(properties.id));

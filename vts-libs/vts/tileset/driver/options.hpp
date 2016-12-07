@@ -28,24 +28,38 @@ using storage::Tilar;
 
 class PlainOptions {
 public:
-    PlainOptions() : binaryOrder_(0), tileMask_(0) {}
+    PlainOptions()
+        : binaryOrder_(0), tileMask_(0)
+        , metaUnusedBits_(0)
+    {}
 
-    PlainOptions(std::uint8_t binaryOrder)
+    PlainOptions(std::uint8_t binaryOrder
+                 , std::uint8_t metaUnusedBits = 0)
         : binaryOrder_(binaryOrder)
         , uuid_(generateUuid())
         , tileMask_(calculateMask(binaryOrder))
+        , metaUnusedBits_(metaUnusedBits)
     {}
 
-    PlainOptions(std::uint8_t binaryOrder, boost::uuids::uuid uuid)
-        : binaryOrder_(binaryOrder)
-        , uuid_(uuid)
-        , tileMask_(calculateMask(binaryOrder))
+    /** Copy ctor with force uuid generation option
+     */
+    PlainOptions(const PlainOptions &other, bool generateUuid = false)
+        : binaryOrder_(other.binaryOrder_)
+        , uuid_(generateUuid ? PlainOptions::generateUuid() : other.uuid_)
+        , tileMask_(calculateMask(binaryOrder_))
+        , metaUnusedBits_(other.metaUnusedBits_)
     {}
 
     std::uint8_t binaryOrder() const { return binaryOrder_; }
     void binaryOrder(std::uint8_t value) {
         binaryOrder_ = value;
         tileMask_ = calculateMask(binaryOrder_);
+    }
+
+    std::uint8_t metaUnusedBits() const { return metaUnusedBits_; }
+    void metaUnusedBits(std::uint8_t value) {
+        metaUnusedBits_ = value;
+        tileMask_ = calculateMask(metaUnusedBits_);
     }
 
     const boost::uuids::uuid& uuid() const { return uuid_; }
@@ -65,7 +79,7 @@ public:
     /** Converts tileId into index of tilar file in the super grid and a file
      * index inside this archive.
      */
-    Index index(const TileId &tileId, int type) const;
+    Index index(TileId tileId, storage::TileFile fileType, int type) const;
 
     /** Tries to relocate resources. Returns valid result in case of relocation.
      */
@@ -90,6 +104,10 @@ private:
     /** Tile mask applied to tile index to get index inside archive.
      */
     long tileMask_;
+
+    /** How many metatile ID least significant bits are unused.
+     */
+    std::uint8_t metaUnusedBits_;
 
     static long calculateMask(std::uint8_t order);
     static boost::uuids::uuid generateUuid();
@@ -142,8 +160,14 @@ inline Tilar::Options PlainOptions::tilar(unsigned int filesPerTile)
 }
 
 inline PlainOptions::Index
-PlainOptions::index(const TileId &i, int type) const
+PlainOptions::index(TileId i, storage::TileFile fileType, int type) const
 {
+    if (fileType == storage::TileFile::meta) {
+        // shrink metatile space
+        i.x >>= metaUnusedBits_;
+        i.y >>= metaUnusedBits_;
+    }
+
     return {
         TileId(i.lod, i.x >> binaryOrder_, i.y >> binaryOrder_)
        , Tilar::FileIndex(i.x & tileMask_, i.y & tileMask_, type)

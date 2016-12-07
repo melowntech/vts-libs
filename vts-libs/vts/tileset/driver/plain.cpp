@@ -68,7 +68,7 @@ boost::uuids::uuid PlainOptions::generateUuid() {
 PlainDriver::PlainDriver(const boost::filesystem::path &root
                          , const PlainOptions &options
                          , const CloneOptions &cloneOptions)
-    : Driver(root, PlainOptions(options.binaryOrder()), cloneOptions.mode())
+    : Driver(root, PlainOptions(options, true), cloneOptions.mode())
     , cache_(this->root(), this->options<PlainOptions>()
              , false)
 {}
@@ -166,7 +166,12 @@ std::string PlainDriver::info_impl() const
     auto o(options<PlainOptions>());
     std::ostringstream os;
     os << "plain (UUID=" << to_string(o.uuid()) << ", binaryOrder="
-       << int(o.binaryOrder()) << ")";
+       << int(o.binaryOrder());
+    if (int metaUnusedBits = o.metaUnusedBits()) {
+        os << ", metaUnusedBits=" << metaUnusedBits;
+    }
+
+    os << ")";
     return os.str();
 }
 

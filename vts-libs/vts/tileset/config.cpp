@@ -126,9 +126,15 @@ boost::any parsePlainDriver(const Json::Value &value)
 {
     driver::PlainOptions driverOptions;
 
-    int binaryOrder;
-    Json::get(binaryOrder, value, "binaryOrder");
-    driverOptions.binaryOrder(binaryOrder);
+    int tmp;
+    Json::get(tmp, value, "binaryOrder");
+    driverOptions.binaryOrder(tmp);
+
+    if (value.isMember("metaUnusedBits")) {
+        // new
+        Json::get(tmp, value, "metaUnusedBits");
+        driverOptions.metaUnusedBits(tmp);
+    }
 
     std::string uuid;
     Json::get(uuid, value, "uuid");
@@ -238,6 +244,7 @@ Json::Value buildDriver(const boost::any &d)
     if (auto opts = boost::any_cast<const driver::PlainOptions>(&d)) {
         value["type"] = "plain";
         value["binaryOrder"] = opts->binaryOrder();
+        value["metaUnusedBits"] = opts->metaUnusedBits();
         value["uuid"] = to_string(opts->uuid());
         return value;
     } else if (auto opts = boost::any_cast
