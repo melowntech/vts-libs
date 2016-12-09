@@ -302,10 +302,14 @@ public:
     TileIndex& simplify(Flag::value_type type = Flag::any);
 
     /** Makes tileindex complete -> every existing tile has its parent.
-     *  If stopAtCeiling is set, coarsest empty LODs are not affected by complete
-     *  and stay empty.
+     *
+     * If stopAtceiling is given, empty LODs < stopAtceiling are not affected by
+     * complete and stay empty.
      */
-    TileIndex& complete(Flag::value_type type = Flag::any, bool stopAtCeiling = false);
+    TileIndex& complete(Flag::value_type type = Flag::any
+                        , const boost::optional<Lod> &stopAtceiling
+                        = boost::none);
+
 
     /** Makes tileindex complete down the tree -> every existing tile has its
      *  child.

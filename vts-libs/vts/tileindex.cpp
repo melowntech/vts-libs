@@ -582,7 +582,8 @@ TileIndex& TileIndex::simplify(Flag::value_type type)
     return *this;
 }
 
-TileIndex& TileIndex::complete(Flag::value_type type, bool stopAtCeiling)
+TileIndex& TileIndex::complete(Flag::value_type type
+                               , const boost::optional<Lod> &stopAtceiling)
 {
     auto filter([type](QTree::value_type value) { return (value & type); });
 
@@ -592,12 +593,16 @@ TileIndex& TileIndex::complete(Flag::value_type type, bool stopAtCeiling)
     }
 
     // find ceiling
-
     auto ceiling(trees_.begin());
     Lod ceilingLod(lodRange().min);
 
-    if (stopAtCeiling) {
-        for (auto etrees(trees_.end()); ceiling != etrees; ++ceiling, ++ceilingLod) {
+    if (stopAtceiling) {
+        // we have to apply given ceiling
+        const auto stop(*stopAtceiling);
+        for (auto etrees(trees_.end());
+             (ceiling != etrees) && (ceilingLod < stop);
+             ++ceiling, ++ceilingLod)
+        {
             if ( !ceiling->empty() ) break;
         }
     }
