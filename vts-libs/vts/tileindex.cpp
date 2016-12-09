@@ -592,8 +592,7 @@ TileIndex& TileIndex::complete(Flag::value_type type
         return *this;
     }
 
-    // find ceiling
-    auto ceiling(trees_.begin());
+    // default ceiling is tileindex ceiling (i.e. min lod)
     Lod ceilingLod(minLod_);
 
     if (stopAtceiling) {
@@ -603,9 +602,10 @@ TileIndex& TileIndex::complete(Flag::value_type type
         // sanity check, stop at or below max lod
         if (stop >= maxLod()) { return *this; }
 
-        // stop at ceiling
-        ceilingLod = stop;
-        ceiling += (stop - minLod_);
+        if (stop > minLod_) {
+            // move ceiling to new position
+            ceilingLod = stop;
+        }
     }
 
     // traverse trees bottom to top and coarsen -> propagates tiles from bottom
