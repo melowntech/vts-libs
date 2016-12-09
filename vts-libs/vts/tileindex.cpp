@@ -594,17 +594,18 @@ TileIndex& TileIndex::complete(Flag::value_type type
 
     // find ceiling
     auto ceiling(trees_.begin());
-    Lod ceilingLod(lodRange().min);
+    Lod ceilingLod(minLod_);
 
     if (stopAtceiling) {
         // we have to apply given ceiling
         const auto stop(*stopAtceiling);
-        for (auto etrees(trees_.end());
-             (ceiling != etrees) && (ceilingLod < stop);
-             ++ceiling, ++ceilingLod)
-        {
-            if ( !ceiling->empty() ) break;
-        }
+
+        // sanity check, stop at or below max lod
+        if (stop >= maxLod()) { return *this; }
+
+        // stop at ceiling
+        ceilingLod = stop;
+        ceiling += (stop - minLod_);
     }
 
     // traverse trees bottom to top and coarsen -> propagates tiles from bottom
