@@ -53,6 +53,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((dumpMesh)("dump-mesh"))
                       ((dumpMeshMask)("dump-mesh-mask"))
                       ((tileIndexInfo)("tileindex-info"))
+                      ((tileIndexRanges)("tileindex-ranges"))
                       ((convertTileIndex)("convert-tileindex"))
                       ((concat)("concat"))
                       ((aggregate)("aggregate"))
@@ -169,6 +170,7 @@ private:
     int dumpMeshMask();
 
     int tileIndexInfo();
+    int tileIndexRanges();
 
     int convertTileIndex();
 
@@ -563,6 +565,17 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "ID's of tiles to query.")
             ;
         p.positional.add("tileId", -1);
+    });
+
+    createParser(cmdline, Command::tileIndexRanges
+                 , "--command=tileindex-ranges: tile-index ranges"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("filter", po::value(&tileFlags_)
+             ->default_value(vts::TileIndex::Flag::mesh)
+             ->required())
+            ;
     });
 
     createParser(cmdline, Command::convertTileIndex
@@ -1029,6 +1042,7 @@ int VtsStorage::runCommand()
     case Command::dumpMesh: return dumpMesh();
     case Command::dumpMeshMask: return dumpMeshMask();
     case Command::tileIndexInfo: return tileIndexInfo();
+    case Command::tileIndexRanges: return tileIndexRanges();
     case Command::convertTileIndex: return convertTileIndex();
     case Command::concat: return concat();
     case Command::aggregate: return aggregate();
@@ -1705,6 +1719,26 @@ int VtsStorage::tileIndexInfo()
     for (const auto &tileId : tileIds_) {
         auto flags(ti.get(tileId));
         std::cout << tileId << ": " << vts::TileFlags(flags) << std::endl;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::tileIndexRanges()
+{
+    vts::TileIndex ti;
+    ti.load(path_);
+
+    auto stat(ti.statMask(tileFlags_.value, tileFlags_.value));
+
+    if (stat.lodRange.empty()) { return EXIT_SUCCESS; }
+
+    auto lod(stat.lodRange.min);
+    for (const auto &tr : stat.tileRanges) {
+        if (valid(tr)) {
+            std::cout << lod << '/' << tr << '\n';
+        }
+        ++lod;
     }
 
     return EXIT_SUCCESS;
