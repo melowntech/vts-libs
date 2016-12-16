@@ -69,7 +69,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((dumpNavtile)("dump-navtile"))
                       ((dumpNavtileMask)("dump-navtile-mask"))
                       ((navtile2dem))
-                      ((lockerApi)("locker-api"))
+                      ((showLockerApi)("show-locker-api"))
                       ((deriveMetaIndex)("derive-metaindex"))
                       ((virtualSurfaceCreate)("vs-create"))
                       ((virtualSurfaceRemove)("vs-remove"))
@@ -197,7 +197,7 @@ private:
     int dumpNavtileMask();
     int navtile2dem();
 
-    int lockerApi();
+    int showLockerApi();
 
     int deriveMetaIndex();
 
@@ -878,8 +878,9 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.positional.add("output", 1);
     });
 
-    createParser(cmdline, Command::lockerApi
-                 , "--command=locker-api: show API of external locking program"
+    createParser(cmdline, Command::showLockerApi
+                 , "--command=show-locker-api: "
+                 "show API of external locking program"
                  , [&](UP &p)
     {
         p.options.add_options()
@@ -1057,7 +1058,7 @@ int VtsStorage::runCommand()
     case Command::dumpNavtile: return dumpNavtile();
     case Command::dumpNavtileMask: return dumpNavtileMask();
     case Command::navtile2dem: return navtile2dem();
-    case Command::lockerApi: return lockerApi();
+    case Command::showLockerApi: return showLockerApi();
     case Command::deriveMetaIndex: return deriveMetaIndex();
     }
     std::cerr << "vts: no operation requested" << std::endl;
@@ -2105,7 +2106,7 @@ int VtsStorage::navtile2dem()
     return EXIT_SUCCESS;
 }
 
-int VtsStorage::lockerApi()
+int VtsStorage::showLockerApi()
 {
     std::cout <<
         R"RAW(Eexternal locking program interface
