@@ -307,6 +307,7 @@ public:
     static void relocate(const boost::filesystem::path &root
                          , const RelocateOptions &options
                          , const std::string &prefix = "");
+
     /** Creates glue from given sets.
      *
      * \param glue output tileset for glue tiles
@@ -318,6 +319,25 @@ public:
      */
     static void createGlue(TileSet &glue, const const_ptrlist &sets
                            , const GlueCreationOptions &options);
+
+    /** Glue statistics returned by analyzeGlue.
+     */
+    struct GlueStatistics {
+        std::size_t tilesToGenerate;
+
+        GlueStatistics() : tilesToGenerate() {}
+    };
+
+    /** Analyze glue from given sets.
+     *
+     * \param sets input tilesets
+     * \param options glue creation options
+     *
+     *  Priority grows from left to right.
+     *
+     */
+    static GlueStatistics analyzeGlue(const const_ptrlist &sets
+                                      , const GlueCreationOptions &options);
 
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the tileset's guts!

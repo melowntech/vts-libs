@@ -8,6 +8,8 @@
 #ifndef vadstena_libs_vts_options_hpp_included_
 #define vadstena_libs_vts_options_hpp_included_
 
+#include <memory>
+
 #include <boost/optional.hpp>
 
 #include "./basetypes.hpp"
@@ -177,6 +179,19 @@ operator<<(std::basic_ostream<CharT, Traits> &os
     return os << rule.prefix << '=' << rule.replacement;
 }
 
+class MergeProgress {
+public:
+    typedef std::shared_ptr<MergeProgress> pointer;
+    virtual ~MergeProgress() {}
+
+    void expect(std::size_t total);
+    void tile();
+
+private:
+    virtual void expect_impl(std::size_t total) = 0;
+    virtual void tile_impl() = 0;
+};
+
 /** Glue creation options.
  */
 struct GlueCreationOptions {
@@ -188,10 +203,28 @@ struct GlueCreationOptions {
      */
     bool clip;
 
+    /** Merge progress reporting.
+     *  Pinged with each tile.
+     */
+    MergeProgress::pointer progress;
+
     GlueCreationOptions()
         : textureQuality(), clip(true)
     {}
 };
+
+// inlines
+
+inline void MergeProgress::expect(std::size_t total)
+{
+    expect_impl(total);
+}
+
+inline void MergeProgress::tile()
+{
+    tile_impl();
+}
+
 
 } } // namespace vadstena::vts
 

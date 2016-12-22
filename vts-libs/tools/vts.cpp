@@ -1,4 +1,8 @@
-#include <boost/uuid/uuid_io.hpp>
+#include <unistd.h>
+
+#include <cerrno>
+
+#include <boost/format.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -10,6 +14,7 @@
 #include "utility/gccversion.hpp"
 #include "utility/streams.hpp"
 #include "utility/time.hpp"
+#include "utility/filedes.hpp"
 
 #include "service/cmdline.hpp"
 
@@ -243,6 +248,90 @@ private:
 
 namespace {
 
+class MergeProgress : public vts::MergeProgress {
+public:
+    MergeProgress(utility::Filedes &&fd, std::time_t period)
+        : fd_(std::move(fd)), period_(period), total_(), count_()
+    {}
+
+private:
+    virtual void expect_impl(std::size_t total) {
+        next_ = std::time(nullptr) + period_;
+        total_ = total;
+        write(total_);
+    }
+
+    virtual void tile_impl() {
+        ++count_;
+        auto now(std::time(nullptr));
+        if (now < next_) { return; }
+
+        next_ = now + period_;
+        write(count_);
+    }
+
+    void write(std::size_t value) {
+        const auto tmp(str(boost::format("%d\n") % value));
+        const auto *data(tmp.data());
+        auto left(tmp.size());
+
+        while (left) {
+            auto written(TEMP_FAILURE_RETRY(::write(fd_, data, left)));
+            if (-1 == written) {
+                LOG(warn2) << "Error writing to progress fd ("
+                           << fd_.get() << "): " << errno;
+                break;
+            }
+
+            left -= written;
+            data += written;
+        }
+    }
+
+    const utility::Filedes fd_;
+    const std::time_t period_;
+    std::size_t total_;
+
+    std::time_t next_;
+    std::size_t count_;
+};
+
+void progressConfiguration(po::options_description &options)
+{
+    options.add_options()
+        ("progress.fd"
+         , po::value<int>()->default_value(-1)->required()
+         , "File descriptor (number) where merge progress is reported.")
+        ("progress.period"
+         , po::value<std::time_t>()->default_value(10)->required()
+         , "Period between individual progress reports.")
+        ;
+}
+
+void configureProgress(const po::variables_map &vars
+                       , vts::GlueCreationOptions &options)
+{
+    utility::Filedes fd(vars["progress.fd"].as<int>());
+    auto period(vars["progress.period"].as<std::time_t>());
+    if (!fd.valid()) {
+        LOG(warn2) << "Progress fd (" << fd.get() << ") is not valid. "
+            "Disabling progress logging.";
+        return;
+    }
+
+    if (period <= 0) {
+        throw po::validation_error
+            (po::validation_error::invalid_option_value
+             , "progress.period");
+    }
+
+    // create fd duplicate and ignore fd
+    auto dup(fd.dup());
+    fd.release();
+
+    options.progress = std::make_shared<MergeProgress>(std::move(dup), period);
+}
+
 void getTags(vts::Tags &tags, const po::variables_map &vars
              , const std::string &option)
 {
@@ -361,6 +450,8 @@ void VtsStorage::configuration(po::options_description &cmdline
              "result in incompatible combination of tags are not generated.")
             ;
 
+        progressConfiguration(p.options);
+
         p.positional.add("tileset", 1);
 
         p.configure = [&](const po::variables_map &vars) {
@@ -414,6 +505,7 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             getTags(addOptions_.tags, vars, "addTag");
 
+            configureProgress(vars, addOptions_);
         };
     });
 
@@ -436,6 +528,8 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("no-clip", "Don't clip meshes by merge coverage.")
             ;
 
+        progressConfiguration(p.options);
+
         p.positional.add("tilesetId", 1);
 
         p.configure = [&](const po::variables_map &vars) {
@@ -446,6 +540,8 @@ void VtsStorage::configuration(po::options_description &cmdline
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
             }
             addOptions_.clip = !vars.count("no-clip");
+
+            configureProgress(vars, addOptions_);
         };
     });
 

@@ -609,6 +609,19 @@ createGlues(Tx &tx, Storage::Properties properties
     // simulation -> stop here
     if (addOptions.dryRun) { return properties; }
 
+    // prepare progress if available
+    if (addOptions.progress) {
+        // accumulate total number of tiles to generate
+        std::size_t total(0);
+        for (const auto &gd : gds) {
+            total += TileSet::analyzeGlue(gd.combination, addOptions)
+                .tilesToGenerate;
+        }
+
+        // notify progress about how many tiles to expect
+        addOptions.progress->expect(total);
+    }
+
     int glueNumber(1);
     for (const auto &gd : gds) {
         LOG(info3)

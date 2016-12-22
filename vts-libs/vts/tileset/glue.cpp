@@ -65,30 +65,23 @@ const char* getDumpDir()
 }
 
 void dumpTileIndex(const char *root, const fs::path &name
-                   , const TileIndex &index
-                   , const std::string &referenceFrameId)
+                   , const TileIndex &index)
 {
     if (!root) { return; }
     LOG(info1) << "Dumping tileindex " << name << ".";
     auto filename(root / utility::addExtension(name, ".index"));
     create_directories(filename.parent_path());
     index.save(filename);
-
-    auto rfFilename(root / utility::addExtension(name, ".rframe"));
-    utility::write(rfFilename, referenceFrameId.data()
-                   , referenceFrameId.size());
 }
 
 inline void dump(const char *root, const boost::filesystem::path &dir
-                 , const std::vector<TileIndex> &tileIndices
-                 , const std::string &referenceFrameId)
+                 , const std::vector<TileIndex> &tileIndices)
 {
     if (!root) { return; }
 
     int i(0);
     for (const auto &ti : tileIndices) {
-        dumpTileIndex(root, dir / str(boost::format("%03d") % i), ti
-                      , referenceFrameId);
+        dumpTileIndex(root, dir / str(boost::format("%03d") % i), ti);
         ++i;
     }
 }
@@ -263,6 +256,7 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
 
     if (g) {
         (++progress_).report(utility::Progress::ratio_t(5, 1000), "(glue) ");
+        if (options_.progress) { options_.progress->tile(); }
     }
 
     // do not descent if we are at the bottom
@@ -321,7 +315,6 @@ TileIndex sphereOfInfluenceForMerge(const TileIndex &i, Lod ceiling)
 }
 
 TileIndex buildGenerateSet(const char *dumpRoot
-                           , const std::string &referenceFrameId
                            , const LodRange &lr
                            , const TileSet::const_ptrlist &sets
                            , TileIndex::Flag::value_type mask
@@ -350,13 +343,13 @@ TileIndex buildGenerateSet(const char *dumpRoot
     // create spheres of influence of all indices and intersect them
     auto generate(sphereOfInfluenceForMerge(top, glueCeiling));
 
-    dumpTileIndex(dumpRoot, "top-sphere", generate, referenceFrameId);
+    dumpTileIndex(dumpRoot, "top-sphere", generate);
 
 
     for (const auto &r : rest) {
         // intersect generate set with other spheres of influence
         auto rsoi(sphereOfInfluenceForMerge(r, glueCeiling));
-        dumpTileIndex(dumpRoot, "rest-sphere", rsoi, referenceFrameId);
+        dumpTileIndex(dumpRoot, "rest-sphere", rsoi);
         generate = generate.intersect(rsoi);
     }
 
@@ -365,7 +358,6 @@ TileIndex buildGenerateSet(const char *dumpRoot
 
 TileIndex optimizeGenerateSet(const TileIndex & generateSet
                               , const char *dumpRoot
-                              , const std::string &referenceFrameId
                               , const LodRange &lr
                               , const TileSet::const_ptrlist &sets
                               , Lod glueCeiling)
@@ -398,24 +390,59 @@ TileIndex optimizeGenerateSet(const TileIndex & generateSet
     // now we have tileset showing where at least one (except bottom) set is
     // watertight -> no glue
 
-    dumpTileIndex(dumpRoot, "watertight-union", watertight, referenceFrameId);
+    dumpTileIndex(dumpRoot, "watertight-union", watertight);
 
     // invert and intersect with generate set
     watertight.invert(1);
 
-    dumpTileIndex(dumpRoot, "watertight-inverse", watertight, referenceFrameId);
+    dumpTileIndex(dumpRoot, "watertight-inverse", watertight);
 
     watertight = watertight.intersect(generateSet);
 
-    dumpTileIndex(dumpRoot, "optimized-raw", watertight, referenceFrameId);
+    dumpTileIndex(dumpRoot, "optimized-raw", watertight);
 
     finalize(watertight, glueCeiling);
 
     return watertight;
 }
 
+TileIndex buildGenerateSet(const TileSet::const_ptrlist &sets
+                           , const LodRange &lr)
+{
+    LOG(info3) << "(glue) Calculating generate set.";
+
+    const auto *dumpRoot(getDumpDir());
+
+    Lod glueCeiling(0);
+
+    auto generateRaw(buildGenerateSet(dumpRoot, lr, sets
+                                      , TileIndex::Flag::mesh
+                                      , glueCeiling));
+
+    dumpTileIndex(dumpRoot, "generate-raw", generateRaw);
+
+    return optimizeGenerateSet(generateRaw, dumpRoot, lr, sets, glueCeiling);
+}
+
 
 } // namespace
+
+TileSet::GlueStatistics
+TileSet::analyzeGlue(const const_ptrlist &sets
+                     , const GlueCreationOptions&)
+{
+    GlueStatistics stat;
+
+    if (sets.size() >= 2) {
+        // LOD range of all sets
+        const LodRange lr(range(sets));
+        LOG(info2) << "LOD range: " << lr;
+        auto generate(buildGenerateSet(sets, lr));
+        stat.tilesToGenerate = generate.count();
+    }
+
+    return stat;
+}
 
 void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
                          , const GlueCreationOptions &options)
@@ -429,7 +456,6 @@ void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
     LOG(info3) << "(glue) Calculating generate set.";
 
     const auto *dumpRoot(getDumpDir());
-    const auto &referenceFrameId(glue.getProperties().referenceFrame);
 
     // LOD range of all sets
     const LodRange lr(range(sets));
@@ -437,17 +463,9 @@ void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
 
     Lod glueCeiling(0);
 
-    auto generateRaw(buildGenerateSet(dumpRoot, referenceFrameId, lr, sets
-                                      , TileIndex::Flag::mesh
-                                      , glueCeiling));
+    auto generate(buildGenerateSet(sets, lr));
 
-    dumpTileIndex(dumpRoot, "generate-raw", generateRaw, referenceFrameId);
-
-    auto generate(optimizeGenerateSet( generateRaw, dumpRoot
-                                       , referenceFrameId, lr, sets
-                                       , glueCeiling));
-
-    dumpTileIndex(dumpRoot, "generate", generate, referenceFrameId);
+    dumpTileIndex(dumpRoot, "generate", generate);
     LOG(info1) << "generate: " << generate.count();
 
     if (generate.empty()) {
@@ -463,16 +481,13 @@ void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
     LOG(info2) << "Navtile LOD range: " << navLr;
 
     auto navtileGenerateRaw
-        (buildGenerateSet(dumpRoot, referenceFrameId, navLr, sets
+        (buildGenerateSet(dumpRoot, navLr, sets
                           , TileIndex::Flag::navtile, glueCeiling));
-    dumpTileIndex(dumpRoot, "generate-navtile-raw", navtileGenerateRaw
-                  , referenceFrameId);
+    dumpTileIndex(dumpRoot, "generate-navtile-raw", navtileGenerateRaw);
 
     auto navtileGenerate(optimizeGenerateSet(navtileGenerateRaw, dumpRoot
-                                             , referenceFrameId, navLr, sets
-                                             , glueCeiling));
-    dumpTileIndex(dumpRoot, "generate-navtile", navtileGenerate
-                  , referenceFrameId);
+                                             , navLr, sets, glueCeiling));
+    dumpTileIndex(dumpRoot, "generate-navtile", navtileGenerate);
 
     // run merge
     Merger(glue.detail()
