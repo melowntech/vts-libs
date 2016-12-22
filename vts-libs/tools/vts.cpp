@@ -1263,7 +1263,8 @@ fs::path localPart(const fs::path &path)
 bool isRemote(const fs::path &path)
 {
     return (ba::istarts_with(path.string(), "http://")
-            || ba::istarts_with(path.string(), "https://"));
+            || ba::istarts_with(path.string(), "https://")
+            || ba::istarts_with(path.string(), "//"));
 }
 
 } // namespace
