@@ -1284,7 +1284,7 @@ void TileSet::Detail::flush()
             math::Point2 p(center(item.second));
             position.position = { p(0), p(1), 1000 };
             position.verticalExtent = 5000;
-            position.verticalFov = 90;
+            position.verticalFov = 55;
 
             CsConvertor conv(item.first, referenceFrame.model.navigationSrs);
             position.position = conv(position.position);
