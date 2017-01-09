@@ -106,6 +106,7 @@ public:
 
     void writeWord(unsigned word)
     {
+        // TODO: throw exception instead
         assert(word < (1 << 15));
         if (word < 0x80) {
             bin::write(out_, std::uint8_t(word));
@@ -224,6 +225,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
         // write delta coded vertices
         int b1 = dw.nbytes();
         {
+            // TODO: check: nv must be < 2^16
             int nv(sm.vertices.size());
             bin::write(out, std::uint16_t(nv));
             bin::write(out, std::uint16_t(GeomQuant));
@@ -265,6 +267,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
         int b2 = dw.nbytes();
         if (flags & SubMeshFlag::internalTexture)
         {
+            // TODO: check: ntc must be < 2^16
             int ntc(sm.tc.size());
             bin::write(out, uint16_t(ntc));
 
@@ -295,6 +298,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
         // write faces
         int b3, b4;
         {
+            // TODO: check: nf must be < 2^16
             int nf(sm.faces.size());
             bin::write(out, uint16_t(nf));
 
@@ -437,16 +441,17 @@ void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
         bin::write(out, std::uint16_t(sm.faces.size()));
         auto ifacesTc(sm.facesTc.begin());
 
+        // TODO: check faces/facesTc indices to be in range 0-2^16-1
         for (auto &face : sm.faces) {
-            bin::write(out, face(0));
-            bin::write(out, face(1));
-            bin::write(out, face(2));
+            bin::write(out, std::uint16_t(face(0)));
+            bin::write(out, std::uint16_t(face(1)));
+            bin::write(out, std::uint16_t(face(2)));
 
             // save (optional) texture coordinate indices
             if (flags & SubMeshFlag::internalTexture) {
-                bin::write(out, (*ifacesTc)(0));
-                bin::write(out, (*ifacesTc)(1));
-                bin::write(out, (*ifacesTc)(2));
+                bin::write(out, std::uint16_t((*ifacesTc)(0)));
+                bin::write(out, std::uint16_t((*ifacesTc)(1)));
+                bin::write(out, std::uint16_t((*ifacesTc)(2)));
                 ++ifacesTc;
             }
         }
@@ -667,15 +672,16 @@ void loadSubmeshVersion2(std::istream &in, SubMesh &sm, std::uint8_t flags
     auto ifacesTc(sm.facesTc.begin());
 
     for (auto &face : sm.faces) {
-        bin::read(in, face(0));
-        bin::read(in, face(1));
-        bin::read(in, face(2));
+        std::uint16_t index;
+        bin::read(in, index); face(0) = index;
+        bin::read(in, index); face(1) = index;
+        bin::read(in, index); face(2) = index;
 
         // load (optional) texture coordinate indices
         if (flags & SubMeshFlag::internalTexture) {
-            bin::read(in, (*ifacesTc)(0));
-            bin::read(in, (*ifacesTc)(1));
-            bin::read(in, (*ifacesTc)(2));
+            bin::read(in, index); (*ifacesTc)(0) = index;
+            bin::read(in, index); (*ifacesTc)(1) = index;
+            bin::read(in, index); (*ifacesTc)(2) = index;
             ++ifacesTc;
         }
     }

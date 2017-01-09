@@ -191,7 +191,6 @@ private:
     generate(const TileId &tileId, const NodeInfo &nodeInfo
              , const TileResult &parentTile) = 0;
 
-
     /** Called from run after whole tree is processed.
      */
     virtual void finish(TileSet &tileSet) = 0;

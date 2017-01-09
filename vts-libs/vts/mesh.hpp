@@ -19,8 +19,8 @@
 
 namespace vadstena { namespace vts {
 
-typedef math::Point3_<std::uint16_t> Point3u16;
-typedef Point3u16 Face;
+typedef math::Point3_<std::uint16_t> Point3u32;
+typedef Point3u32 Face;
 typedef std::vector<Face> Faces;
 
 // fwd
