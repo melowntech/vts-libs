@@ -19,9 +19,11 @@
 
 namespace vadstena { namespace vts {
 
-typedef math::Point3_<std::uint16_t> Point3u32;
+typedef math::Point3_<std::uint32_t> Point3u32;
 typedef Point3u32 Face;
 typedef std::vector<Face> Faces;
+typedef std::vector<bool> VertexMask;
+typedef std::vector<VertexMask> VertexMasks;
 
 // fwd
 class Atlas;
@@ -166,6 +168,13 @@ struct SubMeshArea {
  */
 SubMeshArea area(const SubMesh &submesh);
 
+/** Returns mesh and texture area for given submesh (only faces with all valid
+ *  vertices are taken into account.
+ *
+ *  Prerequisite: mask.size() == submesh.vertices.size()
+ */
+SubMeshArea area(const SubMesh &submesh, const VertexMask &mask);
+
 /** Returns mesh and texture area for given mesh.
  */
 struct MeshArea {
@@ -175,7 +184,13 @@ struct MeshArea {
     MeshArea() : mesh() {}
 };
 
+/** Area of whole mesh.
+ */
 MeshArea area(const Mesh &mesh);
+
+/** Area of whole mesh, with masks.
+ */
+MeshArea area(const Mesh &mesh, const VertexMasks &masks);
 
 /** Generates external texture coordinates from vertices. Submesh must be in
  *  spatial division SRS.

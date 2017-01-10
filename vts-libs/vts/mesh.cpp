@@ -4,6 +4,7 @@
 
 #include "dbglog/dbglog.hpp"
 
+#include "utility/expect.hpp"
 #include "utility/binaryio.hpp"
 
 #include "math/math.hpp"
@@ -103,11 +104,94 @@ SubMeshArea area(const SubMesh &sm)
     return a;
 }
 
+SubMeshArea area(const SubMesh &sm, const VertexMask &mask)
+{
+    // masked version
+    if (sm.faces.empty()) { return {}; }
+
+    utility::expect((sm.vertices.size() == mask.size())
+                    , "Submesh vertex list size (%d) different "
+                    "from vertex mask size (%d)."
+                    , sm.faces.size(), mask.size());
+
+    SubMeshArea a;
+
+    auto valid([&mask](const Face &face)
+    {
+        return (mask[face(0)] && mask[face(1)] && mask[face(2)]);
+    });
+
+    // calculate the total area of the faces
+    if (sm.tc.empty()) {
+        // no texturing information, just mesh -> simple case
+        for (const auto &face : sm.faces) {
+            if (valid(face)) {
+                a.mesh += triangleArea(sm.vertices[face[0]]
+                                       , sm.vertices[face[1]]
+                                       , sm.vertices[face[2]]);
+            }
+        }
+    } else {
+        // internal texture, calculate both
+        auto ifacesTc(sm.facesTc.begin());
+        for (const auto &face : sm.faces) {
+            const auto &faceTc(*ifacesTc++);
+
+            if (valid(face)) {
+                // valid face, compute both areas
+                // mesh
+                a.mesh += triangleArea(sm.vertices[face[0]]
+                                       , sm.vertices[face[1]]
+                                       , sm.vertices[face[2]]);
+
+                // texturing mesh
+                a.internalTexture += triangleArea(sm.tc[faceTc[0]]
+                                                  , sm.tc[faceTc[1]]
+                                                  , sm.tc[faceTc[2]]);
+            }
+        }
+    }
+
+    // external texture
+    if (!sm.etc.empty()) {
+        for (const auto &face : sm.faces) {
+            if (valid(face)) {
+                a.externalTexture += triangleArea(sm.etc[face[0]]
+                                                  , sm.etc[face[1]]
+                                                  , sm.etc[face[2]]);
+            }
+        }
+    }
+
+    // NB: internal UV area is multiplied by uvAreaFactor
+    a.internalTexture *= sm.uvAreaScale;
+    // NB: external texture is not scaled because there are always finer data
+    //     for external texture
+
+    return a;
+}
+
 MeshArea area(const Mesh &mesh)
 {
     MeshArea out;
     for (const auto &sm : mesh) {
         out.submeshes.push_back(area(sm));
+        out.mesh += out.submeshes.back().mesh;
+    }
+    return out;
+}
+
+MeshArea area(const Mesh &mesh, const VertexMasks &masks)
+{
+    utility::expect((mesh.submeshes.size() == masks.size())
+                    , "Number of submeshes (%d) different "
+                    "from number of masks (%d)."
+                    , mesh.submeshes.size(), masks.size());
+
+    MeshArea out;
+    auto imask(masks.begin());
+    for (const auto &sm : mesh) {
+        out.submeshes.push_back(area(sm, *imask++));
         out.mesh += out.submeshes.back().mesh;
     }
     return out;

@@ -20,8 +20,6 @@ struct EnhancedSubMesh {
     }
 };
 
-typedef std::vector<bool> VertexMask;
-
 /** Converts projected vertex (whatever it means) to real world coordinates
  *  and to (normalized) external texture coordinates.
  */
