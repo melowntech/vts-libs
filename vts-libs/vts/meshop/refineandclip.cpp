@@ -7,6 +7,8 @@
 
 #include "dbglog/dbglog.hpp"
 
+#include "utility/expect.hpp"
+
 #include "../meshop.hpp"
 
 namespace vadstena { namespace vts {
@@ -739,6 +741,45 @@ SubMesh clip(const SubMesh &projectedMesh
                << "->" << out.facesTc.size()
                << ".";
 
+    return out;
+}
+
+namespace {
+
+template <typename Container>
+const Container* nonempty(const Container &c)
+{
+    return c.empty() ? nullptr : &c;
+}
+
+} // namespace
+
+/** Compute enhanced submesh area.
+ */
+SubMeshArea area(const EnhancedSubMesh &submesh, const VertexMask &mask)
+{
+    return area(submesh.projected, submesh.mesh.faces
+                , nonempty(submesh.mesh.tc)
+                , nonempty(submesh.mesh.facesTc)
+                , nonempty(submesh.mesh.etc)
+                , &mask);
+}
+
+/** Compute enhanced mesh area.
+ */
+MeshArea area(const EnhancedSubMesh::list &mesh, const VertexMasks &masks)
+{
+    utility::expect((mesh.size() == masks.size())
+                    , "Number of submeshes (%d) different "
+                    "from number of masks (%d)."
+                    , mesh.size(), masks.size());
+
+    MeshArea out;
+    auto imask(masks.begin());
+    for (const auto &sm : mesh) {
+        out.submeshes.push_back(area(sm, *imask++));
+        out.mesh += out.submeshes.back().mesh;
+    }
     return out;
 }
 

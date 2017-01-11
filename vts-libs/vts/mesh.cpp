@@ -65,37 +65,104 @@ math::Extents3 extents(const Mesh &mesh)
     return e;
 }
 
-SubMeshArea area(const SubMesh &sm)
-{
-    if (sm.faces.empty()) { return {}; }
+namespace {
 
+template <typename Vertices>
+double faceArea(const Vertices &vertices, const Face &face)
+{
+    return triangleArea(vertices[face[0]]
+                        , vertices[face[1]]
+                        , vertices[face[2]]);
+}
+
+} // namespace
+
+SubMeshArea area(const math::Points3d &vertices
+                 , const Faces &faces
+                 , const math::Points2d *tc
+                 , const Faces *facesTc
+                 , const math::Points2d *etc
+                 , const VertexMask *mask)
+{
     SubMeshArea a;
 
-    // calculate the total area of the faces
-    for (const auto &face : sm.faces) {
-        a.mesh += triangleArea(sm.vertices[face[0]]
-                               , sm.vertices[face[1]]
-                               , sm.vertices[face[2]]);
+    if (faces.empty()) { return a; }
+
+    if (mask) {
+        // we have mask and texturing info, process
+        utility::expect((vertices.size() == mask->size())
+                        , "Submesh vertex list size (%d) different "
+                        "from vertex mask size (%d)."
+                        , faces.size(), mask->size());
     }
 
-    // internal texture
-    if (!sm.tc.empty()) {
-        for (const auto &face : sm.facesTc) {
-            a.internalTexture += triangleArea(sm.tc[face[0]]
-                                              , sm.tc[face[1]]
-                                              , sm.tc[face[2]]);
+    auto valid([&](const Face &face)
+    {
+        return ((*mask)[face(0)] && (*mask)[face(1)] && (*mask)[face(2)]);
+    });
+
+    if (mask && tc && facesTc) {
+
+        // we have to check 3d face validity before computing
+        auto ifacesTc(facesTc->begin());
+        for (const auto &face : faces) {
+            const auto &faceTc(*ifacesTc++);
+
+            if (!valid(face)) { continue; }
+
+            // valid face, compute both areas
+            // mesh
+            a.mesh += faceArea(vertices, face);
+
+            // texturing mesh
+            a.internalTexture += faceArea(*tc, faceTc);
+        }
+    } else {
+        // other cases
+        if (mask) {
+            for (const auto &face : faces) {
+                if (valid(face)) {
+                    a.mesh += faceArea(vertices, face);
+                }
+            }
+        } else {
+            for (const auto &face : faces) {
+                a.mesh += faceArea(vertices, face);
+            }
+        }
+
+        // internal texture
+        if (tc && facesTc) {
+            for (const auto &faceTc : *facesTc) {
+                a.internalTexture += faceArea(*tc, faceTc);
+            }
         }
     }
 
     // external texture
-    if (!sm.etc.empty()) {
-        for (const auto &face : sm.faces) {
-            a.externalTexture += triangleArea(sm.etc[face[0]]
-                                              , sm.etc[face[1]]
-                                              , sm.etc[face[2]]);
+    if (etc) {
+        for (const auto &face : faces) {
+            a.externalTexture += faceArea(*etc, face);
         }
     }
 
+    return a;
+}
+
+namespace {
+
+template <typename Container>
+const Container* nonempty(const Container &c)
+{
+    return c.empty() ? nullptr : &c;
+}
+
+} // namespace
+
+SubMeshArea area(const SubMesh &sm)
+{
+    auto a(area(sm.vertices, sm.faces, nonempty(sm.tc)
+                , nonempty(sm.facesTc), nonempty(sm.etc)));
     // NB: internal UV area is multiplied by uvAreaFactor
     a.internalTexture *= sm.uvAreaScale;
     // NB: external texture is not scaled because there are always finer data
@@ -106,63 +173,8 @@ SubMeshArea area(const SubMesh &sm)
 
 SubMeshArea area(const SubMesh &sm, const VertexMask &mask)
 {
-    // masked version
-    if (sm.faces.empty()) { return {}; }
-
-    utility::expect((sm.vertices.size() == mask.size())
-                    , "Submesh vertex list size (%d) different "
-                    "from vertex mask size (%d)."
-                    , sm.faces.size(), mask.size());
-
-    SubMeshArea a;
-
-    auto valid([&mask](const Face &face)
-    {
-        return (mask[face(0)] && mask[face(1)] && mask[face(2)]);
-    });
-
-    // calculate the total area of the faces
-    if (sm.tc.empty()) {
-        // no texturing information, just mesh -> simple case
-        for (const auto &face : sm.faces) {
-            if (valid(face)) {
-                a.mesh += triangleArea(sm.vertices[face[0]]
-                                       , sm.vertices[face[1]]
-                                       , sm.vertices[face[2]]);
-            }
-        }
-    } else {
-        // internal texture, calculate both
-        auto ifacesTc(sm.facesTc.begin());
-        for (const auto &face : sm.faces) {
-            const auto &faceTc(*ifacesTc++);
-
-            if (valid(face)) {
-                // valid face, compute both areas
-                // mesh
-                a.mesh += triangleArea(sm.vertices[face[0]]
-                                       , sm.vertices[face[1]]
-                                       , sm.vertices[face[2]]);
-
-                // texturing mesh
-                a.internalTexture += triangleArea(sm.tc[faceTc[0]]
-                                                  , sm.tc[faceTc[1]]
-                                                  , sm.tc[faceTc[2]]);
-            }
-        }
-    }
-
-    // external texture
-    if (!sm.etc.empty()) {
-        for (const auto &face : sm.faces) {
-            if (valid(face)) {
-                a.externalTexture += triangleArea(sm.etc[face[0]]
-                                                  , sm.etc[face[1]]
-                                                  , sm.etc[face[2]]);
-            }
-        }
-    }
-
+    auto a(area(sm.vertices, sm.faces, nonempty(sm.tc)
+                , nonempty(sm.facesTc), nonempty(sm.etc), &mask));
     // NB: internal UV area is multiplied by uvAreaFactor
     a.internalTexture *= sm.uvAreaScale;
     // NB: external texture is not scaled because there are always finer data

@@ -18,6 +18,23 @@ struct EnhancedSubMesh {
     operator bool() const {
         return !mesh.vertices.empty();
     }
+
+    typedef std::vector<EnhancedSubMesh> list;
+
+    EnhancedSubMesh() {}
+    EnhancedSubMesh(const SubMesh &m) : mesh(m) {
+        projected.reserve(m.vertices.size());
+    }
+
+    EnhancedSubMesh(const SubMesh &m, const math::Points3d &projected)
+        : mesh(m), projected(projected)
+    {}
+
+    struct AllocateProjected {};
+
+    EnhancedSubMesh(const SubMesh &m, AllocateProjected) : mesh(m) {
+        projected.resize(m.vertices.size());
+    }
 };
 
 /** Converts projected vertex (whatever it means) to real world coordinates
@@ -51,8 +68,6 @@ typedef std::function<math::Point3d(const math::Point3d&)> MeshUnproject;
 
 /** Clips and refines mesh that is in physical coordinates and provides means to
  *  work in projected space (i.e. spatial division system).
- *
- *  TODO: refinement is not implemented yet -- implement
  *
  * \param mesh enhanced mesh (mesh + projected vertices)
  * \param projectedExtents extents in projected space
@@ -92,6 +107,14 @@ SubMesh clip(const SubMesh &projectedMesh
 std::tuple<Mesh::pointer, Atlas::pointer>
 mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
                , const RawAtlas::pointer &atlas, int textureQuality);
+
+/** Compute enhanced submesh area.
+ */
+SubMeshArea area(const EnhancedSubMesh &submesh, const VertexMask &mask);
+
+/** Compute enhanced mesh area.
+ */
+MeshArea area(const EnhancedSubMesh::list &mesh, const VertexMasks &masks);
 
 } } // namespace vadstena::vts
 

@@ -175,6 +175,13 @@ SubMeshArea area(const SubMesh &submesh);
  */
 SubMeshArea area(const SubMesh &submesh, const VertexMask &mask);
 
+/** Low-level area calculator.
+ */
+SubMeshArea area(const math::Points3d &vertices, const Faces &faces
+                 , const math::Points2d *tc, const Faces *facesTc
+                 , const math::Points2d *etc
+                 , const VertexMask *mask = nullptr);
+
 /** Returns mesh and texture area for given mesh.
  */
 struct MeshArea {
