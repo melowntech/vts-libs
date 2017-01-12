@@ -720,39 +720,6 @@ EnhancedSubMesh clipAndRefine(const EnhancedSubMesh &mesh
     return clipper.mesh(&convertor);
 }
 
-SubMesh clip(const SubMesh &projectedMesh
-             , const math::Extents2 &projectedExtents
-             , const VertexMask &mask)
-{
-    LOG(debug) << std::fixed << "Clipping mesh to: " << projectedExtents;
-    const ClipPlane clipPlanes[4] = {
-        { 1.,  .0, .0, -projectedExtents.ll(0) }
-        , { -1., .0, .0, projectedExtents.ur(0) }
-        , { .0,  1., .0, -projectedExtents.ll(1) }
-        , { 0., -1., .0, projectedExtents.ur(1) }
-    };
-
-    Clipper clipper(projectedMesh, mask);
-
-    for (const auto &cp : clipPlanes) { clipper.clip(cp); }
-
-    // no convertor
-    auto out(clipper.mesh().mesh);
-
-    LOG(debug) << "Mesh clipped: vertices="
-               << projectedMesh.vertices.size() << "->" << out.vertices.size()
-               << ", tc=" << projectedMesh.tc.size() << "->" << out.tc.size()
-               << ", etc=" << projectedMesh.etc.size()
-               << "->" << out.etc.size()
-               << ", faces=" << projectedMesh.faces.size()
-               << "->" << out.faces.size()
-               << ", facesTc=" << projectedMesh.facesTc.size()
-               << "->" << out.facesTc.size()
-               << ".";
-
-    return out;
-}
-
 SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
              , const math::Extents2 &projectedExtents
              , const VertexMask &mask)

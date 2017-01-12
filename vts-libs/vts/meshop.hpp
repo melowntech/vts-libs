@@ -94,7 +94,7 @@ clipAndRefine(const EnhancedSubMesh &mesh
  * \param mask optional vertex mask (masked out vertices are removed)
  * \return clipped mesh
  */
-SubMesh clip(const EnhancedSubMesh &mesh
+SubMesh clip(const SubMesh &mesh
              , const math::Extents2 &projectedExtents
              , const VertexMask &mask = VertexMask());
 
@@ -133,6 +133,15 @@ SubMeshArea area(const EnhancedSubMesh &submesh, const VertexMask &mask);
 /** Compute enhanced mesh area.
  */
 MeshArea area(const EnhancedSubMesh::list &mesh, const VertexMasks &masks);
+
+// inlines
+
+inline SubMesh clip(const SubMesh &mesh
+                    , const math::Extents2 &projectedExtents
+                    , const VertexMask &mask)
+{
+    return clip(mesh, mesh.vertices, projectedExtents, mask);
+}
 
 } } // namespace vadstena::vts
 
