@@ -17,8 +17,15 @@ namespace {
 std::vector<unsigned char> mat2jpeg(const cv::Mat &mat, int quality)
 {
     std::vector<unsigned char> buf;
-    cv::imencode(".jpg", mat, buf
-                 , { cv::IMWRITE_JPEG_QUALITY, quality });
+    if (quality > 0) {
+        // store as jpeg
+        cv::imencode(".jpg", mat, buf
+                     , { cv::IMWRITE_JPEG_QUALITY, quality });
+    } else {
+        // store as png
+        cv::imencode(".png", mat, buf
+                     , { cv::IMWRITE_PNG_COMPRESSION, 9 });
+    }
     return buf;
 }
 
