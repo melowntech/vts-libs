@@ -56,10 +56,14 @@ struct MeshVertexConvertor {
 
     /** Number of faces to refine mesh to.
      *
+     *  Defaults to no-op
+     *
      *  \param current current number of faces in clipped mesh before refinement
      *  \return number of faces to refine mesh to
      */
-    virtual std::size_t refineToFaceCount(std::size_t current) const = 0;
+    virtual std::size_t refineToFaceCount(std::size_t current) const {
+        return current;
+    }
 
     virtual ~MeshVertexConvertor() {}
 };
@@ -84,12 +88,26 @@ clipAndRefine(const EnhancedSubMesh &mesh
 /** Simple interface to clip mesh that is in projected space (i.e. spatial
  *  division system).
  *
- * \param projectedMesh mesh in projected space
+ * \param mesh submesh
+ * \param mesh submesh
  * \param projectedExtents extents in projected space
  * \param mask optional vertex mask (masked out vertices are removed)
  * \return clipped mesh
  */
-SubMesh clip(const SubMesh &projectedMesh
+SubMesh clip(const EnhancedSubMesh &mesh
+             , const math::Extents2 &projectedExtents
+             , const VertexMask &mask = VertexMask());
+
+/** Simple interface to clip mesh that is in projected space (i.e. spatial
+ *  division system).
+ *
+ * \param mesh submesh
+ * \param projected vertices in projected space
+ * \param projectedExtents extents in projected space
+ * \param mask optional vertex mask (masked out vertices are removed)
+ * \return clipped mesh
+ */
+SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
              , const math::Extents2 &projectedExtents
              , const VertexMask &mask = VertexMask());
 

@@ -76,6 +76,18 @@ NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
     , partial_(checkPartial(subtree_, node_, invalidateWhenMasked))
 {}
 
+NodeInfo::list NodeInfo::nodes(const registry::ReferenceFrame &referenceFrame
+                               , const registry::Registry &reg)
+{
+    NodeInfo::list nodes;
+    for (const auto &item : referenceFrame.division.nodes) {
+        if (item.second.real()) {
+            nodes.push_back(NodeInfo(referenceFrame, item.second, reg));
+        }
+    }
+    return nodes;
+}
+
 NodeInfo NodeInfo::child(Child childDef) const
 {
     if (!node_.valid()) {
@@ -169,6 +181,22 @@ NodeInfo NodeInfo::child(Child childDef) const
     }
 
     // done
+    return child;
+}
+
+NodeInfo NodeInfo::child(const TileId &childId) const
+{
+    NodeInfo child(*this);
+    child.node_.id = childId;
+
+    child.node_.extents = makeExtents(node_, childId);
+
+    // partiality is inherited from parent -> only partial node needs to be
+    // re-checked
+    if (child.partial_) {
+        child.partial_ = checkPartial(child.subtree_, child.node_);
+    }
+
     return child;
 }
 

@@ -67,6 +67,8 @@ private:
  */
 class NodeInfo {
 public:
+    typedef std::vector<NodeInfo> list;
+
     /** Creates node info from reference frame and tileId.
      *
      * Root node is found in reference frame and then current node is derived.
@@ -155,8 +157,19 @@ public:
     CoveredArea checkMask(const CoverageMask &mask, CoverageType type
                           , unsigned int dilation = 0) const;
 
+    /** Returns child node based on TileId. No checks is performed. Use only
+     *  when you are sure that `child` is realy child of this node.
+     */
+    NodeInfo child(const TileId &child) const;
+
+    /** Generate list of nodeinfos from valid referenceframes' nodes.
+     */
+    static NodeInfo::list nodes(const registry::ReferenceFrame &referenceFrame
+                                , const registry::Registry &reg
+                                = registry::system);
+
 private:
-    /** Node info.
+    /** Node info. Use with care.
      */
     NodeInfo(const registry::ReferenceFrame &referenceFrame
              , const RFNode &node

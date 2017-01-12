@@ -144,6 +144,15 @@ public:
         (void) mask;
     }
 
+    Clipper(const SubMesh &mesh, const math::Points3d &projected
+            , const VertexMask &mask)
+        : mesh_(mesh), fpmap_(projected), ftpmap_(mesh_.tc)
+    {
+        extractFaces();
+        // TODO: apply mask
+        (void) mask;
+    }
+
     void refine(std::size_t faceCount);
 
     void clip(const ClipPlane &line);
@@ -738,6 +747,39 @@ SubMesh clip(const SubMesh &projectedMesh
                << ", faces=" << projectedMesh.faces.size()
                << "->" << out.faces.size()
                << ", facesTc=" << projectedMesh.facesTc.size()
+               << "->" << out.facesTc.size()
+               << ".";
+
+    return out;
+}
+
+SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
+             , const math::Extents2 &projectedExtents
+             , const VertexMask &mask)
+{
+    LOG(debug) << std::fixed << "Clipping mesh to: " << projectedExtents;
+    const ClipPlane clipPlanes[4] = {
+        { 1.,  .0, .0, -projectedExtents.ll(0) }
+        , { -1., .0, .0, projectedExtents.ur(0) }
+        , { .0,  1., .0, -projectedExtents.ll(1) }
+        , { 0., -1., .0, projectedExtents.ur(1) }
+    };
+
+    Clipper clipper(mesh, projected, mask);
+
+    for (const auto &cp : clipPlanes) { clipper.clip(cp); }
+
+    // no convertor
+    auto out(clipper.mesh().mesh);
+
+    LOG(debug) << "Mesh clipped: vertices="
+               << projected.size() << "->" << out.vertices.size()
+               << ", tc=" << mesh.tc.size() << "->" << out.tc.size()
+               << ", etc=" << mesh.etc.size()
+               << "->" << out.etc.size()
+               << ", faces=" << mesh.faces.size()
+               << "->" << out.faces.size()
+               << ", facesTc=" << mesh.facesTc.size()
                << "->" << out.facesTc.size()
                << ".";
 
