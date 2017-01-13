@@ -4,7 +4,7 @@
 #include <functional>
 
 #include "./mesh.hpp"
-#include "./atlas.hpp"
+#include "./opencv/atlas.hpp"
 #include "./basetypes.hpp"
 
 namespace vadstena { namespace vts {
@@ -125,6 +125,16 @@ SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
 std::tuple<Mesh::pointer, Atlas::pointer>
 mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
                , const RawAtlas::pointer &atlas, int textureQuality);
+
+/** Re-packs atlas. No merge is done.
+ *
+ * \param tileId ID of tile this mesh belongs to (info only)
+ * \param mesh mesh to compact
+ * \param atlas meshe's atlas
+ * \param textureQuality JPEG quality (1-100), PNG marker (<=0)
+ */
+Atlas::pointer repack(const TileId &tileId, const Mesh &mesh
+                      , const opencv::HybridAtlas &atlas, int textureQuality);
 
 /** Compute enhanced submesh area.
  */

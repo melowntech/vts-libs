@@ -1107,4 +1107,13 @@ MeshAtlas mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
     return MeshAtlasBuilder(tileId, mesh, atlas, textureQuality).result();
 }
 
+Atlas::pointer repack(const TileId &tileId, const Mesh &mesh
+                      , const opencv::HybridAtlas &atlas, int textureQuality)
+{
+    (void) tileId;
+    (void) mesh;
+    (void) atlas;
+    return std::make_shared<opencv::Atlas>(textureQuality);
+}
+
 } } // namespace vadstena::vts
