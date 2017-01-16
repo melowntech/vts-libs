@@ -736,8 +736,13 @@ SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
 
     for (const auto &cp : clipPlanes) { clipper.clip(cp); }
 
-    // no convertor
-    auto out(clipper.mesh().mesh);
+    // extract enhanced mesh from clipper (use no convertor)
+    auto emesh(clipper.mesh());
+    // swap vertices with projected vertices (we are working in local system
+    emesh.mesh.vertices.swap(emesh.projected);
+
+    // get output mesh
+    const auto &out(emesh.mesh);
 
     LOG(debug) << "Mesh clipped: vertices="
                << projected.size() << "->" << out.vertices.size()
@@ -750,6 +755,7 @@ SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
                << "->" << out.facesTc.size()
                << ".";
 
+    // and return
     return out;
 }
 

@@ -97,6 +97,11 @@ math::Size2 Atlas::imageSize_impl(std::size_t index) const
     return math::Size2(image.cols, image.rows);
 }
 
+void Atlas::append(const Atlas &atlas)
+{
+    images_.insert(images_.end(), atlas.images_.begin(), atlas.images_.end());
+}
+
 HybridAtlas::HybridAtlas(std::size_t count, const RawAtlas &rawAtlas
                          , int quality)
     : quality_(quality)
@@ -126,6 +131,46 @@ HybridAtlas::Image HybridAtlas::imageFromRaw(const Raw &raw)
 HybridAtlas::Raw HybridAtlas::rawFromImage(const Image &image, int quality)
 {
     return mat2jpeg(image, quality);
+}
+
+void HybridAtlas::set(std::size_t index, const Image &image)
+{
+    if (entries_.size() <= index) {
+        entries_.resize(index + 1);
+    }
+    auto &entry(entries_[index]);
+    entry.raw.clear();
+    entry.image = image;
+}
+
+void HybridAtlas::set(std::size_t index, const Raw &raw)
+{
+    if (entries_.size() <= index) {
+        entries_.resize(index + 1);
+    }
+    auto &entry(entries_[index]);
+    entry.raw = raw;
+    entry.image = cv::Mat();
+}
+
+HybridAtlas::Image HybridAtlas::get(std::size_t index) const
+{
+    const auto &entry(entries_[index]);
+    if (entry.image.data) { return entry.image; }
+    return imageFromRaw(entry.raw);
+}
+
+void HybridAtlas::append(const HybridAtlas &atlas)
+{
+    entries_.insert(entries_.end(), atlas.entries_.begin()
+                    , atlas.entries_.end());
+}
+
+void HybridAtlas::append(const opencv::Atlas &atlas)
+{
+    for (const auto &image : atlas.get()) {
+        entries_.emplace_back(image);
+    }
 }
 
 multifile::Table HybridAtlas::serialize_impl(std::ostream &os) const

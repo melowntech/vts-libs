@@ -13,6 +13,7 @@
 #include <opencv2/photo/photo.hpp>
 
 #include "utility/streams.hpp"
+#include "utility/expect.hpp"
 
 #include "math/math.hpp"
 #include "math/transform.hpp"
@@ -1105,15 +1106,6 @@ MeshAtlas mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
                          , int textureQuality)
 {
     return MeshAtlasBuilder(tileId, mesh, atlas, textureQuality).result();
-}
-
-Atlas::pointer repack(const TileId &tileId, const Mesh &mesh
-                      , const opencv::HybridAtlas &atlas, int textureQuality)
-{
-    (void) tileId;
-    (void) mesh;
-    (void) atlas;
-    return std::make_shared<opencv::Atlas>(textureQuality);
 }
 
 } } // namespace vadstena::vts

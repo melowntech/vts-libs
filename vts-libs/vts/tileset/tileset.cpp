@@ -871,7 +871,8 @@ void sanityCheck(const TileId &tileId, const Mesh *mesh, const Atlas *atlas
         if (atlas->size() > mesh->size()) {
             LOGTHROW(err1, storage::InconsistentInput)
                 << "Tile " << tileId
-                << ": there cannot be more textures than sub-meshes.";
+                << ": there cannot be more textures (" << atlas->size()
+                << ") than sub-meshes (" << mesh->size() << ").";
         }
 
         // check submeshes with texture

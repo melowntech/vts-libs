@@ -16,12 +16,21 @@ public:
     virtual std::size_t size() const { return images_.size(); }
 
     typedef cv::Mat Image;
+    typedef std::vector<Image> Images;
 
     void add(const Image &image) { images_.push_back(image); }
 
     void set(std::size_t index, const Image &image);
 
     Image get(std::size_t index) const { return images_[index]; }
+
+    Images get() const { return images_; }
+
+    /** Append.
+     */
+    void append(const Atlas &atlas);
+
+    int quality() const { return quality_; }
 
 private:
     virtual multifile::Table serialize_impl(std::ostream &os) const;
@@ -33,7 +42,6 @@ private:
     virtual math::Size2 imageSize_impl(std::size_t index) const;
 
     int quality_;
-    typedef std::vector<Image> Images;
     Images images_;
 };
 
@@ -42,6 +50,10 @@ private:
 class HybridAtlas : public vts::Atlas {
 public:
     typedef std::shared_ptr<HybridAtlas> pointer;
+
+    HybridAtlas(const opencv::Atlas &atlas) : quality_(atlas.quality()) {
+        append(atlas);
+    }
 
     HybridAtlas(int quality = 100) : quality_(quality) {}
 
@@ -55,6 +67,18 @@ public:
 
     void add(const Image &image);
     void add(const Raw &raw);
+
+    void set(std::size_t index, const Image &image);
+    void set(std::size_t index, const Raw &raw);
+
+    /** Get image at given index.
+     */
+    Image get(std::size_t index) const;
+
+    /** Append.
+     */
+    void append(const HybridAtlas &atlas);
+    void append(const opencv::Atlas &atlas);
 
     static Image imageFromRaw(const Raw &raw);
     static Raw rawFromImage(const Image &image, int quality);
@@ -79,6 +103,7 @@ private:
 
         Entry(const Raw &raw) : raw(raw) {}
         Entry(const Image &image) : image(image) {}
+        Entry() {}
     };
 
     typedef std::vector<Entry> Entries;
