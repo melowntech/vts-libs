@@ -524,6 +524,20 @@ void generateEtc(SubMesh &sm, const math::Extents2 &sdsExtents, bool allowed)
     }
 }
 
+void generateEtc(Mesh &mesh, const math::Extents2 &sdsExtents, bool allowed)
+{
+    if (!allowed) { return; }
+    TextureNormalizer tn(sdsExtents);
+
+    for (auto &sm : mesh) {
+        sm.etc.clear();
+        // generate from vertices
+        for (const auto &v : sm.vertices) {
+            sm.etc.push_back(tn(v));
+        }
+    }
+}
+
 namespace {
 
 /** Geo coordinates to coverage mask mapping.

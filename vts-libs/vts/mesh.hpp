@@ -211,6 +211,18 @@ MeshArea area(const Mesh &mesh, const VertexMasks &masks);
 void generateEtc(SubMesh &sm, const math::Extents2 &sdsExtents
                  , bool allowed = true);
 
+/** Generates external texture coordinates from vertices. Whole mesh must be in
+ *  spatial division SRS.
+ *
+ *  If external texture is not allowed any existing etc are removed.
+ *
+ * \param mesh mesh to update (must be in SDS)
+ * \param sdsExtents extents of tile in SDS
+ * \param allowed flags whether exteranl texture is allowed for this submesh
+ */
+void generateEtc(Mesh &mesh, const math::Extents2 &sdsExtents
+                 , bool allowed = true);
+
 /** Updates coverage mask by rendering given submeshe (must be in spatial
  *  division SRS).
  *
