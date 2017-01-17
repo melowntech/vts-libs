@@ -7,6 +7,7 @@
 
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/variant.hpp>
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -834,24 +835,102 @@ Range::list groupSubmeshes(const SubMesh::list &sms, std::size_t textured)
     return out;
 }
 
+typedef opencv::HybridAtlas HybridAtlas;
+
+typedef boost::variant<RawAtlas::pointer
+                       , HybridAtlas::pointer> InputAtlas;
+
+struct GetAtlas : public boost::static_visitor<Atlas::pointer>
+{
+    Atlas::pointer operator()(const RawAtlas::pointer &atlas) const {
+        return atlas;
+    }
+
+    Atlas::pointer operator()(const HybridAtlas::pointer &atlas) const {
+        return atlas;
+    }
+};
+
+class AsHybridAtlas
+    : public boost::static_visitor<HybridAtlas::pointer>
+{
+public:
+    AsHybridAtlas(std::size_t count, int quality)
+        : count_(count), quality_(quality)
+    {}
+
+    HybridAtlas::pointer operator()(const RawAtlas::pointer &atlas) const {
+        return std::make_shared<HybridAtlas>(count_, *atlas, quality_);
+    }
+
+    HybridAtlas::pointer operator()(const HybridAtlas::pointer &atlas) const {
+        return std::make_shared<HybridAtlas>(count_, *atlas, quality_);
+    }
+
+private:
+    std::size_t count_;
+    int quality_;
+};
+
+class GetImage : public boost::static_visitor<cv::Mat>
+{
+public:
+    GetImage(std::size_t index) : index_(index) {}
+
+    cv::Mat operator()(const RawAtlas::pointer &atlas) const {
+        return HybridAtlas::imageFromRaw(atlas->get(index_));
+    }
+
+    cv::Mat operator()(const HybridAtlas::pointer &atlas) const {
+        return atlas->get(index_);
+    }
+
+private:
+    std::size_t index_;
+};
+
+class AddItem : public boost::static_visitor<>
+{
+public:
+    AddItem(const HybridAtlas::pointer &atlas, std::size_t index)
+        : atlas_(atlas), index_(index)
+    {}
+
+    void operator()(const RawAtlas::pointer &atlas) const {
+        atlas_->add(atlas->get(index_));
+    }
+
+    void operator()(const HybridAtlas::pointer &atlas) const {
+        atlas_->add(atlas->entry(index_));
+    }
+
+private:
+    HybridAtlas::pointer atlas_;
+    std::size_t index_;
+};
+
 class MeshAtlasBuilder {
 public:
     MeshAtlasBuilder(const TileId &tileId
                      , const Mesh::pointer &mesh
-                     , const RawAtlas::pointer &atlas
+                     , const InputAtlas &atlas
                      , int textureQuality)
         : tileId_(tileId), textureQuality_(textureQuality)
         , originalMesh_(mesh), originalAtlas_(atlas)
         , oSubmeshes_(mesh->submeshes)
         , meshEnd_(0), atlasEnd_(0)
     {
-        merge(groupSubmeshes(mesh->submeshes, atlas->size()));
+        merge(groupSubmeshes
+              (mesh->submeshes
+               , boost::apply_visitor(GetAtlas(), atlas)->size()));
     }
 
     MeshAtlas result() const {
         return MeshAtlas
             (changedMesh() ? mesh_ : originalMesh_
-             , changedAtlas() ? atlas_ : Atlas::pointer(originalAtlas_));
+             , changedAtlas()
+             ? atlas_
+             : boost::apply_visitor(GetAtlas(), originalAtlas_));
     }
 
 private:
@@ -870,10 +949,10 @@ private:
     const TileId tileId_;
     const int textureQuality_;
     const Mesh::pointer originalMesh_;
-    const RawAtlas::pointer originalAtlas_;
+    const InputAtlas originalAtlas_;
     const SubMesh::list oSubmeshes_;
     Mesh::pointer mesh_;
-    opencv::HybridAtlas::pointer atlas_;
+    HybridAtlas::pointer atlas_;
     std::size_t meshEnd_;
     std::size_t atlasEnd_;
 };
@@ -884,7 +963,7 @@ TextureInfo::list MeshAtlasBuilder::texturing(const Range &range) const
     for (auto i(range.start); i < range.end; ++i) {
         tx.emplace_back
             (originalMesh_->submeshes[i]
-             , opencv::HybridAtlas::imageFromRaw(originalAtlas_->get(i)));
+             , boost::apply_visitor(GetImage(i), originalAtlas_));
     }
     return tx;
 }
@@ -927,8 +1006,8 @@ void MeshAtlasBuilder::ensureChanged(const Range &range)
 
     if (range.textured && !changedAtlas()) {
         // convert atlas
-        atlas_ = std::make_shared<opencv::HybridAtlas>
-            (atlasEnd_, *originalAtlas_, textureQuality_);
+        atlas_ = boost::apply_visitor
+            (AsHybridAtlas(atlasEnd_, textureQuality_), originalAtlas_);
     }
 }
 
@@ -945,7 +1024,7 @@ void MeshAtlasBuilder::pass(const Range &range)
     if (range.textured && changedAtlas()) {
         // copy atlas
         for (auto i(range.start); i != range.end; ++i) {
-            atlas_->add(originalAtlas_->get(i));
+            boost::apply_visitor(AddItem(atlas_, i), originalAtlas_);
         }
     }
 
@@ -1103,6 +1182,13 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
 
 MeshAtlas mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
                          , const RawAtlas::pointer &atlas
+                         , int textureQuality)
+{
+    return MeshAtlasBuilder(tileId, mesh, atlas, textureQuality).result();
+}
+
+MeshAtlas mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
+                         , const HybridAtlas::pointer &atlas
                          , int textureQuality)
 {
     return MeshAtlasBuilder(tileId, mesh, atlas, textureQuality).result();

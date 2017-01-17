@@ -46,8 +46,13 @@ private:
 };
 
 /** Hybrid atlas that can contain both encoded and decoded JPEG data.
+ *
+ *  Deserialization decodes images.
  */
 class HybridAtlas : public vts::Atlas {
+private:
+    struct Entry;
+
 public:
     typedef std::shared_ptr<HybridAtlas> pointer;
 
@@ -58,6 +63,9 @@ public:
     HybridAtlas(int quality = 100) : quality_(quality) {}
 
     HybridAtlas(std::size_t count, const RawAtlas &rawAtlas
+                , int quality = 100);
+
+    HybridAtlas(std::size_t count, const HybridAtlas &hybridAtlas
                 , int quality = 100);
 
     virtual std::size_t size() const { return entries_.size(); }
@@ -79,6 +87,9 @@ public:
      */
     void append(const HybridAtlas &atlas);
     void append(const opencv::Atlas &atlas);
+
+    Entry entry(std::size_t index) const;
+    void add(const Entry &entry);
 
     static Image imageFromRaw(const Raw &raw);
     static Raw rawFromImage(const Image &image, int quality);

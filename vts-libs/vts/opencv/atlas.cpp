@@ -111,6 +111,16 @@ HybridAtlas::HybridAtlas(std::size_t count, const RawAtlas &rawAtlas
     }
 }
 
+HybridAtlas::HybridAtlas(std::size_t count, const HybridAtlas &hybridAtlas
+                         , int quality)
+    : quality_(quality)
+{
+    for (std::size_t i(0), e(std::min(hybridAtlas.size(), count)); i != e; ++i)
+    {
+        entries_.push_back(hybridAtlas.entry(i));
+    }
+}
+
 // Hybrid Atlas: used to build atlas from raw jpeg data (i.e. copy from another
 // atlas) or from color images stored in OpenCV matrices
 void HybridAtlas::add(const Image &image)
@@ -173,6 +183,16 @@ void HybridAtlas::append(const opencv::Atlas &atlas)
     }
 }
 
+HybridAtlas::Entry HybridAtlas::entry(std::size_t index) const
+{
+    return entries_[index];
+}
+
+void HybridAtlas::add(const Entry &entry)
+{
+    entries_.push_back(entry);
+}
+
 multifile::Table HybridAtlas::serialize_impl(std::ostream &os) const
 {
     multifile::Table table;
@@ -193,12 +213,22 @@ multifile::Table HybridAtlas::serialize_impl(std::ostream &os) const
     return table;
 }
 
-void HybridAtlas::deserialize_impl(std::istream&
-                                   , const boost::filesystem::path&
-                                   , const multifile::Table&)
+void HybridAtlas::deserialize_impl(std::istream &is
+                                   , const boost::filesystem::path &path
+                                   , const multifile::Table &table)
 {
-    LOGTHROW(err4, std::runtime_error)
-        << "This atlas is serialize-only.";
+    Entries entries;
+    for (const auto &entry : table) {
+        using utility::binaryio::read;
+
+        is.seekg(entry.start);
+        std::vector<unsigned char> buf;
+        buf.resize(entry.size);
+        read(is, buf.data(), buf.size());
+
+        entries.emplace_back(jpeg2mat(buf, &entry, &path));
+    }
+    entries_.swap(entries);
 }
 
 math::Size2 HybridAtlas::imageSize_impl(std::size_t index) const
