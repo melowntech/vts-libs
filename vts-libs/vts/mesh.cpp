@@ -596,4 +596,14 @@ void updateCoverage(Mesh &mesh, const SubMesh &sm
     }
 }
 
+void generateCoverage(Mesh &mesh, const math::Extents2 &sdsExtents)
+{
+    mesh.createCoverage(false);
+
+    std::uint8_t smIndex(0);
+    for (const auto &sm : mesh) {
+        updateCoverage(mesh, sm, sdsExtents, smIndex++);
+    }
+}
+
 } } // namespace vadstena::vts

@@ -145,6 +145,8 @@ struct Mesh {
     std::size_t size() const { return submeshes.size(); }
 
     bool empty() const { return submeshes.empty(); }
+
+    void createCoverage(bool fullyCovered);
 };
 
 std::uint32_t extraFlags(const Mesh &mesh);
@@ -223,7 +225,7 @@ void generateEtc(SubMesh &sm, const math::Extents2 &sdsExtents
 void generateEtc(Mesh &mesh, const math::Extents2 &sdsExtents
                  , bool allowed = true);
 
-/** Updates coverage mask by rendering given submeshe (must be in spatial
+/** Updates coverage mask by rendering given submesh (must be in spatial
  *  division SRS).
  *
  * \param mesh coverage mask of this mesh is updated
@@ -234,6 +236,14 @@ void generateEtc(Mesh &mesh, const math::Extents2 &sdsExtents
 void updateCoverage(Mesh &mesh, const SubMesh &sm
                     , const math::Extents2 &sdsExtents
                     , std::uint8_t smIndex = 1);
+
+/** Generate coverage mask by rendering all submeshes (must be in spatial
+ *  division SRS).
+ *
+ * \param mesh coverage mask of this mesh is updated
+ * \param sdsExtents extents of tile in SDS
+ */
+void generateCoverage(Mesh &mesh, const math::Extents2 &sdsExtents);
 
 // IO
 void saveMesh(std::ostream &out, const Mesh &mesh
@@ -282,6 +292,11 @@ inline std::uint32_t extraFlags(const Mesh::pointer &mesh) {
 inline Mesh::Mesh(bool fullyCovered)
     : coverageMask(coverageOrder, fullyCovered)
 {}
+
+inline void Mesh::createCoverage(bool fullyCovered)
+{
+    coverageMask.recreate(coverageOrder, fullyCovered);
+}
 
 inline void SubMesh::cloneMetadataInto(SubMesh &dst) const
 {
