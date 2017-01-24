@@ -25,6 +25,8 @@ TileRange::point_type lowestChild(const TileRange::point_type &point
                                   , Lod diff = 1);
 TileRange childRange(const TileRange &tileRange, Lod diff = 1);
 
+TileRange parentRange(const TileRange &tileRange, Lod diff = 1);
+
 /** Helper to make child range from a tile.
  *  Prerequisity: lod must be >= tileId.lod
  * \param tileId tile ID
@@ -229,6 +231,16 @@ inline TileRange childRange(const TileId &tileId, Lod lod)
     return childRange(TileRange(point(tileId)), lod - tileId.lod);
 }
 
+inline TileRange parentRange(const TileRange &tileRange, Lod diff)
+{
+    auto tr(tileRange);
+    tr.ll(0) >>= diff;
+    tr.ll(1) >>= diff;
+    tr.ur(0) >>= diff;
+    tr.ur(1) >>= diff;
+    return tr;
+}
+
 inline TileRange shiftRange(Lod srcLod, const TileRange &tileRange, Lod dstLod)
 {
     if (srcLod == dstLod) {
@@ -242,9 +254,7 @@ inline TileRange shiftRange(Lod srcLod, const TileRange &tileRange, Lod dstLod)
     }
 
     // parent range
-    return { parent(tileRange.ll, srcLod - dstLod)
-            , parent(tileRange.ur, srcLod - dstLod) };
-
+    return parentRange(tileRange, srcLod - dstLod);
 }
 
 inline int child(const TileId &tileId)

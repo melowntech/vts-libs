@@ -125,6 +125,28 @@ Ranges::Ranges(const LodRange &lodRange, const TileRange &tileRange)
     }
 }
 
+Ranges::Ranges(const LodRange &lodRange, const TileRange &tileRange
+               , const FromBottom&)
+    : lodRange_(lodRange)
+{
+    if (lodRange.empty()) { return; }
+
+    // fill in ranges, in reverse order
+    for (auto lod : lodRange) {
+        (void) lod;
+        if (tileRanges_.empty()) {
+            // original argument
+            tileRanges_.push_back(tileRange);
+        } else {
+            // child range of previous lod
+            tileRanges_.push_back(parentRange(tileRanges_.back()));
+        }
+    }
+
+    // reverse ranges
+    std::reverse(tileRanges_.begin(), tileRanges_.end());
+}
+
 const TileRange& Ranges::tileRange(Lod lod) const
 {
     if (!in(lod, lodRange_)) {
@@ -140,6 +162,16 @@ const TileRange* Ranges::tileRange(Lod lod, std::nothrow_t) const
 {
     if (!in(lod, lodRange_)) { return nullptr; }
     return &tileRanges_[lod - lodRange_.min];
+}
+
+std::vector<LodTileRange> Ranges::ranges() const
+{
+    std::vector<LodTileRange> ranges;
+    auto itileRanges(tileRanges_.begin());
+    for (auto lod : lodRange_) {
+        ranges.emplace_back(lod, *itileRanges++);
+    }
+    return ranges;
 }
 
 namespace {

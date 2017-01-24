@@ -62,6 +62,9 @@ class Ranges {
 public:
     Ranges() : lodRange_(LodRange::emptyRange()) {}
     Ranges(const LodRange &lodRange, const TileRange &tileRange);
+    struct FromBottom {};
+    Ranges(const LodRange &lodRange, const TileRange &tileRange
+           , const FromBottom&);
 
     /** Returns range for given lod.
      *  Throws if lod out of range.
@@ -80,6 +83,8 @@ public:
     /** Returns lod range.
      */
     const LodRange& lodRange() const { return lodRange_; }
+
+    std::vector<LodTileRange> ranges() const;
 
     /** Merge information from multiple ranges.
      */
