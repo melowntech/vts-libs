@@ -258,6 +258,9 @@ struct Position {
 
     bool operator==(const Position &p) const;
     bool operator!=(const Position &p) const { return !operator==(p); }
+
+    void lookDown() { orientation = { .0, -90., .0 }; }
+    static double naturalFov() { return 55; }
 };
 
 struct Credit {
