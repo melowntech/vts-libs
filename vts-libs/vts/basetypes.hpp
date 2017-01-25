@@ -56,6 +56,8 @@ struct LodTileRange {
         , range(tileId.x, tileId.y, tileId.x + size.width - 1
                 , tileId.y + size.height - 1)
     {}
+
+    typedef std::vector<LodTileRange> list;
 };
 
 class Ranges {
