@@ -15,7 +15,7 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const Position &p)
         << p.type << ',' << p.position(0) << ',' << p.position(1)
         << ',' << p.heightMode << ',' << p.position(2)
         << ',' << p.orientation(0) << ',' << p.orientation(1)
-        << ',' << p.orientation(1) << ',' << p.verticalExtent
+        << ',' << p.orientation(2) << ',' << p.verticalExtent
         << ',' << p.verticalFov;
 }
 

@@ -40,6 +40,7 @@ set(vts-registry_SOURCES
   registry/referenceframe.hpp registry/referenceframe.cpp
   registry/freelayer.hpp registry/freelayer.cpp
   registry/json.hpp registry/dict.hpp
+  registry/po.hpp registry/io.hpp
   ${CMAKE_CURRENT_BINARY_DIR}/registry/config.cpp
   )
 
