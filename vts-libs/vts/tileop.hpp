@@ -36,6 +36,8 @@ TileRange childRange(const TileId &tileId, Lod lod);
 
 TileRange shiftRange(Lod srcLod, const TileRange &tileRange, Lod dstLod);
 
+TileRange shiftRange(const LodTileRange &tileRange, Lod dstLod);
+
 /** Check whether super tile is above (or exactly the same tile) as tile.
  */
 bool above(const TileId &tile, const TileId &super);
@@ -255,6 +257,11 @@ inline TileRange shiftRange(Lod srcLod, const TileRange &tileRange, Lod dstLod)
 
     // parent range
     return parentRange(tileRange, srcLod - dstLod);
+}
+
+inline TileRange shiftRange(const LodTileRange &tileRange, Lod dstLod)
+{
+    return shiftRange(tileRange.lod, tileRange.range, dstLod);
 }
 
 inline int child(const TileId &tileId)
