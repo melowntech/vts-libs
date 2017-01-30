@@ -688,6 +688,12 @@ MetaTile::pointer TileSet::Detail::findMetaTile(const TileId &tileId
     return metaTiles->add(loadMetaTile(&f->get(), metaOrder(), f->name()));
 }
 
+MetaTile::pointer TileSet::Detail::loadMetaTileFor(const TileId &tileId) const
+{
+    IStream::pointer f(driver->input(metaId(tileId), TileFile::meta));
+    return loadMetaTile(&f->get(), metaOrder(), f->name());
+}
+
 registry::ReferenceFrame TileSet::referenceFrame() const
 {
     return detail().referenceFrame;
@@ -1755,6 +1761,40 @@ void TileSet::relocate(const boost::filesystem::path &root
 NodeInfo TileSet::nodeInfo(const TileId &tileId) const
 {
     return NodeInfo(detail().referenceFrame, tileId);
+}
+
+double TileSet::texelSize() const
+{
+    return detail().texelSize();
+}
+
+double TileSet::Detail::texelSize() const
+{
+    auto metaIndex(tsi.deriveMetaIndex());
+    auto mbo(referenceFrame.metaBinaryOrder);
+
+    // make room for texelSizes
+    std::vector<double> texelSizes;
+    texelSizes.reserve(metaIndex.count());
+
+    traverse(metaIndex, lodRange.max, [&](TileId tid, QTree::value_type)
+    {
+        // expand shrinked metatile identifiers
+        tid.x <<= mbo;
+        tid.y <<= mbo;
+        loadMetaTileFor(tid)->for_each([&](const TileId&, const MetaNode &node)
+                                       -> void
+        {
+            if (node.applyTexelSize()) {
+                texelSizes.push_back(node.texelSize);
+            }
+        });
+    });
+
+    if (texelSizes.empty()) { return 0.0; }
+    std::sort(texelSizes.begin(), texelSizes.end());
+    // return median
+    return texelSizes[texelSizes.size() / 2];
 }
 
 } } // namespace vadstena::vts

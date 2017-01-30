@@ -47,6 +47,8 @@ public:
     TileIndex::Flag::value_type
     checkAndGetFlags(const TileId &tileId, TileFile type) const;
 
+    /** Derives whole metatile index.
+     */
     TileIndex deriveMetaIndex() const;
 
     unsigned int metaBinaryOrder() const { return metaBinaryOrder_; }

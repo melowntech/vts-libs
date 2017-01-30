@@ -80,6 +80,20 @@ UTILITY_GENERATE_ENUM(Command,
                       ((virtualSurfaceRemove)("vs-remove"))
                       )
 
+struct Verbosity {
+    int level;
+    Verbosity(int level = 0) : level(level) {}
+    operator int() const { return level; }
+};
+
+void validate(boost::any &v, const std::vector<std::string>&, Verbosity*, int)
+{
+    if (v.empty()) {
+        v = Verbosity(1);
+    } else {
+        ++boost::any_cast<Verbosity&>(v).level;
+    }
+}
 
 typedef service::UnrecognizedParser UP;
 
@@ -91,7 +105,6 @@ public:
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
         , tileFlags_(), metaFlags_(), encodeFlags_()
-        , brief_(true)
     {
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
@@ -234,7 +247,8 @@ private:
     boost::optional<std::string> optSrs_;
     vts::Storage::AddOptions addOptions_;
     vts::RelocateOptions relocateOptions_;
-    bool brief_;
+    Verbosity verbose_;
+    bool computeTexelSize_;
     vs::CreditIds forceCredits_;
     vts::Tags addTags_;
     vts::Tags removeTags_;
@@ -380,12 +394,9 @@ void VtsStorage::configuration(po::options_description &cmdline
                  , [&](UP &p)
     {
         p.options.add_options()
-            ("verbose", "Verbose output.")
+            ("verbose,V", po::value<Verbosity>(&verbose_)->zero_tokens()
+             , "Verbose output.")
             ;
-
-        p.configure = [&](const po::variables_map &vars) {
-            brief_ = !vars.count("verbose");
-        };
     });
 
     createParser(cmdline, Command::create
@@ -1175,9 +1186,9 @@ int VtsStorage::run()
     }
 }
 
-int tilesetInfo(const fs::path &path, bool brief);
-int storageInfo(const fs::path &path, bool brief);
-int storageViewInfo(const fs::path &path, bool brief);
+int tilesetInfo(const fs::path &path, int verbose);
+int storageInfo(const fs::path &path, int verbose);
+int storageViewInfo(const fs::path &path, int verbose);
 
 void tiInfo(const vts::TileIndex &ti, const std::string &prefix = "")
 {
@@ -1224,11 +1235,11 @@ void miInfo(const vts::TileIndex &ti, const vr::ReferenceFrame &rf
 }
 
 int tilesetInfo(const std::string &prefix, const fs::path &path
-                , bool brief)
+                , int verbose)
 {
     auto ts(vts::openTileSet(path));
     auto prop(ts.getProperties());
-    if (brief) {
+    if (!verbose) {
         std::cout << prefix << prop.id << " [" << ts.typeInfo()
                   << "]" << std::endl;
 
@@ -1241,19 +1252,24 @@ int tilesetInfo(const std::string &prefix, const fs::path &path
         std::cout << prefix << "Tile type info:" << std::endl;
         miInfo(ts.tileIndex(), ts.referenceFrame(), prefix);
         tiInfo(ts.tileIndex(), prefix);
+
+        if (verbose > 1) {
+            std::cout << prefix << "texelSize: " << std::fixed
+                      << ts.texelSize() << '\n';
+        }
     }
 
     return EXIT_SUCCESS;
 }
 
-int storageInfo(const std::string &prefix, const fs::path &path, bool brief)
+int storageInfo(const std::string &prefix, const fs::path &path, int verbose)
 {
     auto s(vts::openStorage(path));
     std::cout << prefix << "Tile sets:" << std::endl;
     for (const auto &tileset : s.storedTilesets()) {
         auto subprefix(prefix + "    ");
-        tilesetInfo(subprefix, s.path(tileset.tilesetId), brief);
-        if (!brief) {
+        tilesetInfo(subprefix, s.path(tileset.tilesetId), verbose);
+        if (verbose) {
             if (!tileset.tags.empty()) {
                 std::cout << subprefix << "Tags: "
                           << utility::join(tileset.tags, ", ") << std::endl;
@@ -1264,7 +1280,7 @@ int storageInfo(const std::string &prefix, const fs::path &path, bool brief)
 
     std::cout << prefix << "Glues:" << std::endl;
     for (const auto &gitem : s.glues()) {
-        if (brief) {
+        if (!verbose) {
             std::cout << prefix << "    " << utility::join(gitem.first, ", ")
                       << std::endl;
         } else {
@@ -1272,7 +1288,7 @@ int storageInfo(const std::string &prefix, const fs::path &path, bool brief)
                       << utility::join(gitem.first, ", ")
                       << std::endl;
 
-            tilesetInfo(prefix + "    ",  s.path(gitem.second), brief);
+            tilesetInfo(prefix + "    ",  s.path(gitem.second), verbose);
             std::cout << std::endl;
         }
     }
@@ -1281,7 +1297,7 @@ int storageInfo(const std::string &prefix, const fs::path &path, bool brief)
     if (!vs.empty()) {
         std::cout << prefix << "Virtual surfaces:" << std::endl;
         for (const auto &vsitem : s.virtualSurfaces()) {
-            if (brief) {
+            if (!verbose) {
                 std::cout
                     << prefix << "    " << utility::join(vsitem.first, ", ")
                     << std::endl;
@@ -1290,7 +1306,7 @@ int storageInfo(const std::string &prefix, const fs::path &path, bool brief)
                           << utility::join(vsitem.first, ", ")
                           << std::endl;
 
-                tilesetInfo(prefix + "    ",  s.path(vsitem.second), brief);
+                tilesetInfo(prefix + "    ",  s.path(vsitem.second), verbose);
                 std::cout << std::endl;
             }
         }
@@ -1300,7 +1316,7 @@ int storageInfo(const std::string &prefix, const fs::path &path, bool brief)
 }
 
 int storageViewInfo(const std::string &prefix, const fs::path &path
-                    , bool brief)
+                    , int verbose)
 {
     auto sv(vts::openStorageView(path));
     std::cout << prefix << "View into storage:" << std::endl
@@ -1310,20 +1326,20 @@ int storageViewInfo(const std::string &prefix, const fs::path &path
         std::cout << prefix << "    " << tid << std::endl;
     }
     return EXIT_SUCCESS;
-    (void) brief;
+    (void) verbose;
 }
 
 int VtsStorage::info()
 {
     switch (vts::datasetType(path_)) {
     case vts::DatasetType::TileSet:
-        return tilesetInfo(std::string(), path_, brief_);
+        return tilesetInfo(std::string(), path_, verbose_);
 
     case vts::DatasetType::Storage:
-        return storageInfo(std::string(), path_, brief_);
+        return storageInfo(std::string(), path_, verbose_);
 
     case vts::DatasetType::StorageView:
-        return storageViewInfo(std::string(), path_, brief_);
+        return storageViewInfo(std::string(), path_, verbose_);
 
     case vts::DatasetType::TileIndex:
         std::cerr << "Tile index is not supported." << std::endl;

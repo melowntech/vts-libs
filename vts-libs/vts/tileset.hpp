@@ -260,6 +260,11 @@ public:
      */
     NodeInfo nodeInfo(const TileId &tileId) const;
 
+    /** Returns representative texel size. Computed on the fly from most
+     *  detailed LOD's metanodes.
+     */
+    double texelSize() const;
+
     /** Returns mapConfig for given path.
      *
      * \param root root path of all datasets (surfaces and glues)

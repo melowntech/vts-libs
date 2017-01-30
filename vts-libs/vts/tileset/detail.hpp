@@ -118,6 +118,8 @@ public:
 
     MetaTile::pointer addNewMetaTile(const TileId &tileId) const;
 
+    MetaTile::pointer loadMetaTileFor(const TileId &tileId) const;
+
     void updateNode(TileId tileId, const MetaNode &metanode
                     , TileIndex::Flag::value_type extraFlags = 0);
 
@@ -179,6 +181,8 @@ public:
     void setPosition(const registry::Position &position);
     void addCredits(const registry::IdSet &credits);
     void addBoundLayers(const registry::IdSet &boundLayers);
+
+    double texelSize() const;
 
 private:
     void updateProperties(const MetaNode &metanode);
