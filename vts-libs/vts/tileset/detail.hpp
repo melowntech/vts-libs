@@ -18,7 +18,30 @@
 
 namespace vadstena { namespace vts {
 
-bool check(const SpatialDivisionExtents &l, const SpatialDivisionExtents &r);
+typedef std::map<std::string, math::Extents2> SdsExtents;
+
+class LoddedTexelSizeAggregator {
+public:
+    LoddedTexelSizeAggregator() {}
+
+    TexelSizeAggregator& operator[](Lod lod) {
+        while (lod < lr_.min) {
+            aggs_.emplace(aggs_.begin());
+            --lr_.min;
+        }
+        while (lod > lr_.max) {
+            aggs_.emplace_back();
+            ++lr_.max;
+        }
+        return aggs_[lod - lr_.min];
+    }
+
+private:
+    LodRange lr_;
+    std::vector<TexelSizeAggregator> aggs_;
+};
+
+bool check(const SdsExtents &l, const SdsExtents &r);
 
 struct TileNode {
     MetaTile::pointer metatile;
@@ -71,6 +94,9 @@ public:
 
     LodRange lodRange;
 
+    SdsExtents sdsExtents;
+    LoddedTexelSizeAggregator texelSizeAggregator;
+
     Detail(const Driver::pointer &driver);
     Detail(const Driver::pointer &driver
            , const TileSet::Properties &properties);
@@ -98,9 +124,6 @@ public:
                  , const NodeInfo *nodeInfo = nullptr);
 
     void setNavTile(const TileId &tileId, const NavTile &navtile);
-
-    void setReferenceTile(const TileId &tileId, uint8_t other
-                          , const NodeInfo *nodeInfo = nullptr);
 
     std::uint8_t metaOrder() const;
     TileId metaId(TileId tileId) const;
@@ -185,7 +208,8 @@ public:
     double texelSize() const;
 
 private:
-    void updateProperties(const MetaNode &metanode);
+    void updateProperties(Lod lod, const MetaNode &metanode
+                          , const MetaNode &oldMetanode);
     void updateProperties(const NodeInfo &nodeInfo);
     void updateProperties(const Mesh &mesh);
 };

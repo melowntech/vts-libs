@@ -744,23 +744,27 @@ void TileSet::Detail::load(const NavTile::HeightRange &heightRange
     navtile.deserialize(heightRange, os->get(), os->name());
 }
 
-void TileSet::Detail::updateProperties(const MetaNode &metanode)
+void TileSet::Detail::updateProperties(Lod lod, const MetaNode &metanode
+                                       , const MetaNode &oldMetanode)
 {
     properties.credits.insert(metanode.credits().begin()
                               , metanode.credits().end());
+    add(texelSizeAggregator[lod], metanode, oldMetanode);
     propertiesChanged = true;
 }
 
 void TileSet::Detail::updateProperties(const NodeInfo &nodeInfo)
 {
-    auto res(properties.spatialDivisionExtents.insert
-             (SpatialDivisionExtents::value_type
-              (nodeInfo.srs(), nodeInfo.extents())));
-    if (!res.second) {
-        res.first->second
-            = math::unite(res.first->second, nodeInfo.extents());
-        propertiesChanged = true;
+    auto fsdsExtents(sdsExtents.find(nodeInfo.srs()));
+    if (fsdsExtents == sdsExtents.end()) {
+        sdsExtents.insert
+            (SdsExtents::value_type
+             (nodeInfo.srs(), nodeInfo.extents()));
+    } else {
+        fsdsExtents->second
+            = math::unite(fsdsExtents->second, nodeInfo.extents());
     }
+    propertiesChanged = true;
 }
 
 void TileSet::Detail::updateProperties(const Mesh &mesh)
@@ -796,6 +800,9 @@ void TileSet::Detail::updateNode(TileId tileId
     // get node (create if necessary)
     auto node(findNode(tileId, true));
 
+    // collect global information (i.e. credits) and texel size
+    updateProperties(tileId.lod, metanode, *node.metanode);
+
     // update node value
     node.update(tileId, metanode);
 
@@ -807,9 +814,6 @@ void TileSet::Detail::updateNode(TileId tileId
 
     // set tile index
     tileIndex.setMask(tileId, mask, flags);
-
-    // collect global information (i.e. credits)
-    updateProperties(metanode);
 
     // go up the tree
     while (tileId.lod) {
@@ -826,7 +830,7 @@ void TileSet::Detail::updateNode(TileId tileId
     }
 }
 
-bool check(const SpatialDivisionExtents &l, const SpatialDivisionExtents &r)
+bool check(const SdsExtents &l, const SdsExtents &r)
 {
     auto il(l.begin()), el(l.end());
     auto ir(r.begin()), er(r.end());
@@ -1049,17 +1053,6 @@ void TileSet::Detail::setTile(const TileId &tileId, const TileSource &tile
         ((nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId)));
 }
 
-void TileSet::Detail::setReferenceTile(const TileId &tileId, uint8_t other
-                                       , const NodeInfo *nodeInfo)
-{
-    MetaNode node;
-    node.reference(other);
-    updateNode(tileId, node);
-
-    // add tile to valid extents
-    updateProperties(nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId));
-}
-
 void TileSet::Detail::setNavTile(const TileId &tileId, const NavTile &navtile)
 {
 
@@ -1278,10 +1271,10 @@ void TileSet::Detail::flush()
         // force properties change
         propertiesChanged = true;
 
-        if (!properties.position.valid()
-            && !properties.spatialDivisionExtents.empty()) {
+        if (!properties.position.valid() && !sdsExtents.empty()) {
             // guess position from spatial division extents
-            const auto &item(*properties.spatialDivisionExtents.begin());
+            // TODO: convert to navigation SRS and make a union
+            const auto &item(*sdsExtents.begin());
             auto &position(properties.position);
 
             position.type = registry::Position::Type::objective;
@@ -1300,6 +1293,10 @@ void TileSet::Detail::flush()
 
     // update and save config
     if (propertiesChanged) {
+        if (const auto avg = average(texelSizeAggregator[lodRange.max])) {
+            properties.nominalTexelSize = avg;
+        }
+
         update(properties, tileIndex);
         saveConfig();
         propertiesChanged = false;
@@ -1611,14 +1608,6 @@ TileIndex::Flag::value_type TileSet::Detail::extraFlags(const TileId &tileId)
     return (tileIndex.get(tileId) & TileIndex::Flag::nonmeta);
 }
 
-bool TileSet::canContain(const NodeInfo &nodeInfo) const
-{
-    const auto &sde(detail().properties.spatialDivisionExtents);
-    auto fsde(sde.find(nodeInfo.srs()));
-    if (fsde == sde.end()) { return false; }
-    return overlaps(fsde->second, nodeInfo.extents());
-}
-
 void TileSet::paste(const TileSet &srcSet
                     , const boost::optional<LodRange> &lodRange)
 {
@@ -1775,7 +1764,8 @@ double TileSet::Detail::texelSize() const
     const auto metaIndex(tsi.deriveMetaIndex(lodRange.max));
     const auto mbo(referenceFrame.metaBinaryOrder);
 
-    std::vector<double> texelSizes;
+    // aggregate texel sizes
+    TexelSizeAggregator aa;
 
     traverse(metaIndex, lodRange.max, [&](TileId tid, QTree::value_type)
     {
@@ -1785,16 +1775,12 @@ double TileSet::Detail::texelSize() const
         loadMetaTileFor(tid)->for_each([&](const TileId&, const MetaNode &node)
                                        -> void
         {
-            if (node.applyTexelSize()) {
-                texelSizes.push_back(node.texelSize);
-            }
+            add(aa, node);
         });
     });
 
-    if (texelSizes.empty()) { return 0.0; }
-    std::sort(texelSizes.begin(), texelSizes.end());
-    // return median
-    return texelSizes[texelSizes.size() / 2];
+    LOG(info4) << aa.first << ", " << aa.second;
+    return average(aa);
 }
 
 } } // namespace vadstena::vts

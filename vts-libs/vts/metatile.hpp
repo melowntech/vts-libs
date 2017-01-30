@@ -347,6 +347,15 @@ void loadCreditsFromMetaTile(std::istream &in, registry::IdSet &credits
                              , const boost::filesystem::path
                              &path = "unknown");
 
+typedef std::pair<double, std::size_t> TexelSizeAggregator;
+
+double average(const TexelSizeAggregator &aa);
+
+void add(TexelSizeAggregator &aa, const MetaNode &node);
+
+void add(TexelSizeAggregator &aa, const MetaNode &node
+         , const MetaNode &oldNode);
+
 // inlines
 
 inline MetaTile::size_type MetaTile::index(const math::Point2_<size_type> &gi)
@@ -420,6 +429,31 @@ inline std::vector<TileId> children(const MetaNode &node
         mask <<= 1;
     }
     return c;
+}
+
+inline double average(const TexelSizeAggregator &aa) {
+    if (!aa.second) { return 0.0; }
+    return aa.first / aa.second;
+}
+
+inline void add(TexelSizeAggregator &aa, const MetaNode &node) {
+    if (node.applyTexelSize()) {
+        aa.first += node.texelSize;
+        ++aa.second;
+    }
+}
+
+inline void add(TexelSizeAggregator &aa, const MetaNode &node
+                , const MetaNode &oldNode)
+{
+    // remove old node first
+    if (oldNode.applyTexelSize()) {
+        aa.first -= oldNode.texelSize;
+        --aa.second;
+    }
+
+    // and add this node
+    add(aa, node);
 }
 
 } } // namespace vadstena::vts

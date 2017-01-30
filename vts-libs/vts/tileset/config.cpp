@@ -66,35 +66,6 @@ void parseExtents(math::Extents2 &extents
     extents.ur(1) = Json::as<double>(value[3], name);
 }
 
-void parseSpatialDivisionExtents(SpatialDivisionExtents &sde
-                                 , const Json::Value &object
-                                 , const char *name)
-{
-    const Json::Value &value(object[name]);
-
-    if (!value.isObject()) {
-        LOGTHROW(err1, Json::Error)
-            << "Type of " << name << " is not an object.";
-    }
-
-    for (const auto &srs : value.getMemberNames()) {
-        parseExtents(sde[srs], value[srs], srs.c_str());
-    }
-}
-
-void build(Json::Value &value
-           , const SpatialDivisionExtents &spatialDivisionExtents)
-{
-    value = Json::objectValue;
-    for (const auto &item : spatialDivisionExtents) {
-        auto &e(value[item.first] = Json::arrayValue);
-        e.append(item.second.ll(0));
-        e.append(item.second.ll(1));
-        e.append(item.second.ur(0));
-        e.append(item.second.ur(1));
-    }
-}
-
 template <typename OutputIterator>
 void parseIdArray(OutputIterator out, const Json::Value &object
                   , const char *name)
@@ -308,9 +279,6 @@ FullTileSetProperties parse1(const Json::Value &config)
     Json::get(properties.tileRange.ur(0), config, "tileRange", 2);
     Json::get(properties.tileRange.ur(1), config, "tileRange", 3);
 
-    parseSpatialDivisionExtents(properties.spatialDivisionExtents
-                                , config, "spatialDivisionExtents");
-
     if (config.isMember("mergeBottomLod")) {
         Json::get(properties.mergeBottomLod, config, "mergeBottomLod");
     } else {
@@ -354,8 +322,6 @@ void build(Json::Value &config, const FullTileSetProperties &properties)
     tileRange.append(properties.tileRange.ll(1));
     tileRange.append(properties.tileRange.ur(0));
     tileRange.append(properties.tileRange.ur(1));
-
-    build(config["spatialDivisionExtents"], properties.spatialDivisionExtents);
 
     if (properties.mergeBottomLod) {
         config["mergeBottomLod"] = properties.mergeBottomLod;

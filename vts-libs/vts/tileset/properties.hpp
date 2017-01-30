@@ -19,8 +19,6 @@
 
 namespace vadstena { namespace vts {
 
-typedef std::map<std::string, math::Extents2> SpatialDivisionExtents;
-
 /** Tile set properties that must be specified during creation. They cannot be
  *  changed later.
  */
@@ -64,10 +62,6 @@ struct FullTileSetProperties : TileSetProperties {
     /** Extents (inclusive) of tiles with mesh and/or atlas at lodRange.min
      */
     TileRange tileRange;
-
-    /** Occupied extents for each spatial division SRS
-     */
-    SpatialDivisionExtents spatialDivisionExtents;
 
     /** Hint for merge - physically load only tiles at LODs same or above
      * for merging finer tiles use tile from this lod as source.
