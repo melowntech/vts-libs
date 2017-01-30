@@ -76,6 +76,10 @@ struct FullTileSetProperties : TileSetProperties {
      */
     Lod mergeBottomLod;
 
+    /** Nominal texelSize. Provided only for information.
+     */
+    boost::optional<double> nominalTexelSize;
+
     FullTileSetProperties() : revision(0), mergeBottomLod(0) {}
 
     FullTileSetProperties(const TileSetProperties &slice)

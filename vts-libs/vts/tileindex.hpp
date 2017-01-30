@@ -351,11 +351,14 @@ public:
                        , const LodRange &lodRange = LodRange::emptyRange());
 
     /** Trims trim levels from each lod and makes the tree complete.
-     *  Tile index is made absolute if absolute is set.
+     *  Tile index is made absolute (from ceiling!) if absolute is set.
      *
      *  All values are transformed to 1 (i.e. every level is a b&w tree)
+     *
+     *  ceiling limits processing to given topmost lod.
      */
-    TileIndex& shrinkAndComplete(unsigned int trim, bool absolute = true);
+    TileIndex& shrinkAndComplete(unsigned int trim, bool absolute = true
+                                 , vts::Lod ceiling = 0);
 
     /** Creates virtual shrinked tree (see shrinkAndComplete) and returns
      *  accumulated count of existing tiles.

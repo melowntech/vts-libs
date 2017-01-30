@@ -1770,12 +1770,12 @@ double TileSet::texelSize() const
 
 double TileSet::Detail::texelSize() const
 {
-    auto metaIndex(tsi.deriveMetaIndex());
-    auto mbo(referenceFrame.metaBinaryOrder);
+    if (properties.nominalTexelSize) { return *properties.nominalTexelSize; }
 
-    // make room for texelSizes
+    const auto metaIndex(tsi.deriveMetaIndex(lodRange.max));
+    const auto mbo(referenceFrame.metaBinaryOrder);
+
     std::vector<double> texelSizes;
-    texelSizes.reserve(metaIndex.count());
 
     traverse(metaIndex, lodRange.max, [&](TileId tid, QTree::value_type)
     {

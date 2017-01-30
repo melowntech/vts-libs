@@ -740,11 +740,12 @@ bool TileIndex::validSubtree(const TileId &tileId) const
     return validSubtree(tileId.lod, tileId);
 }
 
-TileIndex& TileIndex::shrinkAndComplete(unsigned int trim, bool absolute)
+TileIndex& TileIndex::shrinkAndComplete(unsigned int trim, bool absolute
+                                        , vts::Lod ceiling)
 {
     if (empty()) { return *this; }
 
-    if (absolute) { makeAbsolute(); };
+    if (absolute) { makeAvailable(LodRange(ceiling, maxLod())); };
 
     auto applyTrim([&](Lod l) { return (l > trim) ? (l - trim) : 0; });
     auto any([&](QTree::value_type value) { return value; });
@@ -759,6 +760,9 @@ TileIndex& TileIndex::shrinkAndComplete(unsigned int trim, bool absolute)
     for (auto itrees(ctrees + 1), etrees(trees_.rend());
          itrees != etrees; ++itrees, ++ctrees, --lod)
     {
+        // apply limit
+        if (ceiling > lod) { break; }
+
         auto &tree(*itrees);
 
         // shrink

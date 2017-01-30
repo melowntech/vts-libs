@@ -51,6 +51,10 @@ public:
      */
     TileIndex deriveMetaIndex() const;
 
+    /** Derives metatile index from bottom to given lod
+     */
+    TileIndex deriveMetaIndex(Lod upperLod) const;
+
     unsigned int metaBinaryOrder() const { return metaBinaryOrder_; }
 
     /** Loads rest of data from tile index.

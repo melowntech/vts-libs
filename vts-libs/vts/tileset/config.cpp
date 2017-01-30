@@ -317,6 +317,11 @@ FullTileSetProperties parse1(const Json::Value &config)
         properties.mergeBottomLod = 0;
     }
 
+    if (config.isMember("nominalTexelSize")) {
+        properties.nominalTexelSize = boost::in_place();
+        Json::get(*properties.nominalTexelSize, config, "nominalTexelSize");
+    }
+
     return properties;
 }
 
@@ -354,6 +359,10 @@ void build(Json::Value &config, const FullTileSetProperties &properties)
 
     if (properties.mergeBottomLod) {
         config["mergeBottomLod"] = properties.mergeBottomLod;
+    }
+
+    if (properties.nominalTexelSize) {
+        config["nominalTexelSize"] = *properties.nominalTexelSize;
     }
 }
 

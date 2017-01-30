@@ -131,6 +131,14 @@ TileIndex Index::deriveMetaIndex() const
     return TileIndex(tileIndex).shrinkAndComplete(metaBinaryOrder_);
 }
 
+TileIndex Index::deriveMetaIndex(Lod ceiling) const
+{
+    if (tileIndex.empty()) { return {}; }
+
+    return TileIndex(LodRange(ceiling, tileIndex.maxLod()), &tileIndex, false)
+        .shrinkAndComplete(metaBinaryOrder_, true, ceiling);
+}
+
 void Index::loadRest_impl(std::istream&, const boost::filesystem::path&) {}
 
 void Index::saveRest_impl(std::ostream&) const {}
