@@ -22,17 +22,25 @@ typedef std::map<std::string, math::Extents2> SdsExtents;
 
 class LoddedTexelSizeAggregator {
 public:
-    LoddedTexelSizeAggregator() {}
+    LoddedTexelSizeAggregator()
+        : lr_(LodRange::emptyRange())
+    {}
 
     TexelSizeAggregator& operator[](Lod lod) {
-        while (lod < lr_.min) {
-            aggs_.emplace(aggs_.begin());
-            --lr_.min;
-        }
-        while (lod > lr_.max) {
+        if (lr_.empty()) {
             aggs_.emplace_back();
-            ++lr_.max;
+            lr_ = LodRange(lod);
+        } else {
+            while (lod < lr_.min) {
+                aggs_.emplace(aggs_.begin());
+                --lr_.min;
+            }
+            while (lod > lr_.max) {
+                aggs_.emplace_back();
+                ++lr_.max;
+            }
         }
+
         return aggs_[lod - lr_.min];
     }
 
