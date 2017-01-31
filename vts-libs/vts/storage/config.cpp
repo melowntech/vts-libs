@@ -75,6 +75,14 @@ void parseGlue(Glue &glue, const Json::Value &value)
 
     parseList(glue.id, value, "id");
     Json::get(glue.path, value, "dir");
+
+    const auto status(value["status"]);
+    if (!status.isNull()) {
+        glue.status = boost::lexical_cast<Glue::Status>(status.asString());
+    } else {
+        // old data
+        glue.status = Glue::Status::ready;
+    }
 }
 
 void parseGlues(Glue::map &glues, const Json::Value &value)
@@ -186,6 +194,7 @@ void buildGlue(const Glue &glue, Json::Value &object)
     object = Json::objectValue;
     buildList(glue.id, object["id"]);
     object["dir"] = glue.path;
+    object["status"] = boost::lexical_cast<std::string>(glue.status);
 }
 
 void buildGlues(const Glue::map &glues, Json::Value &object)

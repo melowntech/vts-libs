@@ -50,6 +50,9 @@ UTILITY_GENERATE_ENUM(Command,
                       ((add))
                       ((readd))
                       ((remove))
+                      ((generateGlues)("glue-generate-pending"))
+                      ((generateGlue)("glue-generate"))
+
                       ((dumpMetatile)("dump-metatile"))
                       ((mapConfig)("map-config"))
                       ((dirs)("dirs"))
@@ -109,6 +112,7 @@ public:
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
         addOptions_.dryRun = false;
+        addOptions_.lazy = false;
         addOptions_.clip = true;
 
         relocateOptions_.dryRun = false;
@@ -171,6 +175,10 @@ private:
     int readd();
 
     int remove();
+
+    int generateGlues();
+
+    int generateGlue();
 
     int tags();
 
@@ -328,7 +336,7 @@ void configureProgress(const po::variables_map &vars
     utility::Filedes fd(vars["progress.fd"].as<int>());
     auto period(vars["progress.period"].as<std::time_t>());
     if (!fd.valid()) {
-        LOG(warn2) << "Progress fd (" << fd.get() << ") is not valid. "
+        LOG(info2) << "Progress fd (" << fd.get() << ") is not valid. "
             "Disabling progress logging.";
         return;
     }
@@ -451,6 +459,7 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             ("bumpVersion", "Add dataset under new version")
             ("dryRun", "Simulate glue creation.")
+            ("lazy", "Do not generate any glue.")
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
             ("no-clip", "Don't clip meshes by merge coverage.")
@@ -512,6 +521,7 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             addOptions_.bumpVersion = vars.count("bumpVersion");
             addOptions_.dryRun = vars.count("dryRun");
+            addOptions_.lazy = vars.count("lazy");
             addOptions_.clip = !vars.count("no-clip");
 
             getTags(addOptions_.tags, vars, "addTag");
@@ -534,6 +544,7 @@ void VtsStorage::configuration(po::options_description &cmdline
              ->required()->default_value(addOptions_.textureQuality)
              , "Quality of repacked atlases. 0 means no repacking.")
             ("dryRun", "Simulate glue creation.")
+            ("lazy", "Do not generate any glue.")
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
             ("no-clip", "Don't clip meshes by merge coverage.")
@@ -547,6 +558,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             lockConfigure(vars);
 
             addOptions_.dryRun = vars.count("dryRun");
+            addOptions_.lazy = vars.count("lazy");
             if (vars.count("tmp")) {
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
             }
@@ -571,6 +583,78 @@ void VtsStorage::configuration(po::options_description &cmdline
 
         p.configure = [&](const po::variables_map &vars) {
             lockConfigure(vars);
+        };
+    });
+
+    createParser(cmdline, Command::generateGlues
+                 , "--command=generate-glue-pending: generates all "
+                 "pending glues for given tileset"
+                 , [&](UP &p)
+    {
+        lockConfiguration(p.options);
+
+        p.options.add_options()
+            ("tileset", po::value(&tilesetId_)->required()
+             , "Id of tileset to generated pending glues for.")
+
+            ("textureQuality", po::value(&addOptions_.textureQuality)
+             ->required()->default_value(addOptions_.textureQuality)
+             , "Quality of repacked atlases. 0 means no repacking.")
+
+            ("tmp", po::value<fs::path>()
+             , "Temporary directory where to work with temporary data.")
+            ("no-clip", "Don't clip meshes by merge coverage.")
+            ;
+
+        progressConfiguration(p.options);
+
+        p.positional.add("tileset", 1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            lockConfigure(vars);
+
+            if (vars.count("tmp")) {
+                addOptions_.tmp = vars["tmp"].as<fs::path>();
+            }
+            addOptions_.clip = !vars.count("no-clip");
+
+            configureProgress(vars, addOptions_);
+        };
+    });
+
+    createParser(cmdline, Command::generateGlue
+                 , "--command=glue-generate: generates given glues "
+                 "if pending"
+                 , [&](UP &p)
+    {
+        lockConfiguration(p.options);
+
+        p.options.add_options()
+            ("tileset", po::value(&tilesetIds_)->required()
+             , "Tileset participating in glue.")
+
+            ("textureQuality", po::value(&addOptions_.textureQuality)
+             ->required()->default_value(addOptions_.textureQuality)
+             , "Quality of repacked atlases. 0 means no repacking.")
+
+            ("tmp", po::value<fs::path>()
+             , "Temporary directory where to work with temporary data.")
+            ("no-clip", "Don't clip meshes by merge coverage.")
+            ;
+
+        progressConfiguration(p.options);
+
+        p.positional.add("tileset", -1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            lockConfigure(vars);
+
+            if (vars.count("tmp")) {
+                addOptions_.tmp = vars["tmp"].as<fs::path>();
+            }
+            addOptions_.clip = !vars.count("no-clip");
+
+            configureProgress(vars, addOptions_);
         };
     });
 
@@ -1137,6 +1221,8 @@ int VtsStorage::runCommand()
     case Command::add: return add();
     case Command::readd: return readd();
     case Command::remove: return remove();
+    case Command::generateGlues: return generateGlues();
+    case Command::generateGlue: return generateGlue();
     case Command::tags: return tags();
 
     case Command::virtualSurfaceCreate: return virtualSurfaceCreate();
@@ -1168,7 +1254,7 @@ int VtsStorage::runCommand()
     case Command::showLockerApi: return showLockerApi();
     case Command::deriveMetaIndex: return deriveMetaIndex();
     }
-    std::cerr << "vts: no operation requested" << std::endl;
+    std::cerr << "vts: no operation requested" << '\n';
     return EXIT_FAILURE;
 }
 
@@ -1181,7 +1267,7 @@ int VtsStorage::run()
     try {
         return runCommand();
     } catch (const std::exception &e) {
-        std::cerr << "vts: " << e.what() << std::endl;
+        std::cerr << "vts: " << e.what() << '\n';
         return EXIT_FAILURE;
     }
 }
@@ -1204,9 +1290,9 @@ void tiInfo(const vts::TileIndex &ti, const std::string &prefix = "")
         auto stat(ti.statMask(flag.first, flag.second));
         std::cout
             << prefix << "    " << vts::TileFlags(flag.second)
-            << ":" << std::endl
-            << prefix << "        lodRange: " << stat.lodRange << std::endl
-            << prefix << "        count = " << stat.count << std::endl
+            << ":" << '\n'
+            << prefix << "        lodRange: " << stat.lodRange << '\n'
+            << prefix << "        count = " << stat.count << '\n'
             ;
 
         // special handling for mesh: make statistics for watertight
@@ -1214,7 +1300,7 @@ void tiInfo(const vts::TileIndex &ti, const std::string &prefix = "")
             auto wstat(ti.statMask(vts::TileIndex::Flag::watertight));
             std::cout
                 << prefix << "        watertight = " << wstat.count
-                << std::endl;
+                << '\n';
         }
     }
 }
@@ -1229,8 +1315,8 @@ void miInfo(const vts::TileIndex &ti, const vr::ReferenceFrame &rf
 
     std::cout
             << prefix << "    meta:\n"
-            << prefix << "        lodRange: " << lr << std::endl
-            << prefix << "        count = " << metaCount << std::endl
+            << prefix << "        lodRange: " << lr << '\n'
+            << prefix << "        count = " << metaCount << '\n'
             ;
 }
 
@@ -1241,15 +1327,15 @@ int tilesetInfo(const std::string &prefix, const fs::path &path
     auto prop(ts.getProperties());
     if (!verbose) {
         std::cout << prefix << prop.id << " [" << ts.typeInfo()
-                  << "]" << std::endl;
+                  << "]" << '\n';
 
     } else {
-        std::cout << prefix << "Id: " << prop.id << std::endl;
-        std::cout << prefix << "Type: " << ts.typeInfo() << std::endl;
+        std::cout << prefix << "Id: " << prop.id << '\n';
+        std::cout << prefix << "Type: " << ts.typeInfo() << '\n';
         std::cout << prefix << "Reference frame: " << ts.referenceFrame().id
-                  << std::endl;
+                  << '\n';
 
-        std::cout << prefix << "Tile type info:" << std::endl;
+        std::cout << prefix << "Tile type info:" << '\n';
         miInfo(ts.tileIndex(), ts.referenceFrame(), prefix);
         tiInfo(ts.tileIndex(), prefix);
 
@@ -1265,49 +1351,52 @@ int tilesetInfo(const std::string &prefix, const fs::path &path
 int storageInfo(const std::string &prefix, const fs::path &path, int verbose)
 {
     auto s(vts::openStorage(path));
-    std::cout << prefix << "Tile sets:" << std::endl;
+    std::cout << prefix << "Tile sets:" << '\n';
     for (const auto &tileset : s.storedTilesets()) {
         auto subprefix(prefix + "    ");
         tilesetInfo(subprefix, s.path(tileset.tilesetId), verbose);
         if (verbose) {
             if (!tileset.tags.empty()) {
                 std::cout << subprefix << "Tags: "
-                          << utility::join(tileset.tags, ", ") << std::endl;
+                          << utility::join(tileset.tags, ", ") << '\n';
             }
-            std::cout << std::endl;
+            std::cout << '\n';
         }
     }
 
-    std::cout << prefix << "Glues:" << std::endl;
+    std::cout << prefix << "Glues:" << '\n';
     for (const auto &gitem : s.glues()) {
         if (!verbose) {
             std::cout << prefix << "    " << utility::join(gitem.first, ", ")
-                      << std::endl;
+                      << " [" << gitem.second.status << "]\n";
         } else {
-            std::cout << prefix << "    Glue-Id: "
-                      << utility::join(gitem.first, ", ")
-                      << std::endl;
+            std::cout
+                << prefix << "    Glue-Id: "
+                << utility::join(gitem.first, ", ")
+                << '\n'
+                << prefix << "    Status: " << gitem.second.status
+                << '\n';
 
             tilesetInfo(prefix + "    ",  s.path(gitem.second), verbose);
-            std::cout << std::endl;
+            std::cout << '\n';
         }
     }
 
     const auto vs(s.virtualSurfaces());
     if (!vs.empty()) {
-        std::cout << prefix << "Virtual surfaces:" << std::endl;
+        std::cout << prefix << "Virtual surfaces:" << '\n';
         for (const auto &vsitem : s.virtualSurfaces()) {
             if (!verbose) {
                 std::cout
                     << prefix << "    " << utility::join(vsitem.first, ", ")
-                    << std::endl;
+                    << '\n';
             } else {
                 std::cout << prefix << "    VirtualSurface-Id: "
                           << utility::join(vsitem.first, ", ")
-                          << std::endl;
+                          << '\n';
 
                 tilesetInfo(prefix + "    ",  s.path(vsitem.second), verbose);
-                std::cout << std::endl;
+                std::cout << '\n';
             }
         }
     }
@@ -1319,11 +1408,11 @@ int storageViewInfo(const std::string &prefix, const fs::path &path
                     , int verbose)
 {
     auto sv(vts::openStorageView(path));
-    std::cout << prefix << "View into storage:" << std::endl
-              << prefix << "    " << sv.storagePath() << std::endl;
-    std::cout << prefix << "Tile sets:" << std::endl;
+    std::cout << prefix << "View into storage:" << '\n'
+              << prefix << "    " << sv.storagePath() << '\n';
+    std::cout << prefix << "Tile sets:" << '\n';
     for (const auto &tid : sv.tilesets()) {
-        std::cout << prefix << "    " << tid << std::endl;
+        std::cout << prefix << "    " << tid << '\n';
     }
     return EXIT_SUCCESS;
     (void) verbose;
@@ -1342,13 +1431,13 @@ int VtsStorage::info()
         return storageViewInfo(std::string(), path_, verbose_);
 
     case vts::DatasetType::TileIndex:
-        std::cerr << "Tile index is not supported." << std::endl;
+        std::cerr << "Tile index is not supported." << '\n';
         return EXIT_FAILURE;
 
     default: break;
     }
 
-    std::cerr << "Unrecognized content " << path_ << "." << std::endl;
+    std::cerr << "Unrecognized content " << path_ << "." << '\n';
     return EXIT_FAILURE;
 }
 
@@ -1447,6 +1536,28 @@ int VtsStorage::remove()
     return EXIT_SUCCESS;
 }
 
+int VtsStorage::generateGlues()
+{
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+
+    // lock if external locking program is available
+    Lock lock(path_, lock_);
+
+    storage.generateGlues(tilesetId_, addOptions_);
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::generateGlue()
+{
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+
+    // lock if external locking program is available
+    Lock lock(path_, lock_);
+
+    storage.generateGlue(tilesetIds_, addOptions_);
+    return EXIT_SUCCESS;
+}
+
 int VtsStorage::tags()
 {
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
@@ -1462,7 +1573,7 @@ int VtsStorage::tags()
             continue;
         }
         std::cout << tileset.tilesetId << ": "
-                  << utility::join(tileset.tags, ", ") << std::endl;
+                  << utility::join(tileset.tags, ", ") << '\n';
     }
 
     return EXIT_SUCCESS;
@@ -1473,9 +1584,9 @@ void showCredits(std::ostream &out, const vts::MetaNode &node
 {
     out << prefix << "credits: ";
     if (node.credits().empty()) {
-        out << "none" << std::endl;
+        out << "none" << '\n';
     } else {
-        out << node.credits().size() << std::endl;
+        out << node.credits().size() << '\n';
     }
 
     for (const auto &credit : node.credits()) {
@@ -1486,7 +1597,7 @@ void showCredits(std::ostream &out, const vts::MetaNode &node
             out << ": <unknown>";
         }
 
-        out << std::endl;
+        out << '\n';
     }
     return;
 }
@@ -1500,16 +1611,16 @@ int VtsStorage::dumpMetatile()
 
     auto meta(ts.getMetaTile(tileId_));
 
-    std::cout << "Metatile ID: " << meta.origin() << std::endl;
+    std::cout << "Metatile ID: " << meta.origin() << '\n';
 
     std::cout << "Parent metatile ID: "
-              << ts.metaId(vts::parent(meta.origin())) << std::endl;
+              << ts.metaId(vts::parent(meta.origin())) << '\n';
 
     {
         auto e(meta.validExtents());
-        std::cout << "Covered global tile extents: " << e << std::endl;
+        std::cout << "Covered global tile extents: " << e << '\n';
         if (!math::valid(e)) {
-            std::cout << "No valid tile in this metatile." << std::endl;
+            std::cout << "No valid tile in this metatile." << '\n';
             return EXIT_SUCCESS;
         }
     }
@@ -1526,48 +1637,48 @@ int VtsStorage::dumpMetatile()
         // filter out by SDS SRS if asked to
         if (optSrs_ && (nodeInfo.srs() != optSrs_)) { return; }
 
-        std::cout << tid << std::endl;
+        std::cout << tid << '\n';
         std::cout << "    flags: " << vts::MetaFlags(node.flags())
-                  << std::endl;
+                  << '\n';
 
         std::cout
-            << "    tileindex flags: " << vts::TileFlags(tiFlags) << std::endl;
+            << "    tileindex flags: " << vts::TileFlags(tiFlags) << '\n';
 
-        std::cout << "    SDS srs: " << nodeInfo.srs() << std::endl;
-        std::cout << "    SDS extents: " << nodeInfo.extents() << std::endl;
-        std::cout << "    extents: " << node.extents << std::endl;
+        std::cout << "    SDS srs: " << nodeInfo.srs() << '\n';
+        std::cout << "    SDS extents: " << nodeInfo.extents() << '\n';
+        std::cout << "    extents: " << node.extents << '\n';
         if (node.internalTextureCount()) {
             std::cout
                 << "    texture count: " << node.internalTextureCount()
-                << std::endl;
+                << '\n';
         }
         if (node.reference()) {
             std::cout
-                << "    reference: " << node.reference() << std::endl;
+                << "    reference: " << node.reference() << '\n';
         }
 
         if (node.applyTexelSize()) {
-            std::cout << "    texel size: " << node.texelSize << std::endl;
+            std::cout << "    texel size: " << node.texelSize << '\n';
         }
         if (node.applyDisplaySize()) {
             std::cout << "    display size: " << node.displaySize
-                      << std::endl;
+                      << '\n';
         }
         if (node.navtile()) {
-            std::cout << "    height range: " << node.heightRange << std::endl;
+            std::cout << "    height range: " << node.heightRange << '\n';
         }
         if (node.sourceReference) {
             std::cout
-                << "    source reference: " << node.sourceReference << std::endl;
+                << "    source reference: " << node.sourceReference << '\n';
         }
 
         showCredits(std::cout, node, "    ");
 
-        std::cout << "    children:" << std::endl;
+        std::cout << "    children:" << '\n';
         for (const auto &childId : children(node, tid)) {
-            std::cout << "        " << childId << std::endl;
+            std::cout << "        " << childId << '\n';
         }
-        std::cout << std::endl;
+        std::cout << '\n';
     });
 
     return EXIT_SUCCESS;
@@ -1591,7 +1702,7 @@ int VtsStorage::mapConfig()
     default: break;
     }
     std::cerr << "Path " << path_ << " cannot produce any mapConfig."
-              << std::endl;
+              << '\n';
     return EXIT_FAILURE;
 }
 
@@ -1613,7 +1724,7 @@ int VtsStorage::dirs()
     default: break;
     }
     std::cerr << "Path " << path_ << " cannot produce any directory listing."
-              << std::endl;
+              << '\n';
     return EXIT_FAILURE;
 }
 
@@ -1632,10 +1743,10 @@ int VtsStorage::tileInfo()
 
     auto flags(ts.tileIndex().get(tileId_));
     if (!flags) {
-        std::cerr << tileId_ << ": no such tile" << std::endl;
+        std::cerr << tileId_ << ": no such tile" << '\n';
         return EXIT_FAILURE;
     }
-    std::cout << tileId_ << ": " << vts::TileFlags(flags) << std::endl;
+    std::cout << tileId_ << ": " << vts::TileFlags(flags) << '\n';
 
     vts::NodeInfo ni(ts.referenceFrame(), tileId_);
 
@@ -1644,48 +1755,48 @@ int VtsStorage::tileInfo()
         << "\n    parent: " << vts::parent(tileId_)
         << "\n    extents: " << ni.extents()
         << "\n    srs: " << ni.srs()
-        << std::endl;
+        << '\n';
 
     if (flags & (vts::TileIndex::Flag::real | vts::TileIndex::Flag::reference))
     {
         auto node(ts.getMetaNode(tileId_));
 
-        std::cout << "Meta node:" << std::endl;
+        std::cout << "Meta node:" << '\n';
         std::cout << "    flags: " << vts::MetaFlags(node.flags())
-                  << std::endl;
-        std::cout << "    extents: " << node.extents << std::endl;
+                  << '\n';
+        std::cout << "    extents: " << node.extents << '\n';
         if (node.internalTextureCount()) {
             std::cout
                 << "    texture count: " << node.internalTextureCount()
-                << std::endl;
+                << '\n';
         }
         if (node.reference()) {
             std::cout
                 << "    reference: " << node.reference()
-                << std::endl;
+                << '\n';
         }
 
         if (node.applyTexelSize()) {
-            std::cout << "    texel size: " << node.texelSize << std::endl;
+            std::cout << "    texel size: " << node.texelSize << '\n';
         }
         if (node.applyDisplaySize()) {
-            std::cout << "    display size: " << node.displaySize << std::endl;
+            std::cout << "    display size: " << node.displaySize << '\n';
         }
         if (node.navtile()) {
-            std::cout << "    height range: " << node.heightRange << std::endl;
+            std::cout << "    height range: " << node.heightRange << '\n';
         }
 
         if (node.sourceReference) {
             std::cout
                 << "    source reference: " << node.sourceReference
-                << std::endl;
+                << '\n';
         }
 
         showCredits(std::cout, node, "    ");
 
-        std::cout << "    children:" << std::endl;
+        std::cout << "    children:" << '\n';
         for (const auto &childId : children(node, tileId_)) {
-            std::cout << "        " << childId << std::endl;
+            std::cout << "        " << childId << '\n';
         }
     }
 
@@ -1699,7 +1810,7 @@ int VtsStorage::tileInfo()
             << "Mesh:"
             << "\n    Submeshes: " << mesh.submeshes.size()
             << "\n    Covered: " << covered << " %"
-            << std::endl;
+            << '\n';
 
         int index(0);
         for (const auto &sm : mesh.submeshes) {
@@ -1725,7 +1836,7 @@ int VtsStorage::tileInfo()
                     << "\n        textureLayer: " << *sm.textureLayer;
             }
 
-            std::cout << std::endl;
+            std::cout << '\n';
             ++index;
         }
     }
@@ -1737,12 +1848,12 @@ int VtsStorage::tileInfo()
         std::cout
             << "Atlas:"
             << "\n    Textures: " << atlas.size()
-            << std::endl;
+            << '\n';
         for (std::size_t index(0), end(atlas.size()); index != end; ++index) {
             std::cout
                 << "    " << index << ":"
                 << "\n        imageSize: " << atlas.imageSize(index)
-                << std::endl;
+                << '\n';
         }
     }
 
@@ -1754,7 +1865,7 @@ int VtsStorage::dumpMesh()
     auto ts(vts::openTileSet(path_));
 
     if (!(ts.tileIndex().get(tileId_) & vts::TileIndex::Flag::mesh)) {
-        std::cerr << tileId_ << ": has no mesh" << std::endl;
+        std::cerr << tileId_ << ": has no mesh" << '\n';
         return EXIT_FAILURE;
     }
 
@@ -1763,12 +1874,12 @@ int VtsStorage::dumpMesh()
     int index(0);
     for (const auto &sm : mesh.submeshes) {
         std::cout << "submesh[" << index << "] (" 
-                  << sm.vertices.size() << " vertices):" << std::endl;
+                  << sm.vertices.size() << " vertices):" << '\n';
 
         const auto &v(sm.vertices);
 
         std::cout << "faces[" << index << "] (" 
-                  << sm.faces.size() << " faces):" << std::endl;
+                  << sm.faces.size() << " faces):" << '\n';
         for (const auto &f : sm.faces) {
             std::cout
                 << std::fixed << "    " << f(0) << ", " << f(1) << ", " << f(2)
@@ -1779,7 +1890,7 @@ int VtsStorage::dumpMesh()
         }
 
         if (!sm.tc.empty()) {
-            std::cout << "\ntexture faces[" << index << "]" << std::endl;
+            std::cout << "\ntexture faces[" << index << "]" << '\n';
             for (const auto &f : sm.facesTc) {
                 std::cout
                     << std::fixed << "    " << f(0) << ", "
@@ -1791,7 +1902,7 @@ int VtsStorage::dumpMesh()
 
         if (!sm.etc.empty()) {
             std::cout << "\nexternal texture faces[" << index << "]"
-                      << std::endl;
+                      << '\n';
             for (const auto &f : sm.faces) {
                 std::cout
                     << std::fixed << "    " << f(0) << ", "
@@ -1812,7 +1923,7 @@ int VtsStorage::dumpMeshMask()
     auto ts(vts::openTileSet(path_));
 
     if (!(ts.tileIndex().get(tileId_) & vts::TileIndex::Flag::mesh)) {
-        std::cerr << tileId_ << ": has no mesh" << std::endl;
+        std::cerr << tileId_ << ": has no mesh" << '\n';
         return EXIT_FAILURE;
     }
 
@@ -1826,13 +1937,13 @@ int VtsStorage::tileIndexInfo()
 {
     vts::TileIndex ti;
     ti.load(path_);
-    std::cout << "lodRange: " << ti.lodRange() << std::endl;
+    std::cout << "lodRange: " << ti.lodRange() << '\n';
 
     tiInfo(ti);
 
     for (const auto &tileId : tileIds_) {
         auto flags(ti.get(tileId));
-        std::cout << tileId << ": " << vts::TileFlags(flags) << std::endl;
+        std::cout << tileId << ": " << vts::TileFlags(flags) << '\n';
     }
 
     return EXIT_SUCCESS;
@@ -1911,7 +2022,7 @@ int VtsStorage::aggregate()
     default: break;;
     }
 
-    std::cerr << "Cannot aggregate " << path_ << "." << std::endl;
+    std::cerr << "Cannot aggregate " << path_ << "." << '\n';
     return EXIT_FAILURE;
 }
 
@@ -1969,7 +2080,7 @@ int VtsStorage::clone()
     default: break;
     }
 
-    std::cerr << "Unrecognized content " << path_ << "." << std::endl;
+    std::cerr << "Unrecognized content " << path_ << "." << '\n';
     return EXIT_FAILURE;
 }
 
@@ -2007,7 +2118,7 @@ int VtsStorage::relocate()
     default: break;
     }
 
-    std::cerr << "Unrecognized content " << path_ << "." << std::endl;
+    std::cerr << "Unrecognized content " << path_ << "." << '\n';
     return EXIT_FAILURE;
 }
 
@@ -2020,7 +2131,7 @@ int serveFile(const vts::Delivery::pointer &delivery
     vts::FileFlavor flavor;
 
     if (!vts::fromFilename(tileId, type, subTileIndex, filename, 0, &flavor)) {
-        std::cerr << "Unrecognized filename " << filename << "." << std::endl;
+        std::cerr << "Unrecognized filename " << filename << "." << '\n';
         return EXIT_FAILURE;
     }
 
@@ -2046,7 +2157,7 @@ int VtsStorage::file()
     default: break;
     }
 
-    std::cerr << "Unrecognized content " << path_ << "." << std::endl;
+    std::cerr << "Unrecognized content " << path_ << "." << '\n';
     return EXIT_FAILURE;
 }
 
@@ -2135,7 +2246,7 @@ int VtsStorage::dumpNavtile()
     auto ts(vts::openTileSet(path_));
 
     if (!(ts.tileIndex().get(tileId_) & vts::TileIndex::Flag::navtile)) {
-        std::cerr << tileId_ << ": has no navtile" << std::endl;
+        std::cerr << tileId_ << ": has no navtile" << '\n';
         return EXIT_FAILURE;
     }
 
@@ -2153,7 +2264,7 @@ int VtsStorage::dumpNavtileMask()
     auto ts(vts::openTileSet(path_));
 
     if (!(ts.tileIndex().get(tileId_) & vts::TileIndex::Flag::navtile)) {
-        std::cerr << tileId_ << ": has no navtile" << std::endl;
+        std::cerr << tileId_ << ": has no navtile" << '\n';
         return EXIT_FAILURE;
     }
 
@@ -2186,7 +2297,7 @@ int VtsStorage::navtile2dem()
     auto ts(vts::openTileSet(path_));
 
     if (!(ts.tileIndex().get(tileId_) & vts::TileIndex::Flag::navtile)) {
-        std::cerr << tileId_ << ": has no navtile" << std::endl;
+        std::cerr << tileId_ << ": has no navtile" << '\n';
         return EXIT_FAILURE;
     }
 
@@ -2316,7 +2427,7 @@ int VtsStorage::virtualSurfaceCreate()
 
     default:
         std::cerr << "Cannot create virtual surface in "
-                  << path_ << "." << std::endl;
+                  << path_ << "." << '\n';
         return EXIT_FAILURE;
     }
 
@@ -2361,7 +2472,7 @@ int VtsStorage::virtualSurfaceRemove()
 
     default:
         std::cerr << "Cannot remopve virtual surface from "
-                  << path_ << "." << std::endl;
+                  << path_ << "." << '\n';
         return EXIT_FAILURE;
     }
 

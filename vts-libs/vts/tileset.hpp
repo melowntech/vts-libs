@@ -233,6 +233,8 @@ public:
 
     typedef std::vector<const TileSet*> const_ptrlist;
 
+    typedef std::vector<TileSet> list;
+
     bool externallyChanged() const;
 
     /** Returns time of last modification. Recorded at read-only open.
@@ -322,7 +324,7 @@ public:
      *  Priority grows from left to right.
      *
      */
-    static void createGlue(TileSet &glue, const const_ptrlist &sets
+    static void createGlue(TileSet &glue, const list &sets
                            , const GlueCreationOptions &options);
 
     /** Glue statistics returned by analyzeGlue.
@@ -341,7 +343,7 @@ public:
      *  Priority grows from left to right.
      *
      */
-    static GlueStatistics analyzeGlue(const const_ptrlist &sets
+    static GlueStatistics analyzeGlue(const list &sets
                                       , const GlueCreationOptions &options);
 
     /** Internals. Public to ease library developers' life, not to allow users

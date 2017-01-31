@@ -176,6 +176,10 @@ struct Storage::Detail
 
     void saveConfig();
 
+    /** Set and save new properties.
+     */
+    void saveConfig(const Properties &nProperties);
+
     TileSet open(const TilesetId &tilesetId) const;
 
     TileSet open(const Glue &glue) const;
@@ -184,6 +188,12 @@ struct Storage::Detail
              , const TilesetId &tilesetId, const AddOptions &addOptions);
 
     void readd(const TilesetId &tilesetId, const AddOptions &addOptions);
+
+    void generateGlues(const TilesetId &tilesetId
+                       , const AddOptions &addOptions);
+
+    void generateGlue(const Glue::Id &glueId
+                      , const AddOptions &addOptions);
 
     void remove(const TilesetIdList &tilesetIds);
 

@@ -154,9 +154,10 @@ public:
         boost::optional<boost::filesystem::path> tmp;
         Tags tags;
         OpenOptions openOptions;
+        bool lazy;
 
         AddOptions()
-            : bumpVersion(false), filter(), dryRun(false)
+            : bumpVersion(false), filter(), dryRun(false), lazy(false)
         {}
     };
 
@@ -188,6 +189,11 @@ public:
      */
     void remove(const TilesetIdList &tilesetIds);
 
+    void generateGlues(const TilesetId &tilesetId
+                       , const AddOptions &addOptions);
+
+    void generateGlue(const Glue::Id &glueId
+                      , const AddOptions &addOptions);
 
     /** Creates a virtual surface from storage.
      *
@@ -245,6 +251,18 @@ public:
      */
     Glue::list glues(const TilesetId &tilesetId
                      , const std::function<bool(const Glue::Id&)> &filter)
+        const;
+
+    /** Return list of all tileset's glues (glues that have given tileset at any
+     *  position in the stack).
+     */
+    Glue::list allGlues(const TilesetId &tilesetId) const;
+
+    /** Return list of all tileset's glues (glues that have given tileset at any
+     *  position in the stack).
+     */
+    Glue::list allGlues(const TilesetId &tilesetId
+                        , const std::function<bool(const Glue&)> &filter)
         const;
 
     /** Returns list of existing virtualSurfaces.

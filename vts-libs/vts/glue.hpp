@@ -6,6 +6,7 @@
 #include "math/geometry_core.hpp"
 
 #include "utility/supplement.hpp"
+#include "utility/enum-io.hpp"
 
 #include "./basetypes.hpp"
 
@@ -15,15 +16,17 @@ struct Glue : public utility::Supplement<Glue> {
     typedef TilesetIdList Id;
     Id id;
     std::string path;
-    boost::any sumplement;
+    enum class Status { ready, pending, empty };
+    Status status;
 
     typedef std::map<Id, Glue> map;
     typedef std::vector<Glue> list;
     typedef std::vector<Id> Ids;
 
-    Glue() {}
-    Glue(const Id &id) : id(id) {}
-    Glue(const Id &id, const std::string &path) : id(id), path(path) {}
+    Glue() : status(Status::empty) {}
+    Glue(const Id &id) : id(id), status(Status::empty) {}
+    Glue(const Id &id, const std::string &path)
+        : id(id), path(path), status(Status::empty) {}
 
     /** Returns true if glue references given tileset
      */
@@ -68,6 +71,14 @@ struct TileSetGlues : public utility::Supplement<TileSetGlues> {
  * \param mapping between tilesets and their glues.
  */
 TileSetGlues::list glueOrder(const TileSetGlues::list &in);
+
+// inlines
+
+UTILITY_GENERATE_ENUM_IO(Glue::Status,
+    ((ready))
+    ((pending))
+    ((empty))
+)
 
 } } // namespace vadstena::vts
 

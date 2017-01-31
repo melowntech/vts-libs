@@ -170,6 +170,12 @@ void Storage::Detail::saveConfig()
     }
 }
 
+void Storage::Detail::saveConfig(const Properties &nProperties)
+{
+    properties = nProperties;
+    saveConfig();
+}
+
 ExtraStorageProperties Storage::Detail::loadExtraConfig() const
 {
     return loadExtraConfig(root);
@@ -624,6 +630,40 @@ Storage::glues(const TilesetId &tilesetId
     return glues;
 }
 
+Glue::list Storage::allGlues(const TilesetId &tilesetId) const
+{
+    Glue::list glues;
+
+    for (const auto &item : detail().properties.glues) {
+        const auto &glue(item.second);
+        if (std::find(glue.id.begin(), glue.id.end(), tilesetId)
+            != glue.id.end())
+        {
+            glues.push_back(glue);
+        }
+    }
+
+    return glues;
+}
+
+Glue::list Storage::allGlues(const TilesetId &tilesetId
+                             , const std::function<bool(const Glue&)> &filter)
+    const
+{
+    Glue::list glues;
+
+    for (const auto &item : detail().properties.glues) {
+        const auto &glue(item.second);
+        if ((std::find(glue.id.begin(), glue.id.end(), tilesetId)
+             != glue.id.end()) && filter(glue))
+        {
+            glues.push_back(glue);
+        }
+    }
+
+    return glues;
+}
+
 VirtualSurface::list Storage::virtualSurfaces(const TilesetId &tilesetId) const
 {
     VirtualSurface::list virtualSurfaces;
@@ -756,10 +796,6 @@ void Storage::updateTags(const TilesetId &tilesetId
 void Storage::Detail::updateTags(const TilesetId &tilesetId
                                  , const Tags &add, const Tags &remove)
 {
-    (void) tilesetId;
-    (void) add;
-    (void) remove;
-
     auto *tileset(properties.findTileset(tilesetId));
     if (!tileset) {
         LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
