@@ -121,6 +121,10 @@ struct Storage::Properties : StorageProperties {
      *  as well.
      */
     TilesetIdSet unique(const TilesetIdSet *subset) const;
+
+    /** Normalize glue ID.
+     */
+    Glue::Id normalize(const Glue::Id &id) const;
 };
 
 TilesetIdList tilesetIdList(const StoredTileset::list &tilesets);

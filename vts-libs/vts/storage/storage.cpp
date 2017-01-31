@@ -388,6 +388,22 @@ TilesetIdSet Storage::Properties::unique(const TilesetIdSet *subset) const
     return out;
 }
 
+Glue::Id Storage::Properties::normalize(const Glue::Id &id) const
+{
+    Glue::Id out;
+    out.reserve(id.size());
+
+    const TilesetIdSet tmp(id.begin(), id.end());
+
+    for (const auto &tileset : tilesets) {
+        if (tmp.find(tileset.tilesetId) != tmp.end()) {
+            out.push_back(tileset.tilesetId);
+        }
+    }
+
+    return out;
+}
+
 MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
                                      , const Storage::Properties &properties
                                      , const ExtraStorageProperties &extra

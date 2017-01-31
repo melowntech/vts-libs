@@ -102,7 +102,8 @@ void Storage::generateGlues(const TilesetId &tilesetId
 void Storage::generateGlue(const Glue::Id &glueId
                            , const AddOptions &addOptions)
 {
-    detail().generateGlue(glueId, addOptions);
+    detail().generateGlue(detail().properties.normalize(glueId)
+                          , addOptions);
 }
 
 void Storage::readd(const TilesetId &tilesetId
