@@ -313,7 +313,6 @@ struct TileSet::Factory
                       , const Detail &src, Detail &dst
                       , const CloneOptions &cloneOptions)
     {
-        LOG(info4) << "cloneOptions.encodeFlags(): " << cloneOptions.encodeFlags();
         // simple case? use fully optimized version
         if (!(cloneOptions.lodRange()
               || cloneOptions.metaNodeManipulator()
@@ -540,6 +539,8 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
 
     if (!driverTsi_) {
         loadTileIndex();
+    } else {
+        lodRange = tileIndex.lodRange();
     }
 }
 
