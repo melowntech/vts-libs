@@ -184,6 +184,10 @@ openDrivers(Storage &storage, const OpenOptions &openOptions
         // TODO: check for proper index
         Glue::Id glueId;
         for (auto reference : references) {
+            if (reference >= tilesets.size()) {
+                LOGTHROW(err1, vs::Corrupted)
+                    << "Invalid tileset reference <" << reference << ">.";
+            }
             glueId.push_back(tilesets[reference]);
         }
 
