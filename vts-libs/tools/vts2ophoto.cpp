@@ -345,19 +345,19 @@ void rasterize(const vts::Mesh &mesh, const vts::opencv::Atlas &atlas
     }
 }
 
-void process(geo::GeoDataset &dataset
-             , const vts::TileSet &ts, vts::Lod lod
-             , const vts::TileRange &tileRange
-             , const Config &config
-             , const vts::CsConvertor &phys2sd)
+void process(geo::GeoDataset *dataset
+             , const vts::TileSet *ts, vts::Lod lod
+             , const vts::TileRange *tileRange
+             , const Config *config
+             , const vts::CsConvertor *phys2sd)
 {
     const auto TexuredMesh
         (vts::TileIndex::Flag::mesh | vts::TileIndex::Flag::atlas);
 
     UTILITY_OMP(parallel)
     UTILITY_OMP(single)
-    traverse(ts.tileIndex(), lod, [&](vts::TileId tileId
-                                      , vts::QTree::value_type flags)
+    traverse(ts->tileIndex(), lod, [=](vts::TileId tileId
+                                       , vts::QTree::value_type flags)
     {
         if (!vts::TileIndex::Flag::check(flags, TexuredMesh, TexuredMesh)) {
             // not a textured mesh
@@ -369,34 +369,36 @@ void process(geo::GeoDataset &dataset
             vts::Mesh mesh;
             vts::opencv::Atlas atlas;
 
-            UTILITY_OMP(critical)
+            UTILITY_OMP(critical(Vts2Ophoto_process))
             {
-                mesh = ts.getMesh(tileId);
-                ts.getAtlas(tileId, atlas);
+                mesh = ts->getMesh(tileId);
+                ts->getAtlas(tileId, atlas);
             }
 
-            const auto ni(ts.nodeInfo(tileId));
-            const auto &size(config.samplesPerTile);
+            const auto ni(ts->nodeInfo(tileId));
+            const auto &size(config->samplesPerTile);
 
             const vts::TileRange::point_type offset
-                ((tileId.x - tileRange.ll(0)) * size.width
-                 , (tileId.y - tileRange.ll(1)) * size.height);
+                ((tileId.x - tileRange->ll(0)) * size.width
+                 , (tileId.y - tileRange->ll(1)) * size.height);
 
             LOG(info3)
                 << "Processing " << tileId << ": " << vts::TileFlags(flags)
                 << " (" << offset << ")";
 
-            makeLocal(mesh, ni, phys2sd, config.samplesPerTile);
+            makeLocal(mesh, ni, *phys2sd, config->samplesPerTile);
 
             RbgMat pane(size.height, size.width, Pixel());
             MaskMat mask(size.height, size.width, (unsigned char)(0));
             rasterize(mesh, atlas, pane, mask);
 
             // write block to dataset (under a lock)
-            UTILITY_OMP(critical)
+            UTILITY_OMP(critical(Vts2Ophoto_process))
             {
-                dataset.writeBlock({ offset(0), offset(1) }, pane);
-                dataset.writeMaskBlock({ offset(0), offset(1) }, mask);
+                dataset->writeBlock
+                    (math::Point2i(offset(0), offset(1)), pane);
+                dataset->writeMaskBlock
+                    (math::Point2i(offset(0), offset(1)), mask);
             }
         }
     });
@@ -515,7 +517,7 @@ int Vts2Ophoto::run()
     LOG(info3) << "Rasterizing " << sizeInTiles << "tiles ("
                << tr << ") at LOD " << lod << ".";
 
-    process(output, input, lod, tr, config_, phys2sd);
+    process(&output, &input, lod, &tr, &config_, &phys2sd);
 
     // all done
     LOG(info4) << "All done.";

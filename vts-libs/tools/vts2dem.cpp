@@ -235,16 +235,16 @@ void rasterize(cv::Mat_<double> &pane, const vts::Mesh &mesh)
     }
 }
 
-void process(cv::Mat &data, geo::GeoDataset::Mask &mask
-             , const vts::TileSet &ts, vts::Lod lod
-             , const vts::TileRange &tileRange
-             , const Config &config
-             , const vts::CsConvertor &phys2sd)
+void process(cv::Mat *data, geo::GeoDataset::Mask *mask
+             , const vts::TileSet *ts, vts::Lod lod
+             , const vts::TileRange *tileRange
+             , const Config *config
+             , const vts::CsConvertor *phys2sd)
 {
     UTILITY_OMP(parallel)
     UTILITY_OMP(single)
-    traverse(ts.tileIndex(), lod, [&](vts::TileId tileId
-                                      , vts::QTree::value_type flags)
+    traverse(ts->tileIndex(), lod, [=](vts::TileId tileId
+                                       , vts::QTree::value_type flags)
     {
         if (!vts::TileIndex::Flag::isReal(flags)) { return; }
 
@@ -254,26 +254,26 @@ void process(cv::Mat &data, geo::GeoDataset::Mask &mask
             {
                 vts::Mesh m;
                 UTILITY_OMP(critical)
-                    m = ts.getMesh(tileId);
+                    m = ts->getMesh(tileId);
                 return m;
             }());
 
-            const auto ni(ts.nodeInfo(tileId));
-            const auto &size(config.samplesPerTile);
+            const auto ni(ts->nodeInfo(tileId));
+            const auto &size(config->samplesPerTile);
 
             const vts::TileRange::point_type offset
-                ((tileId.x - tileRange.ll(0)) * size.width
-                 , (tileId.y - tileRange.ll(1)) * size.height);
+                ((tileId.x - tileRange->ll(0)) * size.width
+                 , (tileId.y - tileRange->ll(1)) * size.height);
 
             LOG(info3)
                 << "Processing " << tileId << ": " << vts::TileFlags(flags)
                 << " (" << offset << ")";
 
             cv::Mat_<double> pane
-                (data, cv::Range(offset(1), offset(1) + size.height)
+                (*data, cv::Range(offset(1), offset(1) + size.height)
                  , cv::Range(offset(0), offset(0) + size.width));
 
-            makeLocal(mesh, ni, phys2sd, config.samplesPerTile);
+            makeLocal(mesh, ni, *phys2sd, config->samplesPerTile);
 
             rasterize(pane, mesh);
         }
@@ -412,7 +412,8 @@ int Vts2Dem::run()
     LOG(info3) << "Rasterizing " << sizeInTiles << "tiles ("
                << tr << ") at LOD " << lod << ".";
 
-    process(output.data(), output.mask(), input, lod, tr, config_, phys2sd);
+    process(&output.data(), &output.mask(), &input, lod, &tr
+            , &config_, &phys2sd);
 
     // filter via "DTM" filter
     vts::dtmize(output, dtmKernelSize);
