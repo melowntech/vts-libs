@@ -391,6 +391,8 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
     // invalidated later
     tilesetInfo.reserve(tilesets.size());
 
+    Glue::IdSet pendingGlues;
+
     // we are processing tileset from bottom up
     {
         typedef std::map<TilesetId, TileSetGlues*> BackMap;
@@ -411,6 +413,14 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
             // remember tileset in back-map
             backMap.insert(BackMap::value_type
                            (tilesetId, &tilesetInfo.back()));
+
+            auto pg(storage_.pendingGlues(tilesetId));
+            pendingGlues.insert(pg.begin(), pg.end());
+        }
+
+        if (!pendingGlues.empty()) {
+            LOG(err2) << "Cannot aggregate tilesets: pending glues.";
+            throw PendingGluesError(pendingGlues);
         }
 
         // Step #2: distribute (possible) aliens in appropriate secondary

@@ -111,6 +111,22 @@ private:
     boost::optional<LodRange> lodRange_;
 };
 
+class PendingGluesError : public std::runtime_error {
+public:
+    PendingGluesError(Glue::IdSet glues)
+        : std::runtime_error("Penging glues.")
+        , glues_(std::move(glues))
+    {}
+
+    // needed by old gcc
+    virtual ~PendingGluesError() throw() {}
+
+    const Glue::IdSet& glues() const { return glues_; }
+
+private:
+    Glue::IdSet glues_;
+};
+
 /** Storage interface.
  */
 class Storage {
@@ -253,7 +269,13 @@ public:
                      , const std::function<bool(const Glue::Id&)> &filter)
         const;
 
+    /** Return list of all pending glues.
+     */
     Glue::IdSet pendingGlues() const;
+
+    /** Return list tileset's pending glues.
+     */
+    Glue::IdSet pendingGlues(const TilesetId &tilesetId) const;
 
     /** Returns list of existing virtualSurfaces.
      */

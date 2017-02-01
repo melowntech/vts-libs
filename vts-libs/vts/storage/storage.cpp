@@ -656,6 +656,20 @@ Glue::IdSet Storage::pendingGlues() const
     return detail().properties.pendingGlues;
 }
 
+Glue::IdSet Storage::pendingGlues(const TilesetId &tilesetId) const
+{
+    Glue::IdSet glues;
+
+    const auto &src(detail().properties.pendingGlues);
+    std::copy_if(src.begin(), src.end(), std::inserter(glues, glues.end())
+                 , [&](const Glue::Id &id)
+                 {
+                     return Glue::references(id, tilesetId);
+                 });
+
+    return glues;
+}
+
 VirtualSurface::list Storage::virtualSurfaces(const TilesetId &tilesetId) const
 {
     VirtualSurface::list virtualSurfaces;

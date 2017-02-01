@@ -1991,6 +1991,21 @@ int VtsStorage::concat()
     return EXIT_SUCCESS;
 }
 
+template <typename F>
+int checkForPendingError(const F &f, const std::string &what)
+{
+    try {
+        f();
+    } catch (const vts::PendingGluesError &pg) {
+        std::cerr << "vts: cannot " << what << ", pending glues:\n";
+        for (const auto &glue : pg.glues()) {
+            std::cerr << "    <" << utility::join(glue, ",") << ">\n";
+        }
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}
+
 int VtsStorage::aggregate()
 {
     vts::CloneOptions createOptions;
@@ -2005,9 +2020,10 @@ int VtsStorage::aggregate()
                  , "tileset");
         }
 
-        vts::aggregateTileSets(outputPath_, vts::openStorage(path_)
-                               , createOptions, tilesetIds_);
-        return EXIT_SUCCESS;
+        return checkForPendingError([&]() {
+            vts::aggregateTileSets(outputPath_, vts::openStorage(path_)
+                                   , createOptions, tilesetIds_);
+        }, "aggregate");
 
     case vts::DatasetType::StorageView:
         if (!tilesetIds_.empty()) {
@@ -2016,9 +2032,10 @@ int VtsStorage::aggregate()
                  , "tileset");
         }
 
-        vts::aggregateTileSets(outputPath_, vts::openStorageView(path_)
-                               , createOptions);
-        return EXIT_SUCCESS;
+        return checkForPendingError([&]() {
+            vts::aggregateTileSets(outputPath_, vts::openStorageView(path_)
+                                   , createOptions);
+        }, "aggregate");
 
     default: break;;
     }
@@ -2437,8 +2454,9 @@ int VtsStorage::virtualSurfaceCreate()
     // lock if external locking program is available
     Lock lock(path_, lock_);
 
-    storage.createVirtualSurface(tids, createMode_);
-    return EXIT_SUCCESS;
+    return checkForPendingError([&]() {
+        storage.createVirtualSurface(tids, createMode_);
+    }, "create virtual surface");
 }
 
 int VtsStorage::virtualSurfaceRemove()
