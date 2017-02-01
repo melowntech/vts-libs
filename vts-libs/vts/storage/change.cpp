@@ -68,6 +68,11 @@ void reportMemoryUsage(const std::string&) {}
 
 #endif
 
+inline std::string glueId2path(const Glue::Id &id)
+{
+    return boost::lexical_cast<std::string>(utility::join(id, "_"));
+}
+
 Storage::AddOptions updateAddOptions(Storage::AddOptions addOptions
                                      , const MergeConf &mergeConf)
 {
@@ -581,8 +586,7 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
                     combination.push_back(gts->set);
                 }
 
-                auto glueSetId(boost::lexical_cast<std::string>
-                           (utility::join(glue.id, "_")));
+                auto glueSetId(glueId2path(glue.id));
                 glue.path = glueSetId;
 
                 // create glue
@@ -666,8 +670,7 @@ prepareGlues(const Glue::list &glues, const TileSets &tilesets)
                         , "Cannot assign tilesets to glue <%s>"
                         , utility::join(glue.id, ","));
 
-        const auto glueSetId(boost::lexical_cast<std::string>
-                             (utility::join(glue.id, "_")));
+        auto glueSetId(glueId2path(glue.id));
         gds.emplace_back(gds.size() + 1, combination, glue, glueSetId);
     }
 
@@ -679,12 +682,9 @@ void writePendingGlues(Storage::Properties &properties
                        , const GlueDescriptor::list &gds)
 {
     for (const auto &gd : gds) {
-        auto glue(gd.glue);
-        glue.status = Glue::Status::pending;
-        properties.glues[gd.glue.id] = glue;
+        properties.pendingGlues.insert(gd.glue.id);
     }
 }
-
 
 Glue createGlue(Tx &tx, const GlueDescriptor &gd
                 , const Storage::AddOptions &addOptions
@@ -729,8 +729,8 @@ Glue createGlue(Tx &tx, const GlueDescriptor &gd
             << "ignoring. Duration: "
             << utility::formatDuration(duration) << ".";
 
-        glue.status = Glue::Status::empty;
         tx.remove(gPath);
+        glue.path = {};
     } else {
         // usable
         LOG(info3)
@@ -741,9 +741,6 @@ Glue createGlue(Tx &tx, const GlueDescriptor &gd
         gts.flush();
 
         reportMemoryUsage("after glue flush");
-
-        // and remember
-        glue.status = Glue::Status::ready;
     }
 
     reportMemoryUsage("after glue creation");
@@ -859,13 +856,32 @@ Storage::Detail::removeTilesets(const Properties &properties
     }
 
     // drop all glues that reference requested tilesets
-    auto &glues(p.glues);
     auto &resGlues(std::get<1>(res));
     for (const auto &tilesetId : tilesetIds) {
-        for (auto iglues(glues.begin()); iglues != glues.end(); ) {
+        for (auto iglues(p.glues.begin()); iglues != p.glues.end(); ) {
             if (iglues->second.references(tilesetId)) {
                 resGlues.insert(*iglues);
-                iglues = glues.erase(iglues);
+                iglues = p.glues.erase(iglues);
+            } else {
+                ++iglues;
+            }
+        }
+
+        for (auto iglues(p.pendingGlues.begin());
+             iglues != p.pendingGlues.end(); )
+        {
+            if (Glue::references(*iglues, tilesetId)) {
+                iglues = p.pendingGlues.erase(iglues);
+            } else {
+                ++iglues;
+            }
+        }
+
+        for (auto iglues(p.emptyGlues.begin());
+             iglues != p.emptyGlues.end(); )
+        {
+            if (Glue::references(*iglues, tilesetId)) {
+                iglues = p.emptyGlues.erase(iglues);
             } else {
                 ++iglues;
             }
@@ -948,7 +964,15 @@ void generateGluesImpl(Tx &tx, const GlueDescriptor::list &gds
         const auto glue(createGlue(tx, gd, addOptions, gds.size()));
 
         // update properties
-        properties.glues[gd.glue.id] = glue;
+        if (glue.path.empty()) {
+            // empty glue -> move to empty list
+            properties.pendingGlues.erase(glue.id);
+            properties.emptyGlues.insert(glue.id);
+        } else {
+            // create -> move to main map
+            properties.pendingGlues.erase(glue.id);
+            properties.glues[glue.id] = glue;
+        }
 
         // commit new properties and changes to the transaction
         detail.saveConfig(properties);
@@ -1029,13 +1053,9 @@ void Storage::Detail::generateGlues(const TilesetId &tilesetId
 {
     Glue::list glues;
 
-    for (const auto &item : properties.glues) {
-        const auto &glue(item.second);
-        if ((glue.status == Glue::Status::pending)
-            &&  (std::find(glue.id.begin(), glue.id.end(), tilesetId)
-                 != glue.id.end()))
-        {
-            glues.push_back(glue);
+    for (const auto &id : properties.pendingGlues) {
+        if (std::find(id.begin(), id.end(), tilesetId) != id.end()) {
+            glues.emplace_back(id, glueId2path(id));
         }
     }
 
@@ -1055,22 +1075,28 @@ void Storage::Detail::generateGlues(const TilesetId &tilesetId
 void Storage::Detail::generateGlue(const Glue::Id &glueId
                                    , const AddOptions &addOptions)
 {
-    const auto *glue(properties.getGlue(glueId));
-    if (!glue) {
-        LOGTHROW(err3, std::runtime_error)
-            << "Glue " << utility::join(glueId, ",") << " not found.";
+    if (properties.hasGlue(glueId)) {
+        LOG(info3) << "Glue <" << utility::join(glueId, ",")
+                   << "> already exists.";
     }
 
-    if (glue->status != Glue::Status::pending) {
-        LOG(info3) << "Glue " << utility::join(glueId, ",")
-                   << " already exists.";
-        return;
+    if (properties.hasEmptyGlue((glueId))) {
+        LOGTHROW(err3, std::runtime_error)
+            << "Glue <" << utility::join(glueId, ",") << "> is empty.";
     }
+
+    if (!properties.hasPendingGlue((glueId))) {
+        LOGTHROW(err3, std::runtime_error)
+            << "Glue <" << utility::join(glueId, ",") << "> not found.";
+    }
+
+    Glue::list glues;
+    glues.emplace_back(glueId, glueId2path(glueId));
 
     Tx tx(root, addOptions.tmp, addOptions.openOptions);
 
     const auto gds
-        (prepareGlues({ *glue }, openTilesets(tx, properties.tilesets)));
+        (prepareGlues(glues, openTilesets(tx, properties.tilesets)));
 
     // generate all glues
     generateGluesImpl(tx, gds, *this, properties, addOptions);

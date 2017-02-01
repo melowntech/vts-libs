@@ -253,17 +253,7 @@ public:
                      , const std::function<bool(const Glue::Id&)> &filter)
         const;
 
-    /** Return list of all tileset's glues (glues that have given tileset at any
-     *  position in the stack).
-     */
-    Glue::list allGlues(const TilesetId &tilesetId) const;
-
-    /** Return list of all tileset's glues (glues that have given tileset at any
-     *  position in the stack).
-     */
-    Glue::list allGlues(const TilesetId &tilesetId
-                        , const std::function<bool(const Glue&)> &filter)
-        const;
+    Glue::IdSet pendingGlues() const;
 
     /** Returns list of existing virtualSurfaces.
      */

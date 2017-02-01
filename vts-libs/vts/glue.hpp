@@ -16,21 +16,22 @@ struct Glue : public utility::Supplement<Glue> {
     typedef TilesetIdList Id;
     Id id;
     std::string path;
-    enum class Status { ready, pending, empty };
-    Status status;
 
     typedef std::map<Id, Glue> map;
     typedef std::vector<Glue> list;
     typedef std::vector<Id> Ids;
+    typedef std::set<Id> IdSet;
 
-    Glue() : status(Status::empty) {}
-    Glue(const Id &id) : id(id), status(Status::empty) {}
-    Glue(const Id &id, const std::string &path)
-        : id(id), path(path), status(Status::empty) {}
+
+    Glue() {}
+    Glue(const Id &id) : id(id) {}
+    Glue(const Id &id, const std::string &path) : id(id), path(path) {}
 
     /** Returns true if glue references given tileset
      */
     bool references(const std::string &tilesetId) const;
+
+    static bool references(const Glue::Id &id, const std::string &tilesetId);
 };
 
 /** Tileset with its glues.
@@ -73,12 +74,6 @@ struct TileSetGlues : public utility::Supplement<TileSetGlues> {
 TileSetGlues::list glueOrder(const TileSetGlues::list &in);
 
 // inlines
-
-UTILITY_GENERATE_ENUM_IO(Glue::Status,
-    ((ready))
-    ((pending))
-    ((empty))
-)
 
 } } // namespace vadstena::vts
 

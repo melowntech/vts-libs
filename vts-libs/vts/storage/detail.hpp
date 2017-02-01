@@ -63,6 +63,14 @@ struct Storage::Properties : StorageProperties {
      */
     Glue::map glues;
 
+    /** List of pending glues.
+     */
+    Glue::IdSet pendingGlues;
+
+    /** List of empty glues.
+     */
+    Glue::IdSet emptyGlues;
+
     /** List of virtual surfaces
      */
     VirtualSurface::map virtualSurfaces;
@@ -96,6 +104,14 @@ struct Storage::Properties : StorageProperties {
     const Glue* getGlue(const Glue::Id& glue) const {
         auto fglues(findGlue(glue));
         return (fglues != glues.end()) ? &fglues->second : nullptr;
+    }
+
+    bool hasPendingGlue(const Glue::Id &glue) const {
+        return pendingGlues.find(glue) != pendingGlues.end();
+    }
+
+    bool hasEmptyGlue(const Glue::Id &glue) const {
+        return emptyGlues.find(glue) != emptyGlues.end();
     }
 
     VirtualSurface::map::iterator

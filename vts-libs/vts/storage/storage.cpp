@@ -199,6 +199,11 @@ bool Glue::references(const std::string &tilesetId) const
     return (std::find(id.begin(), id.end(), tilesetId) != id.end());
 }
 
+bool Glue::references(const Glue::Id &id, const std::string &tilesetId)
+{
+    return (std::find(id.begin(), id.end(), tilesetId) != id.end());
+}
+
 bool VirtualSurface::references(const std::string &tilesetId) const
 {
     return (std::find(id.begin(), id.end(), tilesetId) != id.end());
@@ -646,38 +651,9 @@ Storage::glues(const TilesetId &tilesetId
     return glues;
 }
 
-Glue::list Storage::allGlues(const TilesetId &tilesetId) const
+Glue::IdSet Storage::pendingGlues() const
 {
-    Glue::list glues;
-
-    for (const auto &item : detail().properties.glues) {
-        const auto &glue(item.second);
-        if (std::find(glue.id.begin(), glue.id.end(), tilesetId)
-            != glue.id.end())
-        {
-            glues.push_back(glue);
-        }
-    }
-
-    return glues;
-}
-
-Glue::list Storage::allGlues(const TilesetId &tilesetId
-                             , const std::function<bool(const Glue&)> &filter)
-    const
-{
-    Glue::list glues;
-
-    for (const auto &item : detail().properties.glues) {
-        const auto &glue(item.second);
-        if ((std::find(glue.id.begin(), glue.id.end(), tilesetId)
-             != glue.id.end()) && filter(glue))
-        {
-            glues.push_back(glue);
-        }
-    }
-
-    return glues;
+    return detail().properties.pendingGlues;
 }
 
 VirtualSurface::list Storage::virtualSurfaces(const TilesetId &tilesetId) const

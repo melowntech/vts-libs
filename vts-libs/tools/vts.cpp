@@ -1368,18 +1368,19 @@ int storageInfo(const std::string &prefix, const fs::path &path, int verbose)
     for (const auto &gitem : s.glues()) {
         if (!verbose) {
             std::cout << prefix << "    " << utility::join(gitem.first, ", ")
-                      << " [" << gitem.second.status << "]\n";
+                      << "\n";
         } else {
             std::cout
                 << prefix << "    Glue-Id: "
-                << utility::join(gitem.first, ", ")
-                << '\n'
-                << prefix << "    Status: " << gitem.second.status
-                << '\n';
+                << utility::join(gitem.first, ", ") << '\n';
 
             tilesetInfo(prefix + "    ",  s.path(gitem.second), verbose);
             std::cout << '\n';
         }
+    }
+    for (const auto &gid : s.pendingGlues()) {
+        std::cout << prefix << "    [pending] " << utility::join(gid, ", ")
+                  << "\n";
     }
 
     const auto vs(s.virtualSurfaces());
