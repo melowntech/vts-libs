@@ -323,6 +323,10 @@ void build(Json::Value &config, const FullTileSetProperties &properties)
     tileRange.append(properties.tileRange.ur(0));
     tileRange.append(properties.tileRange.ur(1));
 
+    // left for compatilibily reasons, remove when all vts instances are
+    // upgraded
+    config["spatialDivisionExtents"] = Json::objectValue;
+
     if (properties.mergeBottomLod) {
         config["mergeBottomLod"] = properties.mergeBottomLod;
     }
