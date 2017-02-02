@@ -460,6 +460,9 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     // set of tilesets with glues
     TilesetIdSet glueable;
 
+    // surfaces converted to free layers
+    TilesetIdSet syntheticFreeLayers;
+
     // tilesets
     bool surfacesAvailable(true);
     for (const auto &tileset : properties.tilesets) {
@@ -480,6 +483,9 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
 
             // no surfaces from this point
             surfacesAvailable = false;
+
+            // remember in sythetic free layers)
+            syntheticFreeLayers.insert(tileset.tilesetId);
         }
 
         // handle tileset as a free layers
@@ -536,6 +542,11 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     if (extra.view) {
         // use settings from extra config
         mapConfig.view = extra.view;
+    }
+
+    // inject sythetic free layers into view
+    for (const auto &tilesetId : syntheticFreeLayers) {
+        mapConfig.view.addFreeLayer(tilesetId);
     }
 
     // browser setup if present

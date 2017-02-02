@@ -63,6 +63,10 @@ struct View {
         return surfaces[id];
     }
 
+    FreeLayerParams& addFreeLayer(const std::string &id) {
+        return freeLayers[id];
+    }
+
     void merge(const View &view) {
         surfaces.insert(view.surfaces.begin(), view.surfaces.end());
         freeLayers.insert(view.freeLayers.begin(), view.freeLayers.end());
