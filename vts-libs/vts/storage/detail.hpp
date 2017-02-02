@@ -138,6 +138,11 @@ struct Storage::Properties : StorageProperties {
      */
     TilesetIdSet unique(const TilesetIdSet *subset) const;
 
+    /** For each tileset compute number of pending glues where tileset is at the
+        top of the stack
+     */
+    TilesetIdCounts pendingGlueCount(TilesetIdSet tilesets) const;
+
     /** Normalize glue ID.
      */
     Glue::Id normalize(const Glue::Id &id) const;

@@ -275,6 +275,22 @@ VirtualSurface::map::const_iterator Storage::Properties
     return virtualSurfaces.find(virtualSurface);
 }
 
+Glue::Id Storage::Properties::normalize(const Glue::Id &id) const
+{
+    Glue::Id out;
+    out.reserve(id.size());
+
+    const TilesetIdSet tmp(id.begin(), id.end());
+
+    for (const auto &tileset : tilesets) {
+        if (tmp.find(tileset.tilesetId) != tmp.end()) {
+            out.push_back(tileset.tilesetId);
+        }
+    }
+
+    return out;
+}
+
 TilesetIdList Storage::tilesets() const
 {
     TilesetIdList list;
@@ -393,20 +409,23 @@ TilesetIdSet Storage::Properties::unique(const TilesetIdSet *subset) const
     return out;
 }
 
-Glue::Id Storage::Properties::normalize(const Glue::Id &id) const
+TilesetIdCounts Storage::Properties::pendingGlueCount(TilesetIdSet tilesets)
+    const
 {
-    Glue::Id out;
-    out.reserve(id.size());
+    // preinitialize
+    TilesetIdCounts counts;
+    for (const auto &ts : tilesets) {
+        counts.insert(TilesetIdCounts::value_type(ts, 0));
+    }
 
-    const TilesetIdSet tmp(id.begin(), id.end());
-
-    for (const auto &tileset : tilesets) {
-        if (tmp.find(tileset.tilesetId) != tmp.end()) {
-            out.push_back(tileset.tilesetId);
+    for (const auto &glue : pendingGlues) {
+        auto fcounts(counts.find(glue.back()));
+        if (fcounts != counts.end()) {
+            ++fcounts->second;
         }
     }
 
-    return out;
+    return counts;
 }
 
 MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
@@ -435,10 +454,36 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     // grab list of unique tilesets to be sent into the output
     const auto unique(properties.unique(subset));
 
+    // counts of pending glues for unique tilesets
+    const auto pgc(properties.pendingGlueCount(unique));
+
+    // set of tilesets with glues
+    TilesetIdSet glueable;
+
     // tilesets
+    bool surfacesAvailable(true);
     for (const auto &tileset : properties.tilesets) {
+        // check for tileset being both requested and fully available
+        bool surface(allowed(unique, tileset.tilesetId));
+
+        // free layer?
+        bool fl(freeLayers && freeLayers->count(tileset.tilesetId));
+
+        // pending glue check
+        if (surface && (!surfacesAvailable || pgc.at(tileset.tilesetId))) {
+            // this tileset cannot be a surface because this or some preceding
+            // tileset has pending glues
+
+            // surface -> free layer
+            surface = false;
+            fl = true;
+
+            // no surfaces from this point
+            surfacesAvailable = false;
+        }
+
         // handle tileset as a free layers
-        if (freeLayers && (*freeLayers).count(tileset.tilesetId)) {
+        if (fl) {
             // tileset path as a root
             mapConfig.addMeshTilesConfig
                 (TileSet::meshTilesConfig
@@ -448,17 +493,19 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
         }
 
         // handle tileset as a surface
-        if (!allowed(unique, tileset.tilesetId)) { continue; }
-        mapConfig.mergeTileSet
-            (TileSet::mapConfig
-             (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-             , prefix / storage_paths::tilesetRoot() / tileset.tilesetId);
+        if (surface) {
+            glueable.insert(tileset.tilesetId);
+            mapConfig.mergeTileSet
+                (TileSet::mapConfig
+                 (storage_paths::tilesetPath(root, tileset.tilesetId), false)
+                 , prefix / storage_paths::tilesetRoot() / tileset.tilesetId);
+        }
     }
 
     // glues
     for (const auto &item : properties.glues) {
         // limit to tileset subset
-        if (!allowed(unique, item.first)) { continue; }
+        if (!allowed(glueable, item.first)) { continue; }
 
         const auto &glue(item.second);
         mapConfig.mergeGlue
