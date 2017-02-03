@@ -7,6 +7,8 @@
 
 #include "utility/binaryio.hpp"
 
+#include "imgproc/binterpolate.hpp"
+
 #include "../../storage/error.hpp"
 
 #include "./navtile.hpp"
@@ -215,6 +217,15 @@ cv::Mat renderCoverage(const NavTile &navtile)
     }, NavTile::CoverageMask::Filter::white);
 
     return coverage;
+}
+
+NavTile::DataType NavTile::sample(const math::Point2 &p) const
+{
+    DataType height(0.0);
+    imgproc::bilinearInterpolate(data_.ptr<DataType>(), data_.step1()
+                                 , data_.cols, data_.rows
+                                 , 1, p, &height);
+    return height;
 }
 
 } } } // namespace vadstena::vts::opencv
