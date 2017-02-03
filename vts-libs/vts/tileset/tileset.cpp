@@ -695,7 +695,7 @@ MetaTile::pointer TileSet::Detail::loadMetaTileFor(const TileId &tileId) const
     return loadMetaTile(&f->get(), metaOrder(), f->name());
 }
 
-registry::ReferenceFrame TileSet::referenceFrame() const
+const registry::ReferenceFrame& TileSet::referenceFrame() const
 {
     return detail().referenceFrame;
 }
@@ -1782,6 +1782,10 @@ double TileSet::Detail::texelSize() const
 
     LOG(info4) << aa.first << ", " << aa.second;
     return average(aa);
+}
+
+NodeInfo TileSet::rootNode() const {
+    return NodeInfo(detail().referenceFrame);
 }
 
 } } // namespace vadstena::vts

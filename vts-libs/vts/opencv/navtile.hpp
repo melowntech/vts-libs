@@ -34,6 +34,10 @@ public:
      */
     void data(const Data &data, const Data &mask);
 
+    /** Returns navtile value at given point. Uses bilinear interpolation.
+     */
+    DataType sample(const math::Point2 &p) const;
+
     /** Helper function to create data matrix of proper size and type.
      *
      * \param value all pixels in return matrix are set to given value if valid

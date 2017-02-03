@@ -100,4 +100,20 @@ void RawNavTile::deserialize_impl(const HeightRange &heightRange
     read(is, image_.data(), image_.size());
 }
 
+math::Point2 NavTile::sds2px(const math::Point2 &point
+                            , const math::Extents2 &extents)
+{
+    // localized point (zero place to upper-left corner, X grows right, Y grows
+    // down)
+    math::Point2 p(point(0) - extents.ll(0), extents.ur(1) - point(1));
+    // navtile pixel size
+    const auto s(size());
+    // extents size
+    const auto es(math::size(extents));
+
+    // pixel size inside navtile
+    return { ((s.width - 1) * p(0)) / es.width
+            , ((s.height - 1) * p(1)) / es.height };
+}
+
 } } // namespace vadstena::vts

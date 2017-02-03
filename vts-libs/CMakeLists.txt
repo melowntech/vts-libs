@@ -201,6 +201,7 @@ set(vts-core_SOURCES
   vts/csconvertor.hpp vts/csconvertor.cpp
   vts/math.hpp
   vts/subtrees.hpp vts/subtrees.cpp
+  vts/visit.hpp vts/visit.cpp
 
   vts/maskfwd.hpp
   vts/qtree.hpp vts/qtree.cpp

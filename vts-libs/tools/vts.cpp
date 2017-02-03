@@ -18,6 +18,8 @@
 
 #include "service/cmdline.hpp"
 
+#include "math/io.hpp"
+
 #include "imgproc/png.hpp"
 #include "imgproc/rastermask/cvmat.hpp"
 
@@ -34,6 +36,8 @@
 #include "../vts/opencv/navtile.hpp"
 #include "../vts/tileset/delivery.hpp"
 #include "../vts/2d.hpp"
+#include "../vts/visit.hpp"
+#include "../vts/csconvertor.hpp"
 
 #include "./locker.hpp"
 
@@ -77,6 +81,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((dumpNavtile)("dump-navtile"))
                       ((dumpNavtileMask)("dump-navtile-mask"))
                       ((navtile2dem))
+                      ((queryNavtile)("query-navtile"))
                       ((showLockerApi)("show-locker-api"))
                       ((deriveMetaIndex)("derive-metaindex"))
                       ((virtualSurfaceCreate)("vs-create"))
@@ -108,6 +113,7 @@ public:
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
         , tileFlags_(), metaFlags_(), encodeFlags_()
+        , queryLod_()
     {
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
@@ -230,6 +236,8 @@ private:
     int virtualSurfaceCreate();
     int virtualSurfaceRemove();
 
+    int queryNavtile();
+
     bool noexcept_;
     fs::path path_;
     Command command_;
@@ -260,6 +268,9 @@ private:
     vs::CreditIds forceCredits_;
     vts::Tags addTags_;
     vts::Tags removeTags_;
+
+    boost::optional<vts::Lod> queryLod_;
+    math::Point2IOWrapper<double> queryPoint_;
 
     /** External lock.
      */
@@ -1131,6 +1142,26 @@ void VtsStorage::configuration(po::options_description &cmdline
             lockConfigure(vars);
         };
     });
+
+    createParser(cmdline, Command::queryNavtile
+                 , "--command=query-navtile: query navtiles at given position "
+                 "and LOD"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("lod", po::value<vts::Lod>()
+             , "LOD at which to query.")
+            ("point", po::value(&queryPoint_)->required()
+             , "Point (in navigation SRS) to query.")
+            ;
+        p.positional.add("point", 1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            if (vars.count("lod")) {
+                queryLod_ = vars["lod"].as<vts::Lod>();
+            }
+        };
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -1253,6 +1284,8 @@ int VtsStorage::runCommand()
     case Command::navtile2dem: return navtile2dem();
     case Command::showLockerApi: return showLockerApi();
     case Command::deriveMetaIndex: return deriveMetaIndex();
+
+    case Command::queryNavtile: return queryNavtile();
     }
     std::cerr << "vts: no operation requested" << '\n';
     return EXIT_FAILURE;
@@ -2501,6 +2534,120 @@ int VtsStorage::virtualSurfaceRemove()
     Lock lock(path_, lock_);
 
     storage.removeVirtualSurface(tids);
+    return EXIT_SUCCESS;
+}
+
+namespace {
+
+class MultiSrsPoint {
+public:
+    MultiSrsPoint(const vr::ReferenceFrame &rf, const math::Point2 &point
+                  , const std::string &srs)
+    {
+        init(rf, math::Point3(point(0), point(1), 0.0), srs);
+    }
+
+    MultiSrsPoint(const vr::ReferenceFrame &rf, const math::Point3 &point
+                  , const std::string &srs)
+    {
+        init(rf, point, srs);
+    }
+
+    const math::Point2* inside(const vts::NodeInfo &nodeInfo) const;
+
+private:
+    void init(const vr::ReferenceFrame &rf, const math::Point3 &point
+              , std::string srs);
+
+    typedef std::map<std::string, math::Point2> PointMap;
+    PointMap pm_;
+};
+
+void MultiSrsPoint::init(const vr::ReferenceFrame &rf
+                         , const math::Point3 &point
+                         , std::string srs)
+{
+    if (!srs.empty() && (srs[0] == '#')) {
+        if (srs == "#navigation") {
+            srs = rf.model.navigationSrs;
+        } else if (srs == "#physical") {
+            srs = rf.model.physicalSrs;
+        } else if (srs == "#public") {
+            srs = rf.model.publicSrs;
+        } else {
+            LOGTHROW(err2, std::runtime_error)
+                << "Unknown special SRS <" << srs << ">.";
+        }
+    }
+
+    for (const auto &node : vts::NodeInfo::nodes(rf)) {
+        vts::CsConvertor conv(srs, node.srs());
+        try {
+            auto p(conv(point));
+            pm_[node.srs()] = math::Point2(p(0), p(1));
+        } catch (const geo::ProjectionError&) {}
+    }
+}
+
+inline const math::Point2* MultiSrsPoint::inside(const vts::NodeInfo &nodeInfo)
+    const
+{
+    auto fpm(pm_.find(nodeInfo.srs()));
+    if (fpm == pm_.end()) { return nullptr; }
+
+    if (math::inside(nodeInfo.extents(), fpm->second)) {
+        return &fpm->second;
+    }
+    return nullptr;
+}
+
+} // namespace
+
+int VtsStorage::queryNavtile()
+{
+    const auto ts(vts::openTileSet(path_));
+
+    MultiSrsPoint msp(ts.referenceFrame(), queryPoint_.get(), "#navigation");
+    boost::optional<vts::TileId> tid;
+    const math::Point2 *point(nullptr);
+    math::Extents2 nodeExtents;
+    typedef vts::TileIndex::Flag TiFlag;
+
+    vts::visit(ts, [&](TiFlag::value_type flags, const vts::NodeInfo &ni)
+               -> bool
+    {
+        const auto nid(ni.nodeId());
+        const auto *insidePoint(msp.inside(ni));
+        if (!insidePoint) { return false; }
+        if (TiFlag::check(flags, TiFlag::navtile)) {
+            if (!tid || (nid.lod > tid->lod)) {
+                tid = nid;
+                point = insidePoint;
+                nodeExtents = ni.extents();
+            }
+        }
+        if (queryLod_ && (nid.lod == *queryLod_)) { return false; }
+
+        return true;
+    });
+
+    if (!tid) {
+        std::cerr << "No such navtile exists.\n";
+        return EXIT_FAILURE;
+    }
+
+    const auto px(vts::NavTile::sds2px(*point, nodeExtents));
+
+    vts::opencv::NavTile nt;
+    ts.getNavTile(*tid, nt);
+    auto height(nt.sample(px));
+
+    std::cout << std::fixed
+              << "tileId: " << *tid
+              << "\npoint: " << px(0) << "," << px(1)
+              << "\nheight: " << height
+              << "\n";
+
     return EXIT_SUCCESS;
 }
 
