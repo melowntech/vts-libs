@@ -3,6 +3,7 @@
 
 #include <memory>
 
+#include <boost/any.hpp>
 #include <boost/optional.hpp>
 #include <boost/noncopyable.hpp>
 
@@ -112,19 +113,19 @@ public:
 
         Result result() const { return result_; }
 
-        typedef std::shared_ptr<void> UserData;
-
         /** Returns pointer to userdata. Can be NULL.
          */
         template <typename T>
-        const T* userData() const { return static_cast<T*>(userData_.get()); }
+        const T* userData() const {
+            return boost::any_cast<T>(&userData_);
+        }
 
         /** Sets userdata and returns reference to them.
-         *  Cannot be null.
          */
         template <typename T>
-        T& userData(const std::shared_ptr<T> &userData) {
-            userData_ = userData; return *userData;
+        T& userData(T &&userData) {
+            userData_ = std::move(userData);
+            return boost::any_cast<T&>(userData_);
         }
 
         bool hasMesh() const;
@@ -141,7 +142,7 @@ public:
         boost::optional<Tile> tile_;
         boost::optional<TileSource> source_;
 
-        UserData userData_;
+        boost::any userData_;
     };
 
 protected:

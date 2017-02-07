@@ -784,56 +784,99 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing);
 
 typedef std::tuple<Mesh::pointer, Atlas::pointer> MeshAtlas;
 
+typedef std::vector<int> Indices;
+
 /** TODO: observe other differences in submeshes (texture mode, external
  *  texture coordinates, texture layer, UV area factor etc.
  *  TODO: check for limits in vertex/face count
  *  Not so simple :)
  */
 struct Range {
-    std::size_t start;
-    std::size_t end;
+    Indices indices;
     SubMesh::SurfaceReference surface;
+    double uvAreaScale;
     bool textured;
 
-    std::size_t size() const { return end - start; }
-    bool empty() const { return !size(); }
+    std::size_t size() const { return indices.size(); }
+    bool empty() const { return indices.empty(); }
+    Indices::const_iterator begin() const { return indices.begin(); }
+    Indices::const_iterator end() const { return indices.end(); }
+    int front() const { return indices.front(); }
 
     typedef std::vector<Range> list;
 
-    Range(std::size_t start, SubMesh::SurfaceReference surface
-          , bool textured)
-        : start(start), end(start), surface(surface)
-        , textured(textured)
+    Range(const SubMesh &sm, bool textured)
+        : surface(sm.surfaceReference)
+        , uvAreaScale(sm.uvAreaScale), textured(textured)
     {}
+
+    bool compatible(const SubMesh &sm) const {
+        return ((surface == sm.surfaceReference)
+                && (uvAreaScale == sm.uvAreaScale));
+    }
 };
 
-/** Precondition: submeshes from the same source are grouped.
- *
- *  TODO: Sort submeshes (and atlas!) so the above precondition is met.
- */
-Range::list groupSubmeshes(const SubMesh::list &sms, std::size_t textured)
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const Range &r)
 {
+    os << "Range{sr=" << int(r.surface) << ", uvas=" << r.uvAreaScale
+       << ", tx=" << r.textured << ", sm=" << utility::join(r.indices, ",")
+       << "}";
+
+    return os;
+}
+
+/** Precondition: submeshes from the same source are grouped.
+ */
+Range::list groupSubmeshes(const SubMesh::list &sms
+                           , std::size_t textured)
+{
+    // compare submeshes to group together submeshes with the same
+    // surfaceReference and the same uvAreaScale (i.e. compatible ones)
+    const auto compareSubmeshes([&](int li, int ri) -> bool
+    {
+        const auto &l(sms[li]);
+        const auto &r(sms[ri]);
+
+        // first, compare surface reference
+        if (l.surfaceReference < r.surfaceReference) { return true; }
+        if (r.surfaceReference < l.surfaceReference) { return false; }
+        // then, compare uv area scale factor
+        return l.uvAreaScale < r.uvAreaScale;
+    });
+
     Range::list out;
 
-    auto process([&](std::size_t i, std::size_t e, bool textured)
+    const auto splitToRanges([&](const Indices &indices, bool textured)
     {
-        while (i != e) {
-            // find region that have the same source
-            out.emplace_back(i, sms[i].surfaceReference, textured);
-            auto &range(out.back());
-
-            while ((range.end != e)
-                   && (range.surface == sms[range.end].surfaceReference))
-            {
-                ++i;
-                ++range.end;
+        bool first(true);
+        for (auto i : indices) {
+            if (first || !out.back().compatible(sms[i])) {
+                out.emplace_back(sms[indices.front()], textured);
+                first = false;
             }
+            out.back().indices.push_back(i);
         }
     });
 
-    // process in two parts: textured and untextured
-    process(0, textured, true);
-    process(textured, sms.size(), false);
+    Indices indices;
+
+    // process textured submeshes
+    if (textured) {
+        indices.assign(textured, 0);
+        std::iota(indices.begin(), indices.end(), 0);
+        std::sort(indices.begin(), indices.end(), compareSubmeshes);
+        splitToRanges(indices, true);
+    }
+
+    if (auto nonTextured = sms.size() - textured) {
+        // and then non-textured submeshes
+        indices.assign(nonTextured, 0);
+        std::iota(indices.begin(), indices.end(), textured);
+        std::sort(indices.begin(), indices.end(), compareSubmeshes);
+        splitToRanges(indices, false);
+    }
 
     return out;
 }
@@ -963,7 +1006,7 @@ private:
 TextureInfo::list MeshAtlasBuilder::texturing(const Range &range) const
 {
     TextureInfo::list tx;
-    for (auto i(range.start); i < range.end; ++i) {
+    for (auto i : range) {
         tx.emplace_back
             (originalMesh_->submeshes[i]
              , boost::apply_visitor(GetImage(i), originalAtlas_));
@@ -1018,15 +1061,14 @@ void MeshAtlasBuilder::pass(const Range &range)
 {
     if (changedMesh()) {
         // copy submeshes
-        mesh_->submeshes.insert
-            (mesh_->submeshes.end()
-             , &originalMesh_->submeshes[range.start]
-             , &originalMesh_->submeshes[range.end]);
+        for (auto i : range) {
+            mesh_->submeshes.push_back(originalMesh_->submeshes[i]);
+        }
     }
 
     if (range.textured && changedAtlas()) {
         // copy atlas
-        for (auto i(range.start); i != range.end; ++i) {
+        for (auto i : range) {
             boost::apply_visitor(AddItem(atlas_, i), originalAtlas_);
         }
     }
@@ -1055,15 +1097,17 @@ SubMesh& MeshAtlasBuilder::mergeNonTextured(const Range &range)
     ensureChanged(range);
 
     // clone first submesh to join
-    mesh_->submeshes.push_back(oSubmeshes_[range.start]);
+    mesh_->submeshes.push_back(oSubmeshes_[range.front()]);
     auto &sm(mesh_->submeshes.back());
 
     // drop texturing info (if any)
     sm.tc.clear();
     sm.facesTc.clear();
 
-    for (auto i(range.start + 1); i < range.end; ++i) {
-        auto &src(oSubmeshes_[i]);
+    for (auto irange(range.begin() + 1), erange(range.end());
+         irange != erange; ++irange)
+    {
+        auto &src(oSubmeshes_[*irange]);
 
         // append external texture coordinates
         append(sm.etc, src.etc);

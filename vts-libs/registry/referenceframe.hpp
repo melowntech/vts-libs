@@ -326,12 +326,16 @@ struct BoundLayer {
 
     static constexpr char typeName[] = "bound layer";
 
-    static math::Size2 tileSize() { return { 256, 256 }; }
-    static double tileArea() { return math::area(tileSize()); }
-    static math::Size2 metaSize() { return { 256, 256 }; }
-    static double metaArea() { return math::area(metaSize()); }
-    static math::Size2 maskSize() { return { 256, 256 }; }
-    static double maskArea() { return math::area(maskSize()); }
+    static constexpr int tileWidth = 256;
+    static constexpr int tileHeight = 256;
+    static constexpr int basicTileArea = (tileWidth * tileHeight);
+
+    static math::Size2 tileSize() { return { tileWidth, tileHeight }; }
+    static double tileArea() { return basicTileArea; }
+    static math::Size2 metaSize() { return { tileWidth, tileHeight }; }
+    static double metaArea() { return basicTileArea; }
+    static math::Size2 maskSize() { return { tileWidth, tileHeight }; }
+    static double maskArea() { return basicTileArea; }
 
     typedef DualDictionary<BoundLayer, BoundLayer::NumericId> dict;
 };

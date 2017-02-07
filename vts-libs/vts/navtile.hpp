@@ -48,6 +48,12 @@ public:
 
     static constexpr unsigned int imageIndex() { return 0; }
 
+    /** Converts coordinates from spatial division system to pixel coordinates
+     *  inside navtile.
+     */
+    static math::Point2 sds2px(const math::Point2 &point
+                               , const math::Extents2 &extents);
+
 private:
     virtual multifile::Table serialize_impl(std::ostream &os) const = 0;
 

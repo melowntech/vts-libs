@@ -190,7 +190,7 @@ public:
 
     /** Referce frame in charge.
      */
-    registry::ReferenceFrame referenceFrame() const;
+    const registry::ReferenceFrame& referenceFrame() const;
 
     /** Returns constant driver. Used in delivery system.
      */
@@ -266,6 +266,10 @@ public:
      *  detailed LOD's metanodes.
      */
     double texelSize() const;
+
+    /** Returns root node.
+     */
+    NodeInfo rootNode() const;
 
     /** Returns mapConfig for given path.
      *
