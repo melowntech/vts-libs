@@ -78,6 +78,10 @@ public:
     TileSet clone(const boost::filesystem::path &tilesetPath
                   , const CloneOptions &createOptions);
 
+    /** Get list of pending glues needed to display this storage view.
+     */
+    Glue::IdSet pendingGlues() const;
+
     /** Generates map configuration for storage view at given path.
      */
     static MapConfig mapConfig(const boost::filesystem::path &path);

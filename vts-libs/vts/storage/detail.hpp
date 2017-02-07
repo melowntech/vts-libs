@@ -139,7 +139,7 @@ struct Storage::Properties : StorageProperties {
     TilesetIdSet unique(const TilesetIdSet *subset) const;
 
     /** For each tileset compute number of pending glues where tileset is at the
-        top of the stack
+     *  top of the stack
      */
     TilesetIdCounts pendingGlueCount(TilesetIdSet tilesets) const;
 
@@ -263,6 +263,8 @@ struct Storage::Detail
                                , const TilesetIdSet *freeLayers = nullptr
                                , const boost::filesystem::path &prefix
                                = boost::filesystem::path());
+
+    Glue::IdSet pendingGlues(const TilesetIdSet *subset) const;
 };
 
 } } // namespace vadstena::vts

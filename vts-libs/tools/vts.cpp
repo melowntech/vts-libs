@@ -56,6 +56,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((remove))
                       ((generateGlues)("glue-generate-pending"))
                       ((generateGlue)("glue-generate"))
+                      ((listPendingGlues)("list-pending-glues"))
 
                       ((dumpMetatile)("dump-metatile"))
                       ((mapConfig)("map-config"))
@@ -185,6 +186,8 @@ private:
     int generateGlues();
 
     int generateGlue();
+
+    int listPendingGlues();
 
     int tags();
 
@@ -1162,6 +1165,12 @@ void VtsStorage::configuration(po::options_description &cmdline
             }
         };
     });
+
+    createParser(cmdline, Command::listPendingGlues
+                 , "--command=list-pending-glues: "
+                 "list pending glues missing to display storage/storageview."
+                 , [&](UP&)
+    {});
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -1254,6 +1263,7 @@ int VtsStorage::runCommand()
     case Command::remove: return remove();
     case Command::generateGlues: return generateGlues();
     case Command::generateGlue: return generateGlue();
+    case Command::listPendingGlues: return listPendingGlues();
     case Command::tags: return tags();
 
     case Command::virtualSurfaceCreate: return virtualSurfaceCreate();
@@ -2535,6 +2545,36 @@ int VtsStorage::virtualSurfaceRemove()
 
     storage.removeVirtualSurface(tids);
     return EXIT_SUCCESS;
+}
+
+int VtsStorage::listPendingGlues()
+{
+    const auto listGlues([&](const vts::Glue::IdSet &glueIds)
+    {
+        for (const auto &glueId : glueIds) {
+            std::cout << utility::join(glueId, ",") << '\n';
+        }
+    });
+
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::TileSet:
+    case vts::DatasetType::TileIndex:
+        std::cerr << "Only storage and storageview is supported\n";
+        return EXIT_FAILURE;
+
+    case vts::DatasetType::Storage:
+        listGlues(vts::openStorage(path_).pendingGlues(nullptr));
+        return EXIT_SUCCESS;
+
+    case vts::DatasetType::StorageView:
+        listGlues(vts::openStorageView(path_).pendingGlues());
+        return EXIT_SUCCESS;
+
+    default: break;
+    }
+
+    std::cerr << "Unrecognized content " << path_ << ".\n";
+    return EXIT_FAILURE;
 }
 
 namespace {
