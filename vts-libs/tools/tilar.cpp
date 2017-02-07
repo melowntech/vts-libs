@@ -173,7 +173,7 @@ void Tilar::configuration(po::options_description &cmdline
         optionsConfiguration(p.options);
         p.options.add_options()
             ("files", po::value(&files_)
-             , "List of files to add to the archive (row,col[,type]:path).")
+             , "List of files to add to the archive (col,row[,type]:path).")
             ;
         p.positional.add("files", -1);
     });
@@ -184,7 +184,7 @@ void Tilar::configuration(po::options_description &cmdline
     {
         p.options.add_options()
             ("files", po::value(&files_)
-             , "List of files to add to the archive (row,col[,type]:path).")
+             , "List of files to add to the archive (col,row[,type]:path).")
             ;
         p.positional.add("files", -1);
     });
@@ -195,7 +195,7 @@ void Tilar::configuration(po::options_description &cmdline
     {
         p.options.add_options()
             ("files", po::value(&indices_)
-             , "List of files to remove from the archive (row,col[,type]).")
+             , "List of files to remove from the archive (col,row[,type]).")
             ;
         p.positional.add("files", -1);
     });
@@ -209,7 +209,7 @@ void Tilar::configuration(po::options_description &cmdline
         p.options.add_options()
             ("files", po::value(&files_)
              , "List of files to extract from the archive "
-             "(row,col[,type]:path).")
+             "(col,row[,type]:path).")
             ;
         p.positional.add("files", -1);
     });

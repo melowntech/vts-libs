@@ -3,6 +3,7 @@
 
 #include <memory>
 
+#include <boost/any.hpp>
 #include <boost/optional.hpp>
 #include <boost/noncopyable.hpp>
 
@@ -116,15 +117,15 @@ public:
          */
         template <typename T>
         const T* userData() const {
-            return boost::any_cast<const T*>(userData_);
+            return boost::any_cast<T>(&userData_);
         }
 
         /** Sets userdata and returns reference to them.
          */
         template <typename T>
-        T& userData(T userData) {
-            userData_ = boost::in_place(std::move(userData));
-            boost::any_cast<T&>(userData_);
+        T& userData(T &&userData) {
+            userData_ = std::move(userData);
+            return boost::any_cast<T&>(userData_);
         }
 
         bool hasMesh() const;
