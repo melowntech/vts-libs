@@ -247,8 +247,8 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
             // write delta coded external coordinates
             if (flags & SubMeshFlag::externalTexture)
             {
-                const auto &ts(vadstena::registry::BoundLayer::tileSize());
-                int quant = int(ts.width) << TexCoordSubPixelBits;
+                int quant = (int(vadstena::registry::BoundLayer::tileWidth)
+                             << TexCoordSubPixelBits);
                 bin::write(out, std::uint16_t(quant));
 
                 int last[2] = {0, 0};
