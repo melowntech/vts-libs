@@ -44,11 +44,6 @@ namespace {
         }
         throw "unknown file type";
     }
-
-    boost::uuids::uuid generateUuid() {
-        // generate random uuid
-        return boost::uuids::random_generator()();
-    }
 } // namespace
 
 long PlainOptions::calculateMask(std::uint8_t order)
@@ -62,7 +57,10 @@ long PlainOptions::calculateMask(std::uint8_t order)
 
 boost::uuids::uuid PlainOptions::generateUuid() {
     // generate random uuid
-    return boost::uuids::random_generator()();
+    boost::mt19937 ran;
+    // maybe use better initialization
+    ran.seed(std::time(nullptr));
+    return boost::uuids::basic_random_generator<boost::mt19937>(&ran)();
 }
 
 PlainDriver::PlainDriver(const boost::filesystem::path &root
