@@ -8,6 +8,7 @@
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/variant.hpp>
+#include <boost/range.hpp>
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -792,21 +793,27 @@ typedef std::vector<int> Indices;
  *  Not so simple :)
  */
 struct Range {
-    Indices indices;
+    const Indices *indices;
+    std::size_t indexStart;
+    std::size_t indexEnd;
     SubMesh::SurfaceReference surface;
     double uvAreaScale;
     bool textured;
 
-    std::size_t size() const { return indices.size(); }
-    bool empty() const { return indices.empty(); }
-    Indices::const_iterator begin() const { return indices.begin(); }
-    Indices::const_iterator end() const { return indices.end(); }
-    int front() const { return indices.front(); }
+    std::size_t size() const { return indexEnd - indexStart; }
+    bool empty() const { return !size(); }
+    Indices::const_iterator begin() const {
+        return indices->begin() + indexStart;
+    }
+    Indices::const_iterator end() const {
+        return indices->begin() + indexEnd;
+    }
+    int front() const { return (*indices)[indexStart]; }
 
     typedef std::vector<Range> list;
 
-    Range(const SubMesh &sm, bool textured)
-        : surface(sm.surfaceReference)
+    Range(const Indices &indices, const SubMesh &sm, bool textured)
+        : indices(&indices), surface(sm.surfaceReference)
         , uvAreaScale(sm.uvAreaScale), textured(textured)
     {}
 
@@ -821,7 +828,10 @@ inline std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits> &os, const Range &r)
 {
     os << "Range{sr=" << int(r.surface) << ", uvas=" << r.uvAreaScale
-       << ", tx=" << r.textured << ", sm=" << utility::join(r.indices, ",")
+       << ", tx=" << r.textured
+       << ", start=" << r.indexStart << ", end=" << r.indexEnd
+       << ", sm=" << utility::join
+        (boost::make_iterator_range(r.begin(), r.end()), ",")
        << "}";
 
     return os;
@@ -829,7 +839,7 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const Range &r)
 
 /** Precondition: submeshes from the same source are grouped.
  */
-Range::list groupSubmeshes(const SubMesh::list &sms
+Range::list groupSubmeshes(const SubMesh::list &sms, Indices &indices
                            , std::size_t textured)
 {
     // compare submeshes to group together submeshes with the same
@@ -848,34 +858,40 @@ Range::list groupSubmeshes(const SubMesh::list &sms
 
     Range::list out;
 
-    const auto splitToRanges([&](const Indices &indices, bool textured)
+    const auto splitToRanges([&](std::size_t begin, std::size_t end
+                                 , bool textured)
     {
         bool first(true);
-        for (auto i : indices) {
-            if (first || !out.back().compatible(sms[i])) {
-                out.emplace_back(sms[indices.front()], textured);
+        for (auto i(begin); i != end; ++i) {
+            const auto &sm(sms[indices[i]]);
+            if (first || !out.back().compatible(sm)) {
+                out.emplace_back(indices, sm, textured);
+                out.back().indexStart = i;
                 first = false;
             }
-            out.back().indices.push_back(i);
+            out.back().indexEnd = i + 1;
         }
     });
 
-    Indices indices;
-
-    // process textured submeshes
-    if (textured) {
-        indices.assign(textured, 0);
-        std::iota(indices.begin(), indices.end(), 0);
-        std::sort(indices.begin(), indices.end(), compareSubmeshes);
-        splitToRanges(indices, true);
+    // prepare indices
+    indices.reserve(sms.size());
+    for (std::size_t i(0), e(sms.size()); i != e; ++i) {
+        indices.push_back(i);
     }
 
-    if (auto nonTextured = sms.size() - textured) {
-        // and then non-textured submeshes
-        indices.assign(nonTextured, 0);
-        std::iota(indices.begin(), indices.end(), textured);
-        std::sort(indices.begin(), indices.end(), compareSubmeshes);
-        splitToRanges(indices, false);
+    // sanitize input
+    if (textured > sms.size()) { textured = sms.size(); }
+
+    // sort both parts
+    if (textured) {
+        std::sort(indices.begin(), indices.begin() + textured
+                  , compareSubmeshes);
+        splitToRanges(0, textured, true);
+    }
+
+    if (sms.size() > textured) {
+        std::sort(indices.begin() + textured, indices.end(), compareSubmeshes);
+        splitToRanges(textured, sms.size(), true);
     }
 
     return out;
@@ -967,7 +983,7 @@ public:
         , meshEnd_(0), atlasEnd_(0)
     {
         merge(groupSubmeshes
-              (mesh->submeshes
+              (mesh->submeshes, smIndices_
                , boost::apply_visitor(GetAtlas(), atlas)->size()));
     }
 
@@ -1001,6 +1017,7 @@ private:
     HybridAtlas::pointer atlas_;
     std::size_t meshEnd_;
     std::size_t atlasEnd_;
+    Indices smIndices_;
 };
 
 TextureInfo::list MeshAtlasBuilder::texturing(const Range &range) const
@@ -1016,6 +1033,7 @@ TextureInfo::list MeshAtlasBuilder::texturing(const Range &range) const
 
 void MeshAtlasBuilder::merge(const Range::list &ranges)
 {
+    // LOG(info4) << "Ranges: " << utility::join(ranges, ", ");
     for (const auto &range : ranges) { merge(range); }
 }
 
@@ -1046,8 +1064,7 @@ void MeshAtlasBuilder::ensureChanged(const Range &range)
 {
     if (!changedMesh()) {
         // copy mesh and trim submeshes
-        mesh_ = std::make_shared<Mesh>(*originalMesh_);
-        mesh_->submeshes.resize(meshEnd_);
+        mesh_ = std::make_shared<Mesh>(*originalMesh_, meshEnd_);
     }
 
     if (range.textured && !changedAtlas()) {

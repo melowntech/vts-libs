@@ -119,6 +119,16 @@ struct Mesh {
      */
     Mesh(bool fullyCovered = true);
 
+    Mesh(const Mesh&) = default;
+
+    /** Copy first N submeshes from source.
+     */
+    Mesh(const Mesh &m, std::size_t firstN)
+        : submeshes(m.submeshes.begin(), m.submeshes.begin()
+                    + std::min(firstN, m.submeshes.size()))
+        , coverageMask(m.coverageMask)
+    {}
+
     typedef SubMesh::list::iterator iterator;
     typedef SubMesh::list::const_iterator const_iterator;
     iterator begin() { return submeshes.begin(); }
