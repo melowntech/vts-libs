@@ -566,4 +566,47 @@ FullTileSetProperties loadConfig(const IStream::pointer &file)
     throw;
 }
 
+void saveDriver(std::ostream &out, const boost::any &driver)
+{
+    out.precision(15);
+    Json::Value config(detail::buildDriver(driver));
+    Json::StyledStreamWriter().write(out, config);
+}
+
+void saveDriver(const boost::filesystem::path &path
+                , const boost::any &driver)
+{
+    LOG(info1) << "Saving driver config to " << path  << ".";
+    std::ofstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    f.open(path.string(), std::ios_base::out);
+    saveDriver(f, driver);
+    f.close();
+}
+
+boost::any loadDriver(std::istream &in, const boost::filesystem::path &path)
+{
+    Json::Value config;
+
+    Json::Reader reader;
+    if (!reader.parse(in, config)) {
+        LOGTHROW(err2, storage::FormatError)
+            << "Unable to parse driver config " << path << ": "
+            << reader.getFormattedErrorMessages() << ".";
+    }
+
+    return detail::parseDriver(config);
+}
+
+boost::any loadDriver(const boost::filesystem::path &path)
+{
+    LOG(info1) << "Loading driver config from " << path  << ".";
+    std::ifstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    f.open(path.string(), std::ios_base::in);
+    const auto res(loadDriver(f, path));
+    f.close();
+    return res;
+}
+
 } } } // namespace vadstena::vts::tileset

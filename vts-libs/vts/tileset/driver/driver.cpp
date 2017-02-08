@@ -201,9 +201,24 @@ Driver::pointer Driver::create(const boost::any &genericOptions
 Driver::pointer Driver::open(const boost::filesystem::path &root
                              , const OpenOptions &openOptions)
 {
-    auto genericOptions(tileset::loadConfig(root / filePath(File::config))
-                        .driverOptions);
+    return open(root, tileset::loadConfig(root / filePath(File::config))
+                .driverOptions, openOptions);
+}
 
+Driver::pointer Driver::open(const boost::filesystem::path &root
+                             , const BareConfigTag&
+                             , const OpenOptions &openOptions)
+{
+    return open(root, tileset::loadDriver(root / filePath(File::config))
+                , openOptions);
+}
+
+/** Opens driver for existing dataset, with driver options available.
+ */
+Driver::pointer Driver::open(const boost::filesystem::path &root
+                             , const boost::any &genericOptions
+                             , const OpenOptions &openOptions)
+{
     if (auto o = boost::any_cast<const driver::PlainOptions>
         (&genericOptions))
     {

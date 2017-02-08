@@ -8,6 +8,7 @@
 
 #include <iostream>
 
+#include <boost/any.hpp>
 #include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
@@ -38,6 +39,19 @@ loadRevision(const boost::filesystem::path &path);
 FullTileSetProperties loadConfig(const Driver &driver);
 
 FullTileSetProperties loadConfig(const IStream::pointer &file);
+
+// bare driver support
+
+void saveDriver(std::ostream &out, const boost::any &driver);
+
+void saveDriver(const boost::filesystem::path &path
+                , const boost::any &driver);
+
+boost::any loadDriver(std::istream &in, const boost::filesystem::path &path
+                      = "unknown");
+
+boost::any loadDriver(const boost::filesystem::path &path);
+
 
 } } } // namespace vadstena::vts::tileset
 

@@ -61,6 +61,21 @@ public:
     static pointer open(const boost::filesystem::path &root
                         , const OpenOptions &openOptions = OpenOptions());
 
+    /** Opens driver for existing dataset, with driver options available.
+     */
+    static pointer open(const boost::filesystem::path &root
+                        , const boost::any &options
+                        , const OpenOptions &openOptions = OpenOptions());
+
+    struct BareConfigTag {};
+
+    /** Opens driver for existing dataset, mark config as bare (just driver
+     *  options)
+     */
+    static pointer open(const boost::filesystem::path &root
+                        , const BareConfigTag&
+                        , const OpenOptions &openOptions = OpenOptions());
+
     /** Check for valid configuration.
      */
     static bool check(const boost::filesystem::path &root);
