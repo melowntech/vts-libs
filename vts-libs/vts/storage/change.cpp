@@ -933,7 +933,7 @@ Storage::Detail::removeVirtualSurfaces(const Properties &properties
 
 void generateGluesImpl(Tx &tx, const GlueDescriptor::list &gds
                        , Storage::Detail &detail
-                       , Storage::Properties properties
+                       , Storage::Properties &properties
                        , const Storage::AddOptions &addOptions)
 {
     // report
@@ -974,9 +974,12 @@ void generateGluesImpl(Tx &tx, const GlueDescriptor::list &gds
             properties.glues[glue.id] = glue;
         }
 
-        // commit new properties and changes to the transaction
-        detail.saveConfig(properties);
-        tx.commit();
+        // lazy add?
+        if (addOptions.mode != Storage::AddOptions::Mode::legacy) {
+            // commit new properties and changes to the transaction
+            detail.saveConfig(properties);
+            tx.commit();
+        }
     }
 }
 
@@ -1037,15 +1040,23 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
 
     writePendingGlues(nProperties, gds);
 
-    // commit new properties and changes to transaction
-    saveConfig(nProperties);
-    tx.commit();
+    if (addOptions.mode != AddOptions::Mode::legacy) {
+        // new interface: commit new properties and changes to transaction
+        saveConfig(nProperties);
+        tx.commit();
+    }
 
     // lazy add? wrap it here
-    if (addOptions.lazy) { return; }
+    if (addOptions.mode == AddOptions::Mode::lazy) { return; }
 
     // generate all glue
     generateGluesImpl(tx, gds, *this, nProperties, addOptions);
+
+    if (addOptions.mode == AddOptions::Mode::legacy) {
+        // old interface: flush
+        saveConfig(nProperties);
+        tx.commit();
+    }
 }
 
 void Storage::Detail::generateGlues(const TilesetId &tilesetId

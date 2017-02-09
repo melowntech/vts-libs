@@ -170,10 +170,12 @@ public:
         boost::optional<boost::filesystem::path> tmp;
         Tags tags;
         OpenOptions openOptions;
-        bool lazy;
+        enum Mode { legacy, full, lazy };
+        Mode mode;
 
         AddOptions()
-            : bumpVersion(false), filter(), dryRun(false), lazy(false)
+            : bumpVersion(false), filter(), dryRun(false)
+            , mode(Mode::legacy)
         {}
     };
 
@@ -369,6 +371,12 @@ public:
 UTILITY_GENERATE_ENUM_IO(Storage::Location::Direction,
     ((below))
     ((above))
+)
+
+UTILITY_GENERATE_ENUM_IO(Storage::AddOptions::Mode,
+    ((legacy))
+    ((full))
+    ((lazy))
 )
 
 template<typename CharT, typename Traits>

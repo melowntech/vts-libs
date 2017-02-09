@@ -118,7 +118,7 @@ public:
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
         addOptions_.dryRun = false;
-        addOptions_.lazy = false;
+        addOptions_.mode = vts::Storage::AddOptions::Mode::legacy;
         addOptions_.clip = true;
 
         relocateOptions_.dryRun = false;
@@ -470,7 +470,10 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             ("bumpVersion", "Add dataset under new version")
             ("dryRun", "Simulate glue creation.")
-            ("lazy", "Do not generate any glue.")
+            ("lazy", "Do not generate any glue. Otherwise work "
+             "in legacy mode. In conflict with --full")
+            ("full", "Try to generate all glue in lazy mode. Otherwise work "
+             "in legacy mode. In conflict with --lazy")
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
             ("no-clip", "Don't clip meshes by merge coverage.")
@@ -532,8 +535,22 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             addOptions_.bumpVersion = vars.count("bumpVersion");
             addOptions_.dryRun = vars.count("dryRun");
-            addOptions_.lazy = vars.count("lazy");
             addOptions_.clip = !vars.count("no-clip");
+
+            // handle add mode
+            bool lazyMode(vars.count("lazy"));
+            bool fullMode(vars.count("full"));
+            if (lazyMode && fullMode) {
+                throw po::validation_error
+                    (po::validation_error::multiple_values_not_allowed
+                     , "lazy,full");
+            }
+
+            if (lazyMode) {
+                addOptions_.mode = vts::Storage::AddOptions::Mode::lazy;
+            } else if (fullMode) {
+                addOptions_.mode = vts::Storage::AddOptions::Mode::full;
+            }
 
             getTags(addOptions_.tags, vars, "addTag");
 
@@ -541,6 +558,7 @@ void VtsStorage::configuration(po::options_description &cmdline
         };
     });
 
+#if 0
     createParser(cmdline, Command::readd
                  , "--command=readd: recomputes all glues of existing tileset"
                  " in the storage"
@@ -578,6 +596,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             configureProgress(vars, addOptions_);
         };
     });
+#endif
 
     createParser(cmdline, Command::remove
                  , "--command=remove: removes tileset from VTS storage"
