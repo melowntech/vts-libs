@@ -63,6 +63,14 @@ struct Storage::Properties : StorageProperties {
      */
     Glue::map glues;
 
+    /** List of pending glues.
+     */
+    Glue::IdSet pendingGlues;
+
+    /** List of empty glues.
+     */
+    Glue::IdSet emptyGlues;
+
     /** List of virtual surfaces
      */
     VirtualSurface::map virtualSurfaces;
@@ -98,6 +106,14 @@ struct Storage::Properties : StorageProperties {
         return (fglues != glues.end()) ? &fglues->second : nullptr;
     }
 
+    bool hasPendingGlue(const Glue::Id &glue) const {
+        return pendingGlues.find(glue) != pendingGlues.end();
+    }
+
+    bool hasEmptyGlue(const Glue::Id &glue) const {
+        return emptyGlues.find(glue) != emptyGlues.end();
+    }
+
     VirtualSurface::map::iterator
     findVirtualSurface(const VirtualSurface::Id& virtualSurface);
     VirtualSurface::map::const_iterator
@@ -121,6 +137,15 @@ struct Storage::Properties : StorageProperties {
      *  as well.
      */
     TilesetIdSet unique(const TilesetIdSet *subset) const;
+
+    /** For each tileset compute number of pending glues where tileset is at the
+        top of the stack
+     */
+    TilesetIdCounts pendingGlueCount(TilesetIdSet tilesets) const;
+
+    /** Normalize glue ID.
+     */
+    Glue::Id normalize(const Glue::Id &id) const;
 };
 
 TilesetIdList tilesetIdList(const StoredTileset::list &tilesets);
@@ -176,6 +201,10 @@ struct Storage::Detail
 
     void saveConfig();
 
+    /** Set and save new properties.
+     */
+    void saveConfig(const Properties &nProperties);
+
     TileSet open(const TilesetId &tilesetId) const;
 
     TileSet open(const Glue &glue) const;
@@ -184,6 +213,12 @@ struct Storage::Detail
              , const TilesetId &tilesetId, const AddOptions &addOptions);
 
     void readd(const TilesetId &tilesetId, const AddOptions &addOptions);
+
+    void generateGlues(const TilesetId &tilesetId
+                       , const AddOptions &addOptions);
+
+    void generateGlue(const Glue::Id &glueId
+                      , const AddOptions &addOptions);
 
     void remove(const TilesetIdList &tilesetIds);
 

@@ -6,6 +6,7 @@
 #include "math/geometry_core.hpp"
 
 #include "utility/supplement.hpp"
+#include "utility/enum-io.hpp"
 
 #include "./basetypes.hpp"
 
@@ -15,11 +16,12 @@ struct Glue : public utility::Supplement<Glue> {
     typedef TilesetIdList Id;
     Id id;
     std::string path;
-    boost::any sumplement;
 
     typedef std::map<Id, Glue> map;
     typedef std::vector<Glue> list;
     typedef std::vector<Id> Ids;
+    typedef std::set<Id> IdSet;
+
 
     Glue() {}
     Glue(const Id &id) : id(id) {}
@@ -28,6 +30,8 @@ struct Glue : public utility::Supplement<Glue> {
     /** Returns true if glue references given tileset
      */
     bool references(const std::string &tilesetId) const;
+
+    static bool references(const Glue::Id &id, const std::string &tilesetId);
 };
 
 /** Tileset with its glues.
@@ -68,6 +72,8 @@ struct TileSetGlues : public utility::Supplement<TileSetGlues> {
  * \param mapping between tilesets and their glues.
  */
 TileSetGlues::list glueOrder(const TileSetGlues::list &in);
+
+// inlines
 
 } } // namespace vadstena::vts
 

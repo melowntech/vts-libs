@@ -170,6 +170,12 @@ void Storage::Detail::saveConfig()
     }
 }
 
+void Storage::Detail::saveConfig(const Properties &nProperties)
+{
+    properties = nProperties;
+    saveConfig();
+}
+
 ExtraStorageProperties Storage::Detail::loadExtraConfig() const
 {
     return loadExtraConfig(root);
@@ -189,6 +195,11 @@ ExtraStorageProperties Storage::Detail::loadExtraConfig(const fs::path &root)
 }
 
 bool Glue::references(const std::string &tilesetId) const
+{
+    return (std::find(id.begin(), id.end(), tilesetId) != id.end());
+}
+
+bool Glue::references(const Glue::Id &id, const std::string &tilesetId)
 {
     return (std::find(id.begin(), id.end(), tilesetId) != id.end());
 }
@@ -262,6 +273,22 @@ VirtualSurface::map::const_iterator Storage::Properties
 ::findVirtualSurface(const VirtualSurface::Id& virtualSurface) const
 {
     return virtualSurfaces.find(virtualSurface);
+}
+
+Glue::Id Storage::Properties::normalize(const Glue::Id &id) const
+{
+    Glue::Id out;
+    out.reserve(id.size());
+
+    const TilesetIdSet tmp(id.begin(), id.end());
+
+    for (const auto &tileset : tilesets) {
+        if (tmp.find(tileset.tilesetId) != tmp.end()) {
+            out.push_back(tileset.tilesetId);
+        }
+    }
+
+    return out;
 }
 
 TilesetIdList Storage::tilesets() const
@@ -382,6 +409,25 @@ TilesetIdSet Storage::Properties::unique(const TilesetIdSet *subset) const
     return out;
 }
 
+TilesetIdCounts Storage::Properties::pendingGlueCount(TilesetIdSet tilesets)
+    const
+{
+    // preinitialize
+    TilesetIdCounts counts;
+    for (const auto &ts : tilesets) {
+        counts.insert(TilesetIdCounts::value_type(ts, 0));
+    }
+
+    for (const auto &glue : pendingGlues) {
+        auto fcounts(counts.find(glue.back()));
+        if (fcounts != counts.end()) {
+            ++fcounts->second;
+        }
+    }
+
+    return counts;
+}
+
 MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
                                      , const Storage::Properties &properties
                                      , const ExtraStorageProperties &extra
@@ -408,10 +454,42 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     // grab list of unique tilesets to be sent into the output
     const auto unique(properties.unique(subset));
 
+    // counts of pending glues for unique tilesets
+    const auto pgc(properties.pendingGlueCount(unique));
+
+    // set of tilesets with glues
+    TilesetIdSet glueable;
+
+    // surfaces converted to free layers
+    TilesetIdSet syntheticFreeLayers;
+
     // tilesets
+    bool surfacesAvailable(true);
     for (const auto &tileset : properties.tilesets) {
+        // check for tileset being both requested and fully available
+        bool surface(allowed(unique, tileset.tilesetId));
+
+        // free layer?
+        bool fl(freeLayers && freeLayers->count(tileset.tilesetId));
+
+        // pending glue check
+        if (surface && (!surfacesAvailable || pgc.at(tileset.tilesetId))) {
+            // this tileset cannot be a surface because this or some preceding
+            // tileset has pending glues
+
+            // surface -> free layer
+            surface = false;
+            fl = true;
+
+            // no surfaces from this point
+            surfacesAvailable = false;
+
+            // remember in sythetic free layers)
+            syntheticFreeLayers.insert(tileset.tilesetId);
+        }
+
         // handle tileset as a free layers
-        if (freeLayers && (*freeLayers).count(tileset.tilesetId)) {
+        if (fl) {
             // tileset path as a root
             mapConfig.addMeshTilesConfig
                 (TileSet::meshTilesConfig
@@ -421,17 +499,19 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
         }
 
         // handle tileset as a surface
-        if (!allowed(unique, tileset.tilesetId)) { continue; }
-        mapConfig.mergeTileSet
-            (TileSet::mapConfig
-             (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-             , prefix / storage_paths::tilesetRoot() / tileset.tilesetId);
+        if (surface) {
+            glueable.insert(tileset.tilesetId);
+            mapConfig.mergeTileSet
+                (TileSet::mapConfig
+                 (storage_paths::tilesetPath(root, tileset.tilesetId), false)
+                 , prefix / storage_paths::tilesetRoot() / tileset.tilesetId);
+        }
     }
 
     // glues
     for (const auto &item : properties.glues) {
         // limit to tileset subset
-        if (!allowed(unique, item.first)) { continue; }
+        if (!allowed(glueable, item.first)) { continue; }
 
         const auto &glue(item.second);
         mapConfig.mergeGlue
@@ -462,6 +542,11 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     if (extra.view) {
         // use settings from extra config
         mapConfig.view = extra.view;
+    }
+
+    // inject sythetic free layers into view
+    for (const auto &tilesetId : syntheticFreeLayers) {
+        mapConfig.view.addFreeLayer(tilesetId);
     }
 
     // browser setup if present
@@ -624,6 +709,25 @@ Storage::glues(const TilesetId &tilesetId
     return glues;
 }
 
+Glue::IdSet Storage::pendingGlues() const
+{
+    return detail().properties.pendingGlues;
+}
+
+Glue::IdSet Storage::pendingGlues(const TilesetId &tilesetId) const
+{
+    Glue::IdSet glues;
+
+    const auto &src(detail().properties.pendingGlues);
+    std::copy_if(src.begin(), src.end(), std::inserter(glues, glues.end())
+                 , [&](const Glue::Id &id)
+                 {
+                     return Glue::references(id, tilesetId);
+                 });
+
+    return glues;
+}
+
 VirtualSurface::list Storage::virtualSurfaces(const TilesetId &tilesetId) const
 {
     VirtualSurface::list virtualSurfaces;
@@ -756,10 +860,6 @@ void Storage::updateTags(const TilesetId &tilesetId
 void Storage::Detail::updateTags(const TilesetId &tilesetId
                                  , const Tags &add, const Tags &remove)
 {
-    (void) tilesetId;
-    (void) add;
-    (void) remove;
-
     auto *tileset(properties.findTileset(tilesetId));
     if (!tileset) {
         LOGTHROW(err1, vadstena::storage::NoSuchTileSet)

@@ -13,11 +13,9 @@ namespace detail {
 
 const int CURRENT_JSON_FORMAT_VERSION(1);
 
-void parseList(std::vector<std::string> &ids, const Json::Value &object
+void parseList(std::vector<std::string> &ids, const Json::Value &value
                , const char *name)
 {
-    const Json::Value &value(object[name]);
-
     if (!value.isArray()) {
         LOGTHROW(err1, Json::Error)
             << "Type of " << name << " is not a list.";
@@ -73,7 +71,7 @@ void parseGlue(Glue &glue, const Json::Value &value)
             << "Type of glue is not an object.";
     }
 
-    parseList(glue.id, value, "id");
+    parseList(glue.id, value["id"], "id");
     Json::get(glue.path, value, "dir");
 }
 
@@ -92,6 +90,21 @@ void parseGlues(Glue::map &glues, const Json::Value &value)
     }
 }
 
+void parseGlues(Glue::IdSet &glues, const Json::Value &value)
+{
+    if (value.isNull()) { return; }
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of glue set is not an array.";
+    }
+
+    for (const auto &element : value) {
+        Glue::Id glueId;
+        parseList(glueId, element, "id");
+        glues.insert(glueId);
+    }
+}
+
 void parseVirtualSurface(VirtualSurface &virtualSurface
                          , const Json::Value &value)
 {
@@ -100,7 +113,7 @@ void parseVirtualSurface(VirtualSurface &virtualSurface
             << "Type of virtualSurface is not an object.";
     }
 
-    parseList(virtualSurface.id, value, "id");
+    parseList(virtualSurface.id, value["id"], "id");
     Json::get(virtualSurface.path, value, "dir");
 }
 
@@ -155,6 +168,13 @@ void buildList(const std::vector<std::string> &ids, Json::Value &value)
     for (const auto &id : ids) { value.append(id); }
 }
 
+Json::Value buildList(const std::vector<std::string> &ids)
+{
+    Json::Value value(Json::arrayValue);
+    for (const auto &id : ids) { value.append(id); }
+    return value;
+}
+
 void buildTileset(const StoredTileset &tileset, Json::Value &object)
 {
     object = Json::objectValue;
@@ -197,6 +217,13 @@ void buildGlues(const Glue::map &glues, Json::Value &object)
     }
 }
 
+void buildGlues(const Glue::IdSet &glues, Json::Value &object)
+{
+    object = Json::arrayValue;
+
+    for (const auto &id : glues) { object.append(buildList(id)); }
+}
+
 void buildVirtualSurface(const VirtualSurface &virtualSurface
                          , Json::Value &object)
 {
@@ -224,6 +251,8 @@ Storage::Properties parse1(const Json::Value &config)
 
     parseTilesets(properties.tilesets, config["tilesets"]);
     parseGlues(properties.glues, config["glues"]);
+    parseGlues(properties.pendingGlues, config["glues.pending"]);
+    parseGlues(properties.emptyGlues, config["glues.empty"]);
     if (config.isMember("virtualSurfaces")) {
         parseVirtualSurfaces
             (properties.virtualSurfaces
@@ -244,6 +273,8 @@ void build(Json::Value &config, const Storage::Properties &properties)
 
     buildTilesets(properties.tilesets, config["tilesets"]);
     buildGlues(properties.glues, config["glues"]);
+    buildGlues(properties.pendingGlues, config["glues.pending"]);
+    buildGlues(properties.emptyGlues, config["glues.empty"]);
     buildVirtualSurfaces(properties.virtualSurfaces
                          , config["virtualSurfaces"]);
     buildTrash(properties.trashBin, config["trashBin"]);

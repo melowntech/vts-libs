@@ -22,13 +22,12 @@ namespace {
 typedef std::vector<TileIndex> TileIndexList;
 
 inline TileIndexList
-tileIndices(const TileSet::const_ptrlist &sets
-            , const LodRange &lodRange
+tileIndices(const TileSet::list &sets, const LodRange &lodRange
             , TileIndex::Flag::value_type mask)
 {
     std::vector<TileIndex> indices;
     for (const auto &set : sets) {
-        indices.push_back(set->tileIndex(lodRange).simplify(mask));
+        indices.push_back(set.tileIndex(lodRange).simplify(mask));
 
         // and clamp them to desired range
         indices.back().clamp(lodRange);
@@ -36,8 +35,8 @@ tileIndices(const TileSet::const_ptrlist &sets
     return indices;
 }
 
-LodRange range( const TileSet::const_ptrlist &sets
-              , const TileIndex::Flag::value_type mask = TileIndex::Flag::any)
+LodRange range(const TileSet::list &sets
+               , const TileIndex::Flag::value_type mask = TileIndex::Flag::any)
 {
     // no set -> no lod range
     if (sets.empty()) { return LodRange::emptyRange(); }
@@ -48,10 +47,10 @@ LodRange range( const TileSet::const_ptrlist &sets
     for (const auto &set : sets) {
         if (mask != TileIndex::Flag::any) {
             // NB: probably can be done more efficiently not using statMask
-            auto stat(set->tileIndex().statMask(mask, mask));
+            auto stat(set.tileIndex().statMask(mask, mask));
             r = unite(r, stat.lodRange);
         } else {
-            r = unite(r, set->lodRange());
+            r = unite(r, set.lodRange());
         }
     }
     return r;
@@ -89,11 +88,11 @@ inline void dump(const char *root, const boost::filesystem::path &dir
 typedef std::vector<const TileSet::Detail*> DetailList;
 
 DetailList details(TileSet::Detail &detail
-                   , const TileSet::const_ptrlist &sets)
+                   , const TileSet::list &sets)
 {
     DetailList out;
-    for (const auto *set : sets) {
-        out.push_back(&detail.other(*set));
+    for (const auto &set : sets) {
+        out.push_back(&detail.other(set));
     }
     return out;
 }
@@ -103,7 +102,7 @@ public:
     Merger(TileSet::Detail &glue
            , const TileIndex &generate
            , const TileIndex &navtileGenerate
-           , const TileSet::const_ptrlist &srcSets
+           , const TileSet::list &srcSets
            , const GlueCreationOptions &options)
         : glue_(glue), world_(generate), generate_(generate)
         , navtileGenerate_(navtileGenerate)
@@ -316,7 +315,7 @@ TileIndex sphereOfInfluenceForMerge(const TileIndex &i, Lod ceiling)
 
 TileIndex buildGenerateSet(const char *dumpRoot
                            , const LodRange &lr
-                           , const TileSet::const_ptrlist &sets
+                           , const TileSet::list &sets
                            , TileIndex::Flag::value_type mask
                            , Lod &glueCeiling)
 {
@@ -359,7 +358,7 @@ TileIndex buildGenerateSet(const char *dumpRoot
 TileIndex optimizeGenerateSet(const TileIndex & generateSet
                               , const char *dumpRoot
                               , const LodRange &lr
-                              , const TileSet::const_ptrlist &sets
+                              , const TileSet::list &sets
                               , Lod glueCeiling)
 {
     // get all indices from all sets in full LOD range
@@ -406,8 +405,7 @@ TileIndex optimizeGenerateSet(const TileIndex & generateSet
     return watertight;
 }
 
-TileIndex buildGenerateSet(const TileSet::const_ptrlist &sets
-                           , const LodRange &lr)
+TileIndex buildGenerateSet(const TileSet::list &sets, const LodRange &lr)
 {
     LOG(info3) << "(glue) Calculating generate set.";
 
@@ -428,8 +426,7 @@ TileIndex buildGenerateSet(const TileSet::const_ptrlist &sets
 } // namespace
 
 TileSet::GlueStatistics
-TileSet::analyzeGlue(const const_ptrlist &sets
-                     , const GlueCreationOptions&)
+TileSet::analyzeGlue(const list &sets, const GlueCreationOptions&)
 {
     GlueStatistics stat;
 
@@ -444,7 +441,7 @@ TileSet::analyzeGlue(const const_ptrlist &sets
     return stat;
 }
 
-void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
+void TileSet::createGlue(TileSet &glue, const list &sets
                          , const GlueCreationOptions &options)
 {
     if (sets.size() < 2) {
@@ -494,7 +491,7 @@ void TileSet::createGlue(TileSet &glue, const const_ptrlist &sets
            , generate, navtileGenerate, sets, options);
 
     // copy position from top dataset
-    glue.setPosition(sets.back()->getProperties().position);
+    glue.setPosition(sets.back().getProperties().position);
 
     // done
 }

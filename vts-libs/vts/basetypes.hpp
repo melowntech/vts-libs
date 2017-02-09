@@ -112,6 +112,7 @@ enum class CreateMode {
 typedef std::string TilesetId;
 typedef std::vector<TilesetId> TilesetIdList;
 typedef std::set<TilesetId> TilesetIdSet;
+typedef std::map<TilesetId, std::size_t> TilesetIdCounts;
 
 enum class FileFlavor {
     regular, raw, debug

@@ -111,6 +111,22 @@ private:
     boost::optional<LodRange> lodRange_;
 };
 
+class PendingGluesError : public std::runtime_error {
+public:
+    PendingGluesError(Glue::IdSet glues)
+        : std::runtime_error("Penging glues.")
+        , glues_(std::move(glues))
+    {}
+
+    // needed by old gcc
+    virtual ~PendingGluesError() throw() {}
+
+    const Glue::IdSet& glues() const { return glues_; }
+
+private:
+    Glue::IdSet glues_;
+};
+
 /** Storage interface.
  */
 class Storage {
@@ -154,9 +170,10 @@ public:
         boost::optional<boost::filesystem::path> tmp;
         Tags tags;
         OpenOptions openOptions;
+        bool lazy;
 
         AddOptions()
-            : bumpVersion(false), filter(), dryRun(false)
+            : bumpVersion(false), filter(), dryRun(false), lazy(false)
         {}
     };
 
@@ -188,6 +205,11 @@ public:
      */
     void remove(const TilesetIdList &tilesetIds);
 
+    void generateGlues(const TilesetId &tilesetId
+                       , const AddOptions &addOptions);
+
+    void generateGlue(const Glue::Id &glueId
+                      , const AddOptions &addOptions);
 
     /** Creates a virtual surface from storage.
      *
@@ -246,6 +268,14 @@ public:
     Glue::list glues(const TilesetId &tilesetId
                      , const std::function<bool(const Glue::Id&)> &filter)
         const;
+
+    /** Return list of all pending glues.
+     */
+    Glue::IdSet pendingGlues() const;
+
+    /** Return list tileset's pending glues.
+     */
+    Glue::IdSet pendingGlues(const TilesetId &tilesetId) const;
 
     /** Returns list of existing virtualSurfaces.
      */
