@@ -4,6 +4,8 @@
 
 #include "math/math.hpp"
 
+#include "geometry/forsyth.hpp"
+
 #include "../storage/error.hpp"
 #include "../registry/referenceframe.hpp"
 
@@ -35,9 +37,6 @@ namespace {
 
 namespace {
 
-#define FORSYTH_IMPLEMENTATION
-#include "./forsyth.h"
-
 /** Calculate Forsyth's cache optimized ordering of faces, vertices and
  *  texcoords. On return, forder, vorder, torder contain a new index for each
  *  face, vertex and texcoord, respectively.
@@ -52,7 +51,7 @@ void getMeshOrdering(const SubMesh &submesh,
     int ntexcoords = submesh.tc.size();
 
 #if 1
-    std::vector<ForsythVertexIndexType> indices;
+    std::vector<geometry::ForsythVertexIndexType> indices;
     indices.reserve(3*nfaces);
     for (const auto &face : submesh.faces) {
         indices.push_back(face(0));
@@ -62,7 +61,7 @@ void getMeshOrdering(const SubMesh &submesh,
 
     // get face ordering with Forsyth's algorithm
     forder.resize(nfaces);
-    forsythReorder(forder.data(), indices.data(), nfaces, nvertices);
+    geometry::forsythReorder(forder.data(), indices.data(), nfaces, nvertices);
     // TODO: forsythReorder currently does not take texcoords into account!
 #else
     // for testing lack of ordering

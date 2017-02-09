@@ -516,8 +516,10 @@ void HeightMap::dump(const boost::filesystem::path &filename) const
 HeightMap::BestPosition HeightMap::bestPosition() const
 {
     // TODO: what to do if centroid is not at valid pixel?
-
     BestPosition out;
+
+    if (!pane_.cols || !pane_.rows) { return out; }
+
     auto &c(out.location);
 
     math::Extents2i validExtents(math::InvalidExtents{});
@@ -543,7 +545,6 @@ HeightMap::BestPosition HeightMap::bestPosition() const
         c(1) = cc(1);
     }
 
-    // sample height
     c(2) = pane_.at<NTDataType>(c(1), c(0));
 
     auto es(math::size(worldExtents_));
