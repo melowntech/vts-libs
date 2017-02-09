@@ -7,6 +7,9 @@
 # main library: allows better tileset data manipulation; uses core library;
 # major dependency is OpenCV
 
+# bump version here
+set(vts-libs_VERSION 1.6)
+
 # settable path to VTS registry
 set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
   "Installation path to VTS registry")
@@ -277,8 +280,11 @@ set(vts_SOURCES
   )
 
 # vts core library
-define_module(LIBRARY vts-libs-core DEPENDS
-  geo imgproc math utility dbglog jsoncpp half
+define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
+  DEPENDS
+  geo>=1.24 geometry>=1.7 imgproc>=1.17 math>=1.2
+  utility>=1.11 dbglog>=1.4 jsoncpp>=1.1 half>=1.1
+
   ${vts-registry_python_DEPENDS}
   Boost_IOSTREAMS
   Boost_FILESYSTEM
@@ -307,8 +313,9 @@ buildsys_target_compile_definitions(vts-libs-core ${MODULE_DEFINITIONS})
 # main vts library is optional:
 if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
   message(STATUS "Compiling main vts-libs library.")
-  define_module(LIBRARY vts-libs DEPENDS
-    vts-libs-core
+  define_module(LIBRARY vts-libs=${vts-libs_VERSION}
+    DEPENDS
+    vts-libs-core>=${vts-libs_VERSION}
     OpenCV)
 
 
