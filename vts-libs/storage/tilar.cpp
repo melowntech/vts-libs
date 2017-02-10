@@ -1041,7 +1041,7 @@ public:
     std::string name() const {
         std::ostringstream os;
         os << path.string()
-           << ':' << index.row << ',' << index.col << ',' << index.type;
+           << ':' << index.col << ',' << index.row << ',' << index.type;
         return os.str();
     }
 
