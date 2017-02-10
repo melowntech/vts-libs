@@ -1700,14 +1700,10 @@ int VtsStorage::dumpMetatile()
         std::cout << "    SDS srs: " << nodeInfo.srs() << '\n';
         std::cout << "    SDS extents: " << nodeInfo.extents() << '\n';
         std::cout << "    extents: " << node.extents << '\n';
-        if (node.internalTextureCount()) {
+        if (node.internalTextureCount) {
             std::cout
-                << "    texture count: " << node.internalTextureCount()
+                << "    texture count: " << node.internalTextureCount
                 << '\n';
-        }
-        if (node.reference()) {
-            std::cout
-                << "    reference: " << node.reference() << '\n';
         }
 
         if (node.applyTexelSize()) {
@@ -1810,22 +1806,16 @@ int VtsStorage::tileInfo()
         << "\n    srs: " << ni.srs()
         << '\n';
 
-    if (flags & (vts::TileIndex::Flag::real | vts::TileIndex::Flag::reference))
-    {
+    if (flags & (vts::TileIndex::Flag::real)) {
         auto node(ts.getMetaNode(tileId_));
 
         std::cout << "Meta node:" << '\n';
         std::cout << "    flags: " << vts::MetaFlags(node.flags())
                   << '\n';
         std::cout << "    extents: " << node.extents << '\n';
-        if (node.internalTextureCount()) {
+        if (node.internalTextureCount) {
             std::cout
-                << "    texture count: " << node.internalTextureCount()
-                << '\n';
-        }
-        if (node.reference()) {
-            std::cout
-                << "    reference: " << node.reference()
+                << "    texture count: " << node.internalTextureCount
                 << '\n';
         }
 

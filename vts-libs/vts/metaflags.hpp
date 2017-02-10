@@ -9,14 +9,13 @@ namespace vadstena { namespace vts {
 
 struct MetaFlags {
     MetaNode::Flag::value_type value;
-    bool reference;
     const MetaNode *node;
 
     MetaFlags(MetaNode::Flag::value_type value = 0)
-        : value(value), reference(false) {}
+        : value(value) {}
 
     MetaFlags(const MetaNode &node)
-        : value(node.flags()), reference(node.reference()) {}
+        : value(node.flags()) {}
 
     typedef std::pair<MetaNode::Flag::value_type, const char*> MetaFlag;
     static std::vector<MetaFlag> mapping;
@@ -34,9 +33,6 @@ void forEachFlag(const MetaFlags &f, const Func &callback)
             callback(os.str());
         }
     }
-    if (f.reference) {
-        callback("reference");
-    }
 }
 
 template<typename CharT, typename Traits>
@@ -49,9 +45,6 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const MetaFlags &f)
             os << prefix << flag.second;
             prefix = ",";
         }
-    }
-    if (f.reference) {
-        os << prefix << "reference";
     }
     return os;
 }

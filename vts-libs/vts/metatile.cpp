@@ -23,7 +23,7 @@ namespace vadstena { namespace vts {
 
 namespace {
     const char MAGIC[2] = { 'M', 'T' };
-    const std::uint16_t VERSION = 3;
+    const std::uint16_t VERSION = 4;
 
     const std::size_t MIN_GEOM_BITS(2);
 } // namespace
@@ -329,9 +329,7 @@ inline void MetaNode::save(std::ostream &out, const StoreParams &sp) const
 
     bin::write(out, buildGeomExtents(sp.lod, extents));
 
-    bin::write(out, (geometry()
-                     ? std::uint8_t(internalTextureCount_)
-                     : std::uint8_t(reference_)));
+    bin::write(out, std::uint8_t(internalTextureCount));
 
     // limit texel size to fit inside half float
     // TODO: make better
@@ -492,8 +490,7 @@ inline void MetaNode::load(std::istream &in, const StoreParams &sp)
     std::uint16_t u16;
     std::int16_t i16;
 
-    bin::read(in, u8);
-    (geometry() ? internalTextureCount_ : reference_) = u8;
+    bin::read(in, u8); internalTextureCount = u8;
 
     bin::read(in, u16); texelSize = half::half2float(u16);
     bin::read(in, u16); displaySize = u16;
@@ -732,37 +729,6 @@ MetaNode& MetaNode::mergeExtents(const math::Extents3 &other)
 
     // merge
     extents = unite(extents, other);
-    return *this;
-}
-
-MetaNode& MetaNode::internalTextureCount(std::size_t value)
-{
-    if (!geometry()) {
-        LOGTHROW(err1, storage::Error)
-            << "Cannot set internal texture count in tile wihtout geometry.";
-    }
-    const std::size_t limit
-        (std::numeric_limits<decltype(internalTextureCount_)>::max());
-    internalTextureCount_ = std::min(value, limit);
-    return *this;
-}
-
-MetaNode& MetaNode::reference(std::size_t value)
-{
-    if (geometry()) {
-        LOGTHROW(err1, storage::Error)
-            << "Cannot set reference in tile with geometry.";
-    }
-
-    const std::size_t limit
-        (std::numeric_limits<decltype(internalTextureCount_)>::max());
-    if (value > limit) {
-        LOGTHROW(err1, storage::Error)
-            << "Invalid reference " << value << ", allowed maximum is "
-            << limit << ".";
-    }
-
-    internalTextureCount_ = value;
     return *this;
 }
 

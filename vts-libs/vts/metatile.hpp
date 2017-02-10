@@ -24,6 +24,11 @@ typedef half_float::half hfloat;
 
 namespace vadstena { namespace vts {
 
+struct GeomExtents {
+    Range<float> z;
+    float surrogate;
+};
+
 struct MetaNode {
     struct Flag {
         typedef std::uint16_t value_type;
@@ -100,9 +105,14 @@ struct MetaNode {
 
     void reset(Flag::value_type flags) { flags_ &= ~flags; }
 
-    /** Normalized extents in range 0.0-1.0.
+    /** Extents of tile:
+     *   * legacy math::Extents3 for metanodes v<4
+     *   * GeomExtents for metanodes v>=4
      */
+    // boost::variant<math::Extents3, GeomExtents> extents;
     math::Extents3 extents;
+
+    std::uint8_t internalTextureCount;
 
     float texelSize;
 
@@ -115,8 +125,8 @@ struct MetaNode {
     SourceReference sourceReference;
 
     MetaNode()
-        : texelSize(), displaySize(), heightRange(), sourceReference()
-        , flags_(), internalTextureCount_()
+        : internalTextureCount(), texelSize(), displaySize()
+        , heightRange(), sourceReference(), flags_()
     {}
 
     Flag::value_type flags() const { return flags_; }
@@ -167,16 +177,6 @@ struct MetaNode {
         credits_.insert(credits.begin(), credits.end());
     }
 
-    std::size_t internalTextureCount() const {
-        return (geometry() ? internalTextureCount_ : 0);
-    }
-    MetaNode& internalTextureCount(std::size_t value);
-
-    std::size_t reference() const {
-        return (!geometry() ? reference_ : 0);
-    }
-    MetaNode& reference(std::size_t value);
-
     enum class BackingType { none, uint8, uint16 };
 
     struct StoreParams {
@@ -206,12 +206,6 @@ private:
     }
 
     Flag::value_type flags_;
-
-    // union 1
-    union {
-        std::uint8_t internalTextureCount_;
-        std::uint8_t reference_;
-    };
 
     storage::CreditIds credits_;
 };

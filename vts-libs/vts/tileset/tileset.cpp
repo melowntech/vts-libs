@@ -788,7 +788,7 @@ std::uint8_t flagsFromNode(const MetaNode &node)
         if (node.alien()) { m |= TileIndex::Flag::alien; }
     }
     if (node.navtile()) { m |= TileIndex::Flag::navtile; }
-    if (node.internalTextureCount()) { m |= TileIndex::Flag::atlas; }
+    if (node.internalTextureCount) { m |= TileIndex::Flag::atlas; }
     return m;
 }
 
@@ -809,7 +809,7 @@ void TileSet::Detail::updateNode(TileId tileId
 
     // prepare tileindex flags and mask
     auto mask(TileIndex::Flag::content | TileIndex::Flag::nonmeta
-              | TileIndex::Flag::reference | TileIndex::Flag::alien);
+              | TileIndex::Flag::alien);
     auto flags(flagsFromNode(*node.metanode));
     flags |= extraFlags;
 
@@ -986,7 +986,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile
             }
 
             // set atlas related info
-            metanode.internalTextureCount(atlas->size());
+            metanode.internalTextureCount = atlas->size();
         }
 
         // externally-textured submeshes
@@ -1153,7 +1153,7 @@ void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas
             << "There is no tile at " << tileId << ".";
     }
 
-    if (!node->internalTextureCount()) {
+    if (!node->internalTextureCount) {
         LOGTHROW(err2, storage::NoSuchTile)
             << "Tile " << tileId << " has no atlas.";
     }
@@ -1219,7 +1219,7 @@ TileSource TileSet::Detail::getTileSource(const TileId &tileId) const
         tile.mesh = driver->input(tileId, TileFile::mesh);
     }
 
-    if (node->internalTextureCount()) {
+    if (node->internalTextureCount) {
         tile.atlas = driver->input(tileId, TileFile::atlas);
     }
 
@@ -1255,8 +1255,7 @@ void TileSet::Detail::saveMetadata()
 
 void update(TileSet::Properties &properties, const TileIndex &tileIndex)
 {
-    auto ranges(tileIndex.ranges(TileIndex::Flag::mesh
-                                 | TileIndex::Flag::reference));
+    auto ranges(tileIndex.ranges(TileIndex::Flag::mesh));
     properties.lodRange = ranges.first;
     properties.tileRange = ranges.second;
 }
