@@ -1700,9 +1700,9 @@ int VtsStorage::dumpMetatile()
         std::cout << "    SDS srs: " << nodeInfo.srs() << '\n';
         std::cout << "    SDS extents: " << nodeInfo.extents() << '\n';
         std::cout << "    extents: " << node.extents << '\n';
-        if (node.internalTextureCount) {
+        if (const auto itc = node.internalTextureCount()) {
             std::cout
-                << "    texture count: " << node.internalTextureCount
+                << "    texture count: " << itc
                 << '\n';
         }
 
@@ -1813,9 +1813,9 @@ int VtsStorage::tileInfo()
         std::cout << "    flags: " << vts::MetaFlags(node.flags())
                   << '\n';
         std::cout << "    extents: " << node.extents << '\n';
-        if (node.internalTextureCount) {
+        if (const auto itc = node.internalTextureCount()) {
             std::cout
-                << "    texture count: " << node.internalTextureCount
+                << "    texture count: " << itc
                 << '\n';
         }
 

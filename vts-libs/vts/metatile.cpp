@@ -321,15 +321,26 @@ inline void writeVariable(std::ostream &out, MetaNode::BackingType type
     }
 }
 
+
+
 } // namespace
 
 inline void MetaNode::save(std::ostream &out, const StoreParams &sp) const
 {
     bin::write(out, std::uint8_t(flags_));
 
-    bin::write(out, buildGeomExtents(sp.lod, extents));
+    // geometry extents
+    {
+        // old format (to be removed in version 5)
+        bin::write(out, buildGeomExtents(sp.lod, extents));
 
-    bin::write(out, std::uint8_t(internalTextureCount));
+        // new format
+        bin::write(out, float(geomExtents.z.min));
+        bin::write(out, float(geomExtents.z.max));
+        bin::write(out, float(geomExtents.surrogate));
+    }
+
+    bin::write(out, std::uint8_t(internalTextureCount_));
 
     // limit texel size to fit inside half float
     // TODO: make better
@@ -482,15 +493,25 @@ inline void MetaNode::load(std::istream &in, const StoreParams &sp)
         flags_ |= f;
     }
 
-    std::vector<std::uint8_t> geomExtents(geomLen(sp.lod));
-    bin::read(in, geomExtents);
-    parseGeomExtents(sp.lod, extents, geomExtents);
+    // geom extents
+    {
+        // old format
+        std::vector<std::uint8_t> ge(geomLen(sp.lod));
+        bin::read(in, ge);
+        parseGeomExtents(sp.lod, extents, ge);
+
+        // new format
+        float f;
+        bin::read(in, f); geomExtents.z.min = f;
+        bin::read(in, f); geomExtents.z.max = f;
+        bin::read(in, f); geomExtents.surrogate = f;
+    }
 
     std::uint8_t u8;
     std::uint16_t u16;
     std::int16_t i16;
 
-    bin::read(in, u8); internalTextureCount = u8;
+    bin::read(in, u8); internalTextureCount_ = u8;
 
     bin::read(in, u16); texelSize = half::half2float(u16);
     bin::read(in, u16); displaySize = u16;

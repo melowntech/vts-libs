@@ -6,7 +6,9 @@
 #include <iosfwd>
 #include <vector>
 #include <new>
+#include <limits>
 
+#include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include "math/geometry_core.hpp"
@@ -14,20 +16,15 @@
 
 #include "../storage/error.hpp"
 #include "../storage/credits.hpp"
+#include "../storage/range.hpp"
 
 #include "./basetypes.hpp"
 #include "./tileop.hpp"
-
-#include "vts-libs/storage/range.hpp"
+#include "./geomextents.hpp"
 
 typedef half_float::half hfloat;
 
 namespace vadstena { namespace vts {
-
-struct GeomExtents {
-    Range<float> z;
-    float surrogate;
-};
 
 struct MetaNode {
     struct Flag {
@@ -105,14 +102,8 @@ struct MetaNode {
 
     void reset(Flag::value_type flags) { flags_ &= ~flags; }
 
-    /** Extents of tile:
-     *   * legacy math::Extents3 for metanodes v<4
-     *   * GeomExtents for metanodes v>=4
-     */
-    // boost::variant<math::Extents3, GeomExtents> extents;
     math::Extents3 extents;
-
-    std::uint8_t internalTextureCount;
+    GeomExtents geomExtents;
 
     float texelSize;
 
@@ -125,8 +116,8 @@ struct MetaNode {
     SourceReference sourceReference;
 
     MetaNode()
-        : internalTextureCount(), texelSize(), displaySize()
-        , heightRange(), sourceReference(), flags_()
+        : texelSize(), displaySize(), heightRange(), sourceReference()
+        , flags_(), internalTextureCount_()
     {}
 
     Flag::value_type flags() const { return flags_; }
@@ -158,6 +149,16 @@ struct MetaNode {
     MetaNode& mergeExtents(const MetaNode &other);
 
     MetaNode& mergeExtents(const math::Extents3 &other);
+
+    unsigned int internalTextureCount() const { return internalTextureCount_; }
+    void internalTextureCount(unsigned int value) {
+        const unsigned int max(std::numeric_limits<std::uint8_t>::max());
+        if (value > max) {
+            internalTextureCount_ = max;
+        } else {
+            internalTextureCount_ = value;
+        }
+    }
 
     const storage::CreditIds& credits() const {  return credits_; }
 
@@ -208,6 +209,8 @@ private:
     Flag::value_type flags_;
 
     storage::CreditIds credits_;
+
+    std::uint8_t internalTextureCount_;
 };
 
 class MetaTile {

@@ -562,8 +562,8 @@ HeightMap::BestPosition HeightMap::bestPosition() const
         });
 
     {
-        math::Point2 d1(c - validExtents.ll);
-        math::Point2 d2(validExtents.ur - c);
+        math::Point2 d1(math::Point2(c(0), c(1)) - validExtents.ll);
+        math::Point2 d2(validExtents.ur - math::Point2(c(0), c(1)));
         double distance(std::max({ d1(0), d1(1), d2(0), d2(1) }));
 
         // vertical extent points

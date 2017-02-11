@@ -7,13 +7,14 @@
 #define vadstena_libs_storage_credits_hpp_included_
 
 #include <cstdint>
-#include <set>
+
+#include "utility/small_set.hpp"
 
 namespace vadstena { namespace storage {
 
 typedef std::uint16_t CreditId;
 
-typedef std::set<CreditId> CreditIds;
+typedef utility::small_set<CreditId> CreditIds;
 
 } } // namespace vadstena::storage
 
