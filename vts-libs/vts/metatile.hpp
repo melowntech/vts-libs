@@ -147,8 +147,8 @@ struct MetaNode {
                                , bool value = true);
 
     MetaNode& mergeExtents(const MetaNode &other);
-
     MetaNode& mergeExtents(const math::Extents3 &other);
+    MetaNode& mergeExtents(const GeomExtents &other);
 
     unsigned int internalTextureCount() const { return internalTextureCount_; }
     void internalTextureCount(unsigned int value) {

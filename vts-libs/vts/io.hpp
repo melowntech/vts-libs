@@ -7,6 +7,7 @@
 
 #include "../storage/io.hpp"
 #include "./basetypes.hpp"
+#include "./geomextents.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -32,6 +33,14 @@ operator<<(std::basic_ostream<CharT, Traits> &os
            , const Ranges &ranges)
 {
     return os << ranges.lodRange() << '/' << ranges.tileRange();
+}
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os
+           , const GeomExtents &ge)
+{
+    return os << ge.z << ',' << ge.surrogate;
 }
 
 } } // namespace vadstena::vts

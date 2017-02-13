@@ -719,20 +719,9 @@ void MetaNode::setChildFromId(Flag::value_type &flags, const TileId &tileId
 
 MetaNode& MetaNode::mergeExtents(const MetaNode &other)
 {
-    if (other.extents.ll == other.extents.ur) {
-        // nothing to do
-        return *this;
-    }
-
-    if (extents.ll == extents.ur) {
-        // use other's extents
-        extents = other.extents;
-        return *this;
-    }
-
-    // merge
-    extents = unite(extents, other.extents);
-    return *this;
+    return
+        mergeExtents(other.extents)
+        .mergeExtents(other.geomExtents);
 }
 
 MetaNode& MetaNode::mergeExtents(const math::Extents3 &other)
@@ -750,6 +739,24 @@ MetaNode& MetaNode::mergeExtents(const math::Extents3 &other)
 
     // merge
     extents = unite(extents, other);
+    return *this;
+}
+
+MetaNode& MetaNode::mergeExtents(const GeomExtents &other)
+{
+    if (other.z.min == other.z.max) {
+        // nothing to do
+        return *this;
+    }
+
+    if (geomExtents.z.min == geomExtents.z.max) {
+        // use other's extents
+        geomExtents.z = other.z;
+        return *this;
+    }
+
+    // merge
+    geomExtents.z = unite(geomExtents.z, other.z);
     return *this;
 }
 
@@ -827,7 +834,9 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
             // get input
             const auto &inn(in.grid_[idx]);
 
-            if (!inn.real() && math::empty(inn.extents)) {
+            if (!inn.real() && math::empty(inn.extents)
+                && vts::empty(inn.geomExtents))
+            {
                 // nonexistent node, ignore
                 continue;
             }
@@ -854,6 +863,7 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
             // we need to keep current geometry extents since they are rewritten
             // by node copy
             const auto savedExtents(outn.extents);
+            const auto savedGeomExtents(outn.geomExtents);
 
             // copy
             outn = inn;
@@ -863,6 +873,7 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
 
             // and apply saved geometry extents
             outn.mergeExtents(savedExtents);
+            outn.mergeExtents(savedGeomExtents);
 
             // reset children and alien flags
             outn.reset(MetaNode::Flag::allChildren | MetaNode::Flag::alien);
