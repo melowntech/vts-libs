@@ -129,6 +129,10 @@ public:
      */
     void getNavTile(const TileId &tileId, NavTile &navtile) const;
 
+    /** Set's tile's surrogate value (i.e. representative height).
+     */
+    void setSurrogateValue(const TileId &tileId, float value);
+
     /** Returns tile's metanode.
      */
     MetaNode getMetaNode(const TileId &tileId) const;

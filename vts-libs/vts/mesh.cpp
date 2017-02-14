@@ -65,6 +65,42 @@ math::Extents3 extents(const Mesh &mesh)
     return e;
 }
 
+GeomExtents geomExtents(const SubMesh &submesh)
+{
+    GeomExtents ge;
+    for (const auto &v : submesh.vertices) {
+        update(ge, v(2));
+    }
+    return ge;
+}
+
+GeomExtents geomExtents(const Mesh &mesh)
+{
+    GeomExtents ge;
+    for (const auto &sm : mesh) {
+        update(ge, geomExtents(sm));
+    }
+    return ge;
+}
+
+GeomExtents geomExtents(const CsConvertor &conv, const SubMesh &submesh)
+{
+    GeomExtents ge;
+    for (const auto &v : submesh.vertices) {
+        update(ge, conv(v)(2));
+    }
+    return ge;
+}
+
+GeomExtents geomExtents(const CsConvertor &conv, const Mesh &mesh)
+{
+    GeomExtents ge;
+    for (const auto &sm : mesh) {
+        update(ge, geomExtents(conv, sm));
+    }
+    return ge;
+}
+
 namespace {
 
 template <typename Vertices>

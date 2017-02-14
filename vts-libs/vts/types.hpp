@@ -9,6 +9,7 @@
 #include "../storage/credits.hpp"
 
 #include "basetypes.hpp"
+#include "geomextents.hpp"
 #include "mesh.hpp"
 #include "atlas.hpp"
 #include "navtile.hpp"
@@ -19,6 +20,7 @@ struct Tile {
     Mesh::pointer mesh;
     Atlas::pointer atlas;
     NavTile::pointer navtile;
+    GeomExtents geomExtents;
 
     // credits to store in metanode
     storage::CreditIds credits;

@@ -304,6 +304,8 @@ public:
         , config_(config), input_(input), aa_(input_->advancedApi())
         , ti_(aa_.tileIndex()), cti_(ti_)
         , hma_(ntSourceLod_)
+        , physSrs_(referenceFrame().model.physicalSrs)
+        , rootSrs_(referenceFrame().division.root().srs)
     {
         cti_.makeFull().makeComplete();
 
@@ -332,6 +334,8 @@ private:
     const vts0::TileIndex &ti_;
     vts0::TileIndex cti_;
     vts::HeightMap::Accumulator hma_;
+    const std::string physSrs_;
+    const std::string rootSrs_;
 };
 
 vts0::Mesh loadMesh(const vs::IStream::pointer &is)
@@ -518,11 +522,10 @@ void createMeshMask(const vts::TileId &tileId, const math::Extents2 &extents
     }
 }
 
-vts::Mesh::pointer
-createMesh(const vts::TileId &tileId, const vts0::Mesh &m
-           , const math::Extents2 &divisionExtents
-           , bool externalTextureCoordinates
-           , boost::optional<std::uint16_t> textureLayer)
+vts::Mesh::pointer createMesh(const vts::TileId &tileId, const vts0::Mesh &m
+                              , const math::Extents2 &divisionExtents
+                              , bool externalTextureCoordinates
+                              , boost::optional<std::uint16_t> textureLayer)
 {
     // just one submesh
     auto mesh(std::make_shared<vts::Mesh>());

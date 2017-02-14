@@ -133,6 +133,8 @@ public:
 
     void setNavTile(const TileId &tileId, const NavTile &navtile);
 
+    void setSurrogateValue(const TileId &tileId, float value);
+
     std::uint8_t metaOrder() const;
     TileId metaId(TileId tileId) const;
 

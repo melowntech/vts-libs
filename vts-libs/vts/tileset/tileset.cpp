@@ -98,6 +98,11 @@ void TileSet::setNavTile(const TileId &tileId, const NavTile &navtile)
     detail().setNavTile(tileId, navtile);
 }
 
+void TileSet::setSurrogateValue(const TileId &tileId, float value)
+{
+    detail().setSurrogateValue(tileId, value);
+}
+
 MetaNode TileSet::getMetaNode(const TileId &tileId) const
 {
     auto node(detail().findNode(tileId));
@@ -966,6 +971,16 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile
         metanode.geometry(true);
         metanode.extents = normalizedExtents(referenceFrame, extents(*mesh));
 
+        // use/compute geom extents
+        if (vts::empty(tile.geomExtents)) {
+            // no geom extents, need to compute from mesh converted to SDS
+            metanode.geomExtents = geomExtents
+                (CsConvertor(referenceFrame.model.physicalSrs, nodeInfo.srs())
+                 , *mesh);
+        } else {
+            metanode.geomExtents = tile.geomExtents;
+        }
+
         // get external textures info configuration
         updateProperties(*mesh);
 
@@ -1077,6 +1092,22 @@ void TileSet::Detail::setNavTile(const TileId &tileId, const NavTile &navtile)
 
     // mark navtile in tile index
     tileIndex.setMask(tileId, TileIndex::Flag::navtile);
+}
+
+void TileSet::Detail::setSurrogateValue(const TileId &tileId, float value)
+{
+    auto node(findNode(tileId));
+    if (!node || !node.metanode->geometry()) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "Cannot set surrogate to geometry-less tile " << tileId << ".";
+    }
+
+    LOG(info1) << "Setting surrogate (" << tileId << "): " << value;
+    auto metanode(*node.metanode);
+    metanode.geomExtents.surrogate = value;
+
+    // update the tree
+    node.update(tileId, metanode);
 }
 
 Mesh TileSet::Detail::getMesh(const TileId &tileId, const MetaNode *node)

@@ -469,7 +469,8 @@ void warpInPlace(const vts::CsConvertor &conv, vts::SubMesh &sm)
     }
 }
 
-vts::VertexMask warpInPlaceWithMask(const vts::CsConvertor &conv
+vts::VertexMask warpInPlaceWithMask(vts::GeomExtents &ge
+                                    , const vts::CsConvertor &conv
                                     , vts::SubMesh &sm)
 {
     vts::VertexMask mask(sm.vertices.size(), true);
@@ -480,6 +481,7 @@ vts::VertexMask warpInPlaceWithMask(const vts::CsConvertor &conv
         try {
             // convert vertex in-place
             v = conv(v);
+            update(ge, v(2));
         } catch (std::exception) {
             // cannot convert vertex -> mask out
             *imask = false;
@@ -597,7 +599,7 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
         {
             auto sm(inMesh[smIndex]);
 
-            auto mask(warpInPlaceWithMask(srcPhy2Sds, sm));
+            auto mask(warpInPlaceWithMask(tile.geomExtents, srcPhy2Sds, sm));
 
             // clip submesh
             auto dstSm(vts::clip(sm, clipExtents, mask));

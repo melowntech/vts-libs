@@ -16,6 +16,8 @@
 
 #include "./qtree.hpp"
 #include "./multifile.hpp"
+#include "./geomextents.hpp"
+#include "./csconvertor.hpp"
 
 namespace vadstena { namespace vts {
 
@@ -165,6 +167,24 @@ std::uint32_t extraFlags(const Mesh::pointer &mesh);
 
 math::Extents3 extents(const SubMesh &submesh);
 math::Extents3 extents(const Mesh &mesh);
+
+/** Calculates geom-extents.
+ *  NB: vertices must be in SDS to work properly.
+ */
+GeomExtents geomExtents(const SubMesh &submesh);
+
+/** Calculates geom-extents.
+ *  NB: vertices must be in SDS to work properly.
+ */
+GeomExtents geomExtents(const Mesh &mesh);
+
+/** Calculates geom-extents. Convert to SDS system using provided convertor.
+ */
+GeomExtents geomExtents(const CsConvertor &conv, const SubMesh &submesh);
+
+/** Calculates geom-extents. Convert to SDS system using provided convertor.
+ */
+GeomExtents geomExtents(const CsConvertor &conv, const Mesh &mesh);
 
 struct SubMeshArea {
     double mesh;

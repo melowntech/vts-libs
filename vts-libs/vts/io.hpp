@@ -40,7 +40,7 @@ inline std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits> &os
            , const GeomExtents &ge)
 {
-    return os << ge.z << ',' << ge.surrogate;
+    return os << ge.z << " (surrogate:" << ge.surrogate << ')';
 }
 
 } } // namespace vadstena::vts
