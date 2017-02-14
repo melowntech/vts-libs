@@ -1564,6 +1564,8 @@ int VtsStorage::add()
     storage.add(tileset_, where_
                 , optTilesetId_ ? *optTilesetId_ : std::string()
                 , addOptions_);
+
+    LOG(info4) << "All done.";
     return EXIT_SUCCESS;
 }
 
@@ -1575,6 +1577,8 @@ int VtsStorage::readd()
     Lock lock(path_, lock_);
 
     storage.readd(tilesetId_, addOptions_);
+
+    LOG(info4) << "All done.";
     return EXIT_SUCCESS;
 }
 
@@ -2040,6 +2044,7 @@ int VtsStorage::concat()
 
     vts::concatTileSets(path_, tilesets_, createOptions);
 
+    LOG(info4) << "All done.";
     return EXIT_SUCCESS;
 }
 
@@ -2136,15 +2141,21 @@ int VtsStorage::clone()
     case vts::DatasetType::TileSet:
         vts::cloneTileSet
             (tileset_, vts::openTileSet(path_), cloneOptions);
+
+        LOG(info4) << "All done.";
         return EXIT_FAILURE;
 
     case vts::DatasetType::Storage:
         vts::Storage(path_, vts::OpenMode::readOnly)
             .clone(tileset_, cloneOptions);
+
+        LOG(info4) << "All done.";
         return EXIT_SUCCESS;
 
     case vts::DatasetType::StorageView:
         vts::StorageView(path_).clone(tileset_, cloneOptions);
+
+        LOG(info4) << "All done.";
         return EXIT_SUCCESS;
 
     default: break;
