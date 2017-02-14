@@ -19,7 +19,15 @@ namespace vadstena { namespace vts {
  */
 class UrlTemplate {
 public:
-    UrlTemplate(const std::string &str);
+    UrlTemplate() = default;
+
+    // FIXME: make copyable/assignable when token copy problem is fixed
+    UrlTemplate(const UrlTemplate&) = delete;
+    UrlTemplate& operator=(const UrlTemplate&) = delete;
+
+    UrlTemplate(const std::string &str) { parse(str); }
+
+    void parse(const std::string &str);
 
     struct Vars {
         vts::TileId tileId;

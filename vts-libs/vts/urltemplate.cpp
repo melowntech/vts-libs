@@ -217,8 +217,10 @@ UrlTemplate::Expander parseFunction(const std::string &str
 
 } // namespace
 
-UrlTemplate::UrlTemplate(const std::string &str)
+void UrlTemplate::parse(const std::string &str)
 {
+    tokens_.clear();
+
     std::string::size_type index(0);
     std::string::size_type end(str.size());
     while (index < end) {
