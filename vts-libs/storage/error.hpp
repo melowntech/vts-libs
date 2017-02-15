@@ -105,6 +105,10 @@ struct Corrupted : Error {
     Corrupted(const std::string &message) : Error(message) {}
 };
 
+struct Unimplemented : Error {
+    Unimplemented(const std::string &message) : Error(message) {}
+};
+
 } } // namespace vtslibs::storage
 
 #endif // vtslibs_storage_error_hpp_included_

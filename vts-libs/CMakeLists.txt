@@ -260,10 +260,24 @@ set(vts-core_SOURCES
   vts/debug.hpp vts/debug.cpp
   )
 
+set(vts-core_EXTRA_DEPENDS)
+
+if(OpenCV_FOUND)
+  # OpenCV -- link in core opencv stuff
+  list(APPEND vts-core_SOURCES
+    vts/opencv/atlas.hpp vts/opencv/atlas.cpp
+    vts/opencv/navtile.hpp vts/opencv/navtile.cpp
+    vts/opencv/colors.hpp vts/opencv/colors.cpp
+    vts/opencv/inpaint.cpp
+    )
+  list(APPEND vts-core_EXTRA_DEPENDS OpenCV)
+else()
+  list(APPEND vts-core_SOURCES
+    vts/inpaint.cpp
+    )
+endif()
+
 set(vts_SOURCES
-  vts/opencv/atlas.hpp vts/opencv/atlas.cpp
-  vts/opencv/navtile.hpp vts/opencv/navtile.cpp
-  vts/opencv/colors.hpp vts/opencv/colors.cpp
   vts/tileset/glue.cpp
   vts/tileset/merge.hpp vts/tileset/merge.cpp
   vts/meshop.hpp vts/meshopinput.hpp
@@ -286,6 +300,7 @@ define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
   utility>=1.11 dbglog>=1.4 jsoncpp>=1.1 half>=1.1
 
   ${vts-registry_python_DEPENDS}
+  ${vts-core_EXTRA_DEPENDS}
   Boost_IOSTREAMS
   Boost_FILESYSTEM
   CURL PNG

@@ -854,8 +854,12 @@ Tilar::Detail::~Detail()
 {
     if (changed()) {
         // unflushed -> rollback
-        LOG(warn2)
-            << "File " << fd.path() << " was not flushed, discarding changes.";
+        if (!std::uncaught_exception()) {
+            // bugger user only if no exception is thrown
+            LOG(warn2)
+                << "File " << fd.path()
+                << " was not flushed, discarding changes.";
+        }
         tx = 0;
         try {
             discardChanges();

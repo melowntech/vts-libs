@@ -6,6 +6,7 @@
 #include <istream>
 #include <vector>
 
+#include <boost/any.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include "math/geometry_core.hpp"
@@ -13,6 +14,8 @@
 #include "./multifile.hpp"
 
 namespace vtslibs { namespace vts {
+
+class Mesh;
 
 class Atlas {
 public:
@@ -62,12 +65,17 @@ public:
     virtual std::size_t size() const { return images_.size(); }
 
     typedef std::vector<unsigned char> Image;
+    typedef std::vector<Image> Images;
 
     const Image& get(std::size_t index) const { return images_[index]; }
 
     void add(const Image &image);
 
     void add(const RawAtlas &other);
+
+    /** Access internal data.
+     */
+    const Images& get() const { return images_; }
 
 private:
     virtual multifile::Table serialize_impl(std::ostream &os) const;
@@ -78,12 +86,15 @@ private:
 
     virtual math::Size2 imageSize_impl(std::size_t index) const;
 
-    typedef std::vector<Image> Images;
     Images images_;
 };
 
-
-// inlines
+/** Inpaint atlas.
+ *
+ *  Inpaint atlas. Fails if `vts-libs` library code is not compiled in.
+ */
+Atlas::pointer inpaint(const Atlas &atlas, const Mesh &mesh
+                       , int textureQuality);
 
 inline double Atlas::area(std::size_t index) const
 {

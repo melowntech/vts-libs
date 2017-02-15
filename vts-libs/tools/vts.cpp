@@ -113,7 +113,7 @@ public:
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
         , tileFlags_(), metaFlags_(), encodeFlags_()
-        , queryLod_()
+        , queryLod_(), textureQuality_(70)
     {
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
@@ -271,6 +271,8 @@ private:
 
     boost::optional<vts::Lod> queryLod_;
     math::Point2IOWrapper<double> queryPoint_;
+
+    int textureQuality_;
 
     /** External lock.
      */
@@ -926,6 +928,9 @@ void VtsStorage::configuration(po::options_description &cmdline
              "existing credits. If not specified, credits are not touched.")
             ("reencode", po::value(&encodeFlags_)->default_value(0)
              ,"Comma-separated list of clone options: mesh, inpaint, meta.")
+            ("textureQuality", po::value(&textureQuality_)
+             ->required()->default_value(textureQuality_)
+             , "Texture quality for inpaint.")
             ;
 
         p.configure = [&](const po::variables_map &vars) {
@@ -2111,10 +2116,13 @@ int VtsStorage::local()
 int VtsStorage::clone()
 {
     vts::CloneOptions cloneOptions;
-    cloneOptions.tilesetId(optTilesetId_);
-    cloneOptions.lodRange(optLodRange_);
-    cloneOptions.mode(createMode_);
-    cloneOptions.encodeFlags(encodeFlags_.value);
+    cloneOptions
+        .tilesetId(optTilesetId_)
+        .lodRange(optLodRange_)
+        .mode(createMode_)
+        .encodeFlags(encodeFlags_.value)
+        .textureQuality(textureQuality_)
+        ;
 
     if (!forceCredits_.empty()) {
         cloneOptions.metaNodeManipulator(

@@ -135,6 +135,11 @@ public:
         createFlags_ = createFlags; return *this;
     }
 
+    int textureQuality() const { return textureQuality_; }
+    CloneOptions& textureQuality(int value) {
+        textureQuality_ = value; return *this;
+    }
+
 private:
     CreateMode mode_;
     boost::optional<std::string> tilesetId_;
@@ -144,6 +149,10 @@ private:
     EncodeFlag::value_type encodeFlags_;
     OpenOptions openOptions_;
     CreateFlags createFlags_;
+
+    /** Texture quality (used only when inpainting)
+     */
+    int textureQuality_;
 };
 
 class RelocateOptions {

@@ -285,7 +285,8 @@ struct TileSet::Factory
                          , const Driver &sd, Driver &dd
                          , bool hasMesh, bool hasAtlas
                          , CloneOptions::EncodeFlag::value_type eflags
-                         , MetaNode &metanode)
+                         , MetaNode &metanode
+                         , int textureQuality)
     {
         Mesh mesh;
         RawAtlas atlas;
@@ -318,12 +319,16 @@ struct TileSet::Factory
         }
 
         if (hasAtlas) {
-            // TODO: implement me when inpaint is working
-            (void) atlas;
-
-            // just copy file
-            copyFile(sd.input(tileId, storage::TileFile::atlas)
-                     , dd.output(tileId, storage::TileFile::atlas));
+            if (hasMesh && (eflags & CloneOptions::EncodeFlag::inpaint)) {
+                // inpaint
+                auto os(dd.output(tileId, storage::TileFile::atlas));
+                inpaint(atlas, mesh, textureQuality)->serialize(os->get());
+                os->close();
+            } else {
+                // just copy file
+                copyFile(sd.input(tileId, storage::TileFile::atlas)
+                         , dd.output(tileId, storage::TileFile::atlas));
+            }
         }
     }
 
@@ -390,7 +395,8 @@ struct TileSet::Factory
 
             if (eflags) {
                 reencode(tid, NodeInfo(src.referenceFrame, tid)
-                         , sd, dd, mesh, atlas, eflags, copyMetanode());
+                         , sd, dd, mesh, atlas, eflags, copyMetanode()
+                         , cloneOptions.textureQuality());
             } else {
                 if (mesh) {
                     // copy mesh

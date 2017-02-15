@@ -13,6 +13,10 @@ public:
 
     Atlas(int quality = 100) : quality_(quality) {}
 
+    /** Construct atlas from any atlas.
+     */
+    Atlas(const vts::Atlas &atlas, int textureQuality = 100);
+
     virtual std::size_t size() const { return images_.size(); }
 
     typedef cv::Mat Image;
@@ -55,6 +59,10 @@ private:
 
 public:
     typedef std::shared_ptr<HybridAtlas> pointer;
+
+    /** Construct hybrid atlas from any atlas.
+     */
+    HybridAtlas(const Atlas &atlas, int textureQuality = 100);
 
     HybridAtlas(const opencv::Atlas &atlas) : quality_(atlas.quality()) {
         append(atlas);
