@@ -1,12 +1,12 @@
-#ifndef geo_vadstena_libs_vts_csconvert_hpp_included_
-#define geo_vadstena_libs_vts_csconvert_hpp_included_
+#ifndef geo_vtslibs_vts_csconvert_hpp_included_
+#define geo_vtslibs_vts_csconvert_hpp_included_
 
 #include "geo/csconvertor.hpp"
 #include "geo/verticaladjuster.hpp"
 
 #include "../registry.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 /** Coordinate system convertor.
  */
@@ -107,6 +107,6 @@ private:
     geo::VerticalAdjuster dstAdjuster_;
 };
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // geo_vadstena_libs_vts_csconvert_hpp_included_
+#endif // geo_vtslibs_vts_csconvert_hpp_included_

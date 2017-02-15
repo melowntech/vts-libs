@@ -5,8 +5,8 @@
  * Tile content merge.
  */
 
-#ifndef vadstena_libs_vts_merge_hpp_included_
-#define vadstena_libs_vts_merge_hpp_included_
+#ifndef vtslibs_vts_merge_hpp_included_
+#define vtslibs_vts_merge_hpp_included_
 
 #include <boost/optional.hpp>
 
@@ -17,7 +17,7 @@
 #include "../meshopinput.hpp"
 #include "./detail.hpp"
 
-namespace vadstena { namespace vts { namespace merge {
+namespace vtslibs { namespace vts { namespace merge {
 
 typedef std::vector<math::Points3d> Vertices3List;
 
@@ -151,6 +151,6 @@ Output mergeTile(const TileId &tileId
 
 inline bool MergeConstraints::feasible(const Output &) const { return true; }
 
-} } } // namespace vadstena::vts::merge
+} } } // namespace vtslibs::vts::merge
 
-#endif // vadstena_libs_vts_merge_hpp_included_
+#endif // vtslibs_vts_merge_hpp_included_

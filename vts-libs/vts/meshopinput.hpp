@@ -5,8 +5,8 @@
  * Mesh operation input.
  */
 
-#ifndef vadstena_libs_vts_meshop_hpp_included_
-#define vadstena_libs_vts_meshop_hpp_included_
+#ifndef vtslibs_vts_meshop_hpp_included_
+#define vtslibs_vts_meshop_hpp_included_
 
 #include <boost/optional.hpp>
 
@@ -16,7 +16,7 @@
 #include "./opencv/navtile.hpp"
 #include "./tileset.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 /** Mesh operation input.
  */
@@ -125,6 +125,6 @@ private:
     LodRange mergeableRange_;
 };
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_meshop_hpp_included_
+#endif // vtslibs_vts_meshop_hpp_included_

@@ -1,12 +1,12 @@
-#ifndef vadstena_libs_vts_tileflags_hpp_included_
-#define vadstena_libs_vts_tileflags_hpp_included_
+#ifndef vtslibs_vts_tileflags_hpp_included_
+#define vtslibs_vts_tileflags_hpp_included_
 
 #include <iostream>
 #include <sstream>
 
 #include "./tileindex.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct TileFlags {
     typedef TileIndex::Flag TiFlag;
@@ -89,6 +89,6 @@ operator>>(std::basic_istream<CharT, Traits> &is, TileFlags &f)
     return is;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_tileflags_hpp_included_
+#endif // vtslibs_vts_tileflags_hpp_included_

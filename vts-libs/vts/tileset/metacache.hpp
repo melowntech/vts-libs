@@ -5,13 +5,13 @@
  * Metatile cache.
  */
 
-#ifndef vadstena_libs_vts_tileset_metacache_hpp_included_
-#define vadstena_libs_vts_tileset_metacache_hpp_included_
+#ifndef vtslibs_vts_tileset_metacache_hpp_included_
+#define vtslibs_vts_tileset_metacache_hpp_included_
 
 #include "../metatile.hpp"
 #include "./driver.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 class MetaCache {
 public:
@@ -34,6 +34,6 @@ protected:
     Driver::pointer driver_;
 };
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_tileset_metacache_hpp_included_
+#endif // vtslibs_vts_tileset_metacache_hpp_included_

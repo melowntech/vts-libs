@@ -13,7 +13,7 @@
 
 namespace bio = boost::iostreams;
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 namespace detail {
 
@@ -172,4 +172,4 @@ IStream::pointer memIStream(TileFile type, MemBlock &&data
     return detail::memStream(type, std::move(data), lastModified, path);
 }
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage

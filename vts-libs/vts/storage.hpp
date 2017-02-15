@@ -5,8 +5,8 @@
  * Tile set storage access.
  */
 
-#ifndef vadstena_libs_vts_storage_hpp_included_
-#define vadstena_libs_vts_storage_hpp_included_
+#ifndef vtslibs_vts_storage_hpp_included_
+#define vtslibs_vts_storage_hpp_included_
 
 #include <memory>
 #include <string>
@@ -23,7 +23,7 @@
 #include "./virtualsurface.hpp"
 #include "./options.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct StorageProperties {
     std::string referenceFrame;
@@ -300,7 +300,7 @@ public:
 
     std::time_t lastModified() const;
 
-    vadstena::storage::Resources resources() const;
+    vtslibs::storage::Resources resources() const;
 
     boost::filesystem::path path() const;
 
@@ -429,6 +429,6 @@ operator>>(std::basic_istream<CharT, Traits> &is, Storage::Location &l)
     return is;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_storage_hpp_included_
+#endif // vtslibs_vts_storage_hpp_included_

@@ -6,7 +6,7 @@
 #include "../tileindex-io.hpp"
 #include "../tileopext.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 namespace fs = boost::filesystem;
 
@@ -450,4 +450,4 @@ void TileSet::paste(const list &update)
     det.filterHeightmap(changed);
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0

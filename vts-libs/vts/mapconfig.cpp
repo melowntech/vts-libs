@@ -14,7 +14,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
     const int VERSION = 1;
@@ -716,4 +716,4 @@ void saveDebug(std::ostream &os, const DebugConfig &debug)
     Json::StyledStreamWriter().write(os, content);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

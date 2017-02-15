@@ -5,14 +5,14 @@
  * Merge configuration
  */
 
-#ifndef vadstena_libs_vts_storage_mergeconf_hpp_included_
-#define vadstena_libs_vts_storage_mergeconf_hpp_included_
+#ifndef vtslibs_vts_storage_mergeconf_hpp_included_
+#define vtslibs_vts_storage_mergeconf_hpp_included_
 
 #include <memory>
 
 #include "../storage.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct MergeConf {
     OpenOptions::CNames cnames;
@@ -29,6 +29,6 @@ struct MergeConf {
 MergeConf loadMergeConf(const boost::filesystem::path &path
                         , bool ignoreNoexistent = false);
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_storage_mergeconf_hpp_included_
+#endif // vtslibs_vts_storage_mergeconf_hpp_included_

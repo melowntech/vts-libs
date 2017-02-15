@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_tilestorage_tileindex_hpp_included_
-#define vadstena_libs_tilestorage_tileindex_hpp_included_
+#ifndef vtslibs_tilestorage_tileindex_hpp_included_
+#define vtslibs_tilestorage_tileindex_hpp_included_
 
 #include <map>
 
@@ -11,7 +11,7 @@
 #include "./basetypes.hpp"
 #include "./tileop.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 class TileIndex {
 public:
@@ -329,6 +329,6 @@ inline Point2l TileIndex::fromReference(const Point2l &reference, Lod lod
             , (origin_(1) - reference(1)) / ts  + point(1) };
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_tileindex_hpp_included_
+#endif // vtslibs_tilestorage_tileindex_hpp_included_

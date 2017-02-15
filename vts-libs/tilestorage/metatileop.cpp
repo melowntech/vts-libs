@@ -18,7 +18,7 @@
 #include "./types.hpp"
 #include "./metatileop.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace detail {
 
@@ -101,4 +101,4 @@ void calcParams(MetaNode &metanode, const geometry::Obj &mesh
     metanode.pixelSize[1][0] = metanode.pixelSize[1][1] = ps;
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

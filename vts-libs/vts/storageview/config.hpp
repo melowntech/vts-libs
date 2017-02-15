@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_vts_storageview_config_hpp_included_
-#define vadstena_libs_vts_storageview_config_hpp_included_
+#ifndef vtslibs_vts_storageview_config_hpp_included_
+#define vtslibs_vts_storageview_config_hpp_included_
 
 #include <iostream>
 
@@ -12,7 +12,7 @@
 
 #include "../storageview.hpp"
 
-namespace vadstena { namespace vts { namespace storageview {
+namespace vtslibs { namespace vts { namespace storageview {
 
 StorageView::Properties loadConfig(std::istream &in);
 
@@ -25,6 +25,6 @@ bool checkConfig(std::istream &in);
 
 bool checkConfig(const boost::filesystem::path &path);
 
-} } } // namespace vadstena::vts::storageview
+} } } // namespace vtslibs::vts::storageview
 
-#endif // vadstena_libs_vts_storageview_config_hpp_included_
+#endif // vtslibs_vts_storageview_config_hpp_included_

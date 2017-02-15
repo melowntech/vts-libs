@@ -11,7 +11,7 @@
 #include "./io.hpp"
 #include "./tileindex-io.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace fs = boost::filesystem;
 
@@ -880,4 +880,4 @@ TileRange TileIndex::tileRange(Lod lod, QTree::value_type mask) const
     return tr;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

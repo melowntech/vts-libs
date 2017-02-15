@@ -1,12 +1,12 @@
-#ifndef vadstena_libs_storage_io_hpp_included_
-#define vadstena_libs_storage_io_hpp_included_
+#ifndef vtslibs_storage_io_hpp_included_
+#define vtslibs_storage_io_hpp_included_
 
 #include "utility/enum-io.hpp"
 
 #include "./filetypes.hpp"
 #include "./resources.hpp"
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 UTILITY_GENERATE_ENUM_IO(TileFile,
                          ((meta))
@@ -33,7 +33,7 @@ operator<<(std::basic_ostream<CharT, Traits> &os
               << ", memory=" << r.memory << '}';
 }
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage
 
-#endif // vadstena_libs_storage_io_hpp_included_
+#endif // vtslibs_storage_io_hpp_included_
 

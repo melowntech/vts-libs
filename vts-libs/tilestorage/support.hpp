@@ -5,8 +5,8 @@
  * Support files
  */
 
-#ifndef vadstena_libs_tilestorage_support_hpp_included_
-#define vadstena_libs_tilestorage_support_hpp_included_
+#ifndef vtslibs_tilestorage_support_hpp_included_
+#define vtslibs_tilestorage_support_hpp_included_
 
 #include <cstddef>
 #include <ctime>
@@ -15,10 +15,10 @@
 
 #include "../storage/support.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 extern const storage::SupportFile::Files supportFiles;
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_support_hpp_included_
+#endif // vtslibs_tilestorage_support_hpp_included_

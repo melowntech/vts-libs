@@ -29,7 +29,7 @@
 #include "./tileset/dump.hpp"
 #include "./driver/tilardriver.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 namespace fs = boost::filesystem;
 
@@ -1384,4 +1384,4 @@ CloneOptions::Filter CloneOptions::getFilter(TileSet &tileSet) const
     return {};
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0

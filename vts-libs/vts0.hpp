@@ -6,8 +6,8 @@
  *
  */
 
-#ifndef vadstena_libs_vts_hpp_included_
-#define vadstena_libs_vts_hpp_included_
+#ifndef vtslibs_vts_hpp_included_
+#define vtslibs_vts_hpp_included_
 
 #include <memory>
 #include <cmath>
@@ -30,7 +30,7 @@
 #include "./vts0/tileset.hpp"
 #include "./vts0/storage.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 /** Creates new storage.
  *
@@ -187,6 +187,6 @@ inline SettableProperties::Setter<CloneOptions> CloneOptions::settableSetter()
     return { settableProperties, this };
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts_hpp_included_
+#endif // vtslibs_vts_hpp_included_

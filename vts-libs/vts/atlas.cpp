@@ -10,7 +10,7 @@
 #include "./atlas.hpp"
 #include "./multifile.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 
@@ -91,4 +91,4 @@ void RawAtlas::add(const RawAtlas &other)
                    , other.images_.end());
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

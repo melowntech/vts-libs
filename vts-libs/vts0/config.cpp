@@ -4,7 +4,7 @@
 #include "./json.hpp"
 #include "../storage/error.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 Properties loadConfig(std::istream &in)
 {
@@ -57,4 +57,4 @@ void saveConfig(const boost::filesystem::path &path
     f.close();
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0

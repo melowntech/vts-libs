@@ -1,11 +1,11 @@
-#ifndef vadstena_libs_vts_tileset_driver_httpfetcher_hpp_included_
-#define vadstena_libs_vts_tileset_driver_httpfetcher_hpp_included_
+#ifndef vtslibs_vts_tileset_driver_httpfetcher_hpp_included_
+#define vtslibs_vts_tileset_driver_httpfetcher_hpp_included_
 
 #include <memory>
 
 #include "../driver.hpp"
 
-namespace vadstena { namespace vts { namespace driver {
+namespace vtslibs { namespace vts { namespace driver {
 
 class HttpFetcher {
 public:
@@ -43,6 +43,6 @@ private:
     std::shared_ptr<void> handle_;
 };
 
-} } } // namespace vadstena::vts::driver
+} } } // namespace vtslibs::vts::driver
 
-#endif // vadstena_libs_vts_tileset_driver_httpfetcher_hpp_included_
+#endif // vtslibs_vts_tileset_driver_httpfetcher_hpp_included_

@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_navtile_hpp
-#define vadstena_libs_vts_navtile_hpp
+#ifndef vtslibs_vts_navtile_hpp
+#define vtslibs_vts_navtile_hpp
 
 #include <cstdlib>
 #include <memory>
@@ -14,7 +14,7 @@
 
 #include "./multifile.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 class NavTile {
 public:
@@ -92,6 +92,6 @@ private:
     CoverageMask coverageMask_;
 };
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_navtile_hpp
+#endif // vtslibs_vts_navtile_hpp

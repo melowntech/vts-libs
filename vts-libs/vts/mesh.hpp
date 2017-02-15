@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_mesh_hpp
-#define vadstena_libs_vts_mesh_hpp
+#ifndef vtslibs_vts_mesh_hpp
+#define vtslibs_vts_mesh_hpp
 
 #include <cstdint>
 #include <iosfwd>
@@ -19,7 +19,7 @@
 #include "./geomextents.hpp"
 #include "./csconvertor.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 typedef math::Point3_<std::uint32_t> Point3u32;
 typedef Point3u32 Face;
@@ -361,6 +361,6 @@ inline MeshMask loadMeshMask(const storage::IStream::pointer &in)
     return loadMeshMask(*in, in->name());
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_mesh_hpp
+#endif // vtslibs_vts_mesh_hpp

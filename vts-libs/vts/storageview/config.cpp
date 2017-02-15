@@ -10,7 +10,7 @@
 #include "../../registry/json.hpp"
 #include "../storage/config.hpp"
 
-namespace vadstena { namespace vts { namespace storageview {
+namespace vtslibs { namespace vts { namespace storageview {
 
 namespace detail {
 
@@ -57,7 +57,7 @@ StorageView::Properties loadConfig(std::istream &in)
     Json::Value config;
     Json::Reader reader;
     if (!reader.parse(in, config)) {
-        LOGTHROW(err1, vadstena::storage::FormatError)
+        LOGTHROW(err1, vtslibs::storage::FormatError)
             << "Unable to parse config: "
             << reader.getFormattedErrorMessages() << ".";
     }
@@ -71,12 +71,12 @@ StorageView::Properties loadConfig(std::istream &in)
             return detail::parse1(config);
         }
 
-        LOGTHROW(err1, vadstena::storage::FormatError)
+        LOGTHROW(err1, vtslibs::storage::FormatError)
             << "Invalid storageview config format: unsupported version "
             << version << ".";
 
     } catch (const Json::Error &e) {
-        LOGTHROW(err1, vadstena::storage::FormatError)
+        LOGTHROW(err1, vtslibs::storage::FormatError)
             << "Invalid storageview config format (" << e.what()
             << "); Unable to work with this storageview.";
     }
@@ -92,7 +92,7 @@ StorageView::Properties loadConfig(const boost::filesystem::path &path)
         f.open(path.string(), std::ios_base::in);
         f.peek();
     } catch (const std::exception &e) {
-        LOGTHROW(err1, vadstena::storage::NoSuchStorageView)
+        LOGTHROW(err1, vtslibs::storage::NoSuchStorageView)
             << "Unable to load storage view config file " << path << ".";
     }
     auto p(loadConfig(f));
@@ -150,7 +150,7 @@ bool checkConfig(std::istream &in)
     try {
         in.exceptions(std::ios::badbit | std::ios::failbit);
         loadConfig(in);
-    } catch (const vadstena::storage::Error&) {
+    } catch (const vtslibs::storage::Error&) {
         return false;
     }
     return true;
@@ -166,4 +166,4 @@ bool checkConfig(const boost::filesystem::path &path)
     return checkConfig(f);
 }
 
-} } } // namespace vadstena::vts::storageview
+} } } // namespace vtslibs::vts::storageview

@@ -8,7 +8,7 @@
 # major dependency is OpenCV
 
 # bump version here
-set(vts-libs_VERSION 1.7)
+set(vts-libs_VERSION 2.0)
 
 # settable path to VTS registry
 set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
@@ -65,13 +65,13 @@ set(tilestorage_BROWSER_SOURCES
   tilestorage/support.hpp tilestorage/support.cpp
   )
 file_to_cpp(tilestorage_BROWSER_SOURCES
-  vadstena::tilestorage::browser::index_html
+  vtslibs::tilestorage::browser::index_html
   tilestorage/browser/index.html)
 file_to_cpp(tilestorage_BROWSER_SOURCES
-  vadstena::tilestorage::browser::index_offline_html
+  vtslibs::tilestorage::browser::index_offline_html
   tilestorage/browser/index-offline.html)
 file_to_cpp(tilestorage_BROWSER_SOURCES
-  vadstena::tilestorage::browser::skydome_jpg
+  vtslibs::tilestorage::browser::skydome_jpg
   tilestorage/browser/skydome.jpg)
 
 
@@ -120,13 +120,13 @@ set(vts0_BROWSER_SOURCES
   vts0/support.hpp vts0/support.cpp
   )
 file_to_cpp(vts0_BROWSER_SOURCES
-  vadstena::vts0::browser::index_html
+  vtslibs::vts0::browser::index_html
   vts0/browser/index.html)
 file_to_cpp(vts0_BROWSER_SOURCES
-  vadstena::vts0::browser::index_offline_html
+  vtslibs::vts0::browser::index_offline_html
   vts0/browser/index-offline.html)
 file_to_cpp(vts0_BROWSER_SOURCES
-  vadstena::vts0::browser::skydome_jpg
+  vtslibs::vts0::browser::skydome_jpg
   vts0/browser/skydome.jpg)
 
 # old vts0 files
@@ -173,19 +173,19 @@ set(vts_BROWSER_SOURCES
   vts/support.hpp vts/support.cpp
   )
 file_to_cpp(vts_BROWSER_SOURCES
-  vadstena::vts::browser::index_html
+  vtslibs::vts::browser::index_html
   vts/browser/index.html)
 file_to_cpp(vts_BROWSER_SOURCES
-  vadstena::vts::browser::index_offline_html
+  vtslibs::vts::browser::index_offline_html
   vts/browser/index-offline.html)
 file_to_cpp(vts_BROWSER_SOURCES
-  vadstena::vts::browser::skydome_jpg
+  vtslibs::vts::browser::skydome_jpg
   vts/browser/skydome.jpg)
 file_to_cpp(vts_BROWSER_SOURCES
-  vadstena::vts::browser::debugger_html
+  vtslibs::vts::browser::debugger_html
   vts/browser/debugger.html)
 file_to_cpp(vts_BROWSER_SOURCES
-  vadstena::vts::browser::debugger_js
+  vtslibs::vts::browser::debugger_js
   vts/browser/debugger.js)
 
 # vts core files

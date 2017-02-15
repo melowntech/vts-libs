@@ -5,8 +5,8 @@
  * Store.
  */
 
-#ifndef vadstena_libs_vts0_storage_hpp_included_
-#define vadstena_libs_vts0_storage_hpp_included_
+#ifndef vtslibs_vts0_storage_hpp_included_
+#define vtslibs_vts0_storage_hpp_included_
 
 #include <memory>
 #include <map>
@@ -18,7 +18,7 @@
 
 #include "./properties.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 /** Tile set descriptor.
  */
@@ -96,6 +96,6 @@ inline void Storage::addTileSet(const boost::filesystem::path &path
     return addTileSets({path}, runnable);
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts0_storage_hpp_included_
+#endif // vtslibs_vts0_storage_hpp_included_

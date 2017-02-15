@@ -22,7 +22,7 @@
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
-namespace vts = vadstena::vts0;
+namespace vts = vtslibs::vts0;
 
 namespace {
 
@@ -78,7 +78,7 @@ class TileSetInfo : public service::Cmdline
 {
 public:
     TileSetInfo(const fs::path &path)
-        : service::Cmdline("vadstena-storage", BUILD_TARGET_VERSION)
+        : service::Cmdline("vtslibs-storage", BUILD_TARGET_VERSION)
         , path_(path), coarseness_(false), gsd_(false)
     {
     }
@@ -130,7 +130,7 @@ bool TileSetInfo::help(std::ostream &out, const std::string &what) const
     if (what.empty()) {
         out << R"RAW(tileset-info command
 usage
-    vadstena-storage TILE_SET tileset-info [OPTION]
+    vtslibs-storage TILE_SET tileset-info [OPTION]
 )RAW";
     }
     return false;

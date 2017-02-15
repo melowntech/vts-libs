@@ -7,7 +7,7 @@
 
 #include "./multifile.hpp"
 
-namespace vadstena { namespace vts { namespace multifile {
+namespace vtslibs { namespace vts { namespace multifile {
 
 namespace bin = utility::binaryio;
 
@@ -92,4 +92,4 @@ Table readTable(std::istream &is, const std::string &expectMagic
     return table;
 }
 
-} } } // namespace vadstena::vts::multifile
+} } } // namespace vtslibs::vts::multifile

@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_glue_hpp_included_
-#define vadstena_libs_vts_glue_hpp_included_
+#ifndef vtslibs_vts_glue_hpp_included_
+#define vtslibs_vts_glue_hpp_included_
 
 #include <string>
 
@@ -10,7 +10,7 @@
 
 #include "./basetypes.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct Glue : public utility::Supplement<Glue> {
     typedef TilesetIdList Id;
@@ -75,6 +75,6 @@ TileSetGlues::list glueOrder(const TileSetGlues::list &in);
 
 // inlines
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_glue_hpp_included_
+#endif // vtslibs_vts_glue_hpp_included_

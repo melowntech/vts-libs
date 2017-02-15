@@ -9,7 +9,7 @@
 #include "./commands.hpp"
 
 namespace fs = boost::filesystem;
-namespace vs = vadstena::storage;
+namespace vs = vtslibs::storage;
 
 int runCommand(int argc, char *argv[]
                , const fs::path &path, const std::string &command)

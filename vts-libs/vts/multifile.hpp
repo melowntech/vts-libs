@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_multifile_hpp
-#define vadstena_libs_vts_multifile_hpp
+#ifndef vtslibs_vts_multifile_hpp
+#define vtslibs_vts_multifile_hpp
 
 #include <cstdint>
 #include <cstdlib>
@@ -9,7 +9,7 @@
 
 #include <boost/filesystem/path.hpp>
 
-namespace vadstena { namespace vts { namespace multifile {
+namespace vtslibs { namespace vts { namespace multifile {
 
 struct Table {
     struct Entry {
@@ -79,6 +79,6 @@ Table readTable(std::istream &is, const std::string &expectMagic
 
 void writeTable(const Table &table, std::ostream &os);
 
-} } } // namespace vadstena::vts::multifile
+} } } // namespace vtslibs::vts::multifile
 
-#endif // vadstena_libs_vts_multifile_hpp
+#endif // vtslibs_vts_multifile_hpp

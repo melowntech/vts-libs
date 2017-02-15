@@ -14,7 +14,7 @@
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-namespace vs = vadstena::storage;
+namespace vs = vtslibs::storage;
 
 UTILITY_GENERATE_ENUM(Command,
                       ((list))

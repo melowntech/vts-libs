@@ -22,7 +22,7 @@
 #include "./commands.hpp"
 
 namespace po = boost::program_options;
-namespace vts = vadstena::vts0;
+namespace vts = vtslibs::vts0;
 namespace fs = boost::filesystem;
 
 namespace {
@@ -39,7 +39,7 @@ class TileSetClone : public service::Cmdline
 {
 public:
     TileSetClone(const fs::path &path)
-        : service::Cmdline("vadstena-storage", BUILD_TARGET_VERSION)
+        : service::Cmdline("vtslibs-storage", BUILD_TARGET_VERSION)
         , input_(path)
     {
     }
@@ -267,7 +267,7 @@ bool TileSetClone::help(std::ostream &out, const std::string &what) const
     if (what.empty()) {
         out << R"RAW(tileset-clone command
 usage
-    vadstena-storage INPUT tileset-clone OUTPUT [OPTIONS]
+    vtslibs-storage INPUT tileset-clone OUTPUT [OPTIONS]
 
 This command clones existing tileset to new location. Can be used to change
 underlying representation (and possibly set different id).

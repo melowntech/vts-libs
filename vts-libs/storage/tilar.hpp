@@ -5,8 +5,8 @@
  * Tile Archive handler.
  */
 
-#ifndef vadstena_libs_storage_tilar_hpp_included_
-#define vadstena_libs_storage_tilar_hpp_included_
+#ifndef vtslibs_storage_tilar_hpp_included_
+#define vtslibs_storage_tilar_hpp_included_
 
 #include <memory>
 #include <cstdint>
@@ -17,7 +17,7 @@
 
 #include "./streams.hpp"
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 /** Tilar interface.
  */
@@ -299,6 +299,6 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const Tilar::Options &o)
     return os;
 }
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage
 
-#endif // vadstena_libs_storage_tilar_hpp_included_
+#endif // vtslibs_storage_tilar_hpp_included_

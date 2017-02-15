@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_storage_driver_fstreams_hpp_included_
-#define vadstena_libs_storage_driver_fstreams_hpp_included_
+#ifndef vtslibs_storage_driver_fstreams_hpp_included_
+#define vtslibs_storage_driver_fstreams_hpp_included_
 
 #include <functional>
 
@@ -8,7 +8,7 @@
 #include "./streams.hpp"
 #include "./error.hpp"
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 typedef std::function<void(bool)> OnClose;
 
@@ -35,6 +35,6 @@ IStream::pointer fileIStream(TileFile type
                              , const boost::filesystem::path &path
                              , const NullWhenNotFound_t&);
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage
 
-#endif // vadstena_libs_storage_driver_fstreams_hpp_included_
+#endif // vtslibs_storage_driver_fstreams_hpp_included_

@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_tilestorage_driver_ro_base_hpp_included_
-#define vadstena_libs_tilestorage_driver_ro_base_hpp_included_
+#ifndef vtslibs_tilestorage_driver_ro_base_hpp_included_
+#define vtslibs_tilestorage_driver_ro_base_hpp_included_
 
 #include "../driver.hpp"
 #include "../../storage/error.hpp"
@@ -8,7 +8,7 @@
 
 #include "utility/gccversion.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace fs = boost::filesystem;
 
@@ -74,6 +74,6 @@ private:
     }
 };
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_driver_ro_base_hpp_included_
+#endif // vtslibs_tilestorage_driver_ro_base_hpp_included_

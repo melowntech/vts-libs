@@ -6,7 +6,7 @@
 #include "./tileop.hpp"
 #include "./csconvertor.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 
@@ -458,4 +458,4 @@ NodeInfo::CoveredArea NodeInfo::checkMask(const CoverageMask &mask
     return CoveredArea::some;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

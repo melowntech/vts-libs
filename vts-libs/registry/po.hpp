@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_registry_po_hpp_included_
-#define vadstena_libs_registry_po_hpp_included_
+#ifndef vtslibs_registry_po_hpp_included_
+#define vtslibs_registry_po_hpp_included_
 
 #include <string>
 #include <vector>
@@ -11,7 +11,7 @@
 
 #include "../registry.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 void registryConfiguration
 (boost::program_options::options_description &od
@@ -30,6 +30,6 @@ void registryConfigure(const boost::program_options::variables_map &vars)
     init(vars["registry"].as<boost::filesystem::path>());
 }
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry
 
-#endif // vadstena_libs_registry_po_hpp_included_
+#endif // vtslibs_registry_po_hpp_included_

@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_vts_storage_config_hpp_included_
-#define vadstena_libs_vts_storage_config_hpp_included_
+#ifndef vtslibs_vts_storage_config_hpp_included_
+#define vtslibs_vts_storage_config_hpp_included_
 
 #include <iostream>
 
@@ -14,7 +14,7 @@
 
 namespace Json { class Value; }
 
-namespace vadstena { namespace vts { namespace storage {
+namespace vtslibs { namespace vts { namespace storage {
 
 Storage::Properties loadConfig(std::istream &in);
 
@@ -35,6 +35,6 @@ extraStorageConfigFromJson(int version, const Json::Value &config);
 void extraStorageConfigToJson(Json::Value &config
                               , const ExtraStorageProperties &properties);
 
-} } } // namespace vadstena::vts::storage
+} } } // namespace vtslibs::vts::storage
 
-#endif // vadstena_libs_vts_storage_config_hpp_included_
+#endif // vtslibs_vts_storage_config_hpp_included_

@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_virtualsurface_hpp_included_
-#define vadstena_libs_vts_virtualsurface_hpp_included_
+#ifndef vtslibs_vts_virtualsurface_hpp_included_
+#define vtslibs_vts_virtualsurface_hpp_included_
 
 #include <string>
 
@@ -7,7 +7,7 @@
 
 #include "./basetypes.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct VirtualSurface {
     static constexpr char TilesetMappingPath[] = "tileset.map";
@@ -32,6 +32,6 @@ struct VirtualSurface {
     bool references(const std::string &tilesetId) const;
 };
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_virtualsurface_hpp_included_
+#endif // vtslibs_vts_virtualsurface_hpp_included_

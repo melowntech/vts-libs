@@ -1,11 +1,11 @@
-#ifndef vadstena_libs_tilestorage_driver_factory_hpp_included_
-#define vadstena_libs_tilestorage_driver_factory_hpp_included_
+#ifndef vtslibs_tilestorage_driver_factory_hpp_included_
+#define vtslibs_tilestorage_driver_factory_hpp_included_
 
 #include "utility/gccversion.hpp"
 
 #include "../driver.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 #define VADSTENA_TILESTORAGE_DRIVER_FACTORY(DRIVER_TYPE, DRIVER_CLASS)  \
     class Factory : public Driver::Factory {                            \
@@ -48,6 +48,6 @@ namespace vadstena { namespace tilestorage {
         }                                                               \
     }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_driver_factory_hpp_included_
+#endif // vtslibs_tilestorage_driver_factory_hpp_included_

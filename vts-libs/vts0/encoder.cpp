@@ -8,7 +8,7 @@
 #include "io.hpp"
 #include "encoder.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 struct Encoder::Detail {
     Detail(Encoder *owner, const boost::filesystem::path &path
@@ -146,4 +146,4 @@ void Encoder::run()
     detail_->run();
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0

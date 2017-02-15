@@ -14,7 +14,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 TileSetProperties TileSet::getProperties() const
 {
@@ -1733,7 +1733,7 @@ TileSet concatTileSets(const boost::filesystem::path &path
             if (rf.empty()) {
                 rf = prop.referenceFrame;
             } else if (rf != prop.referenceFrame) {
-                LOGTHROW(err1, vadstena::storage::IncompatibleTileSet)
+                LOGTHROW(err1, vtslibs::storage::IncompatibleTileSet)
                     << "Tileset <" << prop.id << "> "
                     "uses different reference frame ("
                     << prop.referenceFrame
@@ -1818,4 +1818,4 @@ NodeInfo TileSet::rootNode() const {
     return NodeInfo(detail().referenceFrame);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

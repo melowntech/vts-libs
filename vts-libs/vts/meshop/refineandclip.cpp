@@ -11,7 +11,7 @@
 
 #include "../meshop.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 
@@ -798,4 +798,4 @@ MeshArea area(const EnhancedSubMesh::list &mesh, const VertexMasks &masks)
     return out;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

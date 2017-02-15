@@ -41,9 +41,9 @@
 
 
 namespace po = boost::program_options;
-namespace vs = vadstena::storage;
-namespace vr = vadstena::registry;
-namespace vts = vadstena::vts;
+namespace vs = vtslibs::storage;
+namespace vr = vtslibs::registry;
+namespace vts = vtslibs::vts;
 namespace ba = boost::algorithm;
 namespace fs = boost::filesystem;
 namespace ublas = boost::numeric::ublas;

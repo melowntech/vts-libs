@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileset_delivery_hpp_included_
-#define vadstena_libs_vts_tileset_delivery_hpp_included_
+#ifndef vtslibs_vts_tileset_delivery_hpp_included_
+#define vtslibs_vts_tileset_delivery_hpp_included_
 
 #include <memory>
 
@@ -10,7 +10,7 @@
 #include "../mapconfig.hpp"
 #include "./properties.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 class Driver;
 namespace tileset { class Index; }
@@ -75,6 +75,6 @@ public:
     Delivery(AccessToken, const boost::filesystem::path &root);
 };
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_tileset_delivery_hpp_included_
+#endif // vtslibs_vts_tileset_delivery_hpp_included_

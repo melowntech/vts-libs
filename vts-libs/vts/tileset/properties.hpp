@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_vts_tileset_properties_hpp_included_
-#define vadstena_libs_vts_tileset_properties_hpp_included_
+#ifndef vtslibs_vts_tileset_properties_hpp_included_
+#define vtslibs_vts_tileset_properties_hpp_included_
 
 #include <map>
 
@@ -17,7 +17,7 @@
 
 #include "../mapconfig.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 /** Tile set properties that must be specified during creation. They cannot be
  *  changed later.
@@ -135,6 +135,6 @@ meshTilesConfig(const FullTileSetProperties &properties
                 , const boost::optional<boost::filesystem::path> &root
                 = boost::none);
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_tileset_properties_hpp_included_
+#endif // vtslibs_vts_tileset_properties_hpp_included_

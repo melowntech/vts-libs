@@ -16,7 +16,7 @@
 #include "../../io.hpp"
 #include "./cache.hpp"
 
-namespace vadstena { namespace vts { namespace driver {
+namespace vtslibs { namespace vts { namespace driver {
 
 namespace {
 
@@ -352,4 +352,4 @@ void Cache::flush()
     navtiles_->flush();
 }
 
-} } } // namespace vadstena::vts::driver
+} } } // namespace vtslibs::vts::driver

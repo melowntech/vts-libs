@@ -9,7 +9,7 @@
 #include "./io.hpp"
 #include "./driver.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 namespace fs = boost::filesystem;
 
@@ -401,4 +401,4 @@ void Storage::rebuildOutput()
     return detail().rebuildOutput();
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0

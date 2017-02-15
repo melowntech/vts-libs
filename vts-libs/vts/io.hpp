@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_io_hpp_included_
-#define vadstena_libs_vts_io_hpp_included_
+#ifndef vtslibs_vts_io_hpp_included_
+#define vtslibs_vts_io_hpp_included_
 
 #include <iostream>
 
@@ -9,7 +9,7 @@
 #include "./basetypes.hpp"
 #include "./geomextents.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 template<typename CharT, typename Traits>
 inline std::basic_istream<CharT, Traits>&
@@ -43,6 +43,6 @@ operator<<(std::basic_ostream<CharT, Traits> &os
     return os << ge.z << " (surrogate:" << ge.surrogate << ')';
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_io_hpp_included_
+#endif // vtslibs_vts_io_hpp_included_

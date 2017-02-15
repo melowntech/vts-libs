@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_registry_referenceframe_hpp_included_
-#define vadstena_libs_registry_referenceframe_hpp_included_
+#ifndef vtslibs_registry_referenceframe_hpp_included_
+#define vtslibs_registry_referenceframe_hpp_included_
 
 #include <set>
 #include <map>
@@ -26,7 +26,7 @@
 #include "./types.hpp"
 #include "./dict.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 enum class PartitioningMode { bisection, manual, none };
 
@@ -519,6 +519,6 @@ Credit::dict creditsAsDict(const IdSet &credits);
 BoundLayer::dict boundLayersAsDict(const StringIdSet &boundLayers);
 BoundLayer::dict boundLayersAsDict(const IdSet &boundLayers);
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry
 
-#endif // vadstena_libs_registry_referenceframe_hpp_included_
+#endif // vtslibs_registry_referenceframe_hpp_included_

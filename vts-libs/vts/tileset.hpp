@@ -5,8 +5,8 @@
  * Tile set access.
  */
 
-#ifndef vadstena_libs_vts_tileset_hpp_included_
-#define vadstena_libs_vts_tileset_hpp_included_
+#ifndef vtslibs_vts_tileset_hpp_included_
+#define vtslibs_vts_tileset_hpp_included_
 
 #include <memory>
 #include <cmath>
@@ -35,7 +35,7 @@
 #include "./tilesource.hpp"
 #include "./options.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 /** Driver that implements physical aspects of tile set.
  */
@@ -385,6 +385,6 @@ TileSet createTileSet(const boost::filesystem::path &path
                       , const TileSet::Properties &properties
                       , CreateMode mode);
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_tileset_hpp_included_
+#endif // vtslibs_vts_tileset_hpp_included_

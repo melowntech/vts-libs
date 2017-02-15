@@ -19,7 +19,7 @@
 
 namespace half = half_float::detail;
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace {
     constexpr unsigned int METATILE_IO_VERSION_ABSOLUTE_HEIGHTFIELD = 1;
@@ -363,4 +363,4 @@ void saveMetatile(long baseTileSize, const TileId &foat
     Saver(baseTileSize, metaLevels, METATILE_IO_VERSION, saver)(foat);
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

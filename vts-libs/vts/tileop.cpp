@@ -10,7 +10,7 @@
 #include "./tileop.hpp"
 #include "./io.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
     const std::string MetaExt("meta");
@@ -346,4 +346,4 @@ bool overlaps(const Ranges &ranges, const LodTileRange &range)
     return false;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

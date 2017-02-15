@@ -15,7 +15,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 
@@ -224,7 +224,7 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     }
 
     // thread name contains tile
-    vadstena::storage::TIDGuard tg(str(boost::format("%s") % tileId), true);
+    vtslibs::storage::TIDGuard tg(str(boost::format("%s") % tileId), true);
 
     const bool g(generate_.exists(tileId));
     const bool atBottom(tileId.lod >= generate_.maxLod());
@@ -496,4 +496,4 @@ void TileSet::createGlue(TileSet &glue, const list &sets
     // done
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

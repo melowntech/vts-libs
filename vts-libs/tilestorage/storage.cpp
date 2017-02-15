@@ -9,7 +9,7 @@
 #include "./io.hpp"
 #include "./driver.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace fs = boost::filesystem;
 
@@ -507,4 +507,4 @@ void Storage::removeTileSets(const std::vector<std::string> &ids
     return detail().removeTileSets(ids, runnable);
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

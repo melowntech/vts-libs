@@ -7,7 +7,7 @@
 #include "./json.hpp"
 #include "../storage/error.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace detail { namespace tileset {
 
@@ -302,4 +302,4 @@ void build(Json::Value &config, const StorageProperties &properties)
     }
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

@@ -1,9 +1,9 @@
-#ifndef vadstena_libs_storage_resources_hpp_included_
-#define vadstena_libs_storage_resources_hpp_included_
+#ifndef vtslibs_storage_resources_hpp_included_
+#define vtslibs_storage_resources_hpp_included_
 
 #include <cstddef>
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 struct Resources {
     std::size_t openFiles;
@@ -55,7 +55,7 @@ inline bool Resources::operator>(const Resources &o) const
     return memory > o.memory;
 }
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage
 
-#endif // vadstena_libs_storage_resources_hpp_included_
+#endif // vtslibs_storage_resources_hpp_included_
 

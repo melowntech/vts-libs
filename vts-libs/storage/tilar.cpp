@@ -30,7 +30,7 @@
 #include "./error.hpp"
 #include "./openfiles.hpp"
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 namespace fs = boost::filesystem;
 using utility::Filedes;
@@ -1471,4 +1471,4 @@ bool Tilar::Options::operator==(const Options &o) const
             && (uuid == o.uuid));
 }
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage

@@ -6,8 +6,8 @@
 #include "vts/browser/debugger.html.hpp"
 #include "vts/browser/debugger.js.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 #include "./support.impl.cpp"
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

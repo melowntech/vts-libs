@@ -35,11 +35,11 @@
 #include "../detail.hpp"
 #include "./aggregated.hpp"
 
-namespace vadstena { namespace vts { namespace driver {
+namespace vtslibs { namespace vts { namespace driver {
 
 namespace fs = boost::filesystem;
 
-namespace vs = vadstena::storage;
+namespace vs = vtslibs::storage;
 
 namespace {
 
@@ -906,4 +906,4 @@ FileStat AggregatedDriver::stat_impl(const std::string &name) const
     return {};
 }
 
-} } } // namespace vadstena::vts::driver
+} } } // namespace vtslibs::vts::driver

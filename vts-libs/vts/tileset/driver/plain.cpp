@@ -21,7 +21,7 @@
 #include "../config.hpp"
 #include "./plain.hpp"
 
-namespace vadstena { namespace vts { namespace driver {
+namespace vtslibs { namespace vts { namespace driver {
 
 namespace fs = boost::filesystem;
 
@@ -180,4 +180,4 @@ boost::any PlainOptions::relocate(const RelocateOptions&
     return {};
 }
 
-} } } // namespace vadstena::vts::driver
+} } } // namespace vtslibs::vts::driver

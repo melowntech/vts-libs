@@ -7,7 +7,7 @@
 
 #include "./tileindex.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace fs = boost::filesystem;
 
@@ -50,4 +50,4 @@ void dumpAsImages(const fs::path &path, const TileIndex &ti
     }
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

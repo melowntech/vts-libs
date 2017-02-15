@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_tilestorage_driver_fsbased_hpp_included_
-#define vadstena_libs_tilestorage_driver_fsbased_hpp_included_
+#ifndef vtslibs_tilestorage_driver_fsbased_hpp_included_
+#define vtslibs_tilestorage_driver_fsbased_hpp_included_
 
 #include <set>
 #include <map>
@@ -11,7 +11,7 @@
 #include "./factory.hpp"
 #include "../../storage/fstreams.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace fs = boost::filesystem;
 
@@ -158,6 +158,6 @@ inline fs::path FsBasedDriver::fileDir(const TileId &tileId, TileFile type
     return fileDir_impl(tileId, type, name);
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_driver_fsbased_hpp_included_
+#endif // vtslibs_tilestorage_driver_fsbased_hpp_included_

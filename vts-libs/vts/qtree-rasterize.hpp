@@ -4,7 +4,7 @@
 
 #include "./qtree.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 template <typename View, typename Covert>
 void rasterize(const QTree &tree, View &view, const Covert &convert);
@@ -83,4 +83,4 @@ inline void rasterize(const QTree &tree
                      });
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

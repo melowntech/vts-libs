@@ -28,7 +28,7 @@
 #include "./remote.hpp"
 #include "./local.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace fs = boost::filesystem;
 
@@ -365,4 +365,4 @@ MapConfigOverride::MapConfigOverride(const boost::any &options)
 
 } // namespace driver
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

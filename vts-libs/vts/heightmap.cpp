@@ -21,7 +21,7 @@
 
 #include "./heightmap.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 typedef vts::opencv::NavTile::DataType NTDataType;
 
@@ -735,5 +735,5 @@ void dtmize(geo::GeoDataset &dataset, const math::Size2 &count)
     Morphology<Dilation<double>>(pane, tmp, {count.width, 0}, ndv);
 }
 
-} } // vadstena::vts
+} } // vtslibs::vts
 

@@ -1,7 +1,7 @@
-#ifndef vadstena_libs_storage_filetypes_hpp_included_
-#define vadstena_libs_storage_filetypes_hpp_included_
+#ifndef vtslibs_storage_filetypes_hpp_included_
+#define vtslibs_storage_filetypes_hpp_included_
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 enum class TileFile {
     // 3D interface
@@ -13,7 +13,7 @@ enum class TileFile {
 
 enum class File { config, tileIndex, extraConfig, registry };
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage
 
-#endif // vadstena_libs_storage_filetypes_hpp_included_
+#endif // vtslibs_storage_filetypes_hpp_included_
 

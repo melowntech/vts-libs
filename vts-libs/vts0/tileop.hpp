@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts0_tileop_hpp_included_
-#define vadstena_libs_vts0_tileop_hpp_included_
+#ifndef vtslibs_vts0_tileop_hpp_included_
+#define vtslibs_vts0_tileop_hpp_included_
 
 #include "../storage/filetypes.hpp"
 
@@ -7,7 +7,7 @@
 #include "./properties.hpp"
 #include "./types.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 using storage::TileFile;
 using storage::File;
@@ -118,6 +118,6 @@ inline std::size_t tileCount(Lod lod)
     return std::size_t(1) << lod;
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts0_tileop_hpp_included_
+#endif // vtslibs_vts0_tileop_hpp_included_

@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_geomextents_hpp
-#define vadstena_libs_vts_geomextents_hpp
+#ifndef vtslibs_vts_geomextents_hpp
+#define vtslibs_vts_geomextents_hpp
 
 #include <limits>
 
@@ -13,7 +13,7 @@
 
 typedef half_float::half hfloat;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct GeomExtents {
     typedef storage::Range<float> ZRange;
@@ -42,7 +42,7 @@ inline void update(GeomExtents &ge, const GeomExtents &update) {
     ge.z = unite(ge.z, update.z);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_geomextents_hpp
+#endif // vtslibs_vts_geomextents_hpp
 

@@ -1,11 +1,11 @@
-#ifndef vadstena_libs_registry_io_hpp_included_
-#define vadstena_libs_registry_io_hpp_included_
+#ifndef vtslibs_registry_io_hpp_included_
+#define vtslibs_registry_io_hpp_included_
 
 #include <iostream>
 
 #include "../registry.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
@@ -20,6 +20,6 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const Position &p)
 }
 
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry
 
-#endif // vadstena_libs_registry_io_hpp_included_
+#endif // vtslibs_registry_io_hpp_included_

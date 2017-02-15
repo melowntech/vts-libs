@@ -3,15 +3,15 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_registry_py_hpp_included_
-#define vadstena_libs_registry_py_hpp_included_
+#ifndef vtslibs_registry_py_hpp_included_
+#define vtslibs_registry_py_hpp_included_
 
 #include <boost/python.hpp>
 #include <boost/python/stl_iterator.hpp>
 
 #include "../registry.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 void fromPython(BoundLayer &boundLayer, const boost::python::dict &value);
 void fromPython(BoundLayer::dict &boundLayers
@@ -26,7 +26,7 @@ void fromPython(RegistryBase &rb, const boost::python::dict &value);
 
 void fromPython(Position &position, const boost::python::object &value);
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry
 
-#endif // vadstena_libs_registry_py_hpp_included_
+#endif // vtslibs_registry_py_hpp_included_
 

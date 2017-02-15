@@ -19,7 +19,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 
@@ -1296,4 +1296,4 @@ Tile Output::tile(int textureQuality)
     return tile;
 }
 
-} } } // namespace vadstena::vts::merge
+} } } // namespace vtslibs::vts::merge

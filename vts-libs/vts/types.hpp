@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_types_hpp_included_
-#define vadstena_libs_vts_types_hpp_included_
+#ifndef vtslibs_vts_types_hpp_included_
+#define vtslibs_vts_types_hpp_included_
 
 #include <cstdint>
 #include <string>
@@ -14,7 +14,7 @@
 #include "atlas.hpp"
 #include "navtile.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct Tile {
     Mesh::pointer mesh;
@@ -35,6 +35,6 @@ struct Tile {
     Tile() : alien(false) {}
 };
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_types_hpp_included_
+#endif // vtslibs_vts_types_hpp_included_

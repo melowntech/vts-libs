@@ -5,7 +5,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace vadstena { namespace vts { namespace tileset {
+namespace vtslibs { namespace vts { namespace tileset {
 
 void loadTileSetIndex(Index &tsi, const Driver &driver)
 {
@@ -143,4 +143,4 @@ void Index::loadRest_impl(std::istream&, const boost::filesystem::path&) {}
 
 void Index::saveRest_impl(std::ostream&) const {}
 
-} } } // namespace vadstena::vts::tileset
+} } } // namespace vtslibs::vts::tileset

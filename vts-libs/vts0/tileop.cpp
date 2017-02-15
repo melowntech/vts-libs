@@ -9,7 +9,7 @@
 #include "./tileop.hpp"
 #include "./io.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 namespace {
     const std::string MetaExt("meta");
@@ -203,4 +203,4 @@ math::Extents2 extents(const Properties &prop, const TileId &tileId)
             };
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0

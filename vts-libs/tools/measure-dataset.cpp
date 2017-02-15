@@ -20,8 +20,8 @@
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-namespace vr = vadstena::registry;
-namespace vts = vadstena::vts;
+namespace vr = vtslibs::registry;
+namespace vts = vtslibs::vts;
 
 class MeasureDataset : public service::Cmdline
 {

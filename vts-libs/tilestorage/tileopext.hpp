@@ -1,10 +1,10 @@
-#ifndef vadstena_libs_tilestorage_tileopext_hpp_included_
-#define vadstena_libs_tilestorage_tileopext_hpp_included_
+#ifndef vtslibs_tilestorage_tileopext_hpp_included_
+#define vtslibs_tilestorage_tileopext_hpp_included_
 
 #include "./types.hpp"
 #include "./tileop.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 bool valid(const Tile &tile);
 
@@ -20,6 +20,6 @@ inline bool valid(const MetaNode &metanode)
     return metanode.exists();
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_tileoext_hpp_included_
+#endif // vtslibs_tilestorage_tileoext_hpp_included_

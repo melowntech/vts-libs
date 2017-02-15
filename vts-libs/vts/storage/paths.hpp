@@ -5,15 +5,15 @@
  * Storage paths
  */
 
-#ifndef vadstena_libs_vts_storage_paths_hpp_included_
-#define vadstena_libs_vts_storage_paths_hpp_included_
+#ifndef vtslibs_vts_storage_paths_hpp_included_
+#define vtslibs_vts_storage_paths_hpp_included_
 
 #include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include "../storage.hpp"
 
-namespace vadstena { namespace vts { namespace storage_paths {
+namespace vtslibs { namespace vts { namespace storage_paths {
 
 /** Get root for storage tilesets.
  */
@@ -114,6 +114,6 @@ virtualSurfacePath(const boost::filesystem::path &root
     return root / virtualSurfaceRoot() / virtualSurface.path;
 }
 
-} } } // namespace vadstena::vts::storage_paths
+} } } // namespace vtslibs::vts::storage_paths
 
-#endif // vadstena_libs_vts_storage_paths_hpp_included_
+#endif // vtslibs_vts_storage_paths_hpp_included_

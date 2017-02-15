@@ -12,7 +12,7 @@
 #include "./opencv/navtile.hpp"
 #include "./meshopinput.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 /** Missing delegation ctor workaround.
  */
@@ -128,6 +128,6 @@ private:
  */
 void dtmize(geo::GeoDataset &dataset, const math::Size2 &count);
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
 #endif // vts_heightmap_hpp_included_

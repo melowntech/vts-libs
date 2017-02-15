@@ -10,7 +10,7 @@
 
 #include "../tileset-detail.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 namespace {
 
@@ -721,4 +721,4 @@ void TileSet::Detail::filterHeightmap(const TileIndices &continuous
     }
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0

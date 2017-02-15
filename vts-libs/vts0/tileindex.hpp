@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts0_tileindex_hpp_included_
-#define vadstena_libs_vts0_tileindex_hpp_included_
+#ifndef vtslibs_vts0_tileindex_hpp_included_
+#define vtslibs_vts0_tileindex_hpp_included_
 
 #include <map>
 
@@ -11,7 +11,7 @@
 #include "./basetypes.hpp"
 #include "./tileop.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 class TileIndex {
 public:
@@ -247,6 +247,6 @@ inline void traverseTiles(const TileIndex &ti, const Op &op)
     return traverse(ti, op);
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts0_tileindex_hpp_included_
+#endif // vtslibs_vts0_tileindex_hpp_included_

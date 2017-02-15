@@ -18,7 +18,7 @@
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
-namespace vts = vadstena::vts0;
+namespace vts = vtslibs::vts0;
 
 namespace {
 
@@ -45,7 +45,7 @@ class Create : public service::Cmdline
 {
 public:
     Create(const fs::path &root)
-        : service::Cmdline("vadstena-storage", BUILD_TARGET_VERSION)
+        : service::Cmdline("vtslibs-storage", BUILD_TARGET_VERSION)
         , root_(root), overwrite_(false)
         , properties_()
     {
@@ -122,7 +122,7 @@ bool Create::help(std::ostream &out, const std::string &what) const
     if (what.empty()) {
         out << R"RAW(create command
 usage
-    vadstena-storage STORAGE create [OPTION]
+    vtslibs-storage STORAGE create [OPTION]
 )RAW";
     }
     return false;

@@ -1,9 +1,9 @@
-#ifndef vadstena_libs_vts_math_hpp
-#define vadstena_libs_vts_math_hpp
+#ifndef vtslibs_vts_math_hpp
+#define vtslibs_vts_math_hpp
 
 #include "math/geometry.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 double triangleArea(const math::Point3 &a, const math::Point3 &b,
                     const math::Point3 &c);
@@ -45,6 +45,6 @@ inline double triangleArea(const math::Point2 &a, const math::Point2 &b,
         / 2.0;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_math_hpp
+#endif // vtslibs_vts_math_hpp

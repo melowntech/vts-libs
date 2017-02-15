@@ -15,7 +15,7 @@
 #include "../../storage/error.hpp"
 #include "../tileop.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace fs = boost::filesystem;
 
@@ -380,4 +380,4 @@ const std::string TarDriver::help
 ("Read-only storage driver for accessing tiles inside an (ustar) "
  "tar archive.");
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

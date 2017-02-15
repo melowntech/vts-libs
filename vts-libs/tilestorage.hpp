@@ -11,8 +11,8 @@
  *              filesystem based backing)
  */
 
-#ifndef vadstena_libs_tilestorage_hpp_included_
-#define vadstena_libs_tilestorage_hpp_included_
+#ifndef vtslibs_tilestorage_hpp_included_
+#define vtslibs_tilestorage_hpp_included_
 
 #include <memory>
 #include <cmath>
@@ -35,7 +35,7 @@
 #include "./tilestorage/tileset.hpp"
 #include "./tilestorage/storage.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 /** Creates new storage.
  *
@@ -192,6 +192,6 @@ inline SettableProperties::Setter<CloneOptions> CloneOptions::settableSetter()
     return { settableProperties, this };
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_hpp_included_
+#endif // vtslibs_tilestorage_hpp_included_

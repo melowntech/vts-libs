@@ -5,8 +5,8 @@
  * Tileset creation/clone options.
  */
 
-#ifndef vadstena_libs_vts_options_hpp_included_
-#define vadstena_libs_vts_options_hpp_included_
+#ifndef vtslibs_vts_options_hpp_included_
+#define vtslibs_vts_options_hpp_included_
 
 #include <memory>
 
@@ -14,7 +14,7 @@
 
 #include "./basetypes.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 // fwd declaration; include metatile.hpp if MetaNode is needed.
 struct MetaNode;
@@ -226,6 +226,6 @@ inline void MergeProgress::tile()
 }
 
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_options_hpp_included_
+#endif // vtslibs_vts_options_hpp_included_

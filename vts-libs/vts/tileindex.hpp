@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileindex_hpp_included_
-#define vadstena_libs_vts_tileindex_hpp_included_
+#ifndef vtslibs_vts_tileindex_hpp_included_
+#define vtslibs_vts_tileindex_hpp_included_
 
 #include <map>
 
@@ -9,7 +9,7 @@
 #include "./basetypes.hpp"
 #include "./tileop.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 class TileIndex {
 public:
@@ -563,6 +563,6 @@ void TileIndex::update(Lod lod, const TileRange &range, Op op
     }
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_tileindex_hpp_included_
+#endif // vtslibs_vts_tileindex_hpp_included_

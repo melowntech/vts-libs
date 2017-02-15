@@ -43,9 +43,9 @@
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-namespace vts = vadstena::vts;
-namespace vr = vadstena::registry;
-namespace vs = vadstena::storage;
+namespace vts = vtslibs::vts;
+namespace vr = vtslibs::registry;
+namespace vs = vtslibs::storage;
 namespace ba = boost::algorithm;
 
 UTILITY_GENERATE_ENUM(Command,

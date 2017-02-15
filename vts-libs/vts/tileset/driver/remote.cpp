@@ -24,11 +24,11 @@
 #include "../detail.hpp"
 #include "./remote.hpp"
 
-namespace vadstena { namespace vts { namespace driver {
+namespace vtslibs { namespace vts { namespace driver {
 
 namespace fs = boost::filesystem;
 
-namespace vs = vadstena::storage;
+namespace vs = vtslibs::storage;
 
 namespace {
 
@@ -272,4 +272,4 @@ boost::any RemoteOptions::relocate(const RelocateOptions &options
     return {};
 }
 
-} } } // namespace vadstena::vts::driver
+} } } // namespace vtslibs::vts::driver

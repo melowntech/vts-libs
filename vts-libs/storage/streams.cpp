@@ -12,7 +12,7 @@
 #include "./streams.hpp"
 #include "./error.hpp"
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 const NullWhenNotFound_t NullWhenNotFound;
 
@@ -153,5 +153,5 @@ bool gzipped(const IStream::pointer &s, std::size_t offset)
     return gzipped(*s, offset);
 }
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage
 

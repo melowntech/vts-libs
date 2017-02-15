@@ -9,7 +9,7 @@
 #include "./tilardriver.hpp"
 #include "../config.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace fs = boost::filesystem;
 
@@ -161,4 +161,4 @@ std::string Driver::detectTypeFromMapConfig(DetectionContext &context
 
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

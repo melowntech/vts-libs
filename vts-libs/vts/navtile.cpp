@@ -6,7 +6,7 @@
 
 #include "./navtile.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
     const std::string MAGIC("NT");
@@ -116,4 +116,4 @@ math::Point2 NavTile::sds2px(const math::Point2 &point
             , ((s.height - 1) * p(1)) / es.height };
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

@@ -10,7 +10,7 @@
 
 #include "./atlas.hpp"
 
-namespace vadstena { namespace vts { namespace opencv {
+namespace vtslibs { namespace vts { namespace opencv {
 
 namespace {
 
@@ -244,4 +244,4 @@ math::Size2 HybridAtlas::imageSize_impl(std::size_t index) const
     return imgproc::jpegSize(entry.raw.data(), entry.raw.size());
 }
 
-} } } // namespace vadstena::vts::opencv
+} } } // namespace vtslibs::vts::opencv

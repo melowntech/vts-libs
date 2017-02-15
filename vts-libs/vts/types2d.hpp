@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_types2d_hpp_included_
-#define vadstena_libs_vts_types2d_hpp_included_
+#ifndef vtslibs_vts_types2d_hpp_included_
+#define vtslibs_vts_types2d_hpp_included_
 
 #include <string>
 
@@ -9,7 +9,7 @@
 
 #include "./types.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct Meta2d {
     struct Flag {
@@ -93,6 +93,6 @@ inline void CreditTile::expand(const registry::Registry &reg)
     expand(reg.credits);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_types2d_hpp_included_
+#endif // vtslibs_vts_types2d_hpp_included_

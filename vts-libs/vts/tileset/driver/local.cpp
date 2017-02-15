@@ -16,11 +16,11 @@
 #include "../detail.hpp"
 #include "./local.hpp"
 
-namespace vadstena { namespace vts { namespace driver {
+namespace vtslibs { namespace vts { namespace driver {
 
 namespace fs = boost::filesystem;
 
-namespace vs = vadstena::storage;
+namespace vs = vtslibs::storage;
 
 namespace {
 
@@ -232,4 +232,4 @@ boost::any LocalOptions::relocate(const RelocateOptions &options
     return ret;
 }
 
-} } } // namespace vadstena::vts::driver
+} } } // namespace vtslibs::vts::driver

@@ -1,12 +1,12 @@
-#ifndef vadstena_libs_vts0_merge_hpp_included_
-#define vadstena_libs_vts0_merge_hpp_included_
+#ifndef vtslibs_vts0_merge_hpp_included_
+#define vtslibs_vts0_merge_hpp_included_
 
 #include <boost/optional.hpp>
 
 #include "./types.hpp"
 #include "./tileset.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 constexpr int MERGE_NO_FALLBACK_TILE = -100;
 
@@ -92,6 +92,6 @@ MergedTile merge( const TileId &tileId, const math::Size2f &tileSize
                 , const MergeInput::list &ancestorTiles
                 , MergeInput::list &incidentTiles);
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts0_merge_hpp_included_
+#endif // vtslibs_vts0_merge_hpp_included_

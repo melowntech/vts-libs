@@ -21,7 +21,7 @@
 #include "../../config.hpp"
 #include "../tilardriver.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 namespace fs = boost::filesystem;
 
@@ -364,4 +364,4 @@ const std::string TilarDriver::help
 ("Filesystem-based storage driver with deep directory structure. "
  "Tiles and metatiles are stored inside Tile Archives.");
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0

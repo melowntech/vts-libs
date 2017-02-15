@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_visit_hpp_included_
-#define vadstena_libs_vts_visit_hpp_included_
+#ifndef vtslibs_vts_visit_hpp_included_
+#define vtslibs_vts_visit_hpp_included_
 
 #include <memory>
 
@@ -11,7 +11,7 @@
 #include "./tileset.hpp"
 #include "./nodeinfo.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 /** Recursively visits all tileset's nodes from the root.
  *
@@ -66,6 +66,6 @@ void visit(const TileSet &tileset, const Visitor &visitor)
     detail::visitDescend(fti, ti, tileset.rootNode(), visitor);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_visit_hpp_included_
+#endif // vtslibs_vts_visit_hpp_included_

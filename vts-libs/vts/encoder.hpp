@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_encoder_hpp_included_
-#define vadstena_libs_vts_encoder_hpp_included_
+#ifndef vtslibs_vts_encoder_hpp_included_
+#define vtslibs_vts_encoder_hpp_included_
 
 #include <memory>
 
@@ -14,7 +14,7 @@
 #include "./tileset.hpp"
 #include "./atlas.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 class Encoder : boost::noncopyable {
 public:
@@ -357,6 +357,6 @@ inline bool Encoder::TileResult::hasNavtile() const
     return false;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_encoder_hpp_included_
+#endif // vtslibs_vts_encoder_hpp_included_

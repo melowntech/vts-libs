@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_metatile_hpp
-#define vadstena_libs_vts_metatile_hpp
+#ifndef vtslibs_vts_metatile_hpp
+#define vtslibs_vts_metatile_hpp
 
 #include <memory>
 #include <cstdint>
@@ -24,7 +24,7 @@
 
 typedef half_float::half hfloat;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct MetaNode {
     struct Flag {
@@ -453,6 +453,6 @@ inline void add(TexelSizeAggregator &aa, const MetaNode &node
     add(aa, node);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_metatile_hpp
+#endif // vtslibs_vts_metatile_hpp

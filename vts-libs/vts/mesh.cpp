@@ -29,7 +29,7 @@ namespace bin = utility::binaryio;
 
 namespace half = half_float::detail;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
     // mesh binary file
@@ -629,4 +629,4 @@ void generateCoverage(Mesh &mesh, const math::Extents2 &sdsExtents)
     }
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

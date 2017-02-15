@@ -15,7 +15,7 @@
 #include "./io.hpp"
 #include "./tileindex-io.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 namespace fs = boost::filesystem;
 
@@ -457,4 +457,4 @@ TileIndex difference(const TileIndex &l, const TileIndex &r
                  }, "difference");
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0

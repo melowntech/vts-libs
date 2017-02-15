@@ -17,7 +17,7 @@
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
-namespace vts = vadstena::vts0;
+namespace vts = vtslibs::vts0;
 
 namespace {
 
@@ -25,7 +25,7 @@ class Add : public service::Cmdline
 {
 public:
     Add(const fs::path &root)
-        : service::Cmdline("vadstena-storage", BUILD_TARGET_VERSION)
+        : service::Cmdline("vtslibs-storage", BUILD_TARGET_VERSION)
         , root_(root)
     {}
 
@@ -72,7 +72,7 @@ bool Add::help(std::ostream &out, const std::string &what) const
     if (what.empty()) {
         out << R"RAW(add command
 usage
-    vadstena-storage STORAGE add TILE-SET* [OPTION]
+    vtslibs-storage STORAGE add TILE-SET* [OPTION]
 )RAW";
     }
     return false;

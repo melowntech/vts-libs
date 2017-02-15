@@ -6,7 +6,7 @@
 #include "../../storage/error.hpp"
 #include "./hash-crc.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace {
 
@@ -47,4 +47,4 @@ Example: filename 11-0486112-5613088.jpg
    * full path is c5/6b/11-0486112-5613088.jpg
 )RAW");
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

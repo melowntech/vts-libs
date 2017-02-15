@@ -13,7 +13,7 @@
 #include "../../storage/error.hpp"
 #include "../../registry/json.hpp"
 
-namespace vadstena { namespace vts { namespace tileset {
+namespace vtslibs { namespace vts { namespace tileset {
 
 namespace detail {
 
@@ -609,4 +609,4 @@ boost::any loadDriver(const boost::filesystem::path &path)
     return res;
 }
 
-} } } // namespace vadstena::vts::tileset
+} } } // namespace vtslibs::vts::tileset

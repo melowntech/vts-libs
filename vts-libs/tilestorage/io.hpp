@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_tilestorage_io_hpp_included_
-#define vadstena_libs_tilestorage_io_hpp_included_
+#ifndef vtslibs_tilestorage_io_hpp_included_
+#define vtslibs_tilestorage_io_hpp_included_
 
 #include <iostream>
 #include <typeinfo>
@@ -15,7 +15,7 @@
 #include "../storage/io.hpp"
 #include "./properties.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
@@ -211,6 +211,6 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const Index &tid)
               << ", " << tid.northing << ')';
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_io_hpp_included_
+#endif // vtslibs_tilestorage_io_hpp_included_

@@ -13,7 +13,7 @@
 
 #include "./urltemplate.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 
@@ -318,4 +318,4 @@ void UrlTemplate::Token::dump(std::ostream &os)
     os << "[text:" << value << "]";
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

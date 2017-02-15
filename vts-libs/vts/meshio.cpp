@@ -15,7 +15,7 @@
 namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;
 
-namespace vadstena { namespace vts { namespace detail {
+namespace vtslibs { namespace vts { namespace detail {
 
 namespace {
     // mesh proper
@@ -246,7 +246,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
             // write delta coded external coordinates
             if (flags & SubMeshFlag::externalTexture)
             {
-                int quant = (int(vadstena::registry::BoundLayer::tileWidth)
+                int quant = (int(vtslibs::registry::BoundLayer::tileWidth)
                              << TexCoordSubPixelBits);
                 bin::write(out, std::uint16_t(quant));
 
@@ -759,4 +759,4 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
     }
 }
 
-} } } // namespace vadstena::vts::detail
+} } } // namespace vtslibs::vts::detail

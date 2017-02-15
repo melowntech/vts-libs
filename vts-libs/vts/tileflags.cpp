@@ -1,6 +1,6 @@
 #include "./tileflags.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 std::vector<TileFlags::TileFlag> TileFlags::mapping = {
     TileFlag(Match(TiFlag::mesh | TiFlag::alien, TiFlag::mesh), "mesh")
@@ -11,4 +11,4 @@ std::vector<TileFlags::TileFlag> TileFlags::mapping = {
     , TileFlag(Match(TiFlag::navtile, TiFlag::navtile), "navtile")
 };
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

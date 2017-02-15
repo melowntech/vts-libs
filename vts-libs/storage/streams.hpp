@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_storage_streams_hpp_included_
-#define vadstena_libs_storage_streams_hpp_included_
+#ifndef vtslibs_storage_streams_hpp_included_
+#define vtslibs_storage_streams_hpp_included_
 
 #include <ctime>
 #include <iostream>
@@ -13,7 +13,7 @@
 
 #include "./filetypes.hpp"
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 const char* contentType(File type);
 const char* contentType(TileFile type);
@@ -189,7 +189,7 @@ inline bool FileStat::changed(const FileStat &other) const
     return (size != other.size) || (lastModified != other.lastModified);
 }
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage
 
-#endif // vadstena_libs_storage_streams_hpp_included_
+#endif // vtslibs_storage_streams_hpp_included_
 

@@ -12,7 +12,7 @@
 #include "./tileop.hpp"
 #include "./driver/flat.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 typedef std::map<TileId, MetaNode> Metadata;
 
@@ -163,4 +163,4 @@ inline void TileSet::Detail::checkValidity() const
     }
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

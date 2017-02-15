@@ -1,12 +1,12 @@
-#ifndef vadstena_libs_tilestorage_maskfwd_hpp_included_
-#define vadstena_libs_tilestorage_maskfwd_hpp_included_
+#ifndef vtslibs_tilestorage_maskfwd_hpp_included_
+#define vtslibs_tilestorage_maskfwd_hpp_included_
 
 namespace imgproc { namespace quadtree {
     class RasterMask;
 } } // namespace imgproc::quadtree
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
     using imgproc::quadtree::RasterMask;
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_maskfwd_hpp_included_
+#endif // vtslibs_tilestorage_maskfwd_hpp_included_

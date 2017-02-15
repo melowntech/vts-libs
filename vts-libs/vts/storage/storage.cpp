@@ -32,7 +32,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 constexpr char VirtualSurface::TilesetMappingPath[];
 constexpr char VirtualSurface::TilesetMappingContentType[];
@@ -107,7 +107,7 @@ Storage::Detail::Detail(const boost::filesystem::path &iroot
     if (!create_directories(root)) {
         // directory already exists -> fail if mode says so
         if (mode == CreateMode::failIfExists) {
-            LOGTHROW(err2, vadstena::storage::StorageAlreadyExists)
+            LOGTHROW(err2, vtslibs::storage::StorageAlreadyExists)
                 << "Storage " << root << " already exists.";
         }
 
@@ -151,7 +151,7 @@ Storage::Properties Storage::Detail::loadConfig(const fs::path &root)
         const auto p(storage::loadConfig(root / ConfigFilename));
         return p;
     } catch (const std::exception &e) {
-        LOGTHROW(err1, vadstena::storage::Error)
+        LOGTHROW(err1, vtslibs::storage::Error)
             << "Unable to read config: <" << e.what() << ">.";
     }
     throw;
@@ -165,7 +165,7 @@ void Storage::Detail::saveConfig()
         storage::saveConfig(tmpPath, properties);
         fs::rename(tmpPath, configPath);
     } catch (const std::exception &e) {
-        LOGTHROW(err2, vadstena::storage::Error)
+        LOGTHROW(err2, vtslibs::storage::Error)
             << "Unable to write config: <" << e.what() << ">.";
     }
 }
@@ -188,7 +188,7 @@ ExtraStorageProperties Storage::Detail::loadExtraConfig(const fs::path &root)
         const auto p(storage::loadExtraConfig(root / ExtraConfigFilename));
         return p;
     } catch (const std::exception &e) {
-        LOGTHROW(err2, vadstena::storage::Error)
+        LOGTHROW(err2, vtslibs::storage::Error)
             << "Unable to read extra config: <" << e.what() << ">.";
     }
     throw;
@@ -569,7 +569,7 @@ bool Storage::check(const boost::filesystem::path &root)
 {
     try {
         Detail::loadConfig(root);
-    } catch (const vadstena::storage::Error&) {
+    } catch (const vtslibs::storage::Error&) {
         return false;
     }
     return true;
@@ -580,7 +580,7 @@ bool Storage::externallyChanged() const
     return detail().externallyChanged();
 }
 
-vadstena::storage::Resources Storage::resources() const
+vtslibs::storage::Resources Storage::resources() const
 {
     return {};
 }
@@ -596,7 +596,7 @@ bool Storage::Detail::externallyChanged() const
 TileSet Storage::Detail::open(const TilesetId &tilesetId) const
 {
     if (!properties.hasTileset(tilesetId)) {
-        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+        LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
             << "Tileset <" << tilesetId << "> not found in storage "
             << root << ".";
     }
@@ -612,7 +612,7 @@ TileSet Storage::open(const TilesetId &tilesetId) const
 TileSet Storage::Detail::open(const Glue &glue) const
 {
     if (!properties.hasGlue(glue.id)) {
-        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+        LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
             << "Glue <" << utility::join(glue.id, ",")
             << "> not found in storage "
             << root << ".";
@@ -659,7 +659,7 @@ GlueIndices buildGlueIndices(const TilesetIdList &world, const Glue::Id &id)
     std::size_t i(0);
     for (const auto &ts : id) {
         if (i >= world.size()) {
-            LOGTHROW(err2, vadstena::storage::Error)
+            LOGTHROW(err2, vtslibs::storage::Error)
                 << "Glue <" << utility::join(id, ", ")
                 << "> doesn't belong into world <"
                 << utility::join(world, ", ") << ">.";
@@ -764,7 +764,7 @@ boost::filesystem::path Storage::path(const TilesetId &tilesetId) const
 {
     const auto &root(detail().root);
     if (!detail().properties.hasTileset(tilesetId)) {
-        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+        LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
             << "Tileset <" << tilesetId << "> not found in storage "
             << root << ".";
     }
@@ -779,7 +779,7 @@ boost::filesystem::path Storage::path(const Glue &glue) const
         return storage_paths::gluePath(root, *g);
     }
 
-    LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+    LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
         << "Glue <" << utility::join(glue.id, ",")
         << "> not found in storage "
         << root << ".";
@@ -793,7 +793,7 @@ boost::filesystem::path Storage::path(const Glue::Id &glueId) const
         return storage_paths::gluePath(root, *g);
     }
 
-    LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+    LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
         << "Glue <" << utility::join(glueId, ",")
         << "> not found in storage "
         << root << ".";
@@ -809,7 +809,7 @@ boost::filesystem::path Storage::path(const VirtualSurface &virtualSurface)
         return storage_paths::virtualSurfacePath(root, *vs);
     }
 
-    LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+    LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
         << "VirtualSurface <" << utility::join(virtualSurface.id, ",")
         << "> not found in storage "
         << root << ".";
@@ -862,7 +862,7 @@ void Storage::Detail::updateTags(const TilesetId &tilesetId
 {
     auto *tileset(properties.findTileset(tilesetId));
     if (!tileset) {
-        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+        LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
             << "Tileset <" << tilesetId << "> not found in storage "
             << root << ".";
     }
@@ -877,4 +877,4 @@ void Storage::Detail::updateTags(const TilesetId &tilesetId
     saveConfig();
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

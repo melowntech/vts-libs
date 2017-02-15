@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts0_driver_tilardriver_tilarcache_hpp_included_
-#define vadstena_libs_vts0_driver_tilardriver_tilarcache_hpp_included_
+#ifndef vtslibs_vts0_driver_tilardriver_tilarcache_hpp_included_
+#define vtslibs_vts0_driver_tilardriver_tilarcache_hpp_included_
 
 #include <set>
 #include <map>
@@ -14,7 +14,7 @@
 
 #include "./options.hpp"
 
-namespace vadstena { namespace vts0 { namespace tilardriver {
+namespace vtslibs { namespace vts0 { namespace tilardriver {
 
 namespace fs = boost::filesystem;
 
@@ -65,6 +65,6 @@ inline Cache::Archives& Cache::getArchives(TileFile type)
     throw;
 }
 
-} } } // namespace vadstena::vts0::tilardriver
+} } } // namespace vtslibs::vts0::tilardriver
 
-#endif // vadstena_libs_vts0_driver_tilardriver_tilarcache_hpp_included_
+#endif // vtslibs_vts0_driver_tilardriver_tilarcache_hpp_included_

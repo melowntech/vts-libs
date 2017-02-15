@@ -4,7 +4,7 @@
 #include "./metaflags.hpp"
 #include "./debug.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 DebugNode getNodeDebugInfo(const TileIndex &tileIndex, const TileId &tileId)
 {
@@ -46,4 +46,4 @@ void saveDebug(std::ostream &out, const DebugNode &debugNode)
     Json::StyledStreamWriter().write(out, value);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

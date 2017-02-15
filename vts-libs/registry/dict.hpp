@@ -3,10 +3,10 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_registry_dict_hpp_included_
-#define vadstena_libs_registry_dict_hpp_included_
+#ifndef vtslibs_registry_dict_hpp_included_
+#define vtslibs_registry_dict_hpp_included_
 
 #include "./stringdict.hpp"
 #include "./dualdict.hpp"
 
-#endif // vadstena_libs_registry_dict_hpp_included_
+#endif // vtslibs_registry_dict_hpp_included_

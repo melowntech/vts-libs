@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_tilestorage_driver_tilardriver_options_hpp_included_
-#define vadstena_libs_tilestorage_driver_tilardriver_options_hpp_included_
+#ifndef vtslibs_tilestorage_driver_tilardriver_options_hpp_included_
+#define vtslibs_tilestorage_driver_tilardriver_options_hpp_included_
 
 #include <set>
 #include <map>
@@ -13,7 +13,7 @@
 #include "../../../storage/tilar.hpp"
 #include "../../tileop.hpp"
 
-namespace vadstena { namespace tilestorage { namespace tilardriver {
+namespace vtslibs { namespace tilestorage { namespace tilardriver {
 
 using storage::Tilar;
 
@@ -83,6 +83,6 @@ inline Options::Index Options::index(const TileId &tileId, int type) const
     };
 }
 
-} } } // namespace vadstena::tilestorage::tilardriver
+} } } // namespace vtslibs::tilestorage::tilardriver
 
-#endif // vadstena_libs_tilestorage_driver_tilardriver_options_hpp_included_
+#endif // vtslibs_tilestorage_driver_tilardriver_options_hpp_included_

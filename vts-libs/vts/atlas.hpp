@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_atlas_hpp
-#define vadstena_libs_vts_atlas_hpp
+#ifndef vtslibs_vts_atlas_hpp
+#define vtslibs_vts_atlas_hpp
 
 #include <cstdlib>
 #include <memory>
@@ -12,7 +12,7 @@
 
 #include "./multifile.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 class Atlas {
 public:
@@ -91,6 +91,6 @@ inline double Atlas::area(std::size_t index) const
     return double(s.width) * double(s.height);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_atlas_hpp
+#endif // vtslibs_vts_atlas_hpp

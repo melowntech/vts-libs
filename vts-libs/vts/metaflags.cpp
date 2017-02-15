@@ -1,6 +1,6 @@
 #include "./metaflags.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 std::vector<MetaFlags::MetaFlag> MetaFlags::mapping = {
     MetaFlag(vts::MetaNode::Flag::geometryPresent, "geometry")
@@ -14,4 +14,4 @@ std::vector<MetaFlags::MetaFlag> MetaFlags::mapping = {
     , MetaFlag(vts::MetaNode::Flag::lrChild, "lr")
 };
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

@@ -19,7 +19,7 @@ namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;
 namespace half = half_float::detail;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
     const char MAGIC[2] = { 'M', 'T' };
@@ -965,4 +965,4 @@ void loadCreditsFromMetaTile(std::istream &in, registry::IdSet &credits
     }
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
