@@ -171,6 +171,11 @@ math::Extents3 extents(const Mesh &mesh);
 /** Calculates geom-extents.
  *  NB: vertices must be in SDS to work properly.
  */
+GeomExtents geomExtents(const math::Points3d &vertices);
+
+/** Calculates geom-extents.
+ *  NB: vertices must be in SDS to work properly.
+ */
 GeomExtents geomExtents(const SubMesh &submesh);
 
 /** Calculates geom-extents.

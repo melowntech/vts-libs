@@ -45,6 +45,7 @@ struct Output {
     boost::optional<Mesh> mesh;
     boost::optional<RawAtlas> atlas;
     boost::optional<opencv::NavTile> navtile;
+    GeomExtents geomExtents;
 
     // list of tiles this tile was generated from
     TileSource source;

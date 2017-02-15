@@ -65,13 +65,18 @@ math::Extents3 extents(const Mesh &mesh)
     return e;
 }
 
-GeomExtents geomExtents(const SubMesh &submesh)
+GeomExtents geomExtents(const math::Points3d &vertices)
 {
     GeomExtents ge;
-    for (const auto &v : submesh.vertices) {
+    for (const auto &v : vertices) {
         update(ge, v(2));
     }
     return ge;
+}
+
+GeomExtents geomExtents(const SubMesh &submesh)
+{
+    return geomExtents(submesh.vertices);
 }
 
 GeomExtents geomExtents(const Mesh &mesh)

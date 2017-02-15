@@ -787,6 +787,9 @@ void addInputToOutput(Output &out, const Input &input
     auto &outMesh(out.forceMesh());
     auto &added(outMesh.add(mesh));
 
+    // update geomExtents
+    update(out.geomExtents, geomExtents(projected));
+
     // set UV area scale
     added.uvAreaScale = uvAreaScale;
     // set surface reference to input tileset index + 1
@@ -1044,6 +1047,7 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
     if (input.tileId().lod == tileId.lod) {
         // as is -> copy
         result.mesh = input.mesh();
+        result.geomExtents = input.node().geomExtents;
 
         // update surface references of all submeshes
         for (auto &sm : *result.mesh) {
@@ -1285,6 +1289,9 @@ Tile Output::tile(int textureQuality)
         const auto &sCredits(src.node().credits());
         tile.credits.insert(sCredits.begin(), sCredits.end());
     }
+
+    // update geom extents
+    tile.geomExtents = geomExtents;
 
     return tile;
 }
