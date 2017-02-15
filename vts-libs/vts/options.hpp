@@ -110,6 +110,12 @@ public:
         enum : value_type {
             mesh = 0x1      // reencode meshes
             , inpaint = 0x2 // inpaint atlas textures
+            /** reencode metanode from other data
+             *  exact meaning is dependent on metanode version
+             *
+             *  v*->v4: generate geomExtents from mesh/navtiles(surrogate)
+             */
+            , meta = 0x4
         };
     };
 

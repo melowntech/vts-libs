@@ -188,7 +188,8 @@ struct MetaNode {
             : lod(lod), sourceReference(sourceReference) {}
     };
 
-    void load(std::istream &in, const StoreParams &sp);
+    void load(std::istream &in, const StoreParams &sp
+              , std::uint16_t version);
     void save(std::ostream &out, const StoreParams &sp) const;
 
 private:

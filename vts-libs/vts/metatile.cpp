@@ -483,7 +483,8 @@ void saveMetaTile(const fs::path &path, const MetaTile &meta)
     f.close();
 }
 
-inline void MetaNode::load(std::istream &in, const StoreParams &sp)
+inline void MetaNode::load(std::istream &in, const StoreParams &sp
+                           , std::uint16_t version)
 {
     // NB: flags are accumulated because they can be pre-initialized from
     // another source
@@ -495,16 +496,21 @@ inline void MetaNode::load(std::istream &in, const StoreParams &sp)
 
     // geom extents
     {
-        // old format
-        std::vector<std::uint8_t> ge(geomLen(sp.lod));
-        bin::read(in, ge);
-        parseGeomExtents(sp.lod, extents, ge);
+        // TODO: check when version 5 is introduced!
+        if (version < 5) {
+            // old format
+            std::vector<std::uint8_t> ge(geomLen(sp.lod));
+            bin::read(in, ge);
+            parseGeomExtents(sp.lod, extents, ge);
+        }
 
-        // new format
-        float f;
-        bin::read(in, f); geomExtents.z.min = f;
-        bin::read(in, f); geomExtents.z.max = f;
-        bin::read(in, f); geomExtents.surrogate = f;
+        if (version >= 4) {
+            // new format
+            float f;
+            bin::read(in, f); geomExtents.z.min = f;
+            bin::read(in, f); geomExtents.z.max = f;
+            bin::read(in, f); geomExtents.surrogate = f;
+        }
     }
 
     std::uint8_t u8;
@@ -635,7 +641,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
 
     for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
         for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
-            grid_[j * size_ + i].load(in, sp);
+            grid_[j * size_ + i].load(in, sp, version);
         }
     }
 

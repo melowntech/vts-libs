@@ -183,6 +183,14 @@ driver::PlainOptions plainOptions(const TileSetProperties &properties)
     return driver::PlainOptions(5, referenceFrame.metaBinaryOrder);
 }
 
+GeomExtents geomExtents(const NodeInfo &ni, const Mesh &mesh)
+{
+    // re-compute geom extents
+    return geomExtents
+        (CsConvertor(ni.referenceFrame().model.physicalSrs, ni.srs())
+         , mesh);
+}
+
 } // namespace
 
 struct TileSet::Factory
@@ -273,10 +281,11 @@ struct TileSet::Factory
         dst.propertiesChanged = true;
     }
 
-    static void reencode(const TileId &tileId
+    static void reencode(const TileId &tileId, const NodeInfo &ni
                          , const Driver &sd, Driver &dd
                          , bool hasMesh, bool hasAtlas
-                         , CloneOptions::EncodeFlag::value_type eflags)
+                         , CloneOptions::EncodeFlag::value_type eflags
+                         , MetaNode &metanode)
     {
         Mesh mesh;
         RawAtlas atlas;
@@ -293,14 +302,18 @@ struct TileSet::Factory
         if (hasMesh) {
             if (eflags & CloneOptions::EncodeFlag::mesh) {
                 // reencode mesh
-                // TODO: use atlas
                 auto os(dd.output(tileId, storage::TileFile::mesh));
-                saveMesh(os, mesh);
+                saveMesh(os, mesh, &atlas);
                 os->close();
             } else {
                 // just copy file
                 copyFile(sd.input(tileId, storage::TileFile::mesh)
                          , dd.output(tileId, storage::TileFile::mesh));
+            }
+
+            if (eflags & CloneOptions::EncodeFlag::meta) {
+                // TODO: surrogate
+                metanode.geomExtents = geomExtents(ni, mesh);
             }
         }
 
@@ -360,8 +373,24 @@ struct TileSet::Factory
             bool mesh(mask & TileIndex::Flag::mesh);
             bool atlas(mask & TileIndex::Flag::atlas);
 
+            // optional copy of metanode
+            boost::optional<MetaNode> mn;
+
+            auto copyMetanode([&]() -> MetaNode&
+            {
+                if (!mn) { mn = *metanode; }
+                return *mn;
+            });
+
+            // get reference to metanode
+            auto useMetanode([&]() -> const MetaNode&
+            {
+                return mn ? *mn : *metanode;
+            });
+
             if (eflags) {
-                reencode(tid, sd, dd, mesh, atlas, eflags);
+                reencode(tid, NodeInfo(src.referenceFrame, tid)
+                         , sd, dd, mesh, atlas, eflags, copyMetanode());
             } else {
                 if (mesh) {
                     // copy mesh
@@ -385,11 +414,11 @@ struct TileSet::Factory
 
             if (mnm) {
                 // filter metanode
-                dst.updateNode(tid, mnm(*metanode)
+                dst.updateNode(tid, mnm(useMetanode())
                                , (mask & TileIndex::Flag::nonmeta));
             } else {
                 // pass metanode as-is
-                dst.updateNode(tid, *metanode
+                dst.updateNode(tid, useMetanode()
                            , (mask & TileIndex::Flag::nonmeta));
             }
             LOG(info1) << "Stored tile " << tid << ".";

@@ -71,7 +71,11 @@ struct Output {
     }
     const NavTile* getNavtile() const { return navtile ? &*navtile : nullptr; }
 
-    // Takes content as a tile
+    /** Takes content as a tile
+     *
+     *  NB: all shared pointers in returned Tile point to data inside this
+     *  Output instance. Do not use tile after this instance destruction!
+     */
     Tile tile(int textureQuality);
 
     Mesh& forceMesh();

@@ -925,7 +925,7 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "Comma-separated list of string/numeric credit id to override "
              "existing credits. If not specified, credits are not touched.")
             ("reencode", po::value(&encodeFlags_)->default_value(0)
-             ,"Comma-separated list of clone options: mesh, inpaint.")
+             ,"Comma-separated list of clone options: mesh, inpaint, meta.")
             ;
 
         p.configure = [&](const po::variables_map &vars) {
