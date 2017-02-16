@@ -12,6 +12,10 @@ namespace vtslibs { namespace vts {
  */
 class CsConvertor {
 public:
+    /** Dummy.
+     */
+    CsConvertor() = default;
+
     /** Creates convertor between two SRS specified as keys to global SRS
      *  registry.
      *
