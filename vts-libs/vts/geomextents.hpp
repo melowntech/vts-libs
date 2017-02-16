@@ -30,6 +30,10 @@ struct GeomExtents {
         : z(ZRange::emptyRange())
         , surrogate(-std::numeric_limits<float>::infinity())
     {}
+
+    GeomExtents(float min, float max, float surrogate)
+        : z(min, max), surrogate(surrogate)
+    {}
 };
 
 inline bool empty(const GeomExtents &ge) { return ge.z.empty(); }
