@@ -762,8 +762,8 @@ void loadMeshProperImpl(std::istream &in, const fs::path &path
 
     // make room for sub-meshes and load them all
     mesh.resize(subMeshCount);
-    for (auto &item : mesh) {
-        auto &sm(getSubmesh(item));
+    for (auto &meshItem : mesh) {
+        auto &sm(getSubmesh(meshItem));
 
         std::uint8_t flags;
         bin::read(in, flags);
@@ -797,12 +797,12 @@ void loadMeshProperImpl(std::istream &in, const fs::path &path
         bin::read(in, bbox.ur(2));
 
         if (version >= 3) {
-            loadSubmeshVersion3(in, sm, flags, loadBbox(sm, bbox));
+            loadSubmeshVersion3(in, sm, flags, loadBbox(meshItem, bbox));
         } else {
-            loadSubmeshVersion2(in, sm, flags, loadBbox(sm, bbox));
+            loadSubmeshVersion2(in, sm, flags, loadBbox(meshItem, bbox));
         }
 
-        addBbox(item, bbox);
+        addBbox(meshItem, bbox);
     }
 }
 
