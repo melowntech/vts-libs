@@ -686,9 +686,53 @@ void loadSubmeshVersion2(std::istream &in, SubMesh &sm, std::uint8_t flags
     }
 }
 
-} // namespace
+// support for Mesh
 
-void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
+inline SubMesh& getSubmesh(SubMesh &sm)
+{
+    // identity
+    return sm;
+}
+
+inline const math::Extents3 loadBbox(const SubMesh&
+                                     , const math::Extents3 &bbox)
+{
+    // use provided bbox
+    return bbox;
+}
+
+inline void addBbox(SubMesh&, const math::Extents3&)
+{
+    // no-op;
+}
+
+// support for normalized submeshes
+
+inline SubMesh& getSubmesh(NormalizedSubMesh &sm)
+{
+    // get submesh from normalized submesh
+    return sm.submesh;
+}
+
+// helper normalized bbox
+const math::Extents3 normBbox(-1.0, -1.0, -1.0, +1.0, +1.0, +1.0);
+
+inline const math::Extents3 loadBbox(const NormalizedSubMesh&
+                                     , const math::Extents3&)
+{
+    // ignore provided bbox, always return normalized one
+    return normBbox;
+}
+
+inline void addBbox(NormalizedSubMesh &sm, const math::Extents3 &bbox)
+{
+    // add provided bbox to normalized submesh
+    sm.extents = bbox;
+}
+
+template <typename MeshType>
+void loadMeshProperImpl(std::istream &in, const fs::path &path
+                        , MeshType &mesh)
 {
     // Load mesh headers first
     char magic[sizeof(MAGIC)];
@@ -717,8 +761,10 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
     bin::read(in, subMeshCount);
 
     // make room for sub-meshes and load them all
-    mesh.submeshes.resize(subMeshCount);
-    for (auto &sm : mesh) {
+    mesh.resize(subMeshCount);
+    for (auto &item : mesh) {
+        auto &sm(getSubmesh(item));
+
         std::uint8_t flags;
         bin::read(in, flags);
 
@@ -751,12 +797,32 @@ void loadMeshProper(std::istream &in, const fs::path &path, Mesh &mesh)
         bin::read(in, bbox.ur(2));
 
         if (version >= 3) {
-            loadSubmeshVersion3(in, sm, flags, bbox);
+            loadSubmeshVersion3(in, sm, flags, loadBbox(sm, bbox));
+        } else {
+            loadSubmeshVersion2(in, sm, flags, loadBbox(sm, bbox));
         }
-        else {
-            loadSubmeshVersion2(in, sm, flags, bbox);
-        }
+
+        addBbox(item, bbox);
     }
 }
 
-} } } // namespace vadstena::vts::detail
+} // namespace
+
+void loadMeshProper(std::istream &in, const boost::filesystem::path &path
+                    , Mesh &mesh)
+{
+    loadMeshProperImpl(in, path, mesh.submeshes);
+}
+
+} // namespace detail
+
+NormalizedSubMesh::list
+loadMeshProperNormalized(std::istream &in
+                         , const boost::filesystem::path &path)
+{
+    NormalizedSubMesh::list submeshes;
+    detail::loadMeshProperImpl(in, path, submeshes);
+    return submeshes;
+}
+
+} } // namespace vadstena::vts
