@@ -1,6 +1,9 @@
 #ifndef vts_heightmap_hpp_included_
 #define vts_heightmap_hpp_included_
 
+#include <limits>
+
+#include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include <opencv2/core/core.hpp>
@@ -27,13 +30,26 @@ struct HeightMapBase {
     cv::Mat pane_;
     std::string srs_; // registry srs
     math::Extents2 worldExtents_;
+    math::Matrix4 world2Grid_;
 
     HeightMapBase(const registry::ReferenceFrame &referenceFrame
                   , Lod lod, TileRange tileRange);
+
+    typedef vts::opencv::NavTile::DataType DataType;
+
+    static constexpr DataType Infinity = std::numeric_limits<DataType>::max();
+    static constexpr DataType InvalidHeight = -Infinity;
+
+protected:
+    void updateWorldExtents(const math::Extents2 &we);
 };
 
 class HeightMap : private HeightMapBase {
 public:
+    using HeightMapBase::DataType;
+    using HeightMapBase::Infinity;
+    using HeightMapBase::InvalidHeight;
+
     class Accumulator;
 
     /** Heightmap generation constructor.
@@ -57,6 +73,12 @@ public:
      *  (lod > lod_): error
      */
     void resize(Lod lod);
+
+    /** Halve pane size to one half.
+     *  LOD and worldExtents stay the same.
+     *  After halving, this instance is not navtile-friently any more.
+     */
+    void halve();
 
     /** Warps heightmap to given node.
      *  Works for single destination tile.
@@ -82,6 +104,11 @@ public:
     struct BestPosition;
 
     BestPosition bestPosition() const;
+
+    /** Reconstruct point at given world position.
+     */
+    boost::optional<HeightMap::DataType>
+    reconstruct(const math::Point2 &point) const;
 };
 
 /** Best position inside heightmap

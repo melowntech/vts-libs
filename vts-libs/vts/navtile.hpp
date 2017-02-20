@@ -22,7 +22,11 @@ public:
     typedef storage::Range<std::int16_t> HeightRange;
     typedef imgproc::quadtree::RasterMask CoverageMask;
 
-    static const math::Size2i size() { return math::Size2i(256, 256); };
+    static constexpr int binOrder = 8; // bits
+    static constexpr int width = (1 << binOrder);
+    static constexpr int height = (1 << binOrder);
+
+    static const math::Size2i size() { return math::Size2i(width, height); };
 
     NavTile() : coverageMask_(size(), CoverageMask::InitMode::FULL) {}
 

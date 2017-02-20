@@ -161,6 +161,45 @@ struct Mesh {
     void createCoverage(bool fullyCovered);
 };
 
+/** Single submesh area
+ */
+struct SubMeshArea {
+    double mesh;
+    double internalTexture;
+    double externalTexture;
+
+    typedef std::vector<SubMeshArea> list;
+
+    SubMeshArea() : mesh(), internalTexture(), externalTexture() {}
+};
+
+/** Whole mesh area
+ */
+struct MeshArea {
+    double mesh;
+    SubMeshArea::list submeshes;
+
+    MeshArea() : mesh() {}
+};
+
+/** Only mesh mask (with references to surfaces)
+ */
+struct MeshMask {
+    Mesh::CoverageMask coverageMask;
+    std::vector<SubMesh::SurfaceReference> surfaceReferences;
+};
+
+/** Submesh normalized inside its bounding box (extents).
+ */
+struct NormalizedSubMesh {
+    SubMesh submesh;
+    math::Extents3 extents;
+
+    typedef std::vector<NormalizedSubMesh> list;
+};
+
+// helper functions
+
 std::uint32_t extraFlags(const Mesh &mesh);
 std::uint32_t extraFlags(const Mesh *mesh);
 std::uint32_t extraFlags(const Mesh::pointer &mesh);
@@ -191,16 +230,6 @@ GeomExtents geomExtents(const CsConvertor &conv, const SubMesh &submesh);
  */
 GeomExtents geomExtents(const CsConvertor &conv, const Mesh &mesh);
 
-struct SubMeshArea {
-    double mesh;
-    double internalTexture;
-    double externalTexture;
-
-    typedef std::vector<SubMeshArea> list;
-
-    SubMeshArea() : mesh(), internalTexture(), externalTexture() {}
-};
-
 /** Returns mesh and texture area for given submesh
  */
 SubMeshArea area(const SubMesh &submesh);
@@ -218,15 +247,6 @@ SubMeshArea area(const math::Points3d &vertices, const Faces &faces
                  , const math::Points2d *tc, const Faces *facesTc
                  , const math::Points2d *etc
                  , const VertexMask *mask = nullptr);
-
-/** Returns mesh and texture area for given mesh.
- */
-struct MeshArea {
-    double mesh;
-    SubMeshArea::list submeshes;
-
-    MeshArea() : mesh() {}
-};
 
 /** Area of whole mesh.
  */
@@ -299,14 +319,14 @@ Mesh loadMesh(const storage::IStream::pointer &in);
 void saveMeshProper(std::ostream &out, const Mesh &mesh
                     , const Atlas *atlas = nullptr);
 
+
+NormalizedSubMesh::list
+loadMeshProperNormalized(std::istream &in
+                         , const boost::filesystem::path &path);
+
 multifile::Table readMeshTable(std::istream &is
                                , const boost::filesystem::path &path
                                = "unknown");
-
-struct MeshMask {
-    Mesh::CoverageMask coverageMask;
-    std::vector<SubMesh::SurfaceReference> surfaceReferences;
-};
 
 MeshMask loadMeshMask(std::istream &is
                       , const boost::filesystem::path &path

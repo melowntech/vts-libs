@@ -586,7 +586,7 @@ void Encoder::generateHeightMap(const vts::TileId &tileId
                   , [&](int x, int y, float z)
     {
         auto &value(hm.at<float>(y, x));
-        if (z < value) { value = z; }
+        if (z > value) { value = z; }
     });
 }
 
