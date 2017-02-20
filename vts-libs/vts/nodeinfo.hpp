@@ -162,6 +162,13 @@ public:
      */
     NodeInfo child(const TileId &child) const;
 
+    /** Generates special SRS definition:
+     *      merge(horizontal(sds),  vertical(navigation)
+     *
+     *  This SRS is used to interpret data stored inside navtiles.
+     */
+    geo::SrsDefinition navsds() const;
+
     /** Generate list of nodeinfos from valid referenceframes' nodes.
      */
     static NodeInfo::list nodes(const registry::ReferenceFrame &referenceFrame

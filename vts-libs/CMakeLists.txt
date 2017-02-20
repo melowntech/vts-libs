@@ -291,6 +291,7 @@ set(vts_SOURCES
 
   # heightmap
   vts/heightmap.hpp vts/heightmap.cpp
+  vts/ntgenerator.hpp vts/ntgenerator.cpp
   )
 
 # vts core library

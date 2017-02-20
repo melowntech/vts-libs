@@ -43,6 +43,7 @@
 #include "../vts/io.hpp"
 #include "../vts/csconvertor.hpp"
 #include "../vts/heightmap.hpp"
+#include "../vts/ntgenerator.hpp"
 
 namespace po = boost::program_options;
 namespace vs = vtslibs::storage;
@@ -303,10 +304,14 @@ public:
         , EncoderBase(config, input, referenceFrame())
         , config_(config), input_(input), aa_(input_->advancedApi())
         , ti_(aa_.tileIndex()), cti_(ti_)
-        , hma_(ntSourceLod_)
+        , hma_(ntSourceLod_), ntg_(&referenceFrame())
         , physSrs_(referenceFrame().model.physicalSrs)
         , rootSrs_(referenceFrame().division.root().srs)
     {
+        ntg_.addAccumulator
+            (rootSrs_, vts::LodRange(input->lodRange().min, ntSourceLod_)
+             , ntSourceLodPixelSize_);
+
         cti_.makeFull().makeComplete();
 
         // set constraints: from zero to max LOD
@@ -334,6 +339,7 @@ private:
     const vts0::TileIndex &ti_;
     vts0::TileIndex cti_;
     vts::HeightMap::Accumulator hma_;
+    vts::NtGenerator ntg_;
     const std::string physSrs_;
     const std::string rootSrs_;
 };
@@ -631,57 +637,15 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     // set credits
     tile.credits = config_.credits;
 
-    if (tileId.lod == ntSourceLod_) {
-        // we have to generate source data for navtiles
-        generateHeightMap(tileId, mesh, nodeInfo.extents());
-    }
+    // add tile to navtile generator (which is in physical SRS!)
+    ntg_.addTile(tileId, nodeInfo, *tile.mesh, physSrs_);
 
     return result;
 }
 
 void Encoder::finish(vts::TileSet &ts)
 {
-    vts::HeightMap hm(std::move(hma_), referenceFrame()
-                      , config_.dtmExtractionRadius / ntSourceLodPixelSize_);
-
-    vts::HeightMap::BestPosition bestPosition;
-
-    // iterate in nt lod range backwards: iterate from start and invert forward
-    // lod into backward lod
-    for (const auto fLod : ntLodRange_) {
-        const vts::Lod lod(ntLodRange_.min + ntLodRange_.max - fLod);
-
-        // resize heightmap for given lod
-        hm.resize(lod);
-
-        // generate and store navtiles
-        traverse(ts.tileIndex(), lod
-                 , [&](const vts::TileId &tileId, vts::QTree::value_type mask)
-        {
-            // process only tiles with mesh
-            if (!(mask & vts::TileIndex::Flag::mesh)) { return; }
-
-            if (auto nt = hm.navtile(tileId)) {
-                ts.setNavTile(tileId, *nt);
-            }
-        });
-
-        if (lod == ntLodRange_.max) {
-            bestPosition = hm.bestPosition();
-        }
-    }
-
-    {
-        vr::Position pos;
-        pos.position = bestPosition.location;
-
-        pos.type = vr::Position::Type::objective;
-        pos.heightMode = vr::Position::HeightMode::fixed;
-        pos.orientation = { 0.0, -90.0, 0.0 };
-        pos.verticalExtent = bestPosition.verticalExtent;
-        pos.verticalFov = 55;
-        ts.setPosition(pos);
-    }
+    ntg_.generate(ts, config_.dtmExtractionRadius);
 }
 
 int Vts02Vts::run()

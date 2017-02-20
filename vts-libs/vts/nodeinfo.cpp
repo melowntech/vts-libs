@@ -458,4 +458,12 @@ NodeInfo::CoveredArea NodeInfo::checkMask(const CoverageMask &mask
     return CoveredArea::some;
 }
 
+geo::SrsDefinition NodeInfo::navsds() const
+{
+    const auto &reg(subtree_.registry());
+    return geo::merge
+        (reg.srs(node_.srs).srsDef
+         , reg.srs(referenceFrame_->model.navigationSrs).srsDef);
+}
+
 } } // namespace vtslibs::vts
