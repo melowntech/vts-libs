@@ -31,8 +31,6 @@ struct NavtileInfo {
     LodRange lodRange;
     double pixelSize;
 
-    NavtileInfo() : lodRange(LodRange::emptyRange()), pixelSize() {}
-
     NavtileInfo(const LodRange &lodRange, double pixelSize)
         : lodRange(lodRange), pixelSize(pixelSize)
     {}
@@ -268,6 +266,8 @@ void fillSurrogate(vts::TileSet &ts, const vts::TileIndex &ti
 void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius)
     const
 {
+    if (accumulators_.empty()) { return; }
+
     boost::optional<vts::HeightMap::BestPosition> bestPosition;
     const auto &navigationSrs(referenceFrame_->model.navigationSrs);
 

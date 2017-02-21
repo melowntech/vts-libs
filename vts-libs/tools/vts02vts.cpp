@@ -42,7 +42,6 @@
 #include "../vts/opencv/navtile.hpp"
 #include "../vts/io.hpp"
 #include "../vts/csconvertor.hpp"
-#include "../vts/heightmap.hpp"
 #include "../vts/ntgenerator.hpp"
 
 namespace po = boost::program_options;
@@ -304,7 +303,7 @@ public:
         , EncoderBase(config, input, referenceFrame())
         , config_(config), input_(input), aa_(input_->advancedApi())
         , ti_(aa_.tileIndex()), cti_(ti_)
-        , hma_(ntSourceLod_), ntg_(&referenceFrame())
+        , ntg_(&referenceFrame())
         , physSrs_(referenceFrame().model.physicalSrs)
         , rootSrs_(referenceFrame().division.root().srs)
     {
@@ -329,16 +328,12 @@ private:
 
     virtual void finish(vts::TileSet&) UTILITY_OVERRIDE;
 
-    void generateHeightMap(const vts::TileId &tileId, const vts0::Mesh &m
-                           , const math::Extents2 &divisionExtents);
-
     const Config config_;
 
     vts0::TileSet::pointer input_;
     vts0::TileSet::AdvancedApi aa_;
     const vts0::TileIndex &ti_;
     vts0::TileIndex cti_;
-    vts::HeightMap::Accumulator hma_;
     vts::NtGenerator ntg_;
     const std::string physSrs_;
     const std::string rootSrs_;
@@ -573,28 +568,6 @@ vts::Mesh::pointer createMesh(const vts::TileId &tileId, const vts0::Mesh &m
     return mesh;
 }
 
-void Encoder::generateHeightMap(const vts::TileId &tileId
-                                , const vts0::Mesh &mesh
-                                , const math::Extents2 &extents)
-{
-    auto& hm([&]() -> cv::Mat&
-    {
-        cv::Mat *t(nullptr);
-        UTILITY_OMP(critical)
-            t = &hma_.tile(tileId);
-        return *t;
-    }());
-
-    // invalid heightmap value (i.e. initial value) is +oo and we take minimum
-    // of all rasterized heights in given place
-    rasterizeMesh(mesh, mesh2grid(extents, hma_.tileSize())
-                  , hma_.tileSize()
-                  , [&](int x, int y, float z)
-    {
-        auto &value(hm.at<float>(y, x));
-        if (z > value) { value = z; }
-    });
-}
 
 Encoder::TileResult
 Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
@@ -645,6 +618,7 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
 
 void Encoder::finish(vts::TileSet &ts)
 {
+    // generate navtiles and surrogates
     ntg_.generate(ts, config_.dtmExtractionRadius);
 }
 
