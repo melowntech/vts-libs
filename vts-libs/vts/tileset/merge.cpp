@@ -1090,9 +1090,48 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
 
     if (generateNavtile) { mergeNavtile(result); }
 
+    // set surroggate
+    // TODO: filter from vicinity of source tile
+    result.geomExtents.surrogate = input.node().geomExtents.surrogate;
+
     // done
     return result;
 }
+
+class SurrogateCalculator {
+public:
+    SurrogateCalculator()
+        : sum_(), weightSum_()
+    {}
+
+    /** Updates surrogate calculation with last computed mesh
+     *
+     * \param result generated output, last submesh is used
+     * \param input input used to generate mesh, metanode is used
+     * \param source source submesh from input
+     */
+    void update(const Output &result, const MeshOpInput &input
+                , const SubMesh &source)
+    {
+        // get laat mesh
+        const auto *outMesh(result.getMesh());
+        if (!outMesh || outMesh->empty()) { return; }
+
+        const auto weight(area3d(outMesh->submeshes.back())
+                          / area3d(source));
+
+        sum_ += weight * input.node().geomExtents.surrogate;
+        weightSum_ += weight;
+    }
+
+    double surrogate() const {
+        return sum_ / weightSum_;
+    }
+
+private:
+    double sum_;
+    double weightSum_;
+};
 
 } // namespace
 
@@ -1198,6 +1237,9 @@ Output mergeTile(const TileId &tileId
 
     // process all input tiles from result source (i.e. only those contributing
     // to the tile)
+
+    SurrogateCalculator sc;
+
     for (const auto &input : result.source.mesh) {
         const auto &mesh(input.mesh());
 
@@ -1225,6 +1267,7 @@ Output mergeTile(const TileId &tileId
             if (!localId.lod) {
                 // add as is
                 mf.addTo(result);
+                sc.update(result, input, sm);
                 continue;
             }
 
@@ -1242,12 +1285,16 @@ Output mergeTile(const TileId &tileId
             if (rmf) {
                 // add refined
                 rmf.addTo(result, (1 << (2 * localId.lod)));
+                sc.update(result, input, sm);
             }
         }
     }
 
     // generate navtile if asked to
     if (constraints.generateNavtile()) { mergeNavtile(result); }
+
+    // set surrogate
+    result.geomExtents.surrogate = sc.surrogate();
 
     return result;
 }

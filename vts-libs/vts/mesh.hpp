@@ -241,6 +241,10 @@ SubMeshArea area(const SubMesh &submesh);
  */
 SubMeshArea area(const SubMesh &submesh, const VertexMask &mask);
 
+/** Simple area of 3D submesh.
+ */
+double area3d(const SubMesh &submesh);
+
 /** Low-level area calculator.
  */
 SubMeshArea area(const math::Points3d &vertices, const Faces &faces
@@ -379,6 +383,12 @@ inline Mesh loadMesh(const storage::IStream::pointer &in)
 inline MeshMask loadMeshMask(const storage::IStream::pointer &in)
 {
     return loadMeshMask(*in, in->name());
+}
+
+inline double area3d(const SubMesh &submesh)
+{
+    return area(submesh.vertices, submesh.faces, nullptr, nullptr, nullptr)
+        .mesh;
 }
 
 } } // namespace vtslibs::vts
