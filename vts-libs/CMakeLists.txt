@@ -297,7 +297,7 @@ set(vts_SOURCES
 # vts core library
 define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
   DEPENDS
-  geo>=1.24 geometry>=1.7 imgproc>=1.17 math>=1.2
+  geo>=1.24 geometry>=1.7 imgproc>=1.18 math>=1.2
   utility>=1.11 dbglog>=1.4 jsoncpp>=1.1 half>=1.1
 
   ${vts-registry_python_DEPENDS}
