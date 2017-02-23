@@ -231,6 +231,23 @@ void TileIndex::setMask(const TileId &tileId, QTree::value_type mask
     });
 }
 
+namespace {
+
+void fixStats(TileIndex::Stat &stat, Lod minLod)
+{
+    if (stat.lodRange.empty()) {
+        // nothing, drop whole tileRanges
+        stat.tileRanges.clear();
+    } else {
+        // remove difference between minLod and stat.lodRange.min (if any)
+        stat.tileRanges.erase
+            (stat.tileRanges.begin()
+             , stat.tileRanges.begin() + (stat.lodRange.min - minLod));
+    }
+}
+
+} // namespace
+
 TileIndex::Stat TileIndex::statMask(QTree::value_type mask)
     const
 {
@@ -258,15 +275,7 @@ TileIndex::Stat TileIndex::statMask(QTree::value_type mask)
         ++lod;
     }
 
-    if (stat.lodRange.empty()) {
-        // nothing, drop whole tileRanges
-        stat.tileRanges.clear();
-    } else {
-        // remove difference between minLod_ and stat.lodRange.min (if any)
-        stat.tileRanges.erase
-            (stat.tileRanges.begin()
-             , stat.tileRanges.begin() + (stat.lodRange.min - minLod_));
-    }
+    fixStats(stat, minLod_);
 
     return stat;
 }
@@ -299,15 +308,66 @@ TileIndex::Stat TileIndex::statMask(QTree::value_type mask
         ++lod;
     }
 
-    if (stat.lodRange.empty()) {
-        // nothing, drop whole tileRanges
-        stat.tileRanges.clear();
-    } else {
-        // remove difference between minLod_ and stat.lodRange.min (if any)
-        stat.tileRanges.erase
-            (stat.tileRanges.begin()
-             , stat.tileRanges.begin() + (stat.lodRange.min - minLod_));
+    fixStats(stat, minLod_);
+
+    return stat;
+}
+
+TileIndex::Stat TileIndex::statMask(QTree::value_type mask
+                                    , const TileId &root)
+    const
+{
+    Stat stat;
+    const auto max(maxLod());
+
+    // sanity check
+    if (root.lod > max) { return stat; }
+
+    // compute tile ranges ranges at all lods from root.lod to max
+    const Ranges ranges(LodRange(root.lod, max), vts::tileRange(root));
+
+    // process all trees
+    auto lod(minLod_);
+    for (const auto &tree : trees_) {
+        // skip lods above root
+        if (lod < root.lod) {
+            ++lod;
+            continue;
+        }
+
+        const auto &trLimit(ranges.tileRange(lod));
+        stat.tileRanges.emplace_back(math::InvalidExtents{});
+        auto &tileRange(stat.tileRanges.back());
+
+        tree.forEachNode([&](unsigned int x, unsigned int y, unsigned int size
+                             , QTree::value_type v)
+        {
+            if (!(v & mask)) { return; }
+
+            // construct tile range
+            TileRange tr(x, y, x + size - 1, y + size - 1);
+
+            // skip if completely outside
+            if (!tileRangesOverlap(tr, trLimit)) { return; }
+
+            tr = tileRangesIntersect(tr, trLimit);
+
+            // remember lod
+            storage::update(stat.lodRange, lod);
+
+            // update output tile range
+            math::update(tileRange, tr.ll);
+            math::update(tileRange, tr.ur);
+
+            auto trSize(math::size(tr));
+
+            stat.count += (std::size_t(trSize.width + 1)
+                           * std::size_t(trSize.height + 1));
+        });
+        ++lod;
     }
+
+    fixStats(stat, minLod_);
 
     return stat;
 }

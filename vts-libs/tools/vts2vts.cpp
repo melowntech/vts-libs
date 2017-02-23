@@ -524,6 +524,77 @@ warpNavtiles(const vts::TileId &tileId
     return navtile;
 }
 
+class SurrogateCalculator {
+public:
+    SurrogateCalculator()
+        : sum_(), weightSum_()
+    {}
+
+    /** Updates surrogate from clipped mesh
+     */
+    void update(const vts::SubMesh &src, vts::SubMesh &dst
+                , const vts::VertexMask &srcMask
+                , float srcSurrogate)
+    {
+        if (!vts::GeomExtents::validSurrogate(srcSurrogate)) {
+            return;
+        }
+
+        const auto srcArea(srcMask.empty()
+                           ? area3d(src) : area3d(src, srcMask));
+        const auto weight(area3d(dst) / srcArea);
+
+        sum_ += weight * srcSurrogate;
+        weightSum_ += weight;
+    }
+
+    float surrogate() const {
+        if (weightSum_) { return sum_ / weightSum_; }
+        return vts::GeomExtents::invalidSurrogate;
+    }
+
+private:
+    double sum_;
+    double weightSum_;
+};
+
+inline float getInputSurrogate(const vr::ReferenceFrame &inputRf
+                               , const vts::MeshOpInput &input
+                               , const std::string &sds)
+{
+    // convert surrogate from source SDS to destination SDS
+
+    const auto &ge(input.node().geomExtents);
+    if (!ge.validSurrogate()) { return vts::GeomExtents::invalidSurrogate; }
+
+    const vts::NodeInfo ni(inputRf, input.tileId());
+
+    const vts::CsConvertor conv(ni.srs(), sds);
+
+    const auto &extents(ni.extents());
+    const auto center(math::center(extents));
+
+    auto convert([&](const math::Point2 &p) -> boost::optional<double>
+    {
+        try {
+            return conv(math::Point3(p(0), p(1), ge.surrogate))(2);
+        } catch (const geo::ProjectionError&) {}
+        return boost::none;
+    });
+
+    // try center
+    if (auto h = convert(center)) { return *h; }
+    // try extents corners
+    for (const auto &p : math::vertices(extents)) {
+        if (auto h = convert(p)) { return *h; }
+    }
+
+    // TODO: check centers of extent edges
+
+    // nothing matched
+    return vts::GeomExtents::invalidSurrogate;
+}
+
 Encoder::TileResult
 Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
                   , const TileResult&)
@@ -592,8 +663,13 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     }());
     auto &atlas(*patlas);
 
+    SurrogateCalculator sc;
+
     for (const auto &input : source) {
         const auto &inMesh(input.mesh());
+        const auto srcSurrogate
+            (getInputSurrogate(srcRf_, input, nodeInfo.srs()));
+
         for (std::size_t smIndex(0), esmIndex(inMesh.size());
              smIndex != esmIndex; ++smIndex)
         {
@@ -604,39 +680,44 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
             // clip submesh
             auto dstSm(vts::clip(sm, clipExtents, mask));
 
-            if (!dstSm.empty()) {
-                // re-generate external tx coordinates (if division node allows)
-                generateEtc(dstSm, nodeInfo.extents()
-                            , nodeInfo.node().externalTexture);
+            if (dstSm.empty()) { continue; }
 
-                // update mesh coverage mask
-                if (!config_.forceWatertight) {
-                    updateCoverage(mesh, dstSm, nodeInfo.extents());
-                }
+            // valid mesh
 
-                // set new texture layer if provided
-                dstSm.textureLayer = config_.textureLayer;
+            // update surrogate
+            sc.update(sm, dstSm, mask, srcSurrogate);
 
-                // convert mesh to destination physical SRS
-                warpInPlace(sds2DstPhy, dstSm);
+            // re-generate external tx coordinates (if division node allows)
+            generateEtc(dstSm, nodeInfo.extents()
+                        , nodeInfo.node().externalTexture);
 
-                // add mesh
-                mesh.add(dstSm);
-
-                // copy texture if submesh has atlas
-                if (input.hasAtlas() && input.atlas().valid(smIndex)) {
-                    atlas.add(input.atlas().get(smIndex));
-                }
-
-                // update credits
-                const auto &credits(input.node().credits());
-                tile.credits.insert(credits.begin(), credits.end());
+            // update mesh coverage mask
+            if (!config_.forceWatertight) {
+                updateCoverage(mesh, dstSm, nodeInfo.extents());
             }
+
+            // set new texture layer if provided
+            dstSm.textureLayer = config_.textureLayer;
+
+            // convert mesh to destination physical SRS
+            warpInPlace(sds2DstPhy, dstSm);
+
+            // add mesh
+            mesh.add(dstSm);
+
+            // copy texture if submesh has atlas
+            if (input.hasAtlas() && input.atlas().valid(smIndex)) {
+                atlas.add(input.atlas().get(smIndex));
+            }
+
+            // update credits
+            const auto &credits(input.node().credits());
+            tile.credits.insert(credits.begin(), credits.end());
         }
     }
 
     if (mesh.empty()) {
-        // no mesh
+       // no mesh
         // decrement number of estimated tiles
         updateEstimatedTileCount(-1);
         // tell that there is nothing yet
@@ -654,6 +735,9 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
         // no atlas -> disable
         tile.atlas.reset();
     }
+
+    // set surrogate (z is already covered)
+    tile.geomExtents.surrogate = sc.surrogate();
 
     // done:
     return result;

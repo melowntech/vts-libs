@@ -27,13 +27,21 @@ struct GeomExtents {
     float surrogate;
 
     GeomExtents()
-        : z(ZRange::emptyRange())
-        , surrogate(-std::numeric_limits<float>::infinity())
+        : z(ZRange::emptyRange()), surrogate(invalidSurrogate)
     {}
 
     GeomExtents(float min, float max, float surrogate)
         : z(min, max), surrogate(surrogate)
     {}
+
+    static constexpr double invalidSurrogate
+        = -std::numeric_limits<float>::infinity();
+
+    static bool validSurrogate(float surrogate) {
+        return surrogate != invalidSurrogate;
+    }
+
+    bool validSurrogate() const { return validSurrogate(surrogate); }
 };
 
 inline bool empty(const GeomExtents &ge) { return ge.z.empty(); }

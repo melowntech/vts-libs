@@ -10,7 +10,6 @@
 #include "./basetypes.hpp"
 #include "./nodeinfo.hpp"
 #include "./tileset.hpp"
-#include "./heightmap.hpp"
 
 namespace vtslibs { namespace vts {
 

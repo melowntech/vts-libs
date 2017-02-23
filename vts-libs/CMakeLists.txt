@@ -269,6 +269,10 @@ if(OpenCV_FOUND)
     vts/opencv/navtile.hpp vts/opencv/navtile.cpp
     vts/opencv/colors.hpp vts/opencv/colors.cpp
     vts/opencv/inpaint.cpp
+
+    # heightmap-related stuff
+    vts/heightmap.hpp vts/heightmap.cpp
+    vts/ntgenerator.hpp vts/ntgenerator.cpp
     )
   list(APPEND vts-core_EXTRA_DEPENDS OpenCV)
 else()
@@ -288,10 +292,6 @@ set(vts_SOURCES
   # dump support
   vts/tileindex-dump.cpp
   vts/qtree-dump.cpp
-
-  # heightmap
-  vts/heightmap.hpp vts/heightmap.cpp
-  vts/ntgenerator.hpp vts/ntgenerator.cpp
   )
 
 # vts core library

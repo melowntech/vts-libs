@@ -249,6 +249,10 @@ public:
      */
     Stat statMask(QTree::value_type mask, QTree::value_type value) const;
 
+    /** Get statistics for all tiles under given root with given mask.
+     */
+    Stat statMask(QTree::value_type mask, const TileId &root) const;
+
     /** Compute tile and lod range for given for all tiles satisfying given
      *  mask. Uses statMask(mask) internally.
      */

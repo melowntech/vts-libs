@@ -8,6 +8,7 @@
 
 #include "imgproc/scanconversion.hpp"
 
+#include "./heightmap.hpp"
 #include "./ntgenerator.hpp"
 
 namespace fs = boost::filesystem;
