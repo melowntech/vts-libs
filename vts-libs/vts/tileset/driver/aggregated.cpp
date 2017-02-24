@@ -277,8 +277,9 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
             node.sourceReference = 0;
         }
         for (const auto &child : vts::children(nodeId)) {
-            node.setChildFromId
-                (child, tileIndex.validSubtree(child));
+            bool valid(tileIndex.validSubtree(child)
+                       && NodeInfo(referenceFrame, child).valid());
+            node.setChildFromId(child, valid);
         }
     });
 
