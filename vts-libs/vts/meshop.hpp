@@ -112,6 +112,20 @@ SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
              , const math::Extents2 &projectedExtents
              , const VertexMask &mask = VertexMask());
 
+/** Options for submesh merging.
+ */
+struct SubmeshMergeOptions {
+    enum class AtlasPacking { legacy, progressive };
+
+    /** Atlas packing style.
+     */
+    AtlasPacking atlasPacking;
+
+    SubmeshMergeOptions()
+        : atlasPacking(AtlasPacking::progressive)
+    {}
+};
+
 /** Tries to merge submeshes.
  *  Returns original if no merge cannot be performed.
  *  Only submeshes from same source are merged.
@@ -125,7 +139,8 @@ SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
  */
 std::tuple<Mesh::pointer, Atlas::pointer>
 mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
-               , const RawAtlas::pointer &atlas, int textureQuality);
+               , const RawAtlas::pointer &atlas, int textureQuality
+               , const SubmeshMergeOptions &options = SubmeshMergeOptions());
 
 /** Tries to merge submeshes.
  *  Returns original if no merge cannot be performed.
@@ -143,7 +158,8 @@ mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
 std::tuple<Mesh::pointer, Atlas::pointer>
 mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
                , const opencv::HybridAtlas::pointer &atlas
-               , int textureQuality);
+               , int textureQuality
+               , const SubmeshMergeOptions &options = SubmeshMergeOptions());
 
 /** Compute enhanced submesh area.
  */

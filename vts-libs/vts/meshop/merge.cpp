@@ -103,8 +103,8 @@ inline math::Point2d normalize(const imgproc::UVCoord &uv
  *  the left and top (because it is automatically dilated to the opposite side
  *  by scan convert rasterization algo.
  */
-void rasterizeMask(cv::Mat &mask, const Faces &faces
-                   , const math::Points2d &tc)
+void rasterizeMaskLegacy(cv::Mat &mask, const Faces &faces
+                         , const math::Points2d &tc)
 {
     const auto white(cv::Scalar(0xff));
     const cv::Rect bounds(0, 0, mask.cols, mask.rows);
@@ -137,14 +137,52 @@ void rasterizeMask(cv::Mat &mask, const Faces &faces
     }
 }
 
+constexpr int rasterizeFractionBits(8);
+constexpr int rasterizeFractionMult(1 << rasterizeFractionBits);
+
+/** New mask rasterization using OpenCV
+ */
+void rasterizeMask(cv::Mat &mask, const Faces &faces
+                   , const math::Points2d &tc)
+{
+    const auto white(cv::Scalar(0xff));
+
+    cv::Point poly[3];
+    for (const auto &face : faces) {
+        for (int i = 0; i < 3; ++i) {
+            const auto &uv(tc[face(i)]);
+            auto &p(poly[i]);
+            // NB: we need to shift by a half pixel to map from grid (used by
+            // this algo) to pixels (used by OpenCV)
+            p.x = (uv(0) - 0.5) * rasterizeFractionMult;
+            p.y = (uv(1) - 0.5) * rasterizeFractionMult;
+        }
+
+        int counts(3);
+        const cv::Point *asPtr(poly);
+        cv::fillConvexPoly(mask, poly, counts, white, 4
+                           , rasterizeFractionBits);
+        cv::polylines(mask, &asPtr, &counts, 1, true, white, 1, 4
+                      , rasterizeFractionBits);
+    }
+}
+
 class TextureInfo {
 public:
-    TextureInfo(const SubMesh &sm, const cv::Mat &texture)
+    TextureInfo(const SubMesh &sm, const cv::Mat &texture
+                , const SubmeshMergeOptions &options)
         : tc_(denormalize(sm.tc, texture.size()))
         , faces_(sm.facesTc), texture_(texture)
         , mask_(texture.rows, texture.cols, CV_8U, cv::Scalar(0x00))
     {
-        rasterizeMask(mask_, faces_, tc_);
+        switch (options.atlasPacking) {
+        case SubmeshMergeOptions::AtlasPacking::legacy:
+            rasterizeMaskLegacy(mask_, faces_, tc_);
+            break;
+        case SubmeshMergeOptions::AtlasPacking::progressive:
+            rasterizeMask(mask_, faces_, tc_);
+            break;
+        }
     }
 
     const math::Points2d& tc() const { return tc_; }
@@ -976,8 +1014,9 @@ public:
     MeshAtlasBuilder(const TileId &tileId
                      , const Mesh::pointer &mesh
                      , const InputAtlas &atlas
-                     , int textureQuality)
-        : tileId_(tileId), textureQuality_(textureQuality)
+                     , int textureQuality
+                     , const SubmeshMergeOptions &options)
+        : tileId_(tileId), textureQuality_(textureQuality), options_(options)
         , originalMesh_(mesh), originalAtlas_(atlas)
         , oSubmeshes_(mesh->submeshes)
         , meshEnd_(0), atlasEnd_(0)
@@ -1010,6 +1049,7 @@ private:
 
     const TileId tileId_;
     const int textureQuality_;
+    const SubmeshMergeOptions &options_;
     const Mesh::pointer originalMesh_;
     const InputAtlas originalAtlas_;
     const SubMesh::list oSubmeshes_;
@@ -1026,7 +1066,7 @@ TextureInfo::list MeshAtlasBuilder::texturing(const Range &range) const
     for (auto i : range) {
         tx.emplace_back
             (originalMesh_->submeshes[i]
-             , boost::apply_visitor(GetImage(i), originalAtlas_));
+             , boost::apply_visitor(GetImage(i), originalAtlas_), options_);
     }
     return tx;
 }
@@ -1246,16 +1286,20 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
 
 MeshAtlas mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
                          , const RawAtlas::pointer &atlas
-                         , int textureQuality)
+                         , int textureQuality
+                         , const SubmeshMergeOptions &options)
 {
-    return MeshAtlasBuilder(tileId, mesh, atlas, textureQuality).result();
+    return MeshAtlasBuilder(tileId, mesh, atlas, textureQuality, options)
+        .result();
 }
 
 MeshAtlas mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
                          , const HybridAtlas::pointer &atlas
-                         , int textureQuality)
+                         , int textureQuality
+                         , const SubmeshMergeOptions &options)
 {
-    return MeshAtlasBuilder(tileId, mesh, atlas, textureQuality).result();
+    return MeshAtlasBuilder(tileId, mesh, atlas, textureQuality, options)
+        .result();
 }
 
 } } // namespace vadstena::vts
