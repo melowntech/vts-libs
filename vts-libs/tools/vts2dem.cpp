@@ -143,6 +143,10 @@ void Vts2Dem::configure(const po::variables_map &vars)
     if (vars.count("lod")) {
         config_.lod = vars["lod"].as<vts::Lod>();
     }
+
+    if (vars.count("srs")) {
+        config_.srs = vars["srs"].as<std::string>();
+    }
 }
 
 bool Vts2Dem::help(std::ostream &out, const std::string &what) const
@@ -265,7 +269,7 @@ void process(cv::Mat *data, geo::GeoDataset::Mask *mask
                 ((tileId.x - tileRange->ll(0)) * size.width
                  , (tileId.y - tileRange->ll(1)) * size.height);
 
-            LOG(info3)
+            LOG(info1)
                 << "Processing " << tileId << ": " << vts::TileFlags(flags)
                 << " (" << offset << ")";
 
@@ -307,7 +311,7 @@ int Vts2Dem::run()
             return EXIT_FAILURE;
         }
         config_.srs = *srsList.begin();
-    } else if (srsList.find(*config_.srs) != srsList.end()) {
+    } else if (srsList.find(*config_.srs) == srsList.end()) {
         LOG(fatal)
             << "SRS " << *config_.srs << " not found in reference frame.";
         return EXIT_FAILURE;

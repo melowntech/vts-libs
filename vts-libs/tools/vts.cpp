@@ -948,11 +948,20 @@ void VtsStorage::configuration(po::options_description &cmdline
                                , ba::is_any_of(",")))
                 {
                     vr::Credit credit;
+                    int numericCredit(-1);
                     try {
-                        credit = vr::system.credits(
-                                    boost::lexical_cast<int>(value));
+                        numericCredit = boost::lexical_cast<int>(value);
                     } catch (boost::bad_lexical_cast) {
                         credit = vr::system.credits(value);
+                    }
+
+                    try {
+                        credit = vr::system.credits(numericCredit);
+                    } catch (vs::KeyError) {
+                        LOG(warn2) << "Using numeric credit id: "
+                                   << numericCredit << " unknown in registry";
+                        forceCredits_.insert(numericCredit);
+                        continue;
                     }
 
                     forceCredits_.insert(credit.numericId);
