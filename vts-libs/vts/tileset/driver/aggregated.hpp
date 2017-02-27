@@ -90,6 +90,13 @@ public:
         DriverEntry::list &drivers_;
     };
 
+    /** Reencodes aggregated tileset.
+     */
+    static bool reencode(const boost::filesystem::path &root
+                         , const AggregatedOptions &driverOptions
+                         , const ReencodeOptions &options
+                         , const std::string &prefix = "");
+
 private:
     virtual OStream::pointer output_impl(const File type);
 

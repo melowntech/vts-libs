@@ -29,6 +29,14 @@ public:
 
     virtual ~PlainDriver();
 
+    /** Reencodes plain tileset.
+     *  Always returns false.
+     */
+    static bool reencode(const boost::filesystem::path &root
+                         , const PlainOptions &driverOptions
+                         , const ReencodeOptions &options
+                         , const std::string &prefix = "");
+
 private:
     virtual OStream::pointer output_impl(const File type);
 

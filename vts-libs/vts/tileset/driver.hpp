@@ -185,6 +185,12 @@ public:
                          , const RelocateOptions &relocateOptions
                          , const std::string &prefix = "");
 
+    /** Recursive tileset reencode.
+     */
+    static void reencode(const boost::filesystem::path &root
+                         , const ReencodeOptions &options
+                         , const std::string &prefix = "");
+
 protected:
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.

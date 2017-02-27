@@ -323,6 +323,16 @@ public:
                          , const RelocateOptions &options
                          , const std::string &prefix = "");
 
+    /** Recursively reencode datasets:
+     *  plain: reencoded
+     *  local: recursive reencode, revision bump on success
+     *  remote: revision bump
+     *  local: recursive reencode, revision bump on success
+     */
+    static void reencode(const boost::filesystem::path &root
+                         , const ReencodeOptions &options
+                         , const std::string &prefix = "");
+
     /** Creates glue from given sets.
      *
      * \param glue output tileset for glue tiles
@@ -377,6 +387,10 @@ public:
     /** Needed to instantiate.
      */
     class Factory; friend class Factory;
+
+    /** Driver helper.
+     */
+    friend class Driver;
 };
 
 /** Low-level create operation.

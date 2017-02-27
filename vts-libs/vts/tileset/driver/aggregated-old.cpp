@@ -187,6 +187,11 @@ const EnhancedInfo* findTileSet(const TileSetInfo::list &tsil
 
 } // namespace
 
+fs::path OldAggregatedOptions::buildStoragePath(const fs::path &root) const
+{
+    return fs::absolute(storagePath, root);
+}
+
 OldAggregatedDriver::TileSetInfo::list
 OldAggregatedDriver::buildTilesetInfo() const
 {
@@ -321,7 +326,7 @@ OldAggregatedDriver::OldAggregatedDriver(const boost::filesystem::path &root
                                          , const OpenOptions &openOptions
                                          , const OldAggregatedOptions &options)
     : Driver(root, openOptions, options)
-    , storage_(this->options().storagePath, OpenMode::readOnly)
+    , storage_(this->options().buildStoragePath(root), OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , tsi_(referenceFrame_.metaBinaryOrder)
     , tilesetInfo_(buildTilesetInfo())
@@ -337,7 +342,7 @@ OldAggregatedDriver::OldAggregatedDriver(const boost::filesystem::path &root
                                    , const CloneOptions &cloneOptions
                                    , const OldAggregatedDriver &src)
     : Driver(root, options, cloneOptions.mode())
-    , storage_(this->options().storagePath, OpenMode::readOnly)
+    , storage_(this->options().buildStoragePath(root), OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , tsi_(referenceFrame_.metaBinaryOrder)
     , tilesetInfo_(buildTilesetInfo())
@@ -569,6 +574,16 @@ boost::any OldAggregatedOptions::relocate(const RelocateOptions &options
     Storage::relocate(res.follow, options, prefix + "    ");
 
     return ret;
+}
+
+bool OldAggregatedDriver::reencode(const boost::filesystem::path &root
+                                   , const OldAggregatedOptions &driverOptions
+                                   , const ReencodeOptions &options
+                                   , const std::string &prefix)
+{
+    Storage::reencode(driverOptions.buildStoragePath(root), options
+                      , prefix + "    ");
+    return !options.dryRun && !options.cleanup;
 }
 
 } } } // namespace vtslibs::vts::driver

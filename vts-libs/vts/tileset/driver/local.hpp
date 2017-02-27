@@ -35,6 +35,13 @@ public:
 
     virtual ~LocalDriver();
 
+    /** Reencodes local tileset.
+     */
+    static bool reencode(const boost::filesystem::path &root
+                         , const LocalOptions &driverOptions
+                         , const ReencodeOptions &options
+                         , const std::string &prefix = "");
+
 private:
     virtual OStream::pointer output_impl(const File type);
 

@@ -56,8 +56,8 @@ private:
  *                driver) if set; otherwise creates new plain tilesets and
  *                copies data tile-by-tile (default behaviour)
  *
- *                NB: if driver cannot clone dataset by its own the dataset se
- *                cloned ad plain dataset (i.e. sameType flag is ignored)
+ *                NB: if driver cannot clone dataset by its own the dataset is
+ *                cloned aa plain dataset (i.e. sameType flag is ignored)
  *    * metaNodeManipulator:
  *                allows metanode change during cloning operation
  *
@@ -226,6 +226,16 @@ struct GlueCreationOptions {
     GlueCreationOptions()
         : textureQuality(), clip(true)
     {}
+};
+
+class ReencodeOptions {
+public:
+    ReencodeOptions() : encodeFlags(), dryRun(false), cleanup(false) {}
+
+    CloneOptions::EncodeFlag::value_type encodeFlags;
+    bool dryRun;
+    bool cleanup;
+    std::string tag;
 };
 
 // inlines

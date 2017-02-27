@@ -121,6 +121,9 @@ struct OldAggregatedOptions {
 
     boost::any relocate(const RelocateOptions &options
                         , const std::string &prefix) const;
+
+    boost::filesystem::path buildStoragePath(const boost::filesystem::path
+                                             &root) const;
 };
 
 /** Optimized aggregated driver.
@@ -135,6 +138,9 @@ struct AggregatedOptions {
                         , const std::string &prefix) const;
 
     AggregatedOptions() : surfaceReferences(false) {}
+
+    boost::filesystem::path buildStoragePath(const boost::filesystem::path
+                                             &root) const;
 };
 
 struct RemoteOptions {

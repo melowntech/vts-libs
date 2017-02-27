@@ -272,4 +272,13 @@ boost::any RemoteOptions::relocate(const RelocateOptions &options
     return {};
 }
 
+
+bool RemoteDriver::reencode(const boost::filesystem::path&
+                            , const RemoteOptions&
+                            , const ReencodeOptions &options
+                            , const std::string&)
+{
+    return !options.dryRun && !options.cleanup;
+}
+
 } } } // namespace vtslibs::vts::driver

@@ -1,7 +1,9 @@
 #include <boost/format.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 
 #include "utility/progress.hpp"
+#include "utility/path.hpp"
 
 #include "../../vts.hpp"
 #include "../tileset.hpp"
@@ -312,9 +314,14 @@ struct TileSet::Factory
                          , dd.output(tileId, storage::TileFile::mesh));
             }
 
-            if (eflags & CloneOptions::EncodeFlag::meta) {
-                // TODO: surrogate
+            if ((eflags & CloneOptions::EncodeFlag::meta)
+                && vts::empty(metanode.geomExtents))
+            {
+                // reencoding metanodes and no geometric extents available ->
+                // recompute
                 metanode.geomExtents = geomExtents(ni, mesh);
+                // use average height as a surrogate
+                metanode.geomExtents.makeAverageSurrogate();
             }
         }
 
@@ -355,6 +362,14 @@ struct TileSet::Factory
         auto report([&]() { (++progress).report(reportRatio, reportName); });
 
         const auto eflags(cloneOptions.encodeFlags());
+
+        if (eflags) {
+            // renencoding, update revision if needed
+            if (dst.properties.revision <= src.properties.revision) {
+                // destination revision is not newer than source revision, fix
+                dst.properties.revision = src.properties.revision + 1;
+            }
+        }
 
         traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
         {
@@ -466,6 +481,45 @@ struct TileSet::Factory
 
         return dst;
     }
+
+    static void reencode(const boost::filesystem::path &root
+                         , const ReencodeOptions &options)
+    {
+        // absolutize
+        const auto srcPath(fs::absolute(root));
+
+        // build tmp path
+        auto dstPath(srcPath);
+        if (dstPath.filename() == ".") {
+            // remove trailing slash
+            fs::path tmp;
+            for (auto i(dstPath.begin()), e(std::prev(dstPath.end()))
+                     ; i != e; ++i)
+            {
+                tmp /= *i;
+            }
+            dstPath.swap(tmp);
+        }
+        dstPath = utility::addExtension(dstPath, "." + options.tag);
+
+        if (options.cleanup) {
+            // remove temporary dataset
+            fs::remove_all(dstPath);
+            return;
+        }
+
+        auto dst(clone(dstPath, open(srcPath, {})
+                       , CloneOptions()
+                       .mode(CreateMode::overwrite)
+                       .encodeFlags(options.encodeFlags)
+                       ));
+
+        // swap paths
+        const auto tmp(utility::addExtension(srcPath, ".swap"));
+        fs::rename(srcPath, tmp);
+        fs::rename(dstPath, srcPath);
+        fs::rename(tmp, dstPath);
+    }
 };
 
 TileSet createTileSet(const boost::filesystem::path &path
@@ -499,6 +553,12 @@ TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src
                      , const CloneOptions &cloneOptions)
 {
     return TileSet::Factory::clone(path, src, cloneOptions);
+}
+
+void reencodeTileSet(const boost::filesystem::path &root
+                     , const ReencodeOptions &options)
+{
+    return TileSet::Factory::reencode(root, options);
 }
 
 /** Core implementation.
@@ -1811,6 +1871,13 @@ void TileSet::relocate(const boost::filesystem::path &root
                        , const std::string &prefix)
 {
     Driver::relocate(root, options, prefix);
+}
+
+void TileSet::reencode(const boost::filesystem::path &root
+                       , const ReencodeOptions &options
+                       , const std::string &prefix)
+{
+    Driver::reencode(root, options, prefix);
 }
 
 NodeInfo TileSet::nodeInfo(const TileId &tileId) const

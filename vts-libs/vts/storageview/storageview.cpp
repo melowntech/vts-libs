@@ -220,4 +220,20 @@ void StorageView::relocate(const boost::filesystem::path &root
     Storage::relocate(res.follow, ro, prefix + "    ");
 }
 
+void StorageView::reencode(const boost::filesystem::path &root
+                           , const ReencodeOptions &ro
+                           , const std::string &prefix)
+{
+    if (ro.dryRun) {
+        LOG(info3) << prefix << "Simulating reencode of storageview "
+                   << root << ".";
+    } else {
+        LOG(info3) << prefix << "Relocating " << root << ".";
+    }
+
+    auto config(storageview::loadConfig(root));
+
+    Storage::reencode(config.storagePath, ro, prefix + "    ");
+}
+
 } } // namespace vtslibs::vts

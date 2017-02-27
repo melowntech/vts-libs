@@ -354,6 +354,10 @@ public:
                          , const RelocateOptions &options
                          , const std::string &prefix = "");
 
+    static void reencode(const boost::filesystem::path &root
+                         , const ReencodeOptions &options
+                         , const std::string &prefix = "");
+
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the storage's guts!
      */

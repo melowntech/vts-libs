@@ -300,6 +300,11 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
 
 } // namespace
 
+fs::path AggregatedOptions::buildStoragePath(const fs::path &root) const
+{
+    return fs::absolute(storagePath, root);
+}
+
 AggregatedDriverBase::AggregatedDriverBase(const CloneOptions &cloneOptions)
 {
     if (!cloneOptions.tilesetId()) {
@@ -314,7 +319,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                                    , const CloneOptions &cloneOptions)
     : AggregatedDriverBase(cloneOptions)
     , Driver(root, options, cloneOptions.mode())
-    , storage_(fs::absolute(this->options().storagePath, root)
+    , storage_(this->options().buildStoragePath(root)
                , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
@@ -591,7 +596,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                                    , const OpenOptions &openOptions
                                    , const AggregatedOptions &options)
     : Driver(root, openOptions, options)
-    , storage_(fs::absolute(this->options().storagePath, root)
+    , storage_(this->options().buildStoragePath(root)
                , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , drivers_(openDrivers(storage_, openOptions, options))
@@ -609,7 +614,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                                    , const CloneOptions &cloneOptions
                                    , const AggregatedDriver &src)
     : Driver(root, options, cloneOptions.mode())
-    , storage_(fs::absolute(this->options().storagePath, root)
+    , storage_(this->options().buildStoragePath(root)
                , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
@@ -839,7 +844,7 @@ std::string AggregatedDriver::info_impl() const
 }
 
 boost::any AggregatedOptions::relocate(const RelocateOptions &options
-                                          , const std::string &prefix) const
+                                       , const std::string &prefix) const
 {
     auto res(options.apply(storagePath.string()));
 
@@ -905,6 +910,16 @@ FileStat AggregatedDriver::stat_impl(const std::string &name) const
     LOGTHROW(err1, storage::NoSuchFile)
         << "This driver doesn't serve file \"" << name << "\".";
     return {};
+}
+
+bool AggregatedDriver::reencode(const boost::filesystem::path &root
+                                , const AggregatedOptions &driverOptions
+                                , const ReencodeOptions &options
+                                , const std::string &prefix)
+{
+    Storage::reencode(driverOptions.buildStoragePath(root), options
+                      , prefix + "    ");
+    return !options.dryRun && !options.cleanup;
 }
 
 } } } // namespace vtslibs::vts::driver

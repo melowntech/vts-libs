@@ -851,6 +851,46 @@ void Storage::relocate(const boost::filesystem::path &root
     }
 }
 
+void Storage::reencode(const boost::filesystem::path &root
+                       , const ReencodeOptions &ro
+                       , const std::string &prefix)
+{
+    if (ro.cleanup) {
+        if (ro.dryRun) {
+            LOG(info3) << prefix << "Simulating reencode cleanup of storage "
+                       << root << ".";
+        } else {
+            LOG(info3)
+                << prefix << "Cleaning up reencode of storage " << root << ".";
+        }
+    } else {
+        if (ro.dryRun) {
+            LOG(info3) << prefix << "Simulating reencode of storage "
+                       << root << ".";
+        } else {
+            LOG(info3) << prefix << "Reencode of storage " << root << ".";
+        }
+    }
+
+    auto config(storage::loadConfig(root / ConfigFilename));
+
+    for (const auto &tileset : config.tilesets) {
+        TileSet::reencode(storage_paths::tilesetPath(root, tileset.tilesetId)
+                          , ro, prefix + "    ");
+    }
+
+    for (const auto &glue : config.glues) {
+        TileSet::reencode(storage_paths::gluePath(root, glue.second)
+                          , ro, prefix + "    ");
+    }
+
+    for (const auto &virtualSurface : config.virtualSurfaces) {
+        TileSet::reencode(storage_paths::virtualSurfacePath
+                          (root, virtualSurface.second)
+                          , ro, prefix + "    ");
+    }
+}
+
 void Storage::updateTags(const TilesetId &tilesetId
                          , const Tags &add, const Tags &remove)
 {

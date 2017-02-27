@@ -34,6 +34,12 @@ struct GeomExtents {
         : z(min, max), surrogate(surrogate)
     {}
 
+    /** Compute surrogate as average from height range.
+     */
+    void makeAverageSurrogate() {
+        surrogate = (z.min + z.max) / 2.0;
+    }
+
     static constexpr double invalidSurrogate
         = -std::numeric_limits<float>::infinity();
 
