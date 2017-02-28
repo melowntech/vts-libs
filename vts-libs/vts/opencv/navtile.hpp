@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_opencv_navtile_hpp
-#define vadstena_libs_vts_opencv_navtile_hpp
+#ifndef vtslibs_vts_opencv_navtile_hpp
+#define vtslibs_vts_opencv_navtile_hpp
 
 #include <boost/optional.hpp>
 
@@ -7,7 +7,7 @@
 
 #include "../navtile.hpp"
 
-namespace vadstena { namespace vts { namespace opencv {
+namespace vtslibs { namespace vts { namespace opencv {
 
 class NavTile : public vts::NavTile {
 public:
@@ -63,6 +63,6 @@ private:
 
 cv::Mat renderCoverage(const NavTile &navtile);
 
-} } } // namespace vadstena::vts::opencv
+} } } // namespace vtslibs::vts::opencv
 
-#endif // vadstena_libs_vts_opencv_navtile_hpp
+#endif // vtslibs_vts_opencv_navtile_hpp

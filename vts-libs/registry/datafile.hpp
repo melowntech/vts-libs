@@ -3,12 +3,12 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_registry_datafile_hpp_included_
-#define vadstena_libs_registry_datafile_hpp_included_
+#ifndef vtslibs_registry_datafile_hpp_included_
+#define vtslibs_registry_datafile_hpp_included_
 
 #include "./dict.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 /** Registry data file.
  */
@@ -31,6 +31,6 @@ struct DataFile {
     DataFile(const boost::filesystem::path &path);
 };
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry
 
-#endif // vadstena_libs_registry_datafile_hpp_included_
+#endif // vtslibs_registry_datafile_hpp_included_

@@ -13,7 +13,7 @@
 
 #include "./navtile.hpp"
 
-namespace vadstena { namespace vts { namespace opencv {
+namespace vtslibs { namespace vts { namespace opencv {
 
 namespace {
 
@@ -228,4 +228,4 @@ NavTile::DataType NavTile::sample(const math::Point2 &p) const
     return height;
 }
 
-} } } // namespace vadstena::vts::opencv
+} } } // namespace vtslibs::vts::opencv

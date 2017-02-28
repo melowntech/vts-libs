@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts0_encoder_hpp_included_
-#define vadstena_libs_vts0_encoder_hpp_included_
+#ifndef vtslibs_vts0_encoder_hpp_included_
+#define vtslibs_vts0_encoder_hpp_included_
 
 #include <memory>
 
@@ -9,7 +9,7 @@
 
 #include "./tileset.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 class Encoder {
 public:
@@ -88,6 +88,6 @@ Encoder::Constraints::setExtents(const boost::optional<math::Extents2> &value)
     return *this;
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts0_encoder_hpp_included_
+#endif // vtslibs_vts0_encoder_hpp_included_

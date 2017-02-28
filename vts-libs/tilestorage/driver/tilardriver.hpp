@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_tilestorage_driver_tilardriver_hpp_included_
-#define vadstena_libs_tilestorage_driver_tilardriver_hpp_included_
+#ifndef vtslibs_tilestorage_driver_tilardriver_hpp_included_
+#define vtslibs_tilestorage_driver_tilardriver_hpp_included_
 
 #include <set>
 #include <map>
@@ -9,7 +9,7 @@
 #include "./factory.hpp"
 #include "../../storage/streams.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace fs = boost::filesystem;
 
@@ -100,6 +100,6 @@ private:
     FileStat openStat_;
 };
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_driver_tilardriver_hpp_included_
+#endif // vtslibs_tilestorage_driver_tilardriver_hpp_included_

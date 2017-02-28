@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_registry_freelayer_hpp_included_
-#define vadstena_libs_registry_freelayer_hpp_included_
+#ifndef vtslibs_registry_freelayer_hpp_included_
+#define vtslibs_registry_freelayer_hpp_included_
 
 #include <set>
 #include <map>
@@ -16,7 +16,7 @@
 
 #include "./referenceframe.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 struct FreeLayer {
     static constexpr char typeName[] = "free layer";
@@ -106,6 +106,6 @@ UTILITY_GENERATE_ENUM_IO(FreeLayer::Type,
     ((geodataTiles)("geodata-tiles"))
     ((meshTiles)("mesh-tiles")))
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry
 
-#endif // vadstena_libs_registry_freelayer_hpp_included_
+#endif // vtslibs_registry_freelayer_hpp_included_

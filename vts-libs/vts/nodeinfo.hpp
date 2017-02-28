@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_nodeinfo_hpp_included_
-#define vadstena_libs_vts_nodeinfo_hpp_included_
+#ifndef vtslibs_vts_nodeinfo_hpp_included_
+#define vtslibs_vts_nodeinfo_hpp_included_
 
 #include <boost/logic/tribool.hpp>
 
@@ -8,7 +8,7 @@
 
 #include "./basetypes.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 class RFTreeSubtree {
 public:
@@ -162,6 +162,13 @@ public:
      */
     NodeInfo child(const TileId &child) const;
 
+    /** Generates special SRS definition:
+     *      merge(horizontal(sds),  vertical(navigation)
+     *
+     *  This SRS is used to interpret data stored inside navtiles.
+     */
+    geo::SrsDefinition navsds() const;
+
     /** Generate list of nodeinfos from valid referenceframes' nodes.
      */
     static NodeInfo::list nodes(const registry::ReferenceFrame &referenceFrame
@@ -218,6 +225,6 @@ UTILITY_GENERATE_ENUM_IO(RFTreeSubtree::CoverageType,
     ((grid))
 )
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_nodeinfo_hpp_included_
+#endif // vtslibs_vts_nodeinfo_hpp_included_

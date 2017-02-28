@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileset_driver_options_hpp_included_
-#define vadstena_libs_vts_tileset_driver_options_hpp_included_
+#ifndef vtslibs_vts_tileset_driver_options_hpp_included_
+#define vtslibs_vts_tileset_driver_options_hpp_included_
 
 #include <set>
 #include <map>
@@ -12,7 +12,7 @@
 #include "../../../storage/tilar.hpp"
 #include "../../options.hpp"
 
-namespace vadstena { namespace vts { namespace driver {
+namespace vtslibs { namespace vts { namespace driver {
 
 /** Map configuration override.
  */
@@ -121,6 +121,9 @@ struct OldAggregatedOptions {
 
     boost::any relocate(const RelocateOptions &options
                         , const std::string &prefix) const;
+
+    boost::filesystem::path buildStoragePath(const boost::filesystem::path
+                                             &root) const;
 };
 
 /** Optimized aggregated driver.
@@ -135,6 +138,9 @@ struct AggregatedOptions {
                         , const std::string &prefix) const;
 
     AggregatedOptions() : surfaceReferences(false) {}
+
+    boost::filesystem::path buildStoragePath(const boost::filesystem::path
+                                             &root) const;
 };
 
 struct RemoteOptions {
@@ -174,6 +180,6 @@ PlainOptions::index(TileId i, storage::TileFile fileType, int type) const
     };
 }
 
-} } } // namespace vadstena::vts::driver
+} } } // namespace vtslibs::vts::driver
 
-#endif // vadstena_libs_vts_tileset_driver_options_hpp_included_
+#endif // vtslibs_vts_tileset_driver_options_hpp_included_

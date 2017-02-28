@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_hpp_included_
-#define vadstena_libs_vts_hpp_included_
+#ifndef vtslibs_vts_hpp_included_
+#define vtslibs_vts_hpp_included_
 
 #include <memory>
 #include <cmath>
@@ -21,7 +21,7 @@
 #include "./vts/storage.hpp"
 #include "./vts/storageview.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 enum class DatasetType {
     Unknown, TileSet, Storage, StorageView, TileIndex
@@ -107,6 +107,6 @@ TileSet createLocalTileSet(const boost::filesystem::path &path
                            , const boost::filesystem::path &localPath
                            , const CloneOptions &createOptions);
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_hpp_included_
+#endif // vtslibs_vts_hpp_included_

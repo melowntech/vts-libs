@@ -15,7 +15,7 @@
 
 namespace ba = boost::algorithm;
 
-namespace vadstena { namespace vts { namespace driver {
+namespace vtslibs { namespace vts { namespace driver {
 
 namespace {
 std::streamsize IOBufferSize(1 << 16);
@@ -326,4 +326,4 @@ IStream::pointer HttpFetcher::input(const TileId &tileId, TileFile type
                          , noSuchFile);
 }
 
-} } } // namespace vadstena::vts::driver
+} } } // namespace vtslibs::vts::driver

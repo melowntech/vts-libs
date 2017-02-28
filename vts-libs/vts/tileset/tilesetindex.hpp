@@ -5,14 +5,14 @@
  * Tile set index access.
  */
 
-#ifndef vadstena_libs_vts_tileset_tilesetindex_hpp_included_
-#define vadstena_libs_vts_tileset_tilesetindex_hpp_included_
+#ifndef vtslibs_vts_tileset_tilesetindex_hpp_included_
+#define vtslibs_vts_tileset_tilesetindex_hpp_included_
 
 #include <memory>
 
 #include "../tileindex.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 class Driver;
 
@@ -117,6 +117,6 @@ inline void Index::saveRest(std::ostream &f) const
     return saveRest_impl(f);
 }
 
-} } } // namespace vadstena::vts::tileset
+} } } // namespace vtslibs::vts::tileset
 
-#endif // vadstena_libs_vts_tileset_detail_hpp_included_
+#endif // vtslibs_vts_tileset_detail_hpp_included_

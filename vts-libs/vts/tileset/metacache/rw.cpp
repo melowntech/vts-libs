@@ -4,7 +4,7 @@
 
 #include "../metacache.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace detail {
 
@@ -65,4 +65,4 @@ std::unique_ptr<MetaCache> MetaCache::rw(const Driver::pointer &driver)
     return std::unique_ptr<MetaCache>(new detail::RwMetaCache(driver));
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

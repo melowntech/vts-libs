@@ -10,7 +10,7 @@
 namespace po = boost::program_options;
 namespace ba = boost::algorithm;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 
@@ -39,7 +39,7 @@ MergeConf loadMergeConf(std::istream &f, const boost::filesystem::path &path)
                 if (ba::starts_with(key, "cname.")) {
                     mc.cnames[key.substr(6)] = *iot;
                 } else {
-                    LOGTHROW(err2, vadstena::storage::BadFileFormat)
+                    LOGTHROW(err2, vtslibs::storage::BadFileFormat)
                         << "Unknown option <" << key
                         << "> in merge configuration file " << path << ".";
                 }
@@ -48,11 +48,11 @@ MergeConf loadMergeConf(std::istream &f, const boost::filesystem::path &path)
 
         po::notify(vm);
     } catch (const po::error &e) {
-        LOGTHROW(err2, vadstena::storage::BadFileFormat)
+        LOGTHROW(err2, vtslibs::storage::BadFileFormat)
             << "Cannot parse in merge configuration file " << path
             << ": <" << e.what() << ">.";
     } catch (const std::ios_base::failure &e) {
-        LOGTHROW(err2, vadstena::storage::BadFileFormat)
+        LOGTHROW(err2, vtslibs::storage::BadFileFormat)
             << "Cannot parse in merge configuration file " << path
             << ": <" << e.what() << ">.";
     }
@@ -74,7 +74,7 @@ MergeConf loadMergeConf(const boost::filesystem::path &path
     } catch (const std::exception &e) {
         if (ignoreNoexistent) { return {}; }
 
-        LOGTHROW(err1, vadstena::storage::NoSuchStorage)
+        LOGTHROW(err1, vtslibs::storage::NoSuchStorage)
             << "Unable to load merge configuration from " << path << ".";
     }
     f.exceptions(std::ifstream::badbit);
@@ -84,4 +84,4 @@ MergeConf loadMergeConf(const boost::filesystem::path &path
     return conf;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

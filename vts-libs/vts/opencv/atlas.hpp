@@ -1,17 +1,21 @@
-#ifndef vadstena_libs_vts_opencv_atlas_hpp
-#define vadstena_libs_vts_opencv_atlas_hpp
+#ifndef vtslibs_vts_opencv_atlas_hpp
+#define vtslibs_vts_opencv_atlas_hpp
 
 #include <opencv2/core/core.hpp>
 
 #include "../atlas.hpp"
 
-namespace vadstena { namespace vts { namespace opencv {
+namespace vtslibs { namespace vts { namespace opencv {
 
 class Atlas : public vts::Atlas {
 public:
     typedef std::shared_ptr<Atlas> pointer;
 
     Atlas(int quality = 100) : quality_(quality) {}
+
+    /** Construct atlas from any atlas.
+     */
+    Atlas(const vts::Atlas &atlas, int textureQuality = 100);
 
     virtual std::size_t size() const { return images_.size(); }
 
@@ -55,6 +59,10 @@ private:
 
 public:
     typedef std::shared_ptr<HybridAtlas> pointer;
+
+    /** Construct hybrid atlas from any atlas.
+     */
+    HybridAtlas(const Atlas &atlas, int textureQuality = 100);
 
     HybridAtlas(const opencv::Atlas &atlas) : quality_(atlas.quality()) {
         append(atlas);
@@ -121,6 +129,6 @@ private:
     Entries entries_;
 };
 
-} } } // namespace vadstena::vts::opencv
+} } } // namespace vtslibs::vts::opencv
 
-#endif // vadstena_libs_vts_opencv_atlas_hpp
+#endif // vtslibs_vts_opencv_atlas_hpp

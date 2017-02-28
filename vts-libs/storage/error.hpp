@@ -5,13 +5,13 @@
  * Tile storage error types.
  */
 
-#ifndef vadstena_libs_storage_error_hpp_included_
-#define vadstena_libs_storage_error_hpp_included_
+#ifndef vtslibs_storage_error_hpp_included_
+#define vtslibs_storage_error_hpp_included_
 
 #include <stdexcept>
 #include <string>
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 struct Error : std::runtime_error {
     Error(const std::string &message) : std::runtime_error(message) {}
@@ -105,6 +105,10 @@ struct Corrupted : Error {
     Corrupted(const std::string &message) : Error(message) {}
 };
 
-} } // namespace vadstena::storage
+struct Unimplemented : Error {
+    Unimplemented(const std::string &message) : Error(message) {}
+};
 
-#endif // vadstena_libs_storage_error_hpp_included_
+} } // namespace vtslibs::storage
+
+#endif // vtslibs_storage_error_hpp_included_

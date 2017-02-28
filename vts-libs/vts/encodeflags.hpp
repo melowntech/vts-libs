@@ -1,11 +1,11 @@
-#ifndef vadstena_libs_vts_encodeflags_hpp_included_
-#define vadstena_libs_vts_encodeflags_hpp_included_
+#ifndef vtslibs_vts_encodeflags_hpp_included_
+#define vtslibs_vts_encodeflags_hpp_included_
 
 #include <iostream>
 
 #include "./options.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct EncodeFlags {
     CloneOptions::EncodeFlag::value_type value;
@@ -62,6 +62,6 @@ operator>>(std::basic_istream<CharT, Traits> &is, EncodeFlags &f)
     return is;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_encodeflags_hpp_included_
+#endif // vtslibs_vts_encodeflags_hpp_included_

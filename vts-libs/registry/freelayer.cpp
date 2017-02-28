@@ -7,7 +7,7 @@
 #include "./freelayer.hpp"
 #include "./json.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 constexpr char FreeLayer::typeName[];
 
@@ -240,4 +240,4 @@ void saveFreeLayer(std::ostream &out, const FreeLayer &freeLayer)
     Json::StyledStreamWriter().write(out, content);
 }
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry

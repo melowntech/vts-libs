@@ -23,7 +23,7 @@
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
-namespace vts = vadstena::vts0;
+namespace vts = vtslibs::vts0;
 
 namespace {
 
@@ -31,7 +31,7 @@ class TileSetPaste : public service::Cmdline
 {
 public:
     TileSetPaste(const fs::path &path)
-        : service::Cmdline("vadstena-storage", BUILD_TARGET_VERSION)
+        : service::Cmdline("vtslibs-storage", BUILD_TARGET_VERSION)
         , output_(path)
     {
     }
@@ -79,7 +79,7 @@ bool TileSetPaste::help(std::ostream &out, const std::string &what) const
     if (what.empty()) {
         out << R"RAW(tileset-paste command
 usage
-    vadstena-storage TILE_SET paste TILE_SET [TILE_SET ...]
+    vtslibs-storage TILE_SET paste TILE_SET [TILE_SET ...]
 
 This command pastes tiles from one or more tile sets into existing tile
 set. Tile data are copied into result and metadata are generated accordingly.

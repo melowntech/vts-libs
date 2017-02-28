@@ -7,7 +7,7 @@
 namespace ba = boost::algorithm;
 namespace fs = boost::filesystem;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 DatasetType datasetType(const boost::filesystem::path &path)
 {
@@ -112,4 +112,4 @@ RelocateOptions::Result RelocateOptions::apply(const std::string &path) const
     return result;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

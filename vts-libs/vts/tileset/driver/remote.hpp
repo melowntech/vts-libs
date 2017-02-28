@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileset_driver_remote_hpp_included_
-#define vadstena_libs_vts_tileset_driver_remote_hpp_included_
+#ifndef vtslibs_vts_tileset_driver_remote_hpp_included_
+#define vtslibs_vts_tileset_driver_remote_hpp_included_
 
 #include <set>
 #include <map>
@@ -8,7 +8,7 @@
 #include "../driver.hpp"
 #include "./httpfetcher.hpp"
 
-namespace vadstena { namespace vts { namespace driver {
+namespace vtslibs { namespace vts { namespace driver {
 
 /** Helper class.
  */
@@ -42,6 +42,13 @@ public:
                  , const RemoteDriver &src);
 
     virtual ~RemoteDriver();
+
+    /** Reencodes plain tileset.
+     */
+    static bool reencode(const boost::filesystem::path &root
+                         , const RemoteOptions &driverOptions
+                         , const ReencodeOptions &options
+                         , const std::string &prefix = "");
 
 private:
     virtual OStream::pointer output_impl(const File type);
@@ -85,6 +92,6 @@ private:
     tileset::Index tsi_;
 };
 
-} } } // namespace vadstena::vts::driver
+} } } // namespace vtslibs::vts::driver
 
-#endif // vadstena_libs_vts_tileset_driver_remote_hpp_included_
+#endif // vtslibs_vts_tileset_driver_remote_hpp_included_

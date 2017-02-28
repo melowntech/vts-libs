@@ -3,14 +3,14 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_registry_hpp_included_
-#define vadstena_libs_registry_hpp_included_
+#ifndef vtslibs_registry_hpp_included_
+#define vtslibs_registry_hpp_included_
 
 #include "./registry/referenceframe.hpp"
 #include "./registry/freelayer.hpp"
 #include "./registry/datafile.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 /** Base registry: credits and bound layers only
  */
@@ -58,6 +58,6 @@ void save(const boost::filesystem::path &path, const RegistryBase &rb);
 
 void save(std::ostream &out, const RegistryBase &rb);
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry
 
-#endif // vadstena_libs_registry_hpp_included_
+#endif // vtslibs_registry_hpp_included_

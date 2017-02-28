@@ -6,7 +6,7 @@
 #include "./tileop.hpp"
 #include "./csconvertor.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 
@@ -458,4 +458,12 @@ NodeInfo::CoveredArea NodeInfo::checkMask(const CoverageMask &mask
     return CoveredArea::some;
 }
 
-} } // namespace vadstena::vts
+geo::SrsDefinition NodeInfo::navsds() const
+{
+    const auto &reg(subtree_.registry());
+    return geo::merge
+        (reg.srs(node_.srs).srsDef
+         , reg.srs(referenceFrame_->model.navigationSrs).srsDef);
+}
+
+} } // namespace vtslibs::vts

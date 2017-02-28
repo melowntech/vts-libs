@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileset_driver_local_hpp_included_
-#define vadstena_libs_vts_tileset_driver_local_hpp_included_
+#ifndef vtslibs_vts_tileset_driver_local_hpp_included_
+#define vtslibs_vts_tileset_driver_local_hpp_included_
 
 #include <set>
 #include <map>
@@ -7,7 +7,7 @@
 
 #include "../driver.hpp"
 
-namespace vadstena { namespace vts { namespace driver {
+namespace vtslibs { namespace vts { namespace driver {
 
 /** Helper class.
  */
@@ -34,6 +34,13 @@ public:
                 , const LocalOptions &options);
 
     virtual ~LocalDriver();
+
+    /** Reencodes local tileset.
+     */
+    static bool reencode(const boost::filesystem::path &root
+                         , const LocalOptions &driverOptions
+                         , const ReencodeOptions &options
+                         , const std::string &prefix = "");
 
 private:
     virtual OStream::pointer output_impl(const File type);
@@ -75,6 +82,6 @@ private:
     Driver::pointer driver_;
 };
 
-} } } // namespace vadstena::vts::driver
+} } } // namespace vtslibs::vts::driver
 
-#endif // vadstena_libs_vts_tileset_driver_local_hpp_included_
+#endif // vtslibs_vts_tileset_driver_local_hpp_included_

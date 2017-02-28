@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_tilestorage_tileop_hpp_included_
-#define vadstena_libs_tilestorage_tileop_hpp_included_
+#ifndef vtslibs_tilestorage_tileop_hpp_included_
+#define vtslibs_tilestorage_tileop_hpp_included_
 
 #include <boost/optional.hpp>
 
@@ -8,7 +8,7 @@
 #include "../storage/filetypes.hpp"
 #include "./properties.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 using storage::TileFile;
 
@@ -221,6 +221,6 @@ inline TileId findMetatile(const Properties &properties, TileId tileId
     return tileId;
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_tileop_hpp_included_
+#endif // vtslibs_tilestorage_tileop_hpp_included_

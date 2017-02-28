@@ -16,7 +16,7 @@
 
 #include "./gluerules.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 GlueRuleChecker::GlueRuleChecker(const GlueRule::list &rules)
 {
@@ -236,15 +236,15 @@ private:
 };
 
 // close namespace to inject fusion adapters
-} } } // namespace vadstena::vts::rule_parser
+} } } // namespace vtslibs::vts::rule_parser
 
 BOOST_FUSION_ADAPT_STRUCT(
-    ::vadstena::vts::rule_parser::SingleTagRule,
-    (::vadstena::vts::rule_parser::SingleTagRule::Factory, factory)
+    ::vtslibs::vts::rule_parser::SingleTagRule,
+    (::vtslibs::vts::rule_parser::SingleTagRule::Factory, factory)
     (std::string, arg)
 )
 
-namespace vadstena { namespace vts { namespace rule_parser {
+namespace vtslibs { namespace vts { namespace rule_parser {
 // reopen namespace after fusion adapters injection
 
 template <typename Iterator, typename Skipper>
@@ -357,7 +357,7 @@ GlueRule::list loadGlueRules(const boost::filesystem::path &path
     } catch (const std::exception &e) {
         if (ignoreNoexistent) { return {}; }
 
-        LOGTHROW(err1, vadstena::storage::NoSuchStorage)
+        LOGTHROW(err1, vtslibs::storage::NoSuchStorage)
             << "Unable to load glue rules from " << path << ".";
     }
     auto rules(loadGlueRules(f, path));
@@ -366,4 +366,4 @@ GlueRule::list loadGlueRules(const boost::filesystem::path &path
     return rules;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

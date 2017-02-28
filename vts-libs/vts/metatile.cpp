@@ -19,11 +19,11 @@ namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;
 namespace half = half_float::detail;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
     const char MAGIC[2] = { 'M', 'T' };
-    const std::uint16_t VERSION = 3;
+    const std::uint16_t VERSION = 4;
 
     const std::size_t MIN_GEOM_BITS(2);
 } // namespace
@@ -321,17 +321,26 @@ inline void writeVariable(std::ostream &out, MetaNode::BackingType type
     }
 }
 
+
+
 } // namespace
 
 inline void MetaNode::save(std::ostream &out, const StoreParams &sp) const
 {
     bin::write(out, std::uint8_t(flags_));
 
-    bin::write(out, buildGeomExtents(sp.lod, extents));
+    // geometry extents
+    {
+        // old format (to be removed in version 5)
+        bin::write(out, buildGeomExtents(sp.lod, extents));
 
-    bin::write(out, (geometry()
-                     ? std::uint8_t(internalTextureCount_)
-                     : std::uint8_t(reference_)));
+        // new format
+        bin::write(out, float(geomExtents.z.min));
+        bin::write(out, float(geomExtents.z.max));
+        bin::write(out, float(geomExtents.surrogate));
+    }
+
+    bin::write(out, std::uint8_t(internalTextureCount_));
 
     // limit texel size to fit inside half float
     // TODO: make better
@@ -474,7 +483,8 @@ void saveMetaTile(const fs::path &path, const MetaTile &meta)
     f.close();
 }
 
-inline void MetaNode::load(std::istream &in, const StoreParams &sp)
+inline void MetaNode::load(std::istream &in, const StoreParams &sp
+                           , std::uint16_t version)
 {
     // NB: flags are accumulated because they can be pre-initialized from
     // another source
@@ -484,16 +494,30 @@ inline void MetaNode::load(std::istream &in, const StoreParams &sp)
         flags_ |= f;
     }
 
-    std::vector<std::uint8_t> geomExtents(geomLen(sp.lod));
-    bin::read(in, geomExtents);
-    parseGeomExtents(sp.lod, extents, geomExtents);
+    // geom extents
+    {
+        // TODO: check when version 5 is introduced!
+        if (version < 5) {
+            // old format
+            std::vector<std::uint8_t> ge(geomLen(sp.lod));
+            bin::read(in, ge);
+            parseGeomExtents(sp.lod, extents, ge);
+        }
+
+        if (version >= 4) {
+            // new format
+            float f;
+            bin::read(in, f); geomExtents.z.min = f;
+            bin::read(in, f); geomExtents.z.max = f;
+            bin::read(in, f); geomExtents.surrogate = f;
+        }
+    }
 
     std::uint8_t u8;
     std::uint16_t u16;
     std::int16_t i16;
 
-    bin::read(in, u8);
-    (geometry() ? internalTextureCount_ : reference_) = u8;
+    bin::read(in, u8); internalTextureCount_ = u8;
 
     bin::read(in, u16); texelSize = half::half2float(u16);
     bin::read(in, u16); displaySize = u16;
@@ -617,7 +641,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
 
     for (auto j(valid_.ll(1)); j <= valid_.ur(1); ++j) {
         for (auto i(valid_.ll(0)); i <= valid_.ur(0); ++i) {
-            grid_[j * size_ + i].load(in, sp);
+            grid_[j * size_ + i].load(in, sp, version);
         }
     }
 
@@ -701,20 +725,9 @@ void MetaNode::setChildFromId(Flag::value_type &flags, const TileId &tileId
 
 MetaNode& MetaNode::mergeExtents(const MetaNode &other)
 {
-    if (other.extents.ll == other.extents.ur) {
-        // nothing to do
-        return *this;
-    }
-
-    if (extents.ll == extents.ur) {
-        // use other's extents
-        extents = other.extents;
-        return *this;
-    }
-
-    // merge
-    extents = unite(extents, other.extents);
-    return *this;
+    return
+        mergeExtents(other.extents)
+        .mergeExtents(other.geomExtents);
 }
 
 MetaNode& MetaNode::mergeExtents(const math::Extents3 &other)
@@ -735,34 +748,21 @@ MetaNode& MetaNode::mergeExtents(const math::Extents3 &other)
     return *this;
 }
 
-MetaNode& MetaNode::internalTextureCount(std::size_t value)
+MetaNode& MetaNode::mergeExtents(const GeomExtents &other)
 {
-    if (!geometry()) {
-        LOGTHROW(err1, storage::Error)
-            << "Cannot set internal texture count in tile wihtout geometry.";
-    }
-    const std::size_t limit
-        (std::numeric_limits<decltype(internalTextureCount_)>::max());
-    internalTextureCount_ = std::min(value, limit);
-    return *this;
-}
-
-MetaNode& MetaNode::reference(std::size_t value)
-{
-    if (geometry()) {
-        LOGTHROW(err1, storage::Error)
-            << "Cannot set reference in tile with geometry.";
+    if (other.z.min == other.z.max) {
+        // nothing to do
+        return *this;
     }
 
-    const std::size_t limit
-        (std::numeric_limits<decltype(internalTextureCount_)>::max());
-    if (value > limit) {
-        LOGTHROW(err1, storage::Error)
-            << "Invalid reference " << value << ", allowed maximum is "
-            << limit << ".";
+    if (geomExtents.z.min == geomExtents.z.max) {
+        // use other's extents
+        geomExtents.z = other.z;
+        return *this;
     }
 
-    internalTextureCount_ = value;
+    // merge
+    geomExtents.z = unite(geomExtents.z, other.z);
     return *this;
 }
 
@@ -840,7 +840,9 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
             // get input
             const auto &inn(in.grid_[idx]);
 
-            if (!inn.real() && math::empty(inn.extents)) {
+            if (!inn.real() && math::empty(inn.extents)
+                && vts::empty(inn.geomExtents))
+            {
                 // nonexistent node, ignore
                 continue;
             }
@@ -867,6 +869,7 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
             // we need to keep current geometry extents since they are rewritten
             // by node copy
             const auto savedExtents(outn.extents);
+            const auto savedGeomExtents(outn.geomExtents);
 
             // copy
             outn = inn;
@@ -876,6 +879,7 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
 
             // and apply saved geometry extents
             outn.mergeExtents(savedExtents);
+            outn.mergeExtents(savedGeomExtents);
 
             // reset children and alien flags
             outn.reset(MetaNode::Flag::allChildren | MetaNode::Flag::alien);
@@ -967,4 +971,4 @@ void loadCreditsFromMetaTile(std::istream &in, registry::IdSet &credits
     }
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

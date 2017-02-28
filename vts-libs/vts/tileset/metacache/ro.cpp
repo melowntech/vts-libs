@@ -12,7 +12,7 @@
 
 #include "../metacache.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace limit {
 std::size_t ReadOnlyMetatileLimit(1000);
@@ -156,4 +156,4 @@ std::unique_ptr<MetaCache> MetaCache::ro(const Driver::pointer &driver)
     return std::unique_ptr<MetaCache>(new detail::RoMetaCache(driver));
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

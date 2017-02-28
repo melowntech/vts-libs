@@ -46,7 +46,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 
@@ -693,7 +693,7 @@ Glue createGlue(Tx &tx, const GlueDescriptor &gd
     LOG(info3)
         << "Trying to generate glue #" << gd.index
         << '/' << glueCount << " <" << gd.glueSetId << ">.";
-    vadstena::storage::TIDGuard tg
+    vtslibs::storage::TIDGuard tg
         (str(boost::format("%d:%s") % gd.index % gd.glueSetId)
          , true);
 
@@ -756,7 +756,7 @@ Storage::Detail::addTileset(const Properties &properties
                             , const Location &where) const
 {
     if (tilesetId.find('@') != std::string::npos) {
-        LOGTHROW(err1, vadstena::storage::TileSetAlreadyExists)
+        LOGTHROW(err1, vtslibs::storage::TileSetAlreadyExists)
             << "Invalid character in tileset ID <" << tilesetId << ">.";
     }
 
@@ -766,7 +766,7 @@ Storage::Detail::addTileset(const Properties &properties
         auto lastVersion(properties.lastVersion(tilesetId));
         if (lastVersion >= 0) {
             if (!addOptions.bumpVersion) {
-                LOGTHROW(err1, vadstena::storage::TileSetAlreadyExists)
+                LOGTHROW(err1, vtslibs::storage::TileSetAlreadyExists)
                     << "Tileset <" << tilesetId
                     << "> already present in storage "
                     << root << ". Use version bumping to introduce "
@@ -791,7 +791,7 @@ Storage::Detail::addTileset(const Properties &properties
     }
 
     if (properties.hasTileset(tileset.tilesetId)) {
-        LOGTHROW(err1, vadstena::storage::TileSetAlreadyExists)
+        LOGTHROW(err1, vtslibs::storage::TileSetAlreadyExists)
             << "Tileset <" << tileset.tilesetId
             << "> already present in storage "
             << root << ".";
@@ -818,7 +818,7 @@ Storage::Detail::addTileset(const Properties &properties
     // some reference
     auto ftilesets(p.findTilesetIt(where.where));
     if (ftilesets == tilesets.end()) {
-        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+        LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
             << "Tileset <" << where.where << "> (used as a reference) "
             "not found in storage " << root << ".";
     }
@@ -988,12 +988,12 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
                           , const AddOptions &addOptions)
 {
     std::string simulation(addOptions.dryRun ? "(simulation) " : "");
-    vadstena::storage::TIDGuard tg
+    vtslibs::storage::TIDGuard tg
         (str(boost::format("%sadd(%s)") % simulation % tilesetId));
 
     // check compatibility
     if (tileset.getProperties().referenceFrame != properties.referenceFrame) {
-        LOGTHROW(err1, vadstena::storage::IncompatibleTileSet)
+        LOGTHROW(err1, vtslibs::storage::IncompatibleTileSet)
             << "Tileset <" << tilesetId << "> "
             "uses different reference frame ("
             << tileset.getProperties().referenceFrame
@@ -1124,7 +1124,7 @@ void Storage::Detail::readd(const TilesetId &tilesetId
 
 #if 0
     std::string simulation(addOptions.dryRun ? "(simulation) " : "");
-    vadstena::storage::TIDGuard tg
+    vtslibs::storage::TIDGuard tg
         (str(boost::format("%sreadd(%s)") % simulation % tilesetId));
 
     LOG(info3) << "Readding tileset <" << tilesetId << ">.";
@@ -1211,7 +1211,7 @@ void Storage::Detail::createVirtualSurface(const TilesetIdSet &tilesets
     }
 
     if (!tmp.empty()) {
-        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+        LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
             << "Tileset(S) <" << utility::join(tmp, ", ")
             << "> not found in storage " << root << ".";
     }
@@ -1219,7 +1219,7 @@ void Storage::Detail::createVirtualSurface(const TilesetIdSet &tilesets
     if ((mode == CreateMode::failIfExists)
         && properties.getVirtualSurface(vs.id))
     {
-        LOGTHROW(err1, vadstena::storage::TileSetAlreadyExists)
+        LOGTHROW(err1, vtslibs::storage::TileSetAlreadyExists)
             << "Virtual surface <" << utility::join(vs.id, ",")
             << "> already present in storage "
             << root << ".";
@@ -1271,7 +1271,7 @@ void Storage::Detail::removeVirtualSurface(const TilesetIdSet &tilesets)
     }
 
     if (!tmp.empty()) {
-        LOGTHROW(err1, vadstena::storage::NoSuchTileSet)
+        LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
             << "Tileset(S) <" << utility::join(tmp, ", ")
             << "> not found in storage " << root << ".";
     }
@@ -1293,4 +1293,4 @@ void Storage::Detail::removeVirtualSurface(const TilesetIdSet &tilesets)
     }
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

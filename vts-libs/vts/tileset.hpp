@@ -5,8 +5,8 @@
  * Tile set access.
  */
 
-#ifndef vadstena_libs_vts_tileset_hpp_included_
-#define vadstena_libs_vts_tileset_hpp_included_
+#ifndef vtslibs_vts_tileset_hpp_included_
+#define vtslibs_vts_tileset_hpp_included_
 
 #include <memory>
 #include <cmath>
@@ -35,7 +35,7 @@
 #include "./tilesource.hpp"
 #include "./options.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 /** Driver that implements physical aspects of tile set.
  */
@@ -128,6 +128,10 @@ public:
     /** Returns tile's navtile.
      */
     void getNavTile(const TileId &tileId, NavTile &navtile) const;
+
+    /** Set's tile's surrogate value (i.e. representative height).
+     */
+    void setSurrogateValue(const TileId &tileId, float value);
 
     /** Returns tile's metanode.
      */
@@ -319,6 +323,16 @@ public:
                          , const RelocateOptions &options
                          , const std::string &prefix = "");
 
+    /** Recursively reencode datasets:
+     *  plain: reencoded
+     *  local: recursive reencode, revision bump on success
+     *  remote: revision bump
+     *  local: recursive reencode, revision bump on success
+     */
+    static void reencode(const boost::filesystem::path &root
+                         , const ReencodeOptions &options
+                         , const std::string &prefix = "");
+
     /** Creates glue from given sets.
      *
      * \param glue output tileset for glue tiles
@@ -373,6 +387,10 @@ public:
     /** Needed to instantiate.
      */
     class Factory; friend class Factory;
+
+    /** Driver helper.
+     */
+    friend class Driver;
 };
 
 /** Low-level create operation.
@@ -381,6 +399,6 @@ TileSet createTileSet(const boost::filesystem::path &path
                       , const TileSet::Properties &properties
                       , CreateMode mode);
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_tileset_hpp_included_
+#endif // vtslibs_vts_tileset_hpp_included_

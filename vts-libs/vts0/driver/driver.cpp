@@ -9,7 +9,7 @@
 #include "../config.hpp"
 #include "./tilardriver.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 namespace fs = boost::filesystem;
 
@@ -27,4 +27,4 @@ void Driver::notRunning() const
         << "Operation has been interrupted.";
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0

@@ -26,7 +26,7 @@
 #include "geometry/binmesh.hpp"
 
 namespace ublas = boost::numeric::ublas;
-namespace va = vadstena;
+namespace va = vtslibs;
 namespace fs = boost::filesystem;
 
 #ifndef BUILDSYS_CUSTOMER_BUILD
@@ -53,7 +53,7 @@ inline bool operator< (const Point3_<T> &lhs, const Point3_<T> &rhs)
 
 } // namespace cv
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 namespace {
 
@@ -851,4 +851,4 @@ boost::optional<double> MergedTile::pixelSize() const
     return boost::none;
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0

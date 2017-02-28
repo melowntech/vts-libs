@@ -15,7 +15,7 @@
 #include "./csconvertor.hpp"
 #include "../storage/error.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 
@@ -403,4 +403,4 @@ void Encoder::updateEstimatedTileCount(int diff)
     }
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

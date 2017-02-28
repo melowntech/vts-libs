@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_tilestorage_types_hpp_included_
-#define vadstena_libs_tilestorage_types_hpp_included_
+#ifndef vtslibs_tilestorage_types_hpp_included_
+#define vtslibs_tilestorage_types_hpp_included_
 
 #include <opencv2/core/core.hpp>
 
@@ -8,7 +8,7 @@
 #include "./basetypes.hpp"
 #include "./typesfwd.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 /** A tile: mesh + atlas.
  */
@@ -25,6 +25,6 @@ struct Tile {
     {}
 };
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_types_hpp_included_
+#endif // vtslibs_tilestorage_types_hpp_included_

@@ -11,8 +11,8 @@
  *              filesystem based backing)
  */
 
-#ifndef vadstena_libs_vts0_tileset_hpp_included_
-#define vadstena_libs_vts0_tileset_hpp_included_
+#ifndef vtslibs_vts0_tileset_hpp_included_
+#define vtslibs_vts0_tileset_hpp_included_
 
 #include <memory>
 #include <cmath>
@@ -30,7 +30,7 @@
 #include "./tileindex.hpp"
 #include "./properties.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 /** Driver that implements physical aspects of tile set.
  */
@@ -233,6 +233,6 @@ public:
     struct Accessor; friend class Accessor;
 };
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts0_tileset_hpp_included_
+#endif // vtslibs_vts0_tileset_hpp_included_

@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_tilestorage_metatile_hpp_included_
-#define vadstena_libs_tilestorage_metatile_hpp_included_
+#ifndef vtslibs_tilestorage_metatile_hpp_included_
+#define vtslibs_tilestorage_metatile_hpp_included_
 
 #include <cstdint>
 #include <iosfwd>
@@ -9,7 +9,7 @@
 
 #include "./basetypes.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace detail {
 /** Invalid pixel size to mark tiles with no data
@@ -143,6 +143,6 @@ dump(std::basic_ostream<CharT, Traits> &os
     return os;
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_metatile_hpp_included_
+#endif // vtslibs_tilestorage_metatile_hpp_included_

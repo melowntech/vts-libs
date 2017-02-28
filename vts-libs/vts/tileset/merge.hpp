@@ -5,8 +5,8 @@
  * Tile content merge.
  */
 
-#ifndef vadstena_libs_vts_merge_hpp_included_
-#define vadstena_libs_vts_merge_hpp_included_
+#ifndef vtslibs_vts_merge_hpp_included_
+#define vtslibs_vts_merge_hpp_included_
 
 #include <boost/optional.hpp>
 
@@ -17,7 +17,7 @@
 #include "../meshopinput.hpp"
 #include "./detail.hpp"
 
-namespace vadstena { namespace vts { namespace merge {
+namespace vtslibs { namespace vts { namespace merge {
 
 typedef std::vector<math::Points3d> Vertices3List;
 
@@ -45,6 +45,7 @@ struct Output {
     boost::optional<Mesh> mesh;
     boost::optional<RawAtlas> atlas;
     boost::optional<opencv::NavTile> navtile;
+    GeomExtents geomExtents;
 
     // list of tiles this tile was generated from
     TileSource source;
@@ -70,7 +71,11 @@ struct Output {
     }
     const NavTile* getNavtile() const { return navtile ? &*navtile : nullptr; }
 
-    // Takes content as a tile
+    /** Takes content as a tile
+     *
+     *  NB: all shared pointers in returned Tile point to data inside this
+     *  Output instance. Do not use tile after this instance destruction!
+     */
     Tile tile(int textureQuality);
 
     Mesh& forceMesh();
@@ -150,6 +155,6 @@ Output mergeTile(const TileId &tileId
 
 inline bool MergeConstraints::feasible(const Output &) const { return true; }
 
-} } } // namespace vadstena::vts::merge
+} } } // namespace vtslibs::vts::merge
 
-#endif // vadstena_libs_vts_merge_hpp_included_
+#endif // vtslibs_vts_merge_hpp_included_

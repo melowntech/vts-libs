@@ -13,7 +13,7 @@
 #include "vts-libs/vts/nodeinfo.hpp"
 #include "vts-libs/vts/mapconfig.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 /** Wraps VTS URL template.
  */
@@ -110,6 +110,6 @@ inline std::string UrlTemplate::operator()(const Vars &vars) const
     return os.str();
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
 #endif // vts_libs_vts_urltemplate_hpp_included_

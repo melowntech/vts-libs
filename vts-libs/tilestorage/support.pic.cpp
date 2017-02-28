@@ -4,8 +4,8 @@
 #include "tilestorage/browser/pic.index-offline.html.hpp"
 #include "tilestorage/browser/pic.skydome.jpg.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 #include "./support.impl.cpp"
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

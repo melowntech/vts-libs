@@ -4,7 +4,7 @@
 
 namespace python = boost::python;
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 using pysupport::py2utf8;
 
@@ -211,4 +211,4 @@ void fromPython(Position &p, const boost::python::object &value)
     p.verticalFov = python::extract<double>(value[9]);
 }
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry

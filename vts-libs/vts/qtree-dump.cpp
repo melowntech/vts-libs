@@ -8,7 +8,7 @@
 namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 void dump(const QTree &tree, const fs::path &path
           , const std::function<bool(QTree::value_type)> &filter
@@ -40,4 +40,4 @@ void dump(const QTree &tree, const fs::path &path
     imwrite(path.string(), m);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

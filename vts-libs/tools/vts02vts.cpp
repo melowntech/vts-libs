@@ -42,13 +42,13 @@
 #include "../vts/opencv/navtile.hpp"
 #include "../vts/io.hpp"
 #include "../vts/csconvertor.hpp"
-#include "../vts/heightmap.hpp"
+#include "../vts/ntgenerator.hpp"
 
 namespace po = boost::program_options;
-namespace vs = vadstena::storage;
-namespace vr = vadstena::registry;
-namespace vts0 = vadstena::vts0;
-namespace vts = vadstena::vts;
+namespace vs = vtslibs::storage;
+namespace vr = vtslibs::registry;
+namespace vts0 = vtslibs::vts0;
+namespace vts = vtslibs::vts;
 namespace ba = boost::algorithm;
 namespace fs = boost::filesystem;
 namespace ublas = boost::numeric::ublas;
@@ -303,8 +303,14 @@ public:
         , EncoderBase(config, input, referenceFrame())
         , config_(config), input_(input), aa_(input_->advancedApi())
         , ti_(aa_.tileIndex()), cti_(ti_)
-        , hma_(ntSourceLod_)
+        , ntg_(&referenceFrame())
+        , physSrs_(referenceFrame().model.physicalSrs)
+        , rootSrs_(referenceFrame().division.root().srs)
     {
+        ntg_.addAccumulator
+            (rootSrs_, vts::LodRange(input->lodRange().min, ntSourceLod_)
+             , ntSourceLodPixelSize_);
+
         cti_.makeFull().makeComplete();
 
         // set constraints: from zero to max LOD
@@ -322,16 +328,15 @@ private:
 
     virtual void finish(vts::TileSet&) UTILITY_OVERRIDE;
 
-    void generateHeightMap(const vts::TileId &tileId, const vts0::Mesh &m
-                           , const math::Extents2 &divisionExtents);
-
     const Config config_;
 
     vts0::TileSet::pointer input_;
     vts0::TileSet::AdvancedApi aa_;
     const vts0::TileIndex &ti_;
     vts0::TileIndex cti_;
-    vts::HeightMap::Accumulator hma_;
+    vts::NtGenerator ntg_;
+    const std::string physSrs_;
+    const std::string rootSrs_;
 };
 
 vts0::Mesh loadMesh(const vs::IStream::pointer &is)
@@ -518,11 +523,10 @@ void createMeshMask(const vts::TileId &tileId, const math::Extents2 &extents
     }
 }
 
-vts::Mesh::pointer
-createMesh(const vts::TileId &tileId, const vts0::Mesh &m
-           , const math::Extents2 &divisionExtents
-           , bool externalTextureCoordinates
-           , boost::optional<std::uint16_t> textureLayer)
+vts::Mesh::pointer createMesh(const vts::TileId &tileId, const vts0::Mesh &m
+                              , const math::Extents2 &divisionExtents
+                              , bool externalTextureCoordinates
+                              , boost::optional<std::uint16_t> textureLayer)
 {
     // just one submesh
     auto mesh(std::make_shared<vts::Mesh>());
@@ -564,28 +568,6 @@ createMesh(const vts::TileId &tileId, const vts0::Mesh &m
     return mesh;
 }
 
-void Encoder::generateHeightMap(const vts::TileId &tileId
-                                , const vts0::Mesh &mesh
-                                , const math::Extents2 &extents)
-{
-    auto& hm([&]() -> cv::Mat&
-    {
-        cv::Mat *t(nullptr);
-        UTILITY_OMP(critical)
-            t = &hma_.tile(tileId);
-        return *t;
-    }());
-
-    // invalid heightmap value (i.e. initial value) is +oo and we take minimum
-    // of all rasterized heights in given place
-    rasterizeMesh(mesh, mesh2grid(extents, hma_.tileSize())
-                  , hma_.tileSize()
-                  , [&](int x, int y, float z)
-    {
-        auto &value(hm.at<float>(y, x));
-        if (z < value) { value = z; }
-    });
-}
 
 Encoder::TileResult
 Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
@@ -628,57 +610,16 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
     // set credits
     tile.credits = config_.credits;
 
-    if (tileId.lod == ntSourceLod_) {
-        // we have to generate source data for navtiles
-        generateHeightMap(tileId, mesh, nodeInfo.extents());
-    }
+    // add tile to navtile generator (which is in physical SRS!)
+    ntg_.addTile(tileId, nodeInfo, *tile.mesh, physSrs_);
 
     return result;
 }
 
 void Encoder::finish(vts::TileSet &ts)
 {
-    vts::HeightMap hm(std::move(hma_), referenceFrame()
-                      , config_.dtmExtractionRadius / ntSourceLodPixelSize_);
-
-    vts::HeightMap::BestPosition bestPosition;
-
-    // iterate in nt lod range backwards: iterate from start and invert forward
-    // lod into backward lod
-    for (const auto fLod : ntLodRange_) {
-        const vts::Lod lod(ntLodRange_.min + ntLodRange_.max - fLod);
-
-        // resize heightmap for given lod
-        hm.resize(lod);
-
-        // generate and store navtiles
-        traverse(ts.tileIndex(), lod
-                 , [&](const vts::TileId &tileId, vts::QTree::value_type mask)
-        {
-            // process only tiles with mesh
-            if (!(mask & vts::TileIndex::Flag::mesh)) { return; }
-
-            if (auto nt = hm.navtile(tileId)) {
-                ts.setNavTile(tileId, *nt);
-            }
-        });
-
-        if (lod == ntLodRange_.max) {
-            bestPosition = hm.bestPosition();
-        }
-    }
-
-    {
-        vr::Position pos;
-        pos.position = bestPosition.location;
-
-        pos.type = vr::Position::Type::objective;
-        pos.heightMode = vr::Position::HeightMode::fixed;
-        pos.orientation = { 0.0, -90.0, 0.0 };
-        pos.verticalExtent = bestPosition.verticalExtent;
-        pos.verticalFov = 55;
-        ts.setPosition(pos);
-    }
+    // generate navtiles and surrogates
+    ntg_.generate(ts, config_.dtmExtractionRadius);
 }
 
 int Vts02Vts::run()

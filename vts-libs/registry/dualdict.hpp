@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_registry_dualdict_hpp_included_
-#define vadstena_libs_registry_dualdict_hpp_included_
+#ifndef vtslibs_registry_dualdict_hpp_included_
+#define vtslibs_registry_dualdict_hpp_included_
 
 #include <string>
 #include <algorithm>
@@ -15,7 +15,7 @@
 
 #include "dbglog/dbglog.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 template <typename T, typename NumericId>
 class DualDictionary
@@ -162,6 +162,6 @@ void DualDictionary<T, NumericId>::update(const DualDictionary &other)
     for (const auto &item : other) { map_.insert(item); }
 }
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry
 
-#endif // vadstena_libs_registry_dualdict_hpp_included_
+#endif // vtslibs_registry_dualdict_hpp_included_

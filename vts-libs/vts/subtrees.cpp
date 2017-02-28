@@ -4,7 +4,7 @@
 #include "./csconvertor.hpp"
 #include "./subtrees.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 Subtrees findSubtrees(const registry::ReferenceFrame &referenceFrame, Lod lod
                       , const geo::SrsDefinition &srs
@@ -116,4 +116,4 @@ Subtrees findSubtrees(const registry::ReferenceFrame &referenceFrame, Lod lod
     return st;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

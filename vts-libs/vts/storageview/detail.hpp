@@ -5,17 +5,17 @@
  * Storage access (internals).
  */
 
-#ifndef vadstena_libs_vts_storage_detail_hpp_included_
-#define vadstena_libs_vts_storage_detail_hpp_included_
+#ifndef vtslibs_vts_storage_detail_hpp_included_
+#define vtslibs_vts_storage_detail_hpp_included_
 
 #include <boost/filesystem/path.hpp>
 
 #include "../storageview.hpp"
 #include "../storage.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
-using vadstena::storage::FileStat;
+using vtslibs::storage::FileStat;
 
 struct StorageView::Properties : StorageViewProperties {
     // nothing so far
@@ -62,6 +62,6 @@ struct StorageView::Detail
                                , const StorageView::Properties &properties);
 };
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_storage_detail_hpp_included_
+#endif // vtslibs_vts_storage_detail_hpp_included_

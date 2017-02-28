@@ -2,7 +2,7 @@
 
 #include "../registry.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 namespace detail {
     boost::filesystem::path root;
@@ -66,4 +66,4 @@ const DataFile* dataFile(const std::string &path, DataFile::Key key
     throw; // never reached
 }
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry

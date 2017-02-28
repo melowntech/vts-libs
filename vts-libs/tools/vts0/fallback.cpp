@@ -18,7 +18,7 @@ class Fallback : public service::Cmdline
 {
 public:
     Fallback()
-        : service::Cmdline("vadstena-storage", BUILD_TARGET_VERSION
+        : service::Cmdline("vtslibs-storage", BUILD_TARGET_VERSION
                            , (service::ENABLE_UNRECOGNIZED_OPTIONS
                               | service::DISABLE_EXCESSIVE_LOGGING))
     {}
@@ -60,7 +60,7 @@ bool Fallback::help(std::ostream &out, const std::string &what) const
     if (what.empty()) {
         out << R"RAW(Vadstena storage manipulation program
 usage
-    vadstena-storage STORAGE/TILESET COMMAND [OPTION]
+    vtslibs-storage STORAGE/TILESET COMMAND [OPTION]
 
 where COMMAND is one of:
     create                      create new storage
@@ -71,7 +71,7 @@ where COMMAND is one of:
     tileset-clone               clones existing tileset
 
 To get command help run:
-    vadstena-storage STORAGE/TILESET COMMAND --help
+    vtslibs-storage STORAGE/TILESET COMMAND --help
 )RAW";
     }
     return false;

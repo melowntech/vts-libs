@@ -26,9 +26,9 @@
 #include "../registry/po.hpp"
 
 namespace po = boost::program_options;
-namespace ts = vadstena::tilestorage;
-namespace vts = vadstena::vts0;
-namespace vr = vadstena::registry;
+namespace ts = vtslibs::tilestorage;
+namespace vts = vtslibs::vts0;
+namespace vr = vtslibs::registry;
 namespace fs = boost::filesystem;
 
 namespace {

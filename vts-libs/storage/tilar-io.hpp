@@ -5,8 +5,8 @@
  * Tile Archive handler.
  */
 
-#ifndef vadstena_libs_storage_tilar_io_hpp_included_
-#define vadstena_libs_storage_tilar_io_hpp_included_
+#ifndef vtslibs_storage_tilar_io_hpp_included_
+#define vtslibs_storage_tilar_io_hpp_included_
 
 #include "utility/enum-io.hpp"
 #include "utility/time.hpp"
@@ -14,7 +14,7 @@
 #include <iostream>
 #include <boost/uuid/uuid_io.hpp>
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 UTILITY_GENERATE_ENUM_IO(Tilar::CreateMode,
                          ((truncate))
@@ -65,6 +65,6 @@ dump(std::basic_ostream<CharT, Traits> &os
     return os;
 }
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage
 
-#endif // vadstena_libs_storage_tilar_io_hpp_included_
+#endif // vtslibs_storage_tilar_io_hpp_included_

@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_tilestorage_properties_hpp_included_
-#define vadstena_libs_tilestorage_properties_hpp_included_
+#ifndef vtslibs_tilestorage_properties_hpp_included_
+#define vtslibs_tilestorage_properties_hpp_included_
 
 #include <map>
 
@@ -13,7 +13,7 @@
 
 #include "./basetypes.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 
 /** Driver properties.
@@ -300,6 +300,6 @@ inline bool SettableProperties::merge(const SettableProperties::Wrapper &other)
 
 #undef TILESTORAGE_PROPERTIES_MERGE
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_properties_hpp_included_
+#endif // vtslibs_tilestorage_properties_hpp_included_

@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts0_metatile_hpp_included_
-#define vadstena_libs_vts0_metatile_hpp_included_
+#ifndef vtslibs_vts0_metatile_hpp_included_
+#define vtslibs_vts0_metatile_hpp_included_
 
 #include <cstdint>
 #include <iosfwd>
@@ -9,7 +9,7 @@
 
 #include "./basetypes.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 namespace detail {
 /** Invalid pixel size to mark tiles with no data
@@ -143,6 +143,6 @@ dump(std::basic_ostream<CharT, Traits> &os
     return os;
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts0_metatile_hpp_included_
+#endif // vtslibs_vts0_metatile_hpp_included_

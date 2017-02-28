@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_vts_tileset_config_hpp_included_
-#define vadstena_libs_vts_tileset_config_hpp_included_
+#ifndef vtslibs_vts_tileset_config_hpp_included_
+#define vtslibs_vts_tileset_config_hpp_included_
 
 #include <iostream>
 
@@ -14,7 +14,7 @@
 
 #include "../tileset.hpp"
 
-namespace vadstena { namespace vts { namespace tileset {
+namespace vtslibs { namespace vts { namespace tileset {
 
 FullTileSetProperties loadConfig(std::istream &in
                                  , const boost::filesystem::path &path
@@ -53,6 +53,6 @@ boost::any loadDriver(std::istream &in, const boost::filesystem::path &path
 boost::any loadDriver(const boost::filesystem::path &path);
 
 
-} } } // namespace vadstena::vts::tileset
+} } } // namespace vtslibs::vts::tileset
 
-#endif // vadstena_libs_vts_tileset_config_hpp_included_
+#endif // vtslibs_vts_tileset_config_hpp_included_

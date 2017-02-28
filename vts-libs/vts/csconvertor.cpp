@@ -1,6 +1,6 @@
 #include "./csconvertor.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 CsConvertor::CsConvertor(const std::string &srsIdFrom
                          , const std::string &srsIdTo
@@ -164,4 +164,4 @@ math::Extents2 CsConvertor::operator()(const math::Extents2 &e) const
     return out;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

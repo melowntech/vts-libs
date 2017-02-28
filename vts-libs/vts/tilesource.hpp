@@ -1,12 +1,12 @@
-#ifndef vadstena_libs_vts_tilesource_hpp_included_
-#define vadstena_libs_vts_tilesource_hpp_included_
+#ifndef vtslibs_vts_tilesource_hpp_included_
+#define vtslibs_vts_tilesource_hpp_included_
 
 #include "../storage/streams.hpp"
 
 #include "./metatile.hpp"
 #include "./tileindex.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 using storage::IStream;
 
@@ -27,6 +27,6 @@ struct TileSource {
     {}
 };
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_tilesource_hpp_included_
+#endif // vtslibs_vts_tilesource_hpp_included_

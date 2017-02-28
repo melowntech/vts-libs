@@ -1,9 +1,9 @@
-#ifndef vadstena_libs_storage_tidguard_hpp_included_
-#define vadstena_libs_storage_tidguard_hpp_included_
+#ifndef vtslibs_storage_tidguard_hpp_included_
+#define vtslibs_storage_tidguard_hpp_included_
 
 #include "dbglog/dbglog.hpp"
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 struct TIDGuard {
     TIDGuard(const std::string &id, bool append = false)
@@ -28,6 +28,6 @@ struct TIDGuard {
     const std::string old;
 };
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage
 
-#endif // vadstena_libs_storage_tidguard_hpp_included_
+#endif // vtslibs_storage_tidguard_hpp_included_

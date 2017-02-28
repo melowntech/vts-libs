@@ -5,15 +5,15 @@
  * Support files
  */
 
-#ifndef vadstena_libs_storage_support_hpp_included_
-#define vadstena_libs_storage_support_hpp_included_
+#ifndef vtslibs_storage_support_hpp_included_
+#define vtslibs_storage_support_hpp_included_
 
 #include <cstddef>
 #include <ctime>
 #include <string>
 #include <map>
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 struct SupportFile {
     typedef std::map<std::string, SupportFile> Files;
@@ -35,6 +35,6 @@ struct SupportFile {
     std::string expand(const Vars *vars, const Vars *defaults) const;
 };
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage
 
-#endif // vadstena_libs_storage_support_hpp_included_
+#endif // vtslibs_storage_support_hpp_included_

@@ -29,7 +29,7 @@ namespace bin = utility::binaryio;
 
 namespace half = half_float::detail;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
     // mesh binary file
@@ -63,6 +63,47 @@ math::Extents3 extents(const Mesh &mesh)
         e = unite(e, extents(sm));
     }
     return e;
+}
+
+GeomExtents geomExtents(const math::Points3d &vertices)
+{
+    GeomExtents ge;
+    for (const auto &v : vertices) {
+        update(ge, v(2));
+    }
+    return ge;
+}
+
+GeomExtents geomExtents(const SubMesh &submesh)
+{
+    return geomExtents(submesh.vertices);
+}
+
+GeomExtents geomExtents(const Mesh &mesh)
+{
+    GeomExtents ge;
+    for (const auto &sm : mesh) {
+        update(ge, geomExtents(sm));
+    }
+    return ge;
+}
+
+GeomExtents geomExtents(const CsConvertor &conv, const SubMesh &submesh)
+{
+    GeomExtents ge;
+    for (const auto &v : submesh.vertices) {
+        update(ge, conv(v)(2));
+    }
+    return ge;
+}
+
+GeomExtents geomExtents(const CsConvertor &conv, const Mesh &mesh)
+{
+    GeomExtents ge;
+    for (const auto &sm : mesh) {
+        update(ge, geomExtents(conv, sm));
+    }
+    return ge;
 }
 
 namespace {
@@ -588,4 +629,4 @@ void generateCoverage(Mesh &mesh, const math::Extents2 &sdsExtents)
     }
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

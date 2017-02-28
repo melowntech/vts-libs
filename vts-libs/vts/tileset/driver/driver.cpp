@@ -28,7 +28,7 @@
 #include "./remote.hpp"
 #include "./local.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace fs = boost::filesystem;
 
@@ -287,6 +287,15 @@ boost::any relocateOptions(const boost::any &options
     throw;
 }
 
+void saveConfig(const fs::path &configPath
+                , const FullTileSetProperties &config)
+{
+    // safe save
+    auto tmpPath(utility::addExtension(configPath, ".tmp"));
+    tileset::saveConfig(tmpPath, config);
+    fs::rename(tmpPath, configPath);
+}
+
 } // namespace
 
 void Driver::relocate(const boost::filesystem::path &root
@@ -313,9 +322,118 @@ void Driver::relocate(const boost::filesystem::path &root
     config.driverOptions = relocated;
 
     // safe save
-    auto tmpPath(utility::addExtension(configPath, ".tmp"));
-    tileset::saveConfig(tmpPath, config);
-    fs::rename(tmpPath, configPath);
+    saveConfig(configPath, config);
+}
+
+namespace {
+
+bool checkReencodeMarker(const boost::filesystem::path &root
+                         , const ReencodeOptions &ro
+                         , const std::string &prefix)
+{
+    (void) prefix;
+    const auto marker(root / (ro.tag + ".marker"));
+    bool exists(fs::exists(marker));
+    if (exists && !ro.cleanup) {
+        LOG(info3) << prefix << "    Tileset " << root
+                   << " already reencoded.";
+        return false;
+    }
+
+    if (!exists && ro.cleanup) {
+        LOG(info3) << prefix << "    Tileset " << root
+                   << " not reencoded, cannot clean up.";
+        return false;
+    }
+
+    return true;
+}
+
+void setReencodeMarker(const boost::filesystem::path &root
+                       , const ReencodeOptions &ro
+                       , const std::string &prefix)
+{
+    (void) prefix;
+    const auto marker(root / (ro.tag + ".marker"));
+    if (ro.dryRun) { return; }
+
+    if (ro.cleanup) {
+        // cleanup -> remove marker
+        boost::system::error_code ec;
+        fs::remove(marker, ec);
+    } else {
+        // store marker
+        std::ofstream of(marker.string());
+        of.flush();
+    }
+}
+
+} //namespace
+
+void Driver::reencode(const boost::filesystem::path &root
+                      , const ReencodeOptions &ro
+                      , const std::string &prefix)
+{
+    if (ro.cleanup) {
+        if (ro.dryRun) {
+            LOG(info3) << prefix << "Simulating reencode cleanup of tileset "
+                       << root << ".";
+        } else {
+            LOG(info3)
+                << prefix << "Cleaning up reencode of tileset " << root << ".";
+        }
+    } else {
+        if (ro.dryRun) {
+            LOG(info3) << prefix << "Simulating reencode cleanup of tileset "
+                       << root << ".";
+        } else {
+            LOG(info3) << prefix << "Reencoding tileset " << root << ".";
+        }
+    }
+
+    const auto configPath(root / filePath(File::config));
+
+    auto config(tileset::loadConfig(configPath));
+    const auto &options(config.driverOptions);
+
+    if (!checkReencodeMarker(root, ro, prefix)) { return; }
+
+    bool bumpRevision(false);
+
+    // open tileset
+    if (auto o = boost::any_cast<const driver::PlainOptions>(&options))
+    {
+        bumpRevision
+            = driver::PlainDriver::reencode(root, *o, ro, prefix);
+    } else if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
+               (&options))
+    {
+        bumpRevision
+            = driver::OldAggregatedDriver::reencode(root, *o, ro, prefix);
+    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
+               (&options))
+    {
+        bumpRevision
+            = driver::AggregatedDriver::reencode(root, *o, ro, prefix);
+    } else if (auto o = boost::any_cast<const driver::RemoteOptions>
+               (&options))
+    {
+        bumpRevision
+            = driver::RemoteDriver::reencode(root, *o, ro, prefix);
+    } else if (auto o = boost::any_cast<const driver::LocalOptions>
+               (&options))
+    {
+        bumpRevision
+            = driver::LocalDriver::reencode(root, *o, ro, prefix);
+    }
+
+    if (bumpRevision) {
+        // bump revision
+        ++config.revision;
+        saveConfig(configPath, config);
+    }
+
+    setReencodeMarker(root, ro, prefix);
 }
 
 bool Driver::check(const boost::filesystem::path &root)
@@ -365,4 +483,4 @@ MapConfigOverride::MapConfigOverride(const boost::any &options)
 
 } // namespace driver
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

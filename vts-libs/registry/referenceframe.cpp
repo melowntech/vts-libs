@@ -22,7 +22,7 @@
 
 namespace ba = boost::algorithm;
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 constexpr char Srs::typeName[];
 constexpr char ReferenceFrame::typeName[];
@@ -1795,4 +1795,4 @@ void save(const boost::filesystem::path &path, const RegistryBase &rb)
     f.close();
 }
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry

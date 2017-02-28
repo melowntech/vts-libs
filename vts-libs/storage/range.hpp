@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_storage_range_hpp_included_
-#define vadstena_libs_storage_range_hpp_included_
+#ifndef vtslibs_storage_range_hpp_included_
+#define vtslibs_storage_range_hpp_included_
 
 #include <limits>
 #include <iterator>
@@ -12,7 +12,7 @@
 
 #include "./lod.hpp"
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 
 //! Helper range class for use on the command line or in configs (e.g., "10,25")
@@ -152,6 +152,6 @@ operator<<(std::basic_ostream<E,T> &os,
 }
 
 
-} } // namesapce vadstena::storage
+} } // namesapce vtslibs::storage
 
-#endif // vadstena_libs_storage_range_hpp_included_
+#endif // vtslibs_storage_range_hpp_included_

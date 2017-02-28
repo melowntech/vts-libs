@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts0_driver_tilardriver_hpp_included_
-#define vadstena_libs_vts0_driver_tilardriver_hpp_included_
+#ifndef vtslibs_vts0_driver_tilardriver_hpp_included_
+#define vtslibs_vts0_driver_tilardriver_hpp_included_
 
 #include <set>
 #include <map>
@@ -11,7 +11,7 @@
 #include "./tilardriver/options.hpp"
 #include "./tilardriver/cache.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 class TilarDriver : public Driver {
 public:
@@ -94,6 +94,6 @@ private:
     FileStat openStat_;
 };
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts0_driver_tilardriver_hpp_included_
+#endif // vtslibs_vts0_driver_tilardriver_hpp_included_

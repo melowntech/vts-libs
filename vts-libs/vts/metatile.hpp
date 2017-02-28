@@ -1,12 +1,14 @@
-#ifndef vadstena_libs_vts_metatile_hpp
-#define vadstena_libs_vts_metatile_hpp
+#ifndef vtslibs_vts_metatile_hpp
+#define vtslibs_vts_metatile_hpp
 
 #include <memory>
 #include <cstdint>
 #include <iosfwd>
 #include <vector>
 #include <new>
+#include <limits>
 
+#include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include "math/geometry_core.hpp"
@@ -14,15 +16,15 @@
 
 #include "../storage/error.hpp"
 #include "../storage/credits.hpp"
+#include "../storage/range.hpp"
 
 #include "./basetypes.hpp"
 #include "./tileop.hpp"
-
-#include "vts-libs/storage/range.hpp"
+#include "./geomextents.hpp"
 
 typedef half_float::half hfloat;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct MetaNode {
     struct Flag {
@@ -100,9 +102,8 @@ struct MetaNode {
 
     void reset(Flag::value_type flags) { flags_ &= ~flags; }
 
-    /** Normalized extents in range 0.0-1.0.
-     */
     math::Extents3 extents;
+    GeomExtents geomExtents;
 
     float texelSize;
 
@@ -146,8 +147,18 @@ struct MetaNode {
                                , bool value = true);
 
     MetaNode& mergeExtents(const MetaNode &other);
-
     MetaNode& mergeExtents(const math::Extents3 &other);
+    MetaNode& mergeExtents(const GeomExtents &other);
+
+    unsigned int internalTextureCount() const { return internalTextureCount_; }
+    void internalTextureCount(unsigned int value) {
+        const unsigned int max(std::numeric_limits<std::uint8_t>::max());
+        if (value > max) {
+            internalTextureCount_ = max;
+        } else {
+            internalTextureCount_ = value;
+        }
+    }
 
     const storage::CreditIds& credits() const {  return credits_; }
 
@@ -167,16 +178,6 @@ struct MetaNode {
         credits_.insert(credits.begin(), credits.end());
     }
 
-    std::size_t internalTextureCount() const {
-        return (geometry() ? internalTextureCount_ : 0);
-    }
-    MetaNode& internalTextureCount(std::size_t value);
-
-    std::size_t reference() const {
-        return (!geometry() ? reference_ : 0);
-    }
-    MetaNode& reference(std::size_t value);
-
     enum class BackingType { none, uint8, uint16 };
 
     struct StoreParams {
@@ -187,7 +188,8 @@ struct MetaNode {
             : lod(lod), sourceReference(sourceReference) {}
     };
 
-    void load(std::istream &in, const StoreParams &sp);
+    void load(std::istream &in, const StoreParams &sp
+              , std::uint16_t version);
     void save(std::ostream &out, const StoreParams &sp) const;
 
 private:
@@ -207,13 +209,9 @@ private:
 
     Flag::value_type flags_;
 
-    // union 1
-    union {
-        std::uint8_t internalTextureCount_;
-        std::uint8_t reference_;
-    };
-
     storage::CreditIds credits_;
+
+    std::uint8_t internalTextureCount_;
 };
 
 class MetaTile {
@@ -456,6 +454,6 @@ inline void add(TexelSizeAggregator &aa, const MetaNode &node
     add(aa, node);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_metatile_hpp
+#endif // vtslibs_vts_metatile_hpp

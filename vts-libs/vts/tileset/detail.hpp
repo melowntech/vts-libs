@@ -5,8 +5,8 @@
  * Tile set access.
  */
 
-#ifndef vadstena_libs_vts_tileset_detail_hpp_included_
-#define vadstena_libs_vts_tileset_detail_hpp_included_
+#ifndef vtslibs_vts_tileset_detail_hpp_included_
+#define vtslibs_vts_tileset_detail_hpp_included_
 
 #include <boost/any.hpp>
 
@@ -15,8 +15,9 @@
 #include "./driver.hpp"
 #include "./tilesetindex.hpp"
 #include "./metacache.hpp"
+#include "./extra.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 typedef std::map<std::string, math::Extents2> SdsExtents;
 
@@ -133,6 +134,8 @@ public:
 
     void setNavTile(const TileId &tileId, const NavTile &navtile);
 
+    void setSurrogateValue(const TileId &tileId, float value);
+
     std::uint8_t metaOrder() const;
     TileId metaId(TileId tileId) const;
 
@@ -248,6 +251,6 @@ inline const MetaNode* TileSet::Detail::findMetaNode(const TileId &tileId)
     return findNode(tileId).metanode;
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_tileset_detail_hpp_included_
+#endif // vtslibs_vts_tileset_detail_hpp_included_

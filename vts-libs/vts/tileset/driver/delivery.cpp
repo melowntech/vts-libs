@@ -22,10 +22,10 @@
 #include "../tilesetindex.hpp"
 #include "../config.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace fs = boost::filesystem;
-namespace vs = vadstena::storage;
+namespace vs = vtslibs::storage;
 
 namespace {
 
@@ -379,4 +379,4 @@ MeshTilesConfig Delivery::meshTilesConfig(bool includeExtra) const
     return TileSet::meshTilesConfig(*driver_, includeExtra);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

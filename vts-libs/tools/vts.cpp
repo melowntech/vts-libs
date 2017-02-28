@@ -43,9 +43,9 @@
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-namespace vts = vadstena::vts;
-namespace vr = vadstena::registry;
-namespace vs = vadstena::storage;
+namespace vts = vtslibs::vts;
+namespace vr = vtslibs::registry;
+namespace vs = vtslibs::storage;
 namespace ba = boost::algorithm;
 
 UTILITY_GENERATE_ENUM(Command,
@@ -73,6 +73,8 @@ UTILITY_GENERATE_ENUM(Command,
                       ((local)("local"))
                       ((clone)("clone"))
                       ((relocate)("relocate"))
+                      ((reencode)("reencode"))
+                      ((reencodeCleanup)("reencode-cleanup"))
                       ((tilePick)("tile-pick"))
                       ((file)("file"))
                       ((tags)("tags"))
@@ -113,7 +115,7 @@ public:
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
         , tileFlags_(), metaFlags_(), encodeFlags_()
-        , queryLod_()
+        , queryLod_(), textureQuality_(70)
     {
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
@@ -122,6 +124,8 @@ public:
         addOptions_.clip = true;
 
         relocateOptions_.dryRun = false;
+        reencodeOptions_.dryRun = false;
+        reencodeOptions_.cleanup = false;
     }
 
     ~VtsStorage() {}
@@ -218,6 +222,9 @@ private:
 
     int relocate();
 
+    int reencode();
+    int reencodeCleanup();
+
     int tilePick();
 
     int file();
@@ -263,6 +270,7 @@ private:
     boost::optional<std::string> optSrs_;
     vts::Storage::AddOptions addOptions_;
     vts::RelocateOptions relocateOptions_;
+    vts::ReencodeOptions reencodeOptions_;
     Verbosity verbose_;
     bool computeTexelSize_;
     vs::CreditIds forceCredits_;
@@ -271,6 +279,8 @@ private:
 
     boost::optional<vts::Lod> queryLod_;
     math::Point2IOWrapper<double> queryPoint_;
+
+    int textureQuality_;
 
     /** External lock.
      */
@@ -924,8 +934,11 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("forceCredits", po::value<std::string>()
              , "Comma-separated list of string/numeric credit id to override "
              "existing credits. If not specified, credits are not touched.")
-            ("reencode", po::value(&encodeFlags_)->default_value(0)
-             ,"Comma-separated list of clone options: mesh, inpaint.")
+            ("encode", po::value(&encodeFlags_)->default_value(0)
+             ,"Comma-separated list of clone options: mesh, inpaint, meta.")
+            ("textureQuality", po::value(&textureQuality_)
+             ->required()->default_value(textureQuality_)
+             , "Texture quality for inpaint.")
             ;
 
         p.configure = [&](const po::variables_map &vars) {
@@ -978,7 +991,7 @@ void VtsStorage::configuration(po::options_description &cmdline
                  , [&](UP &p)
     {
         p.options.add_options()
-            ("dryRun", "Simulate glue creation.")
+            ("dryRun", "Simulate relocate.")
             ("rule", po::value(&relocateOptions_.rules)
              , "Rule in form prefix=replacement. Can be use multiple times. "
              "First matching rule is applied. Can be omitted to display "
@@ -992,8 +1005,38 @@ void VtsStorage::configuration(po::options_description &cmdline
                 throw po::required_option("rules");
             }
         };
+    });
 
-        p.positional.add("tileset", 1);
+    createParser(cmdline, Command::reencode
+                 , "--command=reencode: recursively reencode tilesets"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("dryRun", "Simulate reencode.")
+            ("tag", po::value(&reencodeOptions_.tag)->required()
+             , "Reencode tag.")
+            ("encode", po::value(&encodeFlags_)->default_value(0)
+             ,"Comma-separated list of clone options: mesh, inpaint, meta.")
+            ;
+
+        p.configure = [&](const po::variables_map &vars) {
+            reencodeOptions_.dryRun = vars.count("dryRun");
+        };
+    });
+
+    createParser(cmdline, Command::reencodeCleanup
+                 , "--command=reencodeCleanup: cleanup after previous reencode"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("dryRun", "Simulate reencode cleanup.")
+            ("tag", po::value(&reencodeOptions_.tag)->required()
+             , "Reencode tag.")
+            ;
+
+        p.configure = [&](const po::variables_map &vars) {
+            reencodeOptions_.dryRun = vars.count("dryRun");
+        };
     });
 
     createParser(cmdline, Command::tilePick
@@ -1304,6 +1347,8 @@ int VtsStorage::runCommand()
     case Command::clone: return clone();
     case Command::tilePick: return tilePick();
     case Command::relocate: return relocate();
+    case Command::reencode: return reencode();
+    case Command::reencodeCleanup: return reencodeCleanup();
     case Command::file: return file();
     case Command::glueRulesSyntax: return glueRulesSyntax();
     case Command::mergeConfSyntax: return mergeConfSyntax();
@@ -1713,14 +1758,11 @@ int VtsStorage::dumpMetatile()
         std::cout << "    SDS srs: " << nodeInfo.srs() << '\n';
         std::cout << "    SDS extents: " << nodeInfo.extents() << '\n';
         std::cout << "    extents: " << node.extents << '\n';
-        if (node.internalTextureCount()) {
+        std::cout << "    geomExtents: " << node.geomExtents << '\n';
+        if (const auto itc = node.internalTextureCount()) {
             std::cout
-                << "    texture count: " << node.internalTextureCount()
+                << "    texture count: " << itc
                 << '\n';
-        }
-        if (node.reference()) {
-            std::cout
-                << "    reference: " << node.reference() << '\n';
         }
 
         if (node.applyTexelSize()) {
@@ -1823,22 +1865,17 @@ int VtsStorage::tileInfo()
         << "\n    srs: " << ni.srs()
         << '\n';
 
-    if (flags & (vts::TileIndex::Flag::real | vts::TileIndex::Flag::reference))
-    {
+    if (flags & (vts::TileIndex::Flag::real)) {
         auto node(ts.getMetaNode(tileId_));
 
         std::cout << "Meta node:" << '\n';
         std::cout << "    flags: " << vts::MetaFlags(node.flags())
                   << '\n';
         std::cout << "    extents: " << node.extents << '\n';
-        if (node.internalTextureCount()) {
+        std::cout << "    geomExtents: " << node.geomExtents << '\n';
+        if (const auto itc = node.internalTextureCount()) {
             std::cout
-                << "    texture count: " << node.internalTextureCount()
-                << '\n';
-        }
-        if (node.reference()) {
-            std::cout
-                << "    reference: " << node.reference()
+                << "    texture count: " << itc
                 << '\n';
         }
 
@@ -2133,10 +2170,13 @@ int VtsStorage::local()
 int VtsStorage::clone()
 {
     vts::CloneOptions cloneOptions;
-    cloneOptions.tilesetId(optTilesetId_);
-    cloneOptions.lodRange(optLodRange_);
-    cloneOptions.mode(createMode_);
-    cloneOptions.encodeFlags(encodeFlags_.value);
+    cloneOptions
+        .tilesetId(optTilesetId_)
+        .lodRange(optLodRange_)
+        .mode(createMode_)
+        .encodeFlags(encodeFlags_.value)
+        .textureQuality(textureQuality_)
+        ;
 
     if (!forceCredits_.empty()) {
         cloneOptions.metaNodeManipulator(
@@ -2203,6 +2243,56 @@ int VtsStorage::relocate()
 
     case vts::DatasetType::StorageView:
         vts::StorageView::relocate(path_, relocateOptions_);
+        return EXIT_SUCCESS;
+
+    default: break;
+    }
+
+    std::cerr << "Unrecognized content " << path_ << "." << '\n';
+    return EXIT_FAILURE;
+}
+
+int VtsStorage::reencode()
+{
+    auto ro(reencodeOptions_);
+    ro.encodeFlags = encodeFlags_.value;
+
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::TileSet:
+        vts::TileSet::reencode(path_, ro);
+        return EXIT_SUCCESS;
+
+    case vts::DatasetType::Storage:
+        vts::Storage::reencode(path_, ro);
+        return EXIT_SUCCESS;
+
+    case vts::DatasetType::StorageView:
+        vts::StorageView::reencode(path_, ro);
+        return EXIT_SUCCESS;
+
+    default: break;
+    }
+
+    std::cerr << "Unrecognized content " << path_ << "." << '\n';
+    return EXIT_FAILURE;
+}
+
+int VtsStorage::reencodeCleanup()
+{
+    auto ro(reencodeOptions_);
+    ro.cleanup = true;
+
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::TileSet:
+        vts::TileSet::reencode(path_, ro);
+        return EXIT_SUCCESS;
+
+    case vts::DatasetType::Storage:
+        vts::Storage::reencode(path_, ro);
+        return EXIT_SUCCESS;
+
+    case vts::DatasetType::StorageView:
+        vts::StorageView::reencode(path_, ro);
         return EXIT_SUCCESS;
 
     default: break;

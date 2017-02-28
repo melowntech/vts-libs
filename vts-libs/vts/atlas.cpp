@@ -10,7 +10,7 @@
 #include "./atlas.hpp"
 #include "./multifile.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 
@@ -20,7 +20,7 @@ const std::uint16_t VERSION = 1;
 } // namespace
 
 multifile::Table Atlas::readTable(std::istream &is
-                              , const boost::filesystem::path &path)
+                                  , const boost::filesystem::path &path)
 {
     return multifile::readTable(is, MAGIC, path).versionAtMost(VERSION, path);
 }
@@ -91,4 +91,4 @@ void RawAtlas::add(const RawAtlas &other)
                    , other.images_.end());
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

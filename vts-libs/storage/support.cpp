@@ -2,7 +2,7 @@
 
 #include "./support.hpp"
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 namespace {
 
@@ -76,4 +76,4 @@ std::string SupportFile::expand(const Vars *vars, const Vars *defaults) const
     return res;
 }
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage

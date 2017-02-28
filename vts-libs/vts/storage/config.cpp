@@ -7,7 +7,7 @@
 #include "../../storage/error.hpp"
 #include "../../registry/json.hpp"
 
-namespace vadstena { namespace vts { namespace storage {
+namespace vtslibs { namespace vts { namespace storage {
 
 namespace detail {
 
@@ -288,7 +288,7 @@ Storage::Properties loadConfig(std::istream &in)
     Json::Value config;
     Json::Reader reader;
     if (!reader.parse(in, config)) {
-        LOGTHROW(err2, vadstena::storage::FormatError)
+        LOGTHROW(err2, vtslibs::storage::FormatError)
             << "Unable to parse config: "
             << reader.getFormattedErrorMessages() << ".";
     }
@@ -302,12 +302,12 @@ Storage::Properties loadConfig(std::istream &in)
             return detail::parse1(config);
         }
 
-        LOGTHROW(err1, vadstena::storage::FormatError)
+        LOGTHROW(err1, vtslibs::storage::FormatError)
             << "Invalid storage config format: unsupported version "
             << version << ".";
 
     } catch (const Json::Error &e) {
-        LOGTHROW(err1, vadstena::storage::FormatError)
+        LOGTHROW(err1, vtslibs::storage::FormatError)
             << "Invalid storage config format (" << e.what()
             << "); Unable to work with this storage.";
     }
@@ -331,7 +331,7 @@ Storage::Properties loadConfig(const boost::filesystem::path &path)
         f.open(path.string(), std::ios_base::in);
         f.peek();
     } catch (const std::exception &e) {
-        LOGTHROW(err1, vadstena::storage::NoSuchStorage)
+        LOGTHROW(err1, vtslibs::storage::NoSuchStorage)
             << "Unable to load config file " << path << ".";
     }
     auto p(loadConfig(f));
@@ -449,12 +449,12 @@ extraStorageConfigFromJson(int version, const Json::Value &config)
             return detail_extra::parse1(config);
         }
 
-        LOGTHROW(err1, vadstena::storage::FormatError)
+        LOGTHROW(err1, vtslibs::storage::FormatError)
             << "Invalid extra config format: unsupported version "
             << version << ".";
 
     } catch (const Json::Error &e) {
-        LOGTHROW(err1, vadstena::storage::FormatError)
+        LOGTHROW(err1, vtslibs::storage::FormatError)
             << "Invalid extra config format (" << e.what()
             << "); Unable to work with this config.";
     }
@@ -467,7 +467,7 @@ ExtraStorageProperties loadExtraConfig(std::istream &in)
     Json::Value config;
     Json::Reader reader;
     if (!reader.parse(in, config)) {
-        LOGTHROW(err2, vadstena::storage::FormatError)
+        LOGTHROW(err2, vtslibs::storage::FormatError)
             << "Unable to parse extra config: "
             << reader.getFormattedErrorMessages() << ".";
     }
@@ -476,7 +476,7 @@ ExtraStorageProperties loadExtraConfig(std::istream &in)
     try {
         Json::get(version, config, "version");
     } catch (const Json::Error &e) {
-        LOGTHROW(err1, vadstena::storage::FormatError)
+        LOGTHROW(err1, vtslibs::storage::FormatError)
             << "Invalid extra config format (" << e.what()
             << "); Unable to work with this config.";
     }
@@ -505,4 +505,4 @@ void extraStorageConfigToJson(Json::Value &config
     detail_extra::build(config, properties);
 }
 
-} } } // namespace vadstena::vts::storage
+} } } // namespace vtslibs::vts::storage

@@ -66,7 +66,7 @@
  * if full kernel are is not valid only positives are taken into account.
  */
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 
@@ -1302,4 +1302,4 @@ MeshAtlas mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
         .result();
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

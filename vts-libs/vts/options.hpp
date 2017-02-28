@@ -5,8 +5,8 @@
  * Tileset creation/clone options.
  */
 
-#ifndef vadstena_libs_vts_options_hpp_included_
-#define vadstena_libs_vts_options_hpp_included_
+#ifndef vtslibs_vts_options_hpp_included_
+#define vtslibs_vts_options_hpp_included_
 
 #include <memory>
 
@@ -14,7 +14,7 @@
 
 #include "./basetypes.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 // fwd declaration; include metatile.hpp if MetaNode is needed.
 struct MetaNode;
@@ -56,8 +56,8 @@ private:
  *                driver) if set; otherwise creates new plain tilesets and
  *                copies data tile-by-tile (default behaviour)
  *
- *                NB: if driver cannot clone dataset by its own the dataset se
- *                cloned ad plain dataset (i.e. sameType flag is ignored)
+ *                NB: if driver cannot clone dataset by its own the dataset is
+ *                cloned aa plain dataset (i.e. sameType flag is ignored)
  *    * metaNodeManipulator:
  *                allows metanode change during cloning operation
  *
@@ -110,6 +110,12 @@ public:
         enum : value_type {
             mesh = 0x1      // reencode meshes
             , inpaint = 0x2 // inpaint atlas textures
+            /** reencode metanode from other data
+             *  exact meaning is dependent on metanode version
+             *
+             *  v*->v4: generate geomExtents from mesh/navtiles(surrogate)
+             */
+            , meta = 0x4
         };
     };
 
@@ -129,6 +135,11 @@ public:
         createFlags_ = createFlags; return *this;
     }
 
+    int textureQuality() const { return textureQuality_; }
+    CloneOptions& textureQuality(int value) {
+        textureQuality_ = value; return *this;
+    }
+
 private:
     CreateMode mode_;
     boost::optional<std::string> tilesetId_;
@@ -138,6 +149,10 @@ private:
     EncodeFlag::value_type encodeFlags_;
     OpenOptions openOptions_;
     CreateFlags createFlags_;
+
+    /** Texture quality (used only when inpainting)
+     */
+    int textureQuality_;
 };
 
 class RelocateOptions {
@@ -213,6 +228,16 @@ struct GlueCreationOptions {
     {}
 };
 
+class ReencodeOptions {
+public:
+    ReencodeOptions() : encodeFlags(), dryRun(false), cleanup(false) {}
+
+    CloneOptions::EncodeFlag::value_type encodeFlags;
+    bool dryRun;
+    bool cleanup;
+    std::string tag;
+};
+
 // inlines
 
 inline void MergeProgress::expect(std::size_t total)
@@ -226,6 +251,6 @@ inline void MergeProgress::tile()
 }
 
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_options_hpp_included_
+#endif // vtslibs_vts_options_hpp_included_

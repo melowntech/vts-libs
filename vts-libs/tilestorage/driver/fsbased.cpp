@@ -16,7 +16,7 @@
 
 #include "../support.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace fs = boost::filesystem;
 
@@ -378,5 +378,5 @@ const std::string FlatDriver::help
 ("Filesystem-based storage driver with flat structure: all "
  "files are stored in one directory.");
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 

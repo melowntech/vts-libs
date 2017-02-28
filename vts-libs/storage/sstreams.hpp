@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_storage_driver_sstreams_hpp_included_
-#define vadstena_libs_storage_driver_sstreams_hpp_included_
+#ifndef vtslibs_storage_driver_sstreams_hpp_included_
+#define vtslibs_storage_driver_sstreams_hpp_included_
 
 #include <functional>
 
@@ -8,7 +8,7 @@
 #include "./streams.hpp"
 #include "./error.hpp"
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 typedef std::vector<char> MemBlock;
 
@@ -53,6 +53,6 @@ IStream::pointer memIStream(TileFile type, MemBlock &&data
                             , std::time_t lastModified = 0
                             , const boost::filesystem::path &path = "unknown");
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage
 
-#endif // vadstena_libs_storage_driver_sstreams_hpp_included_
+#endif // vtslibs_storage_driver_sstreams_hpp_included_

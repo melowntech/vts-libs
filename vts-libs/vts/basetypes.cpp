@@ -7,7 +7,7 @@
 #include "./glue.hpp"
 #include "./tileop.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace {
 template <typename Iterator>
@@ -85,7 +85,7 @@ TileSetGlues::list glueOrder(const TileSetGlues::list &in)
             std::size_t i(0);
             for (const auto &id : glue.id) {
                 if (i >= stack.size()) {
-                    LOGTHROW(err2, vadstena::storage::Error)
+                    LOGTHROW(err2, vtslibs::storage::Error)
                         << "Glue <" << utility::join(id, ", ")
                         << "> doesn't belong into tileset stack stack <"
                         << utility::join(stack, ",") << ">.";
@@ -150,7 +150,7 @@ Ranges::Ranges(const LodRange &lodRange, const TileRange &tileRange
 const TileRange& Ranges::tileRange(Lod lod) const
 {
     if (!in(lod, lodRange_)) {
-        LOGTHROW(err2, vadstena::storage::Error)
+        LOGTHROW(err2, vtslibs::storage::Error)
             << "Lod <" << lod << "> outside of lod range <"
             << lodRange_ << ">.";
     }
@@ -215,4 +215,4 @@ void Ranges::update(const Ranges &other)
     std::swap(tileRanges_, tileRanges);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

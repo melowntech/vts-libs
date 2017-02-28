@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_vts_mapconfig_hpp_included_
-#define vadstena_libs_vts_mapconfig_hpp_included_
+#ifndef vtslibs_vts_mapconfig_hpp_included_
+#define vtslibs_vts_mapconfig_hpp_included_
 
 #include <memory>
 #include <iostream>
@@ -16,7 +16,7 @@
 #include "./glue.hpp"
 #include "./virtualsurface.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct SurfaceUrls3d {
     std::string meta;
@@ -218,6 +218,6 @@ DebugConfig debugConfig(const MeshTilesConfig &config
  */
 void saveDebug(std::ostream &os, const DebugConfig &debug);
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_mapconfig_hpp_included_
+#endif // vtslibs_vts_mapconfig_hpp_included_

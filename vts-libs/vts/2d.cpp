@@ -7,7 +7,7 @@
 
 namespace bgil = boost::gil;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 GrayImage mask2d(const Mesh::CoverageMask &coverageMask
                  , const std::vector<SubMesh::SurfaceReference>
@@ -166,4 +166,4 @@ RgbaImage fullDebugMask()
                      , bgil::rgba8_pixel_t(0xFF, 0xFF, 0xFF, 0xFF), 0);
 }
 
-} } // vadstena::vts
+} } // vtslibs::vts

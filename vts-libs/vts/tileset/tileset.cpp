@@ -1,7 +1,9 @@
 #include <boost/format.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 
 #include "utility/progress.hpp"
+#include "utility/path.hpp"
 
 #include "../../vts.hpp"
 #include "../tileset.hpp"
@@ -14,7 +16,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 TileSetProperties TileSet::getProperties() const
 {
@@ -98,6 +100,11 @@ void TileSet::setNavTile(const TileId &tileId, const NavTile &navtile)
     detail().setNavTile(tileId, navtile);
 }
 
+void TileSet::setSurrogateValue(const TileId &tileId, float value)
+{
+    detail().setSurrogateValue(tileId, value);
+}
+
 MetaNode TileSet::getMetaNode(const TileId &tileId) const
 {
     auto node(detail().findNode(tileId));
@@ -176,6 +183,14 @@ driver::PlainOptions plainOptions(const TileSetProperties &properties)
 
     // force aggregation to 5, set meta-unused-bits to meta-binary-order
     return driver::PlainOptions(5, referenceFrame.metaBinaryOrder);
+}
+
+GeomExtents geomExtents(const NodeInfo &ni, const Mesh &mesh)
+{
+    // re-compute geom extents
+    return geomExtents
+        (CsConvertor(ni.referenceFrame().model.physicalSrs, ni.srs())
+         , mesh);
 }
 
 } // namespace
@@ -268,10 +283,12 @@ struct TileSet::Factory
         dst.propertiesChanged = true;
     }
 
-    static void reencode(const TileId &tileId
+    static void reencode(const TileId &tileId, const NodeInfo &ni
                          , const Driver &sd, Driver &dd
                          , bool hasMesh, bool hasAtlas
-                         , CloneOptions::EncodeFlag::value_type eflags)
+                         , CloneOptions::EncodeFlag::value_type eflags
+                         , MetaNode &metanode
+                         , int textureQuality)
     {
         Mesh mesh;
         RawAtlas atlas;
@@ -288,24 +305,37 @@ struct TileSet::Factory
         if (hasMesh) {
             if (eflags & CloneOptions::EncodeFlag::mesh) {
                 // reencode mesh
-                // TODO: use atlas
                 auto os(dd.output(tileId, storage::TileFile::mesh));
-                saveMesh(os, mesh);
+                saveMesh(os, mesh, &atlas);
                 os->close();
             } else {
                 // just copy file
                 copyFile(sd.input(tileId, storage::TileFile::mesh)
                          , dd.output(tileId, storage::TileFile::mesh));
             }
+
+            if ((eflags & CloneOptions::EncodeFlag::meta)
+                && vts::empty(metanode.geomExtents))
+            {
+                // reencoding metanodes and no geometric extents available ->
+                // recompute
+                metanode.geomExtents = geomExtents(ni, mesh);
+                // use average height as a surrogate
+                metanode.geomExtents.makeAverageSurrogate();
+            }
         }
 
         if (hasAtlas) {
-            // TODO: implement me when inpaint is working
-            (void) atlas;
-
-            // just copy file
-            copyFile(sd.input(tileId, storage::TileFile::atlas)
-                     , dd.output(tileId, storage::TileFile::atlas));
+            if (hasMesh && (eflags & CloneOptions::EncodeFlag::inpaint)) {
+                // inpaint
+                auto os(dd.output(tileId, storage::TileFile::atlas));
+                inpaint(atlas, mesh, textureQuality)->serialize(os->get());
+                os->close();
+            } else {
+                // just copy file
+                copyFile(sd.input(tileId, storage::TileFile::atlas)
+                         , dd.output(tileId, storage::TileFile::atlas));
+            }
         }
     }
 
@@ -333,6 +363,14 @@ struct TileSet::Factory
 
         const auto eflags(cloneOptions.encodeFlags());
 
+        if (eflags) {
+            // renencoding, update revision if needed
+            if (dst.properties.revision <= src.properties.revision) {
+                // destination revision is not newer than source revision, fix
+                dst.properties.revision = src.properties.revision + 1;
+            }
+        }
+
         traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
         {
             // skip out-of range
@@ -355,8 +393,25 @@ struct TileSet::Factory
             bool mesh(mask & TileIndex::Flag::mesh);
             bool atlas(mask & TileIndex::Flag::atlas);
 
+            // optional copy of metanode
+            boost::optional<MetaNode> mn;
+
+            auto copyMetanode([&]() -> MetaNode&
+            {
+                if (!mn) { mn = *metanode; }
+                return *mn;
+            });
+
+            // get reference to metanode
+            auto useMetanode([&]() -> const MetaNode&
+            {
+                return mn ? *mn : *metanode;
+            });
+
             if (eflags) {
-                reencode(tid, sd, dd, mesh, atlas, eflags);
+                reencode(tid, NodeInfo(src.referenceFrame, tid)
+                         , sd, dd, mesh, atlas, eflags, copyMetanode()
+                         , cloneOptions.textureQuality());
             } else {
                 if (mesh) {
                     // copy mesh
@@ -380,11 +435,11 @@ struct TileSet::Factory
 
             if (mnm) {
                 // filter metanode
-                dst.updateNode(tid, mnm(*metanode)
+                dst.updateNode(tid, mnm(useMetanode())
                                , (mask & TileIndex::Flag::nonmeta));
             } else {
                 // pass metanode as-is
-                dst.updateNode(tid, *metanode
+                dst.updateNode(tid, useMetanode()
                            , (mask & TileIndex::Flag::nonmeta));
             }
             LOG(info1) << "Stored tile " << tid << ".";
@@ -426,6 +481,45 @@ struct TileSet::Factory
 
         return dst;
     }
+
+    static void reencode(const boost::filesystem::path &root
+                         , const ReencodeOptions &options)
+    {
+        // absolutize
+        const auto srcPath(fs::absolute(root));
+
+        // build tmp path
+        auto dstPath(srcPath);
+        if (dstPath.filename() == ".") {
+            // remove trailing slash
+            fs::path tmp;
+            for (auto i(dstPath.begin()), e(std::prev(dstPath.end()))
+                     ; i != e; ++i)
+            {
+                tmp /= *i;
+            }
+            dstPath.swap(tmp);
+        }
+        dstPath = utility::addExtension(dstPath, "." + options.tag);
+
+        if (options.cleanup) {
+            // remove temporary dataset
+            fs::remove_all(dstPath);
+            return;
+        }
+
+        auto dst(clone(dstPath, open(srcPath, {})
+                       , CloneOptions()
+                       .mode(CreateMode::overwrite)
+                       .encodeFlags(options.encodeFlags)
+                       ));
+
+        // swap paths
+        const auto tmp(utility::addExtension(srcPath, ".swap"));
+        fs::rename(srcPath, tmp);
+        fs::rename(dstPath, srcPath);
+        fs::rename(tmp, dstPath);
+    }
 };
 
 TileSet createTileSet(const boost::filesystem::path &path
@@ -459,6 +553,12 @@ TileSet cloneTileSet(const boost::filesystem::path &path, const TileSet &src
                      , const CloneOptions &cloneOptions)
 {
     return TileSet::Factory::clone(path, src, cloneOptions);
+}
+
+void reencodeTileSet(const boost::filesystem::path &root
+                     , const ReencodeOptions &options)
+{
+    return TileSet::Factory::reencode(root, options);
 }
 
 /** Core implementation.
@@ -809,7 +909,7 @@ void TileSet::Detail::updateNode(TileId tileId
 
     // prepare tileindex flags and mask
     auto mask(TileIndex::Flag::content | TileIndex::Flag::nonmeta
-              | TileIndex::Flag::reference | TileIndex::Flag::alien);
+              | TileIndex::Flag::alien);
     auto flags(flagsFromNode(*node.metanode));
     flags |= extraFlags;
 
@@ -966,6 +1066,16 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile
         metanode.geometry(true);
         metanode.extents = normalizedExtents(referenceFrame, extents(*mesh));
 
+        // use/compute geom extents
+        if (vts::empty(tile.geomExtents)) {
+            // no geom extents, need to compute from mesh converted to SDS
+            metanode.geomExtents = geomExtents
+                (CsConvertor(referenceFrame.model.physicalSrs, nodeInfo.srs())
+                 , *mesh);
+        } else {
+            metanode.geomExtents = tile.geomExtents;
+        }
+
         // get external textures info configuration
         updateProperties(*mesh);
 
@@ -1077,6 +1187,22 @@ void TileSet::Detail::setNavTile(const TileId &tileId, const NavTile &navtile)
 
     // mark navtile in tile index
     tileIndex.setMask(tileId, TileIndex::Flag::navtile);
+}
+
+void TileSet::Detail::setSurrogateValue(const TileId &tileId, float value)
+{
+    auto node(findNode(tileId));
+    if (!node || !node.metanode->geometry()) {
+        LOGTHROW(err2, storage::NoSuchTile)
+            << "Cannot set surrogate to geometry-less tile " << tileId << ".";
+    }
+
+    LOG(info1) << "Setting surrogate (" << tileId << "): " << value;
+    auto metanode(*node.metanode);
+    metanode.geomExtents.surrogate = value;
+
+    // update the tree
+    node.update(tileId, metanode);
 }
 
 Mesh TileSet::Detail::getMesh(const TileId &tileId, const MetaNode *node)
@@ -1255,8 +1381,7 @@ void TileSet::Detail::saveMetadata()
 
 void update(TileSet::Properties &properties, const TileIndex &tileIndex)
 {
-    auto ranges(tileIndex.ranges(TileIndex::Flag::mesh
-                                 | TileIndex::Flag::reference));
+    auto ranges(tileIndex.ranges(TileIndex::Flag::mesh));
     properties.lodRange = ranges.first;
     properties.tileRange = ranges.second;
 }
@@ -1703,7 +1828,7 @@ TileSet concatTileSets(const boost::filesystem::path &path
             if (rf.empty()) {
                 rf = prop.referenceFrame;
             } else if (rf != prop.referenceFrame) {
-                LOGTHROW(err1, vadstena::storage::IncompatibleTileSet)
+                LOGTHROW(err1, vtslibs::storage::IncompatibleTileSet)
                     << "Tileset <" << prop.id << "> "
                     "uses different reference frame ("
                     << prop.referenceFrame
@@ -1748,6 +1873,13 @@ void TileSet::relocate(const boost::filesystem::path &root
     Driver::relocate(root, options, prefix);
 }
 
+void TileSet::reencode(const boost::filesystem::path &root
+                       , const ReencodeOptions &options
+                       , const std::string &prefix)
+{
+    Driver::reencode(root, options, prefix);
+}
+
 NodeInfo TileSet::nodeInfo(const TileId &tileId) const
 {
     return NodeInfo(detail().referenceFrame, tileId);
@@ -1788,4 +1920,4 @@ NodeInfo TileSet::rootNode() const {
     return NodeInfo(detail().referenceFrame);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

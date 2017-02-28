@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_2d_hpp_included_
-#define vadstena_libs_vts_2d_hpp_included_
+#ifndef vtslibs_vts_2d_hpp_included_
+#define vtslibs_vts_2d_hpp_included_
 
 #include <iostream>
 
@@ -9,7 +9,7 @@
 #include "./mesh.hpp"
 #include "./tileindex.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 typedef boost::gil::gray8_image_t GrayImage;
 typedef boost::gil::rgb8_image_t RgbImage;
@@ -53,6 +53,6 @@ inline RgbaImage debugMask(const MeshMask &mask, bool singleSourced) {
     return debugMask(mask.coverageMask, mask.surfaceReferences, singleSourced);
 }
 
-} } // vadstena::vts
+} } // vtslibs::vts
 
-#endif // vadstena_libs_vts_2d_hpp_included_
+#endif // vtslibs_vts_2d_hpp_included_

@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_registry_types_hpp_included_
-#define vadstena_libs_registry_types_hpp_included_
+#ifndef vtslibs_registry_types_hpp_included_
+#define vtslibs_registry_types_hpp_included_
 
 #include <vector>
 #include <string>
@@ -15,7 +15,7 @@
 
 #include "../storage/range.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 using storage::Lod;
 using storage::LodRange;
@@ -96,6 +96,6 @@ struct Roi {
     typedef std::vector<Roi> list;
 };
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry
 
-#endif // vadstena_libs_registry_types_hpp_included_
+#endif // vtslibs_registry_types_hpp_included_

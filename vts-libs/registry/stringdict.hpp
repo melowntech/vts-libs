@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_registry_stringdict_hpp_included_
-#define vadstena_libs_registry_stringdict_hpp_included_
+#ifndef vtslibs_registry_stringdict_hpp_included_
+#define vtslibs_registry_stringdict_hpp_included_
 
 #include <map>
 #include <string>
@@ -14,7 +14,7 @@
 
 #include "dbglog/dbglog.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 namespace detail {
 
@@ -152,6 +152,6 @@ void StringDictionary<T>::update(const StringDictionary &other)
     for (const auto &item : other) { map_.insert(item); }
 }
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry
 
-#endif // vadstena_libs_registry_stringdict_hpp_included_
+#endif // vtslibs_registry_stringdict_hpp_included_

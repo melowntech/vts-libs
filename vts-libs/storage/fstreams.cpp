@@ -17,7 +17,7 @@
 
 namespace bio = boost::iostreams;
 
-namespace vadstena { namespace storage {
+namespace vtslibs { namespace storage {
 
 namespace detail {
 
@@ -204,4 +204,4 @@ IStream::pointer fileIStream(TileFile type, const boost::filesystem::path &path
     return std::make_shared<detail::FileIStream>(type, path);
 }
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage

@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_basetypes_hpp_included_
-#define vadstena_libs_vts_basetypes_hpp_included_
+#ifndef vtslibs_vts_basetypes_hpp_included_
+#define vtslibs_vts_basetypes_hpp_included_
 
 #include <new>
 #include <string>
@@ -12,7 +12,7 @@
 #include "../storage/range.hpp"
 #include "../registry.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 using storage::Lod;
 using storage::Range;
@@ -136,6 +136,6 @@ UTILITY_GENERATE_ENUM_IO(FileFlavor,
     ((debug))
 )
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_basetypes_hpp_included_
+#endif // vtslibs_vts_basetypes_hpp_included_

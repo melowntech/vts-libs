@@ -26,7 +26,7 @@
 #include "./merge.hpp"
 #include "./tileset/dump.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace {
 
@@ -1676,4 +1676,4 @@ CloneOptions::Filter CloneOptions::getFilter(TileSet &tileSet) const
     return {};
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

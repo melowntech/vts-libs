@@ -5,8 +5,8 @@
  * Tile set storage view access.
  */
 
-#ifndef vadstena_libs_vts_storageview_hpp_included_
-#define vadstena_libs_vts_storageview_hpp_included_
+#ifndef vtslibs_vts_storageview_hpp_included_
+#define vtslibs_vts_storageview_hpp_included_
 
 #include <memory>
 #include <string>
@@ -22,7 +22,7 @@
 
 #include "./storage.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 /** Properties, imports extra storage properties.
  */
@@ -58,7 +58,7 @@ public:
 
     std::time_t lastModified() const;
 
-    vadstena::storage::Resources resources() const;
+    vtslibs::storage::Resources resources() const;
 
     /** Generates map configuration for this storage view.
      */
@@ -90,6 +90,10 @@ public:
                          , const RelocateOptions &options
                          , const std::string &prefix = "");
 
+    static void reencode(const boost::filesystem::path &root
+                         , const ReencodeOptions &options
+                         , const std::string &prefix = "");
+
     /** Internals. Public to ease library developers' life, not to allow users
      *  to put their dirty hands in the storageview's guts!
      */
@@ -105,6 +109,6 @@ public:
 };
 
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_storageview_hpp_included_
+#endif // vtslibs_vts_storageview_hpp_included_

@@ -9,7 +9,7 @@
 
 #include "${CMAKE_CURRENT_SOURCE_DIR}/registry.hpp"
 
-namespace vadstena { namespace registry {
+namespace vtslibs { namespace registry {
 
 namespace def {
 const char *defaultPathEnv("VTS_LIBS_REGISTRY_PATH");
@@ -31,4 +31,4 @@ boost::filesystem::path defaultPath()
     return def::defaultPath;
 }
 
-} } // namespace vadstena::registry
+} } // namespace vtslibs::registry

@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileop_hpp_included_
-#define vadstena_libs_vts_tileop_hpp_included_
+#ifndef vtslibs_vts_tileop_hpp_included_
+#define vtslibs_vts_tileop_hpp_included_
 
 #include <new>
 
@@ -9,7 +9,7 @@
 #include "./nodeinfo.hpp"
 #include "./types.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 using storage::TileFile;
 using storage::File;
@@ -391,6 +391,6 @@ inline std::string asFilename(const TileId &tileId, TileFile type)
     return asFilename(tileId, type, FileFlavor::regular);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_tileop_hpp_included_
+#endif // vtslibs_vts_tileop_hpp_included_

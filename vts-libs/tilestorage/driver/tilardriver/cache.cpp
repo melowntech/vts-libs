@@ -16,7 +16,7 @@
 #include "../../io.hpp"
 #include "../../../storage/openfiles.hpp"
 
-namespace vadstena { namespace tilestorage { namespace tilardriver {
+namespace vtslibs { namespace tilestorage { namespace tilardriver {
 
 using storage::OpenFiles;
 
@@ -349,4 +349,4 @@ void Cache::rollback()
     metatiles_->discardChanges();
 }
 
-} } } // namespace vadstena::tilestorage::tilardriver
+} } } // namespace vtslibs::tilestorage::tilardriver

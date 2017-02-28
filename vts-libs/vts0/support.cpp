@@ -4,8 +4,8 @@
 #include "vts0/browser/index-offline.html.hpp"
 #include "vts0/browser/skydome.jpg.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 #include "./support.impl.cpp"
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0

@@ -6,7 +6,7 @@
 #include "../tileindex-io.hpp"
 #include "../tileopext.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace {
     const char *TILEINDEX_DUMP_ROOT("TILEINDEX_DUMP_ROOT");
@@ -552,4 +552,4 @@ void TileSet::paste(const list &update)
     det.filterHeightmap(changed);
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

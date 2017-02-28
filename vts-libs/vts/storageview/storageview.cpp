@@ -76,7 +76,7 @@ fs::path relpath(const fs::path &src, const fs::path &dst)
 
 } // namespace utility
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 StorageView::StorageView(const boost::filesystem::path &path)
     : detail_(std::make_shared<Detail>(path))
@@ -111,7 +111,7 @@ StorageView::Properties StorageView::Detail::loadConfig(const fs::path &path)
         // load config
         return storageview::loadConfig(path);
     } catch (const std::exception &e) {
-        LOGTHROW(err1, vadstena::storage::Error)
+        LOGTHROW(err1, vtslibs::storage::Error)
             << "Unable to read config: <" << e.what() << ">.";
     }
     throw;
@@ -154,7 +154,7 @@ bool StorageView::externallyChanged() const
     return detail().externallyChanged();
 }
 
-vadstena::storage::Resources StorageView::resources() const
+vtslibs::storage::Resources StorageView::resources() const
 {
     return {};
 }
@@ -220,4 +220,20 @@ void StorageView::relocate(const boost::filesystem::path &root
     Storage::relocate(res.follow, ro, prefix + "    ");
 }
 
-} } // namespace vadstena::vts
+void StorageView::reencode(const boost::filesystem::path &root
+                           , const ReencodeOptions &ro
+                           , const std::string &prefix)
+{
+    if (ro.dryRun) {
+        LOG(info3) << prefix << "Simulating reencode of storageview "
+                   << root << ".";
+    } else {
+        LOG(info3) << prefix << "Relocating " << root << ".";
+    }
+
+    auto config(storageview::loadConfig(root));
+
+    Storage::reencode(config.storagePath, ro, prefix + "    ");
+}
+
+} } // namespace vtslibs::vts

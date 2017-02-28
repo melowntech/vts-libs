@@ -6,13 +6,13 @@
  *
  */
 
-#ifndef vadstena_libs_vts0_tileset_advanced_hpp_included_
-#define vadstena_libs_vts0_tileset_advanced_hpp_included_
+#ifndef vtslibs_vts0_tileset_advanced_hpp_included_
+#define vtslibs_vts0_tileset_advanced_hpp_included_
 
 #include "../storage/streams.hpp"
 #include "./tileset.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 using storage::IStream;
 using storage::OStream;
@@ -129,15 +129,15 @@ private:
 template <typename Op>
 void TileSet::AdvancedApi::traverseTiles(const Op &op) const
 {
-    ::vadstena::vts0::traverseTiles(tileIndex(), op);
+    ::vtslibs::vts0::traverseTiles(tileIndex(), op);
 }
 
 template <typename Op>
 void TileSet::AdvancedApi::traverseMetas(const Op &op) const
 {
-    ::vadstena::vts0::traverseTiles(metaIndex(), op);
+    ::vtslibs::vts0::traverseTiles(metaIndex(), op);
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts0_tileset_advanced_hpp_included_
+#endif // vtslibs_vts0_tileset_advanced_hpp_included_

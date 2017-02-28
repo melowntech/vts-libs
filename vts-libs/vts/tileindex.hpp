@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileindex_hpp_included_
-#define vadstena_libs_vts_tileindex_hpp_included_
+#ifndef vtslibs_vts_tileindex_hpp_included_
+#define vtslibs_vts_tileindex_hpp_included_
 
 #include <map>
 
@@ -9,7 +9,7 @@
 #include "./basetypes.hpp"
 #include "./tileop.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 class TileIndex {
 public:
@@ -24,23 +24,23 @@ public:
             , watertight = 0x02 // tile's mesh has no holes
             , atlas = 0x04
             , navtile = 0x08
-            , alien = 0x20 // alien tile share value with reference
-            , reference = 0x20
+            // 0x10 free, probably bottom tile belongs here
+            , alien = 0x20 // alien tile shared value with reference in the past
             , multimesh = 0x40 // tile's mesh has multiple submeshes
 
             // tile is real if it contains mesh
             , real = mesh
 
-            // content: tile has some content
+            // (mask) content: tile has some content
             , content = (mesh | atlas | navtile)
 
-            // flags not present in metatiles
+            // (mask) flags not present in metatiles
             , nonmeta = (watertight | multimesh)
 
-            // any flags
+            // (mask) any flags
             , any = 0xff
 
-            // all flags without alien flag
+            // (mask) all flags without alien flag
             , nonAlien = any & ~alien
 
             // no flag set
@@ -248,6 +248,10 @@ public:
     /** Get statistics for all tiles with given mask and value.
      */
     Stat statMask(QTree::value_type mask, QTree::value_type value) const;
+
+    /** Get statistics for all tiles under given root with given mask.
+     */
+    Stat statMask(QTree::value_type mask, const TileId &root) const;
 
     /** Compute tile and lod range for given for all tiles satisfying given
      *  mask. Uses statMask(mask) internally.
@@ -563,6 +567,6 @@ void TileIndex::update(Lod lod, const TileRange &range, Op op
     }
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_tileindex_hpp_included_
+#endif // vtslibs_vts_tileindex_hpp_included_

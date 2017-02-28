@@ -16,7 +16,7 @@
 #include "../../io.hpp"
 #include "./cache.hpp"
 
-namespace vadstena { namespace vts0 { namespace tilardriver {
+namespace vtslibs { namespace vts0 { namespace tilardriver {
 
 namespace {
 
@@ -344,4 +344,4 @@ void Cache::rollback()
     metatiles_->discardChanges();
 }
 
-} } } // namespace vadstena::vts0::tilardriver
+} } } // namespace vtslibs::vts0::tilardriver

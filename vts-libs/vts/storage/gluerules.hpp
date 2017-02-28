@@ -5,14 +5,14 @@
  * Tile set glue creation rules
  */
 
-#ifndef vadstena_libs_vts_storage_gluerules_hpp_included_
-#define vadstena_libs_vts_storage_gluerules_hpp_included_
+#ifndef vtslibs_vts_storage_gluerules_hpp_included_
+#define vtslibs_vts_storage_gluerules_hpp_included_
 
 #include <memory>
 
 #include "../storage.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 /** Glue creation rule.
  */
@@ -114,6 +114,6 @@ inline GlueRule::MatcherBase::pointer GlueRule::MatcherBase::clone() const
     return clone_impl();
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_storage_gluerules_hpp_included_
+#endif // vtslibs_vts_storage_gluerules_hpp_included_

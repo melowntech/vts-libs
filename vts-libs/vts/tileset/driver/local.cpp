@@ -16,11 +16,11 @@
 #include "../detail.hpp"
 #include "./local.hpp"
 
-namespace vadstena { namespace vts { namespace driver {
+namespace vtslibs { namespace vts { namespace driver {
 
 namespace fs = boost::filesystem;
 
-namespace vs = vadstena::storage;
+namespace vs = vtslibs::storage;
 
 namespace {
 
@@ -232,4 +232,16 @@ boost::any LocalOptions::relocate(const RelocateOptions &options
     return ret;
 }
 
-} } } // namespace vadstena::vts::driver
+bool LocalDriver::reencode(const boost::filesystem::path &root
+                           , const LocalOptions &driverOptions
+                           , const ReencodeOptions &options
+                           , const std::string &prefix)
+{
+    LOG(info3)
+        << prefix << "Following " << root << " -> "
+        << driverOptions.path << ".";
+    Driver::reencode(driverOptions.path, options, prefix);
+    return !options.dryRun && !options.cleanup;
+}
+
+} } } // namespace vtslibs::vts::driver

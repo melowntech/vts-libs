@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_vts0_properties_hpp_included_
-#define vadstena_libs_vts0_properties_hpp_included_
+#ifndef vtslibs_vts0_properties_hpp_included_
+#define vtslibs_vts0_properties_hpp_included_
 
 #include <map>
 
@@ -13,7 +13,7 @@
 
 #include "./basetypes.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 
 /** Driver properties.
@@ -316,6 +316,6 @@ CreateProperties::settableSetter()
     return { settableProperties, this };
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts0_properties_hpp_included_
+#endif // vtslibs_vts0_properties_hpp_included_

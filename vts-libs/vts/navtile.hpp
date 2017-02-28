@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_navtile_hpp
-#define vadstena_libs_vts_navtile_hpp
+#ifndef vtslibs_vts_navtile_hpp
+#define vtslibs_vts_navtile_hpp
 
 #include <cstdlib>
 #include <memory>
@@ -14,7 +14,7 @@
 
 #include "./multifile.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 class NavTile {
 public:
@@ -22,7 +22,11 @@ public:
     typedef storage::Range<std::int16_t> HeightRange;
     typedef imgproc::quadtree::RasterMask CoverageMask;
 
-    static const math::Size2i size() { return math::Size2i(256, 256); };
+    static constexpr int binOrder = 8; // bits
+    static constexpr int width = (1 << binOrder);
+    static constexpr int height = (1 << binOrder);
+
+    static const math::Size2i size() { return math::Size2i(width, height); };
 
     NavTile() : coverageMask_(size(), CoverageMask::InitMode::FULL) {}
 
@@ -92,6 +96,6 @@ private:
     CoverageMask coverageMask_;
 };
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_navtile_hpp
+#endif // vtslibs_vts_navtile_hpp

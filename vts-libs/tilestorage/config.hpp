@@ -3,8 +3,8 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_tilestorage_config_hpp_included_
-#define vadstena_libs_tilestorage_config_hpp_included_
+#ifndef vtslibs_tilestorage_config_hpp_included_
+#define vtslibs_tilestorage_config_hpp_included_
 
 #include <iostream>
 
@@ -12,7 +12,7 @@
 
 #include "./properties.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 Properties loadConfig(std::istream &in);
 
@@ -23,6 +23,6 @@ Properties loadConfig(const boost::filesystem::path &path);
 void saveConfig(const boost::filesystem::path &path
                 , const Properties &properties);
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_config_hpp_included_
+#endif // vtslibs_tilestorage_config_hpp_included_

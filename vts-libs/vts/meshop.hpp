@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_meshop_hpp
-#define vadstena_libs_vts_meshop_hpp
+#ifndef vtslibs_vts_meshop_hpp
+#define vtslibs_vts_meshop_hpp
 
 #include <functional>
 
@@ -8,7 +8,7 @@
 #include "./opencv/atlas.hpp"
 #include "./basetypes.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 /** Mesh enhanced with projected data.
  */
@@ -178,6 +178,6 @@ inline SubMesh clip(const SubMesh &mesh
     return clip(mesh, mesh.vertices, projectedExtents, mask);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_meshop_hpp
+#endif // vtslibs_vts_meshop_hpp

@@ -10,7 +10,7 @@
 
 #include "./atlas.hpp"
 
-namespace vadstena { namespace vts { namespace opencv {
+namespace vtslibs { namespace vts { namespace opencv {
 
 namespace {
 
@@ -244,4 +244,56 @@ math::Size2 HybridAtlas::imageSize_impl(std::size_t index) const
     return imgproc::jpegSize(entry.raw.data(), entry.raw.size());
 }
 
-} } } // namespace vadstena::vts::opencv
+Atlas::Atlas(const vts::Atlas &atlas, int textureQuality)
+    : quality_(textureQuality)
+{
+    if (const auto *in = dynamic_cast<const RawAtlas*>(&atlas)) {
+        for (const auto &image : in->get()) {
+            images_.push_back(jpeg2mat(image));
+        }
+        return;
+    }
+
+    if (const auto *in = dynamic_cast<const opencv::Atlas*>(&atlas)) {
+        images_ = in->get();
+        return;
+    }
+
+    if (const auto *in = dynamic_cast<const HybridAtlas*>(&atlas)) {
+        for (std::size_t i(0), e(in->size()); i != e; ++i) {
+            images_.push_back(in->get(i));
+        }
+        return;
+    }
+
+    LOGTHROW(err1, storage::Unimplemented)
+        << "Cannot extract images from provided atlas.";
+}
+
+HybridAtlas::HybridAtlas(const Atlas &atlas, int textureQuality)
+    : quality_(textureQuality)
+{
+    if (const auto *in = dynamic_cast<const RawAtlas*>(&atlas)) {
+        for (const auto &image : in->get()) {
+            entries_.emplace_back(image);
+        }
+        return;
+    }
+
+    if (const auto *in = dynamic_cast<const opencv::Atlas*>(&atlas)) {
+        for (const auto &image : in->get()) {
+            entries_.emplace_back(image);
+        }
+        return;
+    }
+
+    if (const auto *in = dynamic_cast<const HybridAtlas*>(&atlas)) {
+        entries_ = in->entries_;
+        return;
+    }
+
+    LOGTHROW(err1, storage::Unimplemented)
+        << "Cannot extract images from provided atlas.";
+}
+
+} } } // namespace vtslibs::vts::opencv

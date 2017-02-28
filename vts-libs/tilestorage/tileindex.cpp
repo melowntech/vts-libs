@@ -14,7 +14,7 @@
 #include "./io.hpp"
 #include "./tileindex-io.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace fs = boost::filesystem;
 
@@ -605,4 +605,4 @@ std::size_t TileIndex::count() const
     return total;
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

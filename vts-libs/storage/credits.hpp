@@ -3,18 +3,19 @@
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
  */
 
-#ifndef vadstena_libs_storage_credits_hpp_included_
-#define vadstena_libs_storage_credits_hpp_included_
+#ifndef vtslibs_storage_credits_hpp_included_
+#define vtslibs_storage_credits_hpp_included_
 
 #include <cstdint>
-#include <set>
 
-namespace vadstena { namespace storage {
+#include "utility/small_set.hpp"
+
+namespace vtslibs { namespace storage {
 
 typedef std::uint16_t CreditId;
 
-typedef std::set<CreditId> CreditIds;
+typedef utility::small_set<CreditId> CreditIds;
 
-} } // namespace vadstena::storage
+} } // namespace vtslibs::storage
 
-#endif // vadstena_libs_storage_credits_hpp_included_
+#endif // vtslibs_storage_credits_hpp_included_

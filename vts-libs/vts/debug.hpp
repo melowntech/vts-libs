@@ -1,10 +1,10 @@
-#ifndef vadstena_libs_vts_debug_hpp_included_
-#define vadstena_libs_vts_debug_hpp_included_
+#ifndef vtslibs_vts_debug_hpp_included_
+#define vtslibs_vts_debug_hpp_included_
 
 #include "./tileindex.hpp"
 #include "./mapconfig.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 struct DebugNode {
     std::uint32_t indexFlags;
@@ -15,6 +15,6 @@ DebugNode getNodeDebugInfo(const TileIndex &tileIndex, const TileId &tileId);
 
 void saveDebug(std::ostream &out, const DebugNode &debugNode);
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_debug_hpp_included_
+#endif // vtslibs_vts_debug_hpp_included_

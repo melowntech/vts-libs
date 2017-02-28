@@ -5,8 +5,8 @@
  * Store.
  */
 
-#ifndef vadstena_libs_tilestorage_storage_hpp_included_
-#define vadstena_libs_tilestorage_storage_hpp_included_
+#ifndef vtslibs_tilestorage_storage_hpp_included_
+#define vtslibs_tilestorage_storage_hpp_included_
 
 #include <memory>
 #include <map>
@@ -18,7 +18,7 @@
 
 #include "./properties.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 /** Tile set descriptor.
  */
@@ -120,6 +120,6 @@ inline void Storage::removeTileSet(const std::string &id
     return removeTileSets({id}, runnable);
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage
 
-#endif // vadstena_libs_tilestorage_storage_hpp_included_
+#endif // vtslibs_tilestorage_storage_hpp_included_

@@ -19,9 +19,10 @@
 #include "../../../storage/fstreams.hpp"
 #include "../../io.hpp"
 #include "../config.hpp"
+#include "../extra.hpp"
 #include "./plain.hpp"
 
-namespace vadstena { namespace vts { namespace driver {
+namespace vtslibs { namespace vts { namespace driver {
 
 namespace fs = boost::filesystem;
 
@@ -180,4 +181,15 @@ boost::any PlainOptions::relocate(const RelocateOptions&
     return {};
 }
 
-} } } // namespace vadstena::vts::driver
+bool PlainDriver::reencode(const boost::filesystem::path &root
+                           , const PlainOptions&
+                           , const ReencodeOptions &options
+                           , const std::string&)
+{
+    if (!options.dryRun) {
+        reencodeTileSet(root, options);
+    }
+    return false;
+}
+
+} } } // namespace vtslibs::vts::driver

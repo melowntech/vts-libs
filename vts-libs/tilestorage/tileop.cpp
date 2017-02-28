@@ -8,7 +8,7 @@
 #include "./tileop.hpp"
 #include "./io.hpp"
 
-namespace vadstena { namespace tilestorage {
+namespace vtslibs { namespace tilestorage {
 
 namespace {
     const std::string MetaExt("meta");
@@ -125,4 +125,4 @@ void misaligned(const Alignment &alignment, long baseTileSize
         << ")/" << baseTileSize << ".";
 }
 
-} } // namespace vadstena::tilestorage
+} } // namespace vtslibs::tilestorage

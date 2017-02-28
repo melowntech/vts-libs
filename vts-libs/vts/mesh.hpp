@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_mesh_hpp
-#define vadstena_libs_vts_mesh_hpp
+#ifndef vtslibs_vts_mesh_hpp
+#define vtslibs_vts_mesh_hpp
 
 #include <cstdint>
 #include <iosfwd>
@@ -16,8 +16,10 @@
 
 #include "./qtree.hpp"
 #include "./multifile.hpp"
+#include "./geomextents.hpp"
+#include "./csconvertor.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 typedef math::Point3_<std::uint32_t> Point3u32;
 typedef Point3u32 Face;
@@ -205,6 +207,29 @@ std::uint32_t extraFlags(const Mesh::pointer &mesh);
 math::Extents3 extents(const SubMesh &submesh);
 math::Extents3 extents(const Mesh &mesh);
 
+/** Calculates geom-extents.
+ *  NB: vertices must be in SDS to work properly.
+ */
+GeomExtents geomExtents(const math::Points3d &vertices);
+
+/** Calculates geom-extents.
+ *  NB: vertices must be in SDS to work properly.
+ */
+GeomExtents geomExtents(const SubMesh &submesh);
+
+/** Calculates geom-extents.
+ *  NB: vertices must be in SDS to work properly.
+ */
+GeomExtents geomExtents(const Mesh &mesh);
+
+/** Calculates geom-extents. Convert to SDS system using provided convertor.
+ */
+GeomExtents geomExtents(const CsConvertor &conv, const SubMesh &submesh);
+
+/** Calculates geom-extents. Convert to SDS system using provided convertor.
+ */
+GeomExtents geomExtents(const CsConvertor &conv, const Mesh &mesh);
+
 /** Returns mesh and texture area for given submesh
  */
 SubMeshArea area(const SubMesh &submesh);
@@ -215,6 +240,14 @@ SubMeshArea area(const SubMesh &submesh);
  *  Prerequisite: mask.size() == submesh.vertices.size()
  */
 SubMeshArea area(const SubMesh &submesh, const VertexMask &mask);
+
+/** Simple area of 3D submesh.
+ */
+double area3d(const SubMesh &submesh);
+
+/** Simple area of 3D submesh.
+ */
+double area3d(const SubMesh &submesh, const VertexMask &mask);
 
 /** Low-level area calculator.
  */
@@ -356,6 +389,18 @@ inline MeshMask loadMeshMask(const storage::IStream::pointer &in)
     return loadMeshMask(*in, in->name());
 }
 
-} } // namespace vadstena::vts
+inline double area3d(const SubMesh &submesh)
+{
+    return area(submesh.vertices, submesh.faces, nullptr, nullptr, nullptr)
+        .mesh;
+}
 
-#endif // vadstena_libs_vts_mesh_hpp
+inline double area3d(const SubMesh &submesh, const VertexMask &mask)
+{
+    return area(submesh.vertices, submesh.faces, nullptr, nullptr, nullptr
+                , &mask).mesh;
+}
+
+} } // namespace vtslibs::vts
+
+#endif // vtslibs_vts_mesh_hpp

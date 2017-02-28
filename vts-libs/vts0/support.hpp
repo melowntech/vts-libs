@@ -5,8 +5,8 @@
  * Support files
  */
 
-#ifndef vadstena_libs_vts0_support_hpp_included_
-#define vadstena_libs_vts0_support_hpp_included_
+#ifndef vtslibs_vts0_support_hpp_included_
+#define vtslibs_vts0_support_hpp_included_
 
 #include <cstddef>
 #include <ctime>
@@ -15,10 +15,10 @@
 
 #include "../storage/support.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 extern const storage::SupportFile::Files supportFiles;
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts0_support_hpp_included_
+#endif // vtslibs_vts0_support_hpp_included_

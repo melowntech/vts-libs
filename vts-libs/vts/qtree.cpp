@@ -19,7 +19,7 @@ namespace bin = utility::binaryio;
 #  define QTREE_DEBUG_IO(...)
 #endif
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 namespace detail {
     enum : QTree::value_type { GrayNode = 0xff };
@@ -797,4 +797,4 @@ void QTree::Node::force(value_type newValue)
     if (value) { value = newValue; }
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts

@@ -1,5 +1,5 @@
-#ifndef vadstena_libs_vts_tileset_driver_hpp_included_
-#define vadstena_libs_vts_tileset_driver_hpp_included_
+#ifndef vtslibs_vts_tileset_driver_hpp_included_
+#define vtslibs_vts_tileset_driver_hpp_included_
 
 #include <set>
 #include <map>
@@ -16,7 +16,7 @@
 #include "./driver/options.hpp"
 #include "./tilesetindex.hpp"
 
-namespace vadstena { namespace vts {
+namespace vtslibs { namespace vts {
 
 using storage::OStream;
 using storage::IStream;
@@ -183,6 +183,12 @@ public:
      */
     static void relocate(const boost::filesystem::path &root
                          , const RelocateOptions &relocateOptions
+                         , const std::string &prefix = "");
+
+    /** Recursive tileset reencode.
+     */
+    static void reencode(const boost::filesystem::path &root
+                         , const ReencodeOptions &options
                          , const std::string &prefix = "");
 
 protected:
@@ -448,6 +454,6 @@ inline FileStat Driver::stat(const std::string &name) const
     return stat_impl(name);
 }
 
-} } // namespace vadstena::vts
+} } // namespace vtslibs::vts
 
-#endif // vadstena_libs_vts_tileset_driver_hpp_included_
+#endif // vtslibs_vts_tileset_driver_hpp_included_

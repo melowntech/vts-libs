@@ -5,8 +5,8 @@
  * VTS base types.
  */
 
-#ifndef vadstena_libs_vts0_basetypes_hpp_included_
-#define vadstena_libs_vts0_basetypes_hpp_included_
+#ifndef vtslibs_vts0_basetypes_hpp_included_
+#define vtslibs_vts0_basetypes_hpp_included_
 
 #include <string>
 
@@ -15,7 +15,7 @@
 
 #include "math/geometry_core.hpp"
 
-namespace vadstena { namespace vts0 {
+namespace vtslibs { namespace vts0 {
 
 using storage::Lod;
 using storage::Range;
@@ -110,6 +110,6 @@ inline Point2l point(const TileId &tid)
     return { tid.x, tid.y };
 }
 
-} } // namespace vadstena::vts0
+} } // namespace vtslibs::vts0
 
-#endif // vadstena_libs_vts0_basetypes_hpp_included_
+#endif // vtslibs_vts0_basetypes_hpp_included_
