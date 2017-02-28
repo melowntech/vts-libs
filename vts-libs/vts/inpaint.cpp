@@ -19,4 +19,4 @@ Atlas::pointer inpaint(const Atlas &atlas, const Mesh &mesh
     return {};
 }
 
-} // namespace vtslibs::vts
+} } // namespace vtslibs::vts
