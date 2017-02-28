@@ -189,11 +189,11 @@ TarDriver::TarDriver(const boost::filesystem::path &root
     , tarPath_(absolute(root)), reader_(tarPath_)
     , openStat_(FileStat::stat(tarPath_))
 {
-    utility::tar::Block block;
+    utility::tar::Header header;
     TileId tileId;
     TileFile type;
-    const auto &header(block.header);
-    while (reader_.read(block)) {
+
+    while (reader_.read(header)) {
         if (!header.valid()) {
             continue;
         }
