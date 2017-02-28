@@ -23,6 +23,7 @@ namespace {
 
 } // namespace
 
+constexpr int NavTile::binOrder;
 constexpr int NavTile::width;
 constexpr int NavTile::height;
 
