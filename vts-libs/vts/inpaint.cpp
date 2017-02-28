@@ -1,3 +1,7 @@
+#include "dbglog/dbglog.hpp"
+
+#include "../storage/error.hpp"
+
 #include "./atlas.hpp"
 
 namespace vtslibs { namespace vts {
