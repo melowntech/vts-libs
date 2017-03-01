@@ -887,7 +887,7 @@ void Storage::reencode(const boost::filesystem::path &root
     // virtual surfaces: just version bump, do not descend down (imminent
     // infinite recursion)
     auto vsRo(ro);
-    ro.descend = false;
+    vsRo.descend = false;
     for (const auto &virtualSurface : config.virtualSurfaces) {
         TileSet::reencode(storage_paths::virtualSurfacePath
                           (root, virtualSurface.second)
