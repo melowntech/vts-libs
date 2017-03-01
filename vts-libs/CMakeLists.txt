@@ -269,6 +269,7 @@ if(OpenCV_FOUND)
     vts/opencv/navtile.hpp vts/opencv/navtile.cpp
     vts/opencv/colors.hpp vts/opencv/colors.cpp
     vts/opencv/inpaint.cpp
+    vts/opencv/texture.hpp vts/opencv/texture.cpp
     )
   list(APPEND vts-core_EXTRA_DEPENDS OpenCV)
 else()
