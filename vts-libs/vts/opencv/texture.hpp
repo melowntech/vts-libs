@@ -26,6 +26,13 @@ inline math::Points2d denormalize(const math::Points2d &ps
 void rasterizeMask(cv::Mat &mask, const Faces &faces
                    , const math::Points2d &tc);
 
+/** Rasterizes triangle mesh into mask. Each pixel is dilated by one pixel to
+ *  the left and top (because it is automatically dilated to the opposite side
+ *  by scan convert rasterization algo.
+ */
+void rasterizeMaskLegacy(cv::Mat &mask, const Faces &faces
+                         , const math::Points2d &tc);
+
 } } } // namespace vtslibs::vts::opencv
 
 #endif // vtslibs_vts_opencv_texture_hpp

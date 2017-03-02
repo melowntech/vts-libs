@@ -12,7 +12,6 @@
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <opencv2/photo/photo.hpp>
 
 #include "utility/streams.hpp"
 #include "utility/expect.hpp"
@@ -84,44 +83,6 @@ inline math::Point2d normalize(const imgproc::UVCoord &uv
             , 1.0 - uv.y / texSize.height };
 }
 
-/** Rasterizes triangle mesh into mask. Each pixel is dilated by one pixel to
- *  the left and top (because it is automatically dilated to the opposite side
- *  by scan convert rasterization algo.
- */
-void rasterizeMaskLegacy(cv::Mat &mask, const Faces &faces
-                         , const math::Points2d &tc)
-{
-    const auto white(cv::Scalar(0xff));
-    const cv::Rect bounds(0, 0, mask.cols, mask.rows);
-
-    auto paint([&](int x, int y, int w, int h) -> void
-    {
-        cv::Rect r(x, y, w, h);
-        cv::rectangle(mask, r & bounds, white, CV_FILLED, 4);
-    });
-
-    cv::Point3f tri[3];
-    for (const auto &face : faces) {
-        for (int i : { 0, 1, 2 }) {
-            const auto &p(tc[face(i)]);
-            tri[i] = { float(p(0)), float(p(1)), 0.f };
-            paint(p(0), p(1), 1, 1);
-        }
-
-        // rasterize triangle
-        std::vector<imgproc::Scanline> scanlines;
-        imgproc::scanConvertTriangle(tri, 0, mask.rows, scanlines);
-
-        for (const auto &sl : scanlines) {
-            imgproc::processScanline(sl, 0, mask.cols
-                                     , [&](int x, int y, float)
-            {
-                paint(x - 1, y - 1, 2, 2);
-            });
-        }
-    }
-}
-
 class TextureInfo {
 public:
     TextureInfo(const SubMesh &sm, const cv::Mat &texture
@@ -132,7 +93,7 @@ public:
     {
         switch (options.atlasPacking) {
         case SubmeshMergeOptions::AtlasPacking::legacy:
-            rasterizeMaskLegacy(mask_, faces_, tc_);
+            opencv::rasterizeMaskLegacy(mask_, faces_, tc_);
             break;
         case SubmeshMergeOptions::AtlasPacking::progressive:
             opencv::rasterizeMask(mask_, faces_, tc_);
