@@ -26,6 +26,9 @@
 
 namespace vtslibs { namespace vts {
 
+constexpr HeightMapBase::DataType HeightMapBase::Infinity;
+constexpr HeightMapBase::DataType HeightMapBase::InvalidHeight;
+
 namespace def {
 const auto *DumpDir(::getenv("HEIGHTMAP_DUMP_DIR"));
 } // namespace def

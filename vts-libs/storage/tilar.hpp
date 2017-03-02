@@ -251,6 +251,10 @@ public:
      */
     State state() const;
 
+    /** Detaches if file has been changed and returns previous state.
+     */
+    State detachIfChanged();
+
     /** Returns path to archive file.
      */
     boost::filesystem::path path() const;

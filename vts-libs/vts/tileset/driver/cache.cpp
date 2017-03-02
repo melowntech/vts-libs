@@ -1,3 +1,5 @@
+#include <mutex>
+
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/crc.hpp>
@@ -19,6 +21,8 @@
 namespace vtslibs { namespace vts { namespace driver {
 
 namespace {
+
+typedef std::lock_guard<std::mutex> LockGuard;
 
 Tilar::ContentTypes tileContentTypes({ "", "image/jpeg" });
 Tilar::ContentTypes metatileContentTypes;
@@ -109,6 +113,7 @@ struct Cache::Archives
     const std::string extension;
     const Tilar::Options options;
     const bool readOnly;
+    mutable std::mutex mutex;
     Map map;
     const Tilar::ContentTypes &contentTypes;
 
@@ -122,24 +127,30 @@ struct Cache::Archives
     fs::path filePath(const TileId &index) const;
 
     void flush() {
-        finish([](Tilar &tilar) { tilar.commit(); });
+        LockGuard lock(mutex);
+        finish(lock, [](Tilar &tilar) { tilar.commit(); });
+    }
+
+    std::size_t openFiles() const {
+        LockGuard lock(mutex);
+        return map.size();
     }
 
 private:
-    void houseKeeping(const TileId *keep = nullptr);
+    void houseKeeping(LockGuard&, const TileId *keep = nullptr);
 
     template <typename Idx, typename Iterator>
-    inline void hit(Idx &idx, Iterator iterator) {
+    inline void hit(LockGuard&, Idx &idx, Iterator iterator) {
         idx.modify(iterator, [](Record &r) { r.hit(); });
     }
 
     template <typename Idx, typename Iterator>
-    inline void infinity(Idx &idx, Iterator iterator) {
+    inline void infinity(LockGuard&, Idx &idx, Iterator iterator) {
         idx.modify(iterator, [](Record &r) { r.infinity(); });
     }
 
     template <typename Op>
-    void finish(Op op) {
+    void finish(LockGuard&, Op op) {
         for (auto iidx(map.begin()); iidx != map.end(); ) {
             op(*iidx->tilar());
             iidx = map.erase(iidx);
@@ -204,7 +215,7 @@ Tilar tilar(const fs::path &path, const Tilar::Options &options
 
 Cache::~Cache() = default;
 
-void Cache::Archives::houseKeeping(const TileId *keep)
+void Cache::Archives::houseKeeping(LockGuard &lock, const TileId *keep)
 {
     if (!storage::OpenFiles::critical()) { return; }
 
@@ -230,7 +241,7 @@ void Cache::Archives::houseKeeping(const TileId *keep)
 
         auto &file(*iidx->tilar());
 
-        switch (file.state()) {
+        switch (file.detachIfChanged()) {
         case Tilar::State::detached:
             // NB: this should be never seen
             LOG(debug)
@@ -260,18 +271,15 @@ void Cache::Archives::houseKeeping(const TileId *keep)
         case Tilar::State::changed:
             // file is changed -> ask to detach
             LOG(debug)
-                << "Asking to detach changed file "
+                << "Asked to detach changed file "
                 << file.path() << '/' << iidx->lastHit << ".";
-
-            // ask for file detachment
-            file.detach();
 
             // hit -> move to the future, next time this is function is called
             // we will not encounter this detached file again
             {
                 auto old(iidx);
                 ++iidx;
-                infinity(idx, old);
+                infinity(lock, idx, old);
             }
 
             // mark one more dropped file
@@ -283,16 +291,18 @@ void Cache::Archives::houseKeeping(const TileId *keep)
 
 Tilar* Cache::Archives::open(const TileId &archive, bool noSuchFile)
 {
+    LockGuard lock(mutex);
+
     auto fmap(map.find(archive));
     if (fmap != map.end()) {
-        hit(map, fmap);
+        hit(lock, map, fmap);
         // housekeeping, we want to keep found file
-        houseKeeping(&fmap->index);
+        houseKeeping(lock, &fmap->index);
         return fmap->tilar();
     }
 
     // housekeeping before open
-    houseKeeping();
+    houseKeeping(lock);
 
     auto path(filePath(archive));
     auto file(tilar(path, options, readOnly, noSuchFile));
@@ -338,9 +348,9 @@ FileStat Cache::stat(const TileId tileId, TileFile type)
 
 storage::Resources Cache::resources()
 {
-    return { (tiles_->map.size()
-              + metatiles_->map.size()
-              + navtiles_->map.size())
+    return { (tiles_->openFiles()
+              + metatiles_->openFiles()
+              + navtiles_->openFiles())
             , 0 };
 }
 

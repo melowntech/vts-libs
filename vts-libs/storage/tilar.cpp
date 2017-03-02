@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <sstream>
 #include <array>
+#include <mutex>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -442,7 +443,7 @@ private:
     std::uint32_t overhead_;
     std::uint64_t timestamp_;
 
-    bool changed_;
+    std::atomic<bool> changed_;
     std::uint32_t loadedFrom_;
 };
 
@@ -658,7 +659,6 @@ struct Tilar::Detail
         wannaWrite("start a transaction (index=%s, start=%s)"
                    , index, start);
         if (tx) {
-            abort();
             LOGTHROW(err2, PendingTransaction)
                 << "Cannot begin a transaction: pending "
                 "transaction in archive "  << fd.path() << ".";
@@ -745,6 +745,20 @@ struct Tilar::Detail
         return State::pristine;
     }
 
+    State detachIfChanged() {
+        std::lock_guard<std::mutex> lock(mutex);
+
+        if (!fd) {
+            return State::detached;
+        } else if (pendingDetachment_) {
+            return State::detaching;
+        } else if (changed()) {
+            detach();
+            return State::changed;
+        }
+        return State::pristine;
+    }
+
     fs::path path() const { return fd.path(); }
 
     Version version;
@@ -770,6 +784,10 @@ struct Tilar::Detail
 
     ContentTypes contentTypes;
 
+    std::mutex mutex;
+
+    struct ShareCount;
+
 private:
     /** Number of open streams.
      */
@@ -777,10 +795,26 @@ private:
 
     /** Pending detachment: file is detached once shareCount drops to zero.
      */
-    bool pendingDetachment_;
+    std::atomic<bool> pendingDetachment_;
 
     void detachFile();
     void attachFile();
+};
+
+const struct LockTag_t {} LockTag;
+
+/** RAII wrapper for updating share count
+ */
+struct Tilar::Detail::ShareCount {
+    ShareCount(const Tilar::Detail::pointer &owner, const LockTag_t&)
+        : owner(owner), writeLock(owner->mutex) { owner->share(); }
+
+    ShareCount(const Tilar::Detail::pointer &owner)
+        : owner(owner) { owner->share(); }
+
+    ~ShareCount() { owner->unshare(); }
+    Tilar::Detail::pointer owner;
+    std::unique_lock<std::mutex> writeLock;
 };
 
 void Tilar::Detail::commitChanges()
@@ -816,6 +850,7 @@ void Tilar::Detail::detach()
 {
     if (shareCount_) {
         pendingDetachment_ = true;
+        return;
     }
     detachFile();
 }
@@ -979,25 +1014,30 @@ Tilar Tilar::create(const fs::path &path, const Options &options
              (*version, options, std::move(fd), false, 0) };
 }
 
-class Tilar::Device {
+class Tilar::Device : Tilar::Detail::ShareCount {
 public:
     typedef char char_type;
 
     struct Append {};
 
-    // write constructor
+    /** write constructor
+     *  owner is locked while time this device exists
+     */
     Device(const Tilar::Detail::pointer &owner, const FileIndex &index, Append)
-        : owner(owner), path(owner->getFd().path()), index(index)
+        : ShareCount(owner, LockTag)
+        , path(owner->getFd().path()), index(index)
         , start(seekFromEnd(owner->getFd())), pos(start)
         , end(0), writeEnd(0)
     {
         owner->begin(index, start);
-        owner->share();
     }
 
-    // read constructor
+    /** read constructor
+     *  owner is not locked
+     */
     Device(const Tilar::Detail::pointer &owner, const FileIndex &index)
-        : owner(owner), path(owner->getFd().path()), index(index)
+        : ShareCount(owner)
+        , path(owner->getFd().path()), index(index)
         , start(0), pos(0), end(0), writeEnd(0)
     {
         const auto &slot(owner->index.get(index));
@@ -1011,14 +1051,11 @@ public:
         // update
         pos = start = slot.start;
         end = slot.end();
-
-        owner->share();
     }
 
     ~Device() {
         if (end || !pos) {
             // read-only access or already commited
-            owner->unshare();
             return;
         }
 
@@ -1030,7 +1067,6 @@ public:
             LOG(warn1) << "Rolling back file.";
             owner->rollback();
         } catch (...) {}
-        owner->unshare();
     }
 
     void commit() {
@@ -1066,7 +1102,7 @@ public:
      */
     Filedes& fd() { return owner->getFd(); }
 
-    Tilar::Detail::pointer owner;
+    std::unique_lock<std::mutex> writeLock;
     boost::filesystem::path path;
 
     const FileIndex index;
@@ -1460,6 +1496,7 @@ Tilar& Tilar::setContentTypes(const ContentTypes &mapping)
 void Tilar::detach() { return detail().detach(); }
 
 Tilar::State Tilar::state() const { return detail().state(); }
+Tilar::State Tilar::detachIfChanged() { return detail().detachIfChanged(); }
 
 fs::path Tilar::path() const { return detail().path(); }
 
