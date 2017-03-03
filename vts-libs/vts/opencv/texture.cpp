@@ -76,4 +76,14 @@ void rasterizeMaskLegacy(cv::Mat &mask, const Faces &faces
     }
 }
 
+void dilate(cv::Mat &mask, int distance)
+{
+    const auto se(cv::getStructuringElement(cv::MORPH_ELLIPSE
+                                            , cv::Size(2 * distance + 1
+                                                       , 2 * distance + 1)));
+    cv::Mat tmp(mask.size(), mask.type());
+    cv::dilate(mask, tmp, se);
+    std::swap(mask, tmp);
+}
+
 } } } // namespace vtslibs::vts::opencv

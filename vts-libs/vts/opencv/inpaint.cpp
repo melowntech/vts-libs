@@ -25,6 +25,7 @@ Atlas::pointer inpaint(const Atlas &atlas, const Mesh &mesh
         cv::Mat mask(tex.rows, tex.cols, CV_8U, cv::Scalar(0x00));
         opencv::rasterizeMask
             (mask, sm.facesTc, opencv::denormalize(sm.tc, tex.size()));
+        opencv::dilate(mask, 1);
 
         imgproc::jpegBlockInpaint(tex, mask);
 

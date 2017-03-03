@@ -33,6 +33,8 @@ void rasterizeMask(cv::Mat &mask, const Faces &faces
 void rasterizeMaskLegacy(cv::Mat &mask, const Faces &faces
                          , const math::Points2d &tc);
 
+void dilate(cv::Mat &mask, int distance);
+
 } } } // namespace vtslibs::vts::opencv
 
 #endif // vtslibs_vts_opencv_texture_hpp
