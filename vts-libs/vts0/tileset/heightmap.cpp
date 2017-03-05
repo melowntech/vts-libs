@@ -567,7 +567,7 @@ public:
     // reconstruction interface follows
     int channels() const { return 1; };
     channel_type saturate(double value) const { return value; }
-    channel_type undefined() const { return 0.f; }
+    value_type undefined() const { return {}; }
     int width() const { return step_ * size_.width + 1; }
     int height() const { return step_ * size_.height + 1; }
     math::Size2 size() const { return { width(), height() }; }
