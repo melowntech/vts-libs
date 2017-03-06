@@ -196,6 +196,18 @@ GeomExtents geomExtents(const NodeInfo &ni, const Mesh &mesh)
          , mesh);
 }
 
+fs::path removeTrailingSlash(fs::path path)
+{
+    if (path.filename() != ".") { return path; }
+
+    // remove trailing slash
+    fs::path tmp;
+    for (auto i(path.begin()), e(std::prev(path.end())); i != e; ++i) {
+        tmp /= *i;
+    }
+    return tmp;
+}
+
 } // namespace
 
 struct TileSet::Factory
@@ -520,22 +532,11 @@ struct TileSet::Factory
     static void reencode(const boost::filesystem::path &root
                          , const ReencodeOptions &options)
     {
-        // absolutize
-        const auto srcPath(fs::absolute(root));
+        // absolutize source path and remove offending trailing slash
+        const auto srcPath(removeTrailingSlash(fs::absolute(root)));
 
-        // build tmp path
-        auto dstPath(srcPath);
-        if (dstPath.filename() == ".") {
-            // remove trailing slash
-            fs::path tmp;
-            for (auto i(dstPath.begin()), e(std::prev(dstPath.end()))
-                     ; i != e; ++i)
-            {
-                tmp /= *i;
-            }
-            dstPath.swap(tmp);
-        }
-        dstPath = utility::addExtension(dstPath, "." + options.tag);
+        // build dst path (srcPath + .tag)
+        const auto dstPath(utility::addExtension(srcPath, "." + options.tag));
 
         if (options.cleanup) {
             // remove temporary dataset
@@ -543,13 +544,14 @@ struct TileSet::Factory
             return;
         }
 
-        auto dst(clone(dstPath, open(srcPath, {})
-                       , CloneOptions()
-                       .mode(CreateMode::overwrite)
-                       .encodeFlags(options.encodeFlags)
-                       ));
+        // clone tileset from srcPath to dstPath
+        clone(dstPath, open(srcPath, {})
+              , CloneOptions()
+              .mode(CreateMode::overwrite)
+              .encodeFlags(options.encodeFlags)
+              );
 
-        // swap paths
+        // swap srcPath and dstPath
         const auto tmp(utility::addExtension(srcPath, ".swap"));
         fs::rename(srcPath, tmp);
         fs::rename(dstPath, srcPath);
