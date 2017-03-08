@@ -1086,19 +1086,33 @@ void Storage::Detail::generateGlues(const TilesetId &tilesetId
 void Storage::Detail::generateGlue(const Glue::Id &glueId
                                    , const AddOptions &addOptions)
 {
+    bool overwrite(false);
+
     if (properties.hasGlue(glueId)) {
-        LOG(info3) << "Glue <" << utility::join(glueId, ",")
-                   << "> already exists.";
+        if (addOptions.overwrite) {
+            overwrite = true;
+            LOG(info3)
+                << "Re-generating existing glue <"
+                << utility::join(glueId, ",") << ">.";
+        } else {
+            LOGTHROW(err3, std::runtime_error)
+                << "Glue <" << utility::join(glueId, ",")
+                << "> already exists.";
+        }
     }
 
     if (properties.hasEmptyGlue((glueId))) {
-        LOGTHROW(err3, std::runtime_error)
-            << "Glue <" << utility::join(glueId, ",") << "> is empty.";
+        if (!overwrite) {
+            LOGTHROW(err3, std::runtime_error)
+                << "Glue <" << utility::join(glueId, ",") << "> is empty.";
+        }
     }
 
     if (!properties.hasPendingGlue((glueId))) {
-        LOGTHROW(err3, std::runtime_error)
-            << "Glue <" << utility::join(glueId, ",") << "> not found.";
+        if (!overwrite) {
+            LOGTHROW(err3, std::runtime_error)
+                << "Glue <" << utility::join(glueId, ",") << "> not found.";
+        }
     }
 
     Glue::list glues;

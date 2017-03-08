@@ -627,7 +627,7 @@ void VtsStorage::configuration(po::options_description &cmdline
     });
 
     createParser(cmdline, Command::generateGlues
-                 , "--command=generate-glue-pending: generates all "
+                 , "--command=glue-generate-pending: generates all "
                  "pending glues for given tileset"
                  , [&](UP &p)
     {
@@ -680,6 +680,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
             ("no-clip", "Don't clip meshes by merge coverage.")
+            ("overwrite", "Overwrite existing glue, i.e. regenerate.")
             ;
 
         progressConfiguration(p.options);
@@ -693,6 +694,7 @@ void VtsStorage::configuration(po::options_description &cmdline
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
             }
             addOptions_.clip = !vars.count("no-clip");
+            addOptions_.overwrite = vars.count("overwrite");
 
             configureProgress(vars, addOptions_);
         };
