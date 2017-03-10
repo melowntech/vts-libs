@@ -20,30 +20,26 @@
 #include "math/transform.hpp"
 #include "math/filters.hpp"
 
-#include "imgproc/uvpack.hpp"
 #include "imgproc/scanconversion.hpp"
 #include "imgproc/const-raster.hpp"
 #include "imgproc/reconstruct.hpp"
 #include "imgproc/inpaint.hpp"
+#include "imgproc/texturing.hpp"
 
 #include "../opencv/atlas.hpp"
 #include "../opencv/texture.hpp"
 
 #include "../meshop.hpp"
 #include "../math.hpp"
+#include "../opencv/colors.hpp"
 
 /** Altas transformation background
- *
- * NB: patches in original textures are intended for OpenGL texturing which uses
- * bilinear interpolation thus we have no extra space around them. We need to
- * keep this in mind when transforming patches from one atlas space to the
- * another.
  *
  * Each patch is transformed from source atlas to destination atlas using map
  * from rotated rectangle to upright rectangle (using eclidean transformation
  * matrix).
  *
- * Trafo matrix is constructed in denormalized texture coordinates (i.e. grid
+ * Trafo matrix is constructed in denormalized texture coordinates (i.e. pixel
  * coordinates in the atlases.
  *
  * When mapping texture coordinates they are used as is.
@@ -56,12 +52,6 @@
  * validity. Validity is established by rendering original texturing 2D mesh
  * into a binary mask which is dilated by one pixel.
  *
- * Since `scanconvert' algorithm is right-bottom bound we intentionally dilate
- * mesh only to the top and left side only.
- *
- * Face vertices are rendered into mask explicitly due to scanconvert's
- * deficiencies as well.
- *
  * NB: Reconstruct treats positive and negative weights from filter differently:
  * if full kernel are is not valid only positives are taken into account.
  */
@@ -73,38 +63,21 @@ namespace {
 namespace fs = boost::filesystem;
 
 const char *VTS_MESH_MERGE_DUMP_DIR(std::getenv("VTS_MESH_MERGE_DUMP_DIR"));
+const bool NO_ATLAS_INPAINT(std::getenv("NO_ATLAS_INPAINT"));
+const bool NO_COMPONENT_BREAK(std::getenv("NO_COMPONENT_BREAK"));
 
 typedef std::vector<cv::Mat> MatList;
 
-inline math::Point2d normalize(const imgproc::UVCoord &uv
-                               , const cv::Size &texSize)
-{
-    return { uv.x / texSize.width
-            , 1.0 - uv.y / texSize.height };
-}
-
 class TextureInfo {
 public:
-    TextureInfo(const SubMesh &sm, const cv::Mat &texture
-                , const SubmeshMergeOptions &options)
+    TextureInfo(const SubMesh &sm, const cv::Mat &texture)
         : tc_(opencv::denormalize(sm.tc, texture.size()))
         , faces_(sm.facesTc), texture_(texture)
-        , mask_(texture.rows, texture.cols, CV_8U, cv::Scalar(0x00))
-    {
-        switch (options.atlasPacking) {
-        case SubmeshMergeOptions::AtlasPacking::legacy:
-            opencv::rasterizeMaskLegacy(mask_, faces_, tc_);
-            break;
-        case SubmeshMergeOptions::AtlasPacking::progressive:
-            opencv::rasterizeMask(mask_, faces_, tc_);
-            break;
-        }
-    }
+    {}
 
     const math::Points2d& tc() const { return tc_; }
     const Faces& faces() const { return faces_; }
     const cv::Mat& texture() const { return texture_; }
-    const cv::Mat& mask() const { return mask_; }
 
     const math::Point2d& uv(const Face &face, int index) const {
         return tc_[face(index)];
@@ -141,7 +114,7 @@ public:
         return (faces_)[faceIndex];
     }
 
-    // Duplicates existing texture coordinates in the systemand returns new
+    // Duplicates existing texture coordinates in the syste mand returns new
     // index.
     int duplicateTc(int index) {
         auto ni(tc_.size());
@@ -153,7 +126,6 @@ private:
     math::Points2d tc_;
     Faces faces_;
     cv::Mat texture_;
-    cv::Mat mask_;
 };
 
 bool validMatPos(int x, int y, const cv::Mat &mat)
@@ -182,6 +154,11 @@ typedef std::set<VertexIndex> VertexIndices;
 /** Continuous mesh component.
  */
 struct Component {
+    /** First face added to this component.
+     *  Can be used for sorting pursposes.
+     */
+    int firstFace;
+
     /** Set of components's indices to faces
      */
     std::set<int> faces;
@@ -190,9 +167,9 @@ struct Component {
      */
     VertexIndices indices;
 
-    /** UV rectangle.
+    /** Derived texturing patch.
      */
-    imgproc::UVRect rect;
+    imgproc::tx::Patch patch;
 
     /** Best rectangle circumscribed around this component.
      */
@@ -200,16 +177,15 @@ struct Component {
 
     /** Transformation from rrect to output atlas.
      */
-    math::Matrix4 rrectTrafo;
+    math::Matrix3 rrectTrafo;
 
     typedef std::shared_ptr<Component> pointer;
     typedef std::vector<pointer> list;
-    typedef std::set<pointer> set;
 
-    Component() {}
+    Component() : firstFace() {}
 
     Component(int findex, const Face &face)
-        : faces{findex}, indices{face(0), face(1), face(2)}
+        : firstFace(findex), faces{findex}, indices{face(0), face(1), face(2)}
     {}
 
     void add(int findex, const Face &face) {
@@ -222,17 +198,21 @@ struct Component {
         indices.insert(other.indices.begin(), other.indices.end());
     }
 
-    void copy(cv::Mat &tex, const cv::Mat &texture
-              , const cv::Mat &mask) const;
+    void copy(const SubmeshMergeOptions &options
+              , cv::Mat &tex, cv::Mat &texMask
+              , const TextureInfo &tx, cv::Mat &mask
+              , int color) const;
 
-    imgproc::UVCoord adjustUV(const math::Point2 &p) const {
-        auto np(math::transform(rrectTrafo, p));
-        return imgproc::UVCoord(np(0) + rect.packX, np(1) + rect.packY);
+    math::Point2 adjustUV(const math::Point2 &p) const {
+        return patch.map(math::transform(rrectTrafo, p));
     }
 
     void bestRectangle(const TextureInfo &tx);
 
     double area(const TextureInfo &tx) const;
+
+    template <typename Filter>
+    cv::Rect boundingBox(const Filter &filter) const;
 };
 
 /** Single submesh broken into components.
@@ -240,7 +220,7 @@ struct Component {
 struct ComponentInfo {
     /** Mesh broken to continuous components.
      */
-    Component::set components;
+    Component::list components;
 
     /** Mapping between texture coordinate index to owning component.
      */
@@ -254,7 +234,8 @@ struct ComponentInfo {
 
     ComponentInfo(const TileId &tileId, int id, TextureInfo &tx);
 
-    void copy(cv::Mat &tex) const;
+    void copy(const SubmeshMergeOptions &options
+              , cv::Mat &tex, cv::Mat &texMask) const;
 
     void debug(const fs::path &dir, const cv::Mat &outAtlas) const;
 
@@ -262,6 +243,10 @@ private:
     /** Breaks component into best fitting parts.
      */
     void breakComponent(const Component::pointer &c);
+
+    /** Inserts component as is.
+     */
+    void dontBreakComponent(const Component::pointer &c);
 
     /** Adds new components.
      */
@@ -297,8 +282,17 @@ ComponentInfo::ComponentInfo(const TileId &tileId, int id, TextureInfo &tx)
         });
     });
 
-    // temporary toplevel components, broken into smalled ones afterwars
-    Component::set tlComponents;
+    struct CompareComponents {
+        bool operator()(const Component::pointer &l
+                        , const Component::pointer &r) const
+        {
+            return l->firstFace < r->firstFace;
+        }
+    };
+
+    // temporary toplevel components, broken into smalled ones afterwars; sorted
+    // by first face added to keep sorting order
+    std::set<Component::pointer, CompareComponents> tlComponents;
 
     for (std::size_t i(0), e(faces.size()); i != e; ++i) {
         const auto &face(faces[i]);
@@ -347,9 +341,16 @@ ComponentInfo::ComponentInfo(const TileId &tileId, int id, TextureInfo &tx)
         }
     }
 
-    // cut components to best fitting subcomponets
-    for (const auto &c : tlComponents) {
-        breakComponent(c);
+    if (NO_COMPONENT_BREAK) {
+        // use as is
+        for (const auto &c : tlComponents) {
+            dontBreakComponent(c);
+        }
+    } else {
+        // cut components to best fitting subcomponets
+        for (const auto &c : tlComponents) {
+            breakComponent(c);
+        }
     }
 }
 
@@ -370,8 +371,7 @@ public:
     }
 
     BrokenComponent()
-        : component(std::make_shared<Component>())
-        , margin(-1.0), area_(0.0)
+        : component(std::make_shared<Component>()), margin(-1.0), area_(0.0)
     {}
 
     bool cuttable() const {
@@ -452,6 +452,12 @@ void BrokenComponent::cut(const TextureInfo &tx
     }
 }
 
+void ComponentInfo::dontBreakComponent(const Component::pointer &c)
+{
+    c->bestRectangle(*tx);
+    components.push_back(c);
+}
+
 void ComponentInfo::breakComponent(const Component::pointer &start)
 {
     const double margin(0.5);
@@ -518,7 +524,7 @@ void ComponentInfo::breakComponent(const Component::pointer &start)
 
 void ComponentInfo::addComponent(const Component::pointer &c)
 {
-    components.insert(c);
+    components.push_back(c);
 
     typedef std::map<int, int> Remap;
     Remap tcRemap;
@@ -564,17 +570,26 @@ void ComponentInfo::addComponent(const Component::pointer &c)
         }
     });
 
-    // remap faces and tc (if any were changed
+    // remap faces and tc (if any were changed)
     remap(c->indices, tcRemap);
 }
 
-void ComponentInfo::copy(cv::Mat &tex) const
+void ComponentInfo::copy(const SubmeshMergeOptions &options
+                         , cv::Mat &tex, cv::Mat &texMask) const
 {
+    // create souce mask with the same size as source texture
+    cv::Mat mask(tx->texture().size(), CV_8U);
+
+    int color(1);
     for (const auto &c : components) {
-        c->copy(tex, tx->texture(), tx->mask());
+        c->copy(options, tex, texMask, *tx, mask, color++);
     }
 }
 
+inline cv::Rect cvRect(const imgproc::tx::Patch::Rect &r)
+{
+    return cv::Rect(r.point(0), r.point(1), r.size.width, r.size.height);
+}
 
 void ComponentInfo::debug(const fs::path &dir, const cv::Mat &outAtlas)
     const
@@ -589,6 +604,7 @@ void ComponentInfo::debug(const fs::path &dir, const cv::Mat &outAtlas)
 
     cv::Mat drTx(dr, cv::Rect(border, border, texture.cols, texture.rows));
 
+#if 0
     // combine input texture with its mask and put into drawable
     {
         cv::Mat colorMask;
@@ -596,6 +612,7 @@ void ComponentInfo::debug(const fs::path &dir, const cv::Mat &outAtlas)
         cv::cvtColor(mask, colorMask, cv::COLOR_GRAY2BGR);
         addWeighted(texture, 0.7, colorMask, 0.3, 0.0, drTx);
     }
+#endif
 
     // put output atlas into drawable
     cv::Mat drAt(dr, cv::Rect
@@ -623,9 +640,8 @@ void ComponentInfo::debug(const fs::path &dir, const cv::Mat &outAtlas)
 
         cv::drawContours(drTx, contours, 0, color, 1); //CV_FILLED);
 
-        const auto &pr(c->rect);
-        cv::Rect r(pr.packX, pr.packY, pr.width(), pr.height());
-        cv::rectangle(drAt, r, color, 1); //CV_FILLED);
+        auto r(cvRect(c->patch.dst()));
+        cv::rectangle(drAt, r, color, 1);
     }
 
     fs::create_directories(dir);
@@ -648,32 +664,34 @@ void Component::bestRectangle(const TextureInfo &tx) {
 
         // find best rectangle fitting around this patch
         rrect = cv::minAreaRect(points);
-        rrect.size.width = std::ceil(rrect.size.width + 1.0);
-        rrect.size.height = std::ceil(rrect.size.height + 1.0);
+        rrect.size.width = 2.f * std::ceil(rrect.size.width / 2.f) + 1.f;
+        rrect.size.height = 2.f * std::ceil(rrect.size.height / 2.f) + 1.f;
     }
 
     {
         // calculate transformation matrix from original atlas to best
         // rectangle
-        rrectTrafo = boost::numeric::ublas::identity_matrix<double>(4);
+        rrectTrafo = boost::numeric::ublas::identity_matrix<double>(3);
 
+        // basic rotation matrix (rotates around (0, 0))
         const double a(rrect.angle * M_PI / 180.);
         rrectTrafo(0, 0) = rrectTrafo(1, 1) = std::cos(a);
         rrectTrafo(1, 0) = -(rrectTrafo(0, 1) = std::sin(a));
 
+        // rotate rectangle center by rotation matrix to get shift in rotated
+        // space
         const auto shift(math::transform
                          (rrectTrafo, math::Point2
                           (rrect.center.x, rrect.center.y)));
 
-        rrectTrafo(0, 3) = -shift(0) + double(rrect.size.width) / 2.0;
-        rrectTrafo(1, 3) = -shift(1) + double(rrect.size.height) / 2.0;
+        // apply transformed shift and move zero to rectangle corner
+        rrectTrafo(0, 2) = -shift(0) + double(rrect.size.width) / 2.0;
+        rrectTrafo(1, 2) = -shift(1) + double(rrect.size.height) / 2.0;
     }
 
     // create uv rectangle
-    rect = {};
-    rect.update({ 0.f, 0.f });
-    // -2 due to: +-1 pixels added by packer for integral rectangles
-    rect.update({ rrect.size.width - 2.f, rrect.size.height - 2.f });
+    patch = imgproc::tx::Patch
+        (0, 0, rrect.size.width, rrect.size.height);
 }
 
 double Component::area(const TextureInfo &tx) const
@@ -685,49 +703,127 @@ double Component::area(const TextureInfo &tx) const
     return area;
 }
 
+template <typename Filter>
+cv::Rect Component::boundingBox(const Filter &filter) const
+{
+    auto bbox(rrect.boundingRect());
+    const int addX(std::ceil(filter.halfwinx()));
+    const int addY(std::ceil(filter.halfwiny()));
+
+    bbox.x -= addX;
+    bbox.y -= addY;
+    bbox.width += 2 * addX;
+    bbox.y += 2 * addY;
+
+    return bbox;
+}
+
+void rasterizeMask(const SubmeshMergeOptions &options
+                   , cv::Mat &mask, const std::set<int> &faceSubset
+                   , const TextureInfo &tx)
+{
+    switch (options.atlasPacking) {
+    case SubmeshMergeOptions::AtlasPacking::legacy:
+        return opencv::rasterizeMaskLegacy
+            (mask, tx.faces(), tx.tc(), faceSubset);
+    case SubmeshMergeOptions::AtlasPacking::progressive:
+        // return opencv::rasterizeMaskLegacy
+        //     (mask, tx.faces(), tx.tc(), faceSubset);
+        return opencv::rasterizeMask
+            (mask, tx.faces(), tx.tc(), faceSubset);
+    }
+}
+
 /** Const raster for texture with cv::Mat-based mask.
  */
 class TextureRaster : public imgproc::CvConstRaster<cv::Vec3b>
 {
 public:
-    TextureRaster(const cv::Mat &texture, const cv::Mat &mask)
+    typedef boost::optional<value_type> optional_value_type;
+
+    /** Prerequisities:
+     * * bbox must be inside texture's bounds
+     * * mask must have the same size as texture
+     */
+    TextureRaster(const cv::Mat &texture, const cv::Mat &mask
+                  , const cv::Rect &bbox)
         : imgproc::CvConstRaster<cv::Vec3b>(texture), mask_(mask)
+        , ll_(bbox.x, bbox.y)
+        , ur_(bbox.x + bbox.width, bbox.y + bbox.height)
     {}
 
     bool valid(int x, int y) const {
-        // queries matrix for bounds and mask for pixel validity
-        return (imgproc::CvConstRaster<cv::Vec3b>::valid(x, y)
+        // queries bbox for bounds and mask for pixel validity
+        return ((x >= ll_.x) && (x < ur_.x)
+                && (y >= ll_.y) && (y < ur_.y)
                 && mask_.at<std::uint8_t>(y, x));
     }
 
+    optional_value_type undefined() const { return boost::none; }
+
 private:
     const cv::Mat &mask_;
+    const cv::Point ll_;
+    const cv::Point ur_;
 };
 
-void Component::copy(cv::Mat &tex, const cv::Mat &texture, const cv::Mat &mask)
+inline cv::Rect bounds(const cv::Mat &mat)
+{
+    return cv::Rect(0, 0, mat.cols, mat.rows);
+}
+
+void Component::copy(const SubmeshMergeOptions &options
+                     , cv::Mat &tex, cv::Mat &texMask
+                     , const TextureInfo &tx, cv::Mat &mask
+                     , int color)
     const
 {
+    const auto &texture(tx.texture());
     const math::CatmullRom2 filter(2.0, 2.0);
 
-    TextureRaster raster(texture, mask);
+    // compute source bounding box (clip by texture bounds)
+    const auto bbox(boundingBox(filter) & bounds(texture));
+
+    // clear matrix
+    {
+        // create sub mask
+        cv::Mat subMask(mask, bbox);
+        // clear it
+        subMask = cv::Scalar(0);
+
+        // rasterize component's mask
+        // NB: coordinates are in full mask -> use full mask
+        rasterizeMask(options, mask, faces, tx);
+
+        // // dilate mask
+        opencv::dilate(subMask, 2);
+    }
+
+    // texture raster sampler
+    TextureRaster raster(texture, mask, bbox);
 
     // and invert: patch to original atlas
-    math::Matrix4 trafo(math::matrixInvert(rrectTrafo));
+    math::Matrix3 trafo(math::matrixInvert(rrectTrafo));
 
     // copy texture from source best rectangle to output uv rectangle
-    for (int y = 0; y < rrect.size.height; ++y) {
-        for (int x = 0; x < rrect.size.width; ++x) {
+    const auto &sr(patch.src());
+    for (int y = sr.point(1), ye = y + sr.size.height; y < ye; ++y) {
+        for (int x = sr.point(0), xe = x + sr.size.width; x < xe; ++x) {
             // compute destination point
-            auto pos(math::transform
-                     (trafo, math::Point2(x + 0.5, y + 0.5)));
-            pos(0) -= 0.5; pos(1) -= 0.5;
+            auto pos(math::transform(trafo, math::Point2(x, y)));
 
             // reconstruct point using filter
-            auto res(imgproc::reconstruct(raster, filter, pos));
+            if (const auto res = imgproc::reconstruct(raster, filter, pos)) {
+                // store result
+                int xx(x + patch.dst().point(0));
+                int yy(y + patch.dst().point(1));
 
-            // store result
-            tex.at<cv::Vec3b>(y + rect.packY, x + rect.packX)
-                = cv::Vec3b(res[0], res[1], res[2]);
+                tex.at<cv::Vec3b>(yy, xx) = *res;
+                texMask.at<std::uint8_t>(yy, xx) = 0xff;
+
+                (void) color;
+                // tex.at<cv::Vec3b>(yy, xx) = opencv::palette256vec[color];
+            }
         }
     }
 }
@@ -735,7 +831,8 @@ void Component::copy(cv::Mat &tex, const cv::Mat &texture, const cv::Mat &mask)
 /** Joins textures into single texture.
  */
 std::tuple<cv::Mat, math::Points2d, Faces>
-joinTextures(const TileId &tileId, TextureInfo::list texturing);
+joinTextures(const SubmeshMergeOptions &options
+             , const TileId &tileId, TextureInfo::list texturing);
 
 typedef std::tuple<Mesh::pointer, Atlas::pointer> MeshAtlas;
 
@@ -982,7 +1079,7 @@ TextureInfo::list MeshAtlasBuilder::texturing(const Range &range) const
     for (auto i : range) {
         tx.emplace_back
             (originalMesh_->submeshes[i]
-             , boost::apply_visitor(GetImage(i), originalAtlas_), options_);
+             , boost::apply_visitor(GetImage(i), originalAtlas_));
     }
     return tx;
 }
@@ -1103,7 +1200,7 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
     // and join textures
     cv::Mat texture;
     std::tie(texture, sm.tc, sm.facesTc)
-        = joinTextures(tileId_, texturing(range));
+        = joinTextures(options_, tileId_, texturing(range));
     atlas_->add(texture);
 
     // housekeeping
@@ -1111,7 +1208,8 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
 }
 
 std::tuple<cv::Mat, math::Points2d, Faces>
-joinTextures(const TileId &tileId, TextureInfo::list texturing)
+joinTextures(const SubmeshMergeOptions &options
+             , const TileId &tileId, TextureInfo::list texturing)
 {
     std::tuple<cv::Mat, math::Points2d, Faces> res;
     auto &tex(std::get<0>(res));
@@ -1130,15 +1228,13 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
     // pack patches into new atlas
     auto packedSize([&]() -> math::Size2
     {
-        // pack the patches
-        imgproc::RectPacker packer;
+        imgproc::tx::Patch::list patches;
         for (const auto &cinfo : cinfoList) {
             for (auto &c : cinfo.components) {
-                packer.addRect(&c->rect);
+                patches.push_back(&c->patch);
             }
         }
-        packer.pack();
-        return math::Size2(packer.width(), packer.height());
+        return imgproc::tx::pack(patches);
     }());
 
     // background color
@@ -1148,6 +1244,7 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
 
     tex.create(packedSize.height, packedSize.width, CV_8UC3);
     tex.setTo(background);
+    cv::Mat texMask(packedSize.height, packedSize.width, CV_8U, cv::Scalar(0));
 
     // denormalized result texture coordinates
     math::Points2d dnTc;
@@ -1157,10 +1254,10 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
         auto ts(tex.size());
 
         for (const auto &cinfo : cinfoList) {
-            const auto &tx(*cinfo.tx);
-
             // copy patches from this texture
-            cinfo.copy(tex);
+            cinfo.copy(options, tex, texMask);
+
+            const auto &tx(*cinfo.tx);
 
             auto itcMap(cinfo.tcMap.cbegin());
             auto tcOffset(tc.size());
@@ -1168,8 +1265,8 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
             int idx(0);
             for (const auto &oldUv : tx.tc()) {
                 auto uv((*itcMap++)->adjustUV(oldUv));
-                dnTc.emplace_back(double(uv.x), double(uv.y));
-                tc.push_back(normalize(uv, ts));
+                dnTc.push_back(uv);
+                tc.push_back(opencv::normalize(uv, ts));
                 ++idx;
             }
 
@@ -1184,14 +1281,9 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
         }
     }
 
-    if (!std::getenv("NO_ATLAS_INPAINT"))
-    {
-        // rasterize valid triangles
-        cv::Mat mask(tex.rows, tex.cols, CV_8U, cv::Scalar(0x00));
-        opencv::rasterizeMask(mask, faces, dnTc);
-
+    if (!NO_ATLAS_INPAINT) {
         // inpaint JPEG blocks
-        imgproc::jpegBlockInpaint(tex, mask);
+        imgproc::jpegBlockInpaint(tex, texMask);
     }
 
     // done
