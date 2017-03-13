@@ -375,6 +375,32 @@ void configureProgress(const po::variables_map &vars
     options.progress = std::make_shared<MergeProgress>(std::move(dup), period);
 }
 
+void configureGeneratesetModifier(const po::variables_map &vars
+                       , vts::GlueCreationOptions &options)
+{
+    if (!vars.count("debug.tileId")) {
+        return;
+    }
+
+    vts::TileId tileId(vars["debug.tileId"].as<vts::TileId>());
+
+    options.generateSetManipulator = [=](vts::TileIndex &gs) mutable {
+        // prepare tileindex for intersection
+        LOG(info2) << "Applying generate set constraint.";
+
+        vts::TileIndex constraint(vts::LodRange(0, gs.maxLod()));
+
+        int cnt(0);
+        do {
+            constraint.set(tileId, 1);
+            tileId = vts::parent(tileId);
+            ++cnt;
+        } while (tileId.lod);
+        LOG(info2) << "Generate set constraint has " << cnt << " valid tiles.";
+
+        gs = gs.intersect(constraint);
+    };
+}
 void getTags(vts::Tags &tags, const po::variables_map &vars
              , const std::string &option)
 {
@@ -681,6 +707,9 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "Temporary directory where to work with temporary data.")
             ("no-clip", "Don't clip meshes by merge coverage.")
             ("overwrite", "Overwrite existing glue, i.e. regenerate.")
+            ("debug.tileId", po::value<vts::TileId>()
+             , "Limits glue to tiles in the path to "
+             "given tileId (optional).")
             ;
 
         progressConfiguration(p.options);
@@ -697,6 +726,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             addOptions_.overwrite = vars.count("overwrite");
 
             configureProgress(vars, addOptions_);
+            configureGeneratesetModifier(vars, addOptions_);
         };
     });
 
