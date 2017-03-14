@@ -749,6 +749,9 @@ TileRange TileIndex::Stat::computeTileRange() const
         // make parent range
         range = parent(range);
 
+        // skip empty range (perfectly possible in case of glues)
+        if ( !valid(*irange) ) { continue; }
+
         // and update
         math::update(range, irange->ll);
         math::update(range, irange->ur);

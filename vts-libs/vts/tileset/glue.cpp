@@ -405,7 +405,10 @@ TileIndex optimizeGenerateSet(const TileIndex & generateSet
     return watertight;
 }
 
-TileIndex buildGenerateSet(const TileSet::list &sets, const LodRange &lr)
+TileIndex buildGenerateSet(const TileSet::list &sets, const LodRange &lr
+                          , const GlueCreationOptions::GenerateSetManipulator
+                              &generateSetManipulator
+                                = GlueCreationOptions::GenerateSetManipulator())
 {
     LOG(info3) << "(glue) Calculating generate set.";
 
@@ -419,7 +422,14 @@ TileIndex buildGenerateSet(const TileSet::list &sets, const LodRange &lr)
 
     dumpTileIndex(dumpRoot, "generate-raw", generateRaw);
 
-    return optimizeGenerateSet(generateRaw, dumpRoot, lr, sets, glueCeiling);
+    auto optimized(optimizeGenerateSet( generateRaw, dumpRoot
+                                      , lr, sets, glueCeiling));
+
+    if (generateSetManipulator) {
+        generateSetManipulator(optimized);
+    }
+
+    return optimized;
 }
 
 
@@ -460,7 +470,7 @@ void TileSet::createGlue(TileSet &glue, const list &sets
 
     Lod glueCeiling(0);
 
-    auto generate(buildGenerateSet(sets, lr));
+    auto generate(buildGenerateSet(sets, lr, options.generateSetManipulator));
 
     dumpTileIndex(dumpRoot, "generate", generate);
     LOG(info1) << "generate: " << generate.count();

@@ -379,41 +379,42 @@ struct TileSet::Factory
     }
 
     static void clone(const std::string &reportName
-                      , const Detail &src, Detail &dst
-                      , const CloneOptions &cloneOptions)
+                      , const Detail *src, Detail *dst
+                      , const CloneOptions *cloneOptions)
     {
         // simple case? use fully optimized version
-        if (!(cloneOptions.lodRange()
-              || cloneOptions.metaNodeManipulator()
-              || cloneOptions.encodeFlags()))
+        if (!(cloneOptions->lodRange()
+              || cloneOptions->metaNodeManipulator()
+              || cloneOptions->encodeFlags()))
         {
-            return clone(reportName, src, dst);
+            return clone(reportName, *src, *dst);
         }
 
-        const auto &sd(*src.driver);
-        auto &dd(*dst.driver);
-        auto lodRange(cloneOptions.lodRange()
-                      ? *cloneOptions.lodRange() : src.lodRange);
-        auto mnm(cloneOptions.metaNodeManipulator());
+        const auto *sd(&*src->driver);
+        auto *dd(&*dst->driver);
+        auto lodRange(cloneOptions->lodRange()
+                      ? *cloneOptions->lodRange() : src->lodRange);
+        auto mnm_(cloneOptions->metaNodeManipulator());
+        auto mnm(&mnm_);
 
         const utility::Progress::ratio_t reportRatio(1, 100);
-        utility::ts::Progress progress(reportName, src.tileIndex.count()
+        utility::ts::Progress progress(reportName, src->tileIndex.count()
                                        , reportRatio);
         auto report([&]() { ++progress; });
 
-        const auto eflags(cloneOptions.encodeFlags());
+        auto eflags(cloneOptions->encodeFlags());
 
         if (eflags) {
             // renencoding, update revision if needed
-            if (dst.properties.revision <= src.properties.revision) {
+            if (dst->properties.revision <= src->properties.revision) {
                 // destination revision is not newer than source revision, fix
-                dst.properties.revision = src.properties.revision + 1;
+                dst->properties.revision = src->properties.revision + 1;
             }
         }
 
         UTILITY_OMP(parallel)
         UTILITY_OMP(single)
-        traverse(src.tileIndex, [&](TileId tid, QTree::value_type mask)
+        traverse(src->tileIndex, [=](TileId tid, QTree::value_type mask)
         {
             // skip out-of range
             if (!in(lodRange, tid.lod)) {
@@ -423,7 +424,7 @@ struct TileSet::Factory
 
             const MetaNode *metanode;
             UTILITY_OMP(critical(clone_sd))
-                metanode = src.findMetaNode(tid);
+                metanode = src->findMetaNode(tid);
 
             if (!metanode) {
                 if (mask & TileIndex::Flag::content) {
@@ -457,35 +458,36 @@ struct TileSet::Factory
                 });
 
                 if (eflags) {
-                    reencode(tid, NodeInfo(src.referenceFrame, tid)
-                             , sd, dd, mesh, atlas, eflags, copyMetanode()
-                             , cloneOptions.textureQuality());
+                    reencode(tid, NodeInfo(src->referenceFrame, tid)
+                             , *sd, *dd, mesh, atlas, eflags, copyMetanode()
+                             , cloneOptions->textureQuality());
                 } else {
                     if (mesh) {
                         // copy mesh
-                        copyFileLocked(sd, dd, tid, storage::TileFile::mesh);
+                        copyFileLocked(*sd, *dd, tid, storage::TileFile::mesh);
                     }
 
                     if (atlas) {
                         // copy atlas
-                        copyFileLocked(sd, dd, tid, storage::TileFile::atlas);
+                        copyFileLocked(*sd, *dd, tid
+                                       , storage::TileFile::atlas);
                     }
                 }
 
                 if (mask & TileIndex::Flag::navtile) {
                     // copy navtile if allowed
-                    copyFileLocked(sd, dd, tid, storage::TileFile::navtile);
+                    copyFileLocked(*sd, *dd, tid, storage::TileFile::navtile);
                 }
 
                 UTILITY_OMP(critical(clone_dd))
-                    if (mnm) {
+                    if (*mnm) {
                         // filter metanode
-                        dst.updateNode(tid, mnm(useMetanode())
-                                       , (mask & TileIndex::Flag::nonmeta));
+                        dst->updateNode(tid, (*mnm)(useMetanode())
+                                        , (mask & TileIndex::Flag::nonmeta));
                     } else {
                         // pass metanode as-is
-                        dst.updateNode(tid, useMetanode()
-                                       , (mask & TileIndex::Flag::nonmeta));
+                        dst->updateNode(tid, useMetanode()
+                                        , (mask & TileIndex::Flag::nonmeta));
                     }
 
                 LOG(info1) << "Stored tile " << tid << ".";
@@ -494,7 +496,7 @@ struct TileSet::Factory
         });
 
         // properties have been changed
-        dst.propertiesChanged = true;
+        dst->propertiesChanged = true;
     }
 
     static TileSet clone(const boost::filesystem::path &path
@@ -521,7 +523,7 @@ struct TileSet::Factory
 
         const auto reportName(str(boost::format("Cloning <%s> ")
                                   % src.detail().properties.id));
-        clone(reportName, src.detail(), dst.detail(), cloneOptions);
+        clone(reportName, &src.detail(), &dst.detail(), &cloneOptions);
 
         // and flush
         dst.flush();

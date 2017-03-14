@@ -13,6 +13,7 @@
 #include <boost/optional.hpp>
 
 #include "./basetypes.hpp"
+#include "./tileindex.hpp"
 
 namespace vtslibs { namespace vts {
 
@@ -222,6 +223,12 @@ struct GlueCreationOptions {
      *  Pinged with each tile.
      */
     MergeProgress::pointer progress;
+
+    /** Tileindex is passed to this function where it can be manipulated
+     * just before returning it from buildGenerateSet
+     */
+    typedef std::function<void(vts::TileIndex&)> GenerateSetManipulator;
+    GenerateSetManipulator generateSetManipulator;
 
     GlueCreationOptions()
         : textureQuality(), clip(true)
