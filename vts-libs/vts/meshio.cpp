@@ -1,3 +1,6 @@
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+
 #include "dbglog/dbglog.hpp"
 
 #include "utility/binaryio.hpp"
@@ -13,6 +16,7 @@
 #include "./atlas.hpp"
 
 namespace fs = boost::filesystem;
+namespace bio = boost::iostreams;
 namespace bin = utility::binaryio;
 
 namespace vtslibs { namespace vts { namespace detail {
@@ -813,7 +817,25 @@ loadMeshProperNormalized(std::istream &in
                          , const boost::filesystem::path &path)
 {
     NormalizedSubMesh::list submeshes;
-    detail::loadMeshProperImpl(in, path, submeshes);
+
+    if (storage::gzipped(in)) {
+        // looks like a gzip
+        bio::filtering_istream gzipped;
+
+        // create and add decompressor
+        gzipped.push
+            (bio::gzip_decompressor(bio::gzip_params().window_bits, 1 << 16));
+
+        // add input restricted to mesh data
+        gzipped.push(in);
+        gzipped.exceptions(in.exceptions());
+
+        detail::loadMeshProperImpl(gzipped, path, submeshes);
+    } else {
+        // raw file
+        detail::loadMeshProperImpl(in, path, submeshes);
+    }
+
     return submeshes;
 }
 
