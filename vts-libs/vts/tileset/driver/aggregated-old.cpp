@@ -581,8 +581,10 @@ bool OldAggregatedDriver::reencode(const boost::filesystem::path &root
                                    , const ReencodeOptions &options
                                    , const std::string &prefix)
 {
-    Storage::reencode(driverOptions.buildStoragePath(root), options
+    if (options.descend) {
+        Storage::reencode(driverOptions.buildStoragePath(root), options
                       , prefix + "    ");
+    }
     return !options.dryRun && !options.cleanup;
 }
 

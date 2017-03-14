@@ -1,3 +1,7 @@
+#include "dbglog/dbglog.hpp"
+
+#include "../storage/error.hpp"
+
 #include "./atlas.hpp"
 
 namespace vtslibs { namespace vts {
@@ -15,4 +19,4 @@ Atlas::pointer inpaint(const Atlas &atlas, const Mesh &mesh
     return {};
 }
 
-} // namespace vtslibs::vts
+} } // namespace vtslibs::vts

@@ -884,10 +884,14 @@ void Storage::reencode(const boost::filesystem::path &root
                           , ro, prefix + "    ");
     }
 
+    // virtual surfaces: just version bump, do not descend down (imminent
+    // infinite recursion)
+    auto vsRo(ro);
+    vsRo.descend = false;
     for (const auto &virtualSurface : config.virtualSurfaces) {
         TileSet::reencode(storage_paths::virtualSurfacePath
                           (root, virtualSurface.second)
-                          , ro, prefix + "    ");
+                          , vsRo, prefix + "    ");
     }
 }
 

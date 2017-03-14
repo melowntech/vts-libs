@@ -382,6 +382,21 @@ struct BoundLayer {
     static math::Size2 maskSize() { return { tileWidth, tileHeight }; }
     static double maskArea() { return basicTileArea; }
 
+    // boundlayer metatile constants
+
+    static constexpr int rasterMetatileBinaryOrder = 8;
+    static constexpr int rasterMetatileWidth = 1 << rasterMetatileBinaryOrder;
+    static constexpr int rasterMetatileHeight = 1 << rasterMetatileBinaryOrder;
+    static math::Size2 rasterMetatileSize() {
+        return { rasterMetatileBinaryOrder, rasterMetatileBinaryOrder};
+    }
+
+    struct MetaFlags {
+        static constexpr std::uint8_t watertight = 0xc0;
+        static constexpr std::uint8_t available = 0x80;
+        static constexpr std::uint8_t unavailable = 0x00;
+    };
+
     typedef DualDictionary<BoundLayer, BoundLayer::NumericId> dict;
 };
 

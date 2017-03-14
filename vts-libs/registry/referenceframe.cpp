@@ -31,6 +31,13 @@ constexpr char Credit::typeName[];
 constexpr char BoundLayer::typeName[];
 constexpr char DataFile::typeName[];
 
+constexpr int BoundLayer::rasterMetatileBinaryOrder;
+constexpr int BoundLayer::rasterMetatileWidth;
+constexpr int BoundLayer::rasterMetatileHeight;
+constexpr std::uint8_t BoundLayer::MetaFlags::watertight;
+constexpr std::uint8_t BoundLayer::MetaFlags::available;
+constexpr std::uint8_t BoundLayer::MetaFlags::unavailable;
+
 TileRange tileRangeFromJson(const Json::Value &value)
 {
     if (!value.isArray()) {
@@ -52,6 +59,9 @@ TileRange tileRangeFromJson(const Json::Value &value)
 namespace {
 
 constexpr int DEFAULT_RF_VERSION(1);
+
+void sanitize(const boost::filesystem::path &path
+              , ReferenceFrame &rf);
 
 namespace v1 {
 
@@ -200,7 +210,8 @@ void parse(ReferenceFrame::Division &division, const Json::Value &content)
     }
 }
 
-void parse(ReferenceFrame &rf, const Json::Value &content)
+void parse(ReferenceFrame &rf, const Json::Value &content
+           , const boost::filesystem::path &path)
 {
     Json::get(rf.id, content, "id");
     Json::get(rf.description, content, "description");
@@ -225,6 +236,8 @@ void parse(ReferenceFrame &rf, const Json::Value &content)
             << "Type of referenceframe[parameters] is not an object.";
     }
     Json::get(rf.metaBinaryOrder, parameters, "metaBinaryOrder");
+
+    sanitize(path, rf);
 }
 
 } // namespace v1
@@ -422,7 +435,7 @@ void parse(const boost::filesystem::path &path
 
             switch (version) {
             case 1:
-                v1::parse(rf, element);
+                v1::parse(rf, element, path);
                 break;
 
             default:
@@ -437,7 +450,6 @@ void parse(const boost::filesystem::path &path
                 << ").";
         }
 
-        sanitize(path, rf);
         rfs.add(rf);
     }
 }
@@ -1715,14 +1727,15 @@ void fromJson(View::map &views, const Json::Value &value)
     }
 }
 
-void fromJson(ReferenceFrame &referenceFrame, const Json::Value &value)
+void fromJson(ReferenceFrame &referenceFrame, const Json::Value &value
+              , const boost::filesystem::path &path)
 {
     int version(0);
     Json::get(version, value, "version");
 
     switch (version) {
     case 1:
-        v1::parse(referenceFrame, value);
+        v1::parse(referenceFrame, value, path);
         break;
 
     default:

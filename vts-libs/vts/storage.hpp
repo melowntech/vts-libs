@@ -172,10 +172,11 @@ public:
         OpenOptions openOptions;
         enum Mode { legacy, full, lazy };
         Mode mode;
+        bool overwrite;
 
         AddOptions()
             : bumpVersion(false), filter(), dryRun(false)
-            , mode(Mode::legacy)
+            , mode(Mode::legacy), overwrite(false)
         {}
     };
 

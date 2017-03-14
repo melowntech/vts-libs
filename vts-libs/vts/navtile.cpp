@@ -23,6 +23,10 @@ namespace {
 
 } // namespace
 
+constexpr int NavTile::binOrder;
+constexpr int NavTile::width;
+constexpr int NavTile::height;
+
 multifile::Table NavTile::readTable(std::istream &is
                                   , const boost::filesystem::path &path)
 {

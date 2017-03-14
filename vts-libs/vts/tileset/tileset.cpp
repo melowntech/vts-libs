@@ -4,6 +4,7 @@
 
 #include "utility/progress.hpp"
 #include "utility/path.hpp"
+#include "utility/openmp.hpp"
 
 #include "../../vts.hpp"
 #include "../tileset.hpp"
@@ -15,6 +16,8 @@
 #include "./config.hpp"
 
 namespace fs = boost::filesystem;
+
+namespace vs = vtslibs::storage;
 
 namespace vtslibs { namespace vts {
 
@@ -193,6 +196,18 @@ GeomExtents geomExtents(const NodeInfo &ni, const Mesh &mesh)
          , mesh);
 }
 
+fs::path removeTrailingSlash(fs::path path)
+{
+    if (path.filename() != ".") { return path; }
+
+    // remove trailing slash
+    fs::path tmp;
+    for (auto i(path.begin()), e(std::prev(path.end())); i != e; ++i) {
+        tmp /= *i;
+    }
+    return tmp;
+}
+
 } // namespace
 
 struct TileSet::Factory
@@ -283,6 +298,19 @@ struct TileSet::Factory
         dst.propertiesChanged = true;
     }
 
+    /** Copy file under lock.
+     */
+    static void copyFileLocked(const Driver &sd, Driver &dd
+                               , const TileId &tileId
+                               , vs::TileFile type)
+    {
+        vs::IStream::pointer is;
+        UTILITY_OMP(critical(clone_sd))
+            is = sd.input(tileId, type);
+        UTILITY_OMP(critical(clone_dd))
+            copyFile(is, dd.output(tileId, type));
+    }
+
     static void reencode(const TileId &tileId, const NodeInfo &ni
                          , const Driver &sd, Driver &dd
                          , bool hasMesh, bool hasAtlas
@@ -293,25 +321,32 @@ struct TileSet::Factory
         Mesh mesh;
         RawAtlas atlas;
 
+        vs::IStream::pointer is;
+
         if (hasMesh) {
-            mesh = loadMesh(sd.input(tileId, storage::TileFile::mesh));
+            UTILITY_OMP(critical(clone_sd))
+                is = sd.input(tileId, storage::TileFile::mesh);
+            mesh = loadMesh(is);
         }
 
         if (hasAtlas) {
-            auto is(sd.input(tileId, storage::TileFile::atlas));
+            UTILITY_OMP(critical(clone_sd))
+                is = sd.input(tileId, storage::TileFile::atlas);
             atlas.deserialize(is->get(), is->name());
         }
 
         if (hasMesh) {
             if (eflags & CloneOptions::EncodeFlag::mesh) {
-                // reencode mesh
-                auto os(dd.output(tileId, storage::TileFile::mesh));
-                saveMesh(os, mesh, &atlas);
-                os->close();
+                UTILITY_OMP(critical(clone_dd))
+                {
+                    // reencode mesh
+                    auto os(dd.output(tileId, storage::TileFile::mesh));
+                    saveMesh(os, mesh, &atlas);
+                    os->close();
+                }
             } else {
                 // just copy file
-                copyFile(sd.input(tileId, storage::TileFile::mesh)
-                         , dd.output(tileId, storage::TileFile::mesh));
+                copyFileLocked(sd, dd, tileId, storage::TileFile::mesh);
             }
 
             if ((eflags & CloneOptions::EncodeFlag::meta)
@@ -328,13 +363,17 @@ struct TileSet::Factory
         if (hasAtlas) {
             if (hasMesh && (eflags & CloneOptions::EncodeFlag::inpaint)) {
                 // inpaint
-                auto os(dd.output(tileId, storage::TileFile::atlas));
-                inpaint(atlas, mesh, textureQuality)->serialize(os->get());
-                os->close();
+                const auto out(inpaint(atlas, mesh, textureQuality));
+
+                UTILITY_OMP(critical(clone_dd))
+                {
+                    auto os(dd.output(tileId, storage::TileFile::atlas));
+                    out->serialize(os->get());
+                    os->close();
+                }
             } else {
                 // just copy file
-                copyFile(sd.input(tileId, storage::TileFile::atlas)
-                         , dd.output(tileId, storage::TileFile::atlas));
+                copyFileLocked(sd, dd, tileId, storage::TileFile::atlas);
             }
         }
     }
@@ -358,8 +397,9 @@ struct TileSet::Factory
         auto mnm(cloneOptions.metaNodeManipulator());
 
         const utility::Progress::ratio_t reportRatio(1, 100);
-        utility::Progress progress(src.tileIndex.count());
-        auto report([&]() { (++progress).report(reportRatio, reportName); });
+        utility::ts::Progress progress(reportName, src.tileIndex.count()
+                                       , reportRatio);
+        auto report([&]() { ++progress; });
 
         const auto eflags(cloneOptions.encodeFlags());
 
@@ -371,7 +411,9 @@ struct TileSet::Factory
             }
         }
 
-        traverse(src.tileIndex, [&](const TileId &tid, QTree::value_type mask)
+        UTILITY_OMP(parallel)
+        UTILITY_OMP(single)
+        traverse(src.tileIndex, [&](TileId tid, QTree::value_type mask)
         {
             // skip out-of range
             if (!in(lodRange, tid.lod)) {
@@ -379,7 +421,10 @@ struct TileSet::Factory
                 return;
             }
 
-            const auto *metanode(src.findMetaNode(tid));
+            const MetaNode *metanode;
+            UTILITY_OMP(critical(clone_sd))
+                metanode = src.findMetaNode(tid);
+
             if (!metanode) {
                 if (mask & TileIndex::Flag::content) {
                     LOG(warn2)
@@ -391,62 +436,61 @@ struct TileSet::Factory
                 return;
             }
 
-            NodeInfo nodeInfo(src.referenceFrame, tid);
-
-            bool mesh(mask & TileIndex::Flag::mesh);
-            bool atlas(mask & TileIndex::Flag::atlas);
-
-            // optional copy of metanode
-            boost::optional<MetaNode> mn;
-
-            auto copyMetanode([&]() -> MetaNode&
+            UTILITY_OMP(task)
             {
-                if (!mn) { mn = *metanode; }
-                return *mn;
-            });
+                bool mesh(mask & TileIndex::Flag::mesh);
+                bool atlas(mask & TileIndex::Flag::atlas);
 
-            // get reference to metanode
-            auto useMetanode([&]() -> const MetaNode&
-            {
-                return mn ? *mn : *metanode;
-            });
+                // optional copy of metanode
+                boost::optional<MetaNode> mn;
 
-            if (eflags) {
-                reencode(tid, nodeInfo
-                         , sd, dd, mesh, atlas, eflags, copyMetanode()
-                         , cloneOptions.textureQuality());
-            } else {
-                if (mesh) {
-                    // copy mesh
-                    copyFile(sd.input(tid, storage::TileFile::mesh)
-                             , dd.output(tid, storage::TileFile::mesh));
+                auto copyMetanode([&]() -> MetaNode&
+                {
+                    if (!mn) { mn = *metanode; }
+                    return *mn;
+                });
+
+                // get reference to metanode
+                auto useMetanode([&]() -> const MetaNode&
+                {
+                    return mn ? *mn : *metanode;
+                });
+
+                if (eflags) {
+                    reencode(tid, NodeInfo(src.referenceFrame, tid)
+                             , sd, dd, mesh, atlas, eflags, copyMetanode()
+                             , cloneOptions.textureQuality());
+                } else {
+                    if (mesh) {
+                        // copy mesh
+                        copyFileLocked(sd, dd, tid, storage::TileFile::mesh);
+                    }
+
+                    if (atlas) {
+                        // copy atlas
+                        copyFileLocked(sd, dd, tid, storage::TileFile::atlas);
+                    }
                 }
 
-                if (atlas) {
-                    // copy atlas
-                    copyFile(sd.input(tid, storage::TileFile::atlas)
-                             , dd.output(tid, storage::TileFile::atlas));
+                if (mask & TileIndex::Flag::navtile) {
+                    // copy navtile if allowed
+                    copyFileLocked(sd, dd, tid, storage::TileFile::navtile);
                 }
-            }
 
-            if (mask & TileIndex::Flag::navtile)
-            {
-                // copy navtile if allowed
-                copyFile(sd.input(tid, storage::TileFile::navtile)
-                         , dd.output(tid, storage::TileFile::navtile));
-            }
+                UTILITY_OMP(critical(clone_dd))
+                    if (mnm) {
+                        // filter metanode
+                        dst.updateNode(tid, mnm(useMetanode())
+                                       , (mask & TileIndex::Flag::nonmeta));
+                    } else {
+                        // pass metanode as-is
+                        dst.updateNode(tid, useMetanode()
+                                       , (mask & TileIndex::Flag::nonmeta));
+                    }
 
-            if (mnm) {
-                // filter metanode
-                dst.updateNode(tid, mnm(useMetanode())
-                               , (mask & TileIndex::Flag::nonmeta));
-            } else {
-                // pass metanode as-is
-                dst.updateNode(tid, useMetanode()
-                               , (mask & TileIndex::Flag::nonmeta));
+                LOG(info1) << "Stored tile " << tid << ".";
+                report();
             }
-            LOG(info1) << "Stored tile " << tid << ".";
-            report();
         });
 
         // properties have been changed
@@ -488,22 +532,11 @@ struct TileSet::Factory
     static void reencode(const boost::filesystem::path &root
                          , const ReencodeOptions &options)
     {
-        // absolutize
-        const auto srcPath(fs::absolute(root));
+        // absolutize source path and remove offending trailing slash
+        const auto srcPath(removeTrailingSlash(fs::absolute(root)));
 
-        // build tmp path
-        auto dstPath(srcPath);
-        if (dstPath.filename() == ".") {
-            // remove trailing slash
-            fs::path tmp;
-            for (auto i(dstPath.begin()), e(std::prev(dstPath.end()))
-                     ; i != e; ++i)
-            {
-                tmp /= *i;
-            }
-            dstPath.swap(tmp);
-        }
-        dstPath = utility::addExtension(dstPath, "." + options.tag);
+        // build dst path (srcPath + .tag)
+        const auto dstPath(utility::addExtension(srcPath, "." + options.tag));
 
         if (options.cleanup) {
             // remove temporary dataset
@@ -511,13 +544,14 @@ struct TileSet::Factory
             return;
         }
 
-        auto dst(clone(dstPath, open(srcPath, {})
-                       , CloneOptions()
-                       .mode(CreateMode::overwrite)
-                       .encodeFlags(options.encodeFlags)
-                       ));
+        // clone tileset from srcPath to dstPath
+        clone(dstPath, open(srcPath, {})
+              , CloneOptions()
+              .mode(CreateMode::overwrite)
+              .encodeFlags(options.encodeFlags)
+              );
 
-        // swap paths
+        // swap srcPath and dstPath
         const auto tmp(utility::addExtension(srcPath, ".swap"));
         fs::rename(srcPath, tmp);
         fs::rename(dstPath, srcPath);
