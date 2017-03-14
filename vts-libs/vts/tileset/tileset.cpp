@@ -414,7 +414,7 @@ struct TileSet::Factory
 
         UTILITY_OMP(parallel)
         UTILITY_OMP(single)
-        traverse(src->tileIndex, [](TileId tid, QTree::value_type mask)
+        traverse(src->tileIndex, [=](TileId tid, QTree::value_type mask)
         {
             // skip out-of range
             if (!in(lodRange, tid.lod)) {
