@@ -390,6 +390,9 @@ struct TileSet::Factory
                 report();
                 return;
             }
+
+            NodeInfo nodeInfo(src.referenceFrame, tid);
+
             bool mesh(mask & TileIndex::Flag::mesh);
             bool atlas(mask & TileIndex::Flag::atlas);
 
@@ -409,7 +412,7 @@ struct TileSet::Factory
             });
 
             if (eflags) {
-                reencode(tid, NodeInfo(src.referenceFrame, tid)
+                reencode(tid, nodeInfo
                          , sd, dd, mesh, atlas, eflags, copyMetanode()
                          , cloneOptions.textureQuality());
             } else {
@@ -440,7 +443,7 @@ struct TileSet::Factory
             } else {
                 // pass metanode as-is
                 dst.updateNode(tid, useMetanode()
-                           , (mask & TileIndex::Flag::nonmeta));
+                               , (mask & TileIndex::Flag::nonmeta));
             }
             LOG(info1) << "Stored tile " << tid << ".";
             report();
@@ -894,8 +897,7 @@ std::uint8_t flagsFromNode(const MetaNode &node)
 
 } // namespace
 
-void TileSet::Detail::updateNode(TileId tileId
-                                 , const MetaNode &metanode
+void TileSet::Detail::updateNode(TileId tileId, const MetaNode &metanode
                                  , TileIndex::Flag::value_type extraFlags)
 {
     // get node (create if necessary)
@@ -1140,8 +1142,9 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile
 }
 
 void TileSet::Detail::setTile(const TileId &tileId, const TileSource &tile
-                              , const NodeInfo *nodeInfo)
+                              , const NodeInfo *ni)
 {
+    const auto nodeInfo(ni ? *ni : NodeInfo(referenceFrame, tileId));
 
     // store node
     updateNode(tileId, tile.metanode, tile.extraFlags);
@@ -1160,8 +1163,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const TileSource &tile
     }
 
     // update properties with node info (computed or generated)
-    updateProperties
-        ((nodeInfo ? *nodeInfo : NodeInfo(referenceFrame, tileId)));
+    updateProperties(nodeInfo);
 }
 
 void TileSet::Detail::setNavTile(const TileId &tileId, const NavTile &navtile)

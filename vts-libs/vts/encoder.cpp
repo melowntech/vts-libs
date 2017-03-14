@@ -257,6 +257,11 @@ void Encoder::Detail::process(const TileId &tileId
         }
     }
 
+    // skip unproductive tiles
+    if (!nodeInfo.productive()) {
+        processTile = false;
+    }
+
     TileResult tile;
     if (processTile) {
         LOG(info2)

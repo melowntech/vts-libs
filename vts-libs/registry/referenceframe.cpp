@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <queue>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
@@ -229,17 +230,17 @@ void parse(ReferenceFrame &rf, const Json::Value &content)
 } // namespace v1
 
 
-ReferenceFrame::Division::Node::Id
+inline ReferenceFrame::Division::Node::Id
 child(const ReferenceFrame::Division::Node::Id &id, bool x, bool y)
 {
     return ReferenceFrame::Division::Node::Id
-        (id.lod + 1, id.x + x, id.y + y);
+        (id.lod + 1, (id.x << 1) + x, (id.y << 1) + y);
 }
 
 /** Checks whether node is under root.
  */
-bool isUnder(const ReferenceFrame::Division::Node::Id &root
-             , const ReferenceFrame::Division::Node::Id &node)
+inline bool isUnder(const ReferenceFrame::Division::Node::Id &root
+                    , const ReferenceFrame::Division::Node::Id &node)
 {
     if (node.lod <= root.lod) {
         // not bellow LOD-wise
@@ -255,17 +256,87 @@ bool isUnder(const ReferenceFrame::Division::Node::Id &root
     return true;
 }
 
+inline ReferenceFrame::Division::Node::Id
+parent(const ReferenceFrame::Division::Node::Id &nodeId
+       , Lod diff = 1)
+{
+    if (diff > nodeId.lod) { return nodeId; }
+    return ReferenceFrame::Division::Node::Id
+        (nodeId.lod - diff, nodeId.x >> diff, nodeId.y >> diff);
+}
+
+inline ReferenceFrame::Division::Node::Structure::ChildFlags
+childFlags(const ReferenceFrame::Division::Node::Id &childId)
+{
+    return 1 << ((childId.x & 1l) + 2 * (childId.y & 1l));
+}
+
 void sanitize(const boost::filesystem::path &path
               , ReferenceFrame &rf)
 {
+    auto &div(rf.division);
+
     typedef ReferenceFrame::Division::Node Node;
 
-    std::vector<Node::Id> invalid;
+    // all found roots (i.e. nodes without parent)
+    std::set<Node*> roots;
 
-    auto &div(rf.division);
-    for (const auto &item : div.nodes) {
-        const auto &id(item.first);
-        const auto &part(item.second.partitioning);
+    // does this reference frame define proper root (i.e. 0-0-0)?
+    const bool hasRoot(div.find({}, std::nothrow));
+
+    // construct queue of nodes to process
+    std::queue<Node*> nodes;
+    for (auto &item : div.nodes) {
+        nodes.push(&item.second);
+    }
+
+    // process node queue
+    while (!nodes.empty()) {
+        // grab node
+        auto *node(nodes.front());
+        nodes.pop();
+        auto &self(*node);
+        auto &part(self.partitioning);
+        const auto &id(self.id);
+
+        // update lod range
+        if (self.real()) {
+            // productive node, remember in range of possible roots
+            update(div.rootLodRange, id.lod);
+        }
+
+        if (id.lod) {
+            // not a tree root -> find parent node
+            const auto parentId(parent(id));
+            auto *parentNode(div.find(parentId, std::nothrow));
+            if (!parentNode && !hasRoot) {
+                // no parent, this is (probably) one of the roots -> create new
+                // barren (unproductive) node and add to the queue
+                parentNode
+                    = &(div.nodes.insert
+                        (Node::map::value_type
+                         (parentId, Node(parentId, PartitioningMode::barren)))
+                        .first->second);
+
+                // remember in the queue (if not a tree root)
+                if (parentId.lod) {
+                    nodes.push(parentNode);
+                }
+            }
+
+            if (parentNode) {
+                // link structure: parent
+                self.structure.parent = parentId;
+
+                // and child
+                parentNode->structure.children |= childFlags(id);
+            }
+        }
+
+        if (part.mode == PartitioningMode::barren) {
+            // skip barren (unproductive) node
+            continue;
+        }
 
         auto c00(child(id, 0, 0));
         auto c01(child(id, 0, 1));
@@ -278,7 +349,7 @@ void sanitize(const boost::filesystem::path &path
         auto *n10(div.find(c10, std::nothrow));
         auto *n11(div.find(c11, std::nothrow));
 
-        if (part.mode != PartitioningMode::manual) {
+        if (part.mode == PartitioningMode::bisection) {
             // bisection of nothing at all -- there must be mothing inside
             // partitioning and no physical node
             if (part.n00 || n00 || part.n01 || n01
@@ -288,8 +359,8 @@ void sanitize(const boost::filesystem::path &path
                     << "Unable to parse reference frame file " << path
                     << ": reference frame <" << rf.id
                     << "> has invalid partitioning of node " << id
-                    << " (either child node or paritioning definition exists "
-                    "for non-manual node).";
+                    << " (either child node or partitioning "
+                    "definition exists for bisection node).";
             }
             continue;
         }
@@ -300,7 +371,7 @@ void sanitize(const boost::filesystem::path &path
         int left(4);
         auto check([&](const Node::Id &child
                        , const boost::optional<math::Extents2> &extents
-                       , Node *node)
+                       , Node *node, Node::Structure::ChildFlags childFlag)
             mutable
         {
             if (bool(extents) != bool(node)) {
@@ -313,19 +384,22 @@ void sanitize(const boost::filesystem::path &path
             }
 
             if (!extents) {
-                invalid.push_back(child);
+                // invalid child
                 --left;
             } else {
                 // create manual partition information
                 node->constraints
-                    = boost::in_place(*extents, item.second.srs);
+                    = boost::in_place(*extents, self.srs);
+                // mark that this manually divided node has valid child down
+                // there
+                node->structure.children |= childFlag;
             }
         });
 
-        check(c00, part.n00, n00);
-        check(c01, part.n01, n01);
-        check(c10, part.n10, n10);
-        check(c11, part.n11, n11);
+        check(c00, part.n00, n00, Node::Structure::c00);
+        check(c01, part.n01, n01, Node::Structure::c01);
+        check(c10, part.n10, n10, Node::Structure::c10);
+        check(c11, part.n11, n11, Node::Structure::c11);
 
         if (!left) {
             LOGTHROW(err2, storage::FormatError)
@@ -334,13 +408,6 @@ void sanitize(const boost::filesystem::path &path
                 << "> has invalid partitioning of node " << id
                 << " (no child node defined).";
         }
-    }
-
-    // insert invalid nodes
-    for (const auto &id : invalid) {
-        LOG(debug) << rf.id << ": generating invalid node " << id << ".";
-        div.nodes.insert(Node::map::value_type
-                         (id, Node(id, PartitioningMode::none)));
     }
 }
 
@@ -471,8 +538,8 @@ void build(Json::Value &content, const ReferenceFrame::Division &division)
 
     auto &nodes(content["nodes"]);
     for (const auto &node : division.nodes) {
-        // only valid nodes are serialized
-        if (node.second.valid()) {
+        // only real nodes are serialized
+        if (node.second.real()) {
             build(nodes.append(Json::nullValue), node.second);
         }
     }
@@ -1229,7 +1296,7 @@ ReferenceFrame::Division::find(const Node::Id &id) const
     const auto *node(find(id, std::nothrow));
     if (!node) {
         LOGTHROW(err1, storage::KeyError)
-            << "No node <" << id << "> in division tree.";
+            << "No node <" << id << "> in the division tree.";
     }
     return *node;
 }
@@ -1238,7 +1305,7 @@ std::set<std::string> ReferenceFrame::Division::srsList() const
 {
     std::set<std::string> list;
     for (const auto &item : nodes) {
-        if (item.second.valid()) {
+        if (item.second.real()) {
             list.insert(item.second.srs);
         }
     }
@@ -1431,40 +1498,31 @@ BoundLayer::dict boundLayersAsDict(const IdSet &boundLayers)
 }
 
 const ReferenceFrame::Division::Node*
-ReferenceFrame::Division::findSubtreeRoot(const Node::Id &nodeId
-                                          , std::nothrow_t) const
+ReferenceFrame::Division::findSubtreeRoot(Node::Id nodeId, std::nothrow_t)
+    const
 {
-    LOG(debug) << "Finding subtree root for node " << nodeId;
-    const Node *candidate(nullptr);
-    for (const auto &item : nodes) {
-        const auto &treeRoot(item.first);
-
-        if (candidate && (treeRoot.lod <= candidate->id.lod )) {
-            // this root would be above or at already found candidate root ->
-            // impossible
-            continue;
-        }
-
-        if (treeRoot.lod > nodeId.lod) {
-            // root cannot be bellow node
-            continue;
-        }
-
-        if (treeRoot == nodeId) {
-            // exact match -> standing at the root
-            return &item.second;
-        }
-
-        // node bellow possible root -> check if it can be a candidate
-        auto diff(nodeId.lod - treeRoot.lod);
-        Node::Id::index_type x(nodeId.x >> diff), y(nodeId.y >> diff);
-        if ((treeRoot.x == x) && (treeRoot.y == y)) {
-            // match -> nodeId is bellow treeRoot -> remember
-            candidate = &item.second;
-        }
+    if (nodeId.lod < rootLodRange.min) {
+        // OK, above possible roots -> either barren node or no node
+        return find(nodeId, std::nothrow);
     }
 
-    return candidate;
+    // if node is below max root lod move it inside
+    if (nodeId.lod > rootLodRange.max) {
+        nodeId = parent(nodeId, nodeId.lod - rootLodRange.max);
+    }
+
+    // try to find root
+    for (;;) {
+        // find node
+        const Node *node(find(nodeId, std::nothrow));
+        if (node || (nodeId.lod == rootLodRange.min)) {
+            // either node is found or we are at the ceiling of root range
+            return node;
+        }
+
+        // try parent
+        nodeId = parent(nodeId);
+    }
 }
 
 const ReferenceFrame::Division::Node&

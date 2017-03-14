@@ -86,6 +86,11 @@ TileId local(const NodeInfo &nodeInfo);
  */
 TileId global(const TileId &root, const TileId &localId);
 
+/** Makes tile range global
+ */
+TileRange global(const TileId &root, Lod localLod
+                 , const TileRange &localTileRange);
+
 TileRange::point_type point(const TileId &tileId);
 TileId tileId(Lod lod, const TileRange::point_type &point);
 TileRange::point_type point(const NodeInfo &nodeInfo);
@@ -313,8 +318,20 @@ inline TileId local(Lod rootLod, const TileId &tileId)
 inline TileId global(const TileId &root, const TileId &localId)
 {
     return TileId(root.lod + localId.lod
-                  , localId.x + (root.x << root.lod)
-                  , localId.y + (root.y << root.lod));
+                  , localId.x + (root.x << localId.lod)
+                  , localId.y + (root.y << localId.lod));
+}
+
+inline TileRange global(const TileId &root, Lod localLod
+                        , const TileRange &localTileRange)
+{
+    const TileRange::value_type dx(root.x << localLod);
+    const TileRange::value_type dy(root.y << localLod);
+
+    return TileRange(localTileRange.ll(0) + dx
+                     , localTileRange.ll(1) + dy
+                     , localTileRange.ur(0) + dx
+                     , localTileRange.ur(1) + dy);
 }
 
 inline TileRange::point_type point(const TileId &tileId)
