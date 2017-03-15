@@ -95,7 +95,9 @@ int NodeInfo::run()
               << ni.subtree().root().extents << std::endl;
 
     std::cout << "Parent: " << vts::parent(tileId_) << std::endl;
-    std::cout << "Children:" << std::endl;
+    std::cout << "Children: (structure "
+              << std::bitset<4>(ni.node().structure.children)
+              << ")" << std::endl;
     for (auto child : vts::children(tileId_)) {
         auto childNode(ni.child(child));
         if (childNode.valid()) {

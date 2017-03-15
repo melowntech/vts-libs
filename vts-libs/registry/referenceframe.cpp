@@ -384,10 +384,11 @@ void sanitize(const boost::filesystem::path &path
         int left(4);
         auto check([&](const Node::Id &child
                        , const boost::optional<math::Extents2> &extents
-                       , Node *node, Node::Structure::ChildFlags childFlag)
+                       , Node *childNode
+                       , Node::Structure::ChildFlags childFlag)
             mutable
         {
-            if (bool(extents) != bool(node)) {
+            if (bool(extents) != bool(childNode)) {
                 LOGTHROW(err2, storage::FormatError)
                     << "Unable to parse reference frame file " << path
                     << ": reference frame <" << rf.id
@@ -400,12 +401,11 @@ void sanitize(const boost::filesystem::path &path
                 // invalid child
                 --left;
             } else {
-                // create manual partition information
-                node->constraints
-                    = boost::in_place(*extents, self.srs);
+                // create manual partition information in child
+                childNode->constraints = boost::in_place(*extents, self.srs);
                 // mark that this manually divided node has valid child down
                 // there
-                node->structure.children |= childFlag;
+                self.structure.children |= childFlag;
             }
         });
 
