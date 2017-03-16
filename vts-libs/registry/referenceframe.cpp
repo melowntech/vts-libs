@@ -287,9 +287,16 @@ childFlags(const ReferenceFrame::Division::Node::Id &childId)
 void sanitize(const boost::filesystem::path &path
               , ReferenceFrame &rf)
 {
-    auto &div(rf.division);
-
     typedef ReferenceFrame::Division::Node Node;
+    typedef Node::Structure Structure;
+
+    auto &div(rf.division);
+    auto insertNode([&](const Node::Id &nodeId, PartitioningMode mode)
+    {
+        return &(div.nodes.insert
+                 (Node::map::value_type
+                  (nodeId, Node(nodeId, mode))).first->second);
+    });
 
     // all found roots (i.e. nodes without parent)
     std::set<Node*> roots;
@@ -302,6 +309,9 @@ void sanitize(const boost::filesystem::path &path
     for (auto &item : div.nodes) {
         nodes.push(&item.second);
     }
+
+    // generated barren nodes
+    std::vector<const Node*> barren;
 
     // process node queue
     while (!nodes.empty()) {
@@ -325,11 +335,11 @@ void sanitize(const boost::filesystem::path &path
             if (!parentNode && !hasRoot) {
                 // no parent, this is (probably) one of the roots -> create new
                 // barren (unproductive) node and add to the queue
-                parentNode
-                    = &(div.nodes.insert
-                        (Node::map::value_type
-                         (parentId, Node(parentId, PartitioningMode::barren)))
-                        .first->second);
+                parentNode = insertNode
+                    (parentId, PartitioningMode::barren);
+
+                // remember barren node
+                barren.push_back(parentNode);
 
                 // remember in the queue (if not a tree root)
                 if (parentId.lod) {
@@ -364,7 +374,7 @@ void sanitize(const boost::filesystem::path &path
 
         if (part.mode == PartitioningMode::bisection) {
             // bisection of nothing at all -- there must be mothing inside
-            // partitioning and no physical node
+            // partitioning and no physical nodes under
             if (part.n00 || n00 || part.n01 || n01
                 || part.n10 || n10 || part.n11 || n11)
             {
@@ -385,7 +395,7 @@ void sanitize(const boost::filesystem::path &path
         auto check([&](const Node::Id &child
                        , const boost::optional<math::Extents2> &extents
                        , Node *childNode
-                       , Node::Structure::ChildFlags childFlag)
+                       , Structure::ChildFlags childFlag)
             mutable
         {
             if (bool(extents) != bool(childNode)) {
@@ -398,7 +408,8 @@ void sanitize(const boost::filesystem::path &path
             }
 
             if (!extents) {
-                // invalid child
+                // invalid child, generate
+                insertNode(child, PartitioningMode::none);
                 --left;
             } else {
                 // create manual partition information in child
@@ -409,10 +420,10 @@ void sanitize(const boost::filesystem::path &path
             }
         });
 
-        check(c00, part.n00, n00, Node::Structure::c00);
-        check(c01, part.n01, n01, Node::Structure::c01);
-        check(c10, part.n10, n10, Node::Structure::c10);
-        check(c11, part.n11, n11, Node::Structure::c11);
+        check(c00, part.n00, n00, Structure::c00);
+        check(c01, part.n01, n01, Structure::c01);
+        check(c10, part.n10, n10, Structure::c10);
+        check(c11, part.n11, n11, Structure::c11);
 
         if (!left) {
             LOGTHROW(err2, storage::FormatError)
@@ -420,6 +431,25 @@ void sanitize(const boost::filesystem::path &path
                 << ": reference frame <" << rf.id
                 << "> has invalid partitioning of node " << id
                 << " (no child node defined).";
+        }
+    }
+
+    // postprocess barren nodes and generate invalid children
+    for (const auto *node : barren) {
+        const auto &id(node->id);
+        const auto children(node->structure.children);
+
+        if (!(children & Structure::c00)) {
+            insertNode(child(id, false, false), PartitioningMode::none);
+        }
+        if (!(children & Structure::c01)) {
+            insertNode(child(id, false, true), PartitioningMode::none);
+        }
+        if (!(children & Structure::c10)) {
+            insertNode(child(id, true, false), PartitioningMode::none);
+        }
+        if (!(children & Structure::c11)) {
+            insertNode(child(id, true, true), PartitioningMode::none);
         }
     }
 }
