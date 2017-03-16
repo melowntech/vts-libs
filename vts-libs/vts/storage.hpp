@@ -280,6 +280,12 @@ public:
      */
     Glue::IdSet pendingGlues(const TilesetId &tilesetId) const;
 
+    /** Return list pending glues in mapconfig.
+     *
+     * \subset subset of tilesets to be included, use null for no limit.
+     */
+    Glue::IdSet pendingGlues(const TilesetIdSet *subset) const;
+
     /** Returns list of existing virtualSurfaces.
      */
     VirtualSurface::map virtualSurfaces() const;
