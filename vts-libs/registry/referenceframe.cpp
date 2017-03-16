@@ -1450,7 +1450,7 @@ Srs::dict listSrs(const ReferenceFrame &referenceFrame)
     add(referenceFrame.model.publicSrs);
 
     for (const auto &node : referenceFrame.division.nodes) {
-        if (node.second.valid()) {
+        if (node.second.real()) {
             add(node.second.srs);
         }
     }
