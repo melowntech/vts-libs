@@ -288,6 +288,10 @@ public:
 
     bool empty() const { return !math::valid(valid_); }
 
+    /** Current metatile version.
+     */
+    static int currentVersion();
+
 private:
     size_type index(const TileId &tileId, bool checkValidity = true) const;
 

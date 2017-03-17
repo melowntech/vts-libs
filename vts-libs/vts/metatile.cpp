@@ -28,6 +28,11 @@ namespace {
     const std::size_t MIN_GEOM_BITS(2);
 } // namespace
 
+int MetaTile::currentVersion()
+{
+    return VERSION;
+}
+
 boost::optional<MetaTile::point_type>
 MetaTile::gridIndex(const TileId &tileId, std::nothrow_t
                     , bool checkValidity) const
