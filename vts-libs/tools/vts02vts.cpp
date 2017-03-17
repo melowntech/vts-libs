@@ -102,6 +102,7 @@ void Vts02Vts::configuration(po::options_description &cmdline
                              , po::positional_options_description &pd)
 {
     vr::registryConfiguration(cmdline, vr::defaultPath());
+    vr::creditsConfiguration(cmdline);
 
     cmdline.add_options()
         ("input", po::value(&input_)->required()
@@ -113,9 +114,6 @@ void Vts02Vts::configuration(po::options_description &cmdline
         ("textureLayer", po::value<std::string>()
          , "String/numeric id of bound layer to be used as external texture "
          "in generated meshes.")
-
-        ("credits", po::value<std::string>()
-         , "Comma-separated list of string/numeric credit id.")
 
         ("navtileLodPixelSize"
          , po::value(&config_.ntLodPixelSize)
@@ -139,6 +137,7 @@ void Vts02Vts::configuration(po::options_description &cmdline
 void Vts02Vts::configure(const po::variables_map &vars)
 {
     vr::registryConfigure(vars);
+    config_.credits = vr::creditsConfigure(vars);
 
     createMode_ = (vars.count("overwrite")
                    ? vts::CreateMode::overwrite
@@ -159,23 +158,6 @@ void Vts02Vts::configure(const po::variables_map &vars)
                 (po::validation_error::invalid_option_value, "textureLayer");
         }
         config_.textureLayer = layer.numericId;
-    }
-
-    if (vars.count("credits")) {
-        std::vector<std::string> parts;
-        for (const auto &value
-                 : ba::split(parts, vars["credits"].as<std::string>()
-                             , ba::is_any_of(",")))
-        {
-            vr::Credit credit;
-            try {
-                credit = vr::system.credits(boost::lexical_cast<int>(value));
-            } catch (boost::bad_lexical_cast) {
-                credit = vr::system.credits(value);
-            }
-
-            config_.credits.insert(credit.numericId);
-        }
     }
 }
 
