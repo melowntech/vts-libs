@@ -845,7 +845,7 @@ Range::list groupSubmeshes(const SubMesh::list &sms, Indices &indices
 
     if (sms.size() > textured) {
         std::sort(indices.begin() + textured, indices.end(), compareSubmeshes);
-        splitToRanges(textured, sms.size(), true);
+        splitToRanges(textured, sms.size(), false);
     }
 
     return out;
