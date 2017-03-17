@@ -8,7 +8,7 @@
 # major dependency is OpenCV
 
 # bump version here
-set(vts-libs_VERSION 2.0)
+set(vts-libs_VERSION 2.1)
 
 # settable path to VTS registry
 set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
@@ -43,7 +43,8 @@ set(vts-registry_SOURCES
   registry/referenceframe.hpp registry/referenceframe.cpp
   registry/freelayer.hpp registry/freelayer.cpp
   registry/json.hpp registry/dict.hpp
-  registry/po.hpp registry/io.hpp
+  registry/po.hpp registry/po.cpp
+  registry/io.hpp
   ${CMAKE_CURRENT_BINARY_DIR}/registry/config.cpp
   )
 
@@ -60,113 +61,140 @@ else()
   set(vts-registry_python_SOURCES)
 endif()
 
-# old tilestorage browser files
-set(tilestorage_BROWSER_SOURCES
-  tilestorage/support.hpp tilestorage/support.cpp
-  )
-file_to_cpp(tilestorage_BROWSER_SOURCES
-  vtslibs::tilestorage::browser::index_html
-  tilestorage/browser/index.html)
-file_to_cpp(tilestorage_BROWSER_SOURCES
-  vtslibs::tilestorage::browser::index_offline_html
-  tilestorage/browser/index-offline.html)
-file_to_cpp(tilestorage_BROWSER_SOURCES
-  vtslibs::tilestorage::browser::skydome_jpg
-  tilestorage/browser/skydome.jpg)
+if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core:tilestorage)
+  # old tilestorage browser files
+  set(tilestorage_BROWSER_SOURCES
+    tilestorage/support.hpp tilestorage/support.cpp
+    )
+  file_to_cpp(tilestorage_BROWSER_SOURCES
+    vtslibs::tilestorage::browser::index_html
+    tilestorage/browser/index.html)
+  file_to_cpp(tilestorage_BROWSER_SOURCES
+    vtslibs::tilestorage::browser::index_offline_html
+    tilestorage/browser/index-offline.html)
+  file_to_cpp(tilestorage_BROWSER_SOURCES
+    vtslibs::tilestorage::browser::skydome_jpg
+    tilestorage/browser/skydome.jpg)
 
 
-# old tilestorage core files
-set(tilestorage-core_SOURCES
-  tilestorage/basetypes.hpp
-  tilestorage/properties.hpp
-  tilestorage/tileop.hpp tilestorage/tileop.cpp
-  tilestorage/io.hpp
-  tilestorage/json.hpp tilestorage/json.cpp
-  tilestorage/metatile.hpp tilestorage/metatile.cpp
+  # old tilestorage core files
+  set(tilestorage-core_SOURCES
+    tilestorage/basetypes.hpp
+    tilestorage/properties.hpp
+    tilestorage/tileop.hpp tilestorage/tileop.cpp
+    tilestorage/io.hpp
+    tilestorage/json.hpp tilestorage/json.cpp
+    tilestorage/metatile.hpp tilestorage/metatile.cpp
 
-  tilestorage/driver.hpp tilestorage/driver/driver.cpp
-  tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp
-  tilestorage/driver/flat.hpp
-  tilestorage/driver/hash-crc.hpp tilestorage/driver/hash-crc.cpp
-  tilestorage/driver/ro-base.hpp
-  tilestorage/driver/tar.hpp tilestorage/driver/tar.cpp
+    tilestorage/driver.hpp tilestorage/driver/driver.cpp
+    tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp
+    tilestorage/driver/flat.hpp
+    tilestorage/driver/hash-crc.hpp tilestorage/driver/hash-crc.cpp
+    tilestorage/driver/ro-base.hpp
+    tilestorage/driver/tar.hpp tilestorage/driver/tar.cpp
 
-  tilestorage/driver/tilardriver.hpp
-  tilestorage/driver/tilardriver/tilardriver.cpp
-  tilestorage/driver/tilardriver/options.hpp
-  tilestorage/driver/tilardriver/cache.hpp
-  tilestorage/driver/tilardriver/cache.cpp
+    tilestorage/driver/tilardriver.hpp
+    tilestorage/driver/tilardriver/tilardriver.cpp
+    tilestorage/driver/tilardriver/options.hpp
+    tilestorage/driver/tilardriver/cache.hpp
+    tilestorage/driver/tilardriver/cache.cpp
 
-  tilestorage/config.hpp tilestorage/config.cpp
-  )
+    tilestorage/config.hpp tilestorage/config.cpp
+    )
+else()
+  message(STATUS "vts-libs-core: compiling without tilestorage stuff")
+  set(tilestorage_BROWSER_SOURCES)
+  set(tilestorage-core_SOURCES)
 
-set(tilestorage_SOURCES
-  tilestorage.hpp
-  tilestorage/types.hpp
-  tilestorage/storage.hpp tilestorage/storage.cpp
-  tilestorage/tileset.hpp tilestorage/tileset.cpp
-  tilestorage/po.hpp
-  tilestorage/tileindex.hpp tilestorage/tileindex.cpp
-  tilestorage/metatileop.hpp tilestorage/metatileop.cpp
+  # disable main tilestorage stuff as well
+  buildsys_nobuild_target(vts-libs:tilestorage)
+endif()
 
-  tilestorage/merge.hpp tilestorage/merge.cpp
-  tilestorage/tileset/merge.cpp
-  tilestorage/tileset/dump.hpp
-  tilestorage/tileset/heightmap.cpp
-  )
+if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs:tilestorage)
+  set(tilestorage_SOURCES
+    tilestorage.hpp
+    tilestorage/types.hpp
+    tilestorage/storage.hpp tilestorage/storage.cpp
+    tilestorage/tileset.hpp tilestorage/tileset.cpp
+    tilestorage/po.hpp
+    tilestorage/tileindex.hpp tilestorage/tileindex.cpp
+    tilestorage/metatileop.hpp tilestorage/metatileop.cpp
 
-# old vts0 browser files
-set(vts0_BROWSER_SOURCES
-  vts0/support.hpp vts0/support.cpp
-  )
-file_to_cpp(vts0_BROWSER_SOURCES
-  vtslibs::vts0::browser::index_html
-  vts0/browser/index.html)
-file_to_cpp(vts0_BROWSER_SOURCES
-  vtslibs::vts0::browser::index_offline_html
-  vts0/browser/index-offline.html)
-file_to_cpp(vts0_BROWSER_SOURCES
-  vtslibs::vts0::browser::skydome_jpg
-  vts0/browser/skydome.jpg)
+    tilestorage/merge.hpp tilestorage/merge.cpp
+    tilestorage/tileset/merge.cpp
+    tilestorage/tileset/dump.hpp
+    tilestorage/tileset/heightmap.cpp
+    )
+else()
+  message(STATUS "vts-libs: compiling without tilestorage stuff")
+  set(tilestorage_SOURCES)
+endif()
 
-# old vts0 files
-set(vts0-core_SOURCES
-  vts0/basetypes.hpp
-  vts0/properties.hpp
-  vts0/tileop.hpp vts0/tileop.cpp
-  vts0/io.hpp
-  vts0/json.hpp vts0/json.cpp
-  vts0/metatile.hpp vts0/metatile.cpp
+if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core:vts0)
+  # old vts0 browser files
+  set(vts0_BROWSER_SOURCES
+    vts0/support.hpp vts0/support.cpp
+    )
+  file_to_cpp(vts0_BROWSER_SOURCES
+    vtslibs::vts0::browser::index_html
+    vts0/browser/index.html)
+  file_to_cpp(vts0_BROWSER_SOURCES
+    vtslibs::vts0::browser::index_offline_html
+    vts0/browser/index-offline.html)
+  file_to_cpp(vts0_BROWSER_SOURCES
+    vtslibs::vts0::browser::skydome_jpg
+    vts0/browser/skydome.jpg)
 
-  vts0/driver.hpp vts0/driver/driver.cpp
+  # old vts0 files
+  set(vts0-core_SOURCES
+    vts0/basetypes.hpp
+    vts0/properties.hpp
+    vts0/tileop.hpp vts0/tileop.cpp
+    vts0/io.hpp
+    vts0/json.hpp vts0/json.cpp
+    vts0/metatile.hpp vts0/metatile.cpp
 
-  vts0/driver/tilardriver.hpp
-  vts0/driver/tilardriver/tilardriver.cpp
-  vts0/driver/tilardriver/options.hpp
-  vts0/driver/tilardriver/cache.hpp
-  vts0/driver/tilardriver/cache.cpp
+    vts0/driver.hpp vts0/driver/driver.cpp
 
-  vts0/config.hpp vts0/config.cpp
-  )
+    vts0/driver/tilardriver.hpp
+    vts0/driver/tilardriver/tilardriver.cpp
+    vts0/driver/tilardriver/options.hpp
+    vts0/driver/tilardriver/cache.hpp
+    vts0/driver/tilardriver/cache.cpp
 
+    vts0/config.hpp vts0/config.cpp
+    )
+else()
+  message(STATUS "vts-libs-core: compiling without vts0 stuff")
+  set(vts0_BROWSER_SOURCES)
+  set(vts0-core_SOURCES)
 
-set(vts0_SOURCES
-  vts0.hpp
-  vts0/types.hpp
-  vts0/tileset.hpp vts0/tileset.cpp
-  vts0/tileindex.hpp vts0/tileindex.cpp
-  vts0/metatileop.hpp vts0/metatileop.cpp
+  # disable main vts stuff as well
+  buildsys_nobuild_target(vts-libs:vts0)
+endif()
 
-  vts0/tileset/merge.cpp
-  vts0/tileset/dump.hpp
+if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs:vts0)
+  set(vts0_SOURCES
+    vts0.hpp
+    vts0/types.hpp
+    vts0/tileset.hpp vts0/tileset.cpp
+    vts0/tileindex.hpp vts0/tileindex.cpp
+    vts0/metatileop.hpp vts0/metatileop.cpp
 
-  vts0/storage.hpp vts0/storage.cpp
+    vts0/tileset/merge.cpp
+    vts0/tileset/dump.hpp
 
-  vts0/merge.hpp vts0/merge.cpp
-  vts0/tileset/heightmap.cpp
+    vts0/storage.hpp vts0/storage.cpp
 
-  vts0/encoder.hpp vts0/encoder.cpp
-  )
+    vts0/merge.hpp vts0/merge.cpp
+    vts0/tileset/heightmap.cpp
+
+    vts0/encoder.hpp vts0/encoder.cpp
+    )
+else()
+  message(STATUS "vts-libs: compiling without vts0 stuff")
+  set(vts0_SOURCES)
+endif()
 
 # vts browser files
 set(vts_BROWSER_SOURCES
@@ -269,6 +297,7 @@ if(OpenCV_FOUND)
     vts/opencv/navtile.hpp vts/opencv/navtile.cpp
     vts/opencv/colors.hpp vts/opencv/colors.cpp
     vts/opencv/inpaint.cpp
+    vts/opencv/texture.hpp vts/opencv/texture.cpp
     )
   list(APPEND vts-core_EXTRA_DEPENDS OpenCV)
 else()
@@ -297,8 +326,8 @@ set(vts_SOURCES
 # vts core library
 define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
   DEPENDS
-  geo>=1.24 geometry>=1.7 imgproc>=1.18 math>=1.2
-  utility>=1.11 dbglog>=1.4 jsoncpp>=1.1 half>=1.1
+  geo>=1.24 geometry>=1.7 imgproc>=1.19 math>=1.2
+  utility>=1.13 dbglog>=1.4 jsoncpp>=1.1 half>=1.1
 
   ${vts-registry_python_DEPENDS}
   ${vts-core_EXTRA_DEPENDS}

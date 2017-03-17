@@ -13,6 +13,7 @@
 #include <boost/optional.hpp>
 
 #include "./basetypes.hpp"
+#include "./tileindex.hpp"
 
 namespace vtslibs { namespace vts {
 
@@ -223,6 +224,12 @@ struct GlueCreationOptions {
      */
     MergeProgress::pointer progress;
 
+    /** Tileindex is passed to this function where it can be manipulated
+     * just before returning it from buildGenerateSet
+     */
+    typedef std::function<void(vts::TileIndex&)> GenerateSetManipulator;
+    GenerateSetManipulator generateSetManipulator;
+
     GlueCreationOptions()
         : textureQuality(), clip(true)
     {}
@@ -230,12 +237,16 @@ struct GlueCreationOptions {
 
 class ReencodeOptions {
 public:
-    ReencodeOptions() : encodeFlags(), dryRun(false), cleanup(false) {}
+    ReencodeOptions()
+        : encodeFlags(), dryRun(false), cleanup(false)
+        , descend(true)
+    {}
 
     CloneOptions::EncodeFlag::value_type encodeFlags;
     bool dryRun;
     bool cleanup;
     std::string tag;
+    bool descend;
 };
 
 // inlines

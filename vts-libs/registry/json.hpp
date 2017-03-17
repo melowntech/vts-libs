@@ -13,8 +13,12 @@
 namespace vtslibs { namespace registry {
 
 Json::Value asJson(const ReferenceFrame &rf);
-ReferenceFrame referenceFrame(const Json::Value &value);
-void fromJson(ReferenceFrame &referenceFrame, const Json::Value &value);
+ReferenceFrame referenceFrame(const Json::Value &value
+                              , const boost::filesystem::path &path
+                              = "unknown");
+void fromJson(ReferenceFrame &referenceFrame, const Json::Value &value
+              , const boost::filesystem::path &path
+              = "unknown");
 
 Json::Value asJson(const Srs::dict &srs, bool flatGeoidPath = false);
 void fromJson(Srs::dict &srs, const Json::Value &value);
@@ -59,10 +63,11 @@ void fromJson(RegistryBase &r, const Json::Value &value);
 
 // inlines
 
-inline ReferenceFrame referenceFrame(const Json::Value &value)
+inline ReferenceFrame referenceFrame(const Json::Value &value
+                                     , const boost::filesystem::path &path)
 {
     ReferenceFrame rf;
-    fromJson(rf, value);
+    fromJson(rf, value, path);
     return rf;
 }
 

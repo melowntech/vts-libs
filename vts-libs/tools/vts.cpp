@@ -56,6 +56,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((remove))
                       ((generateGlues)("glue-generate-pending"))
                       ((generateGlue)("glue-generate"))
+                      ((listPendingGlues)("list-pending-glues"))
 
                       ((dumpMetatile)("dump-metatile"))
                       ((mapConfig)("map-config"))
@@ -189,6 +190,8 @@ private:
     int generateGlues();
 
     int generateGlue();
+
+    int listPendingGlues();
 
     int tags();
 
@@ -375,6 +378,32 @@ void configureProgress(const po::variables_map &vars
     options.progress = std::make_shared<MergeProgress>(std::move(dup), period);
 }
 
+void configureGeneratesetModifier(const po::variables_map &vars
+                       , vts::GlueCreationOptions &options)
+{
+    if (!vars.count("debug.tileId")) {
+        return;
+    }
+
+    vts::TileId tileId(vars["debug.tileId"].as<vts::TileId>());
+
+    options.generateSetManipulator = [=](vts::TileIndex &gs) mutable {
+        // prepare tileindex for intersection
+        LOG(info2) << "Applying generate set constraint.";
+
+        vts::TileIndex constraint(vts::LodRange(0, gs.maxLod()));
+
+        int cnt(0);
+        do {
+            constraint.set(tileId, 1);
+            tileId = vts::parent(tileId);
+            ++cnt;
+        } while (tileId.lod);
+        LOG(info2) << "Generate set constraint has " << cnt << " valid tiles.";
+
+        gs = gs.intersect(constraint);
+    };
+}
 void getTags(vts::Tags &tags, const po::variables_map &vars
              , const std::string &option)
 {
@@ -627,7 +656,7 @@ void VtsStorage::configuration(po::options_description &cmdline
     });
 
     createParser(cmdline, Command::generateGlues
-                 , "--command=generate-glue-pending: generates all "
+                 , "--command=glue-generate-pending: generates all "
                  "pending glues for given tileset"
                  , [&](UP &p)
     {
@@ -680,6 +709,10 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
             ("no-clip", "Don't clip meshes by merge coverage.")
+            ("overwrite", "Overwrite existing glue, i.e. regenerate.")
+            ("debug.tileId", po::value<vts::TileId>()
+             , "Limits glue to tiles in the path to "
+             "given tileId (optional).")
             ;
 
         progressConfiguration(p.options);
@@ -693,8 +726,10 @@ void VtsStorage::configuration(po::options_description &cmdline
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
             }
             addOptions_.clip = !vars.count("no-clip");
+            addOptions_.overwrite = vars.count("overwrite");
 
             configureProgress(vars, addOptions_);
+            configureGeneratesetModifier(vars, addOptions_);
         };
     });
 
@@ -1233,6 +1268,12 @@ void VtsStorage::configuration(po::options_description &cmdline
             }
         };
     });
+
+    createParser(cmdline, Command::listPendingGlues
+                 , "--command=list-pending-glues: "
+                 "list pending glues missing to display storage/storageview."
+                 , [&](UP&)
+    {});
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -1325,6 +1366,7 @@ int VtsStorage::runCommand()
     case Command::remove: return remove();
     case Command::generateGlues: return generateGlues();
     case Command::generateGlue: return generateGlue();
+    case Command::listPendingGlues: return listPendingGlues();
     case Command::tags: return tags();
 
     case Command::virtualSurfaceCreate: return virtualSurfaceCreate();
@@ -2664,6 +2706,36 @@ int VtsStorage::virtualSurfaceRemove()
 
     storage.removeVirtualSurface(tids);
     return EXIT_SUCCESS;
+}
+
+int VtsStorage::listPendingGlues()
+{
+    const auto listGlues([&](const vts::Glue::IdSet &glueIds)
+    {
+        for (const auto &glueId : glueIds) {
+            std::cout << utility::join(glueId, ",") << '\n';
+        }
+    });
+
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::TileSet:
+    case vts::DatasetType::TileIndex:
+        std::cerr << "Only storage and storageview is supported\n";
+        return EXIT_FAILURE;
+
+    case vts::DatasetType::Storage:
+        listGlues(vts::openStorage(path_).pendingGlues(nullptr));
+        return EXIT_SUCCESS;
+
+    case vts::DatasetType::StorageView:
+        listGlues(vts::openStorageView(path_).pendingGlues());
+        return EXIT_SUCCESS;
+
+    default: break;
+    }
+
+    std::cerr << "Unrecognized content " << path_ << ".\n";
+    return EXIT_FAILURE;
 }
 
 namespace {

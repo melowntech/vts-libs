@@ -144,6 +144,11 @@ StorageView::Detail::mapConfig(const boost::filesystem::path &configPath
          , utility::relpath(configPath, properties.storagePath));
 }
 
+Glue::IdSet StorageView::pendingGlues() const
+{
+    return detail().storage.pendingGlues(&detail().properties.tilesets);
+}
+
 bool StorageView::check(const boost::filesystem::path &root)
 {
     return storageview::checkConfig(root);

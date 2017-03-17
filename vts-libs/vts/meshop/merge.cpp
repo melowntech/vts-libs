@@ -12,7 +12,6 @@
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <opencv2/photo/photo.hpp>
 
 #include "utility/streams.hpp"
 #include "utility/expect.hpp"
@@ -28,6 +27,7 @@
 #include "imgproc/inpaint.hpp"
 
 #include "../opencv/atlas.hpp"
+#include "../opencv/texture.hpp"
 
 #include "../meshop.hpp"
 #include "../math.hpp"
@@ -76,22 +76,6 @@ const char *VTS_MESH_MERGE_DUMP_DIR(std::getenv("VTS_MESH_MERGE_DUMP_DIR"));
 
 typedef std::vector<cv::Mat> MatList;
 
-inline math::Point2d denormalize(const math::Point2d &p
-                                 , const cv::Size &texSize)
-{
-    return { (p(0) * texSize.width), ((1.0 - p(1)) * texSize.height) };
-}
-
-inline math::Points2d denormalize(const math::Points2d &ps
-                                  , const cv::Size &texSize)
-{
-    math::Points2d out;
-    for (const auto &p : ps) {
-        out.push_back(denormalize(p, texSize));
-    }
-    return out;
-}
-
 inline math::Point2d normalize(const imgproc::UVCoord &uv
                                , const cv::Size &texSize)
 {
@@ -99,88 +83,20 @@ inline math::Point2d normalize(const imgproc::UVCoord &uv
             , 1.0 - uv.y / texSize.height };
 }
 
-/** Rasterizes triangle mesh into mask. Each pixel is dilated by one pixel to
- *  the left and top (because it is automatically dilated to the opposite side
- *  by scan convert rasterization algo.
- */
-void rasterizeMaskLegacy(cv::Mat &mask, const Faces &faces
-                         , const math::Points2d &tc)
-{
-    const auto white(cv::Scalar(0xff));
-    const cv::Rect bounds(0, 0, mask.cols, mask.rows);
-
-    auto paint([&](int x, int y, int w, int h) -> void
-    {
-        cv::Rect r(x, y, w, h);
-        cv::rectangle(mask, r & bounds, white, CV_FILLED, 4);
-    });
-
-    cv::Point3f tri[3];
-    for (const auto &face : faces) {
-        for (int i : { 0, 1, 2 }) {
-            const auto &p(tc[face(i)]);
-            tri[i] = { float(p(0)), float(p(1)), 0.f };
-            paint(p(0), p(1), 1, 1);
-        }
-
-        // rasterize triangle
-        std::vector<imgproc::Scanline> scanlines;
-        imgproc::scanConvertTriangle(tri, 0, mask.rows, scanlines);
-
-        for (const auto &sl : scanlines) {
-            imgproc::processScanline(sl, 0, mask.cols
-                                     , [&](int x, int y, float)
-            {
-                paint(x - 1, y - 1, 2, 2);
-            });
-        }
-    }
-}
-
-constexpr int rasterizeFractionBits(8);
-constexpr int rasterizeFractionMult(1 << rasterizeFractionBits);
-
-/** New mask rasterization using OpenCV
- */
-void rasterizeMask(cv::Mat &mask, const Faces &faces
-                   , const math::Points2d &tc)
-{
-    const auto white(cv::Scalar(0xff));
-
-    cv::Point poly[3];
-    for (const auto &face : faces) {
-        for (int i = 0; i < 3; ++i) {
-            const auto &uv(tc[face(i)]);
-            auto &p(poly[i]);
-            // NB: we need to shift by a half pixel to map from grid (used by
-            // this algo) to pixels (used by OpenCV)
-            p.x = (uv(0) - 0.5) * rasterizeFractionMult;
-            p.y = (uv(1) - 0.5) * rasterizeFractionMult;
-        }
-
-        int counts(3);
-        const cv::Point *asPtr(poly);
-        cv::fillConvexPoly(mask, poly, counts, white, 4
-                           , rasterizeFractionBits);
-        cv::polylines(mask, &asPtr, &counts, 1, true, white, 1, 4
-                      , rasterizeFractionBits);
-    }
-}
-
 class TextureInfo {
 public:
     TextureInfo(const SubMesh &sm, const cv::Mat &texture
                 , const SubmeshMergeOptions &options)
-        : tc_(denormalize(sm.tc, texture.size()))
+        : tc_(opencv::denormalize(sm.tc, texture.size()))
         , faces_(sm.facesTc), texture_(texture)
         , mask_(texture.rows, texture.cols, CV_8U, cv::Scalar(0x00))
     {
         switch (options.atlasPacking) {
         case SubmeshMergeOptions::AtlasPacking::legacy:
-            rasterizeMaskLegacy(mask_, faces_, tc_);
+            opencv::rasterizeMaskLegacy(mask_, faces_, tc_);
             break;
         case SubmeshMergeOptions::AtlasPacking::progressive:
-            rasterizeMask(mask_, faces_, tc_);
+            opencv::rasterizeMask(mask_, faces_, tc_);
             break;
         }
     }
@@ -927,9 +843,10 @@ Range::list groupSubmeshes(const SubMesh::list &sms, Indices &indices
         splitToRanges(0, textured, true);
     }
 
+    // non-textured
     if (sms.size() > textured) {
         std::sort(indices.begin() + textured, indices.end(), compareSubmeshes);
-        splitToRanges(textured, sms.size(), true);
+        splitToRanges(textured, sms.size(), false);
     }
 
     return out;
@@ -1272,7 +1189,7 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
     {
         // rasterize valid triangles
         cv::Mat mask(tex.rows, tex.cols, CV_8U, cv::Scalar(0x00));
-        rasterizeMask(mask, faces, dnTc);
+        opencv::rasterizeMask(mask, faces, dnTc);
 
         // inpaint JPEG blocks
         imgproc::jpegBlockInpaint(tex, mask);

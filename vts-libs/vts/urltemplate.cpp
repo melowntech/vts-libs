@@ -37,6 +37,13 @@ inline unsigned int variableValue(UrlTemplate::Variable what
     return 0;
 }
 
+unsigned int hash(unsigned int x) {
+    x = ((x >> 16) ^ x) * 0x45d9f3b;
+    x = ((x >> 16) ^ x) * 0x45d9f3b;
+    x = (x >> 16) ^ x;
+    return x;
+}
+
 UrlTemplate::Expander makeAltExpander(const std::string &str
                                    , const std::string::size_type &start
                                    , const std::string::size_type &end)
@@ -48,21 +55,17 @@ UrlTemplate::Expander makeAltExpander(const std::string &str
 
     if (alternatives.empty()) { return {}; }
 
-    class Counter {
-    public:
-        Counter() : counter_(0) {}
-        Counter(const Counter&) : counter_(0) {}
-
-        unsigned int next() const { return ++counter_; }
-
-    private:
-        mutable std::atomic<unsigned int> counter_;
-    };
-
-    Counter counter;
-    return [alternatives, counter](std::ostream &os, const UrlTemplate::Vars&)
+    return [alternatives](std::ostream &os,
+            const UrlTemplate::Vars &vars)
     {
-        os << alternatives[counter.next() % alternatives.size()];
+        unsigned int sum = vars.subMesh
+                + vars.tileId.lod
+                + vars.tileId.x
+                + vars.tileId.y
+                + vars.localId.lod
+                + vars.localId.x
+                + vars.localId.y;
+        os << alternatives[hash(sum) % alternatives.size()];
     };
 }
 

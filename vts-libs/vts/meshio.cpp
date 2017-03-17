@@ -1,3 +1,6 @@
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+
 #include "dbglog/dbglog.hpp"
 
 #include "utility/binaryio.hpp"
@@ -13,6 +16,7 @@
 #include "./atlas.hpp"
 
 namespace fs = boost::filesystem;
+namespace bio = boost::iostreams;
 namespace bin = utility::binaryio;
 
 namespace vtslibs { namespace vts { namespace detail {
@@ -686,48 +690,42 @@ void loadSubmeshVersion2(std::istream &in, SubMesh &sm, std::uint8_t flags
     }
 }
 
-// support for Mesh
+// get submesh from submesh -> identity
+inline SubMesh& getSubmesh(SubMesh& sm) { return sm; }
 
-inline SubMesh& getSubmesh(SubMesh &sm)
-{
-    // identity
-    return sm;
-}
+// get submesh from normalized submesh
+inline SubMesh& getSubmesh(NormalizedSubMesh &sm) { return sm.submesh; }
 
-inline const math::Extents3 loadBbox(const SubMesh&
-                                     , const math::Extents3 &bbox)
-{
-    // use provided bbox
-    return bbox;
-}
-
-inline void addBbox(SubMesh&, const math::Extents3&)
-{
-    // no-op;
-}
-
-// support for normalized submeshes
-
-inline SubMesh& getSubmesh(NormalizedSubMesh &sm)
-{
-    // get submesh from normalized submesh
-    return sm.submesh;
-}
-
-// helper normalized bbox
+// helpers normalized bbox
 const math::Extents3 normBbox(-1.0, -1.0, -1.0, +1.0, +1.0, +1.0);
 
-inline const math::Extents3 loadBbox(const NormalizedSubMesh&
-                                     , const math::Extents3&)
+inline void loadSubmeshVersion2(std::istream &in, NormalizedSubMesh &sm
+                                , std::uint8_t flags
+                                , const math::Extents3 &bbox)
 {
-    // ignore provided bbox, always return normalized one
-    return normBbox;
+    loadSubmeshVersion2(in, sm.submesh, flags, normBbox);
+    sm.extents = bbox;
 }
 
-inline void addBbox(NormalizedSubMesh &sm, const math::Extents3 &bbox)
+inline void loadSubmeshVersion3(std::istream &in, NormalizedSubMesh &sm
+                                , std::uint8_t flags
+                                , const math::Extents3 &bbox)
 {
-    // add provided bbox to normalized submesh
-    sm.extents = bbox;
+    loadSubmeshVersion3(in, sm.submesh, flags, bbox);
+
+    // re-compute extents
+    sm.extents = math::computeExtents(sm.submesh.vertices);
+    const auto es(math::size(sm.extents));
+    const auto center(math::center(sm.extents));
+
+    const math::Point3 scale(2.0 / es.width, 2.0 / es.height, 2.0 / es.depth);
+
+    // normalize
+    for (auto &v : sm.submesh.vertices) {
+        v(0) = (v(0) - center(0)) * scale(0);
+        v(1) = (v(1) - center(1)) * scale(1);
+        v(2) = (v(2) - center(2)) * scale(2);
+    }
 }
 
 template <typename MeshType>
@@ -797,12 +795,10 @@ void loadMeshProperImpl(std::istream &in, const fs::path &path
         bin::read(in, bbox.ur(2));
 
         if (version >= 3) {
-            loadSubmeshVersion3(in, sm, flags, loadBbox(meshItem, bbox));
+            loadSubmeshVersion3(in, meshItem, flags, bbox);
         } else {
-            loadSubmeshVersion2(in, sm, flags, loadBbox(meshItem, bbox));
+            loadSubmeshVersion2(in, meshItem, flags, bbox);
         }
-
-        addBbox(meshItem, bbox);
     }
 }
 
@@ -821,7 +817,25 @@ loadMeshProperNormalized(std::istream &in
                          , const boost::filesystem::path &path)
 {
     NormalizedSubMesh::list submeshes;
-    detail::loadMeshProperImpl(in, path, submeshes);
+
+    if (storage::gzipped(in)) {
+        // looks like a gzip
+        bio::filtering_istream gzipped;
+
+        // create and add decompressor
+        gzipped.push
+            (bio::gzip_decompressor(bio::gzip_params().window_bits, 1 << 16));
+
+        // add input restricted to mesh data
+        gzipped.push(in);
+        gzipped.exceptions(in.exceptions());
+
+        detail::loadMeshProperImpl(gzipped, path, submeshes);
+    } else {
+        // raw file
+        detail::loadMeshProperImpl(in, path, submeshes);
+    }
+
     return submeshes;
 }
 

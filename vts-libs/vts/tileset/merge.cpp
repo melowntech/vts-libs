@@ -1063,6 +1063,12 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
     // derived tile -> cut out
     const auto localId(local(input.tileId().lod, tileId));
 
+    // check if subtile is covered in input (do not generate empty tile and
+    // do not let empty subtile fall through)
+    if (! input.mesh().coverageMask.get(localId.lod, localId.x, localId.y) ) {
+        return Output(tileId);
+    }
+
     // clip source mesh/navtile
 
     CsConvertor phys2sd(nodeInfo.referenceFrame().model.physicalSrs

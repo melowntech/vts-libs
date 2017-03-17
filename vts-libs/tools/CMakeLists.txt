@@ -56,6 +56,8 @@ if (TARGET service)
 
     vts_libs_tool(tilar tilar.cpp)
 
+    vts_libs_tool(mapconfig mapconfig.cpp)
+
     vts_libs_tool(vts0
       vts0/vts0.cpp vts0/commands.hpp vts0/fallback.cpp
       vts0/create.cpp vts0/info.cpp vts0/add.cpp

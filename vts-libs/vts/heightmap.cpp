@@ -40,7 +40,7 @@ public:
     typedef cv::Vec<channel_type, 1> value_type;
 
     explicit HeightMapRaster(const cv::Mat &mat, channel_type invalidValue)
-        : mat_(mat), invalidValue_(invalidValue)
+        : mat_(mat), invalidValue_(invalidValue), invalidPixel_(invalidValue)
     {}
 
     int channels() const { return 1; };
@@ -53,7 +53,7 @@ public:
         return value;
     }
 
-    channel_type undefined() const { return invalidValue_; }
+    value_type undefined() const { return invalidPixel_; }
 
     int width() const { return mat_.cols; }
     int height() const { return mat_.rows; }
@@ -67,6 +67,7 @@ public:
 private:
     const cv::Mat &mat_;
     channel_type invalidValue_;
+    value_type invalidPixel_;
 };
 
 } // namespace

@@ -428,6 +428,32 @@ TilesetIdCounts Storage::Properties::pendingGlueCount(TilesetIdSet tilesets)
     return counts;
 }
 
+Glue::IdSet Storage::Detail::pendingGlues(const TilesetIdSet *subset) const
+{
+    // grab list of unique tilesets to be sent into the output
+    const auto unique(properties.unique(subset));
+
+    Glue::IdSet pending;
+
+    for (const auto &glueId : properties.pendingGlues) {
+        bool add(true);
+        for (const auto &tilesetId : glueId) {
+            // set add to result of check for tileset in unique set of tilesets
+            if (!(add = unique.count(tilesetId))) {
+                // not found -> stop checking glue ID now
+                break;
+            }
+        }
+
+        if (add) {
+            // all check passed -> remember
+            pending.insert(glueId);
+        }
+    }
+
+    return pending;
+}
+
 MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
                                      , const Storage::Properties &properties
                                      , const ExtraStorageProperties &extra
@@ -728,6 +754,11 @@ Glue::IdSet Storage::pendingGlues(const TilesetId &tilesetId) const
     return glues;
 }
 
+Glue::IdSet Storage::pendingGlues(const TilesetIdSet *subset) const
+{
+    return detail().pendingGlues(subset);
+}
+
 VirtualSurface::list Storage::virtualSurfaces(const TilesetId &tilesetId) const
 {
     VirtualSurface::list virtualSurfaces;
@@ -884,10 +915,14 @@ void Storage::reencode(const boost::filesystem::path &root
                           , ro, prefix + "    ");
     }
 
+    // virtual surfaces: just version bump, do not descend down (imminent
+    // infinite recursion)
+    auto vsRo(ro);
+    vsRo.descend = false;
     for (const auto &virtualSurface : config.virtualSurfaces) {
         TileSet::reencode(storage_paths::virtualSurfacePath
                           (root, virtualSurface.second)
-                          , ro, prefix + "    ");
+                          , vsRo, prefix + "    ");
     }
 }
 

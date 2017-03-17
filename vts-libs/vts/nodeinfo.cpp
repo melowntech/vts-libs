@@ -137,7 +137,7 @@ NodeInfo NodeInfo::child(Child childDef) const
     // NB: this works only for manual division
     if (const auto *childNode = referenceFrame_->find(childId, std::nothrow)) {
         // we have new subtree root
-        return { *referenceFrame_, *childNode };
+        return { *referenceFrame_, *childNode, subtree_.registry() };
     }
 
     // divide current node's extents in half in both directions

@@ -13,7 +13,7 @@
 
 namespace vtslibs { namespace registry {
 
-void registryConfiguration
+inline void registryConfiguration
 (boost::program_options::options_description &od
  , const boost::filesystem::path &defaultPath)
 {
@@ -25,10 +25,21 @@ void registryConfiguration
         ;
 }
 
-void registryConfigure(const boost::program_options::variables_map &vars)
+inline void
+registryConfigure(const boost::program_options::variables_map &vars)
 {
     init(vars["registry"].as<boost::filesystem::path>());
 }
+
+inline void
+creditsConfiguration(boost::program_options::options_description &od)
+{
+    od.add_options()
+        ("credits", boost::program_options::value<std::string>()
+         , "Comma-separated list of string/numeric credit id.");
+}
+
+CreditIds creditsConfigure(const boost::program_options::variables_map &vars);
 
 } } // namespace vtslibs::registry
 
