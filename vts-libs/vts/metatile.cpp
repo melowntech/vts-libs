@@ -265,10 +265,9 @@ std::initializer_list<MetaTileFlag::FlagMapping> MetaTileFlag::flagMapping = {
 std::uint16_t loadVersion(std::istream &in, const fs::path &path)
 {
     char magic[sizeof(MAGIC)];
-    std::uint16_t version;
 
     bin::read(in, magic);
-    bin::read(in, version);
+    auto version(bin::read<std::uint16_t>(in));
 
     if (std::memcmp(magic, MAGIC, sizeof(MAGIC))) {
         LOGTHROW(err1, storage::BadFileFormat)
@@ -285,9 +284,7 @@ std::uint16_t loadVersion(std::istream &in, const fs::path &path)
 template <typename T1, typename T2>
 inline T1 readHelper(std::istream &in)
 {
-    T2 value;
-    bin::read(in, value);
-    return value;
+    return bin::read<T2>(in);
 }
 
 template <typename T>
@@ -489,9 +486,7 @@ inline void MetaNode::load(std::istream &in, const StoreParams &sp
     // NB: flags are accumulated because they can be pre-initialized from
     // another source
     {
-        std::uint8_t f;
-        bin::read(in, f);
-        flags_ |= f;
+        flags_ |= bin::read<std::uint8_t>(in);
     }
 
     // geom extents
@@ -506,24 +501,19 @@ inline void MetaNode::load(std::istream &in, const StoreParams &sp
 
         if (version >= 4) {
             // new format
-            float f;
-            bin::read(in, f); geomExtents.z.min = f;
-            bin::read(in, f); geomExtents.z.max = f;
-            bin::read(in, f); geomExtents.surrogate = f;
+            geomExtents.z.min = bin::read<float>(in);
+            geomExtents.z.max = bin::read<float>(in);
+            geomExtents.surrogate = bin::read<float>(in);
         }
     }
 
-    std::uint8_t u8;
-    std::uint16_t u16;
-    std::int16_t i16;
+    internalTextureCount_ = bin::read<std::uint8_t>(in);
 
-    bin::read(in, u8); internalTextureCount_ = u8;
+    texelSize = half::half2float(bin::read<std::uint16_t>(in));
+    displaySize = bin::read<std::uint16_t>(in);;
 
-    bin::read(in, u16); texelSize = half::half2float(u16);
-    bin::read(in, u16); displaySize = u16;
-
-    bin::read(in, i16); heightRange.min = i16;
-    bin::read(in, i16); heightRange.max = i16;
+    heightRange.min = bin::read<std::int16_t>(in);
+    heightRange.max = bin::read<std::int16_t>(in);
 
     sourceReference = readVariable<SourceReference>(in, sp.sourceReference);
 }
@@ -532,22 +522,18 @@ void MetaTile::load(std::istream &in, const fs::path &path)
 {
     const auto version(loadVersion(in, path));
 
-    std::uint8_t u8;
-    std::uint16_t u16;
-    std::uint32_t u32;
-
     // tile id information
-    bin::read(in, u8); origin_.lod = u8;
-    bin::read(in, u32); origin_.x = u32;
-    bin::read(in, u32); origin_.y = u32;
+    origin_.lod = bin::read<std::uint8_t>(in);
+    origin_.x = bin::read<std::uint32_t>(in);
+    origin_.y = bin::read<std::uint32_t>(in);
 
     // offset and dimensions of saved grid
-    bin::read(in, u16); valid_.ll(0) = u16;
-    bin::read(in, u16); valid_.ll(1) = u16;
+    valid_.ll(0) = bin::read<std::uint16_t>(in);
+    valid_.ll(1) = bin::read<std::uint16_t>(in);
 
     size2_type validSize;
-    bin::read(in, u16); validSize.width = u16;
-    bin::read(in, u16); validSize.height = u16;
+    validSize.width = bin::read<std::uint16_t>(in);
+    validSize.height = bin::read<std::uint16_t>(in);
     if (!math::empty(validSize)) {
         // non-empty -> just remove one
         valid_.ur(0) = valid_.ll(0) + validSize.width - 1;
@@ -560,19 +546,18 @@ void MetaTile::load(std::istream &in, const fs::path &path)
     std::uint8_t flags(0);
     if (version < 2) {
         // node size (unused)
-        bin::read(in, u8);
+        bin::read<std::uint8_t>(in);
     } else {
         // flags
         bin::read(in, flags);
     }
 
     // credit count
-    std::uint8_t creditCount;
-    bin::read(in, creditCount);
+    auto creditCount(bin::read<std::uint8_t>(in));
 
     if (version < 2) {
         // read credit block size (unused)
-        bin::read(in, u16);
+        bin::read<std::uint16_t>(in);
     }
 
     // load flags
@@ -610,8 +595,7 @@ void MetaTile::load(std::istream &in, const fs::path &path)
 
         while (creditCount--) {
             // read credit ID
-            std::uint16_t creditId;
-            bin::read(in, creditId);
+            auto creditId(bin::read<std::uint16_t>(in));
 
             // read in bitmap
             bitmap.readData(in);
@@ -893,24 +877,20 @@ void loadCreditsFromMetaTile(std::istream &in, registry::IdSet &credits
     try {
         auto version(loadVersion(in, path));
 
-        std::uint8_t u8;
-        std::uint16_t u16;
-        std::uint32_t u32;
-
 
         // tile id information: ignore
-        bin::read(in, u8);
-        bin::read(in, u32);
-        bin::read(in, u32);
+        bin::read<std::uint8_t>(in);
+        bin::read<std::uint32_t>(in);
+        bin::read<std::uint32_t>(in);
 
         // offset: ignore
-        bin::read(in, u16);
-        bin::read(in, u16);
+        bin::read<std::uint16_t>(in);
+        bin::read<std::uint16_t>(in);
 
         // size: this we need to know
         math::Size2 size;
-        bin::read(in, u16); size.width = u16;
-        bin::read(in, u16); size.height = u16;
+        size.width = bin::read<std::uint16_t>(in);
+        size.height = bin::read<std::uint16_t>(in);
 
         // skip empty metatile
         if (math::empty(size)) { return; }
@@ -919,15 +899,14 @@ void loadCreditsFromMetaTile(std::istream &in, registry::IdSet &credits
         std::uint8_t flags(0);
         if (version < 2) {
             // node size (unused)
-            bin::read(in, u8);
+            bin::read<std::uint8_t>(in);
         } else {
             // flags
             bin::read(in, flags);
         }
 
         // credit count: we need them
-        std::uint8_t creditCount;
-        bin::read(in, creditCount);
+        auto creditCount(bin::read<std::uint8_t>(in));
 
         // no credit planes? fine
         if (!creditCount) { return; }
@@ -942,7 +921,7 @@ void loadCreditsFromMetaTile(std::istream &in, registry::IdSet &credits
 
         if (version < 2) {
             // read credit block size (unused) (we have calculated it from size)
-            bin::read(in, u16);
+            bin::read<std::uint16_t>(in);
         }
 
         if (flags) {
@@ -954,8 +933,7 @@ void loadCreditsFromMetaTile(std::istream &in, registry::IdSet &credits
         // and finally process credits
         while (creditCount--) {
             // load credit, rememebr
-            std::uint16_t creditId;
-            bin::read(in, creditId);
+            auto creditId(bin::read<std::uint16_t>(in));
             credits.insert(creditId);
             // and skip plane (only if not last)
             if (creditCount) { skipPlane(); }
