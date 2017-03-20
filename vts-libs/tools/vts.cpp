@@ -59,6 +59,7 @@ UTILITY_GENERATE_ENUM(Command,
                       ((listPendingGlues)("list-pending-glues"))
 
                       ((dumpMetatile)("dump-metatile"))
+                      ((metatileVersion)("metatile-version"))
                       ((mapConfig)("map-config"))
                       ((dirs)("dirs"))
                       ((dumpTileIndex)("dump-tileindex"))
@@ -196,6 +197,8 @@ private:
     int tags();
 
     int dumpMetatile();
+
+    int metatileVersion();
 
     int mapConfig();
 
@@ -751,6 +754,19 @@ void VtsStorage::configuration(po::options_description &cmdline
                 optSrs_ = vars["srs"].as<std::string>();
             }
         };
+
+        p.positional.add("tileId", 1);
+    });
+
+    createParser(cmdline, Command::metatileVersion
+                 , "--command=metatile-version: "
+                 "get metatile version from tileset"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileId", po::value(&tileId_)->required()
+             , "ID of any tile inside metatile.")
+            ;
 
         p.positional.add("tileId", 1);
     });
@@ -1373,6 +1389,7 @@ int VtsStorage::runCommand()
     case Command::virtualSurfaceRemove: return virtualSurfaceRemove();
 
     case Command::dumpMetatile: return dumpMetatile();
+    case Command::metatileVersion: return metatileVersion();
     case Command::mapConfig: return mapConfig();
     case Command::dirs: return dirs();
     case Command::dumpTileIndex: return dumpTileIndex();
@@ -1830,6 +1847,16 @@ int VtsStorage::dumpMetatile()
         }
         std::cout << '\n';
     });
+
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::metatileVersion()
+{
+    std::cout << std::fixed;
+
+    auto ts(vts::openTileSet(path_));
+    std::cout << "Version: " << ts.getMetaTileVersion(tileId_) << '\n';
 
     return EXIT_SUCCESS;
 }

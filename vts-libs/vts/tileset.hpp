@@ -141,6 +141,10 @@ public:
      */
     MetaTile getMetaTile(const TileId &metaId) const;
 
+    /** Shows metatile version.
+     */
+    int getMetaTileVersion(const TileId &metaId) const;
+
     /** Returns ID of metatile tileId belongs to.
      */
     TileId metaId(const TileId &tileId) const;

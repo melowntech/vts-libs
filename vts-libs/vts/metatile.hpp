@@ -292,6 +292,9 @@ public:
      */
     static int currentVersion();
 
+    static int loadVersion(std::istream &in
+                           , const boost::filesystem::path &path = "unknown");
+
 private:
     size_type index(const TileId &tileId, bool checkValidity = true) const;
 

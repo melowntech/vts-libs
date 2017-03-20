@@ -123,6 +123,8 @@ public:
     TileNode findNode(const TileId &tileId, bool addNew = false) const;
     const MetaNode* findMetaNode(const TileId &tileId) const;
 
+    int getMetaTileVersion(const TileId &tileId) const;
+
     void loadTileIndex();
     void saveTileIndex();
 

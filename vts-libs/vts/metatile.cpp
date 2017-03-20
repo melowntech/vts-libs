@@ -267,7 +267,7 @@ std::initializer_list<MetaTileFlag::FlagMapping> MetaTileFlag::flagMapping = {
     { MetaTileFlag::alienPlane, MetaNode::Flag::alien }
 };
 
-std::uint16_t loadVersion(std::istream &in, const fs::path &path)
+std::uint16_t loadVersionImpl(std::istream &in, const fs::path &path)
 {
     char magic[sizeof(MAGIC)];
     std::uint16_t version;
@@ -535,7 +535,7 @@ inline void MetaNode::load(std::istream &in, const StoreParams &sp
 
 void MetaTile::load(std::istream &in, const fs::path &path)
 {
-    const auto version(loadVersion(in, path));
+    const auto version(loadVersionImpl(in, path));
 
     std::uint8_t u8;
     std::uint16_t u16;
@@ -650,6 +650,12 @@ void MetaTile::load(std::istream &in, const fs::path &path)
         }
     }
 
+}
+
+int MetaTile::loadVersion(std::istream &in
+                          , const boost::filesystem::path &path)
+{
+    return loadVersionImpl(in, path);
 }
 
 MetaTile loadMetaTile(std::istream &in
@@ -896,7 +902,7 @@ void loadCreditsFromMetaTile(std::istream &in, registry::IdSet &credits
                              , const boost::filesystem::path &path)
 {
     try {
-        auto version(loadVersion(in, path));
+        auto version(loadVersionImpl(in, path));
 
         std::uint8_t u8;
         std::uint16_t u16;

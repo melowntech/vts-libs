@@ -128,6 +128,11 @@ MetaTile TileSet::getMetaTile(const TileId &metaId) const
     return *mt;
 }
 
+int TileSet::getMetaTileVersion(const TileId &metaId) const
+{
+    return detail().getMetaTileVersion(metaId);
+}
+
 bool TileSet::exists(const TileId &tileId) const
 {
     return detail().exists(tileId);
@@ -832,6 +837,12 @@ MetaTile::pointer TileSet::Detail::loadMetaTileFor(const TileId &tileId) const
 {
     IStream::pointer f(driver->input(metaId(tileId), TileFile::meta));
     return loadMetaTile(&f->get(), metaOrder(), f->name());
+}
+
+int TileSet::Detail::getMetaTileVersion(const TileId &tileId) const
+{
+    IStream::pointer f(driver->input(metaId(tileId), TileFile::meta));
+    return MetaTile::loadVersion(f->get(), f->name());
 }
 
 const registry::ReferenceFrame& TileSet::referenceFrame() const

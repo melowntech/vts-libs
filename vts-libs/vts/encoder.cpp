@@ -218,7 +218,7 @@ void Encoder::Detail::process(const TileId &tileId
         {
             dbglog::thread_id(id);
         }
-        ~TIDGuard() { dbglog::thread_id(old); }
+        ~TIDGuard() { try { dbglog::thread_id(old); } catch (...) {} }
 
         const std::string old;
     };
