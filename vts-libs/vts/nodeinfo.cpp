@@ -27,16 +27,17 @@ math::Extents2 makeExtents(const RFNode &rootNode, const RFNode::Id &nodeId)
 RFNode makeNode(const RFNode &subtreeRoot
                 , const TileId &tileId)
 {
-    auto nid(rfNodeId(tileId));
-
     // clone root
     auto node(subtreeRoot);
 
     // set id
-    node.id = nid;
+    node.id = tileId;
 
-    // set extents
-    node.extents = makeExtents(subtreeRoot, nid);
+    // change extents for productive nodes only
+    if (subtreeRoot.real()) {
+        // set extents
+        node.extents = makeExtents(subtreeRoot, tileId);
+    }
 
     return node;
 }
@@ -57,6 +58,20 @@ bool checkPartial(const RFTreeSubtree &subtree, RFNode &node
     return true;
 }
 
+const RFNode invalidNode(RFNode::Id(~Lod(0), 0, 0)
+                         , registry::PartitioningMode::none);
+
+const RFNode& findSubtreeRoot(const registry::ReferenceFrame &referenceFrame
+                              , const TileId &tileId)
+{
+    const auto *node(referenceFrame.findSubtreeRoot(tileId, std::nothrow));
+    if (!node) {
+        // cannot find root for this node -> return invalid node
+        return invalidNode;
+    }
+    return *node;
+}
+
 } // namespace
 
 inline NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
@@ -71,7 +86,7 @@ NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
                    , const TileId &tileId, bool invalidateWhenMasked
                    , const registry::Registry &reg)
     : referenceFrame_(&referenceFrame)
-    , subtree_(referenceFrame_->findSubtreeRoot(rfNodeId(tileId)), reg)
+    , subtree_(findSubtreeRoot(*referenceFrame_, tileId), reg)
     , node_(makeNode(subtree_.root(), tileId))
     , partial_(checkPartial(subtree_, node_, invalidateWhenMasked))
 {}
@@ -134,10 +149,16 @@ NodeInfo NodeInfo::child(Child childDef) const
             << node_.id << ".";
     }
 
-    // NB: this works only for manual division
-    if (const auto *childNode = referenceFrame_->find(childId, std::nothrow)) {
-        // we have new subtree root
-        return { *referenceFrame_, *childNode, subtree_.registry() };
+    if (node_.structure.children) {
+        // manual or barren node -> check for validity
+        if (node_.structure.children & (1 << childDef.index)) {
+            // yes, path exists, replace
+            return { *referenceFrame_, referenceFrame_->find(childId) };
+        }
+
+        // non-existent node -> invalid
+        return { *referenceFrame_
+                , RFNode(childId, registry::PartitioningMode::none) };
     }
 
     // divide current node's extents in half in both directions

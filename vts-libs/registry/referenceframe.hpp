@@ -28,7 +28,23 @@
 
 namespace vtslibs { namespace registry {
 
-enum class PartitioningMode { bisection, manual, none };
+enum class PartitioningMode {
+    /** children divide this sds node's extents in half in both dimensions
+     */
+    bisection
+
+    /** children start new division
+     */
+    , manual
+
+    /** invalid sds node
+     */
+    , none
+
+    /** unproductive sds node, exists solely to complete tree from root
+     */
+    , barren
+};
 
 struct GeoidGrid {
     math::Extents2 extents;
@@ -127,6 +143,23 @@ struct ReferenceFrame {
                 {}
             };
 
+
+            /** Structure navigation.
+             */
+            struct Structure {
+                Id parent;
+                typedef std::uint8_t ChildFlags;
+                enum : ChildFlags {
+                    c00  = 0x01
+                   , c10 = 0x02
+                   , c01 = 0x04
+                   , c11 = 0x08
+                };
+                ChildFlags children;
+
+                Structure() : children() {}
+            };
+
             Id id;
             std::string srs;
             math::Extents2 extents;
@@ -137,6 +170,10 @@ struct ReferenceFrame {
              *  in case of manual partitioning.
              */
             boost::optional<Constraints> constraints;
+
+            /** Navigation through structure.
+             */
+            Structure structure;
 
             typedef std::map<Id, Node> map;
 
@@ -149,8 +186,8 @@ struct ReferenceFrame {
                 return (partitioning.mode != PartitioningMode::none);
             }
 
-            /** Real node is a node whose subtree can contain tile. So far, only
-             *  invalid nodes are not real nodes.
+            /** Real node is a node whose subtree can contain tile. Invalid and
+             *  barren nodes are not real.
              */
             bool real() const {
                 switch (partitioning.mode) {
@@ -170,6 +207,12 @@ struct ReferenceFrame {
         HeightRange heightRange;
         Node::map nodes;
 
+        /** [synthetic] Union of LODs of all nodes defined in the reference
+         *  frame. To be used for better tree navigation. Only nodes in this
+         *  range can be subtree roots
+         */
+        LodRange rootLodRange;
+
         const Node& find(const Node::Id &id) const;
         const Node* find(const Node::Id &id, std::nothrow_t) const;
 
@@ -183,12 +226,14 @@ struct ReferenceFrame {
 
         /** Finds root node for given node id. Doesn't throw.
          */
-        const Node* findSubtreeRoot(const Node::Id &nodeId, std::nothrow_t)
+        const Node* findSubtreeRoot(Node::Id nodeId, std::nothrow_t)
             const;
 
         /** Get list of all SRS's used by this division
          */
         std::set<std::string> srsList() const;
+
+        Division() : rootLodRange(LodRange::emptyRange()) {}
     };
 
     std::string id;
@@ -421,7 +466,8 @@ math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
 UTILITY_GENERATE_ENUM_IO(PartitioningMode,
     ((bisection))
     ((manual))
-    ((none))
+    ((none)("#none"))
+    ((barren)("#barren"))
 )
 
 UTILITY_GENERATE_ENUM_IO(Periodicity::Type,

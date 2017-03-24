@@ -20,6 +20,8 @@ public:
 
     const RFNode::Id& id() const { return root_->id; }
 
+    Lod lod() const { return root_->id.lod; }
+
     bool operator==(const RFTreeSubtree &other) const {
         return (root_ == other.root_);
     }
@@ -116,6 +118,8 @@ public:
     NodeInfo child(Child child) const;
 
     bool valid() const { return node_.valid(); }
+
+    bool productive() const { return node_.real(); }
 
     const RFTreeSubtree& subtree() const { return subtree_; }
 

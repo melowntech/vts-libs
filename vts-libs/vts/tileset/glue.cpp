@@ -229,6 +229,26 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
     const bool g(generate_.exists(tileId));
     const bool atBottom(tileId.lod >= generate_.maxLod());
 
+    auto descend([&](const merge::TileSource &source)
+    {
+        if (g) {
+            (++progress_).report(utility::Progress::ratio_t(5, 1000)
+                                 , "(glue) ");
+            if (options_.progress) { options_.progress->tile(); }
+        }
+
+        // do not descent if we are at the bottom
+        if (atBottom) { return; }
+
+        // remove this tile from thread name
+        tg.pop();
+
+        // this tile is processed, go after children
+        for (const auto &child : children(tileId)) {
+            mergeTile(nodeInfo.child(child), child, source);
+        }
+    });
+
     LOG(info2) << "(glue) Processing tile " << tileId
                << " (" << (g ? 'G': 'g')
                << (atBottom ? 'B': 'b') << ").";
@@ -239,35 +259,29 @@ void Merger::mergeTile(const NodeInfo &nodeInfo, const TileId &tileId
         return;
     }
 
+    if (!nodeInfo.productive()) {
+        // unproductive node, immediately descend
+        // forward parent source
+        descend(parentSource);
+        return;
+    }
+
     const bool ng(navtileGenerate_.exists(tileId));
 
     // process tile
     auto tile(processTile(nodeInfo, tileId, parentSource
-                          , Constraints(*this, g, ng)));
+                              , Constraints(*this, g, ng)));
 
     if (tile) {
-        // place alien tiles to alien glue and proper tiles to glue
+        // place tile to glue
         glue_.setTile(tileId
                       , tile.tile(options_.textureQuality)
                       .setAlien(isAlienTile(tile))
                       , &nodeInfo);
     }
 
-    if (g) {
-        (++progress_).report(utility::Progress::ratio_t(5, 1000), "(glue) ");
-        if (options_.progress) { options_.progress->tile(); }
-    }
-
-    // do not descent if we are at the bottom
-    if (atBottom) { return; }
-
-    // remove this tile from thread name
-    tg.pop();
-
     // this tile is processed, go after children
-    for (const auto &child : children(tileId)) {
-        mergeTile(nodeInfo.child(child), child, tile.source);
-    }
+    descend(tile.source);
 }
 
 merge::Output Merger::processTile(const NodeInfo &nodeInfo

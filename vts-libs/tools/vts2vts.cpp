@@ -271,8 +271,10 @@ vts::TileRange tileRange(const vr::ReferenceFrame::Division::Node &node
         }
     }
 
-    return r;
+    // globalize tile range
+    return vts::global(node.id, localLod, r);
 }
+
 template <typename Op>
 void forEachTile(const vr::ReferenceFrame &referenceFrame
                  , vts::Lod lod, const vts::TileRange &tileRange
@@ -296,6 +298,8 @@ void rasterizeTiles(const vr::ReferenceFrame &referenceFrame
     forEachTile(referenceFrame, lod, tileRange
                 , [&](const vts::NodeInfo &ni)
     {
+        if (!ni.productive()) { return; }
+
         LOG(info1)
             << std::fixed << "dst tile: "
             << ni.nodeId() << ", " << ni.extents();
@@ -365,7 +369,7 @@ public:
             // for each destination node
             for (const auto &item : dstRf.division.nodes) {
                 const auto &node(item.second);
-                if (!node.valid()) { continue; }
+                if (!node.real()) { continue; }
                 const vts::CsConvertor csconv(ni.srs(), node.srs);
 
                 auto dstCorners(projectCorners(node, csconv, srcCorners));
