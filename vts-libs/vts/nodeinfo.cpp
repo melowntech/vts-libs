@@ -153,12 +153,14 @@ NodeInfo NodeInfo::child(Child childDef) const
         // manual or barren node -> check for validity
         if (node_.structure.children & (1 << childDef.index)) {
             // yes, path exists, replace
-            return { *referenceFrame_, referenceFrame_->find(childId) };
+            return { *referenceFrame_, referenceFrame_->find(childId)
+						, subtree_.registry() };
         }
 
         // non-existent node -> invalid
         return { *referenceFrame_
-                , RFNode(childId, registry::PartitioningMode::none) };
+                , RFNode(childId, registry::PartitioningMode::none)
+                , subtree_.registry()};
     }
 
     // divide current node's extents in half in both directions
