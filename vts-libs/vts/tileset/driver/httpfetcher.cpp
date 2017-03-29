@@ -311,6 +311,7 @@ HttpFetcher::HttpFetcher(const std::string &rootUrl
 IStream::pointer HttpFetcher::input(File type, bool noSuchFile)
     const
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     return fetchAsStream(handle(handle_), rootUrl_, filePath(type)
                          , contentType(type), options_
                          , noSuchFile);
@@ -320,6 +321,7 @@ IStream::pointer HttpFetcher::input(const TileId &tileId, TileFile type
                                     , unsigned int revision, bool noSuchFile)
     const
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     return fetchAsStream(handle(handle_), rootUrl_
                          , remotePath(tileId, type, revision)
                          , contentType(type), options_

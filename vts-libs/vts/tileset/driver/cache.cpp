@@ -1,3 +1,5 @@
+#include <mutex>
+
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/crc.hpp>
@@ -64,16 +66,7 @@ struct Cache::Archives
             , tilar_(std::move(tilar))
         {}
 
-        /** Allow non-const access to underlying tilar using const_cast.
-         *
-         *  Reason: multi-index-container's interator is always const because
-         *          non-const iterator could modify keys with disastrous
-         *          consequences. But tilar is not a key, therefore we can
-         *          safely modify it as we wish.
-         */
-        Tilar* tilar() const {
-            return &const_cast<Tilar&>(tilar_);
-        }
+        Tilar& tilar() const { return tilar_; }
 
         void hit() { lastHit = utility::usecFromEpoch(); }
 
@@ -85,8 +78,48 @@ struct Cache::Archives
         Time lastHit;
 
     private:
-        Tilar tilar_;
+        mutable Tilar tilar_;
     };
+
+    Archives(const fs::path &root, const std::string &extension
+             , bool readOnly, int filesPerTile
+             , const PlainOptions &options
+             , const Tilar::ContentTypes &contentTypes);
+
+    Tilar open(const TileId &archive, bool noSuchFile = true);
+
+    fs::path filePath(const TileId &index) const;
+
+    void flush() {
+        finish([](Tilar &tilar) { tilar.commit(); });
+    }
+
+    std::size_t size() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return map_.size();
+    }
+
+private:
+    void houseKeeping(const TileId *keep = nullptr);
+
+    template <typename Idx, typename Iterator>
+    inline void hit(Idx &idx, Iterator iterator) {
+        idx.modify(iterator, [](Record &r) { r.hit(); });
+    }
+
+    template <typename Idx, typename Iterator>
+    inline void infinity(Idx &idx, Iterator iterator) {
+        idx.modify(iterator, [](Record &r) { r.infinity(); });
+    }
+
+    template <typename Op>
+    void finish(Op op) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto iidx(map_.begin()); iidx != map_.end(); ) {
+            op(iidx->tilar());
+            iidx = map_.erase(iidx);
+        }
+    }
 
     struct IndexIdx {};
     struct LastHitIdx {};
@@ -105,64 +138,32 @@ struct Cache::Archives
               >
         > Map;
 
-    const fs::path root;
-    const std::string extension;
-    const Tilar::Options options;
-    const bool readOnly;
-    Map map;
-    const Tilar::ContentTypes &contentTypes;
+    const fs::path root_;
+    const std::string extension_;
+    const Tilar::Options options_;
+    const bool readOnly_;
+    Map map_;
+    const Tilar::ContentTypes &contentTypes_;
 
-    Archives(const fs::path &root, const std::string &extension
-             , bool readOnly, int filesPerTile
-             , const PlainOptions &options
-             , const Tilar::ContentTypes &contentTypes);
-
-    Tilar* open(const TileId &archive, bool noSuchFile = true);
-
-    fs::path filePath(const TileId &index) const;
-
-    void flush() {
-        finish([](Tilar &tilar) { tilar.commit(); });
-    }
-
-private:
-    void houseKeeping(const TileId *keep = nullptr);
-
-    template <typename Idx, typename Iterator>
-    inline void hit(Idx &idx, Iterator iterator) {
-        idx.modify(iterator, [](Record &r) { r.hit(); });
-    }
-
-    template <typename Idx, typename Iterator>
-    inline void infinity(Idx &idx, Iterator iterator) {
-        idx.modify(iterator, [](Record &r) { r.infinity(); });
-    }
-
-    template <typename Op>
-    void finish(Op op) {
-        for (auto iidx(map.begin()); iidx != map.end(); ) {
-            op(*iidx->tilar());
-            iidx = map.erase(iidx);
-        }
-    }
+    mutable std::mutex mutex_;
 };
 
 Cache::Archives::Archives(const fs::path &root, const std::string &extension
                           , bool readOnly, int filesPerTile
                           , const PlainOptions &options
                           , const Tilar::ContentTypes &contentTypes)
-    : root(root), extension(extension)
-    , options(options.tilar(filesPerTile))
-    , readOnly(readOnly), contentTypes(contentTypes)
+    : root_(root), extension_(extension)
+    , options_(options.tilar(filesPerTile))
+    , readOnly_(readOnly), contentTypes_(contentTypes)
 {}
 
 fs::path Cache::Archives::filePath(const TileId &index) const
 {
     const auto filename(str(boost::format("%s-%07d-%07d.%s")
                             % index.lod % index.x % index.y
-                            % extension));
-    const auto parent(root / dir(filename));
-    if (!readOnly) {
+                            % extension_));
+    const auto parent(root_ / dir(filename));
+    if (!readOnly_) {
         // ensure dir exists
         create_directories(parent);
     }
@@ -208,7 +209,7 @@ void Cache::Archives::houseKeeping(const TileId *keep)
 {
     if (!storage::OpenFiles::critical()) { return; }
 
-    auto &idx(map.get<LastHitIdx>());
+    auto &idx(map_.get<LastHitIdx>());
 
     LOG(info1)
         << "Critical number of open files reached (current count is "
@@ -219,7 +220,7 @@ void Cache::Archives::houseKeeping(const TileId *keep)
     for (auto iidx(idx.begin()); toDrop && (iidx != idx.end()); ) {
         // skip keep file
         if (keep && (iidx->index == *keep)) {
-            LOG(debug) << "File " << iidx->tilar()->path()
+            LOG(debug) << "File " << iidx->tilar().path()
                        << " must be kept in the cache.";
             ++iidx;
             continue;
@@ -228,7 +229,7 @@ void Cache::Archives::houseKeeping(const TileId *keep)
         // files in infinity -> this and all its friends are detached
         if (iidx->isInInfinity()) { return; }
 
-        auto &file(*iidx->tilar());
+        auto &file(iidx->tilar());
 
         switch (file.state()) {
         case Tilar::State::detached:
@@ -281,11 +282,13 @@ void Cache::Archives::houseKeeping(const TileId *keep)
     }
 }
 
-Tilar* Cache::Archives::open(const TileId &archive, bool noSuchFile)
+Tilar Cache::Archives::open(const TileId &archive, bool noSuchFile)
 {
-    auto fmap(map.find(archive));
-    if (fmap != map.end()) {
-        hit(map, fmap);
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    auto fmap(map_.find(archive));
+    if (fmap != map_.end()) {
+        hit(map_, fmap);
         // housekeeping, we want to keep found file
         houseKeeping(&fmap->index);
         return fmap->tilar();
@@ -294,53 +297,53 @@ Tilar* Cache::Archives::open(const TileId &archive, bool noSuchFile)
     // housekeeping before open
     houseKeeping();
 
-    auto path(filePath(archive));
-    auto file(tilar(path, options, readOnly, noSuchFile));
-    if (!file) { return nullptr; }
-    file.setContentTypes(contentTypes);
+    const auto path(filePath(archive));
+    auto file(tilar(path, options_, readOnly_, noSuchFile));
+    if (!file) { return file; }
+    file.setContentTypes(contentTypes_);
 
-    return map.insert
+    return map_.insert
         (Record(archive, std::move(file))).first->tilar();
 }
 
 IStream::pointer Cache::input(const TileId tileId, TileFile type)
 {
-    auto index(options_.index(tileId, type, fileType(type)));
-    return getArchives(type).open(index.archive)->input(index.file);
+    const auto index(options_.index(tileId, type, fileType(type)));
+    return getArchives(type).open(index.archive).input(index.file);
 }
 
 IStream::pointer Cache::input(const TileId tileId, TileFile type
                               , const NullWhenNotFound_t&)
 {
-    auto index(options_.index(tileId, type, fileType(type)));
-    auto *file(getArchives(type).open(index.archive, false));
+    const auto index(options_.index(tileId, type, fileType(type)));
+    auto file(getArchives(type).open(index.archive, false));
     if (!file) { return {}; }
-    return file->input(index.file, NullWhenNotFound);
+    return file.input(index.file, NullWhenNotFound);
 }
 
 OStream::pointer Cache::output(const TileId tileId, TileFile type)
 {
-    auto index(options_.index(tileId, type, fileType(type)));
-    return getArchives(type).open(index.archive)->output(index.file);
+    const auto index(options_.index(tileId, type, fileType(type)));
+    return getArchives(type).open(index.archive).output(index.file);
 }
 
 std::size_t Cache::size(const TileId tileId, TileFile type)
 {
-    auto index(options_.index(tileId, type, fileType(type)));
-    return getArchives(type).open(index.archive)->size(index.file);
+    const auto index(options_.index(tileId, type, fileType(type)));
+    return getArchives(type).open(index.archive).size(index.file);
 }
 
 FileStat Cache::stat(const TileId tileId, TileFile type)
 {
-    auto index(options_.index(tileId, type, fileType(type)));
-    return getArchives(type).open(index.archive)->stat(index.file);
+    const auto index(options_.index(tileId, type, fileType(type)));
+    return getArchives(type).open(index.archive).stat(index.file);
 }
 
 storage::Resources Cache::resources()
 {
-    return { (tiles_->map.size()
-              + metatiles_->map.size()
-              + navtiles_->map.size())
+    return { (tiles_->size()
+              + metatiles_->size()
+              + navtiles_->size())
             , 0 };
 }
 

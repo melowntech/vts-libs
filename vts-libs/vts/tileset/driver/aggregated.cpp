@@ -276,9 +276,13 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
             // do not keep surface references -> reset
             node.sourceReference = 0;
         }
+
+        // TODO: optimize, still takes too long
+        // create nodeinfo for this node
+        NodeInfo ni(referenceFrame, nodeId);
         for (const auto &child : vts::children(nodeId)) {
             bool valid(tileIndex.validSubtree(child)
-                       && NodeInfo(referenceFrame, child).valid());
+                       && ni.child(child).valid());
             node.setChildFromId(child, valid);
         }
     });
