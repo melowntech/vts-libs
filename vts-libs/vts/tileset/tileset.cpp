@@ -309,9 +309,7 @@ struct TileSet::Factory
                                , const TileId &tileId
                                , vs::TileFile type)
     {
-        vs::IStream::pointer is;
-        UTILITY_OMP(critical(clone_sd))
-            is = sd.input(tileId, type);
+        vs::IStream::pointer is(sd.input(tileId, type));
         UTILITY_OMP(critical(clone_dd))
             copyFile(is, dd.output(tileId, type));
     }
@@ -326,17 +324,12 @@ struct TileSet::Factory
         Mesh mesh;
         RawAtlas atlas;
 
-        vs::IStream::pointer is;
-
         if (hasMesh) {
-            UTILITY_OMP(critical(clone_sd))
-                is = sd.input(tileId, storage::TileFile::mesh);
-            mesh = loadMesh(is);
+            mesh = loadMesh(sd.input(tileId, storage::TileFile::mesh));
         }
 
         if (hasAtlas) {
-            UTILITY_OMP(critical(clone_sd))
-                is = sd.input(tileId, storage::TileFile::atlas);
+            auto is(sd.input(tileId, storage::TileFile::atlas));
             atlas.deserialize(is->get(), is->name());
         }
 

@@ -48,16 +48,6 @@ const std::string filePath(File type) {
     throw "unknown file type";
 }
 
-inline HttpFetcher::Options httpOptions(const OpenOptions &openOptions)
-{
-    return HttpFetcher::Options().cnames(openOptions.cnames());
-}
-
-inline HttpFetcher::Options httpOptions(const CloneOptions &cloneOptions)
-{
-    return httpOptions(cloneOptions.openOptions());
-}
-
 } // namespace
 
 RemoteDriverBase::RemoteDriverBase(const CloneOptions &cloneOptions)
@@ -73,7 +63,7 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
                            , const CloneOptions &cloneOptions)
     : RemoteDriverBase(cloneOptions)
     , Driver(root, options, cloneOptions.mode())
-    , fetcher_(this->options().url, httpOptions(cloneOptions))
+    , fetcher_(this->options().url, cloneOptions.openOptions())
     , revision_()
 {
     {
@@ -106,7 +96,7 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
                            , const OpenOptions &openOptions
                            , const RemoteOptions &options)
     : Driver(root, openOptions, options)
-    , fetcher_(this->options().url, httpOptions(openOptions))
+    , fetcher_(this->options().url, openOptions)
     , revision_()
 {
     {
@@ -122,7 +112,7 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
                            , const RemoteDriver &src)
     : RemoteDriverBase(cloneOptions)
     , Driver(root, options, cloneOptions.mode())
-    , fetcher_(this->options().url, httpOptions(cloneOptions))
+    , fetcher_(this->options().url, cloneOptions.openOptions())
 {
     // update and save properties
     {

@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <iterator>
+#include <future>
 
 #include <boost/format.hpp>
 #include <boost/iostreams/device/array.hpp>
@@ -9,7 +10,10 @@
 
 #include "utility/uri.hpp"
 
+#include "http/ondemandclient.hpp"
+
 #include "../../../storage/error.hpp"
+#include "../../../storage/sstreams.hpp"
 #include "../../tileop.hpp"
 #include "./httpfetcher.hpp"
 
@@ -18,163 +22,6 @@ namespace ba = boost::algorithm;
 namespace vtslibs { namespace vts { namespace driver {
 
 namespace {
-std::streamsize IOBufferSize(1 << 16);
-typedef std::vector<char> Buffer;
-
-/** Let the CURL machinery initialize here
- */
-class CurlInitializer {
-public:
-    ~CurlInitializer() { ::curl_global_cleanup(); }
-
-private:
-    CurlInitializer() {
-        if (::curl_global_init(CURL_GLOBAL_ALL)) {
-            storage::IOError e("Global CURL initialization failed!");
-            std::cerr << e.what() << std::endl;
-            throw e;
-        }
-    };
-
-    static CurlInitializer instance_;
-};
-
-CurlInitializer CurlInitializer::instance_;
-
-std::shared_ptr< ::CURL> createCurl()
-{
-    auto c(::curl_easy_init());
-    if (!c) {
-        LOGTHROW(err2, storage::IOError)
-            << "Failed to create CURL handle.";
-    }
-
-    // switch off SIGALARM
-    ::curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
-
-    // cache DNS query results during lifetime of this object
-    ::curl_easy_setopt(c, CURLOPT_DNS_CACHE_TIMEOUT, -1L);
-
-    return std::shared_ptr< ::CURL>
-        (c, [](::CURL *c) { if (c) { ::curl_easy_cleanup(c); } });
-}
-
-CurlInitializer::CurlInitializer();
-
-} // namespace
-
-extern "C" {
-
-size_t vts_drivers_detail_fetcher_write(char *ptr, size_t size, size_t nmemb
-                                        , void *userdata)
-{
-    auto &buffer(*static_cast<Buffer*>(userdata));
-    auto bytes(size * nmemb);
-    std::copy(ptr, ptr + bytes, std::back_inserter(buffer));
-    return bytes;
-}
-
-} // extern "C"
-
-namespace {
-
-// fake user-agent :)
-const char *UserAgent
-    ("Mozilla/5.0 (Windows NT 6.3; rv:36.0) Gecko/20100101 Firefox/36.0");
-
-#define CHECK_CURL_STATUS(what)                                         \
-    do {                                                                \
-        auto res(what);                                                 \
-        if (res != CURLE_OK) {                                          \
-            LOGTHROW(err2, storage::IOError)                            \
-                << "Failed to download tile from <"                     \
-                << url << ">: <" << res << ", "                         \
-                << ::curl_easy_strerror(res)                            \
-                << ">.";                                                \
-        }                                                               \
-    } while (0)
-
-#define SETOPT(name, value)                                     \
-    CHECK_CURL_STATUS(::curl_easy_setopt(curl, name, value))
-
-typedef std::tuple<long int, std::time_t> FetchResult;
-
-std::tuple<long int, long int>
-fetchUrl(::CURL *curl, const std::string &url, Buffer &buffer)
-{
-    LOG(info1) << "Fetching tile from <" << url << "> "
-               << "(GET).";
-
-    buffer.clear();
-
-    // we are getting a resource
-    SETOPT(CURLOPT_HTTPGET, 1L);
-    SETOPT(CURLOPT_NOSIGNAL, 1L);
-
-    // ask to keep last modified
-    SETOPT(CURLOPT_FILETIME, 1L);
-
-    // HTTP/1.1
-    SETOPT(CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    // target url
-    SETOPT(CURLOPT_URL, url.c_str());
-
-    // set output function + userdata
-    SETOPT(CURLOPT_WRITEFUNCTION, &vts_drivers_detail_fetcher_write);
-    SETOPT(CURLOPT_WRITEDATA, &buffer);
-
-    SETOPT(CURLOPT_USERAGENT, UserAgent);
-
-    /// do the thing
-    CHECK_CURL_STATUS(::curl_easy_perform(curl));
-
-    // check status code:
-    FetchResult fr(0, -1);
-    auto &httpCode(std::get<0>(fr));
-    auto &lastModified(std::get<1>(fr));
-
-    CHECK_CURL_STATUS(::curl_easy_getinfo
-                      (curl, CURLINFO_RESPONSE_CODE, &httpCode));
-
-    CHECK_CURL_STATUS(::curl_easy_getinfo
-                      (curl, CURLINFO_FILETIME, &lastModified));
-
-    return fr;
-}
-
-inline ::CURL* handle(const std::shared_ptr<void> &handle)
-{
-    return static_cast< ::CURL*>(handle.get());
-}
-
-class BufferIStream : public IStream {
-public:
-    BufferIStream(Buffer &&buffer, const char *contentType
-                  , const std::string &name, std::time_t lastModified)
-        : IStream(contentType)
-        , buffer_(std::move(buffer)), name_(name)
-        , sb_(boost::iostreams::array_source(buffer_.data(), buffer_.size())
-              , IOBufferSize, IOBufferSize)
-        , stream_(&sb_)
-    {
-        stat_.lastModified = lastModified;
-        stat_.size = buffer_.size();
-    }
-
-private:
-    virtual std::istream& get() { return stream_; }
-    virtual FileStat stat_impl() const { return stat_; }
-    virtual void close() {};
-    virtual std::string name() const { return name_; }
-
-    Buffer buffer_;
-    FileStat stat_;
-    std::string name_;
-
-    boost::iostreams::stream_buffer<boost::iostreams::array_source> sb_;
-    std::istream stream_;
-};
-
 
 const std::string ConfigName("tileset.conf");
 const std::string ExtraConfigName("extra.conf");
@@ -212,45 +59,45 @@ const std::string remotePath(const TileId &tileId, TileFile type
                % tileId.lod % tileId.x % tileId.y % ext % revision);
 }
 
-IStream::pointer fetchAsStream(::CURL *handle
-                               , const std::string rootUrl
+http::OnDemandClient sharedClient(4);
+
+IStream::pointer fetchAsStream(const std::string rootUrl
                                , const std::string &filename
                                , const char *contentType
-                               , const HttpFetcher::Options &options
+                               , const OpenOptions &options
                                , bool noSuchFile)
 {
-    std::string url(rootUrl + "/" + filename);
+    const auto &fetcher(sharedClient.fetcher());
 
-    // TODO: make robust
-
-    Buffer buffer;
-    long int httpCode;
-    std::time_t lastModified;
+    const std::string url(rootUrl + "/" + filename);
 
     auto tryFetch([&]() -> IStream::pointer
     {
-        std::tie(httpCode, lastModified) = fetchUrl(handle, url, buffer);
+        auto q(fetcher.perform
+               (utility::ResourceFetcher::Query(url)
+                .timeout(options.ioWait())));
 
-        if (httpCode == 404) {
-            if (noSuchFile) {
-                LOGTHROW(err2, storage::NoSuchFile)
-                    << "File at URL <" << url << "> doesn't exist.";
+        if (q.ec()) {
+            if (q.check(make_error_code(utility::HttpCode::NotFound))) {
+                if (noSuchFile) {
+                    LOGTHROW(err2, storage::NoSuchFile)
+                        << "File at URL <" << url << "> doesn't exist.";
+                }
+                return {};
             }
-            return {};
-        }
 
-        if (httpCode != 200) {
             LOGTHROW(err2, storage::IOError)
                 << "Failed to download tile data from <"
                 << url << ">: Unexpected HTTP status code: <"
-                << httpCode << ">.";
+                << q.ec() << ">.";
         }
 
-        return std::make_shared<BufferIStream>
-            (std::move(buffer), contentType, url, lastModified);
+        auto body(q.moveOut());
+        return storage::memIStream(contentType, std::move(body.data)
+                                   , body.lastModified, url);
     });
 
-    for (auto tries(options.tries()); tries; (tries > 0) ? --tries : 0) {
+    for (auto tries(options.ioRetries()); tries; (tries > 0) ? --tries : 0) {
         try {
             return tryFetch();
         } catch (const storage::IOError &e) {
@@ -262,8 +109,7 @@ IStream::pointer fetchAsStream(::CURL *handle
     return tryFetch();
 }
 
-std::string fixUrl(const std::string &input
-                   , const HttpFetcher::Options &options)
+std::string fixUrl(const std::string &input, const OpenOptions &options)
 {
     utility::Uri uri(input);
     if (!uri.absolute()) {
@@ -301,9 +147,9 @@ std::string fixUrl(const std::string &input
 } // namespace
 
 HttpFetcher::HttpFetcher(const std::string &rootUrl
-                         , const Options &options)
+                         , const OpenOptions &options)
     : rootUrl_(fixUrl(rootUrl, options))
-    , options_(options), handle_(createCurl())
+    , options_(options)
 {
     LOG(info1) << "Using URI: <" << rootUrl_ << ">.";
 }
@@ -311,8 +157,7 @@ HttpFetcher::HttpFetcher(const std::string &rootUrl
 IStream::pointer HttpFetcher::input(File type, bool noSuchFile)
     const
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return fetchAsStream(handle(handle_), rootUrl_, filePath(type)
+    return fetchAsStream(rootUrl_, filePath(type)
                          , contentType(type), options_
                          , noSuchFile);
 }
@@ -321,9 +166,7 @@ IStream::pointer HttpFetcher::input(const TileId &tileId, TileFile type
                                     , unsigned int revision, bool noSuchFile)
     const
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return fetchAsStream(handle(handle_), rootUrl_
-                         , remotePath(tileId, type, revision)
+    return fetchAsStream(rootUrl_, remotePath(tileId, type, revision)
                          , contentType(type), options_
                          , noSuchFile);
 }

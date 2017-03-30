@@ -27,7 +27,10 @@ struct MetaNode;
  */
 class OpenOptions {
 public:
-    OpenOptions() {}
+    OpenOptions()
+        : ioRetries_(-1) // infinity
+        , ioWait_(-1) // infinity
+    {}
 
     typedef std::map<std::string, std::string> CNames;
 
@@ -39,8 +42,28 @@ public:
         cnames_.insert(cnames.begin(), cnames.end());
     }
 
+    int ioRetries() const { return ioRetries_; }
+    OpenOptions& ioRetries(int ioRetries) {
+        ioRetries_ = ioRetries; return *this;
+    }
+
+    int ioWait() const { return ioWait_; }
+    OpenOptions& ioWait(long ioWait) {
+        ioWait_ = ioWait; return *this;
+    }
+
 private:
+    /** Common name simulation. Interpreted by remote driver.
+     */
     CNames cnames_;
+
+    /** Number of IO operation reties. Interpreted by remote driver.
+     */
+    int ioRetries_;
+
+    /** Timeout in ms for IO operations. Interpreted by remote driver.
+     */
+    long ioWait_;
 };
 
 /** Tilset clone options. Sometimes used for tileset creation.

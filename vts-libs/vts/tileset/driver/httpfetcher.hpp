@@ -1,36 +1,14 @@
 #ifndef vtslibs_vts_tileset_driver_httpfetcher_hpp_included_
 #define vtslibs_vts_tileset_driver_httpfetcher_hpp_included_
 
-#include <memory>
-#include <mutex>
-
 #include "../driver.hpp"
+#include "../../options.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 
 class HttpFetcher {
 public:
-    class Options {
-    public:
-        Options() : tries_(-1) {}
-
-        int tries() const { return tries_; }
-        Options& tries(int tries) { tries_ = tries; return *this; }
-
-        const OpenOptions::CNames cnames() const { return cnames_; }
-        Options& cnames(const OpenOptions::CNames &cnames) {
-            cnames_ = cnames; return *this;
-        }
-
-    private:
-        /** Number of attempts to do before failing.
-         *  Negative number means forever (default).
-         */
-        int tries_;
-        OpenOptions::CNames cnames_;
-    };
-
-    HttpFetcher(const std::string &rootUrl, const Options &options);
+    HttpFetcher(const std::string &rootUrl, const OpenOptions &options);
 
     IStream::pointer input(File type, bool noSuchFile = true) const;
 
@@ -39,10 +17,8 @@ public:
                            , bool noSuchFile = true) const;
 
 private:
-    mutable std::mutex mutex_;
     const std::string rootUrl_;
-    Options options_;
-    std::shared_ptr<void> handle_;
+    OpenOptions options_;
 };
 
 } } } // namespace vtslibs::vts::driver
