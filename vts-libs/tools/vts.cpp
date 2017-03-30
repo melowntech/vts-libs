@@ -1713,7 +1713,9 @@ int VtsStorage::generateGlues()
     // lock if external locking program is available
     Lock lock(path_, lock_);
 
-    storage.generateGlues(tilesetId_, addOptions_);
+    auto ao(addOptions_);
+    ao.mode = vts::Storage::AddOptions::Mode::full;
+    storage.generateGlues(tilesetId_, ao);
     return EXIT_SUCCESS;
 }
 
@@ -1724,7 +1726,9 @@ int VtsStorage::generateGlue()
     // lock if external locking program is available
     Lock lock(path_, lock_);
 
-    storage.generateGlue(tilesetIds_, addOptions_);
+    auto ao(addOptions_);
+    ao.mode = vts::Storage::AddOptions::Mode::full;
+    storage.generateGlue(tilesetIds_, ao);
     return EXIT_SUCCESS;
 }
 

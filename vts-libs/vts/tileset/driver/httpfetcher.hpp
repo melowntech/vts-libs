@@ -2,6 +2,7 @@
 #define vtslibs_vts_tileset_driver_httpfetcher_hpp_included_
 
 #include <memory>
+#include <mutex>
 
 #include "../driver.hpp"
 
@@ -38,6 +39,7 @@ public:
                            , bool noSuchFile = true) const;
 
 private:
+    mutable std::mutex mutex_;
     const std::string rootUrl_;
     Options options_;
     std::shared_ptr<void> handle_;
