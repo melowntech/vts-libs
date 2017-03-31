@@ -218,6 +218,10 @@ public:
      */
     std::size_t count() const;
 
+    /** Returns count of tiles in the index.
+     */
+    std::size_t count(const LodRange &lodRange) const;
+
     const QTree* tree(Lod lod) const;
 
     /** Sets value as a bit mask.
@@ -492,6 +496,19 @@ inline void traverse(const TileIndex &ti, Lod lod, const Op &op)
     const auto *tree(ti.tree(lod));
     if (!tree) { return; }
     traverse(*tree, lod, op);
+}
+
+template <typename Op>
+inline void traverse(const TileIndex &ti, const LodRange &lodRange
+                     , const Op &op)
+{
+    auto lod(ti.minLod());
+    for (const auto &tree : ti.trees()) {
+        if (in(lod, lodRange)) {
+            traverse(tree, lod, op);
+        }
+        ++lod;
+    }
 }
 
 template <typename Op>

@@ -79,6 +79,16 @@ struct FullTileSetProperties : TileSetProperties {
     FullTileSetProperties(const TileSetProperties &slice)
         : TileSetProperties(slice), revision(0), mergeBottomLod(0)
     {}
+
+    template <typename T>
+    T& getDriverOptions() {
+        return boost::any_cast<T&>(driverOptions);
+    }
+
+    template <typename T>
+    const T& getDriverOptions() const {
+        return boost::any_cast<const T&>(driverOptions);
+    }
 };
 
 struct ExtraTileSetProperties {

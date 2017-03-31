@@ -113,19 +113,6 @@ private:
     static boost::uuids::uuid generateUuid();
 };
 
-/** Old, unoptimized aggregated driver.
- */
-struct OldAggregatedOptions {
-    boost::filesystem::path storagePath;
-    TilesetIdSet tilesets;
-
-    boost::any relocate(const RelocateOptions &options
-                        , const std::string &prefix) const;
-
-    boost::filesystem::path buildStoragePath(const boost::filesystem::path
-                                             &root) const;
-};
-
 /** Optimized aggregated driver.
  */
 struct AggregatedOptions {
@@ -134,10 +121,20 @@ struct AggregatedOptions {
     std::string tsMap;
     bool surfaceReferences;
 
+    /** Range where metatiles are generated on the aggregated tileset creation.
+     */
+    LodRange staticMetaRange;
+
+    /** Options for metatile cache.
+     */
+    boost::optional<PlainOptions> metaOptions;
+
     boost::any relocate(const RelocateOptions &options
                         , const std::string &prefix) const;
 
-    AggregatedOptions() : surfaceReferences(false) {}
+    AggregatedOptions()
+        : surfaceReferences(false), staticMetaRange(LodRange::emptyRange())
+    {}
 
     boost::filesystem::path buildStoragePath(const boost::filesystem::path
                                              &root) const;

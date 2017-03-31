@@ -7,6 +7,7 @@
 
 #include "../driver.hpp"
 #include "../../storage.hpp"
+#include "./cache.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 
@@ -39,13 +40,6 @@ public:
                      , const OpenOptions &openOptions
                      , const AggregatedOptions &options);
 
-    /** Cloner
-     */
-    AggregatedDriver(const boost::filesystem::path &root
-                     , const AggregatedOptions &options
-                     , const CloneOptions &cloneOptions
-                     , const AggregatedDriver &src);
-
     virtual ~AggregatedDriver();
 
     typedef std::uint16_t TilesetReference;
@@ -77,8 +71,12 @@ public:
 
     class Index : public tileset::Index {
     public:
-        Index(unsigned int metaBinaryOrder, DriverEntry::list &drivers)
+        Index(unsigned int metaBinaryOrder, DriverEntry::list &drivers
+              , const AggregatedOptions *options = nullptr)
             : tileset::Index(metaBinaryOrder), drivers_(drivers)
+            , staticMetaRange_(options
+                               ? options->staticMetaRange
+                               : LodRange::emptyRange())
         {}
 
         virtual void loadRest_impl(std::istream &f
@@ -86,8 +84,13 @@ public:
 
         virtual void saveRest_impl(std::ostream &f) const;
 
+        bool staticMeta(const TileId &tileId) const {
+            return vts::in(staticMetaRange_, tileId);
+        }
+
     private:
         DriverEntry::list &drivers_;
+        LodRange staticMetaRange_;
     };
 
     /** Reencodes aggregated tileset.
@@ -98,6 +101,18 @@ public:
                          , const std::string &prefix = "");
 
 private:
+    struct PrivateTag {};
+
+public:
+    /** Cloner
+     */
+    AggregatedDriver(PrivateTag, const boost::filesystem::path &root
+                     , AggregatedOptions options
+                     , const CloneOptions &cloneOptions
+                     , const AggregatedDriver &src);
+
+private:
+
     virtual OStream::pointer output_impl(const File type);
 
     virtual IStream::pointer input_impl(File type) const {
@@ -156,7 +171,12 @@ private:
     }
 
     TileSet::Properties build(AggregatedOptions options
-                              , const CloneOptions &cloneOptions);
+                              , const CloneOptions &cloneOptions
+                              , bool onDisk = false);
+
+    void generateMetatiles(AggregatedOptions &options);
+
+    void copyMetatiles(AggregatedOptions &options, Cache &srcCache);
 
     inline IStream::pointer input_impl(const std::string &name) const {
         return input_impl(name, true);
@@ -184,6 +204,10 @@ private:
     boost::optional<TileSet::Properties> memProperties_;
 
     bool surfaceReferences_;
+
+    /** Metatile cache, valid only when there are any pre-generated tiles.
+     */
+    mutable std::unique_ptr<Cache> cache_;
 };
 
 } } } // namespace vtslibs::vts::driver

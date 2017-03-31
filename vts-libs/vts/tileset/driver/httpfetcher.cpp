@@ -305,7 +305,7 @@ HttpFetcher::HttpFetcher(const std::string &rootUrl
     : rootUrl_(fixUrl(rootUrl, options))
     , options_(options), handle_(createCurl())
 {
-    LOG(info4) << "Using URI: <" << rootUrl_ << ">.";
+    LOG(info1) << "Using URI: <" << rootUrl_ << ">.";
 }
 
 IStream::pointer HttpFetcher::input(File type, bool noSuchFile)
