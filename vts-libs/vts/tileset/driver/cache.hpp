@@ -57,14 +57,16 @@ public:
 
     bool readOnly() const { return readOnly_; }
 
+    void makeReadOnly() { readOnly_ = true; }
+
 private:
     struct Archives;
 
     Archives& getArchives(TileFile type);
 
     const fs::path &root_;
-    const PlainOptions &options_;
-    const bool readOnly_;
+    const PlainOptions options_;
+    bool readOnly_;
 
     std::unique_ptr<Archives> tiles_;
     std::unique_ptr<Archives> metatiles_;

@@ -222,6 +222,21 @@ std::size_t TileIndex::count() const
     return total;
 }
 
+std::size_t TileIndex::count(const LodRange &lodRange) const
+{
+    std::size_t total(0);
+
+    auto lod(minLod_);
+    for (const auto &tree : trees_) {
+        if (in(lod, lodRange)) {
+            total += tree.count();
+        }
+        ++lod;
+    }
+
+    return total;
+}
+
 void TileIndex::setMask(const TileId &tileId, QTree::value_type mask
                         , QTree::value_type value)
 {

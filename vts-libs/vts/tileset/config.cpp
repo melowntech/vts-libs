@@ -93,7 +93,7 @@ Json::Value buildIdArray(InputIterator b, InputIterator e)
     return value;
 }
 
-boost::any parsePlainDriver(const Json::Value &value)
+driver::PlainOptions parsePlainDriver(const Json::Value &value)
 {
     driver::PlainOptions driverOptions;
 
@@ -114,23 +114,9 @@ boost::any parsePlainDriver(const Json::Value &value)
     return driverOptions;
 }
 
-boost::any parseAggregatedDriver(const Json::Value &value)
+driver::AggregatedOptions parseAggregatedDriver(const Json::Value &value)
 {
-    if (!value.isMember("tsMap")) {
-        // non-optimized aggregated driver
-        driver::OldAggregatedOptions driverOptions;
-
-        std::string storagePath;
-        Json::get(storagePath, value, "storage");
-        driverOptions.storagePath = storagePath;
-
-        parseIdArray(std::inserter(driverOptions.tilesets
-                                   , driverOptions.tilesets.begin())
-                     , value, "tilesets");
-        return driverOptions;
-    }
-
-    // non-optimized aggregated driver
+    // optimized aggregated driver
     driver::AggregatedOptions driverOptions;
 
     std::string storagePath;
@@ -151,10 +137,18 @@ boost::any parseAggregatedDriver(const Json::Value &value)
         driverOptions.surfaceReferences = true;
     }
 
+    auto mo(value["metaOptions"]);
+    if (!mo.isNull()) {
+        driverOptions.metaOptions = parsePlainDriver(mo);
+        std::string range;
+        Json::get(range, mo, "lodRange");
+        driverOptions.staticMetaRange = boost::lexical_cast<LodRange>(range);
+    }
+
     return driverOptions;
 }
 
-boost::any parseRemoteDriver(const Json::Value &value)
+driver::RemoteOptions parseRemoteDriver(const Json::Value &value)
 {
     driver::RemoteOptions driverOptions;
 
@@ -163,7 +157,7 @@ boost::any parseRemoteDriver(const Json::Value &value)
     return driverOptions;
 }
 
-boost::any parseLocalDriver(const Json::Value &value)
+driver::LocalOptions parseLocalDriver(const Json::Value &value)
 {
     driver::LocalOptions driverOptions;
 
@@ -208,23 +202,20 @@ boost::any parseDriver(const Json::Value &value)
     throw;
 }
 
+void buildDriver(const driver::PlainOptions &options, Json::Value &value)
+{
+    value["binaryOrder"] = options.binaryOrder();
+    value["metaUnusedBits"] = options.metaUnusedBits();
+    value["uuid"] = to_string(options.uuid());
+}
+
 Json::Value buildDriver(const boost::any &d)
 {
     Json::Value value(Json::objectValue);
 
     if (auto opts = boost::any_cast<const driver::PlainOptions>(&d)) {
         value["type"] = "plain";
-        value["binaryOrder"] = opts->binaryOrder();
-        value["metaUnusedBits"] = opts->metaUnusedBits();
-        value["uuid"] = to_string(opts->uuid());
-        return value;
-    } else if (auto opts = boost::any_cast
-               <const driver::OldAggregatedOptions>(&d))
-    {
-        value["type"] = "aggregated";
-        value["storage"] = opts->storagePath.string();
-        value["tilesets"] = buildIdArray(opts->tilesets.begin()
-                                         , opts->tilesets.end());
+        buildDriver(*opts, value);
         return value;
     } else if (auto opts = boost::any_cast
                <const driver::AggregatedOptions>(&d))
@@ -235,6 +226,14 @@ Json::Value buildDriver(const boost::any &d)
                                          , opts->tilesets.end());
         value["tsMap"] = utility::base64::encode(opts->tsMap);
         value["surfaceReferences"] = opts->surfaceReferences;
+
+        if (opts->metaOptions) {
+            auto &mo(value["metaOptions"] = Json::objectValue);
+            mo["lodRange"]
+                = boost::lexical_cast<std::string>(opts->staticMetaRange);
+            buildDriver(*opts->metaOptions, mo);
+        }
+
         return value;
     } else if (auto opts = boost::any_cast
                <const driver::RemoteOptions>(&d))

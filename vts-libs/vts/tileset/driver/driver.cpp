@@ -23,7 +23,6 @@
 
 // drivers:
 #include "./plain.hpp"
-#include "./aggregated-old.hpp"
 #include "./aggregated.hpp"
 #include "./remote.hpp"
 #include "./local.hpp"
@@ -223,11 +222,6 @@ Driver::pointer Driver::open(const boost::filesystem::path &root
         (&genericOptions))
     {
         return std::make_shared<driver::PlainDriver>(root, openOptions, *o);
-    } else if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
-               (&genericOptions))
-    {
-        return std::make_shared<driver::OldAggregatedDriver>
-            (root, openOptions, *o);
     } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&genericOptions))
     {
@@ -260,10 +254,6 @@ boost::any relocateOptions(const boost::any &options
                            , const std::string &prefix)
 {
     if (auto o = boost::any_cast<const driver::PlainOptions>(&options))
-    {
-        return o->relocate(relocateOptions, prefix);
-    } else if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
-               (&options))
     {
         return o->relocate(relocateOptions, prefix);
     } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
@@ -405,11 +395,6 @@ void Driver::reencode(const boost::filesystem::path &root
     {
         bumpRevision
             = driver::PlainDriver::reencode(root, *o, ro, prefix);
-    } else if (auto o = boost::any_cast<const driver::OldAggregatedOptions>
-               (&options))
-    {
-        bumpRevision
-            = driver::OldAggregatedDriver::reencode(root, *o, ro, prefix);
     } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&options))
     {

@@ -118,6 +118,14 @@ MetaNode TileSet::getMetaNode(const TileId &tileId) const
     return *node.metanode;
 }
 
+const MetaNode* TileSet::getMetaNode(const TileId &tileId
+                                     , const std::nothrow_t&)
+    const
+{
+    auto node(detail().findNode(tileId));
+    return node ? node.metanode : nullptr;
+}
+
 MetaTile TileSet::getMetaTile(const TileId &metaId) const
 {
     auto mt(detail().findMetaTile(metaId));
@@ -611,6 +619,7 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
     dopts.tilesets = tilesets;
     dopts.surfaceReferences = (co.createFlags()
                                & AggreateFlags::sourceReferencesInMetatiles);
+    if (co.lodRange()) { dopts.staticMetaRange = *co.lodRange(); }
 
     // TODO: use first non-empty path element
     CloneOptions useCo(co);
@@ -633,6 +642,7 @@ TileSet aggregateTileSets(const Storage &storage
     dopts.tilesets = tilesets;
     dopts.surfaceReferences = (co.createFlags()
                                & AggreateFlags::sourceReferencesInMetatiles);
+    if (co.lodRange()) { dopts.staticMetaRange = *co.lodRange(); }
 
     auto driver(Driver::create(dopts, co));
     return TileSet::Factory::open(driver);

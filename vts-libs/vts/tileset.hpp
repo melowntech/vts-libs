@@ -137,6 +137,11 @@ public:
      */
     MetaNode getMetaNode(const TileId &tileId) const;
 
+    /** Returns tile's metanode.
+     */
+    const MetaNode* getMetaNode(const TileId &tileId, const std::nothrow_t&)
+        const;
+
     /** Returns metatile.
      */
     MetaTile getMetaTile(const TileId &metaId) const;

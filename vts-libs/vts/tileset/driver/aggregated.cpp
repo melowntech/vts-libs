@@ -1,7 +1,5 @@
 /** Aggregated driver: on the fly surface aggregator
  *
- * TODO: cache stuff to make it a bit faster
- *
  * TODO: compose registry from all sub tilesets
  */
 
@@ -24,6 +22,8 @@
 #include "utility/streams.hpp"
 #include "utility/path.hpp"
 #include "utility/binaryio.hpp"
+#include "utility/openmp.hpp"
+#include "utility/progress.hpp"
 
 #include "../../../storage/error.hpp"
 #include "../../../storage/fstreams.hpp"
@@ -302,6 +302,15 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
     return s;
 }
 
+inline std::unique_ptr<Cache>
+createCache(const fs::path &root
+            , const boost::optional<PlainOptions> &metaOptions
+            , bool readOnly = true)
+{
+    if (!metaOptions) { return {}; }
+    return std::unique_ptr<Cache>(new Cache(root, *metaOptions, readOnly));
+}
+
 } // namespace
 
 fs::path AggregatedOptions::buildStoragePath(const fs::path &root) const
@@ -318,6 +327,8 @@ AggregatedDriverBase::AggregatedDriverBase(const CloneOptions &cloneOptions)
     }
 }
 
+/** Create driver for on-disk tileset
+ */
 AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                                    , const AggregatedOptions &options
                                    , const CloneOptions &cloneOptions)
@@ -326,14 +337,14 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     , storage_(this->options().buildStoragePath(root)
                , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
-    , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
+    , tsi_(referenceFrame_.metaBinaryOrder, drivers_, &options)
     , surfaceReferences_(this->options().surfaceReferences)
 {
     // we flatten the content
     capabilities().flattener = true;
 
     // build driver information
-    auto properties(build(options, cloneOptions));
+    auto properties(build(options, cloneOptions, true));
 
     // save stuff (allow write for a brief moment)
     tileset::saveConfig(this->root() / filePath(File::config), properties);
@@ -342,6 +353,8 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     readOnly(true);
 }
 
+/** Create driver for in-memory tileset
+ */
 AggregatedDriver::AggregatedDriver(const AggregatedOptions &options
                                    , const CloneOptions &cloneOptions)
     : AggregatedDriverBase(cloneOptions)
@@ -376,7 +389,8 @@ void AggregatedDriver::Index::saveRest_impl(std::ostream &f) const
 }
 
 TileSet::Properties AggregatedDriver::build(AggregatedOptions options
-                                            , const CloneOptions &cloneOptions)
+                                            , const CloneOptions &cloneOptions
+                                            , bool onDisk)
 {
     TileSet::Properties properties;
     properties.id = *cloneOptions.tilesetId();
@@ -591,11 +605,15 @@ TileSet::Properties AggregatedDriver::build(AggregatedOptions options
     // set serialized tileset mapping
     options.tsMap = serializeTsMap(tsMap);
 
+    if (onDisk) { generateMetatiles(options); }
+
     // write options
     properties.driverOptions = options;
     return properties;
 }
 
+/** Open driver for existing tileset
+ */
 AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                                    , const OpenOptions &openOptions
                                    , const AggregatedOptions &options)
@@ -604,8 +622,9 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , drivers_(openDrivers(storage_, openOptions, options))
-    , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
+    , tsi_(referenceFrame_.metaBinaryOrder, drivers_, &options)
     , surfaceReferences_(this->options().surfaceReferences)
+    , cache_(createCache(root, options.metaOptions))
 {
     // we flatten the content
     capabilities().flattener = true;
@@ -613,19 +632,33 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
     tileset::loadTileSetIndex(tsi_, *this);
 }
 
-AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
-                                   , const AggregatedOptions &options
+/** Clone existing tileset
+ */
+AggregatedDriver::AggregatedDriver(PrivateTag
+                                   , const boost::filesystem::path &root
+                                   , AggregatedOptions options
                                    , const CloneOptions &cloneOptions
                                    , const AggregatedDriver &src)
     : Driver(root, options, cloneOptions.mode())
     , storage_(this->options().buildStoragePath(root)
                , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
-    , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
+    , tsi_(referenceFrame_.metaBinaryOrder, drivers_, &options)
     , surfaceReferences_(this->options().surfaceReferences)
 {
     // we flatten the content
     capabilities().flattener = true;
+
+    // clone tile index
+    copyFile(src.input(File::tileIndex), output(File::tileIndex));
+
+    // and load it
+    tileset::loadTileSetIndex(tsi_, *this);
+
+    // copy metatiles if needed
+    if (src.cache_) {
+        copyMetatiles(options, *src.cache_);
+    }
 
     // update and save properties
     {
@@ -638,13 +671,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                             , properties);
     }
 
-    // clone tile index
-    copyFile(src.input(File::tileIndex), output(File::tileIndex));
-
     drivers_ = openDrivers(storage_, cloneOptions.openOptions(), options);
-
-    // and load it
-    tileset::loadTileSetIndex(tsi_, *this);
 
     // make me read-only
     readOnly(true);
@@ -656,7 +683,7 @@ AggregatedDriver::clone_impl(const boost::filesystem::path &root
     const
 {
     return std::make_shared<AggregatedDriver>
-        (root, options(), cloneOptions, *this);
+        (PrivateTag(), root, options(), cloneOptions, *this);
 }
 
 AggregatedDriver::~AggregatedDriver() {}
@@ -738,6 +765,13 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
             return {};
         }
 
+        if (cache_ && tsi_.staticMeta(tileId)) {
+            if (noSuchFile) {
+                return cache_->input(tileId, type);
+            }
+            return cache_->input(tileId, type, NullWhenNotFound);
+        }
+
         return buildMeta(drivers_, root(), referenceFrame_
                          , configStat().lastModified, tileId
                          , tsi_.tileIndex, surfaceReferences_, noSuchFile);
@@ -788,6 +822,10 @@ FileStat AggregatedDriver::stat_impl(const TileId &tileId, TileFile type) const
             return {};
         }
 
+        if (cache_ && tsi_.staticMeta(tileId)) {
+            return cache_->input(tileId, type)->stat();
+        }
+
         return buildMeta(drivers_, root(), referenceFrame_
                          , configStat().lastModified, tileId
                          , tsi_.tileIndex, surfaceReferences_)->stat();
@@ -815,6 +853,7 @@ storage::Resources AggregatedDriver::resources_impl() const
 {
     // accumulate resources
     storage::Resources resources;
+    if (cache_) { resources += cache_->resources(); }
     for (const auto &driver : drivers_) {
         resources += driver.driver->resources();
     }
@@ -842,6 +881,11 @@ std::string AggregatedDriver::info_impl() const
     if (o.surfaceReferences) {
         os << ", surfaceReferences";
     }
+
+    if (!o.staticMetaRange.empty()) {
+        os << ", staticMetaRange=" << o.staticMetaRange;
+    }
+
     os << ")";
 
     return os.str();
@@ -926,6 +970,116 @@ bool AggregatedDriver::reencode(const boost::filesystem::path &root
                           , prefix + "    ");
     }
     return !options.dryRun && !options.cleanup;
+}
+
+void AggregatedDriver::generateMetatiles(AggregatedOptions &options)
+{
+    auto &lodRange(options.staticMetaRange);
+    if (lodRange.empty()) { return; }
+
+    LOG(info3) << "Pre-generating metatiles.";
+
+    options.metaOptions = PlainOptions(5, referenceFrame_.metaBinaryOrder);
+
+    // create cache (temporarily read-write)
+    cache_ = createCache(root(), options.metaOptions, false);
+
+    // derive this tileset's meta tile index
+    const auto mi(tsi_.deriveMetaIndex());
+
+    // clip tile range to available data
+    if (lodRange.max > mi.maxLod()) {
+        lodRange.max = mi.maxLod();
+    }
+
+    const auto mbo(tsi_.metaBinaryOrder());
+
+    const utility::Progress::ratio_t reportRatio(5, 1000);
+    utility::ts::Progress progress("meta agg", mi.count(lodRange)
+                                   , reportRatio);
+    auto report([&]() { ++progress; });
+
+    // process all metatiles in given range
+    UTILITY_OMP(parallel)
+    UTILITY_OMP(single)
+    traverse(mi, lodRange, [&](TileId tid, QTree::value_type)
+    {
+        UTILITY_OMP(task)
+        {
+            // expand shrinked metatile identifiers
+            tid.x <<= mbo;
+            tid.y <<= mbo;
+
+            // build metatile as a stream
+            auto is(buildMeta(drivers_, root(), referenceFrame_
+                              , -1, tid
+                              , tsi_.tileIndex, surfaceReferences_));
+
+            UTILITY_OMP(critical(vts_driver_aggregated_copy))
+            {
+                // file open and write must be under lock since tilar write is
+                // not reentrant (yet)
+                auto os(cache_->output(tid, TileFile::meta));
+                copyFile(is, os);
+            }
+
+            report();
+        }
+    });
+
+    // flush and make readonly
+    cache_->flush();
+    cache_->makeReadOnly();
+}
+
+void AggregatedDriver::copyMetatiles(AggregatedOptions &options
+                                     , Cache &srcCache)
+{
+    options.metaOptions = PlainOptions(5, referenceFrame_.metaBinaryOrder);
+
+    // create cache (temporarily read-write)
+    cache_ = createCache(root(), options.metaOptions, false);
+
+    // derive this tileset's meta tile index
+    const auto mi(tsi_.deriveMetaIndex());
+
+    const auto &lodRange(options.staticMetaRange);
+    const auto mbo(tsi_.metaBinaryOrder());
+
+    const utility::Progress::ratio_t reportRatio(1, 1000);
+    utility::ts::Progress progress("clone", mi.count(lodRange)
+                                   , reportRatio);
+    auto report([&]() { ++progress; });
+
+    // process all metatiles in given range
+    UTILITY_OMP(parallel)
+    UTILITY_OMP(single)
+    traverse(mi, lodRange, [&](TileId tid, QTree::value_type)
+    {
+        UTILITY_OMP(task)
+        {
+            // expand shrinked metatile identifiers
+            tid.x <<= mbo;
+            tid.y <<= mbo;
+
+            // build metatile as a stream
+            auto is(srcCache.input(tid, TileFile::meta));
+
+            UTILITY_OMP(critical(vts_driver_aggregated_copy))
+            {
+                // file open and write must be under lock since tilar write is
+                // not reentrant (yet)
+                auto os(cache_->output(tid, TileFile::meta));
+                copyFile(is, os);
+            }
+
+            report();
+        }
+    });
+
+    // flush and make readonly
+    cache_->flush();
+    cache_->makeReadOnly();
 }
 
 } } } // namespace vtslibs::vts::driver

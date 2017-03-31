@@ -52,6 +52,10 @@ struct Range
     bool operator!=(const Range &o) const { return !operator==(o); }
 
     static Range emptyRange() { return { T(1), T(0) }; }
+    static Range maxRange() {
+        return { std::numeric_limits<T>::lowest()
+                , std::numeric_limits<T>::max() };
+    }
 };
 
 typedef Range<Lod> LodRange;

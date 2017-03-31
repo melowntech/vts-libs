@@ -107,6 +107,24 @@ void validate(boost::any &v, const std::vector<std::string>&, Verbosity*, int)
     }
 }
 
+struct MetaLodRange {
+    vts::LodRange lodRange;
+};
+
+void validate(boost::any &v, const std::vector<std::string> &values
+              , MetaLodRange*, int)
+{
+    po::validators::check_first_occurrence(v);
+    const auto &s(po::validators::get_single_string(values));
+
+    if (s == "full") {
+        v = MetaLodRange{vts::LodRange::maxRange()};
+        return;
+    }
+
+    v = MetaLodRange{boost::lexical_cast<vts::LodRange>(s)};
+}
+
 typedef service::UnrecognizedParser UP;
 
 class VtsStorage : public service::Cmdline {
@@ -911,6 +929,9 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tilesetId", po::value<std::string>()
              , "TilesetId of created tileset, defaults to last part of "
              "output path.")
+            ("staticMetaLodRange", po::value<MetaLodRange>()
+             , "LOD range where metatiles are pre-generated. Use \"full\" "
+             "to force whole metatile tree generation.")
             ;
         p.positional.add("tileset", -1);
 
@@ -922,6 +943,11 @@ void VtsStorage::configuration(po::options_description &cmdline
             createMode_ = (vars.count("overwrite")
                            ? vts::CreateMode::overwrite
                            : vts::CreateMode::failIfExists);
+
+            if (vars.count("staticMetaLodRange")) {
+                optLodRange_ = vars["staticMetaLodRange"].as<MetaLodRange>()
+                    .lodRange;
+            }
         };
     });
 
@@ -1922,13 +1948,14 @@ int VtsStorage::tileInfo()
 
     auto ts(vts::openTileSet(path_));
 
-    auto flags(ts.tileIndex().get(tileId_));
-    if (!flags) {
+    const auto *n(ts.getMetaNode(tileId_, std::nothrow));
+    if (!n) {
         std::cerr << tileId_ << ": no such tile" << '\n';
         return EXIT_FAILURE;
     }
-    std::cout << tileId_ << ": " << vts::TileFlags(flags) << '\n';
 
+    auto flags(ts.tileIndex().get(tileId_));
+    std::cout << tileId_ << ": " << vts::TileFlags(flags) << '\n';
     vts::NodeInfo ni(ts.referenceFrame(), tileId_);
 
     std::cout
@@ -1938,42 +1965,40 @@ int VtsStorage::tileInfo()
         << "\n    srs: " << ni.srs()
         << '\n';
 
-    if (flags & (vts::TileIndex::Flag::real)) {
-        auto node(ts.getMetaNode(tileId_));
+    const auto &node(*n);
 
-        std::cout << "Meta node:" << '\n';
-        std::cout << "    flags: " << vts::MetaFlags(node.flags())
-                  << '\n';
-        std::cout << "    extents: " << node.extents << '\n';
-        std::cout << "    geomExtents: " << node.geomExtents << '\n';
-        if (const auto itc = node.internalTextureCount()) {
-            std::cout
-                << "    texture count: " << itc
-                << '\n';
-        }
+    std::cout << "Meta node:" << '\n';
+    std::cout << "    flags: " << vts::MetaFlags(node.flags())
+              << '\n';
+    std::cout << "    extents: " << node.extents << '\n';
+    std::cout << "    geomExtents: " << node.geomExtents << '\n';
+    if (const auto itc = node.internalTextureCount()) {
+        std::cout
+            << "    texture count: " << itc
+            << '\n';
+    }
 
-        if (node.applyTexelSize()) {
-            std::cout << "    texel size: " << node.texelSize << '\n';
-        }
-        if (node.applyDisplaySize()) {
-            std::cout << "    display size: " << node.displaySize << '\n';
-        }
-        if (node.navtile()) {
-            std::cout << "    height range: " << node.heightRange << '\n';
-        }
+    if (node.applyTexelSize()) {
+        std::cout << "    texel size: " << node.texelSize << '\n';
+    }
+    if (node.applyDisplaySize()) {
+        std::cout << "    display size: " << node.displaySize << '\n';
+    }
+    if (node.navtile()) {
+        std::cout << "    height range: " << node.heightRange << '\n';
+    }
 
-        if (node.sourceReference) {
-            std::cout
-                << "    source reference: " << node.sourceReference
-                << '\n';
-        }
+    if (node.sourceReference) {
+        std::cout
+            << "    source reference: " << node.sourceReference
+            << '\n';
+    }
 
-        showCredits(std::cout, node, "    ");
+    showCredits(std::cout, node, "    ");
 
-        std::cout << "    children:" << '\n';
-        for (const auto &childId : children(node, tileId_)) {
-            std::cout << "        " << childId << '\n';
-        }
+    std::cout << "    children:" << '\n';
+    for (const auto &childId : children(node, tileId_)) {
+        std::cout << "        " << childId << '\n';
     }
 
     if (flags & vts::TileIndex::Flag::mesh) {
@@ -2187,6 +2212,7 @@ int VtsStorage::aggregate()
     vts::CloneOptions createOptions;
     createOptions.tilesetId(optTilesetId_);
     createOptions.mode(createMode_);
+    createOptions.lodRange(optLodRange_);
 
     switch (vts::datasetType(path_)) {
     case vts::DatasetType::Storage:
