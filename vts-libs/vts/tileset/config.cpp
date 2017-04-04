@@ -51,21 +51,6 @@ void parseIdSet(registry::StringIdSet &ids, const Json::Value &object
     }
 }
 
-void parseExtents(math::Extents2 &extents
-                  , const Json::Value &value
-                  , const char *name)
-{
-    if (!value.isArray() && (value.size() != 4)) {
-        LOGTHROW(err1, Json::Error)
-            << "Type of " << name << " is not an 4-item array.";
-    }
-
-    extents.ll(0) = Json::as<double>(value[0], name);
-    extents.ll(1) = Json::as<double>(value[1], name);
-    extents.ur(0) = Json::as<double>(value[2], name);
-    extents.ur(1) = Json::as<double>(value[3], name);
-}
-
 template <typename OutputIterator>
 void parseIdArray(OutputIterator out, const Json::Value &object
                   , const char *name)
@@ -140,9 +125,8 @@ driver::AggregatedOptions parseAggregatedDriver(const Json::Value &value)
     auto mo(value["metaOptions"]);
     if (!mo.isNull()) {
         driverOptions.metaOptions = parsePlainDriver(mo);
-        std::string range;
-        Json::get(range, mo, "lodRange");
-        driverOptions.staticMetaRange = boost::lexical_cast<LodRange>(range);
+        Json::get(driverOptions.staticMetaRange.min, mo, "lodRange", 0);
+        Json::get(driverOptions.staticMetaRange.max, mo, "lodRange", 1);
     }
 
     return driverOptions;
@@ -229,9 +213,11 @@ Json::Value buildDriver(const boost::any &d)
 
         if (opts->metaOptions) {
             auto &mo(value["metaOptions"] = Json::objectValue);
-            mo["lodRange"]
-                = boost::lexical_cast<std::string>(opts->staticMetaRange);
             buildDriver(*opts->metaOptions, mo);
+
+            auto &lodRange(mo["lodRange"] = Json::arrayValue);
+            lodRange.append(opts->staticMetaRange.min);
+            lodRange.append(opts->staticMetaRange.max);
         }
 
         return value;
