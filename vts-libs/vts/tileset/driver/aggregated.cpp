@@ -652,7 +652,10 @@ AggregatedDriver::AggregatedDriver(PrivateTag
     // clone tile index
     copyFile(src.input(File::tileIndex), output(File::tileIndex));
 
-    // and load it
+    // open drivers
+    drivers_ = openDrivers(storage_, cloneOptions.openOptions(), options);
+
+    // relaod tile index
     tileset::loadTileSetIndex(tsi_, *this);
 
     // copy metatiles if needed
@@ -670,8 +673,6 @@ AggregatedDriver::AggregatedDriver(PrivateTag
         tileset::saveConfig(this->root() / filePath(File::config)
                             , properties);
     }
-
-    drivers_ = openDrivers(storage_, cloneOptions.openOptions(), options);
 
     // make me read-only
     readOnly(true);
