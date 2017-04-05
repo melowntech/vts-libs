@@ -256,7 +256,7 @@ StorageProperties parse1(const Json::Value &config)
     for (auto iinput(input.begin()), einput(input.end()); iinput != einput;
          ++iinput)
     {
-        p.inputSets[iinput.memberName()] = parseTileSetDescriptor(*iinput);
+        p.inputSets[iinput.name()] = parseTileSetDescriptor(*iinput);
     }
 
     return p;

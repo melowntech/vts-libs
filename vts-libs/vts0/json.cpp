@@ -223,7 +223,7 @@ StorageProperties parse1(const Json::Value &config)
     for (auto iinput(input.begin()), einput(input.end()); iinput != einput;
          ++iinput)
     {
-        p.inputSets[iinput.memberName()].path
+        p.inputSets[iinput.name()].path
             = Json::as<std::string>(*iinput);
     }
 
