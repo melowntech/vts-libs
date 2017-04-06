@@ -419,6 +419,7 @@ TilesetIdCounts Storage::Properties::pendingGlueCount(TilesetIdSet tilesets)
     }
 
     for (const auto &glue : pendingGlues) {
+        if (!allowed(tilesets, glue)) { continue; }
         auto fcounts(counts.find(glue.back()));
         if (fcounts != counts.end()) {
             ++fcounts->second;

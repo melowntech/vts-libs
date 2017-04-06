@@ -1964,7 +1964,6 @@ double TileSet::Detail::texelSize() const
         });
     });
 
-    LOG(info4) << aa.first << ", " << aa.second;
     return average(aa);
 }
 
