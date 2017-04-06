@@ -993,7 +993,7 @@ void AggregatedDriver::generateMetatiles(AggregatedOptions &options)
         lodRange.max = mi.maxLod();
     }
 
-    const auto mbo(tsi_.metaBinaryOrder());
+    auto mbo(tsi_.metaBinaryOrder());
 
     const utility::Progress::ratio_t reportRatio(5, 1000);
     utility::ts::Progress progress("meta agg", mi.count(lodRange)
@@ -1045,7 +1045,7 @@ void AggregatedDriver::copyMetatiles(AggregatedOptions &options
     const auto mi(tsi_.deriveMetaIndex());
 
     const auto &lodRange(options.staticMetaRange);
-    const auto mbo(tsi_.metaBinaryOrder());
+    auto mbo(tsi_.metaBinaryOrder());
 
     const utility::Progress::ratio_t reportRatio(1, 1000);
     utility::ts::Progress progress("clone", mi.count(lodRange)
