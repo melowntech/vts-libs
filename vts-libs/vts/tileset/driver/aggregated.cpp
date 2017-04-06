@@ -660,7 +660,7 @@ AggregatedDriver::AggregatedDriver(PrivateTag
 
     // copy metatiles if needed
     if (src.cache_) {
-        copyMetatiles(options, *src.cache_);
+        copyMetatiles(options, src.cache_.get());
     }
 
     // update and save properties
@@ -1000,10 +1000,17 @@ void AggregatedDriver::generateMetatiles(AggregatedOptions &options)
                                    , reportRatio);
     auto report([&]() { ++progress; });
 
+    auto getMeta([&](const TileId &tid)
+    {
+        return buildMeta(drivers_, root(), referenceFrame_
+                         , -1, tid
+                         , tsi_.tileIndex, surfaceReferences_);
+    });
+
     // process all metatiles in given range
     UTILITY_OMP(parallel)
     UTILITY_OMP(single)
-    traverse(mi, lodRange, [&](TileId tid, QTree::value_type)
+    traverse(mi, lodRange, [=](TileId tid, QTree::value_type)
     {
         UTILITY_OMP(task)
         {
@@ -1011,10 +1018,8 @@ void AggregatedDriver::generateMetatiles(AggregatedOptions &options)
             tid.x <<= mbo;
             tid.y <<= mbo;
 
-            // build metatile as a stream
-            auto is(buildMeta(drivers_, root(), referenceFrame_
-                              , -1, tid
-                              , tsi_.tileIndex, surfaceReferences_));
+            // get metatile as a stream
+            auto is(getMeta(tid));
 
             UTILITY_OMP(critical(vts_driver_aggregated_copy))
             {
@@ -1034,7 +1039,7 @@ void AggregatedDriver::generateMetatiles(AggregatedOptions &options)
 }
 
 void AggregatedDriver::copyMetatiles(AggregatedOptions &options
-                                     , Cache &srcCache)
+                                     , Cache *srcCache)
 {
     options.metaOptions = PlainOptions(5, referenceFrame_.metaBinaryOrder);
 
@@ -1055,7 +1060,7 @@ void AggregatedDriver::copyMetatiles(AggregatedOptions &options
     // process all metatiles in given range
     UTILITY_OMP(parallel)
     UTILITY_OMP(single)
-    traverse(mi, lodRange, [&](TileId tid, QTree::value_type)
+    traverse(mi, lodRange, [=](TileId tid, QTree::value_type)
     {
         UTILITY_OMP(task)
         {
@@ -1064,7 +1069,7 @@ void AggregatedDriver::copyMetatiles(AggregatedOptions &options
             tid.y <<= mbo;
 
             // build metatile as a stream
-            auto is(srcCache.input(tid, TileFile::meta));
+            auto is(srcCache->input(tid, TileFile::meta));
 
             UTILITY_OMP(critical(vts_driver_aggregated_copy))
             {

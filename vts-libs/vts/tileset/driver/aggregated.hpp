@@ -176,7 +176,7 @@ private:
 
     void generateMetatiles(AggregatedOptions &options);
 
-    void copyMetatiles(AggregatedOptions &options, Cache &srcCache);
+    void copyMetatiles(AggregatedOptions &options, Cache *srcCache);
 
     inline IStream::pointer input_impl(const std::string &name) const {
         return input_impl(name, true);
