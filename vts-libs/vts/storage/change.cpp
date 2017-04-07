@@ -101,14 +101,26 @@ void Storage::add(const boost::filesystem::path &tilesetPath
 void Storage::generateGlues(const TilesetId &tilesetId
                             , const AddOptions &addOptions)
 {
-    detail().generateGlues(tilesetId, addOptions);
+    const auto ao
+        (updateAddOptions
+         (addOptions
+          , loadMergeConf(detail().root / storage_paths::mergeConfPath()
+                          , true)));
+
+    detail().generateGlues(tilesetId, ao);
 }
 
 void Storage::generateGlue(const Glue::Id &glueId
                            , const AddOptions &addOptions)
 {
+    const auto ao
+        (updateAddOptions
+         (addOptions
+          , loadMergeConf(detail().root / storage_paths::mergeConfPath()
+                          , true)));
+
     detail().generateGlue(detail().properties.normalize(glueId)
-                          , addOptions);
+                          , ao);
 }
 
 void Storage::readd(const TilesetId &tilesetId
