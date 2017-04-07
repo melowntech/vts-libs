@@ -11,6 +11,7 @@
 #include "utility/uri.hpp"
 
 #include "http/ondemandclient.hpp"
+#include "http/error.hpp"
 
 #include "../../../storage/error.hpp"
 #include "../../../storage/sstreams.hpp"
@@ -86,15 +87,23 @@ IStream::pointer fetchAsStream(const std::string rootUrl
                 return {};
             }
 
-            LOGTHROW(err2, storage::IOError)
+            LOGTHROW(err1, storage::IOError)
                 << "Failed to download tile data from <"
                 << url << ">: Unexpected HTTP status code: <"
                 << q.ec() << ">.";
         }
 
-        auto body(q.moveOut());
-        return storage::memIStream(contentType, std::move(body.data)
-                                   , body.lastModified, url);
+        try {
+            auto body(q.moveOut());
+            return storage::memIStream(contentType, std::move(body.data)
+                                       , body.lastModified, url);
+        } catch (const http::Error &e) {
+            LOGTHROW(err1, storage::IOError)
+                << "Failed to download tile data from <"
+                << url << ">: Unexpected error code <"
+                << e.what() << ">.";
+        }
+        return {};
     });
 
     for (auto tries(options.ioRetries()); tries; (tries > 0) ? --tries : 0) {
