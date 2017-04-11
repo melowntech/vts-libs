@@ -333,7 +333,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
                                    , const AggregatedOptions &options
                                    , const CloneOptions &cloneOptions)
     : AggregatedDriverBase(cloneOptions)
-    , Driver(root, options, cloneOptions.mode())
+    , Driver(root, cloneOptions.openOptions(), options, cloneOptions.mode())
     , storage_(this->options().buildStoragePath(root)
                , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
@@ -358,7 +358,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
 AggregatedDriver::AggregatedDriver(const AggregatedOptions &options
                                    , const CloneOptions &cloneOptions)
     : AggregatedDriverBase(cloneOptions)
-    , Driver(options, cloneOptions.mode())
+    , Driver(cloneOptions.openOptions(), options, cloneOptions.mode())
     , storage_(this->options().storagePath, OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())
     , tsi_(referenceFrame_.metaBinaryOrder, drivers_)
@@ -639,7 +639,7 @@ AggregatedDriver::AggregatedDriver(PrivateTag
                                    , AggregatedOptions options
                                    , const CloneOptions &cloneOptions
                                    , const AggregatedDriver &src)
-    : Driver(root, options, cloneOptions.mode())
+    : Driver(root, cloneOptions.openOptions(), options, cloneOptions.mode())
     , storage_(this->options().buildStoragePath(root)
                , OpenMode::readOnly)
     , referenceFrame_(storage_.referenceFrame())

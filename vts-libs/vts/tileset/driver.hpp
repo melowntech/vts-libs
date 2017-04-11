@@ -191,16 +191,21 @@ public:
                          , const ReencodeOptions &options
                          , const std::string &prefix = "");
 
+    inline const OpenOptions& openOptions() const { return openOptions_; }
+
 protected:
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.
      */
-    Driver(const boost::filesystem::path &root, const boost::any &options
+    Driver(const boost::filesystem::path &root
+           , const OpenOptions &openOptions
+           , const boost::any &options
            , CreateMode mode);
 
     /** Creates in-memory storage.
      */
-    Driver(const boost::any &options, CreateMode mode);
+    Driver(const OpenOptions &openOptions, const boost::any &options
+           , CreateMode mode);
 
     /** Opens storage.
      */
@@ -214,8 +219,6 @@ protected:
     /** Allow driver to change its capabilities.
      */
     inline Capabilities& capabilities() { return capabilities_; }
-
-    inline const OpenOptions& openOptions() const { return openOptions_; }
 
 private:
     virtual OStream::pointer output_impl(const File type) = 0;

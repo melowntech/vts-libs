@@ -15,8 +15,6 @@ namespace vtslibs { namespace vts {
 
 class MetaCache {
 public:
-    MetaCache(const Driver::pointer &driver) : driver_(driver) {}
-
     virtual ~MetaCache();
 
     virtual MetaTile::pointer add(const MetaTile::pointer &metatile) = 0;
@@ -25,12 +23,16 @@ public:
 
     virtual void save() = 0;
 
-    static std::unique_ptr<MetaCache> ro(const Driver::pointer &driver);
-    static std::unique_ptr<MetaCache> rw(const Driver::pointer &driver);
-
     static std::unique_ptr<MetaCache> create(const Driver::pointer &driver);
 
 protected:
+    MetaCache(const Driver::pointer &driver) : driver_(driver) {}
+
+    static std::unique_ptr<MetaCache> ro(const Driver::pointer &driver);
+    static std::unique_ptr<MetaCache> rw(const Driver::pointer &driver);
+    static std::unique_ptr<MetaCache>
+    roScarceMemory(const Driver::pointer &driver);
+
     Driver::pointer driver_;
 };
 

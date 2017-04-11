@@ -618,46 +618,6 @@ void VtsStorage::configuration(po::options_description &cmdline
         };
     });
 
-#if 0
-    createParser(cmdline, Command::readd
-                 , "--command=readd: recomputes all glues of existing tileset"
-                 " in the storage"
-                 , [&](UP &p)
-    {
-        lockConfiguration(p.options);
-
-        p.options.add_options()
-            ("tilesetId", po::value(&tilesetId_)->required()
-             , "TilesetId to work with.")
-            ("textureQuality", po::value(&addOptions_.textureQuality)
-             ->required()->default_value(addOptions_.textureQuality)
-             , "Quality of repacked atlases. 0 means no repacking.")
-            ("dryRun", "Simulate glue creation.")
-            ("lazy", "Do not generate any glue.")
-            ("tmp", po::value<fs::path>()
-             , "Temporary directory where to work with temporary data.")
-            ("no-clip", "Don't clip meshes by merge coverage.")
-            ;
-
-        progressConfiguration(p.options);
-
-        p.positional.add("tilesetId", 1);
-
-        p.configure = [&](const po::variables_map &vars) {
-            lockConfigure(vars);
-
-            addOptions_.dryRun = vars.count("dryRun");
-            addOptions_.lazy = vars.count("lazy");
-            if (vars.count("tmp")) {
-                addOptions_.tmp = vars["tmp"].as<fs::path>();
-            }
-            addOptions_.clip = !vars.count("no-clip");
-
-            configureProgress(vars, addOptions_);
-        };
-    });
-#endif
-
     createParser(cmdline, Command::remove
                  , "--command=remove: removes tileset from VTS storage"
                  , [&](UP &p)

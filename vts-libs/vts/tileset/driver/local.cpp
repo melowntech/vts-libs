@@ -51,7 +51,7 @@ LocalDriver::LocalDriver(const boost::filesystem::path &root
                          , const LocalOptions &options
                          , const CloneOptions &cloneOptions)
     : LocalDriverBase(cloneOptions)
-    , Driver(root, options, cloneOptions.mode())
+    , Driver(root, cloneOptions.openOptions(), options, cloneOptions.mode())
     , driver_(Driver::open(options.path))
 {
     {

@@ -77,6 +77,7 @@ Storage::AddOptions updateAddOptions(Storage::AddOptions addOptions
                                      , const MergeConf &mergeConf)
 {
     addOptions.openOptions.updateCNames(mergeConf.cnames);
+    addOptions.openOptions.scarceMemory(true);
     return addOptions;
 }
 

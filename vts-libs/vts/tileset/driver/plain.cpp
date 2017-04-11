@@ -67,7 +67,8 @@ boost::uuids::uuid PlainOptions::generateUuid() {
 PlainDriver::PlainDriver(const boost::filesystem::path &root
                          , const PlainOptions &options
                          , const CloneOptions &cloneOptions)
-    : Driver(root, PlainOptions(options, true), cloneOptions.mode())
+    : Driver(root, cloneOptions.openOptions()
+             , PlainOptions(options, true), cloneOptions.mode())
     , cache_(this->root(), this->options<PlainOptions>()
              , false)
 {}

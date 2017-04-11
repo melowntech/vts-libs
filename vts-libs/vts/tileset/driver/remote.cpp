@@ -62,7 +62,7 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
                            , const RemoteOptions &options
                            , const CloneOptions &cloneOptions)
     : RemoteDriverBase(cloneOptions)
-    , Driver(root, options, cloneOptions.mode())
+    , Driver(root, cloneOptions.openOptions(), options, cloneOptions.mode())
     , fetcher_(this->options().url, cloneOptions.openOptions())
     , revision_()
 {
@@ -111,7 +111,7 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
                            , const CloneOptions &cloneOptions
                            , const RemoteDriver &src)
     : RemoteDriverBase(cloneOptions)
-    , Driver(root, options, cloneOptions.mode())
+    , Driver(root, cloneOptions.openOptions(), options, cloneOptions.mode())
     , fetcher_(this->options().url, cloneOptions.openOptions())
 {
     // update and save properties

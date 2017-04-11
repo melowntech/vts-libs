@@ -140,20 +140,84 @@ void RoMetaCache::houseKeeping(const TileId *keep)
     }
 }
 
+/** Scarce memory implementation.
+ *  Read-only version, holds only one metatile per lod.
+ */
+class RoMetaCacheSM : public MetaCache {
+public:
+    RoMetaCacheSM(const Driver::pointer &driver)
+        : MetaCache(driver)
+    {
+        LOG(info1) << "RoMetaCacheSM(" << driver->info() << ")";
+    }
+
+private:
+    virtual MetaTile::pointer add(const MetaTile::pointer &metatile);
+    virtual MetaTile::pointer find(const TileId &metaId);
+    virtual void clear();
+    virtual void save();
+
+    typedef std::vector<MetaTile::pointer> MetaTileCache;
+    MetaTileCache cache_;
+};
+
+MetaTile::pointer RoMetaCacheSM::add(const MetaTile::pointer &metatile)
+{
+    const auto &metaId(metatile->origin());
+    if (metaId.lod >= cache_.size()) {
+        // make room
+        cache_.resize(metaId.lod + 1);
+    }
+
+    return cache_[metaId.lod] = metatile;
+}
+
+MetaTile::pointer RoMetaCacheSM::find(const TileId &metaId)
+{
+    if (metaId.lod >= cache_.size()) { return {};}
+    const auto &mt(cache_[metaId.lod]);
+    if (mt && (mt->origin() == metaId)) { return mt; }
+    return {};
+}
+
+void RoMetaCacheSM::clear()
+{
+    cache_.clear();
+}
+
+void RoMetaCacheSM::save()
+{
+    LOGTHROW(err1, storage::ReadOnlyError)
+        << "Cannot save metatile from read-only cache.";
+}
+
 } // namespace detail
 
 MetaCache::~MetaCache() {}
 
 std::unique_ptr<MetaCache> MetaCache::create(const Driver::pointer &driver)
 {
-    // return driver->readOnly() ? ro(driver) : rw(driver);
-    // we are using ro cache implementation due to performance reasons
+    if (driver->readOnly()) {
+        if (driver->openOptions().scarceMemory()) {
+            return roScarceMemory(driver);
+        }
+        // we are using rw cache implementation due to performance reasons
+        return rw(driver);
+    }
     return rw(driver);
 }
 
 std::unique_ptr<MetaCache> MetaCache::ro(const Driver::pointer &driver)
 {
-    return std::unique_ptr<MetaCache>(new detail::RoMetaCache(driver));
+    return std::unique_ptr<MetaCache>
+        (new detail::RoMetaCache(driver));
+}
+
+std::unique_ptr<MetaCache>
+MetaCache::roScarceMemory(const Driver::pointer &driver)
+{
+    return std::unique_ptr<MetaCache>
+        (new detail::RoMetaCacheSM(driver));
 }
 
 } } // namespace vtslibs::vts

@@ -58,12 +58,14 @@ namespace {
 } // namespace
 
 Driver::Driver(const boost::filesystem::path &root
+               , const OpenOptions &openOptions
                , const boost::any &options, CreateMode mode)
     : root_(absolute(root))
     , readOnly_(false)
     , configPath_(root_ / filePath(File::config))
     , extraConfigPath_(root_ / filePath(File::extraConfig))
     , registryPath_(root_ / filePath(File::registry))
+    , openOptions_(openOptions)
     , options_(options)
     , runnable_(), lastModified_()
 {
@@ -79,12 +81,15 @@ Driver::Driver(const boost::filesystem::path &root
     }
 }
 
-Driver::Driver(const boost::any &options, CreateMode)
+Driver::Driver(const OpenOptions &openOptions
+               , const boost::any &options
+               , CreateMode)
     : root_()
     , readOnly_(true)
     , configPath_(root_ / filePath(File::config))
     , extraConfigPath_(root_ / filePath(File::extraConfig))
     , registryPath_(root_ / filePath(File::registry))
+    , openOptions_(openOptions)
     , options_(options)
     , runnable_(), lastModified_()
 {}

@@ -30,6 +30,7 @@ public:
     OpenOptions()
         : ioRetries_(-1) // infinity
         , ioWait_(-1) // infinity
+        , scarceMemory_(false)
     {}
 
     typedef std::map<std::string, std::string> CNames;
@@ -52,6 +53,11 @@ public:
         ioWait_ = ioWait; return *this;
     }
 
+    bool scarceMemory() const { return scarceMemory_; }
+    OpenOptions& scarceMemory(bool scarceMemory) {
+        scarceMemory_ = scarceMemory; return *this;
+    }
+
 private:
     /** Common name simulation. Interpreted by remote driver.
      */
@@ -64,6 +70,10 @@ private:
     /** Timeout in ms for IO operations. Interpreted by remote driver.
      */
     long ioWait_;
+
+    /** We are (or do not want to be) running out of memory.
+     */
+    bool scarceMemory_;
 };
 
 /** Tilset clone options. Sometimes used for tileset creation.
