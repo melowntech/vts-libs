@@ -2,6 +2,8 @@
 #include <unistd.h>
 
 #include <system_error>
+#include <future>
+#include <thread>
 
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
@@ -37,7 +39,7 @@ static void vts_libs_tools_locker_sigchild_handler(int sig)
 
 namespace {
 
-void dieIfLockerDies()
+void followLockerToGrave()
 {
     // locker runs, we want to terminate when child dies
     ::signal(SIGCHLD, &vts_libs_tools_locker_sigchild_handler);
@@ -185,13 +187,16 @@ void lock1(const fs::path &lockerPath
                << lockerPath << ").";
 
     // up and running
-    dieIfLockerDies();
+    followLockerToGrave();
 }
 
 int runLocker2(int out[2], const fs::path &storage
                , const fs::path &lockerPath
                , int lockerFd)
 {
+    // close other end of pipe
+    ::close(out[1]);
+
     // move to own process group so terminal controls do not kill this process
     // before it can do something useful
     ::setpgid(0, 0);
@@ -206,68 +211,182 @@ int runLocker2(int out[2], const fs::path &storage
     return EXIT_FAILURE;
 }
 
-class StorageLocker : public vtslibs::vts::StorageLocker {
+struct LockTask {
+    typedef std::shared_ptr<LockTask> pointer;
+    typedef std::vector<pointer> list;
+
+    std::string command;
+    std::promise<std::string> promise;
+
+    LockTask(const std::string &command) : command(command) {}
+};
+
+class StorageLocker
+    : public vtslibs::vts::StorageLocker
+    , public std::enable_shared_from_this<StorageLocker>
+{
 public:
     StorageLocker()
-        : lockerPid_(0), vtsSocket_(ios_), lockerSocket_(ios_)
+        : lockerPid_(0), localSocket_(ios_), remoteSocket_(ios_)
+        , work_(std::ref(ios_)), strand_(ios_), timer_(ios_)
     {
-    }
-
-    void run(const fs::path &lockerPath, const fs::path &storage) {
         // connect both sockets
-        local::connect_pair(vtsSocket_, lockerSocket_);
-
-        // output pipe to locker process
-        int out[2];
-        if (-1 == ::pipe(out)) {
-            std::system_error e(errno, std::system_category());
-            LOG(fatal) << "Cannot create a pipe: <"
-                       << e.code() << ", " << e.what() << ">.";
-            std::exit(EXIT_FAILURE);
-        }
-
-        try {
-            int lockerFd(lockerSocket_.native_handle());
-            lockerPid_ = utility::spawn([=]() mutable -> int
-            {
-                return runLocker2(out, storage, lockerPath, lockerFd);
-            });
-        } catch (const std::exception &e) {
-            LOG(fatal) << "Locker execution failed: <" << e.what() << ">.";
-            std::exit(EXIT_FAILURE);
-        }
-
-        // close other end of pipe
-        ::close(out[0]);
+        local::connect_pair(localSocket_, remoteSocket_);
     }
+
+    ~StorageLocker() { stop(); }
+
+    void start(const fs::path &lockerPath, const fs::path &storage);
 
 private:
-    virtual void lock_impl(const std::string &sublock) {
-        LOG(info4) << "Locking <" << sublock << ">.";
-        (void) sublock;
-    }
+    virtual std::string lock_impl(const std::string &sublock);
+    virtual void unlock_impl(const std::string &lock
+                             , const std::string &sublock);
 
-    virtual void unlock_impl(const std::string &sublock) {
-        LOG(info4) << "Unlocking <" << sublock << ">.";
-        (void) sublock;
-    }
+    void stop();
+
+    void run();
+
+    void enqueue(const LockTask::pointer &task);
+
+    void send(const LockTask::pointer &task);
 
     ::pid_t lockerPid_;
     asio::io_service ios_;
-    local::stream_protocol::socket vtsSocket_;
-    local::stream_protocol::socket lockerSocket_;
+    local::stream_protocol::socket localSocket_;
+    local::stream_protocol::socket remoteSocket_;
+
+    boost::optional<asio::io_service::work> work_;
+    std::thread worker_;
+    asio::strand strand_;
+    asio::deadline_timer timer_;
+    LockTask::list tasks_;
 };
+
+void StorageLocker::start(const fs::path &lockerPath, const fs::path &storage)
+{
+    // output pipe to locker process
+    int out[2];
+    if (-1 == ::pipe(out)) {
+        std::system_error e(errno, std::system_category());
+        LOG(fatal) << "Cannot create a pipe: <"
+                   << e.code() << ", " << e.what() << ">.";
+        std::exit(EXIT_FAILURE);
+    }
+
+    try {
+        auto self(shared_from_this());
+        lockerPid_ = utility::spawn
+            ([this, self, out, storage, lockerPath]() mutable -> int
+        {
+            // close vts socket in subprocess (not needed there)
+            localSocket_.close();
+            // keep locker socket open and grab its fd
+            int lockerFd(remoteSocket_.native_handle());
+            return runLocker2(out, storage, lockerPath, lockerFd);
+        });
+    } catch (const std::exception &e) {
+        LOG(fatal) << "Locker execution failed: <" << e.what() << ">.";
+        std::exit(EXIT_FAILURE);
+    }
+
+    // close read end of the pipe, keep write end open
+    ::close(out[0]);
+
+    // close remote socket (not needed here)
+    remoteSocket_.close();
+
+    std::thread worker(&StorageLocker::run, this);
+    worker_.swap(worker);
+}
+
+void StorageLocker::stop()
+{
+    LOG(info2) << "Stopping.";
+    work_ = boost::none;
+    worker_.join();
+    ios_.stop();
+}
+
+void StorageLocker::run()
+{
+    dbglog::thread_id("locker");
+    LOG(info2) << "Spawned external locker worker.";
+
+    for (;;) {
+        try {
+            ios_.run();
+            LOG(info2) << "Terminated external locker worker.";
+            return;
+        } catch (const std::exception &e) {
+            LOG(err3)
+                << "Uncaught exception in external locker worker: <"
+                << e.what() << ">. Going on.";
+        }
+    }
+}
+
+void StorageLocker::enqueue(const LockTask::pointer &task)
+{
+    // send immediately
+    if (tasks_.empty()) {
+        send(task);
+        return;
+    }
+    tasks_.push_back(task);
+}
+
+void StorageLocker::send(const LockTask::pointer &task)
+{
+    auto self(shared_from_this());
+    auto responseSent([self, this, task]
+                      (const bs::error_code &ec, std::size_t)
+    {
+        if (ec) {
+            throw bs::system_error(ec);
+        }
+    });
+
+    asio::async_write(localSocket_
+                      , asio::const_buffers_1(task->command.data()
+                                              , task->command.size())
+                      , strand_.wrap(responseSent));
+}
+
+std::string StorageLocker::lock_impl(const std::string &sublock)
+{
+    LOG(info4) << "Locking <" << sublock << ">.";
+    auto task(std::make_shared<LockTask>("L:" + sublock + "\n"));
+    auto self(shared_from_this());
+    ios_.post(strand_.wrap([this, self, task]() { enqueue(task); }));
+
+    // wait for lock
+    return task->promise.get_future().get();
+}
+
+void StorageLocker::unlock_impl(const std::string &lock
+                                , const std::string &sublock)
+{
+    LOG(info4) << "Unlocking <" << sublock << ">.";
+    auto task(std::make_shared<LockTask>("U:" + lock + ":" + sublock + "\n"));
+    auto future(task->promise.get_future());
+    auto self(shared_from_this());
+    ios_.post(strand_.wrap([this, self, task]() { enqueue(task); }));
+
+    // wait for unlock
+    task->promise.get_future().get();
+}
 
 vtslibs::vts::StorageLocker::pointer lock2(const fs::path &lockerPath
                                            , const fs::path &storage)
 {
     auto locker(std::make_shared<StorageLocker>());
-    locker->run(lockerPath, storage);
+    locker->start(lockerPath, storage);
 
     LOG(info3) << "On-demand locking provided by external lock "
         "program (" << lockerPath << ").";
 
-    dieIfLockerDies();
+    followLockerToGrave();
     return locker;
 }
 

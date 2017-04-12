@@ -140,17 +140,25 @@ public:
 
     /** Locks storage (if sublock is empty) or specific entity inside storage
      *  (if sublock is non-empty)
+     *
+     *  \param sublock sublock name (optional)
+     *  \return lock value
      */
-    void lock(const std::string &sublock = std::string());
+    std::string lock(const std::string &sublock = std::string());
 
     /** Unlocks storage (if glueId is empty) or specific glue (ig glueId is
      *  non-empty)
+     *
+     *  \param lock lock value
+     *  \param sublock sublock name (optional)
      */
-    void unlock(const std::string &sublock = std::string());
+    void unlock(const std::string &lock
+                , const std::string &sublock = std::string());
 
 private:
-    virtual void lock_impl(const std::string &sublock) = 0;
-    virtual void unlock_impl(const std::string &sublock) = 0;
+    virtual std::string lock_impl(const std::string &sublock) = 0;
+    virtual void unlock_impl(const std::string &lock
+                             , const std::string &sublock) = 0;
 };
 
 class ScopedStorageLock {
@@ -158,7 +166,7 @@ public:
     ScopedStorageLock(const StorageLocker::pointer &locker
                       , const std::string &sublock = std::string()
                       , ScopedStorageLock *lockToUnlock = nullptr)
-        : locker_(locker), sublock_(sublock), locked_(false)
+        : locker_(locker), sublock_(sublock)
         , lockToUnlock_(lockToUnlock)
     {
         // lock this lock
@@ -186,20 +194,18 @@ public:
     }
 
     void lock() {
-        if (!locker_ || locked_) { return; }
-        locker_->lock(sublock_);
-        locked_ = true;
+        if (!locker_ || value_) { return; }
+        value_ = locker_->lock(sublock_);
     }
     void unlock() {
-        if (!locker_ || !locked_) { return; }
-        locker_->unlock(sublock_);
-        locked_ = false;
+        if (!locker_ || !value_) { return; }
+        locker_->unlock(*value_, sublock_);
     }
 
 private:
     StorageLocker::pointer locker_;
     std::string sublock_;
-    bool locked_;
+    boost::optional<std::string> value_;
     ScopedStorageLock *lockToUnlock_;
 };
 
@@ -521,12 +527,13 @@ operator>>(std::basic_istream<CharT, Traits> &is, Storage::Location &l)
     return is;
 }
 
-inline void StorageLocker::lock(const std::string &sublock) {
-    lock_impl(sublock);
+inline std::string StorageLocker::lock(const std::string &sublock) {
+    return lock_impl(sublock);
 }
 
-inline void StorageLocker::unlock(const std::string &sublock) {
-    unlock_impl(sublock);
+inline void StorageLocker::unlock(const std::string &lock
+                                  , const std::string &sublock) {
+    unlock_impl(lock, sublock);
 }
 
 } } // namespace vtslibs::vts
