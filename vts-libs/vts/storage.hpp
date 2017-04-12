@@ -127,6 +127,82 @@ private:
     Glue::IdSet glues_;
 };
 
+/** Helper for storage/glue locking.
+ *
+ *  If glueId is empty, whole storage is locked.
+ */
+class StorageLocker {
+public:
+    typedef std::shared_ptr<StorageLocker> pointer;
+
+    StorageLocker() {};
+    virtual ~StorageLocker() {}
+
+    /** Locks storage (if sublock is empty) or specific entity inside storage
+     *  (if sublock is non-empty)
+     */
+    void lock(const std::string &sublock = std::string());
+
+    /** Unlocks storage (if glueId is empty) or specific glue (ig glueId is
+     *  non-empty)
+     */
+    void unlock(const std::string &sublock = std::string());
+
+private:
+    virtual void lock_impl(const std::string &sublock) = 0;
+    virtual void unlock_impl(const std::string &sublock) = 0;
+};
+
+class ScopedStorageLock {
+public:
+    ScopedStorageLock(const StorageLocker::pointer &locker
+                      , const std::string &sublock = std::string()
+                      , ScopedStorageLock *lockToUnlock = nullptr)
+        : locker_(locker), sublock_(sublock), locked_(false)
+        , lockToUnlock_(lockToUnlock)
+    {
+        // lock this lock
+        lock();
+        // unlock other if set
+        if (lockToUnlock_) { lockToUnlock_->unlock(); }
+    }
+
+    ~ScopedStorageLock() {
+        // lock other if set
+        if (lockToUnlock_) { lockToUnlock_->lock(); }
+
+        // unlock this
+        try {
+            unlock();
+        } catch (const std::exception &e) {
+            LOG(fatal) << "Unable to unlock storage lock, bailing out. "
+                "Error was: <" << e.what() << ">.";
+            std::abort();
+        } catch (...) {
+            LOG(fatal) << "Unable to unlock storage lock, bailing out. "
+                "Error is unknown.";
+            std::abort();
+        }
+    }
+
+    void lock() {
+        if (!locker_ || locked_) { return; }
+        locker_->lock(sublock_);
+        locked_ = true;
+    }
+    void unlock() {
+        if (!locker_ || !locked_) { return; }
+        locker_->unlock(sublock_);
+        locked_ = false;
+    }
+
+private:
+    StorageLocker::pointer locker_;
+    std::string sublock_;
+    bool locked_;
+    ScopedStorageLock *lockToUnlock_;
+};
+
 /** Storage interface.
  */
 class Storage {
@@ -162,6 +238,11 @@ public:
      *  filter optional: filter for input dataset
      *  dryRun: do not modify anything, simulate add
      *  tags: set of tags assigned to added tileset
+     *  openOptions: options for tileset open
+     *  mode: glue generation mode
+     *  overwrite: allow glue overwrite
+     *  locker: external locking API (leave unset if external locking is not
+     *          available)
      */
     struct AddOptions : public GlueCreationOptions {
         bool bumpVersion;
@@ -173,6 +254,7 @@ public:
         enum Mode { legacy, full, lazy };
         Mode mode;
         bool overwrite;
+        StorageLocker::pointer locker;
 
         AddOptions()
             : bumpVersion(false), filter(), dryRun(false)
@@ -193,20 +275,15 @@ public:
     void add(const boost::filesystem::path &tilesetPath, const Location &where
              , const TilesetId &tilesetId, const AddOptions &addOptions);
 
-    /** Readds existing tileset.
-     *  Operation fails if given tileset is not present in the storage
-     *
-     *  \param tilesetId identifier of the tileset in the storage.
-     */
-    void readd(const TilesetId &tilesetId, const AddOptions &addOptions);
-
     /** Removes given tileset from the storage.
      *
      * Removes all glues and virtual surfaces that reference given tileset.
      *
      *  \param tilesetIds Ids of tilesets to remove
      */
-    void remove(const TilesetIdList &tilesetIds);
+    void remove(const TilesetIdList &tilesetIds
+                , const StorageLocker::pointer &locker
+                = StorageLocker::pointer());
 
     void generateGlues(const TilesetId &tilesetId
                        , const AddOptions &addOptions);
@@ -224,13 +301,17 @@ public:
      *  \param mode create mode
      */
     void createVirtualSurface(const TilesetIdSet &tilesets
-                              , CreateMode mode);
+                              , CreateMode mode
+                              , const StorageLocker::pointer &locker
+                              = StorageLocker::pointer());
 
     /** Removes a virtual surface from storage.
      *
      *  \param virtualSurfaceId virtual surface ID
      */
-    void removeVirtualSurface(const TilesetIdSet &tilesets);
+    void removeVirtualSurface(const TilesetIdSet &tilesets
+                              , const StorageLocker::pointer &locker
+                              = StorageLocker::pointer());
 
     /** Flattens content of this storage into new tileset at tilesetPath.
      *
@@ -438,6 +519,14 @@ operator>>(std::basic_istream<CharT, Traits> &is, Storage::Location &l)
     l.where = id.substr(1);
 
     return is;
+}
+
+inline void StorageLocker::lock(const std::string &sublock) {
+    lock_impl(sublock);
+}
+
+inline void StorageLocker::unlock(const std::string &sublock) {
+    unlock_impl(sublock);
 }
 
 } } // namespace vtslibs::vts

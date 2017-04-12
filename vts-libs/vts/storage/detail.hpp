@@ -212,19 +212,20 @@ struct Storage::Detail
     void add(const TileSet &tileset, const Location &where
              , const TilesetId &tilesetId, const AddOptions &addOptions);
 
-    void readd(const TilesetId &tilesetId, const AddOptions &addOptions);
-
     void generateGlues(const TilesetId &tilesetId
                        , const AddOptions &addOptions);
 
     void generateGlue(const Glue::Id &glueId
                       , const AddOptions &addOptions);
 
-    void remove(const TilesetIdList &tilesetIds);
+    void remove(const TilesetIdList &tilesetIds
+                , const StorageLocker::pointer &locker);
 
-    void createVirtualSurface(const TilesetIdSet &tilesets, CreateMode mode);
+    void createVirtualSurface(const TilesetIdSet &tilesets, CreateMode mode
+                              , const StorageLocker::pointer &locker);
 
-    void removeVirtualSurface(const TilesetIdSet &tilesets);
+    void removeVirtualSurface(const TilesetIdSet &tilesets
+                              , const StorageLocker::pointer &locker);
 
     std::tuple<Properties, StoredTileset>
     addTileset(const Properties &properties, const TilesetId &tilesetId

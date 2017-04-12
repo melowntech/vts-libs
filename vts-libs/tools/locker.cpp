@@ -16,6 +16,9 @@
 namespace asio = boost::asio;
 namespace fs = boost::filesystem;
 namespace bs = boost::system;
+namespace local = boost::asio::local;
+
+using boost::asio::local::stream_protocol;
 
 extern "C" {
 
@@ -25,7 +28,7 @@ static void vts_libs_tools_locker_sigchild_handler(int sig)
     if (sig == SIGCHLD) {
         // this could be ok since we are using low-level IO in dbglog
         LOG(fatal)
-            << "External lock program unexpectedly terminated. Terminaing.";
+            << "External lock program unexpectedly terminated. Terminating.";
         ::raise(SIGTERM);
     }
 }
@@ -34,10 +37,16 @@ static void vts_libs_tools_locker_sigchild_handler(int sig)
 
 namespace {
 
-int runLocker(::pid_t ppid, int in[2], int out[2]
-              , const fs::path &storage
-              , const fs::path &lockerPath
-              , const boost::optional<std::string> &lock)
+void dieIfLockerDies()
+{
+    // locker runs, we want to terminate when child dies
+    ::signal(SIGCHLD, &vts_libs_tools_locker_sigchild_handler);
+}
+
+int runLocker1(::pid_t ppid, int in[2], int out[2]
+               , const fs::path &storage
+               , const fs::path &lockerPath
+               , const boost::optional<std::string> &lock)
 {
     (void) ppid;
 
@@ -60,38 +69,23 @@ int runLocker(::pid_t ppid, int in[2], int out[2]
     return EXIT_FAILURE;
 }
 
-} // namespace
-
-Lock::Lock(const fs::path &storage, const boost::optional<std::string> &lock)
+void lock1(const fs::path &lockerPath
+           , const fs::path &storage
+           , const boost::optional<std::string> &lock)
 {
-    (void) storage;
-
-    const auto lockerPath(storage / "locker");
-
-    if (-1 == ::access(lockerPath.c_str(), X_OK)) {
-        // lockerPath cannot be executed
-        if (lock) {
-            LOG(fatal) << "Called with held lock however there is no program "
-                "to pass it to (" << lockerPath  << " is not an executable).";
-            std::exit(EXIT_FAILURE);
-        }
-
-        return;
-    }
-
     int in[2];
     if (-1 == ::pipe(in)) {
         std::system_error e(errno, std::system_category());
-        LOG(err3) << "Cannot create a pipe: <"
-                  << e.code() << ", " << e.what() << ">.";
+        LOG(fatal) << "Cannot create a pipe: <"
+                   << e.code() << ", " << e.what() << ">.";
         std::exit(EXIT_FAILURE);
     }
 
     int out[2];
     if (-1 == ::pipe(out)) {
         std::system_error e(errno, std::system_category());
-        LOG(err3) << "Cannot create a pipe: <"
-                  << e.code() << ", " << e.what() << ">.";
+        LOG(fatal) << "Cannot create a pipe: <"
+                   << e.code() << ", " << e.what() << ">.";
         std::exit(EXIT_FAILURE);
     }
 
@@ -99,7 +93,7 @@ Lock::Lock(const fs::path &storage, const boost::optional<std::string> &lock)
     try {
         auto ppid(::getppid());
         pid = utility::spawn([=]() mutable -> int {
-                return runLocker(ppid, in, out, storage, lockerPath, lock);
+                return runLocker1(ppid, in, out, storage, lockerPath, lock);
             });
 
         // close other ends of pipe
@@ -109,10 +103,6 @@ Lock::Lock(const fs::path &storage, const boost::optional<std::string> &lock)
         LOG(fatal) << "Locker execution failed: <" << e.what() << ">.";
         std::exit(EXIT_FAILURE);
     }
-
-    // TODO: wait for info on pipe (with timeout)
-    //       timed out -> kill child and terminate
-    //       error -> terminate
 
     enum Result { ok, noLock, error };
     Result result(Result::ok);
@@ -191,10 +181,122 @@ Lock::Lock(const fs::path &storage, const boost::optional<std::string> &lock)
         break;
     }
 
-    LOG(info3) << "Lock acquired by external lock program.";
-
-    // locker runs, we want to terminate when child dies
-    ::signal(SIGCHLD, &vts_libs_tools_locker_sigchild_handler);
+    LOG(info3) << "Lock acquired by external lock program ("
+               << lockerPath << ").";
 
     // up and running
+    dieIfLockerDies();
+}
+
+int runLocker2(int out[2], const fs::path &storage
+               , const fs::path &lockerPath
+               , int lockerFd)
+{
+    // move to own process group so terminal controls do not kill this process
+    // before it can do something useful
+    ::setpgid(0, 0);
+
+    // we have to absolutize path to locking program do wo chdir
+    utility::exec(absolute(lockerPath).string()
+                  , lockerFd
+                  , utility::Stdin(out[0])
+                  , utility::ChangeCwd(storage)
+                  );
+
+    return EXIT_FAILURE;
+}
+
+class StorageLocker : public vtslibs::vts::StorageLocker {
+public:
+    StorageLocker()
+        : lockerPid_(0), vtsSocket_(ios_), lockerSocket_(ios_)
+    {
+    }
+
+    void run(const fs::path &lockerPath, const fs::path &storage) {
+        // connect both sockets
+        local::connect_pair(vtsSocket_, lockerSocket_);
+
+        // output pipe to locker process
+        int out[2];
+        if (-1 == ::pipe(out)) {
+            std::system_error e(errno, std::system_category());
+            LOG(fatal) << "Cannot create a pipe: <"
+                       << e.code() << ", " << e.what() << ">.";
+            std::exit(EXIT_FAILURE);
+        }
+
+        try {
+            int lockerFd(lockerSocket_.native_handle());
+            lockerPid_ = utility::spawn([=]() mutable -> int
+            {
+                return runLocker2(out, storage, lockerPath, lockerFd);
+            });
+        } catch (const std::exception &e) {
+            LOG(fatal) << "Locker execution failed: <" << e.what() << ">.";
+            std::exit(EXIT_FAILURE);
+        }
+
+        // close other end of pipe
+        ::close(out[0]);
+    }
+
+private:
+    virtual void lock_impl(const std::string &sublock) {
+        LOG(info4) << "Locking <" << sublock << ">.";
+        (void) sublock;
+    }
+
+    virtual void unlock_impl(const std::string &sublock) {
+        LOG(info4) << "Unlocking <" << sublock << ">.";
+        (void) sublock;
+    }
+
+    ::pid_t lockerPid_;
+    asio::io_service ios_;
+    local::stream_protocol::socket vtsSocket_;
+    local::stream_protocol::socket lockerSocket_;
+};
+
+vtslibs::vts::StorageLocker::pointer lock2(const fs::path &lockerPath
+                                           , const fs::path &storage)
+{
+    auto locker(std::make_shared<StorageLocker>());
+    locker->run(lockerPath, storage);
+
+    LOG(info3) << "On-demand locking provided by external lock "
+        "program (" << lockerPath << ").";
+
+    dieIfLockerDies();
+    return locker;
+}
+
+} // namespace
+
+Lock::Lock(const fs::path &storage, const boost::optional<std::string> &lock)
+{
+    const auto lockerPath1(storage / "locker");
+    const auto lockerPath2(storage / "locker2");
+
+    if (!lock) {
+        // try locker v2
+        if (0 == ::access(lockerPath2.c_str(), X_OK)) {
+            storageLocker_ = lock2(lockerPath2, storage);
+            return;
+        }
+    }
+
+    // try locker v1
+    if (-1 == ::access(lockerPath1.c_str(), X_OK)) {
+        // lockerPath1 cannot be executed
+        if (lock) {
+            LOG(fatal) << "Called with held lock however there is no program "
+                "to pass it to (" << lockerPath1  << " is not an executable).";
+            std::exit(EXIT_FAILURE);
+        }
+
+        return;
+    }
+
+    lock1(lockerPath1, storage, lock);
 }
