@@ -285,6 +285,8 @@ set(vts-core_SOURCES
 
   vts/gil/colors.hpp vts/gil/colors.cpp
   vts/debug.hpp vts/debug.cpp
+
+  vts/geomextents.hpp vts/geomextents.cpp
   )
 
 set(vts-core_EXTRA_DEPENDS)
