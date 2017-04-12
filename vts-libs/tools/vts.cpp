@@ -832,9 +832,11 @@ void VtsStorage::configuration(po::options_description &cmdline
                  , [&](UP &p)
     {
         p.options.add_options()
+            ("verbose,V", po::value<Verbosity>(&verbose_)->zero_tokens()
+                , "Verbose output.")
             ("filter", po::value(&tileFlags_)
-             ->default_value(vts::TileIndex::Flag::mesh)
-             ->required())
+                ->default_value(vts::TileIndex::Flag::mesh)
+                ->required())
             ;
     });
 
@@ -2117,14 +2119,69 @@ int VtsStorage::tileIndexRanges()
 
     auto stat(ti.statMask(tileFlags_.value, tileFlags_.value));
 
-    if (stat.lodRange.empty()) { return EXIT_SUCCESS; }
+    if (stat.lodRange.empty()) {
+        return EXIT_SUCCESS;
+    }
 
-    auto lod(stat.lodRange.min);
-    for (const auto &tr : stat.tileRanges) {
-        if (valid(tr)) {
-            std::cout << lod << '/' << tr << '\n';
+    if (verbose_) {
+        const auto ts(vts::openTileSet(path_.parent_path()));
+        const auto& rf(ts.referenceFrame());
+
+        // for each srs
+        for (const auto& node : vts::NodeInfo::nodes(rf)) {
+            auto lod(stat.lodRange.min);
+
+            if (node.nodeId().lod > lod) {
+                continue;
+            }
+
+            vts::LodRange lodRange;
+            vts::TileRange lastTr;
+            auto anyTiles(false);
+
+            for (const auto &tr : stat.tileRanges) {
+
+                // get node infos for extremes
+                const auto trNodeLl(vts::NodeInfo(rf
+                    , vts::TileId(lod, tr.ll(0), tr.ll(1))
+                    , false));
+
+                const auto trNodeUr(vts::NodeInfo(rf
+                    , vts::TileId(lod, tr.ur(0), tr.ur(1))
+                    , false));
+
+                // if either extreme belongs to current node subtree
+                if (vts::compatible(node, trNodeLl)
+                    || vts::compatible(node, trNodeUr)) {
+
+                    auto chr(vts::childRange(node.nodeId(), lod));
+                    if (valid(tr) && vts::tileRangesOverlap(tr, chr)) {
+                        lastTr = vts::tileRangesIntersect(tr, chr);
+                        // update lod range
+                        if (!anyTiles) {
+                            lodRange.min = lod;
+                            anyTiles = true;
+                        }
+                        lodRange.max = lod;
+                    }
+                }
+                ++lod;
+            }
+
+            // print srs with its lod range and tilerange on finest lod
+            if (anyTiles) {
+                std::cout << "range<" << node.srs() << ">: " << lodRange << ' '
+                          << lodRange.max <<  '/' << lastTr << '\n';
+            }
         }
-        ++lod;
+    } else {
+        auto lod(stat.lodRange.min);
+        for (const auto &tr : stat.tileRanges) {
+            if (valid(tr)) {
+                std::cout << lod << '/' << tr << '\n';
+            }
+            ++lod;
+        }
     }
 
     return EXIT_SUCCESS;
