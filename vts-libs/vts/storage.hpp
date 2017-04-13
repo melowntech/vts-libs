@@ -22,6 +22,7 @@
 #include "./glue.hpp"
 #include "./virtualsurface.hpp"
 #include "./options.hpp"
+#include "./storage/locking.hpp"
 
 namespace vtslibs { namespace vts {
 
@@ -125,88 +126,6 @@ public:
 
 private:
     Glue::IdSet glues_;
-};
-
-/** Helper for storage/glue locking.
- *
- *  If glueId is empty, whole storage is locked.
- */
-class StorageLocker {
-public:
-    typedef std::shared_ptr<StorageLocker> pointer;
-
-    StorageLocker() {};
-    virtual ~StorageLocker() {}
-
-    /** Locks storage (if sublock is empty) or specific entity inside storage
-     *  (if sublock is non-empty)
-     *
-     *  \param sublock sublock name (optional)
-     *  \return lock value
-     */
-    std::string lock(const std::string &sublock = std::string());
-
-    /** Unlocks storage (if glueId is empty) or specific glue (ig glueId is
-     *  non-empty)
-     *
-     *  \param lock lock value
-     *  \param sublock sublock name (optional)
-     */
-    void unlock(const std::string &lock
-                , const std::string &sublock = std::string());
-
-private:
-    virtual std::string lock_impl(const std::string &sublock) = 0;
-    virtual void unlock_impl(const std::string &lock
-                             , const std::string &sublock) = 0;
-};
-
-class ScopedStorageLock {
-public:
-    ScopedStorageLock(const StorageLocker::pointer &locker
-                      , const std::string &sublock = std::string()
-                      , ScopedStorageLock *lockToUnlock = nullptr)
-        : locker_(locker), sublock_(sublock)
-        , lockToUnlock_(lockToUnlock)
-    {
-        // lock this lock
-        lock();
-        // unlock other if set
-        if (lockToUnlock_) { lockToUnlock_->unlock(); }
-    }
-
-    ~ScopedStorageLock() {
-        // lock other if set
-        if (lockToUnlock_) { lockToUnlock_->lock(); }
-
-        // unlock this
-        try {
-            unlock();
-        } catch (const std::exception &e) {
-            LOG(fatal) << "Unable to unlock storage lock, bailing out. "
-                "Error was: <" << e.what() << ">.";
-            std::abort();
-        } catch (...) {
-            LOG(fatal) << "Unable to unlock storage lock, bailing out. "
-                "Error is unknown.";
-            std::abort();
-        }
-    }
-
-    void lock() {
-        if (!locker_ || value_) { return; }
-        value_ = locker_->lock(sublock_);
-    }
-    void unlock() {
-        if (!locker_ || !value_) { return; }
-        locker_->unlock(*value_, sublock_);
-    }
-
-private:
-    StorageLocker::pointer locker_;
-    std::string sublock_;
-    boost::optional<std::string> value_;
-    ScopedStorageLock *lockToUnlock_;
 };
 
 /** Storage interface.
@@ -525,15 +444,6 @@ operator>>(std::basic_istream<CharT, Traits> &is, Storage::Location &l)
     l.where = id.substr(1);
 
     return is;
-}
-
-inline std::string StorageLocker::lock(const std::string &sublock) {
-    return lock_impl(sublock);
-}
-
-inline void StorageLocker::unlock(const std::string &lock
-                                  , const std::string &sublock) {
-    unlock_impl(lock, sublock);
 }
 
 } } // namespace vtslibs::vts

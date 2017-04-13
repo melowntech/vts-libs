@@ -7,7 +7,7 @@
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem/path.hpp>
 
-#include "../vts/storage.hpp"
+#include "../vts/storage/locking.hpp"
 
 class Lock : boost::noncopyable {
 public:

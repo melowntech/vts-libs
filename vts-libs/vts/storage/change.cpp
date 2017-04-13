@@ -43,6 +43,7 @@
 #include "./paths.hpp"
 #include "./gluerules.hpp"
 #include "./mergeconf.hpp"
+#include "./locking.hpp"
 
 namespace fs = boost::filesystem;
 

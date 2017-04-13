@@ -7,6 +7,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include "dbglog/dbglog.hpp"
 
@@ -18,6 +19,7 @@
 namespace asio = boost::asio;
 namespace fs = boost::filesystem;
 namespace bs = boost::system;
+namespace ba = boost::algorithm;
 namespace local = boost::asio::local;
 
 using boost::asio::local::stream_protocol;
@@ -190,12 +192,12 @@ void lock1(const fs::path &lockerPath
     followLockerToGrave();
 }
 
-int runLocker2(int out[2], const fs::path &storage
+int runLocker2(const fs::path &storage
                , const fs::path &lockerPath
                , int lockerFd)
 {
-    // close other end of pipe
-    ::close(out[1]);
+    // do not inherit log file
+    dbglog::closeOnExec(true);
 
     // move to own process group so terminal controls do not kill this process
     // before it can do something useful
@@ -204,7 +206,6 @@ int runLocker2(int out[2], const fs::path &storage
     // we have to absolutize path to locking program do wo chdir
     utility::exec(absolute(lockerPath).string()
                   , lockerFd
-                  , utility::Stdin(out[0])
                   , utility::ChangeCwd(storage)
                   );
 
@@ -229,9 +230,13 @@ public:
     StorageLocker()
         : lockerPid_(0), localSocket_(ios_), remoteSocket_(ios_)
         , work_(std::ref(ios_)), strand_(ios_), timer_(ios_)
+        , inputBuffer_(1024)
     {
         // connect both sockets
         local::connect_pair(localSocket_, remoteSocket_);
+
+        localSocket_.non_blocking(true);
+        remoteSocket_.non_blocking(true);
     }
 
     ~StorageLocker() { stop(); }
@@ -249,6 +254,7 @@ private:
 
     void enqueue(const LockTask::pointer &task);
 
+    void receive(const LockTask::pointer &task);
     void send(const LockTask::pointer &task);
 
     ::pid_t lockerPid_;
@@ -260,38 +266,30 @@ private:
     std::thread worker_;
     asio::strand strand_;
     asio::deadline_timer timer_;
+    asio::streambuf inputBuffer_;
     LockTask::list tasks_;
 };
 
 void StorageLocker::start(const fs::path &lockerPath, const fs::path &storage)
 {
-    // output pipe to locker process
-    int out[2];
-    if (-1 == ::pipe(out)) {
-        std::system_error e(errno, std::system_category());
-        LOG(fatal) << "Cannot create a pipe: <"
-                   << e.code() << ", " << e.what() << ">.";
-        std::exit(EXIT_FAILURE);
-    }
-
     try {
         auto self(shared_from_this());
+        ios_.notify_fork(asio::io_service::fork_prepare);
         lockerPid_ = utility::spawn
-            ([this, self, out, storage, lockerPath]() mutable -> int
+            ([this, self, storage, lockerPath]() mutable -> int
         {
+            ios_.notify_fork(asio::io_service::fork_child);
             // close vts socket in subprocess (not needed there)
             localSocket_.close();
             // keep locker socket open and grab its fd
             int lockerFd(remoteSocket_.native_handle());
-            return runLocker2(out, storage, lockerPath, lockerFd);
+            return runLocker2(storage, lockerPath, lockerFd);
         });
+        ios_.notify_fork(asio::io_service::fork_parent);
     } catch (const std::exception &e) {
         LOG(fatal) << "Locker execution failed: <" << e.what() << ">.";
         std::exit(EXIT_FAILURE);
     }
-
-    // close read end of the pipe, keep write end open
-    ::close(out[0]);
 
     // close remote socket (not needed here)
     remoteSocket_.close();
@@ -336,14 +334,80 @@ void StorageLocker::enqueue(const LockTask::pointer &task)
     tasks_.push_back(task);
 }
 
+void StorageLocker::receive(const LockTask::pointer &task)
+{
+    auto self(shared_from_this());
+    auto processLine([self, this, task](const bs::error_code &ec, std::size_t)
+    {
+        try {
+            if (ec) {
+                // TODO: abort
+                throw std::make_exception_ptr(bs::system_error(ec));
+            }
+
+            // read line from input
+            std::istream is(&inputBuffer_);
+            is.unsetf(std::ios_base::skipws);
+            std::string line;
+            if (!std::getline(is, line, '\n')) {
+                // TODO: abort
+                task->promise.set_exception
+                    (std::make_exception_ptr(bs::system_error(ec)));
+                return;
+            }
+
+            // parse line
+            LOG(info1) << "Received line from locker: <" << line << ">";
+
+            if (line ==  "X") {
+                LOGTHROW(warn2, vtslibs::vts::LockedError)
+                    << "Lock held by someone else: <" << line << ">.";
+            }
+
+            if (line == "U") {
+                task->promise.set_value(line);
+                return;
+            }
+
+            if (ba::starts_with(line, "E:")) {
+                LOGTHROW(err2, std::runtime_error)
+                    << "Error communicating with locker2: <"
+                    << line << ">.";
+            }
+
+            if (ba::starts_with(line, "L:")) {
+                task->promise.set_value(line.substr(2));
+                return;
+            }
+
+            LOGTHROW(err2, std::runtime_error)
+                << "Error obtaining a lock from locker2: <"
+                << line << ">.";
+        } catch (...) {
+            task->promise.set_exception(std::current_exception());
+        }
+    });
+
+    asio::async_read_until(localSocket_, inputBuffer_, "\n"
+                           , strand_.wrap(processLine));
+}
+
 void StorageLocker::send(const LockTask::pointer &task)
 {
     auto self(shared_from_this());
     auto responseSent([self, this, task]
                       (const bs::error_code &ec, std::size_t)
     {
-        if (ec) {
-            throw bs::system_error(ec);
+        try {
+            if (ec) {
+                // TODO: abort
+                throw std::make_exception_ptr(bs::system_error(ec));
+            }
+
+            // read response
+            receive(task);
+        } catch (...) {
+            task->promise.set_exception(std::current_exception());
         }
     });
 
@@ -355,11 +419,10 @@ void StorageLocker::send(const LockTask::pointer &task)
 
 std::string StorageLocker::lock_impl(const std::string &sublock)
 {
-    LOG(info4) << "Locking <" << sublock << ">.";
-    auto task(std::make_shared<LockTask>("L:" + sublock + "\n"));
     auto self(shared_from_this());
+    LOG(info2) << "Locking <" << sublock << ">.";
+    auto task(std::make_shared<LockTask>("L:" + sublock + "\n"));
     ios_.post(strand_.wrap([this, self, task]() { enqueue(task); }));
-
     // wait for lock
     return task->promise.get_future().get();
 }
@@ -367,9 +430,8 @@ std::string StorageLocker::lock_impl(const std::string &sublock)
 void StorageLocker::unlock_impl(const std::string &lock
                                 , const std::string &sublock)
 {
-    LOG(info4) << "Unlocking <" << sublock << ">.";
-    auto task(std::make_shared<LockTask>("U:" + lock + ":" + sublock + "\n"));
-    auto future(task->promise.get_future());
+    LOG(info2) << "Unlocking <" << sublock << ">.";
+    auto task(std::make_shared<LockTask>("U:" + sublock + ":" + lock + "\n"));
     auto self(shared_from_this());
     ios_.post(strand_.wrap([this, self, task]() { enqueue(task); }));
 
