@@ -1007,6 +1007,13 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
                           , const TilesetId &tilesetId
                           , const AddOptions &addOptions)
 {
+    if (addOptions.locker
+        && (addOptions.mode == AddOptions::Mode::legacy))
+    {
+        LOGTHROW(err2, vtslibs::storage::InconsistentInput)
+            << "Legacy add mode is incompatible with storage locker.";
+    }
+
     // LOCKING: lock whole storage
     ScopedStorageLock storageLock(addOptions.locker);
 

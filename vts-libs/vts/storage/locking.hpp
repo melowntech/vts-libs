@@ -15,8 +15,16 @@
 
 namespace vtslibs { namespace vts {
 
-struct LockedError : public std::runtime_error {
-    LockedError(const std::string &msg) : std::runtime_error(msg) {}
+struct LockError : public std::runtime_error {
+    LockError(const std::string &msg) : std::runtime_error(msg) {}
+};
+
+struct LockedError : public LockError {
+    LockedError(const std::string &msg) : LockError(msg) {}
+};
+
+struct LockTimedOut : public LockError {
+    LockTimedOut(const std::string &msg) : LockError(msg) {}
 };
 
 /** Helper for storage/glue locking.

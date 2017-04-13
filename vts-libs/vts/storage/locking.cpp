@@ -1,3 +1,6 @@
+#include <thread>
+#include <chrono>
+
 #include "dbglog/dbglog.hpp"
 
 #include "./locking.hpp"
@@ -34,6 +37,7 @@ std::string StorageLocker::lock(const std::string &sublock)
         try {
             return lock_impl(sublock);
         } catch (const LockedError&) {}
+        std::this_thread::sleep_for(std::chrono::seconds(5));
     }
 }
 

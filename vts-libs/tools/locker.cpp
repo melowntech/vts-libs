@@ -4,6 +4,7 @@
 #include <system_error>
 #include <future>
 #include <thread>
+#include <queue>
 
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
@@ -13,6 +14,7 @@
 
 #include "utility/process.hpp"
 #include "utility/steady-clock.hpp"
+#include "utility/future.hpp"
 
 #include "./locker.hpp"
 
@@ -214,7 +216,7 @@ int runLocker2(const fs::path &storage
 
 struct LockTask {
     typedef std::shared_ptr<LockTask> pointer;
-    typedef std::vector<pointer> list;
+    typedef std::queue<pointer> queue;
 
     std::string command;
     std::promise<std::string> promise;
@@ -252,7 +254,10 @@ private:
 
     void run();
 
+    // next must be called under strand!
     void enqueue(const LockTask::pointer &task);
+    // next must be called under strand!
+    void next();
 
     void receive(const LockTask::pointer &task);
     void send(const LockTask::pointer &task);
@@ -267,7 +272,7 @@ private:
     asio::strand strand_;
     asio::deadline_timer timer_;
     asio::streambuf inputBuffer_;
-    LockTask::list tasks_;
+    LockTask::queue tasks_;
 };
 
 void StorageLocker::start(const fs::path &lockerPath, const fs::path &storage)
@@ -331,7 +336,15 @@ void StorageLocker::enqueue(const LockTask::pointer &task)
         send(task);
         return;
     }
-    tasks_.push_back(task);
+    tasks_.push(task);
+}
+
+void StorageLocker::next()
+{
+    if (tasks_.empty()) { return; }
+    auto task(tasks_.front());
+    tasks_.pop();
+    send(task);
 }
 
 void StorageLocker::receive(const LockTask::pointer &task)
@@ -350,10 +363,8 @@ void StorageLocker::receive(const LockTask::pointer &task)
             is.unsetf(std::ios_base::skipws);
             std::string line;
             if (!std::getline(is, line, '\n')) {
-                // TODO: abort
-                task->promise.set_exception
-                    (std::make_exception_ptr(bs::system_error(ec)));
-                return;
+                LOGTHROW(warn2, vtslibs::vts::LockedError)
+                    << "Unable to get line from response.";
             }
 
             // parse line
@@ -366,6 +377,7 @@ void StorageLocker::receive(const LockTask::pointer &task)
 
             if (line == "U") {
                 task->promise.set_value(line);
+                next();
                 return;
             }
 
@@ -377,6 +389,7 @@ void StorageLocker::receive(const LockTask::pointer &task)
 
             if (ba::starts_with(line, "L:")) {
                 task->promise.set_value(line.substr(2));
+                next();
                 return;
             }
 
@@ -385,6 +398,7 @@ void StorageLocker::receive(const LockTask::pointer &task)
                 << line << ">.";
         } catch (...) {
             task->promise.set_exception(std::current_exception());
+            next();
         }
     });
 
@@ -423,8 +437,15 @@ std::string StorageLocker::lock_impl(const std::string &sublock)
     LOG(info2) << "Locking <" << sublock << ">.";
     auto task(std::make_shared<LockTask>("L:" + sublock + "\n"));
     ios_.post(strand_.wrap([this, self, task]() { enqueue(task); }));
+
     // wait for lock
-    return task->promise.get_future().get();
+    auto future(task->promise.get_future());
+    if (utility::futureTimeout(future.wait_for(std::chrono::seconds(30)))) {
+        LOGTHROW(warn3, vtslibs::vts::LockTimedOut)
+            << "Timed out while waiting to acquire lock for <"
+            << sublock << ">.";
+    }
+    return future.get();
 }
 
 void StorageLocker::unlock_impl(const std::string &lock
@@ -436,7 +457,13 @@ void StorageLocker::unlock_impl(const std::string &lock
     ios_.post(strand_.wrap([this, self, task]() { enqueue(task); }));
 
     // wait for unlock
-    task->promise.get_future().get();
+    auto future(task->promise.get_future());
+    if (utility::futureTimeout(future.wait_for(std::chrono::seconds(30)))) {
+        LOGTHROW(warn3, vtslibs::vts::LockTimedOut)
+            << "Timed out while waiting to acquire lock for <"
+            << sublock << ">.";
+    }
+    future.get();
 }
 
 vtslibs::vts::StorageLocker::pointer lock2(const fs::path &lockerPath
