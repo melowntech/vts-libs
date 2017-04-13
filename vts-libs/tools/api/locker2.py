@@ -9,21 +9,24 @@ import time
 
 import dbglog as log
 
+def _makeNonblocking(fd):
+    flags = fcntl.fcntl(fd, _fcntl.F_GETFL)
+    fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+
 class Locker2:
-    def __init__(self, impl, connFd):
+    def __init__(self, impl):
         self._impl = impl
+        self._in = sys.stdin.fileno()
+        self._out = sys.stdout.fileno()
 
         # grab connection file descriptor
-        self._conn = socket.fromfd(connFd, socket.AF_UNIX
-                                   , socket.SOCK_STREAM)
-        self._conn.setblocking(0)
-        # close original fd
-        os.close(connFd)
-
         self._poll = select.poll()
         self._outBuff = ""
         self._inBuff = ""
+
         self._updatePoll()
+        self._poll.register(self._in, select.EPOLLIN)
+
         # TODO: make configurable
         self._renewPeriod = 5000
         self._nextRenew = time.time() + self._renewPeriod
@@ -40,7 +43,7 @@ class Locker2:
         if not len(events): return False
 
         for event in events:
-            if (event[0] != self._conn.fileno()):
+            if (event[0]  not in (self._in, self._out)):
                 log.warn2("Unexpected event on fd={}.", event[0])
                 continue
 
@@ -53,10 +56,10 @@ class Locker2:
         if (eventMask & select.EPOLLHUP):
             return True
         if (eventMask & select.EPOLLIN):
-            self._inBuff = self._inBuff + self._conn.recv(1024)
+            self._inBuff = self._inBuff + os.read(self._in, 1024)
             self._processInput()
         if (eventMask & select.EPOLLOUT):
-            sent = self._conn.send(self._outBuff)
+            sent = os.write(self._out, self._outBuff)
             self._outBuff = self._outBuff[sent:]
             self._updatePoll();
 
@@ -64,9 +67,12 @@ class Locker2:
 
     def _updatePoll(self):
         if (len(self._outBuff)):
-            self._poll.register(self._conn, select.EPOLLIN | select.EPOLLOUT)
+            self._poll.register(self._out, select.EPOLLOUT)
         else:
-            self._poll.register(self._conn, select.EPOLLIN)
+            try:
+                self._poll.unregister(self._out)
+            except KeyError:
+                pass
 
     def _processInput(self):
         if (not len(self._inBuff)): return
@@ -158,6 +164,5 @@ if (__name__ == "__main__"):
     # Create simple locker and run it
     log.thread_id("locker2")
     log.info3("Locker2 starting.")
-    Locker2(connFd = int(sys.argv[1])
-            , impl = _ExampleLocker())()
+    Locker2(impl = _ExampleLocker())()
     log.info3("Locker2 terminating.")

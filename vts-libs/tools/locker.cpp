@@ -205,11 +205,26 @@ int runLocker2(const fs::path &storage
     // before it can do something useful
     ::setpgid(0, 0);
 
-    // we have to absolutize path to locking program do wo chdir
-    utility::exec(absolute(lockerPath).string()
-                  , lockerFd
-                  , utility::ChangeCwd(storage)
-                  );
+    // we need to clone lockerFd because redirects in exec close original
+    auto lockerFdCopy(::dup(lockerFd));
+    if (lockerFdCopy == -1) {
+        std::system_error e(errno, std::system_category());
+        LOG(err2)
+            << "dup(" << lockerFd << ") failed: <" << e.code()
+            << ", " << e.what() << ">";
+        throw e;
+    }
+
+    utility::exec
+        (
+         // we have to absolutize path to locking program do wo chdir
+         absolute(lockerPath).string()
+         // bind stdin and stdout to locker fd
+         , utility::Stdin(lockerFd)
+         , utility::Stdout(lockerFdCopy)
+         // change path to storage
+         , utility::ChangeCwd(storage)
+         );
 
     return EXIT_FAILURE;
 }
