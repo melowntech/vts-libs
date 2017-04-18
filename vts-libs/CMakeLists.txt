@@ -314,6 +314,7 @@ set(vts_SOURCES
   vts/meshop/refineandclip.cpp
   vts/meshop/merge.cpp
   vts/storage/change.cpp
+  vts/storage/locking.hpp vts/storage/locking.cpp
 
   # dump support
   vts/tileindex-dump.cpp

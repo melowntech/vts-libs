@@ -52,7 +52,6 @@ UTILITY_GENERATE_ENUM(Command,
                       ((info))
                       ((create))
                       ((add))
-                      ((readd))
                       ((remove))
                       ((generateGlues)("glue-generate-pending"))
                       ((generateGlue)("glue-generate"))
@@ -201,8 +200,6 @@ private:
     int create();
 
     int add();
-
-    int readd();
 
     int remove();
 
@@ -1366,7 +1363,6 @@ int VtsStorage::runCommand()
     // storage related stuff
     case Command::create: return create();
     case Command::add: return add();
-    case Command::readd: return readd();
     case Command::remove: return remove();
     case Command::generateGlues: return generateGlues();
     case Command::generateGlue: return generateGlue();
@@ -1628,10 +1624,9 @@ int VtsStorage::add()
 {
     const auto tmpPath(path_ / "tmp/tileset-to-add");
 
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
-
     // lock if external locking program is available
     Lock lock(path_, lock_);
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
 
     if (isLocal(tileset_)) {
         // local: URL, create temporary tileset
@@ -1670,25 +1665,11 @@ int VtsStorage::add()
     return EXIT_SUCCESS;
 }
 
-int VtsStorage::readd()
-{
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
-
-    // lock if external locking program is available
-    Lock lock(path_, lock_);
-
-    storage.readd(tilesetId_, addOptions_);
-
-    LOG(info4) << "All done.";
-    return EXIT_SUCCESS;
-}
-
 int VtsStorage::remove()
 {
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
-
     // lock if external locking program is available
     Lock lock(path_, lock_);
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
 
     storage.remove(tilesetIds_);
     return EXIT_SUCCESS;
@@ -1696,10 +1677,9 @@ int VtsStorage::remove()
 
 int VtsStorage::generateGlues()
 {
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
-
     // lock if external locking program is available
     Lock lock(path_, lock_);
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
 
     auto ao(addOptions_);
     ao.mode = vts::Storage::AddOptions::Mode::full;
@@ -1709,10 +1689,9 @@ int VtsStorage::generateGlues()
 
 int VtsStorage::generateGlue()
 {
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
-
     // lock if external locking program is available
     Lock lock(path_, lock_);
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
 
     auto ao(addOptions_);
     ao.mode = vts::Storage::AddOptions::Mode::full;
@@ -1722,22 +1701,32 @@ int VtsStorage::generateGlue()
 
 int VtsStorage::tags()
 {
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+    auto print([&](const vts::Storage &storage
+                   , const boost::optional<vts::TilesetId> &filterOut)
+    {
+        for (const auto &tileset : storage.storedTilesets()) {
+            if (filterOut && (tileset.tilesetId != filterOut)) {
+                continue;
+            }
+            std::cout << tileset.tilesetId << ": "
+                  << utility::join(tileset.tags, ", ") << '\n';
+        }
+    });
+
     if (!addTags_.empty() || !removeTags_.empty()) {
+        // lock if external locking program is available
+        Lock lock(path_, lock_);
+        auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
+
         storage.updateTags(tilesetId_, addTags_, removeTags_);
 
+        print(storage, tilesetId_);
         // let the info code print result
         optTilesetId_ = tilesetId_;
+    } else {
+        auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+        print(storage, optTilesetId_);
     }
-
-    for (const auto &tileset : storage.storedTilesets()) {
-        if (optTilesetId_ && (tileset.tilesetId != optTilesetId_)) {
-            continue;
-        }
-        std::cout << tileset.tilesetId << ": "
-                  << utility::join(tileset.tags, ", ") << '\n';
-    }
-
     return EXIT_SUCCESS;
 }
 
@@ -2514,7 +2503,7 @@ int VtsStorage::mergeConfSyntax()
     std::cout <<
         R"RAW(Syntax of merge.conf file
 
-merge.conf file to specify tileset open and glue create options for add/readd
+merge.conf file to specify tileset open and glue create options for add
 operations.
 
 merge.conf is regular INI config file.
@@ -2635,8 +2624,10 @@ PREREQUISITES
 
 Locking takes effect only iff user runs one of these commands:
     --add
-    --readd
+    --glue-generate*
     --remove
+    --vs-create
+    --vs-remove
 and the storage contains executable file `locker`.
 
 NB: If `locker` exists but is not executable it is silently ignored.
@@ -2727,12 +2718,12 @@ int VtsStorage::virtualSurfaceCreate()
         return EXIT_FAILURE;
     }
 
-    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite));
-
     // lock if external locking program is available
     Lock lock(path_, lock_);
+    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite, lock));
 
-    return checkForPendingError([&]() {
+    return checkForPendingError([&]()
+    {
         storage.createVirtualSurface(tids, createMode_);
     }, "create virtual surface");
 }
@@ -2773,10 +2764,9 @@ int VtsStorage::virtualSurfaceRemove()
         return EXIT_FAILURE;
     }
 
-    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite));
-
     // lock if external locking program is available
     Lock lock(path_, lock_);
+    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite, lock));
 
     storage.removeVirtualSurface(tids);
     return EXIT_SUCCESS;

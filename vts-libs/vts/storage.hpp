@@ -22,6 +22,7 @@
 #include "./glue.hpp"
 #include "./virtualsurface.hpp"
 #include "./options.hpp"
+#include "./storage/locking.hpp"
 
 namespace vtslibs { namespace vts {
 
@@ -133,13 +134,15 @@ class Storage {
 public:
     /** Opens existing storage.
      */
-    Storage(const boost::filesystem::path &path, OpenMode mode);
+    Storage(const boost::filesystem::path &path, OpenMode mode
+            , const StorageLocker::pointer &locker = nullptr);
 
     /** Creates new storage.
      */
     Storage(const boost::filesystem::path &path
             , const StorageProperties &properties
-            , CreateMode mode);
+            , CreateMode mode
+            , const StorageLocker::pointer &locker = nullptr);
 
     ~Storage();
 
@@ -162,6 +165,9 @@ public:
      *  filter optional: filter for input dataset
      *  dryRun: do not modify anything, simulate add
      *  tags: set of tags assigned to added tileset
+     *  openOptions: options for tileset open
+     *  mode: glue generation mode
+     *  overwrite: allow glue overwrite
      */
     struct AddOptions : public GlueCreationOptions {
         bool bumpVersion;
@@ -192,13 +198,6 @@ public:
      */
     void add(const boost::filesystem::path &tilesetPath, const Location &where
              , const TilesetId &tilesetId, const AddOptions &addOptions);
-
-    /** Readds existing tileset.
-     *  Operation fails if given tileset is not present in the storage
-     *
-     *  \param tilesetId identifier of the tileset in the storage.
-     */
-    void readd(const TilesetId &tilesetId, const AddOptions &addOptions);
 
     /** Removes given tileset from the storage.
      *

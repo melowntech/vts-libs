@@ -614,11 +614,11 @@ TileSet aggregateTileSets(const boost::filesystem::path &path
                           , const TilesetIdSet &tilesets)
 {
     driver::AggregatedOptions dopts;
-    dopts.storagePath = ((co.createFlags() & AggreateFlags::dontAbsolutize)
+    dopts.storagePath = ((co.createFlags() & AggregateFlags::dontAbsolutize)
                          ? storagePath : fs::absolute(storagePath));
     dopts.tilesets = tilesets;
     dopts.surfaceReferences = (co.createFlags()
-                               & AggreateFlags::sourceReferencesInMetatiles);
+                               & AggregateFlags::sourceReferencesInMetatiles);
     if (co.lodRange()) { dopts.staticMetaRange = *co.lodRange(); }
 
     // TODO: use first non-empty path element
@@ -636,12 +636,12 @@ TileSet aggregateTileSets(const Storage &storage
                           , const TilesetIdSet &tilesets)
 {
     driver::AggregatedOptions dopts;
-    dopts.storagePath = ((co.createFlags() & AggreateFlags::dontAbsolutize)
+    dopts.storagePath = ((co.createFlags() & AggregateFlags::dontAbsolutize)
                          ? storage.path()
                          : fs::absolute(storage.path()));
     dopts.tilesets = tilesets;
     dopts.surfaceReferences = (co.createFlags()
-                               & AggreateFlags::sourceReferencesInMetatiles);
+                               & AggregateFlags::sourceReferencesInMetatiles);
     if (co.lodRange()) { dopts.staticMetaRange = *co.lodRange(); }
 
     auto driver(Driver::create(dopts, co));
