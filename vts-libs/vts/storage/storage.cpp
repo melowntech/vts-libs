@@ -61,26 +61,29 @@ const TrashBin::Item* TrashBin::find(const TilesetIdList &id) const
 
 Storage createStorage(const boost::filesystem::path &path
                       , const StorageProperties &properties
-                      , CreateMode mode)
+                      , CreateMode mode, const StorageLocker::pointer &locker)
 {
-    return { path, properties, mode };
+    return { path, properties, mode, locker };
 }
 
 Storage openStorage(const boost::filesystem::path &path
-                    , OpenMode mode)
+                    , OpenMode mode
+                    , const StorageLocker::pointer &locker)
 {
-    return { path, mode };
+    return { path, mode, locker };
 }
 
-Storage::Storage(const boost::filesystem::path &path, OpenMode mode)
-    : detail_(std::make_shared<Detail>(path, mode))
+Storage::Storage(const boost::filesystem::path &path, OpenMode mode
+                 , const StorageLocker::pointer &locker)
+    : detail_(std::make_shared<Detail>(path, mode, locker))
 {
 }
 
 Storage::Storage(const boost::filesystem::path &path
                  , const StorageProperties &properties
-                 , CreateMode mode)
-    : detail_(std::make_shared<Detail>(path, properties, mode))
+                 , CreateMode mode
+                 , const StorageLocker::pointer &locker)
+    : detail_(std::make_shared<Detail>(path, properties, mode, locker))
 {}
 
 Storage::~Storage()
@@ -93,9 +96,10 @@ Storage::Detail::~Detail()
 }
 
 Storage::Detail::Detail(const boost::filesystem::path &iroot
-                        , const StorageProperties &properties
-                        , CreateMode mode)
-    : root(fs::absolute(iroot))
+                        , const StorageProperties &properties, CreateMode mode
+                        , const StorageLocker::pointer &locker)
+    : storageLock(locker)
+    , root(fs::absolute(iroot))
     , configPath(root / ConfigFilename)
     , extraConfigPath(root / ExtraConfigFilename)
     , referenceFrame(registry::system.referenceFrames
@@ -121,9 +125,10 @@ Storage::Detail::Detail(const boost::filesystem::path &iroot
     saveConfig();
 }
 
-Storage::Detail::Detail(const boost::filesystem::path &root
-                        , OpenMode mode)
-    : root(root)
+Storage::Detail::Detail(const boost::filesystem::path &root, OpenMode mode
+                        , const StorageLocker::pointer &locker)
+    : storageLock(locker)
+    , root(root)
     , configPath(root / ConfigFilename)
     , extraConfigPath(root / ExtraConfigFilename)
     , properties(storage::loadConfig(configPath))
@@ -142,6 +147,11 @@ Storage::Detail::Detail(const boost::filesystem::path &root
 void Storage::Detail::loadConfig()
 {
     properties = loadConfig(root);
+}
+
+Storage::Properties Storage::Detail::readConfig()
+{
+    return loadConfig(root);
 }
 
 Storage::Properties Storage::Detail::loadConfig(const fs::path &root)
@@ -936,6 +946,9 @@ void Storage::updateTags(const TilesetId &tilesetId
 void Storage::Detail::updateTags(const TilesetId &tilesetId
                                  , const Tags &add, const Tags &remove)
 {
+    // (re)load config to have fresh copy when under lock
+    if (storageLock) { loadConfig(); }
+
     auto *tileset(properties.findTileset(tilesetId));
     if (!tileset) {
         LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)

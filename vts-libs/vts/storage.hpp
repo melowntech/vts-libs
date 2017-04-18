@@ -134,13 +134,15 @@ class Storage {
 public:
     /** Opens existing storage.
      */
-    Storage(const boost::filesystem::path &path, OpenMode mode);
+    Storage(const boost::filesystem::path &path, OpenMode mode
+            , const StorageLocker::pointer &locker = nullptr);
 
     /** Creates new storage.
      */
     Storage(const boost::filesystem::path &path
             , const StorageProperties &properties
-            , CreateMode mode);
+            , CreateMode mode
+            , const StorageLocker::pointer &locker = nullptr);
 
     ~Storage();
 
@@ -166,8 +168,6 @@ public:
      *  openOptions: options for tileset open
      *  mode: glue generation mode
      *  overwrite: allow glue overwrite
-     *  locker: external locking API (leave unset if external locking is not
-     *          available)
      */
     struct AddOptions : public GlueCreationOptions {
         bool bumpVersion;
@@ -179,7 +179,6 @@ public:
         enum Mode { legacy, full, lazy };
         Mode mode;
         bool overwrite;
-        StorageLocker::pointer locker;
 
         AddOptions()
             : bumpVersion(false), filter(), dryRun(false)
@@ -206,9 +205,7 @@ public:
      *
      *  \param tilesetIds Ids of tilesets to remove
      */
-    void remove(const TilesetIdList &tilesetIds
-                , const StorageLocker::pointer &locker
-                = StorageLocker::pointer());
+    void remove(const TilesetIdList &tilesetIds);
 
     void generateGlues(const TilesetId &tilesetId
                        , const AddOptions &addOptions);
@@ -226,17 +223,13 @@ public:
      *  \param mode create mode
      */
     void createVirtualSurface(const TilesetIdSet &tilesets
-                              , CreateMode mode
-                              , const StorageLocker::pointer &locker
-                              = StorageLocker::pointer());
+                              , CreateMode mode);
 
     /** Removes a virtual surface from storage.
      *
      *  \param virtualSurfaceId virtual surface ID
      */
-    void removeVirtualSurface(const TilesetIdSet &tilesets
-                              , const StorageLocker::pointer &locker
-                              = StorageLocker::pointer());
+    void removeVirtualSurface(const TilesetIdSet &tilesets);
 
     /** Flattens content of this storage into new tileset at tilesetPath.
      *

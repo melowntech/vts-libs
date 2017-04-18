@@ -45,8 +45,14 @@ namespace {
 
 void followLockerToGrave()
 {
-    // locker runs, we want to terminate when child dies
+    // call handler when locker dies
     ::signal(SIGCHLD, &vts_libs_tools_locker_sigchild_handler);
+}
+
+void ignoreLockersDeath()
+{
+    // ignore locker's death
+    ::signal(SIGCHLD, SIG_DFL);
 }
 
 int runLocker1(::pid_t ppid, int in[2], int out[2]
@@ -235,8 +241,11 @@ struct LockTask {
 
     std::string command;
     std::promise<std::string> promise;
+    bool glueLock;
 
-    LockTask(const std::string &command) : command(command) {}
+    LockTask(const std::string &command, bool glueLock = false)
+        : command(command), glueLock(glueLock)
+    {}
 };
 
 class StorageLocker
@@ -316,10 +325,14 @@ void StorageLocker::start(const fs::path &lockerPath, const fs::path &storage)
 
     std::thread worker(&StorageLocker::run, this);
     worker_.swap(worker);
+
+    followLockerToGrave();
 }
 
 void StorageLocker::stop()
 {
+    ignoreLockersDeath();
+
     LOG(info2) << "Stopping.";
     work_ = boost::none;
     worker_.join();
@@ -362,6 +375,10 @@ void StorageLocker::next()
     send(task);
 }
 
+struct FatalLockerError : std::runtime_error{
+    FatalLockerError(const std::string &msg) : std::runtime_error(msg) {}
+};
+
 void StorageLocker::receive(const LockTask::pointer &task)
 {
     auto self(shared_from_this());
@@ -369,8 +386,9 @@ void StorageLocker::receive(const LockTask::pointer &task)
     {
         try {
             if (ec) {
-                // TODO: abort
-                throw std::make_exception_ptr(bs::system_error(ec));
+                LOGTHROW(err3, FatalLockerError)
+                    << "Error communicating with locker2 process: >"
+                    << ec << ">. Bailing out.";
             }
 
             // read line from input
@@ -378,15 +396,21 @@ void StorageLocker::receive(const LockTask::pointer &task)
             is.unsetf(std::ios_base::skipws);
             std::string line;
             if (!std::getline(is, line, '\n')) {
-                LOGTHROW(warn2, vtslibs::vts::LockedError)
-                    << "Unable to get line from response.";
+                // fatal error
+                LOGTHROW(err3, FatalLockerError)
+                    << "Unable to get line from locker2 response"
+                    ". Bailing out.";
             }
 
             // parse line
             LOG(info1) << "Received line from locker: <" << line << ">";
 
             if (line ==  "X") {
-                LOGTHROW(warn2, vtslibs::vts::LockedError)
+                if (task->glueLock) {
+                    LOGTHROW(warn2, vtslibs::vts::StorageComponentLocked)
+                        << "Glue lock held by someone else: <" << line << ">.";
+                }
+                LOGTHROW(warn2, vtslibs::vts::StorageLocked)
                     << "Lock held by someone else: <" << line << ">.";
             }
 
@@ -397,7 +421,7 @@ void StorageLocker::receive(const LockTask::pointer &task)
             }
 
             if (ba::starts_with(line, "E:")) {
-                LOGTHROW(err2, std::runtime_error)
+                LOGTHROW(err3, FatalLockerError)
                     << "Error communicating with locker2: <"
                     << line << ">.";
             }
@@ -408,7 +432,7 @@ void StorageLocker::receive(const LockTask::pointer &task)
                 return;
             }
 
-            LOGTHROW(err2, std::runtime_error)
+            LOGTHROW(err3, FatalLockerError)
                 << "Error obtaining a lock from locker2: <"
                 << line << ">.";
         } catch (...) {
@@ -429,8 +453,9 @@ void StorageLocker::send(const LockTask::pointer &task)
     {
         try {
             if (ec) {
-                // TODO: abort
-                throw std::make_exception_ptr(bs::system_error(ec));
+                LOGTHROW(err3, FatalLockerError)
+                    << "Error communicating with locker2 process: >"
+                    << ec << ">. Bailing out.";
             }
 
             // read response
@@ -450,35 +475,54 @@ std::string StorageLocker::lock_impl(const std::string &sublock)
 {
     auto self(shared_from_this());
     LOG(info2) << "Locking <" << sublock << ">.";
-    auto task(std::make_shared<LockTask>("L:" + sublock + "\n"));
+    auto task(std::make_shared<LockTask>("L:" + sublock + "\n"
+                                         , !sublock.empty()));
     ios_.post(strand_.wrap([this, self, task]() { enqueue(task); }));
 
-    // wait for lock
-    auto future(task->promise.get_future());
-    if (utility::futureTimeout(future.wait_for(std::chrono::seconds(30)))) {
-        LOGTHROW(warn3, vtslibs::vts::LockTimedOut)
-            << "Timed out while waiting to acquire lock for <"
-            << sublock << ">.";
+    try {
+        // wait for lock
+        auto future(task->promise.get_future());
+        if (utility::futureTimeout
+            (future.wait_for(std::chrono::seconds(30))))
+        {
+            LOGTHROW(warn3, vtslibs::vts::LockTimedOut)
+                << "Timed out while waiting to acquire lock for <"
+                << sublock << ">.";
+        }
+        return future.get();
+    } catch (const FatalLockerError&) {
+        // bail out
+        std::abort();
     }
-    return future.get();
+    // never reached
+    throw;
 }
 
 void StorageLocker::unlock_impl(const std::string &lock
                                 , const std::string &sublock)
 {
     LOG(info2) << "Unlocking <" << sublock << ">.";
-    auto task(std::make_shared<LockTask>("U:" + sublock + ":" + lock + "\n"));
+    auto task(std::make_shared<LockTask>("U:" + sublock + ":" + lock + "\n"
+                                         , !sublock.empty()));
     auto self(shared_from_this());
     ios_.post(strand_.wrap([this, self, task]() { enqueue(task); }));
 
-    // wait for unlock
-    auto future(task->promise.get_future());
-    if (utility::futureTimeout(future.wait_for(std::chrono::seconds(30)))) {
-        LOGTHROW(warn3, vtslibs::vts::LockTimedOut)
-            << "Timed out while waiting to acquire lock for <"
-            << sublock << ">.";
+    try {
+        // wait for unlock
+        auto future(task->promise.get_future());
+        if (utility::futureTimeout
+            (future.wait_for(std::chrono::seconds(30))))
+        {
+            LOGTHROW(warn3, vtslibs::vts::LockTimedOut)
+                << "Timed out while waiting to acquire lock for <"
+                << sublock << ">.";
+        }
+        future.get();
+    } catch (const FatalLockerError&) {
+        // bail out
+        std::abort();
     }
-    future.get();
+    return;
 }
 
 vtslibs::vts::StorageLocker::pointer lock2(const fs::path &lockerPath
@@ -490,7 +534,6 @@ vtslibs::vts::StorageLocker::pointer lock2(const fs::path &lockerPath
     LOG(info3) << "On-demand locking provided by external lock "
         "program (" << lockerPath << ").";
 
-    followLockerToGrave();
     return locker;
 }
 

@@ -131,23 +131,20 @@ void Storage::generateGlue(const Glue::Id &glueId
                           , ao);
 }
 
-void Storage::remove(const TilesetIdList &tilesetIds
-                     , const StorageLocker::pointer &locker)
+void Storage::remove(const TilesetIdList &tilesetIds)
 {
-    detail().remove(tilesetIds, locker);
+    detail().remove(tilesetIds);
 }
 
 void Storage::createVirtualSurface(const TilesetIdSet &tilesets
-                                   , CreateMode mode
-                                   , const StorageLocker::pointer &locker)
+                                   , CreateMode mode)
 {
-    detail().createVirtualSurface(tilesets, mode, locker);
+    detail().createVirtualSurface(tilesets, mode);
 }
 
-void Storage::removeVirtualSurface(const TilesetIdSet &tilesets
-                                   , const StorageLocker::pointer &locker)
+void Storage::removeVirtualSurface(const TilesetIdSet &tilesets)
 {
-    detail().removeVirtualSurface(tilesets, locker);
+    detail().removeVirtualSurface(tilesets);
 }
 
 namespace {
@@ -945,8 +942,7 @@ Storage::Detail::removeVirtualSurfaces(const Properties &properties
 void generateGluesImpl(Tx &tx, const GlueDescriptor::list &gds
                        , Storage::Detail &detail
                        , Storage::Properties &properties
-                       , const Storage::AddOptions &addOptions
-                       , ScopedStorageLock &storageLock)
+                       , const Storage::AddOptions &addOptions)
 {
     // report
     LOG(info3) << "Generating " << gds.size() << " glue(s):";
@@ -960,6 +956,8 @@ void generateGluesImpl(Tx &tx, const GlueDescriptor::list &gds
 
     // prepare progress if available
     if (addOptions.progress) {
+        // TODO: optimize when there is just one glue
+
         // accumulate total number of tiles to generate
         std::size_t total(0);
         for (const auto &gd : gds) {
@@ -970,36 +968,59 @@ void generateGluesImpl(Tx &tx, const GlueDescriptor::list &gds
         addOptions.progress->expect(total);
     }
 
+    auto validGlue([&](const Glue::Id &id) -> bool
+    {
+        if (!properties.knownGlue(id)) {
+            // hm... someone did something nasty and this glue is no longer
+            // member of this storage
+            LOG(warn3) << "Glue <" << utility::join(id, ",")
+                       << "> does no longer participate in this storage.";
+            return false;
+        }
+        return true;
+    });
+
     // run the thing
     for (const auto &gd : gds) {
         // create glue
 
+        // skip if invalid
+        if (!validGlue(gd.glue.id)) { continue; }
+
         Glue glue;
-        {
+        try {
             // create glue under glue lock with unlocked storage
-            ScopedStorageLock glueLock
-                (addOptions.locker, lockName(gd.glue), &storageLock);
+            ScopedStorageLock glueLock(&detail.storageLock, lockName(gd.glue));
             glue = createGlue(tx, gd, addOptions, gds.size());
+        } catch (const StorageComponentLocked&) {
+            LOG(warn3) << "Unable to lock glue <"
+                       << utility::join(gd.glue.id, ",")
+                       << ">; skipping.";
+            continue;
         }
 
-        // update properties
-        if (glue.path.empty()) {
-            // empty glue -> move to empty list
-            properties.pendingGlues.erase(glue.id);
-            properties.emptyGlues.insert(glue.id);
-        } else {
-            // create -> move to main map
-            properties.pendingGlues.erase(glue.id);
-            properties.glues[glue.id] = glue;
+        // legacy mode? just update properties
+        if (addOptions.mode == Storage::AddOptions::Mode::legacy) {
+            // legacy mode, update properties
+            properties.glueGenerated(glue);
+            continue;
         }
 
-        // lazy add?
-        if (addOptions.mode != Storage::AddOptions::Mode::legacy) {
-            // TODO: load storage config again
-            // commit new properties and changes to the transaction
-            detail.saveConfig(properties);
-            tx.commit();
-        }
+        // update stored properties
+
+        // re-load stored properties (may be changed by another storage access
+        // instance)
+        properties = detail.readConfig();
+
+        // skip if invalid
+        if (!validGlue(glue.id)) { continue; }
+
+        // update properties, save, commit
+        properties.glueGenerated(glue);
+        detail.saveConfig(properties);
+
+        // commit new properties and changes to the transaction
+        tx.commit();
     }
 }
 
@@ -1007,15 +1028,14 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
                           , const TilesetId &tilesetId
                           , const AddOptions &addOptions)
 {
-    if (addOptions.locker
-        && (addOptions.mode == AddOptions::Mode::legacy))
-    {
+    if (storageLock && (addOptions.mode == AddOptions::Mode::legacy)) {
         LOGTHROW(err2, vtslibs::storage::InconsistentInput)
-            << "Legacy add mode is incompatible with storage locker.";
+            << "Legacy add mode is incompatible with locker2 storage locking "
+            "strategy.";
     }
 
-    // LOCKING: lock whole storage
-    ScopedStorageLock storageLock(addOptions.locker);
+    // (re)load config to have fresh copy when under lock
+    if (storageLock) { loadConfig(); }
 
     std::string simulation(addOptions.dryRun ? "(simulation) " : "");
     vtslibs::storage::TIDGuard tg
@@ -1046,6 +1066,10 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
     auto dst([&]() -> TileSet
     {
         if (addOptions.dryRun) { return tileset; }
+
+        // lock tileset when cloning
+        ScopedStorageLock tsLock
+            (&storageLock, lockName(tilesetInfo.tilesetId));
 
         // create tileset at work path (overwrite any existing stuff here)
         // NB: we have to clone original tileset's content as-is!
@@ -1079,14 +1103,10 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
     if (addOptions.mode == AddOptions::Mode::lazy) { return; }
 
     // generate all glue
-    generateGluesImpl(tx, gds, *this, nProperties, addOptions
-                      , storageLock);
+    generateGluesImpl(tx, gds, *this, nProperties, addOptions);
 
     if (addOptions.mode == AddOptions::Mode::legacy) {
-        // old interface: flush
-
-        // LOCKING TODO: reload config and merge
-
+        // old interface: flush and done
         saveConfig(nProperties);
         tx.commit();
     }
@@ -1095,8 +1115,8 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
 void Storage::Detail::generateGlues(const TilesetId &tilesetId
                                     , const AddOptions &addOptions)
 {
-    // LOCKING: lock whole storage
-    ScopedStorageLock storageLock(addOptions.locker);
+    // (re)load config to have fresh copy when under lock
+    if (storageLock) { loadConfig(); }
 
     Glue::list glues;
 
@@ -1116,14 +1136,14 @@ void Storage::Detail::generateGlues(const TilesetId &tilesetId
     const auto gds(prepareGlues(glues, openTilesets(tx, properties.tilesets)));
 
     // generate all glues
-    generateGluesImpl(tx, gds, *this, properties, addOptions, storageLock);
+    generateGluesImpl(tx, gds, *this, properties, addOptions);
 }
 
 void Storage::Detail::generateGlue(const Glue::Id &glueId
                                    , const AddOptions &addOptions)
 {
-    // LOCKING: lock whole storage
-    ScopedStorageLock storageLock(addOptions.locker);
+    // (re)load config to have fresh copy when under lock
+    if (storageLock) { loadConfig(); }
 
     bool overwrite(false);
 
@@ -1163,12 +1183,14 @@ void Storage::Detail::generateGlue(const Glue::Id &glueId
         (prepareGlues(glues, openTilesets(tx, properties.tilesets)));
 
     // generate all glues
-    generateGluesImpl(tx, gds, *this, properties, addOptions, storageLock);
+    generateGluesImpl(tx, gds, *this, properties, addOptions);
 }
 
-void Storage::Detail::remove(const TilesetIdList &tilesetIds
-                             , const StorageLocker::pointer &locker)
+void Storage::Detail::remove(const TilesetIdList &tilesetIds)
 {
+    // (re)load config to have fresh copy when under lock
+    if (storageLock) { loadConfig(); }
+
     Properties nProperties;
     Glue::map glues;
     VirtualSurface::map virtualSurfaces;
@@ -1178,12 +1200,10 @@ void Storage::Detail::remove(const TilesetIdList &tilesetIds
     LOG(info3)
         << "Removing tilesets <" << utility::join(tilesetIds, ", ") << ">.";
 
-    // LOCKING: lock whole storage
-    ScopedStorageLock storageLock(locker);
     properties = nProperties;
     saveConfig();
 
-    // physical removal
+    // physical removal (failure doesn't corrupt the configuration)
     for (const auto &tilesetId : tilesetIds) {
         auto path(storage_paths::tilesetPath(root, tilesetId));
         LOG(info3) << "Removing tileset <" << tilesetId
@@ -1210,12 +1230,10 @@ void Storage::Detail::remove(const TilesetIdList &tilesetIds
 }
 
 void Storage::Detail
-::createVirtualSurface(const TilesetIdSet &tilesets
-                       , CreateMode mode
-                       , const StorageLocker::pointer &locker)
+::createVirtualSurface(const TilesetIdSet &tilesets, CreateMode mode)
 {
-    // LOCKING: lock whole storage
-    ScopedStorageLock storageLock(locker);
+    // (re)load config to have fresh copy when under lock
+    if (storageLock) { loadConfig(); }
 
     auto tmp(tilesets);
 
@@ -1250,14 +1268,11 @@ void Storage::Detail
                        (utility::join(vs.id, "_")));
     vs.path = vsSetId;
 
-    auto nProperties(properties);
-    {
-        // LOCKING: lock virtual surface
-        ScopedStorageLock vsLock(locker, lockName(vs));
-        // LOCKING: and unlock storage
-        storageLock.unlock();
+    Tx tx(root, boost::none);
 
-        Tx tx(root, boost::none);
+    {
+        // lock virtual surface and unlock storage
+        ScopedStorageLock vsLock(&storageLock, lockName(vs));
 
         auto vsPath(tx.addVirtualSurface(vs));
 
@@ -1266,31 +1281,33 @@ void Storage::Detail
              , CloneOptions()
              .mode(CreateMode::overwrite)
              .tilesetId(vsSetId)
-             .createFlags(AggreateFlags::dontAbsolutize
-                          | AggreateFlags::sourceReferencesInMetatiles)
+             .createFlags(AggregateFlags::dontAbsolutize
+                          | AggregateFlags::sourceReferencesInMetatiles)
              , TilesetIdSet(vs.id.begin(), vs.id.end()));
-
-        nProperties.virtualSurfaces[vs.id] = vs;
-
-        tx.commit();
     }
 
-    // LOCKING: lock whole storage again
-    storageLock.lock();
+    // virtual surface is unlocked and surface is locked again
 
-    // TODO: LOCKING: reload properties and check virtual surface validity
+    // re-load stored properties (may be changed by another storage access
+    // instance)
+    properties = readConfig();
 
-    // commit properties
-    properties = nProperties;
+    // TODO: resolve conflicts (some virtual surface's tileset has been removed
+    // etc)
+
+    // store virtual surface
+    properties.virtualSurfaces[vs.id] = vs;
+
+    // commit new properties and changes to the transaction
     saveConfig();
+    tx.commit();
 }
 
 void Storage::Detail
-::removeVirtualSurface(const TilesetIdSet &tilesets
-                       , const StorageLocker::pointer &locker)
+::removeVirtualSurface(const TilesetIdSet &tilesets)
 {
-    // LOCKING: lock whole storage
-    ScopedStorageLock storageLock(locker);
+    // (re)load config to have fresh copy when under lock
+    if (storageLock) { loadConfig(); }
 
     auto tmp(tilesets);
 

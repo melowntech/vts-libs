@@ -44,18 +44,20 @@ TileSet concatTileSets(const boost::filesystem::path &path
                        , const CloneOptions &createOptions);
 
 Storage openStorage(const boost::filesystem::path &path
-                    , OpenMode mode = OpenMode::readOnly);
+                    , OpenMode mode = OpenMode::readOnly
+                    , const StorageLocker::pointer &locker = nullptr);
 
 Storage createStorage(const boost::filesystem::path &path
                       , const StorageProperties &properties
-                      , CreateMode mode);
+                      , CreateMode mode
+                      , const StorageLocker::pointer &locker = nullptr);
 
 StorageView openStorageView(const boost::filesystem::path &path);
 
 /** These flags can be passed via createOptions.createFlags() to
  *  aggregateTileSets.
  */
-struct AggreateFlags { enum : CloneOptions::CreateFlags {
+struct AggregateFlags { enum : CloneOptions::CreateFlags {
     dontAbsolutize = 0x1
     , sourceReferencesInMetatiles = 0x2
 }; };

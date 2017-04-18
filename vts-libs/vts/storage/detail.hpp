@@ -146,6 +146,16 @@ struct Storage::Properties : StorageProperties {
     /** Normalize glue ID.
      */
     Glue::Id normalize(const Glue::Id &id) const;
+
+    /** Returns true if glue is known (ie. pending, existing or empty)
+     */
+    bool knownGlue(const Glue::Id &id) const {
+        return hasGlue(id) || hasPendingGlue(id) || hasEmptyGlue(id);
+    }
+
+    /** Remember generated glue.
+     */
+    void glueGenerated(const Glue &glue);
 };
 
 TilesetIdList tilesetIdList(const StoredTileset::list &tilesets);
@@ -155,6 +165,8 @@ GlueIndices buildGlueIndices(const TilesetIdList &world, const Glue::Id &id);
 
 struct Storage::Detail
 {
+    ScopedStorageLock storageLock;
+
     bool readOnly;
 
     boost::filesystem::path root;
@@ -182,15 +194,21 @@ struct Storage::Detail
     std::time_t lastModified;
 
     Detail(const boost::filesystem::path &root
-           , const StorageProperties &properties
-           , CreateMode mode);
+           , const StorageProperties &properties, CreateMode mode
+           , const StorageLocker::pointer &locker);
 
     Detail(const boost::filesystem::path &root
-           , OpenMode mode);
+           , OpenMode mode, const StorageLocker::pointer &locker);
 
     ~Detail();
 
+    /** Load config into properties.
+     */
     void loadConfig();
+
+    /** Read config and return properties.
+     */
+    Storage::Properties readConfig();
 
     static Storage::Properties loadConfig(const boost::filesystem::path &root);
 
@@ -218,14 +236,11 @@ struct Storage::Detail
     void generateGlue(const Glue::Id &glueId
                       , const AddOptions &addOptions);
 
-    void remove(const TilesetIdList &tilesetIds
-                , const StorageLocker::pointer &locker);
+    void remove(const TilesetIdList &tilesetIds);
 
-    void createVirtualSurface(const TilesetIdSet &tilesets, CreateMode mode
-                              , const StorageLocker::pointer &locker);
+    void createVirtualSurface(const TilesetIdSet &tilesets, CreateMode mode);
 
-    void removeVirtualSurface(const TilesetIdSet &tilesets
-                              , const StorageLocker::pointer &locker);
+    void removeVirtualSurface(const TilesetIdSet &tilesets);
 
     std::tuple<Properties, StoredTileset>
     addTileset(const Properties &properties, const TilesetId &tilesetId
@@ -267,6 +282,22 @@ struct Storage::Detail
 
     Glue::IdSet pendingGlues(const TilesetIdSet *subset) const;
 };
+
+// inline
+inline void Storage::Properties::glueGenerated(const Glue &glue)
+{
+    if (glue.path.empty()) {
+        // empty glue -> move to empty list
+        pendingGlues.erase(glue.id);
+        glues.erase(glue.id);
+        emptyGlues.insert(glue.id);
+    } else {
+        // create -> move to main map
+        pendingGlues.erase(glue.id);
+        glues[glue.id] = glue;
+        emptyGlues.erase(glue.id);
+    }
+}
 
 } } // namespace vtslibs::vts
 

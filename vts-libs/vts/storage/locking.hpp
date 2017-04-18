@@ -19,8 +19,12 @@ struct LockError : public std::runtime_error {
     LockError(const std::string &msg) : std::runtime_error(msg) {}
 };
 
-struct LockedError : public LockError {
-    LockedError(const std::string &msg) : LockError(msg) {}
+struct StorageLocked : public LockError {
+    StorageLocked(const std::string &msg) : LockError(msg) {}
+};
+
+struct StorageComponentLocked : public LockError {
+    StorageComponentLocked(const std::string &msg) : LockError(msg) {}
 };
 
 struct LockTimedOut : public LockError {
@@ -63,11 +67,27 @@ private:
 
 class ScopedStorageLock {
 public:
-    ScopedStorageLock(const StorageLocker::pointer &locker
-                      , const std::string &sublock = std::string()
-                      , ScopedStorageLock *lockToUnlock = nullptr)
-        : locker_(locker), sublock_(sublock)
-        , lockToUnlock_(lockToUnlock)
+    // no locking at all
+    ScopedStorageLock() : lockToUnlock_() {}
+
+    /** Lock given (sub)lock.
+     */
+    explicit ScopedStorageLock(const StorageLocker::pointer &locker
+                               , const std::string &sublock = std::string())
+        : locker_(locker), sublock_(sublock), lockToUnlock_()
+    {
+        // lock this lock
+        lock();
+    }
+
+    /** Lock given (sub)lock and unlock provided other scoped lock.
+     *
+     *  Other scoped lock is locked again before this lock is unlocked.
+     */
+    explicit ScopedStorageLock(ScopedStorageLock *other
+                               , const std::string &sublock = std::string())
+        : locker_(other->locker_), sublock_(sublock)
+        , lockToUnlock_(other)
     {
         // lock this lock
         lock();
@@ -86,6 +106,10 @@ public:
         locker_->unlock(*value_, sublock_);
         value_ = boost::none;
     }
+
+    /** Returns true if locking is available.
+     */
+    operator bool() const { return locker_.get(); }
 
 private:
     StorageLocker::pointer locker_;

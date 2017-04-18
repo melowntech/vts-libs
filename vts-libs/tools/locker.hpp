@@ -14,7 +14,7 @@ public:
     Lock(const boost::filesystem::path &storage
          , const boost::optional<std::string> &lock);
 
-    vtslibs::vts::StorageLocker::pointer storageLocker() {
+    operator vtslibs::vts::StorageLocker::pointer() {
         return storageLocker_;
     }
 

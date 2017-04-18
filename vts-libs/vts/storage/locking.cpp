@@ -21,22 +21,19 @@ ScopedStorageLock::~ScopedStorageLock()
     } catch (...) {
         LOG(fatal) << "Unable to unlock storage lock, bailing out. "
             "Error is unknown.";
-            std::abort();
+        std::abort();
     }
 }
 
 std::string StorageLocker::lock(const std::string &sublock)
 {
-    if (!sublock.empty()) {
-        // tileset/glue/virtual-surface/whatever -> fail immediately
-        return lock_impl(sublock);
-    }
-
-    // whole storage, wait till storage is unlocked
     for (;;) {
         try {
             return lock_impl(sublock);
-        } catch (const LockedError&) {}
+        } catch (const StorageLocked&) {
+            // storage locked -> retry
+            // glue locked -> boom
+        }
         std::this_thread::sleep_for(std::chrono::seconds(5));
     }
 }

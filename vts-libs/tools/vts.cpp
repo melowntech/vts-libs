@@ -1624,10 +1624,9 @@ int VtsStorage::add()
 {
     const auto tmpPath(path_ / "tmp/tileset-to-add");
 
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
-
     // lock if external locking program is available
     Lock lock(path_, lock_);
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
 
     if (isLocal(tileset_)) {
         // local: URL, create temporary tileset
@@ -1658,12 +1657,9 @@ int VtsStorage::add()
         tileset_ = tmpPath;
     }
 
-    // pass down storage locker (if any)
-    auto ao(addOptions_);
-    ao.locker = lock.storageLocker();
     storage.add(tileset_, where_
                 , optTilesetId_ ? *optTilesetId_ : std::string()
-                , ao);
+                , addOptions_);
 
     LOG(info4) << "All done.";
     return EXIT_SUCCESS;
@@ -1671,61 +1667,66 @@ int VtsStorage::add()
 
 int VtsStorage::remove()
 {
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
-
     // lock if external locking program is available
     Lock lock(path_, lock_);
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
 
-    storage.remove(tilesetIds_, lock.storageLocker());
+    storage.remove(tilesetIds_);
     return EXIT_SUCCESS;
 }
 
 int VtsStorage::generateGlues()
 {
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
-
     // lock if external locking program is available
     Lock lock(path_, lock_);
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
 
     auto ao(addOptions_);
     ao.mode = vts::Storage::AddOptions::Mode::full;
-    ao.locker = lock.storageLocker();
     storage.generateGlues(tilesetId_, ao);
     return EXIT_SUCCESS;
 }
 
 int VtsStorage::generateGlue()
 {
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
-
     // lock if external locking program is available
     Lock lock(path_, lock_);
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
 
     auto ao(addOptions_);
     ao.mode = vts::Storage::AddOptions::Mode::full;
-    ao.locker = lock.storageLocker();
     storage.generateGlue(tilesetIds_, ao);
     return EXIT_SUCCESS;
 }
 
 int VtsStorage::tags()
 {
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+    auto print([&](const vts::Storage &storage
+                   , const boost::optional<vts::TilesetId> &filterOut)
+    {
+        for (const auto &tileset : storage.storedTilesets()) {
+            if (filterOut && (tileset.tilesetId != filterOut)) {
+                continue;
+            }
+            std::cout << tileset.tilesetId << ": "
+                  << utility::join(tileset.tags, ", ") << '\n';
+        }
+    });
+
     if (!addTags_.empty() || !removeTags_.empty()) {
+        // lock if external locking program is available
+        Lock lock(path_, lock_);
+        auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
+
         storage.updateTags(tilesetId_, addTags_, removeTags_);
 
+        print(storage, tilesetId_);
         // let the info code print result
         optTilesetId_ = tilesetId_;
+    } else {
+        auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+        print(storage, optTilesetId_);
     }
-
-    for (const auto &tileset : storage.storedTilesets()) {
-        if (optTilesetId_ && (tileset.tilesetId != optTilesetId_)) {
-            continue;
-        }
-        std::cout << tileset.tilesetId << ": "
-                  << utility::join(tileset.tags, ", ") << '\n';
-    }
-
     return EXIT_SUCCESS;
 }
 
@@ -2717,14 +2718,13 @@ int VtsStorage::virtualSurfaceCreate()
         return EXIT_FAILURE;
     }
 
-    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite));
-
     // lock if external locking program is available
     Lock lock(path_, lock_);
+    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite, lock));
 
     return checkForPendingError([&]()
     {
-        storage.createVirtualSurface(tids, createMode_, lock.storageLocker());
+        storage.createVirtualSurface(tids, createMode_);
     }, "create virtual surface");
 }
 
@@ -2764,12 +2764,11 @@ int VtsStorage::virtualSurfaceRemove()
         return EXIT_FAILURE;
     }
 
-    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite));
-
     // lock if external locking program is available
     Lock lock(path_, lock_);
+    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite, lock));
 
-    storage.removeVirtualSurface(tids, lock.storageLocker());
+    storage.removeVirtualSurface(tids);
     return EXIT_SUCCESS;
 }
 
