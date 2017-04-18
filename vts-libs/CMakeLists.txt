@@ -270,6 +270,7 @@ set(vts-core_SOURCES
   vts/storage/config.hpp vts/storage/config.cpp
   vts/storage/gluerules.hpp vts/storage/gluerules.cpp
   vts/storage/mergeconf.hpp vts/storage/mergeconf.cpp
+  vts/storage/locking.hpp vts/storage/locking.cpp
 
   vts/storageview.hpp
   vts/storageview/detail.hpp
