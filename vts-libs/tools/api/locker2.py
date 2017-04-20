@@ -6,18 +6,10 @@ import fcntl
 import os
 import select
 import time
-import MySQLdb
-import stat
-from ConfigParser import ConfigParser
-import hashlib
 
 import dbglog as log
 
 _lock_timeout = 60
-
-def _makeNonblocking(fd):
-    flags = fcntl.fcntl(fd, _fcntl.F_GETFL)
-    fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
 class Locker2:
     def __init__(self, impl):
@@ -165,104 +157,6 @@ class _ExampleLocker:
     def renew(self):
         for (lock, value) in self._locks.items():
             log.info3("Renewing lock <{}>.", lock)
-
-class _MarioDBLocker:
-    def __init__(self):
-        self._locks = {}
-
-        # load dbconf
-        conf = ConfigParser()
-        conf.read('locker.conf')
-
-        self._dbconf = {
-            'host' : conf.get('db','host'),
-            'user' : conf.get('db','user'),
-            'password' : conf.get('db','password'),
-            'database' : conf.get('db','database')
-        }
-
-    def _connect_to_db(self) :
-        db = MySQLdb.connect(host=self._dbconf['host'],
-                             user=self._dbconf['user'],
-                             passwd=self._dbconf['password'],
-                             db=self._dbconf['database'],
-                             charset='utf8')
-        return db
-
-    # concat storage dir inode and glue name
-    def _get_lock_name(self, gluename):
-        store_path = os.path.dirname(os.path.abspath(__file__))
-        store_inode = os.stat(os.path.realpath(store_path))[stat.ST_INO]
-
-        return (hashlib.md5(str(store_inode) + gluename).hexdigest()
-             + hashlib.sha1(str(store_inode) + gluename).hexdigest())
-
-    def lock(self, sublock):
-        lock_name = self._get_lock_name(sublock)
-
-        log.info3("Locking <{}>.", lock_name)
-        if (self._locks.get(lock_name) is not None):
-            raise ValueError, "Lock <%s> already locked." % (lock_name, )
-
-        db = self._connect_to_db()
-        cur = db.cursor()
-
-        lock_query = "CALL lock_acquire(%s, %s, %s, %s)"
-
-        cur.execute(lock_query, [ lock_name, _lock_timeout, None
-                                , socket.gethostname()])
-
-        token = cur.fetchall()[0][0]
-        cur.close()
-        db.commit()
-        db.close()
-
-        self._locks[lock_name] = token
-        return token
-
-    def renew(self):
-        db = self._connect_to_db()
-        cur = db.cursor()
-
-        lock_query = "CALL lock_acquire(%s, %s, %s, %s)"
-        host = socket.gethostname()
-
-        for (lock, value) in self._locks.items():
-            log.info3("Renewing lock <{}>.", lock)
-            cur.execute(lock_query, [ lock, _lock_timeout, value, host ])
-
-        cur.close()
-        db.commit()
-        db.close()
-
-    def unlock(self, sublock, value):
-        lock_name = self._get_lock_name(sublock)
-
-        log.info3("Unlocking <{}> (value: <{}>).", lock_name, value)
-        heldValue = self._locks.get(lock_name)
-        if (heldValue is None):
-            raise KeyError, "Lock <%s> not held." % (lock_name, )
-        if (heldValue != value):
-            raise ValueError, "Lock <%s> value mismatch." % (lock_name, )
-
-        db = self._connect_to_db()
-        cur = db.cursor()
-
-        lock_query = "CALL lock_release(%s, %s)"
-
-        cur.execute(lock_query, [lock_name, heldValue])
-
-        res = cur.fetchall()[0][0]
-
-        cur.close()
-        db.commit()
-        db.close()
-
-        if res != 'true':
-            raise Exception, "Cannot release lock <%s> in DB." % (lock_name, )
-
-        del self._locks[lock_name]
-
 
 if (__name__ == "__main__"):
     # Create simple locker and run it
