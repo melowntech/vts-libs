@@ -263,7 +263,8 @@ struct Storage::Detail
 
     void remove(const TilesetIdList &tilesetIds);
 
-    void createVirtualSurface(const TilesetIdSet &tilesets, CreateMode mode);
+    void createVirtualSurface( const TilesetIdSet &tilesets
+                             , const CloneOptions &createOptions);
 
     void removeVirtualSurface(const TilesetIdSet &tilesets);
 
