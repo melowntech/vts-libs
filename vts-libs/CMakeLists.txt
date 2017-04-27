@@ -220,6 +220,7 @@ file_to_cpp(vts_BROWSER_SOURCES
 set(vts-core_SOURCES
   vts.hpp vts/vts.cpp
   vts/basetypes.hpp vts/basetypes.cpp
+  vts/options.hpp vts/options.cpp
   vts/glue.hpp
   vts/nodeinfo.hpp vts/nodeinfo.cpp
   vts/multifile.hpp vts/multifile.cpp

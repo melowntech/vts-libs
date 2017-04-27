@@ -34,8 +34,10 @@
 #define vtslibs_vts_options_hpp_included_
 
 #include <memory>
+#include <iostream>
 
 #include <boost/optional.hpp>
+#include <boost/program_options.hpp>
 
 #include "./basetypes.hpp"
 #include "./tileindex.hpp"
@@ -83,8 +85,16 @@ public:
         scarceMemory_ = scarceMemory; return *this;
     }
 
+    void configuration(boost::program_options::options_description &od
+                       , const std::string &prefix = "");
+
+    void configure(const boost::program_options::variables_map &vars
+                   , const std::string &prefix = "");
+
+    std::ostream& dump(std::ostream &os, const std::string &prefix = "") const;
+
 private:
-    /** Common name simulation. Interpreted by remote driver.
+    /** Common name mimicing. Interpreted by remote driver.
      */
     CNames cnames_;
 
