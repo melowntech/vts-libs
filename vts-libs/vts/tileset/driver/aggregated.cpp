@@ -248,12 +248,18 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
     // shrinked tile id to be used in meta-index
     const TileId shrinkedId(tileId.lod, parentId.x, parentId.y);
 
+    // load metatile, doesn't fail
     auto loadMeta([&](const TileId &tileId, const Driver::pointer &driver)
                   -> MetaTile
     {
-        auto ms(noSuchFile
-                ? driver->input(tileId, TileFile::meta)
-                : driver->input(tileId, TileFile::meta, NullWhenNotFound));
+        auto ms(driver->input(tileId, TileFile::meta, NullWhenNotFound));
+        if (!ms) {
+            // not found -> empty metanode (at right place)
+
+            // TODO: check for node validity; all metatile nodes invalid ->
+            // fine, empty metatile is ok; otherwise it should be an error
+            return MetaTile(tileId, mbo);
+        }
         return loadMetaTile(*ms, mbo, ms->name());
     });
 
@@ -1025,9 +1031,10 @@ void AggregatedDriver::generateMetatiles(AggregatedOptions &options)
 
     auto getMeta([&](const TileId &tid)
     {
+        // get metatile stream, ask for nullptr when metatile doesn't exist
         return buildMeta(drivers_, root(), referenceFrame_
                          , -1, tid
-                         , tsi_.tileIndex, surfaceReferences_);
+                         , tsi_.tileIndex, surfaceReferences_, true);
     });
 
     // process all metatiles in given range
@@ -1043,13 +1050,21 @@ void AggregatedDriver::generateMetatiles(AggregatedOptions &options)
 
             // get metatile as a stream
             auto is(getMeta(tid));
+            if (is) {
+                UTILITY_OMP(critical(vts_driver_aggregated_copy))
+                {
+                    // file open and write must be under lock since tilar write
+                    // is not reentrant (yet)
+                    auto os(cache_->output(tid, TileFile::meta));
+                    copyFile(is, os);
+                }
+            } else {
+                // no such metatile, probably some tileset lied about tile
+                // availability: this can happen for global tilesets generated
+                // by mapproxy
 
-            UTILITY_OMP(critical(vts_driver_aggregated_copy))
-            {
-                // file open and write must be under lock since tilar write is
-                // not reentrant (yet)
-                auto os(cache_->output(tid, TileFile::meta));
-                copyFile(is, os);
+                // TODO: check for whole metatile validity (i.e. are all nodes
+                // valid)
             }
 
             report();
