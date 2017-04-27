@@ -297,14 +297,16 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
     // TODO: make better by some quadtree magic
     ometa.for_each([&](const TileId &nodeId, MetaNode &node)
     {
+        // create nodeinfo for this node
+        // TODO: optimize, still takes too long
+        NodeInfo ni(referenceFrame, nodeId);
+        if (!ni.valid()) { return; }
+
         if (!keepSurfaceReferences) {
             // do not keep surface references -> reset
             node.sourceReference = 0;
         }
 
-        // TODO: optimize, still takes too long
-        // create nodeinfo for this node
-        NodeInfo ni(referenceFrame, nodeId);
         for (const auto &child : vts::children(nodeId)) {
             bool valid(tileIndex.validSubtree(child)
                        && ni.child(child).valid());
