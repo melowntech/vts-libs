@@ -245,10 +245,10 @@ public:
      *  virtual surface doesn't exist.
      *
      *  \param virtualSurfaceId virtual surface ID
-     *  \param mode create mode
+     *  \param createOptions for create mode and static meta lod range
      */
-    void createVirtualSurface(const TilesetIdSet &tilesets
-                              , CreateMode mode);
+    void createVirtualSurface( const TilesetIdSet &tilesets
+                             , const CloneOptions &createOptions);
 
     /** Removes a virtual surface from storage.
      *

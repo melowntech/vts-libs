@@ -36,6 +36,7 @@
 
 #include "./tileop.hpp"
 #include "./mapconfig.hpp"
+#include "./mapconfig-json.hpp"
 
 namespace fs = boost::filesystem;
 
@@ -450,9 +451,27 @@ void parse1(MapConfig &mapConfig, const Json::Value &config)
     fromJson(mapConfig.namedViews, config["namedViews"]);
 
     mapConfig.position = registry::positionFromJson(config["position"]);
+
+    if (config.isMember("browserOptions")) {
+        mapConfig.browserOptions = config["browserOptions"];
+    }
 }
 
 } // namespace detail
+
+Json::Value browserOptions(const MapConfig &mapConfig)
+{
+    if (mapConfig.browserOptions.empty()) {
+        return Json::Value(Json::nullValue);
+    }
+
+    try {
+        return boost::any_cast<Json::Value>(mapConfig.browserOptions);
+    } catch (boost::bad_any_cast) {
+        // ignore
+        return Json::Value(Json::nullValue);
+    }
+}
 
 void loadMapConfig(MapConfig &mapConfig, std::istream &in
                    , const boost::filesystem::path &path)

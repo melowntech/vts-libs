@@ -1244,6 +1244,9 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "Id of tileset to aggreage (mandatory "
              "if working with storage).")
             ("overwrite", "Overwrite existing output tileset.")
+            ("staticMetaLodRange", po::value<MetaLodRange>()
+             , "LOD range where metatiles are pre-generated. Use \"full\" "
+             "to force whole metatile tree generation.")
             ;
         p.positional.add("tileset", -1);
 
@@ -1253,6 +1256,11 @@ void VtsStorage::configuration(po::options_description &cmdline
             createMode_ = (vars.count("overwrite")
                            ? vts::CreateMode::overwrite
                            : vts::CreateMode::failIfExists);
+
+            if (vars.count("staticMetaLodRange")) {
+                optLodRange_ = vars["staticMetaLodRange"].as<MetaLodRange>()
+                    .lodRange;
+            }
         };
     });
 
@@ -2050,12 +2058,12 @@ int VtsStorage::dumpMesh()
 
     int index(0);
     for (const auto &sm : mesh.submeshes) {
-        std::cout << "submesh[" << index << "] (" 
+        std::cout << "submesh[" << index << "] ("
                   << sm.vertices.size() << " vertices):" << '\n';
 
         const auto &v(sm.vertices);
 
-        std::cout << "faces[" << index << "] (" 
+        std::cout << "faces[" << index << "] ("
                   << sm.faces.size() << " faces):" << '\n';
         for (const auto &f : sm.faces) {
             std::cout
@@ -2749,7 +2757,11 @@ int VtsStorage::virtualSurfaceCreate()
 
     return checkForPendingError([&]()
     {
-        storage.createVirtualSurface(tids, createMode_);
+        vts::CloneOptions createOptions;
+        createOptions.mode(createMode_);
+        createOptions.lodRange(optLodRange_);
+
+        storage.createVirtualSurface(tids, createOptions);
     }, "create virtual surface");
 }
 

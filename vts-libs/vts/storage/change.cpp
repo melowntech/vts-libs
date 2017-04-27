@@ -161,10 +161,10 @@ void Storage::remove(const TilesetIdList &tilesetIds)
     detail().remove(tilesetIds);
 }
 
-void Storage::createVirtualSurface(const TilesetIdSet &tilesets
-                                   , CreateMode mode)
+void Storage::createVirtualSurface( const TilesetIdSet &tilesets
+                                  , const CloneOptions &createOptions)
 {
-    detail().createVirtualSurface(tilesets, mode);
+    detail().createVirtualSurface(tilesets, createOptions);
 }
 
 void Storage::removeVirtualSurface(const TilesetIdSet &tilesets)
@@ -1255,7 +1255,8 @@ void Storage::Detail::remove(const TilesetIdList &tilesetIds)
 }
 
 void Storage::Detail
-::createVirtualSurface(const TilesetIdSet &tilesets, CreateMode mode)
+::createVirtualSurface( const TilesetIdSet &tilesets
+                      , const CloneOptions &createOptions)
 {
     // (re)load config to have fresh copy when under lock
     if (storageLock) { loadConfig(); }
@@ -1277,7 +1278,7 @@ void Storage::Detail
             << "> not found in storage " << root << ".";
     }
 
-    if ((mode == CreateMode::failIfExists)
+    if ((createOptions.mode() == CreateMode::failIfExists)
         && properties.getVirtualSurface(vs.id))
     {
         LOGTHROW(err1, vtslibs::storage::TileSetAlreadyExists)
@@ -1301,13 +1302,19 @@ void Storage::Detail
 
         auto vsPath(tx.addVirtualSurface(vs));
 
+        auto aggCreateOptions = createOptions;
+        aggCreateOptions.mode(CreateMode::overwrite);
+        aggCreateOptions.tilesetId(vsSetId);
+        aggCreateOptions.createFlags(AggregateFlags::dontAbsolutize
+                        | AggregateFlags::sourceReferencesInMetatiles);
+
         vts::aggregateTileSets
-            (vsPath, "../.."
-             , CloneOptions()
-             .mode(CreateMode::overwrite)
-             .tilesetId(vsSetId)
-             .createFlags(AggregateFlags::dontAbsolutize
-                          | AggregateFlags::sourceReferencesInMetatiles)
+            (vsPath, "../..", aggCreateOptions
+             //, CloneOptions()
+             //.mode(CreateMode::overwrite)
+             //.tilesetId(vsSetId)
+             //.createFlags(AggregateFlags::dontAbsolutize
+             //             | AggregateFlags::sourceReferencesInMetatiles)
              , TilesetIdSet(vs.id.begin(), vs.id.end()));
     }
 
