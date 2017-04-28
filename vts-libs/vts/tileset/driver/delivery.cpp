@@ -279,15 +279,18 @@ IStream::pointer filterConfig(const IStream::pointer &raw)
 
 } // namespace
 
-Delivery::Delivery(AccessToken, const boost::filesystem::path &root)
-    : driver_(Driver::open(root))
+Delivery::Delivery(AccessToken, const boost::filesystem::path &root
+                   , const OpenOptions &openOptions)
+    : driver_(Driver::open(root, openOptions))
     , properties_(tileset::loadConfig(*driver_))
     , index_(indexFromDriver(properties_, driver_))
 {}
 
-Delivery::pointer Delivery::open(const boost::filesystem::path &root)
+Delivery::pointer
+Delivery::open(const boost::filesystem::path &root
+               , const OpenOptions &openOptions)
 {
-    return std::make_shared<Delivery>(AccessToken{}, root);
+    return std::make_shared<Delivery>(AccessToken{}, root, openOptions);
 }
 
 IStream::pointer Delivery::input(File type) const

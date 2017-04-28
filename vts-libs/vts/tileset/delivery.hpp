@@ -53,7 +53,8 @@ public:
     typedef std::shared_ptr<Delivery> pointer;
 
     // named ctor
-    static pointer open(const boost::filesystem::path &root);
+    static pointer open(const boost::filesystem::path &root
+                        , const OpenOptions &openOptions = OpenOptions());
 
     IStream::pointer input(File type) const;
 
@@ -97,7 +98,8 @@ private:
 public:
     /** Opens storage.
      */
-    Delivery(AccessToken, const boost::filesystem::path &root);
+    Delivery(AccessToken, const boost::filesystem::path &root
+             , const OpenOptions &openOptions = OpenOptions());
 };
 
 } } // namespace vtslibs::vts
