@@ -1034,7 +1034,7 @@ void AggregatedDriver::generateMetatiles(AggregatedOptions &options)
         // get metatile stream, ask for nullptr when metatile doesn't exist
         return buildMeta(drivers_, root(), referenceFrame_
                          , -1, tid
-                         , tsi_.tileIndex, surfaceReferences_, true);
+                         , tsi_.tileIndex, surfaceReferences_, false);
     });
 
     // process all metatiles in given range
@@ -1107,14 +1107,23 @@ void AggregatedDriver::copyMetatiles(AggregatedOptions &options
             tid.y <<= mbo;
 
             // build metatile as a stream
-            auto is(srcCache->input(tid, TileFile::meta));
+            auto is(srcCache->input(tid, TileFile::meta, NullWhenNotFound));
 
-            UTILITY_OMP(critical(vts_driver_aggregated_copy))
-            {
-                // file open and write must be under lock since tilar write is
-                // not reentrant (yet)
-                auto os(cache_->output(tid, TileFile::meta));
-                copyFile(is, os);
+            if (is) {
+                UTILITY_OMP(critical(vts_driver_aggregated_copy))
+                {
+                    // file open and write must be under lock since tilar write
+                    // is not reentrant (yet)
+                    auto os(cache_->output(tid, TileFile::meta));
+                    copyFile(is, os);
+                }
+            } else {
+                // no such metatile, probably some tileset lied about tile
+                // availability: this can happen for global tilesets generated
+                // by mapproxy
+
+                // TODO: check for whole metatile validity (i.e. are all nodes
+                // valid)
             }
 
             report();
