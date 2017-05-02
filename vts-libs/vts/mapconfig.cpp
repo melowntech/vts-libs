@@ -30,6 +30,7 @@
 #include "dbglog/dbglog.hpp"
 
 #include "jsoncpp/as.hpp"
+#include "jsoncpp/io.hpp"
 
 #include "../registry/json.hpp"
 #include "../storage/error.hpp"
@@ -477,13 +478,8 @@ void loadMapConfig(MapConfig &mapConfig, std::istream &in
                    , const boost::filesystem::path &path)
 {
     // load json
-    Json::Value config;
-    Json::Reader reader;
-    if (!reader.parse(in, config)) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse map config " << path << ": "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto config(Json::read<vtslibs::storage::FormatError>
+                (in, path, "map config"));
 
     try {
         int version(0);

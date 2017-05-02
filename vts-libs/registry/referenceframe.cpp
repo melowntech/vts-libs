@@ -39,6 +39,7 @@
 
 #include "jsoncpp/json.hpp"
 #include "jsoncpp/as.hpp"
+#include "jsoncpp/io.hpp"
 
 #include "../storage/error.hpp"
 #include "./referenceframe.hpp"
@@ -1069,13 +1070,8 @@ ReferenceFrame::dict loadReferenceFrames(std::istream &in
                                          , const boost::filesystem::path &path)
 {
     // load json
-    Json::Value content;
-    Json::Reader reader;
-    if (!reader.parse(in, content)) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse reference frame file " << path << ": "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto content(Json::read<storage::FormatError>
+                 (in, path, "reference frame"));
 
     ReferenceFrame::dict rfs;
     parse(path, rfs, content);
@@ -1104,7 +1100,7 @@ void saveReferenceFrames(std::ostream &out
     Json::Value content;
     build(content, rfs);
     out.precision(15);
-    Json::StyledStreamWriter().write(out, content);
+    Json::write(out, content);
 }
 
 void saveReferenceFrames(const boost::filesystem::path &path
@@ -1123,16 +1119,11 @@ void saveReferenceFrames(const boost::filesystem::path &path
     f.close();
 }
 
-Srs::dict loadSrs(std::istream &in)
+Srs::dict loadSrs(std::istream &in, const boost::filesystem::path &path)
 {
     // load json
-    Json::Value content;
-    Json::Reader reader;
-    if (!reader.parse(in, content)) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse srs file: "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto content(Json::read<storage::FormatError>
+                 (in, path, "srs"));
 
     Srs::dict srs;
     parse(srs, content);
@@ -1150,7 +1141,7 @@ Srs::dict loadSrs(const boost::filesystem::path &path)
         LOGTHROW(err1, storage::IOError)
             << "Unable to load srs file " << path << ".";
     }
-    auto srs(loadSrs(f));
+    auto srs(loadSrs(f, path));
     f.close();
     return srs;
 }
@@ -1160,7 +1151,7 @@ void saveSrs(std::ostream &out, const Srs::dict &srs)
     Json::Value content;
     build(content, srs);
     out.precision(15);
-    Json::StyledStreamWriter().write(out, content);
+    Json::write(out, content);
 }
 
 void saveSrs(const boost::filesystem::path &path
@@ -1179,16 +1170,12 @@ void saveSrs(const boost::filesystem::path &path
     f.close();
 }
 
-BoundLayer::dict loadBoundLayers(std::istream &in)
+BoundLayer::dict loadBoundLayers(std::istream &in
+                                 , const boost::filesystem::path &path)
 {
     // load json
-    Json::Value content;
-    Json::Reader reader;
-    if (!reader.parse(in, content)) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse bound layers file: "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto content(Json::read<storage::FormatError>
+                 (in, path, "bound layers"));
 
     BoundLayer::dict boundLayers;
     parse(boundLayers, content);
@@ -1206,7 +1193,7 @@ BoundLayer::dict loadBoundLayers(const boost::filesystem::path &path)
         LOGTHROW(err1, storage::IOError)
             << "Unable to load bound layer file " << path << ".";
     }
-    auto boundLayers(loadBoundLayers(f));
+    auto boundLayers(loadBoundLayers(f, path));
     f.close();
     return boundLayers;
 }
@@ -1216,7 +1203,7 @@ void saveBoundLayers(std::ostream &out, const BoundLayer::dict &boundLayers)
     Json::Value content;
     build(content, boundLayers);
     out.precision(15);
-    Json::StyledStreamWriter().write(out, content);
+    Json::write(out, content);
 }
 
 void saveBoundLayers(const boost::filesystem::path &path
@@ -1240,20 +1227,15 @@ void saveBoundLayer(std::ostream &out, const BoundLayer &boundLayer)
     Json::Value content;
     build(content, boundLayer);
     out.precision(15);
-    Json::StyledStreamWriter().write(out, content);
+    Json::write(out, content);
 }
 
 BoundLayer loadBoundLayer(std::istream &in
                           , const boost::filesystem::path &path)
 {
     // load json
-    Json::Value content;
-    Json::Reader reader;
-    if (!reader.parse(in, content)) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse bound layer file " << path << ": "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto content(Json::read<storage::FormatError>
+                 (in, path, "bound layer"));
 
     BoundLayer boundLayer;
     parse(boundLayer, content);
@@ -1264,13 +1246,8 @@ Credit::dict loadCredits(std::istream &in
                          , const boost::filesystem::path &path)
 {
     // load json
-    Json::Value content;
-    Json::Reader reader;
-    if (!reader.parse(in, content)) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse credits file "<< path << ": "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto content(Json::read<storage::FormatError>
+                 (in, path, "credits"));
 
     Credit::dict credits;
     parse(credits, content);
@@ -1298,7 +1275,7 @@ void saveCredits(std::ostream &out, const Credit::dict &credits)
     Json::Value content;
     build(content, credits);
     out.precision(15);
-    Json::StyledStreamWriter().write(out, content);
+    Json::write(out, content);
 }
 
 void saveCredits(const boost::filesystem::path &path
@@ -1321,13 +1298,8 @@ void loadCredits(std::istream &in, Credits &credits
                  , const boost::filesystem::path &path)
 {
     // load json
-    Json::Value content;
-    Json::Reader reader;
-    if (!reader.parse(in, content)) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse credits file " << path << ": "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto content(Json::read<storage::FormatError>
+                 (in, path, "credits"));
 
     parse(credits, content);
 }
@@ -1338,7 +1310,7 @@ void saveCredits(std::ostream &out, const Credits &credits
     Json::Value content;
     build(content, credits, inlineCredits);
     out.precision(15);
-    Json::StyledStreamWriter().write(out, content);
+    Json::write(out, content);
 }
 
 const ReferenceFrame::Division::Node*
@@ -1874,13 +1846,9 @@ void load(RegistryBase &rb, std::istream &in
           , const boost::filesystem::path &path)
 {
     // load json
-    Json::Value content;
-    Json::Reader reader;
-    if (!reader.parse(in, content)) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse resource base file " << path << ": "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto content(Json::read<storage::FormatError>
+                 (in, path, "registry base"));
+
     fromJson(rb, content);
 }
 
@@ -1903,7 +1871,7 @@ void load(RegistryBase &rb, const boost::filesystem::path &path)
 void save(std::ostream &out, const RegistryBase &rb)
 {
     out.precision(15);
-    Json::StyledStreamWriter().write(out, asJson(rb));
+    Json::write(out, asJson(rb));
 }
 
 void save(const boost::filesystem::path &path, const RegistryBase &rb)

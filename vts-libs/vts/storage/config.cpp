@@ -26,6 +26,7 @@
 #include <boost/lexical_cast.hpp>
 #include "dbglog/dbglog.hpp"
 #include "jsoncpp/as.hpp"
+#include "jsoncpp/io.hpp"
 
 #include "./config.hpp"
 #include "./detail.hpp"
@@ -307,16 +308,12 @@ void build(Json::Value &config, const Storage::Properties &properties)
 
 } // namespace detail
 
-Storage::Properties loadConfig(std::istream &in)
+Storage::Properties
+loadConfig(std::istream &in, const boost::filesystem::path &path)
 {
     // load json
-    Json::Value config;
-    Json::Reader reader;
-    if (!reader.parse(in, config)) {
-        LOGTHROW(err2, vtslibs::storage::FormatError)
-            << "Unable to parse config: "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto config(Json::read<vtslibs::storage::FormatError>
+                (in, path, "storage config"));
 
     try {
         int version(0);
@@ -344,7 +341,7 @@ void saveConfig(std::ostream &out, const Storage::Properties &properties)
     Json::Value config;
     detail::build(config, properties);
     out.precision(15);
-    Json::StyledStreamWriter().write(out, config);
+    Json::write(out, config);
 }
 
 Storage::Properties loadConfig(const boost::filesystem::path &path)
@@ -359,7 +356,7 @@ Storage::Properties loadConfig(const boost::filesystem::path &path)
         LOGTHROW(err1, vtslibs::storage::NoSuchStorage)
             << "Unable to load config file " << path << ".";
     }
-    auto p(loadConfig(f));
+    auto p(loadConfig(f, path));
     f.close();
     return p;
 }
@@ -486,16 +483,12 @@ extraStorageConfigFromJson(int version, const Json::Value &config)
     throw;
 }
 
-ExtraStorageProperties loadExtraConfig(std::istream &in)
+ExtraStorageProperties loadExtraConfig(std::istream &in
+                                       , const boost::filesystem::path &path)
 {
     // load json
-    Json::Value config;
-    Json::Reader reader;
-    if (!reader.parse(in, config)) {
-        LOGTHROW(err2, vtslibs::storage::FormatError)
-            << "Unable to parse extra config: "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto config(Json::read<vtslibs::storage::FormatError>
+                (in, path, "storage extra config"));
 
     int version(0);
     try {
@@ -519,7 +512,7 @@ ExtraStorageProperties loadExtraConfig(const boost::filesystem::path &path)
     } catch (const std::exception &e) {
         return {};
     }
-    auto p(loadExtraConfig(f));
+    auto p(loadExtraConfig(f, path));
     f.close();
     return p;
 }

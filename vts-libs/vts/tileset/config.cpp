@@ -31,6 +31,7 @@
 #include "dbglog/dbglog.hpp"
 #include "utility/base64.hpp"
 #include "jsoncpp/as.hpp"
+#include "jsoncpp/io.hpp"
 
 #include "./config.hpp"
 #include "./detail.hpp"
@@ -349,16 +350,11 @@ void build(Json::Value &config, const FullTileSetProperties &properties)
 } // namespace detail
 
 FullTileSetProperties loadConfig(std::istream &in
-                                     , const boost::filesystem::path &path)
+                                 , const boost::filesystem::path &path)
 {
     // load json
-    Json::Value config;
-    Json::Reader reader;
-    if (!reader.parse(in, config)) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse config " << path << ": "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto config(Json::read<storage::FormatError>
+                (in, path, "tileset config"));
 
     try {
         int version(0);
@@ -386,7 +382,7 @@ void saveConfig(std::ostream &out, const FullTileSetProperties &properties)
     Json::Value config;
     detail::build(config, properties);
     out.precision(15);
-    Json::StyledStreamWriter().write(out, config);
+    Json::write(out, config);
 }
 
 FullTileSetProperties loadConfig(const boost::filesystem::path &path)
@@ -469,16 +465,12 @@ ExtraTileSetProperties parse1(const Json::Value &config)
 
 } // namespace detail_extra
 
-ExtraTileSetProperties loadExtraConfig(std::istream &in)
+ExtraTileSetProperties loadExtraConfig(std::istream &in
+                                       , const boost::filesystem::path &path)
 {
     // load json
-    Json::Value config;
-    Json::Reader reader;
-    if (!reader.parse(in, config)) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse extra config: "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto config(Json::read<storage::FormatError>
+                (in, path, "tileset extra config"));
 
     try {
         int version(0);
@@ -512,7 +504,7 @@ ExtraTileSetProperties loadExtraConfig(const boost::filesystem::path &path)
         LOGTHROW(err1, storage::NoSuchTileSet)
             << "Unable to load extra config file " << path << ".";
     }
-    auto p(loadExtraConfig(f));
+    auto p(loadExtraConfig(f, path));
     f.close();
     return p;
 }
@@ -521,8 +513,9 @@ boost::optional<unsigned int> loadRevision(std::istream &in)
 {
     // load json
     Json::Value config;
-    Json::Reader reader;
-    if (!reader.parse(in, config)) { return boost::none; }
+    if (!Json::read(in, config)) {
+        return boost::none;
+    }
 
     auto r(config["revision"]);
     if (!r.isUInt()) { return boost::none; }
@@ -596,15 +589,8 @@ void saveDriver(const boost::filesystem::path &path
 
 boost::any loadDriver(std::istream &in, const boost::filesystem::path &path)
 {
-    Json::Value config;
-
-    Json::Reader reader;
-    if (!reader.parse(in, config)) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse driver config " << path << ": "
-            << reader.getFormattedErrorMessages() << ".";
-    }
-
+    auto config(Json::read<storage::FormatError>
+                (in, path, "tileset driver options"));
     return detail::parseDriver(config);
 }
 

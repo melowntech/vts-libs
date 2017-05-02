@@ -429,7 +429,7 @@ struct BoundLayer {
 
 ReferenceFrame::dict loadReferenceFrames(std::istream &in
                                          , const boost::filesystem::path &path
-                                         = "UNKNOWN");
+                                         = "unknown");
 
 ReferenceFrame::dict loadReferenceFrames(const boost::filesystem::path &path);
 
@@ -439,7 +439,8 @@ void saveReferenceFrames(std::ostream &out
 void saveReferenceFrames(const boost::filesystem::path &path
                          , const ReferenceFrame::dict &rfs);
 
-Srs::dict loadSrs(std::istream &in);
+Srs::dict loadSrs(std::istream &in
+                  , const boost::filesystem::path &path = "unknown");
 
 Srs::dict loadSrs(const boost::filesystem::path &path);
 
@@ -448,8 +449,9 @@ void saveSrs(std::ostream &out, const Srs::dict &srs);
 void saveSrs(const boost::filesystem::path &path
              , const Srs::dict &srs);
 
-BoundLayer::dict loadBoundLayers(std::istream &in);
-
+BoundLayer::dict loadBoundLayers(std::istream &in
+                                 , const boost::filesystem::path &path
+                                 = "unknown");
 BoundLayer::dict loadBoundLayers(const boost::filesystem::path &path);
 
 void saveBoundLayers(std::ostream &out, const BoundLayer::dict &bls);

@@ -52,7 +52,9 @@ FullTileSetProperties loadConfig(const boost::filesystem::path &path);
 void saveConfig(const boost::filesystem::path &path
                 , const FullTileSetProperties &properties);
 
-ExtraTileSetProperties loadExtraConfig(std::istream &in);
+ExtraTileSetProperties loadExtraConfig(std::istream &in
+                                       , const boost::filesystem::path &path
+                                       = "UNKNOWN");
 
 ExtraTileSetProperties loadExtraConfig(const boost::filesystem::path &path);
 

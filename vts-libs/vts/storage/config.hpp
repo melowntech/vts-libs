@@ -41,7 +41,9 @@ namespace Json { class Value; }
 
 namespace vtslibs { namespace vts { namespace storage {
 
-Storage::Properties loadConfig(std::istream &in);
+Storage::Properties loadConfig(std::istream &in
+                               , const boost::filesystem::path &path
+                               = "unknown");
 
 void saveConfig(std::ostream &out, const Storage::Properties &properties);
 
@@ -50,7 +52,9 @@ Storage::Properties loadConfig(const boost::filesystem::path &path);
 void saveConfig(const boost::filesystem::path &path
                 , const Storage::Properties &properties);
 
-ExtraStorageProperties loadExtraConfig(std::istream &in);
+ExtraStorageProperties loadExtraConfig(std::istream &in
+                                       , const boost::filesystem::path &path
+                                       = "unknown");
 
 ExtraStorageProperties loadExtraConfig(const boost::filesystem::path &path);
 

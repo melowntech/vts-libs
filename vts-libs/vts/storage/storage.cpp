@@ -516,8 +516,8 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     // grab list of unique tilesets to be sent into the output
     const auto unique(properties.unique(subset));
 
-    // counts of pending glues for unique tilesets
-    const auto pgc(properties.pendingGlueCount(unique));
+    // // counts of pending glues for unique tilesets
+    // const auto pgc(properties.pendingGlueCount(unique));
 
     // set of tilesets with glues
     TilesetIdSet glueable;
@@ -526,7 +526,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     TilesetIdSet syntheticFreeLayers;
 
     // tilesets
-    bool surfacesAvailable(true);
+    // bool surfacesAvailable(true);
     for (const auto &tileset : properties.tilesets) {
         // check for tileset being both requested and fully available
         bool surface(allowed(unique, tileset.tilesetId));
@@ -534,11 +534,12 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
         // free layer?
         bool fl(freeLayers && freeLayers->count(tileset.tilesetId));
 
+#if 0
+        // NB: unwanted feature, keep it as a surface
         // pending glue check
         if (surface && (!surfacesAvailable || pgc.at(tileset.tilesetId))) {
             // this tileset cannot be a surface because this or some preceding
             // tileset has pending glues
-
             // surface -> free layer
             surface = false;
             fl = true;
@@ -549,6 +550,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             // remember in sythetic free layers)
             syntheticFreeLayers.insert(tileset.tilesetId);
         }
+#endif
 
         // handle tileset as a free layers
         if (fl) {

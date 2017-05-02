@@ -25,22 +25,19 @@
  */
 #include "dbglog/dbglog.hpp"
 
+#include "jsoncpp/io.hpp"
+
 #include "./config.hpp"
 #include "./json.hpp"
 #include "../storage/error.hpp"
 
 namespace vtslibs { namespace vts0 {
 
-Properties loadConfig(std::istream &in)
+Properties loadConfig(std::istream &in, const boost::filesystem::path &path)
 {
     // load json
-    Json::Value config;
-    Json::Reader reader;
-    if (!reader.parse(in, config)) {
-        LOGTHROW(err2, storage::FormatError)
-            << "Unable to parse config: "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto config(Json::read<storage::FormatError>
+                (in, path, "vts0 tileset config"));
 
     Properties p;
     parse(p, config);
@@ -52,7 +49,7 @@ void saveConfig(std::ostream &out, const Properties &properties)
     Json::Value config;
     build(config, properties);
     out.precision(15);
-    Json::StyledStreamWriter().write(out, config);
+    Json::write(out, config);
 }
 
 Properties loadConfig(const boost::filesystem::path &path)
@@ -66,7 +63,7 @@ Properties loadConfig(const boost::filesystem::path &path)
         LOGTHROW(err1, storage::NoSuchTileSet)
             << "Unable to load config file " << path << ".";
     }
-    auto p(loadConfig(f));
+    auto p(loadConfig(f, path));
     f.close();
     return p;
 }

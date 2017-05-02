@@ -25,6 +25,8 @@
  */
 #include "utility/streams.hpp"
 
+#include "jsoncpp/io.hpp"
+
 #include "./storage.hpp"
 #include "./tileset.hpp"
 #include "../tilestorage.hpp"
@@ -179,12 +181,8 @@ void Storage::Detail::loadConfig()
         std::ifstream f;
         f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
         f.open(path.string());
-        Json::Reader reader;
-        if (!reader.parse(f, config)) {
-            LOGTHROW(err2, storage::FormatError)
-                << "Unable to parse " << path << " config: "
-                << reader.getFormattedErrorMessages() << ".";
-        }
+        config = Json::read<storage::FormatError>
+            (f, path, "ts storage config");
         f.close();
     } catch (const std::exception &e) {
         LOGTHROW(err2, storage::Error)

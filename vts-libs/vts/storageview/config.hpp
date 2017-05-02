@@ -39,7 +39,9 @@
 
 namespace vtslibs { namespace vts { namespace storageview {
 
-StorageView::Properties loadConfig(std::istream &in);
+StorageView::Properties loadConfig(std::istream &in
+                                   , const boost::filesystem::path &path
+                                   = "UNKNOWN");
 
 StorageView::Properties loadConfig(const boost::filesystem::path &path);
 

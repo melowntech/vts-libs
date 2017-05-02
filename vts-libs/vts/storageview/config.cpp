@@ -28,6 +28,7 @@
 
 #include "dbglog/dbglog.hpp"
 #include "jsoncpp/as.hpp"
+#include "jsoncpp/io.hpp"
 
 #include "./config.hpp"
 #include "./detail.hpp"
@@ -76,16 +77,12 @@ StorageView::Properties parse1(const Json::Value &config)
 
 } // namespace detail
 
-StorageView::Properties loadConfig(std::istream &in)
+StorageView::Properties loadConfig(std::istream &in
+                                   , const boost::filesystem::path &path)
 {
     // load json
-    Json::Value config;
-    Json::Reader reader;
-    if (!reader.parse(in, config)) {
-        LOGTHROW(err1, vtslibs::storage::FormatError)
-            << "Unable to parse config: "
-            << reader.getFormattedErrorMessages() << ".";
-    }
+    auto config(Json::read<vtslibs::storage::FormatError>
+                (in, path, "storageview config"));
 
     try {
         int version(0);
@@ -120,7 +117,7 @@ StorageView::Properties loadConfig(const boost::filesystem::path &path)
         LOGTHROW(err1, vtslibs::storage::NoSuchStorageView)
             << "Unable to load storage view config file " << path << ".";
     }
-    auto p(loadConfig(f));
+    auto p(loadConfig(f, path));
     // fix path
     p.storagePath = boost::filesystem::absolute
         (p.storagePath, boost::filesystem::absolute(path).parent_path());
@@ -154,7 +151,7 @@ void saveConfig(std::ostream &out, const StorageView::Properties &properties)
     Json::Value config;
     detail::build(config, properties);
     out.precision(15);
-    Json::StyledStreamWriter().write(out, config);
+    Json::write(out, config);
 }
 
 } // namespace detail

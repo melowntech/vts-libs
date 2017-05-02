@@ -39,7 +39,8 @@
 
 namespace vtslibs { namespace tilestorage {
 
-Properties loadConfig(std::istream &in);
+Properties loadConfig(std::istream &in
+                      , const boost::filesystem::path &path = "UNKNOWN");
 
 void saveConfig(std::ostream &out, const Properties &properties);
 
