@@ -432,7 +432,7 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     }
 
     os.precision(15);
-    Json::StyledStreamWriter().write(os, content);
+    Json::write(os, content);
 }
 
 namespace detail {
@@ -727,7 +727,7 @@ void saveDirs(const MapConfig &mapConfig, std::ostream &os)
         }
     }
 
-    Json::StyledStreamWriter().write(os, content);
+    Json::write(os, content);
 }
 
 
@@ -755,7 +755,7 @@ void saveDebug(std::ostream &os, const DebugConfig &debug)
     Json::Value content(Json::objectValue);
     asJson(debug, content);
     os.precision(15);
-    Json::StyledStreamWriter().write(os, content);
+    Json::write(os, content);
 }
 
 } } // namespace vtslibs::vts

@@ -262,7 +262,7 @@ void saveFreeLayer(std::ostream &out, const FreeLayer &freeLayer)
     Json::Value content;
     build(content, freeLayer);
     out.precision(15);
-    Json::StyledStreamWriter().write(out, content);
+    Json::write(out, content);
 }
 
 } } // namespace vtslibs::registry

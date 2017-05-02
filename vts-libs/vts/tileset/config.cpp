@@ -573,7 +573,7 @@ void saveDriver(std::ostream &out, const boost::any &driver)
 {
     out.precision(15);
     Json::Value config(detail::buildDriver(driver));
-    Json::StyledStreamWriter().write(out, config);
+    Json::write(out, config);
 }
 
 void saveDriver(const boost::filesystem::path &path

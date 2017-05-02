@@ -24,6 +24,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "jsoncpp/json.hpp"
+#include "jsoncpp/io.hpp"
 
 #include "./tileflags.hpp"
 #include "./metaflags.hpp"
@@ -68,7 +69,7 @@ void saveDebug(std::ostream &out, const DebugNode &debugNode)
                     flags.append(flag);
                 });
 
-    Json::StyledStreamWriter().write(out, value);
+    Json::write(out, value);
 }
 
 } } // namespace vtslibs::vts
