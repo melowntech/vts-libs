@@ -28,6 +28,7 @@
 #include "dbglog/dbglog.hpp"
 
 #include "jsoncpp/as.hpp"
+#include "jsoncpp/io.hpp"
 
 #include "./freelayer.hpp"
 #include "./json.hpp"
