@@ -162,5 +162,5 @@ if (__name__ == "__main__"):
     # Create simple locker and run it
     log.thread_id("locker2")
     log.info3("Locker2 starting.")
-    Locker2(impl = _MarioDBLocker())()
+    Locker2(impl = _ExampleLocker())()
     log.info3("Locker2 terminating.")

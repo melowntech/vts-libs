@@ -307,6 +307,8 @@ struct Storage::Detail
                                = boost::filesystem::path());
 
     Glue::IdSet pendingGlues(const TilesetIdSet *subset) const;
+
+    void lockStressTest(utility::Runnable &runnable);
 };
 
 // inline

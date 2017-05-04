@@ -1375,4 +1375,35 @@ void Storage::Detail
     }
 }
 
+void Storage::lockStressTest(utility::Runnable &running)
+{
+    detail().lockStressTest(running);
+}
+
+void Storage::Detail::lockStressTest(utility::Runnable &running)
+{
+    while (running) {
+        // storage locked
+
+        // load config, sleep a while and write again
+        LOG(info3) << "Loading storage properties.";
+        auto properties(readConfig());
+        sleep(5);
+        LOG(info3) << "Saving storage properties.";
+        saveConfig(properties);
+
+        {
+            try {
+                // !stress locked, storage unlocked
+                ScopedStorageLock lock(&storageLock, "!stress");
+
+                // sleep a while
+                sleep(10);
+            } catch (const StorageComponentLocked&) {
+                LOG(warn3) << "Unable to lock \"stress\", skipping.";
+            }
+        }
+    }
+}
+
 } } // namespace vtslibs::vts

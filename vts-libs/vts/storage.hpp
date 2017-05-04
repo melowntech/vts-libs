@@ -41,6 +41,7 @@
 #include <boost/filesystem/path.hpp>
 
 #include "utility/enum-io.hpp"
+#include "utility/runnable.hpp"
 
 #include "./tileset.hpp"
 #include "./basetypes.hpp"
@@ -357,6 +358,11 @@ public:
     /** Generates map configuration for this storage.
      */
     MapConfig mapConfig() const;
+
+    /** Lock stress tester. Randomly loads and writes storage.conf.
+     *  Makes sense only when lock is valid.
+     */
+    void lockStressTest(utility::Runnable &runnable);
 
     /** Generates map configuration for storage at given path.
      */

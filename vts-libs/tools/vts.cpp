@@ -42,6 +42,7 @@
 #include "utility/filedes.hpp"
 
 #include "service/cmdline.hpp"
+#include "service/runninguntilsignalled.cpp"
 
 #include "math/io.hpp"
 
@@ -114,6 +115,8 @@ UTILITY_GENERATE_ENUM(Command,
                       ((deriveMetaIndex)("derive-metaindex"))
                       ((virtualSurfaceCreate)("vs-create"))
                       ((virtualSurfaceRemove)("vs-remove"))
+
+                      ((locker2Stresser)("locker2-stresser"))
                       )
 
 struct Verbosity {
@@ -290,6 +293,8 @@ private:
     int virtualSurfaceRemove();
 
     int queryNavtile();
+
+    int locker2Stresser();
 
     bool noexcept_;
     fs::path path_;
@@ -1308,6 +1313,14 @@ void VtsStorage::configuration(po::options_description &cmdline
                  "list pending glues missing to display storage/storageview."
                  , [&](UP&)
     {});
+
+    createParser(cmdline, Command::locker2Stresser
+                 , "--command=locker2Stresser: "
+                 "stress locker implementation"
+                 , [&](UP &p)
+    {
+        (void) p;
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -1435,6 +1448,8 @@ int VtsStorage::runCommand()
     case Command::deriveMetaIndex: return deriveMetaIndex();
 
     case Command::queryNavtile: return queryNavtile();
+
+    case Command::locker2Stresser: return locker2Stresser();
     }
     std::cerr << "vts: no operation requested" << '\n';
     return EXIT_FAILURE;
@@ -2950,6 +2965,18 @@ int VtsStorage::queryNavtile()
               << "\nheight: " << height
               << "\n";
 
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::locker2Stresser()
+{
+    service::RunningUntilSignalled running;
+
+    // lock if external locking program is available
+    Lock lock(path_, lock_);
+    auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
+
+    storage.lockStressTest(running);
     return EXIT_SUCCESS;
 }
 

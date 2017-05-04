@@ -433,7 +433,8 @@ void StorageLocker::receive(const LockTask::pointer &task)
             if (line ==  "X") {
                 if (task->glueLock) {
                     LOGTHROW(warn2, vtslibs::vts::StorageComponentLocked)
-                        << "Glue lock held by someone else: <" << line << ">.";
+                        << "Component lock held by someone else: <"
+                        << line << ">.";
                 }
                 LOGTHROW(warn2, vtslibs::vts::StorageLocked)
                     << "Lock held by someone else: <" << line << ">.";
