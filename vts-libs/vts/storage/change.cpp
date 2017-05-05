@@ -189,7 +189,24 @@ public:
         prepare();
     }
 
+    Tx(Tx &&other)
+        : root_(std::move(other.root_))
+        , tmpRoot_(std::move(other.tmpRoot_))
+        , openOptions_(std::move(other.openOptions_))
+        , glueRules_(std::move(other.glueRules_))
+    {
+        std::swap(mapping_, other.mapping_);
+    }
+
     ~Tx();
+
+    /** Create sub transaction.
+     */
+    Tx subtx() const;
+
+    /** Join in other transaction.
+     */
+    void join(Tx &other);
 
     void add(const fs::path &work, const fs::path &dst);
 
@@ -234,6 +251,9 @@ public:
     const GlueRule::list& glueRules() const { return glueRules_; }
 
 private:
+    struct SubTx {};
+    Tx(const SubTx&, const Tx &other);
+
     void rollback();
 
     fs::path createPath(const fs::path &path) const;
@@ -260,6 +280,23 @@ Tx::~Tx() {
         // we cannot throw!
         rollback();
     }
+}
+
+Tx::Tx(const SubTx&, const Tx &other)
+    : root_(other.root_)
+    , tmpRoot_(other.tmpRoot_)
+    , openOptions_(other.openOptions_)
+    , glueRules_(other.glueRules_)
+{}
+
+Tx Tx::subtx() const { return Tx(SubTx(), *this); }
+
+void Tx::join(Tx &other)
+{
+    // copy stuff
+    mapping_.insert(other.mapping_.begin(), other.mapping_.end());
+    // purge other
+    other.mapping_.clear();
 }
 
 void Tx::add(const fs::path &work, const fs::path &dst)
@@ -1012,11 +1049,14 @@ void generateGluesImpl(Tx &tx, const GlueDescriptor::list &gds
         // skip if invalid
         if (!validGlue(gd.glue.id)) { continue; }
 
+        // create a sub-transaction
+        auto subTx(tx.subtx());
+
         Glue glue;
         try {
             // create glue under glue lock with unlocked storage
             ScopedStorageLock glueLock(&detail.storageLock, lockName(gd.glue));
-            glue = createGlue(tx, gd, addOptions, gds.size());
+            glue = createGlue(subTx, gd, addOptions, gds.size());
         } catch (const StorageComponentLocked&) {
             LOG(warn3) << "Unable to lock glue <"
                        << utility::join(gd.glue.id, ",")
@@ -1024,10 +1064,12 @@ void generateGluesImpl(Tx &tx, const GlueDescriptor::list &gds
             continue;
         }
 
-        // legacy mode? just update properties
+        // legacy mode?
         if (addOptions.mode == Storage::AddOptions::Mode::legacy) {
             // legacy mode, update properties
             properties.glueGenerated(glue);
+            // and join sub transaction into main transaction
+            tx.join(subTx);
             continue;
         }
 
@@ -1044,8 +1086,8 @@ void generateGluesImpl(Tx &tx, const GlueDescriptor::list &gds
         properties.glueGenerated(glue);
         detail.saveConfig(properties);
 
-        // commit new properties and changes to the transaction
-        tx.commit();
+        // main transaction is not commit changes to the sub transaction
+        subTx.commit();
     }
 }
 
@@ -1104,7 +1146,7 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
                             .sameType(true)
                             .tilesetId(tilesetInfo.tilesetId)
                             .lodRange(addOptions.filter.lodRange())
-                                .openOptions(addOptions.openOptions)
+                            .openOptions(addOptions.openOptions)
                             );
     }());
 

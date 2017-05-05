@@ -266,10 +266,10 @@ struct LockTask {
 
     std::string command;
     std::promise<std::string> promise;
-    bool glueLock;
+    bool componentLock;
 
-    LockTask(const std::string &command, bool glueLock = false)
-        : command(command), glueLock(glueLock)
+    LockTask(const std::string &command, bool componentLock = false)
+        : command(command), componentLock(componentLock)
     {}
 };
 
@@ -431,7 +431,7 @@ void StorageLocker::receive(const LockTask::pointer &task)
             LOG(info1) << "Received line from locker: <" << line << ">";
 
             if (line ==  "X") {
-                if (task->glueLock) {
+                if (task->componentLock) {
                     LOGTHROW(warn2, vtslibs::vts::StorageComponentLocked)
                         << "Component lock held by someone else: <"
                         << line << ">.";
