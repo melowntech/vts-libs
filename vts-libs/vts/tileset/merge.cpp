@@ -24,6 +24,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <set>
+#include <numeric>
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>

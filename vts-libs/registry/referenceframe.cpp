@@ -31,9 +31,11 @@
 #include <algorithm>
 #include <fstream>
 #include <queue>
+#include <numeric>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/utility/in_place_factory.hpp>
 
 #include "dbglog/dbglog.hpp"
 
