@@ -339,7 +339,7 @@ void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius
         const vts::Lod nt2Tilelimit(lr.max + vts::NavTile::binOrder);
         // prefill by defaults
         vts::Lod tileLod(lodRange.max);
-        auto tileRange(vts::childRange(rfnode.id, tileLod - rfnode.id.lod));
+        auto tileRange(vts::childRange(rfnode.id, tileLod));
 
         if (tileLod > nt2Tilelimit) {
             // there are some tiles deeper under then navtile influence; let's
@@ -353,17 +353,17 @@ void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius
         } else {
             // data under navtile's influence, peg to bottom navtile lod
             tileLod = nt2Tilelimit;
-            tileRange = vts::childRange(rfnode.id, tileLod - rfnode.id.lod);
+            tileRange = vts::childRange(rfnode.id, tileLod);
         }
 
-        LOG(info4) << "Extracting navtiles.";
+        LOG(info3) << "Extracting navtiles.";
 
         // iterate in nt lod range backwards: iterate from start and invert
         // forward lod into backward lod
         for (auto lod(lr.max); lod >= lr.min; --lod, --tileLod
                  , tileRange = vts::parentRange(tileRange))
         {
-            LOG(info4) << "Setting navtiles at lod " << lod << ".";
+            LOG(info3) << "Setting navtiles at lod " << lod << ".";
 
             // resize heightmap for given lod
             hm.resize(lod);
