@@ -105,7 +105,16 @@ void ExternalProgress::expect(std::size_t total)
 
 void ExternalProgress::done()
 {
+    ++currentPhase_;
+    if (currentPhase_ != int(weights_.size())) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Inconsistent external progress: done not called "
+            "after last phase.";
+    }
+
     // force report of 100%
+    accumulator_ += weight_;
+    value_ = 0;
     reportPercentage(value_, true);
 }
 

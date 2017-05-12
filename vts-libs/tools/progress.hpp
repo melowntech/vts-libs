@@ -124,7 +124,7 @@ public:
 
     /** Implementation of NtGenerator::Reporter::report.
      */
-    void report() { operator++(); }
+    void report() { ++(*this); }
 
 private:
     void reportPercentage(std::size_t value, bool force = false);
