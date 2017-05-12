@@ -19,6 +19,8 @@ if (TARGET service)
       set(EXTRA_DEPENDS MAGIC)
     endif()
 
+    ###################################################
+    # tools
     define_module(BINARY vts-tools
       DEPENDS vts-libs service ${EXTRA_DEPENDS}
       )
