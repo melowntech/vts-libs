@@ -27,7 +27,7 @@
 #include <unistd.h>
 
 #include <utility>
-#include <algorithm>
+#include <numeric>
 
 #include "dbglog/dbglog.hpp"
 
