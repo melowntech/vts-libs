@@ -1,6 +1,8 @@
 # VTS libraries
 # builds: core and main library
 
+# nukleus library: minimal subset only required for browser (renderer)
+#
 # core library: allows tileset access, for example in delivery machinery;
 # depends on as little as possible dependencies (boost, gdal, proj)
 #
@@ -216,8 +218,8 @@ file_to_cpp(vts_BROWSER_SOURCES
   vtslibs::vts::browser::debugger_js
   vts/browser/debugger.js)
 
-# vts core files
-set(vts-core_SOURCES
+# vts nukleus files
+set(vts-nukleus_SOURCES
   vts.hpp vts/vts.cpp
   vts/basetypes.hpp vts/basetypes.cpp
   vts/options.hpp vts/options.cpp
@@ -234,15 +236,26 @@ set(vts-core_SOURCES
   vts/math.hpp
   vts/subtrees.hpp vts/subtrees.cpp
   vts/visit.hpp
-
   vts/maskfwd.hpp
   vts/qtree.hpp vts/qtree.cpp
   vts/tileindex.hpp vts/tileindex.cpp vts/tileindex-io.hpp
   vts/tileop.hpp vts/tileop.cpp
-
   vts/tileflags.hpp vts/tileflags.cpp
   vts/metaflags.hpp vts/metaflags.cpp
   vts/encodeflags.hpp vts/encodeflags.cpp
+  vts/mapconfig.hpp vts/mapconfig.cpp
+  vts/types2d.hpp
+  vts/2d.hpp vts/2d.cpp
+  vts/urltemplate.hpp vts/urltemplate.cpp
+  vts/gil/colors.hpp vts/gil/colors.cpp
+  vts/debug.hpp vts/debug.cpp
+  vts/geomextents.hpp vts/geomextents.cpp
+  vts/virtualsurface.cpp
+  )
+
+# vts core files
+set(vts-core_SOURCES
+  vts/meshcoverage.cpp
 
   vts/tileset.hpp
   vts/tileset/detail.hpp
@@ -277,18 +290,6 @@ set(vts-core_SOURCES
   vts/storageview/detail.hpp
   vts/storageview/storageview.cpp
   vts/storageview/config.hpp vts/storageview/config.cpp
-
-  vts/mapconfig.hpp vts/mapconfig.cpp
-
-  vts/types2d.hpp
-  vts/2d.hpp vts/2d.cpp
-
-  vts/urltemplate.hpp vts/urltemplate.cpp
-
-  vts/gil/colors.hpp vts/gil/colors.cpp
-  vts/debug.hpp vts/debug.cpp
-
-  vts/geomextents.hpp vts/geomextents.cpp
   )
 
 set(vts-core_EXTRA_DEPENDS)
@@ -327,37 +328,57 @@ set(vts_SOURCES
   vts/ntgenerator.hpp vts/ntgenerator.cpp
   )
 
-# vts core library
-define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
+
+# vts nukleus library
+define_module(LIBRARY vts-libs-nukleus=${vts-libs_VERSION}
   DEPENDS
   http>=1.1 geo>=1.24 geometry>=1.7 imgproc>=1.19 math>=1.2
   utility>=1.16 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
 
-  ${vts-registry_python_DEPENDS}
-  ${vts-core_EXTRA_DEPENDS}
   Boost_IOSTREAMS
   Boost_FILESYSTEM
   CURL PNG
   )
 
-add_library(vts-libs-core STATIC
+add_library(vts-libs-nukleus STATIC
   ${vts-common_SOURCES}
   ${vts-registry_SOURCES}
-  ${vts-registry_python_SOURCES}
-
-  ${vts_BROWSER_SOURCES}
-  ${vts-core_SOURCES}
-
-  ${vts0_BROWSER_SOURCES}
-  ${vts0-core_SOURCES}
-
-  ${tilestorage_BROWSER_SOURCES}
-  ${tilestorage-core_SOURCES}
+  ${vts-nukleus_SOURCES}
   )
-buildsys_library(vts-libs-core)
-target_link_libraries(vts-libs-core
-  ${MODULE_LIBRARIES})
-buildsys_target_compile_definitions(vts-libs-core ${MODULE_DEFINITIONS})
+buildsys_library(vts-libs-nukleus)
+target_link_libraries(vts-libs-nukleus ${MODULE_LIBRARIES})
+buildsys_target_compile_definitions(vts-libs-nukleus ${MODULE_DEFINITIONS})
+
+
+# vts core library
+if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core)
+  define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
+    DEPENDS
+    vts-libs-nukleus>=${vts-libs_VERSION}
+  
+    ${vts-registry_python_DEPENDS}
+    ${vts-core_EXTRA_DEPENDS}
+    )
+  
+  add_library(vts-libs-core STATIC
+    ${vts-registry_python_SOURCES}
+  
+    ${vts-nukleus_SOURCES}
+  
+    ${vts_BROWSER_SOURCES}
+    ${vts-core_SOURCES}
+  
+    ${vts0_BROWSER_SOURCES}
+    ${vts0-core_SOURCES}
+  
+    ${tilestorage_BROWSER_SOURCES}
+    ${tilestorage-core_SOURCES}
+    )
+  buildsys_library(vts-libs-core)
+  target_link_libraries(vts-libs-core
+    ${MODULE_LIBRARIES})
+  buildsys_target_compile_definitions(vts-libs-core ${MODULE_DEFINITIONS})
+endif()
 
 # main vts library is optional:
 if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)

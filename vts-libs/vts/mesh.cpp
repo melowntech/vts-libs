@@ -36,8 +36,6 @@
 #include "math/geometry.hpp"
 #include "math/transform.hpp"
 
-#include "imgproc/scanconversion.hpp"
-
 #include "half/half.hpp"
 
 #include "../storage/error.hpp"
@@ -583,74 +581,6 @@ void generateEtc(Mesh &mesh, const math::Extents2 &sdsExtents, bool allowed)
         for (const auto &v : sm.vertices) {
             sm.etc.push_back(tn(v));
         }
-    }
-}
-
-namespace {
-
-/** Geo coordinates to coverage mask mapping.
- * NB: result is in pixel system: pixel centers have integral indices
- */
-math::Matrix4 geo2mask(const math::Extents2 &extents
-                              , const math::Size2 &gridSize)
-{
-    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
-
-    auto es(size(extents));
-
-    // scales
-    math::Size2f scale(gridSize.width / es.width
-                       , gridSize.height / es.height);
-
-    // scale to grid
-    trafo(0, 0) = scale.width;
-    trafo(1, 1) = -scale.height;
-
-    // move to origin and also move pixel centers to integral indices
-    trafo(0, 3) = -extents.ll(0) * scale.width - 0.5;
-    trafo(1, 3) = extents.ur(1) * scale.height - 0.5;
-
-    return trafo;
-}
-
-} // namespace
-
-void updateCoverage(Mesh &mesh, const SubMesh &sm
-                    , const math::Extents2 &sdsExtents
-                    , std::uint8_t smIndex)
-{
-    auto &cm(mesh.coverageMask);
-    const auto rasterSize(cm.size());
-    auto trafo(geo2mask(sdsExtents, rasterSize));
-
-    std::vector<imgproc::Scanline> scanlines;
-    cv::Point3f tri[3];
-    for (const auto &face : sm.faces) {
-        for (int i : { 0, 1, 2 }) {
-            auto p(transform(trafo, sm.vertices[face[i]]));
-            tri[i].x = p(0); tri[i].y = p(1); tri[i].z = p(2);
-        }
-
-        scanlines.clear();
-        imgproc::scanConvertTriangle(tri, 0, rasterSize.height, scanlines);
-
-        for (const auto &sl : scanlines) {
-            imgproc::processScanline
-                (sl, 0, rasterSize.width, [&](int x, int y, float)
-            {
-                cm.set(x, y, smIndex + 1);
-            });
-        }
-    }
-}
-
-void generateCoverage(Mesh &mesh, const math::Extents2 &sdsExtents)
-{
-    mesh.createCoverage(false);
-
-    std::uint8_t smIndex(0);
-    for (const auto &sm : mesh) {
-        updateCoverage(mesh, sm, sdsExtents, smIndex++);
     }
 }
 

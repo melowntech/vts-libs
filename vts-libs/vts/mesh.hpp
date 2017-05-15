@@ -35,7 +35,6 @@
 
 #include "utility/enum-io.hpp"
 #include "math/geometry_core.hpp"
-#include "imgproc/rastermask/quadtree.hpp"
 
 #include "../storage/streams.hpp"
 

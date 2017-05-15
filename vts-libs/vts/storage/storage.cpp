@@ -59,9 +59,6 @@ namespace fs = boost::filesystem;
 
 namespace vtslibs { namespace vts {
 
-constexpr char VirtualSurface::TilesetMappingPath[];
-constexpr char VirtualSurface::TilesetMappingContentType[];
-
 namespace {
     const fs::path ConfigFilename("storage.conf");
     const fs::path ExtraConfigFilename("extra.conf");
