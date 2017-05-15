@@ -1,7 +1,7 @@
 # VTS libraries
 # builds: core and main library
 
-# nukleus library: minimal subset only required for browser (renderer)
+# nucleus library: minimal subset only required for browser (renderer)
 #
 # core library: allows tileset access, for example in delivery machinery;
 # depends on as little as possible dependencies (boost, gdal, proj)
@@ -218,8 +218,8 @@ file_to_cpp(vts_BROWSER_SOURCES
   vtslibs::vts::browser::debugger_js
   vts/browser/debugger.js)
 
-# vts nukleus files
-set(vts-nukleus_SOURCES
+# vts nucleus files
+set(vts-nucleus_SOURCES
   vts.hpp vts/vts.cpp
   vts/basetypes.hpp vts/basetypes.cpp
   vts/options.hpp vts/options.cpp
@@ -329,8 +329,8 @@ set(vts_SOURCES
   )
 
 
-# vts nukleus library
-define_module(LIBRARY vts-libs-nukleus=${vts-libs_VERSION}
+# vts nucleus library
+define_module(LIBRARY vts-libs-nucleus=${vts-libs_VERSION}
   DEPENDS
   http>=1.1 geo>=1.24 geometry>=1.7 imgproc>=1.19 math>=1.2
   utility>=1.16 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
@@ -340,21 +340,21 @@ define_module(LIBRARY vts-libs-nukleus=${vts-libs_VERSION}
   CURL PNG
   )
 
-add_library(vts-libs-nukleus STATIC
+add_library(vts-libs-nucleus STATIC
   ${vts-common_SOURCES}
   ${vts-registry_SOURCES}
-  ${vts-nukleus_SOURCES}
+  ${vts-nucleus_SOURCES}
   )
-buildsys_library(vts-libs-nukleus)
-target_link_libraries(vts-libs-nukleus ${MODULE_LIBRARIES})
-buildsys_target_compile_definitions(vts-libs-nukleus ${MODULE_DEFINITIONS})
+buildsys_library(vts-libs-nucleus)
+target_link_libraries(vts-libs-nucleus ${MODULE_LIBRARIES})
+buildsys_target_compile_definitions(vts-libs-nucleus ${MODULE_DEFINITIONS})
 
 
 # vts core library
 if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core)
   define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
     DEPENDS
-    vts-libs-nukleus>=${vts-libs_VERSION}
+    vts-libs-nucleus>=${vts-libs_VERSION}
   
     ${vts-registry_python_DEPENDS}
     ${vts-core_EXTRA_DEPENDS}
@@ -363,7 +363,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core)
   add_library(vts-libs-core STATIC
     ${vts-registry_python_SOURCES}
   
-    ${vts-nukleus_SOURCES}
+    ${vts-nucleus_SOURCES}
   
     ${vts_BROWSER_SOURCES}
     ${vts-core_SOURCES}
