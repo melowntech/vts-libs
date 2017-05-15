@@ -26,13 +26,13 @@
 #include <fnmatch.h>
 
 #include <boost/config/warning_disable.hpp>
-#include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/phoenix_core.hpp>
 #include <boost/spirit/include/phoenix_operator.hpp>
 #include <boost/spirit/include/phoenix_object.hpp>
 #include <boost/spirit/include/phoenix_stl.hpp>
 #include <boost/spirit/include/phoenix_fusion.hpp>
 #include <boost/spirit/include/phoenix_container.hpp>
+#include <boost/fusion/adapted/struct/adapt_struct.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/fusion/include/io.hpp>
 #include <boost/spirit/include/qi_match.hpp>
@@ -264,8 +264,8 @@ private:
 } } } // namespace vtslibs::vts::rule_parser
 
 BOOST_FUSION_ADAPT_STRUCT(
-    ::vtslibs::vts::rule_parser::SingleTagRule,
-    (::vtslibs::vts::rule_parser::SingleTagRule::Factory, factory)
+    vtslibs::vts::rule_parser::SingleTagRule,
+    (vtslibs::vts::rule_parser::SingleTagRule::Factory, factory)
     (std::string, arg)
 )
 

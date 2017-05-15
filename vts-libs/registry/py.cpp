@@ -23,9 +23,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
+#include <numeric>
 #include "pysupport/string.hpp"
 
 #include "./py.hpp"
+#include <boost/utility/in_place_factory.hpp>
 
 namespace python = boost::python;
 

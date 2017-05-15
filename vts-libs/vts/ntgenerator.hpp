@@ -27,6 +27,7 @@
 #define vts_ntgenerator_hpp_included_
 
 #include <limits>
+#include <functional>
 
 #include <boost/noncopyable.hpp>
 #include <boost/variant.hpp>
@@ -73,10 +74,22 @@ public:
     void addTile(const TileId &tileId, const NodeInfo &nodeInfo
                  , const Mesh &mesh, const TileSrs &srs = TileSrs());
 
+    /** Callbacks called when tile is assigned a
+     */
+    struct Reporter {
+        virtual void expect(std::size_t) {};
+        virtual void report() {};
+        virtual ~Reporter() {}
+    };
 
     /** Generate navtiles and surrogates.
      */
     void generate(TileSet &ts, double dtmExtractionRadius) const;
+
+    /** Generate navtiles and surrogates.
+     */
+    void generate(TileSet &ts, double dtmExtractionRadius
+                  , Reporter &reporter) const;
 
     struct Accumulator;
 

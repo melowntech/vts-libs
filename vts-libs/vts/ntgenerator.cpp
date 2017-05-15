@@ -262,7 +262,8 @@ namespace {
 void fillSurrogate(vts::TileSet &ts, const vts::TileIndex &ti
                    , const vts::HeightMap &hm
                    , const vts::NodeInfo &root, vts::Lod lod
-                   , const vts::TileRange &tileRange)
+                   , const vts::TileRange &tileRange
+                   , NtGenerator::Reporter &reporter)
 {
     LOG(info3) << "Computing surrogates at lod " << lod << " from "
                << "heightmap " << hm.size() << ".";
@@ -283,13 +284,21 @@ void fillSurrogate(vts::TileSet &ts, const vts::TileIndex &ti
             ts.setSurrogateValue
                 (tileId
                  , navsds2sds(math::Point3(center(0), center(1), *height))[2]);
+            reporter.report();
         }
     });
 }
 
 } // namespace
 
-void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius)
+void NtGenerator::generate(TileSet &ts, double dtmExtractionRadius) const
+{
+    Reporter dummy;
+    generate(ts, dtmExtractionRadius, dummy);
+}
+
+void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius
+                           , Reporter &reporter)
     const
 {
     if (accumulators_.empty()) { return; }
@@ -299,6 +308,8 @@ void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius)
 
     const auto &ti(ts.tileIndex());
     const auto lodRange(ti.lodRange());
+
+    reporter.expect(ti.count());
 
     for (auto &item : accumulators_) {
         const auto &rfnode(*item.first);
@@ -328,7 +339,7 @@ void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius)
         const vts::Lod nt2Tilelimit(lr.max + vts::NavTile::binOrder);
         // prefill by defaults
         vts::Lod tileLod(lodRange.max);
-        auto tileRange(vts::childRange(rfnode.id, tileLod - rfnode.id.lod));
+        auto tileRange(vts::childRange(rfnode.id, tileLod));
 
         if (tileLod > nt2Tilelimit) {
             // there are some tiles deeper under then navtile influence; let's
@@ -337,22 +348,22 @@ void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius)
             for (; tileLod > nt2Tilelimit;
                  --tileLod, tileRange = vts::parentRange(tileRange))
             {
-                fillSurrogate(ts, ti, hm, ni, tileLod, tileRange);
+                fillSurrogate(ts, ti, hm, ni, tileLod, tileRange, reporter);
             }
         } else {
             // data under navtile's influence, peg to bottom navtile lod
             tileLod = nt2Tilelimit;
-            tileRange = vts::childRange(rfnode.id, tileLod - rfnode.id.lod);
+            tileRange = vts::childRange(rfnode.id, tileLod);
         }
 
-        LOG(info4) << "Extracting navtiles.";
+        LOG(info3) << "Extracting navtiles.";
 
         // iterate in nt lod range backwards: iterate from start and invert
         // forward lod into backward lod
         for (auto lod(lr.max); lod >= lr.min; --lod, --tileLod
                  , tileRange = vts::parentRange(tileRange))
         {
-            LOG(info4) << "Setting navtiles at lod " << lod << ".";
+            LOG(info3) << "Setting navtiles at lod " << lod << ".";
 
             // resize heightmap for given lod
             hm.resize(lod);
@@ -373,7 +384,7 @@ void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius)
 
             if (storage::in(tileLod , lodRange)) {
                 // tile lod is valid, fill surrogates
-                fillSurrogate(ts, ti, hm, ni, tileLod, tileRange);
+                fillSurrogate(ts, ti, hm, ni, tileLod, tileRange, reporter);
             }
         }
 
@@ -396,7 +407,7 @@ void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius)
              --tileLod, tileRange = vts::parentRange(tileRange))
         {
             // tile lod is valid, fill surrogates
-            fillSurrogate(ts, ti, hm, ni, tileLod, tileRange);
+            fillSurrogate(ts, ti, hm, ni, tileLod, tileRange, reporter);
 
             // halve heightmap
             hm.halve();
