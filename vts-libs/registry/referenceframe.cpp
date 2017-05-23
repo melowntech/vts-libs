@@ -59,6 +59,11 @@ constexpr char Credit::typeName[];
 constexpr char BoundLayer::typeName[];
 constexpr char DataFile::typeName[];
 
+constexpr int BoundLayer::binaryOrder;
+constexpr int BoundLayer::tileWidth;
+constexpr int BoundLayer::tileHeight;
+constexpr int BoundLayer::basicTileArea;
+
 constexpr int BoundLayer::rasterMetatileBinaryOrder;
 constexpr int BoundLayer::rasterMetatileWidth;
 constexpr int BoundLayer::rasterMetatileHeight;

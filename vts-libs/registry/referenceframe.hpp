@@ -396,8 +396,9 @@ struct BoundLayer {
 
     static constexpr char typeName[] = "bound layer";
 
-    static constexpr int tileWidth = 256;
-    static constexpr int tileHeight = 256;
+    static constexpr int binaryOrder = 8;
+    static constexpr int tileWidth = (1 << binaryOrder);
+    static constexpr int tileHeight = (1 << binaryOrder);
     static constexpr int basicTileArea = (tileWidth * tileHeight);
 
     static math::Size2 tileSize() { return { tileWidth, tileHeight }; }
