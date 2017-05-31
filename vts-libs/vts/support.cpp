@@ -35,4 +35,13 @@ namespace vtslibs { namespace vts {
 
 #include "./support.impl.cpp"
 
+const storage::SupportFile::Vars defaultSupportVars([&]()
+    -> storage::SupportFile::Vars
+{
+    storage::SupportFile::Vars vars;
+    vars["VTS_BUILTIN_BROWSER_URL"]
+        = "//cdn.melown.com/libs/vtsjs/builtin/v2";
+    return vars;
+}());
+
 } } // namespace vtslibs::vts

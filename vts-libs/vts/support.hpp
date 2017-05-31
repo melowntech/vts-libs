@@ -37,7 +37,13 @@
 
 namespace vtslibs { namespace vts {
 
+/** Compiled-in support files (browser etc).
+ */
 extern const storage::SupportFile::Files supportFiles;
+
+/** Default variables for compiled-in support files.
+ */
+extern const storage::SupportFile::Vars defaultSupportVars;
 
 } } // namespace vtslibs::vts
 
