@@ -634,6 +634,19 @@ inline void extractDirs(Dirs &dirs, const GlueConfig &surface
     }
 }
 
+inline void extractDirs(Dirs &dirs, const VirtualSurfaceConfig &surface
+                        , std::set<std::string> &boundLayers)
+{
+    if (surface.root.empty()) {
+        update(dirs, ".", surface.id);
+    } else {
+        update(dirs, surface.root.string(), surface.id);
+    }
+    if (surface.textureLayer) {
+        boundLayers.insert(*surface.textureLayer);
+    }
+}
+
 class ExtractVisitor : public boost::static_visitor<> {
 public:
     ExtractVisitor(Dirs &dirs, const ResourceId &id)
@@ -687,6 +700,10 @@ Dirs extractDirs(const MapConfig &mapConfig)
 
     for (const auto &glue : mapConfig.glues) {
         extractDirs(dirs, glue, boundLayers);
+    }
+
+    for (const auto &virtualSurface : mapConfig.virtualSurfaces) {
+        extractDirs(dirs, virtualSurface, boundLayers);
     }
 
     for (const auto &meshTiles : mapConfig.meshTiles) {
