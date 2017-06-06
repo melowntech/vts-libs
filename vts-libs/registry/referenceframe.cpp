@@ -47,6 +47,7 @@
 #include "./referenceframe.hpp"
 #include "./json.hpp"
 #include "./datafile.hpp"
+#include "./io.hpp"
 #include "../registry.hpp"
 
 namespace ba = boost::algorithm;
@@ -1445,29 +1446,40 @@ Json::Value asJson(const Position &position)
 
 Position positionFromJson(const Json::Value &value)
 {
-    Position p;
 
-    if (!value.isArray()) {
-        LOGTHROW(err1, Json::Error)
-            << "Type of position is not a list.";
+    if (value.isString()) {
+        auto str(value.asString());
+        try {
+            return boost::lexical_cast<Position>(str);
+        } catch (const boost::bad_lexical_cast &) {
+            LOGTHROW(err1, Json::Error)
+                << "Unable to parse position from string \""
+                << str << "\".";
+        }
     }
 
-    p.type = boost::lexical_cast<registry::Position::Type>
-        (Json::as<std::string>(value[0]));
-    p.position(0) = Json::as<double>(value[1]);
-    p.position(1) = Json::as<double>(value[2]);
-    p.heightMode = boost::lexical_cast<registry::Position::HeightMode>
-        (Json::as<std::string>(value[3]));
-    p.position(2) = Json::as<double>(value[4]);
+    if (value.isArray()) {
+        Position p;
+        p.type = boost::lexical_cast<registry::Position::Type>
+            (Json::as<std::string>(value[0]));
+        p.position(0) = Json::as<double>(value[1]);
+        p.position(1) = Json::as<double>(value[2]);
+        p.heightMode = boost::lexical_cast<registry::Position::HeightMode>
+            (Json::as<std::string>(value[3]));
+        p.position(2) = Json::as<double>(value[4]);
 
-    p.orientation(0) = Json::as<double>(value[5]);
-    p.orientation(1) = Json::as<double>(value[6]);
-    p.orientation(2) = Json::as<double>(value[7]);
+        p.orientation(0) = Json::as<double>(value[5]);
+        p.orientation(1) = Json::as<double>(value[6]);
+        p.orientation(2) = Json::as<double>(value[7]);
 
-    p.verticalExtent = Json::as<double>(value[8]);
-    p.verticalFov = Json::as<double>(value[9]);
+        p.verticalExtent = Json::as<double>(value[8]);
+        p.verticalFov = Json::as<double>(value[9]);
+        return p;
+    }
 
-    return p;
+    LOGTHROW(err1, Json::Error)
+        << "Type of position is not a list nor a string.";
+    throw;
 }
 
 Srs::dict listSrs(const ReferenceFrame &referenceFrame)
