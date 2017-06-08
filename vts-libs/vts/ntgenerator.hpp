@@ -30,6 +30,7 @@
 #include <functional>
 
 #include <boost/noncopyable.hpp>
+#include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include <boost/filesystem/path.hpp>
 
@@ -43,7 +44,7 @@ class NtGenerator : boost::noncopyable {
 public:
     NtGenerator(const registry::ReferenceFrame *referenceFrame);
     NtGenerator(const registry::ReferenceFrame *referenceFrame
-                , const boost::filesystem::path &path);
+                , const boost::optional<boost::filesystem::path> &path);
 
     void load(const boost::filesystem::path &path);
     void save(const boost::filesystem::path &path);

@@ -98,17 +98,12 @@ struct NtGenerator::Accumulator : boost::static_visitor<CsConvertor> {
     }
 };
 
-NtGenerator::NtGenerator(const registry::ReferenceFrame *referenceFrame)
-    : referenceFrame_(referenceFrame)
-    , sds2rfnode_(sds2rfnode(*referenceFrame_))
-{}
-
 NtGenerator::NtGenerator(const registry::ReferenceFrame *referenceFrame
-                         , const fs::path &path)
+                         , const boost::optional<fs::path> &path)
     : referenceFrame_(referenceFrame)
     , sds2rfnode_(sds2rfnode(*referenceFrame_))
 {
-    load(path);
+    if (path) { load(*path); }
 }
 
 void NtGenerator::addAccumulator(const std::string &sds
@@ -301,7 +296,11 @@ void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius
                            , Reporter &reporter)
     const
 {
-    if (accumulators_.empty()) { return; }
+    if (accumulators_.empty()) {
+        // we need to report empty set
+        reporter.expect(0);
+        return;
+    }
 
     boost::optional<vts::HeightMap::BestPosition> bestPosition;
     const auto &navigationSrs(referenceFrame_->model.navigationSrs);
