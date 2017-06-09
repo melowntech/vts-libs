@@ -128,6 +128,20 @@ NodeInfo::list NodeInfo::nodes(const registry::ReferenceFrame &referenceFrame
     return nodes;
 }
 
+NodeInfo::list NodeInfo::leaves(const registry::ReferenceFrame &referenceFrame
+                                , const registry::Registry &reg)
+{
+    NodeInfo::list nodes;
+    for (const auto &item : referenceFrame.division.nodes) {
+        if (!item.second.real() || item.second.structure.children) {
+            // not real node nor leaf
+            continue;
+        }
+        nodes.push_back(NodeInfo(referenceFrame, item.second, reg));
+    }
+    return nodes;
+}
+
 NodeInfo NodeInfo::child(Child childDef) const
 {
     if (!node_.valid()) {

@@ -204,6 +204,12 @@ public:
                                 , const registry::Registry &reg
                                 = registry::system);
 
+    /** Generate list of nodeinfos from valid referenceframes' leaves.
+     */
+    static NodeInfo::list leaves(const registry::ReferenceFrame &referenceFrame
+                                , const registry::Registry &reg
+                                = registry::system);
+
 private:
     /** Node info. Use with care.
      */
