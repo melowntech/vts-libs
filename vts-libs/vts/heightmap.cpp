@@ -33,6 +33,7 @@
 #include "dbglog/dbglog.hpp"
 
 #include "utility/format.hpp"
+#include "utility/openmp.hpp"
 
 #include "math/transform.hpp"
 
@@ -142,20 +143,47 @@ class Morphology {
 public:
     typedef typename Operator::value_type value_type;
 
-    Morphology(cv::Mat &data, cv::Mat &tmp, math::Size2i kernelRadius
+    /** Apply morphology operator to data matrix in given kernel
+     * radius. Application uses tmp matrix for temporary result.
+     *
+     *  Operator is applied on in horizontal direction. To work in vertical
+     *  direction set transpose to true.
+     *
+     *  If invalidValue is set reset output to given value.
+     */
+    Morphology(cv::Mat &data, cv::Mat &tmp, int kernelRadius
+               , bool transpose
                , boost::optional<value_type> invalidValue)
         : in_(data), tmp_(tmp), invalidValue_(invalidValue)
     {
+        if (transpose) {
+            // transpose and swap
+            cv::transpose(in_, tmp_);
+            std::swap(in_, tmp_);
+        }
+
+        // re-create tmp matrix to match input matrix
+        tmp_.create(in_.rows, in_.cols, in_.type());
+
         if (invalidValue_) {
-            // invalidate
+            // invalidate all pixels
             tmp_ = cv::Scalar(*invalidValue_);
         }
+
         run(kernelRadius);
-        std::swap(in_, tmp_);
+
+        // copy result to input matrix
+        if (transpose) {
+            // transpose back
+            cv::transpose(tmp_, in_);
+        } else {
+            // just swap
+            std::swap(in_, tmp_);
+        }
     }
 
 private:
-    void run(math::Size2i kernelRadius);
+    void run(int kernelRadius);
 
     bool valid(value_type value) const {
         return !invalidValue_ || (value != *invalidValue_);
@@ -167,37 +195,34 @@ private:
 };
 
 template <typename Operator>
-void Morphology<Operator>::run(math::Size2i kernelRadius)
+void Morphology<Operator>::run(int kernelRadius)
 {
-    for (int y(0); y != in_.rows; ++y) {
-        for (int x(0); x != in_.cols; ++x) {
-            // skip invalid data
-            if (!valid(in_.at<value_type>(y, x))) {
-                continue;
-            }
+    const std::size_t total(in_.rows * in_.cols);
 
-            Operator op;
+    UTILITY_OMP(parallel for)
+    for (std::size_t idx = 0; idx < total; ++idx) {
+        int x = idx % in_.cols;
+        int y = idx / in_.cols;
 
-            for (int j = -kernelRadius.height; j <= kernelRadius.height; ++j) {
-                const int yy(y + j);
-                if ((yy < 0) || (yy >= in_.rows)) { continue; }
+        // skip invalid data
+        if (!valid(in_.at<value_type>(y, x))) { continue; }
 
-                for (int i = -kernelRadius.width; i <= kernelRadius.width; ++i) {
-                    const int xx(x + i);
-                    if ((xx < 0) || (xx >= in_.cols)) { continue; }
+        Operator op;
 
-                    auto value(in_.at<value_type>(yy, xx));
-                    if (!valid(value)) { continue; }
-                    op(value);
-                }
-            }
+        for (int i = -kernelRadius; i <= kernelRadius; ++i) {
+            const int xx(x + i);
+            if ((xx < 0) || (xx >= in_.cols)) { continue; }
 
-            // store only valid value
-            if (!op.valid()) { continue; }
-
-            // store
-            tmp_.at<value_type>(y, x) = op.get();
+            auto value(in_.at<value_type>(y, xx));
+            if (!valid(value)) { continue; }
+            op(value);
         }
+
+        // store only valid value
+        if (!op.valid()) { continue; }
+
+        // store
+        tmp_.at<value_type>(y, x) = op.get();
     }
 }
 
@@ -246,21 +271,21 @@ void dtmize(cv::Mat &pane, int count)
     LOG(info3) << "Generating DTM from heightmap ("
                << pane.cols << "x" << pane.rows << " pixels).";
 
-    cv::Mat tmp(pane.rows, pane.cols, pane.type());
+    cv::Mat tmp;
 
-    LOG(info2) << "Eroding heightmap Y (" << count << " radius).";
+    LOG(info2) << "Eroding heightmap Y (radius " << count << "px).";
     Morphology<Erosion<HeightMap::DataType>>
-        (pane, tmp, {0, count}, HeightMap::InvalidHeight);
-    LOG(info2) << "Eroding heightmap X (" << count << " radius).";
+        (pane, tmp, count, true, HeightMap::InvalidHeight);
+    LOG(info2) << "Eroding heightmap X (radius " << count << "px).";
     Morphology<Erosion<HeightMap::DataType>>
-        (pane, tmp, {count, 0}, HeightMap::InvalidHeight);
+        (pane, tmp, count, false, HeightMap::InvalidHeight);
 
-    LOG(info2) << "Dilating heightmap Y (" << count << " radius).";
+    LOG(info2) << "Dilating heightmap Y (radius " << count << "px).";
     Morphology<Dilation<HeightMap::DataType>>
-        (pane, tmp, {0, count}, HeightMap::InvalidHeight);
-    LOG(info2) << "Dilating heightmap X (" << count << " radius).";
+        (pane, tmp, count, true, HeightMap::InvalidHeight);
+    LOG(info2) << "Dilating heightmap X (radius " << count << "px).";
     Morphology<Dilation<HeightMap::DataType>>
-        (pane, tmp, {count, 0}, HeightMap::InvalidHeight);
+        (pane, tmp, count, false, HeightMap::InvalidHeight);
 }
 
 template <typename ...Args>
@@ -833,19 +858,19 @@ void dtmize(geo::GeoDataset &dataset, const math::Size2 &count)
     LOG(info3) << "Generating DTM from heightmap ("
                << pane.cols << "x" << pane.rows << " pixels).";
 
-    cv::Mat tmp(pane.rows, pane.cols, pane.type());
+    cv::Mat tmp;
 
     auto ndv(dataset.rawNodataValue());
 
-    LOG(info2) << "Eroding heightmap Y (" << count.height << " radius).";
-    Morphology<Erosion<double>> (pane, tmp, {0, count.height}, ndv);
-    LOG(info2) << "Eroding heightmap X (" << count.width << " radius).";
-    Morphology<Erosion<double>>(pane, tmp, {count.width, 0}, ndv);
+    LOG(info2) << "Eroding heightmap Y (radius " << count.height << "px).";
+    Morphology<Erosion<double>> (pane, tmp, count.height, true, ndv);
+    LOG(info2) << "Eroding heightmap X (radius" << count.width << "px).";
+    Morphology<Erosion<double>>(pane, tmp, count.width, false, ndv);
 
-    LOG(info2) << "Dilating heightmap Y (" << count.height << " radius).";
-    Morphology<Dilation<double>>(pane, tmp, {0, count.height}, ndv);
-    LOG(info2) << "Dilating heightmap X (" << count.width << " radius).";
-    Morphology<Dilation<double>>(pane, tmp, {count.width, 0}, ndv);
+    LOG(info2) << "Dilating heightmap Y (radius " << count.height << "px).";
+    Morphology<Dilation<double>>(pane, tmp, count.height, true, ndv);
+    LOG(info2) << "Dilating heightmap X (radius " << count.width << " px).";
+    Morphology<Dilation<double>>(pane, tmp, count.width, false, ndv);
 }
 
 } } // vtslibs::vts
