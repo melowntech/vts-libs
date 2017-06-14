@@ -42,9 +42,9 @@ namespace vtslibs { namespace vts {
 
 class NtGenerator : boost::noncopyable {
 public:
-    NtGenerator(const registry::ReferenceFrame *referenceFrame);
     NtGenerator(const registry::ReferenceFrame *referenceFrame
-                , const boost::optional<boost::filesystem::path> &path);
+                , const boost::optional<boost::filesystem::path> &path
+                = boost::none);
 
     void load(const boost::filesystem::path &path);
     void save(const boost::filesystem::path &path);
