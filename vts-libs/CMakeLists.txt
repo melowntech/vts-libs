@@ -10,7 +10,7 @@
 # major dependency is OpenCV
 
 # bump version here
-set(vts-libs_VERSION 2.4)
+set(vts-libs_VERSION 2.5)
 
 # settable path to VTS registry
 set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
