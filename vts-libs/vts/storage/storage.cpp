@@ -628,12 +628,11 @@ MapConfig Storage::mapConfig(const boost::filesystem::path &root
 
 bool Storage::check(const boost::filesystem::path &root)
 {
+    // try config existence
     try {
-        Detail::loadConfig(root);
-    } catch (const vtslibs::storage::Error&) {
-        return false;
-    }
-    return true;
+        return fs::exists(root / ConfigFilename);
+    } catch (const fs::filesystem_error&) {}
+    return false;
 }
 
 bool Storage::externallyChanged() const

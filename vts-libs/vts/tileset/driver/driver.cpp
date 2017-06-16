@@ -453,12 +453,11 @@ void Driver::reencode(const boost::filesystem::path &root
 
 bool Driver::check(const boost::filesystem::path &root)
 {
+    // try config existence
     try {
-        tileset::loadConfig(root / filePath(File::config));
-    } catch (storage::Error) {
-        return false;
-    }
-    return true;
+        return fs::exists(root / filePath(File::config));
+    } catch (const fs::filesystem_error&) {}
+    return false;
 }
 
 IStream::pointer Driver::input_impl(const std::string &name) const
