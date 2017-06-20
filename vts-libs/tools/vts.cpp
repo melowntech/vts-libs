@@ -598,12 +598,12 @@ void VtsStorage::configuration(po::options_description &cmdline
             if (!sum) {
                 throw po::validation_error
                     (po::validation_error::at_least_one_value_required
-                     , "above,below,top,bottom");
+                     , "above/below/top/bottom", "none");
             }
             if (sum > 1) {
                 throw po::validation_error
                     (po::validation_error::multiple_values_not_allowed
-                     , "above,below,top,bottom");
+                     , "above/below/top/bottom", "above/below/top/bottom");
             }
 
             if (above) {
