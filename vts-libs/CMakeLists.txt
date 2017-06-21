@@ -220,7 +220,6 @@ file_to_cpp(vts_BROWSER_SOURCES
 
 # vts nucleus files
 set(vts-nucleus_SOURCES
-  vts.hpp vts/vts.cpp
   vts/basetypes.hpp vts/basetypes.cpp
   vts/options.hpp vts/options.cpp
   vts/glue.hpp
@@ -255,6 +254,8 @@ set(vts-nucleus_SOURCES
 
 # vts core files
 set(vts-core_SOURCES
+  vts.hpp vts/vts.cpp
+
   vts/meshcoverage.cpp
 
   vts/tileset.hpp
@@ -358,22 +359,20 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core)
   define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
     DEPENDS
     vts-libs-nucleus>=${vts-libs_VERSION}
-  
+
     ${vts-registry_python_DEPENDS}
     ${vts-core_EXTRA_DEPENDS}
     )
-  
+
   add_library(vts-libs-core STATIC
     ${vts-registry_python_SOURCES}
-  
-    ${vts-nucleus_SOURCES}
-  
+
     ${vts_BROWSER_SOURCES}
     ${vts-core_SOURCES}
-  
+
     ${vts0_BROWSER_SOURCES}
     ${vts0-core_SOURCES}
-  
+
     ${tilestorage_BROWSER_SOURCES}
     ${tilestorage-core_SOURCES}
     )
