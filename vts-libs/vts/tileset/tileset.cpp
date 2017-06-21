@@ -718,17 +718,18 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
 
 TileSet::Detail::Detail(const Driver::pointer &driver
                         , const TileSet::Properties &properties)
-    : tsi_(referenceFrame.metaBinaryOrder)
+    : referenceFrame(registry::system.referenceFrames
+		     (properties.referenceFrame))
+    , tsi_(referenceFrame.metaBinaryOrder)
     , driverTsi_()
     , readOnly(false), driver(driver)
     , propertiesChanged(false), metadataChanged(false)
-    , referenceFrame(registry::system.referenceFrames
-                     (properties.referenceFrame))
     , metaTiles(MetaCache::create(driver))
     , tsi(tsi_)
     , tileIndex(tsi.tileIndex)
     , lodRange(LodRange::emptyRange())
 {
+
     if (properties.id.empty()) {
         LOGTHROW(err2, storage::FormatError)
             << "Cannot create tile set without valid id.";

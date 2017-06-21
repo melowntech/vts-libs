@@ -103,6 +103,9 @@ struct TileNode {
  */
 struct TileSet::Detail
 {
+public:
+    registry::ReferenceFrame referenceFrame;
+
 private:
     mutable tileset::Index tsi_;
     tileset::Index *driverTsi_;
@@ -116,8 +119,6 @@ public:
     mutable bool propertiesChanged; // marks that properties have been changed
     mutable bool metadataChanged;   // marks that metadata have been changed
     bool changed() const { return metadataChanged || propertiesChanged; }
-
-    registry::ReferenceFrame referenceFrame;
 
     mutable std::unique_ptr<MetaCache> metaTiles;
 

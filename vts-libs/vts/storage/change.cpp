@@ -573,6 +573,7 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
 
     // for each tileset in the input
     {
+        // TODO skip fitst since it coverder in preceeding FOR 
         for (auto iincidentSets(incidentSets.begin())
                  , eincidentSets(incidentSets.end());
              iincidentSets != eincidentSets; ++iincidentSets)

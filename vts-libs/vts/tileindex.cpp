@@ -581,9 +581,11 @@ TileIndex& TileIndex::completeDownFromBottom(Flag::value_type type)
     // traverse trees from bottom and find first nonempty tree
     auto lod(lodRange().max);
     auto ritrees(trees_.rbegin());
-    
+   
     for (auto retrees(trees_.rend()); 
-         ritrees->empty() && ritrees != retrees; ++ritrees, --lod);
+         (ritrees != retrees) && ritrees->empty(); ++ritrees, --lod);
+
+    if (ritrees == trees_.rend()) { return *this; }
 
     auto nonEmptyLod(lod++);
     
