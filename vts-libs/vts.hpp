@@ -134,6 +134,44 @@ TileSet createLocalTileSet(const boost::filesystem::path &path
                            , const boost::filesystem::path &localPath
                            , const CloneOptions &createOptions);
 
+// Asynchronous open support.
+
+/** Base of all async open callbacks.
+ */
+struct OpenCallbackBase {
+    virtual ~OpenCallbackBase() {}
+
+    /** Called when async open fails.
+     */
+    virtual void error(const std::exception_ptr &exc) = 0;
+};
+
+/** Async storage open callback.
+ */
+struct StorageOpenCallback : OpenCallbackBase {
+    typedef std::shared_ptr<StorageOpenCallback> pointer;
+    virtual void done(Storage &storage) = 0;
+    virtual ~StorageOpenCallback() {}
+};
+
+/** Async storage view open callback.
+ */
+struct StorageViewOpenCallback : OpenCallbackBase {
+    typedef std::shared_ptr<StorageViewOpenCallback> pointer;
+    virtual ~StorageViewOpenCallback() {}
+
+    virtual void done(StorageView &storageView) = 0;
+
+    /** Called by async machinery to open storage.
+     */
+    virtual void openStorage(const boost::filesystem::path &path
+                             , const StorageOpenCallback::pointer
+                             &callback) = 0;
+};
+
+void openStorageView(const boost::filesystem::path &path
+                     , const StorageViewOpenCallback::pointer &callback);
+
 } } // namespace vtslibs::vts
 
 #endif // vtslibs_vts_hpp_included_

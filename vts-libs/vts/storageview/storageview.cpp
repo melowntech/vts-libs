@@ -103,10 +103,15 @@ fs::path relpath(const fs::path &src, const fs::path &dst)
 
 namespace vtslibs { namespace vts {
 
-StorageView::StorageView(const boost::filesystem::path &path)
+StorageView::StorageView(const fs::path &path)
     : detail_(std::make_shared<Detail>(path))
 {
 }
+
+StorageView::StorageView(const fs::path &path, const Properties &properties
+                         , Storage &storage)
+    : detail_(std::make_shared<Detail>(path, properties, storage))
+{}
 
 StorageView::~StorageView()
 {
@@ -117,12 +122,21 @@ StorageView::Detail::~Detail()
 {
 }
 
-StorageView::Detail::Detail(const boost::filesystem::path &root)
+StorageView::Detail::Detail(const fs::path &root)
     : configPath(root)
     , properties(storageview::loadConfig(root))
     , configStat(FileStat::stat(configPath))
     , lastModified(configStat.lastModified)
     , storage(properties.storagePath, OpenMode::readOnly)
+{}
+
+StorageView::Detail::Detail(const fs::path &root, const Properties &properties
+                            , Storage &storage)
+    : configPath(root)
+    , properties(properties)
+    , configStat(FileStat::stat(configPath))
+    , lastModified(configStat.lastModified)
+    , storage(storage)
 {}
 
 void StorageView::Detail::loadConfig()
@@ -147,7 +161,7 @@ MapConfig StorageView::mapConfig() const
     return detail().mapConfig();
 }
 
-MapConfig StorageView::mapConfig(const boost::filesystem::path &configPath)
+MapConfig StorageView::mapConfig(const fs::path &configPath)
 
 {
     return Detail::mapConfig(configPath, Detail::loadConfig(configPath));
@@ -159,7 +173,7 @@ MapConfig StorageView::Detail::mapConfig() const
 }
 
 MapConfig
-StorageView::Detail::mapConfig(const boost::filesystem::path &configPath
+StorageView::Detail::mapConfig(const fs::path &configPath
                                , const StorageView::Properties &properties)
 {
     // NB: view behaves like a directory although it is a single file
@@ -174,7 +188,7 @@ Glue::IdSet StorageView::pendingGlues() const
     return detail().storage.pendingGlues(&detail().properties.tilesets);
 }
 
-bool StorageView::check(const boost::filesystem::path &root)
+bool StorageView::check(const fs::path &root)
 {
     return storageview::checkConfig(root);
 }
@@ -210,24 +224,23 @@ const TilesetIdSet& StorageView::tilesets() const
     return detail().properties.tilesets;
 }
 
-boost::filesystem::path StorageView::storagePath() const
+fs::path StorageView::storagePath() const
 {
     return detail().properties.storagePath;
 }
 
-StorageView openStorageView(const boost::filesystem::path &path)
+StorageView openStorageView(const fs::path &path)
 {
     return { path };
 }
 
-TileSet StorageView::clone(const boost::filesystem::path &tilesetPath
-                             , const CloneOptions &createOptions)
+TileSet StorageView::clone(const fs::path &tilesetPath
+                           , const CloneOptions &createOptions)
 {
     return storage().clone(tilesetPath, createOptions, &tilesets());
 }
 
-void StorageView::relocate(const boost::filesystem::path &root
-                           , const RelocateOptions &ro
+void StorageView::relocate(const fs::path &root, const RelocateOptions &ro
                            , const std::string &prefix)
 {
     if (ro.dryRun) {
@@ -250,8 +263,7 @@ void StorageView::relocate(const boost::filesystem::path &root
     Storage::relocate(res.follow, ro, prefix + "    ");
 }
 
-void StorageView::reencode(const boost::filesystem::path &root
-                           , const ReencodeOptions &ro
+void StorageView::reencode(const fs::path &root, const ReencodeOptions &ro
                            , const std::string &prefix)
 {
     if (ro.dryRun) {
@@ -266,4 +278,46 @@ void StorageView::reencode(const boost::filesystem::path &root
     Storage::reencode(config.storagePath, ro, prefix + "    ");
 }
 
+void openStorageView(const fs::path &path
+                     , const StorageViewOpenCallback::pointer &callback)
+{
+    struct StorageCallback : StorageOpenCallback {
+        StorageCallback(const fs::path &path
+                        , const StorageView::Properties &properties
+                        , const StorageViewOpenCallback::pointer &callback)
+            : path(path), properties(properties), callback(callback)
+        {}
+
+        virtual void done(Storage &storage) {
+            // storage open, create storage view and notify interested party
+            try {
+                StorageView storageView(path, properties, storage);
+                callback->done(storageView);
+            } catch (...) {
+                callback->error(std::current_exception());
+            }
+        }
+
+        virtual void error(const std::exception_ptr &exc) {
+            callback->error(exc);
+        }
+
+        const fs::path path;
+        const StorageView::Properties properties;
+        const StorageViewOpenCallback::pointer callback;
+    };
+
+    try {
+        // try to load properties
+        const auto properties(StorageView::Detail::loadConfig(path));
+
+        callback->openStorage(properties.storagePath
+                              , std::make_shared<StorageCallback>
+                              (path, properties, callback));
+    } catch (...) {
+        callback->error(std::current_exception());
+    }
+}
+
 } } // namespace vtslibs::vts
+

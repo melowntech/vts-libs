@@ -68,6 +68,9 @@ struct StorageView::Detail
 
     Detail(const boost::filesystem::path &root);
 
+    Detail(const boost::filesystem::path &root
+           , const Properties &properties, Storage &storage);
+
     ~Detail();
 
     void loadConfig();

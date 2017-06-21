@@ -73,9 +73,18 @@ struct StorageViewProperties  {
  */
 class StorageView {
 public:
+    /** Internal properties. Defined in detail.
+     */
+    struct Properties;
+
     /** Opens storage view.
      */
     StorageView(const boost::filesystem::path &path);
+
+    /** Opens storage view. Support for async open.
+     */
+    StorageView(const boost::filesystem::path &path
+                , const Properties &properties, Storage &storage);
 
     ~StorageView();
 
@@ -132,9 +141,6 @@ private:
     std::shared_ptr<Detail> detail_;
     Detail& detail() { return *detail_; }
     const Detail& detail() const { return *detail_; }
-
-public:
-    struct Properties;
 };
 
 
