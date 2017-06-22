@@ -497,4 +497,65 @@ MapConfigOverride::MapConfigOverride(const boost::any &options)
 
 } // namespace driver
 
+void Driver::open(const boost::filesystem::path &root
+                  , const boost::any &genericOptions
+                  , const OpenOptions &openOptions
+                  , const DriverOpenCallback::pointer &callback)
+{
+    // distribute
+    if (auto o = boost::any_cast<const driver::PlainOptions>
+        (&genericOptions))
+    {
+        callback->done
+            (std::make_shared<driver::PlainDriver>
+             (root, openOptions, *o));
+        return;
+
+    } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
+               (&genericOptions))
+    {
+        driver::AggregatedDriver::open(root, openOptions, *o, callback);
+        return;
+
+    } else if (auto o = boost::any_cast<const driver::RemoteOptions>
+               (&genericOptions))
+    {
+        callback->done
+            (std::make_shared<driver::RemoteDriver>
+             (root, openOptions, *o));
+        return;
+
+    } else if (auto o = boost::any_cast<const driver::LocalOptions>
+               (&genericOptions))
+    {
+        callback->done
+            ( std::make_shared<driver::LocalDriver>
+              (root, openOptions, *o));
+        return;
+    }
+
+    // invalid type
+    LOGTHROW(err2, storage::BadFileFormat)
+        << "Cannot open tileset at " << root
+        << ": Invalid type of driver options: <"
+        << genericOptions.type().name() << ">.";
+}
+
+// async open declared in vts.hpp
+
+void openTilesetDriver(const boost::filesystem::path &root
+                       , const OpenOptions &openOptions
+                       , const DriverOpenCallback::pointer &callback)
+{
+    try {
+        // open driver options
+        const auto options
+            (tileset::loadConfig(root / filePath(File::config)).driverOptions);
+        Driver::open(root, options, openOptions, callback);
+    } catch (...) {
+        // report error
+        callback->error(std::current_exception());
+    }
+}
+
 } } // namespace vtslibs::vts

@@ -56,6 +56,8 @@ public:
     static pointer open(const boost::filesystem::path &root
                         , const OpenOptions &openOptions = OpenOptions());
 
+    static pointer open(std::shared_ptr<Driver> driver);
+
     IStream::pointer input(File type) const;
 
     IStream::pointer input(File type, const NullWhenNotFound_t&) const;
@@ -88,6 +90,10 @@ public:
 
     MeshTilesConfig meshTilesConfig(bool includeExtra = true) const;
 
+    /** Access underlying driver. Use wisely.
+     */
+    std::shared_ptr<Driver> driver() const { return driver_; }
+
 private:
     struct AccessToken {};
 
@@ -100,6 +106,8 @@ public:
      */
     Delivery(AccessToken, const boost::filesystem::path &root
              , const OpenOptions &openOptions = OpenOptions());
+
+    Delivery(AccessToken, std::shared_ptr<Driver> driver);
 };
 
 } } // namespace vtslibs::vts

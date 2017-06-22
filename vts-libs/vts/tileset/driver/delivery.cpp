@@ -286,11 +286,23 @@ Delivery::Delivery(AccessToken, const boost::filesystem::path &root
     , index_(indexFromDriver(properties_, driver_))
 {}
 
+Delivery::Delivery(AccessToken, std::shared_ptr<Driver> driver)
+    : driver_(std::move(driver))
+    , properties_(tileset::loadConfig(*driver_))
+    , index_(indexFromDriver(properties_, driver_))
+{}
+
 Delivery::pointer
 Delivery::open(const boost::filesystem::path &root
                , const OpenOptions &openOptions)
 {
     return std::make_shared<Delivery>(AccessToken{}, root, openOptions);
+}
+
+Delivery::pointer
+Delivery::open(std::shared_ptr<Driver> driver)
+{
+    return std::make_shared<Delivery>(AccessToken{}, std::move(driver));
 }
 
 IStream::pointer Delivery::input(File type) const

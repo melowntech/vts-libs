@@ -23,6 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 /** Aggregated driver: on the fly surface aggregator
  *
  * TODO: compose registry from all sub tilesets
@@ -33,6 +34,7 @@
 #include <type_traits>
 #include <algorithm>
 #include <fstream>
+#include <mutex>
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
@@ -232,6 +234,56 @@ openDrivers(Storage &storage, const OpenOptions &openOptions
     }
 
     return drivers;
+}
+
+struct PreparedDrivers {
+    AggregatedDriver::DriverEntry::list drivers;
+    std::vector<fs::path> paths;
+};
+
+/** Builds the same structure as openDrivers but no driver is physically
+ * created.
+ */
+PreparedDrivers
+prepareDrivers(Storage &storage, const AggregatedOptions &options)
+{
+    // get list of tilesets (in proper order)
+    const auto tilesets(storage.tilesets(options.tilesets));
+
+    const auto tsMap(deserializeTsMap(options.tsMap));
+
+    PreparedDrivers preparedDrivers;
+    auto &drivers(preparedDrivers.drivers);
+    auto &paths(preparedDrivers.paths);
+
+    drivers.reserve(tsMap.size());
+
+    for (const auto &references : tsMap) {
+        // construct glue id
+        // TODO: check for proper index
+        Glue::Id glueId;
+        for (auto reference : references) {
+            if (reference >= tilesets.size()) {
+                LOGTHROW(err1, vs::Corrupted)
+                    << "Invalid tileset reference <" << reference << ">.";
+            }
+            glueId.push_back(tilesets[reference]);
+        }
+
+        if (glueId.size() == 1) {
+            // tileset
+            LOG(info1) << "preparing <" << glueId.front() << ">";
+            drivers.emplace_back(references);
+            paths.push_back(storage.path(glueId.front()));
+        } else {
+            // glue
+            LOG(info1) << "preparing <" << utility::join(glueId, ",") << ">";
+            drivers.emplace_back(references);
+            paths.push_back(storage.path(glueId));
+        }
+    }
+
+    return preparedDrivers;
 }
 
 IStream::pointer
@@ -1133,6 +1185,144 @@ void AggregatedDriver::copyMetatiles(AggregatedOptions &options
     // flush and make readonly
     cache_->flush();
     cache_->makeReadOnly();
+}
+
+// Asynchronous interface
+
+AggregatedDriver::AggregatedDriver(PrivateTag
+                                   , const boost::filesystem::path &root
+                                   , const OpenOptions &openOptions
+                                   , const AggregatedOptions &options
+                                   , const Dependencies &dependencies)
+    : Driver(root, openOptions, options)
+    , storage_(*dependencies.storage)
+    , referenceFrame_(storage_.referenceFrame())
+    , drivers_(dependencies.drivers)
+    , tsi_(referenceFrame_.metaBinaryOrder, drivers_, &options)
+    , surfaceReferences_(this->options().surfaceReferences)
+    , cache_(createCache(root, options.metaOptions))
+{
+    // we flatten the content
+    capabilities().flattener = true;
+
+    tileset::loadTileSetIndex(tsi_, *this);
+}
+
+void AggregatedDriver::open(const boost::filesystem::path &root
+                            , const OpenOptions &openOptions
+                            , const AggregatedOptions &options
+                            , const DriverOpenCallback::pointer &callback)
+{
+    struct DoCallback
+        : std::enable_shared_from_this<DoCallback>
+        , StorageOpenCallback
+    {
+        typedef std::shared_ptr<DoCallback> pointer;
+
+        DoCallback(const boost::filesystem::path &root
+                   , const OpenOptions &openOptions
+                   , const AggregatedOptions &options
+                   , const DriverOpenCallback::pointer &callback)
+            : root(root), openOptions(openOptions)
+            , options(options), callback(callback)
+            , expectDrivers()
+        {}
+
+        struct DriverOpener : DriverOpenCallback {
+            DriverOpener(DoCallback::pointer owner
+                         , AggregatedDriver::DriverEntry &de)
+                : owner(owner), de(de)
+            {}
+
+            virtual void done(Driver::pointer driver) {
+                de.driver = std::move(driver);
+
+                owner->newDriver();
+            }
+
+            virtual void error(const std::exception_ptr &exc) {
+                owner->error(exc);
+            }
+
+            virtual void openStorage(const boost::filesystem::path &path
+                                     , const StorageOpenCallback::pointer
+                                     &callback)
+            {
+                return owner->callback->openStorage(path, callback);
+            }
+
+            virtual void openDriver(const boost::filesystem::path &path
+                                    , const DriverOpenCallback::pointer
+                                    &callback)
+            {
+                return owner->callback->openDriver(path, callback);
+            }
+
+            DoCallback::pointer owner;
+            AggregatedDriver::DriverEntry &de;
+        };
+
+        virtual void done(Storage storage) {
+            std::unique_lock<std::mutex> guard(mutex);
+            dependencies.storage = storage;
+
+            // we can move to the next phase: open all drivers to handle this
+            // aggregated tileset
+
+            // obtain driver info, mark number of drivers to fetch
+            auto pd(prepareDrivers(*dependencies.storage, options));
+            dependencies.drivers = pd.drivers;
+            expectDrivers = pd.drivers.size();
+
+            // rest of this function is unlocked
+            guard.unlock();
+
+            // schedule driver open
+            auto self(shared_from_this());
+
+            auto idrivers(dependencies.drivers.begin());
+            for (const auto &path : pd.paths) {
+                // let the async machinery open the driver for us
+                openTilesetDriver
+                    (path, openOptions
+                     , std::make_shared<DriverOpener>(self, *idrivers));
+                ++idrivers;
+            }
+        }
+
+        virtual void error(const std::exception_ptr &exc) {
+            callback->error(exc);
+        }
+
+        void newDriver() {
+            // new driver fetched
+            {
+                std::unique_lock<std::mutex> guard(mutex);
+                if (--expectDrivers) { return; }
+            }
+
+            // last driver has been opened, we can finally construct this driver
+            callback->done(std::make_shared<AggregatedDriver>
+                           (AggregatedDriver::PrivateTag()
+                            , root, openOptions, options, dependencies));
+        }
+
+        const boost::filesystem::path root;
+        const OpenOptions openOptions;
+        const AggregatedOptions options;
+        const DriverOpenCallback::pointer callback;
+
+        std::mutex mutex;
+        AggregatedDriver::Dependencies dependencies;
+        std::size_t expectDrivers;
+    };
+
+    auto doCallback(std::make_shared<DoCallback>
+                    (root, openOptions, options, callback));
+
+    // first, open storage
+    callback->openStorage(options.buildStoragePath(root)
+                          , doCallback);
 }
 
 } } } // namespace vtslibs::vts::driver

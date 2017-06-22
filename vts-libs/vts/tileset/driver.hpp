@@ -37,6 +37,7 @@
 #include "../../storage/streams.hpp"
 #include "../../storage/resources.hpp"
 
+#include "../../vts.hpp"
 #include "../options.hpp"
 #include "./driver/options.hpp"
 #include "./tilesetindex.hpp"
@@ -66,6 +67,7 @@ public:
     };
 
     typedef std::shared_ptr<Driver> pointer;
+    typedef std::vector<pointer> list;
 
     virtual ~Driver();
 
@@ -100,6 +102,15 @@ public:
     static pointer open(const boost::filesystem::path &root
                         , const BareConfigTag&
                         , const OpenOptions &openOptions = OpenOptions());
+
+    /** Async driver open. Uses provided callback to report success/error and to
+     *  obtain dependencies (e.g. storage and other drivers for aggregated
+     *  driver)
+     */
+    static void open(const boost::filesystem::path &root
+                     , const boost::any &genericOptions
+                     , const OpenOptions &openOptions
+                     , const DriverOpenCallback::pointer &callback);
 
     /** Check for valid configuration.
      */

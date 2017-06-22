@@ -84,7 +84,7 @@ public:
     /** Opens storage view. Support for async open.
      */
     StorageView(const boost::filesystem::path &path
-                , const Properties &properties, Storage &storage);
+                , const Properties &properties, Storage storage);
 
     ~StorageView();
 

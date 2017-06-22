@@ -109,8 +109,8 @@ StorageView::StorageView(const fs::path &path)
 }
 
 StorageView::StorageView(const fs::path &path, const Properties &properties
-                         , Storage &storage)
-    : detail_(std::make_shared<Detail>(path, properties, storage))
+                         , Storage storage)
+    : detail_(std::make_shared<Detail>(path, properties, std::move(storage)))
 {}
 
 StorageView::~StorageView()
@@ -131,12 +131,12 @@ StorageView::Detail::Detail(const fs::path &root)
 {}
 
 StorageView::Detail::Detail(const fs::path &root, const Properties &properties
-                            , Storage &storage)
+                            , Storage storage)
     : configPath(root)
     , properties(properties)
     , configStat(FileStat::stat(configPath))
     , lastModified(configStat.lastModified)
-    , storage(storage)
+    , storage(std::move(storage))
 {}
 
 void StorageView::Detail::loadConfig()
@@ -288,11 +288,11 @@ void openStorageView(const fs::path &path
             : path(path), properties(properties), callback(callback)
         {}
 
-        virtual void done(Storage &storage) {
+        virtual void done(Storage storage) {
             // storage open, create storage view and notify interested party
             try {
-                StorageView storageView(path, properties, storage);
-                callback->done(storageView);
+                callback->done
+                    (StorageView(path, properties, std::move(storage)));
             } catch (...) {
                 callback->error(std::current_exception());
             }

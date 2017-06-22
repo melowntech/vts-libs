@@ -150,7 +150,7 @@ struct OpenCallbackBase {
  */
 struct StorageOpenCallback : OpenCallbackBase {
     typedef std::shared_ptr<StorageOpenCallback> pointer;
-    virtual void done(Storage &storage) = 0;
+    virtual void done(Storage storage) = 0;
     virtual ~StorageOpenCallback() {}
 };
 
@@ -160,7 +160,7 @@ struct StorageViewOpenCallback : OpenCallbackBase {
     typedef std::shared_ptr<StorageViewOpenCallback> pointer;
     virtual ~StorageViewOpenCallback() {}
 
-    virtual void done(StorageView &storageView) = 0;
+    virtual void done(StorageView storageView) = 0;
 
     /** Called by async machinery to open storage.
      */
@@ -169,8 +169,33 @@ struct StorageViewOpenCallback : OpenCallbackBase {
                              &callback) = 0;
 };
 
+/** Async tileset driver open callback.
+ */
+struct DriverOpenCallback : OpenCallbackBase {
+    typedef std::shared_ptr<DriverOpenCallback> pointer;
+    virtual ~DriverOpenCallback() {}
+
+    virtual void done(std::shared_ptr<Driver> driver) = 0;
+
+    /** Called by async machinery to open storage.
+     */
+    virtual void openStorage(const boost::filesystem::path &path
+                             , const StorageOpenCallback::pointer
+                             &callback) = 0;
+
+    /** Called by async machinery to open another tileset driver.
+     */
+    virtual void openDriver(const boost::filesystem::path &path
+                            , const DriverOpenCallback::pointer
+                            &callback) = 0;
+};
+
 void openStorageView(const boost::filesystem::path &path
                      , const StorageViewOpenCallback::pointer &callback);
+
+void openTilesetDriver(const boost::filesystem::path &path
+                       , const OpenOptions &openOptions
+                       , const DriverOpenCallback::pointer &callback);
 
 } } // namespace vtslibs::vts
 

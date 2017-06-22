@@ -92,6 +92,10 @@ public:
                     , const TilesetReferences &tilesets)
             : driver(driver), tilesets(tilesets)
         {}
+
+        DriverEntry(const TilesetReferences &tilesets)
+            : tilesets(tilesets)
+        {}
     };
 
     class Index : public tileset::Index {
@@ -125,6 +129,13 @@ public:
                          , const ReencodeOptions &options
                          , const std::string &prefix = "");
 
+    /** Async open.
+     */
+    static void open(const boost::filesystem::path &root
+                     , const OpenOptions &openOptions
+                     , const AggregatedOptions &options
+                     , const DriverOpenCallback::pointer &callback);
+
 private:
     struct PrivateTag {};
 
@@ -135,6 +146,20 @@ public:
                      , AggregatedOptions options
                      , const CloneOptions &cloneOptions
                      , const AggregatedDriver &src);
+
+    /** Opened dependencies used in final async open ctor.
+     */
+    struct Dependencies {
+        DriverEntry::list drivers;
+        boost::optional<Storage> storage;
+    };
+
+    /** Final async open ctor.
+     */
+    AggregatedDriver(PrivateTag, const boost::filesystem::path &root
+                     , const OpenOptions &openOptions
+                     , const AggregatedOptions &options
+                     , const Dependencies &dependencies);
 
 private:
 
