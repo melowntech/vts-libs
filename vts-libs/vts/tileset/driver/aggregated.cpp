@@ -1222,9 +1222,9 @@ void AggregatedDriver::open(const boost::filesystem::path &root
         DoCallback(const boost::filesystem::path &root
                    , const OpenOptions &openOptions
                    , const AggregatedOptions &options
-                   , const DriverOpenCallback::pointer &callback)
+                   , DriverOpenCallback::pointer callback)
             : root(root), openOptions(openOptions)
-            , options(options), callback(callback)
+            , options(options), callback(std::move(callback))
             , expectDrivers()
         {}
 
@@ -1252,10 +1252,12 @@ void AggregatedDriver::open(const boost::filesystem::path &root
             }
 
             virtual void openDriver(const boost::filesystem::path &path
+                                    , const OpenOptions &openOptions
                                     , const DriverOpenCallback::pointer
                                     &callback)
             {
-                return owner->callback->openDriver(path, callback);
+                return owner->callback->openDriver
+                    (path, openOptions, callback);
             }
 
             DoCallback::pointer owner;
@@ -1283,7 +1285,7 @@ void AggregatedDriver::open(const boost::filesystem::path &root
             auto idrivers(dependencies.drivers.begin());
             for (const auto &path : pd.paths) {
                 // let the async machinery open the driver for us
-                openTilesetDriver
+                callback->openDriver
                     (path, openOptions
                      , std::make_shared<DriverOpener>(self, *idrivers));
                 ++idrivers;
@@ -1317,12 +1319,10 @@ void AggregatedDriver::open(const boost::filesystem::path &root
         std::size_t expectDrivers;
     };
 
-    auto doCallback(std::make_shared<DoCallback>
-                    (root, openOptions, options, callback));
-
-    // first, open storage
-    callback->openStorage(options.buildStoragePath(root)
-                          , doCallback);
+    // fire up the open machinery by opening storage first
+    callback->openStorage
+        (options.buildStoragePath(root)
+         , std::make_shared<DoCallback>(root, openOptions, options, callback));
 }
 
 } } } // namespace vtslibs::vts::driver

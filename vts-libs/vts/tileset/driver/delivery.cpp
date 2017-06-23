@@ -186,7 +186,6 @@ bool creditsFromMetatiles(const Driver &driver
             TileId metaId(creditsId.lod, creditsId.x + i * skip, row);
             if (!index.meta(metaId)) { continue; }
 
-            LOG(info4) << "existing metaId: " << metaId;
             auto is(noSuchFile
                     ? driver.input(metaId, TileFile::meta)
                     : driver.input(metaId, TileFile::meta, NullWhenNotFound));

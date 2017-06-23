@@ -269,4 +269,66 @@ bool LocalDriver::reencode(const boost::filesystem::path &root
     return !options.dryRun && !options.cleanup;
 }
 
+LocalDriver::LocalDriver(PrivateTag, const boost::filesystem::path &root
+                         , const OpenOptions &openOptions
+                         , const LocalOptions &options
+                         , Driver::pointer owned)
+    : Driver(root, openOptions, options)
+    , driver_(std::move(owned))
+{}
+
+void LocalDriver::open(const boost::filesystem::path &root
+                       , const OpenOptions &openOptions
+                       , const LocalOptions &options
+                       , const DriverOpenCallback::pointer &callback)
+{
+    struct DriverOpener : DriverOpenCallback {
+        DriverOpener(const boost::filesystem::path &root
+                     , const OpenOptions &openOptions
+                     , const LocalOptions &options
+                     , const DriverOpenCallback::pointer &callback)
+            : root(root), openOptions(openOptions), options(options)
+            , callback(callback)
+        {}
+
+        virtual void done(Driver::pointer driver) {
+            callback->done(std::make_shared<LocalDriver>
+                           (LocalDriver::PrivateTag(), root, openOptions
+                            , options, std::move(driver)));
+        }
+
+        virtual void error(const std::exception_ptr &exc) {
+            // forward
+            callback->error(exc);
+        }
+
+        virtual void openStorage(const boost::filesystem::path &path
+                                 , const StorageOpenCallback::pointer
+                                 &callback)
+        {
+            // forward
+            return this->callback->openStorage(path, callback);
+        }
+
+        virtual void openDriver(const boost::filesystem::path &path
+                                , const OpenOptions &openOptions
+                                , const DriverOpenCallback::pointer
+                                &callback)
+        {
+            // forward
+            return this->callback->openDriver(path, openOptions, callback);
+        }
+
+        const boost::filesystem::path root;
+        const OpenOptions openOptions;
+        const LocalOptions options;
+        const DriverOpenCallback::pointer callback;
+    };
+
+    callback->openDriver
+        (options.path, openOptions
+         , std::make_shared<DriverOpener>
+         (root, openOptions, options, callback));
+}
+
 } } } // namespace vtslibs::vts::driver

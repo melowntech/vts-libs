@@ -44,6 +44,9 @@ struct AggregatedDriverBase {
 };
 
 class AggregatedDriver : private AggregatedDriverBase, public Driver {
+private:
+    struct PrivateTag {};
+
 public:
     typedef std::shared_ptr<AggregatedDriver> pointer;
 
@@ -136,10 +139,6 @@ public:
                      , const AggregatedOptions &options
                      , const DriverOpenCallback::pointer &callback);
 
-private:
-    struct PrivateTag {};
-
-public:
     /** Cloner
      */
     AggregatedDriver(PrivateTag, const boost::filesystem::path &root

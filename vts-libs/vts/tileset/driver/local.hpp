@@ -42,6 +42,9 @@ struct LocalDriverBase {
 };
 
 class LocalDriver : private LocalDriverBase, public Driver {
+private:
+    struct PrivateTag {};
+
 public:
     typedef std::shared_ptr<LocalDriver> pointer;
 
@@ -67,6 +70,19 @@ public:
                          , const ReencodeOptions &options
                          , const std::string &prefix = "");
 
+    /** Async open.
+     */
+    static void open(const boost::filesystem::path &root
+                     , const OpenOptions &openOptions
+                     , const LocalOptions &options
+                     , const DriverOpenCallback::pointer &callback);
+
+    /** Final async open ctor.
+     */
+    LocalDriver(PrivateTag, const boost::filesystem::path &root
+                , const OpenOptions &openOptions
+                , const LocalOptions &options
+                , Driver::pointer owned);
 private:
     virtual OStream::pointer output_impl(const File type);
 

@@ -186,6 +186,7 @@ struct DriverOpenCallback : OpenCallbackBase {
     /** Called by async machinery to open another tileset driver.
      */
     virtual void openDriver(const boost::filesystem::path &path
+                            , const OpenOptions &openOptions
                             , const DriverOpenCallback::pointer
                             &callback) = 0;
 };

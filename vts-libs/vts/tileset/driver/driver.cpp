@@ -514,8 +514,7 @@ void Driver::open(const boost::filesystem::path &root
     } else if (auto o = boost::any_cast<const driver::AggregatedOptions>
                (&genericOptions))
     {
-        driver::AggregatedDriver::open(root, openOptions, *o, callback);
-        return;
+        return driver::AggregatedDriver::open(root, openOptions, *o, callback);
 
     } else if (auto o = boost::any_cast<const driver::RemoteOptions>
                (&genericOptions))
@@ -528,10 +527,7 @@ void Driver::open(const boost::filesystem::path &root
     } else if (auto o = boost::any_cast<const driver::LocalOptions>
                (&genericOptions))
     {
-        callback->done
-            ( std::make_shared<driver::LocalDriver>
-              (root, openOptions, *o));
-        return;
+        return driver::LocalDriver::open(root, openOptions, *o, callback);
     }
 
     // invalid type
