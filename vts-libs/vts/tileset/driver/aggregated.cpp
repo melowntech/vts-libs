@@ -1265,23 +1265,27 @@ void AggregatedDriver::open(const boost::filesystem::path &root
         };
 
         virtual void done(Storage storage) {
-            std::unique_lock<std::mutex> guard(mutex);
-            dependencies.storage = storage;
+            // fetch driver info
+            const auto pd(prepareDrivers(*dependencies.storage, options));
 
-            // we can move to the next phase: open all drivers to handle this
-            // aggregated tileset
+            {
+                // store info (under lock)
+                std::unique_lock<std::mutex> guard(mutex);
+                dependencies.storage = std::move(storage);
+                dependencies.drivers = pd.drivers;
+                expectDrivers = pd.drivers.size();
+            }
 
-            // obtain driver info, mark number of drivers to fetch
-            auto pd(prepareDrivers(*dependencies.storage, options));
-            dependencies.drivers = pd.drivers;
-            expectDrivers = pd.drivers.size();
+            if (pd.drivers.empty()) {
+                // no driver to open, we are finished here
+                return done();
+            }
 
-            // rest of this function is unlocked
-            guard.unlock();
+            // we can move to the next phase: open all drivers to handle
+            // this aggregated tileset
 
             // schedule driver open
             auto self(shared_from_this());
-
             auto idrivers(dependencies.drivers.begin());
             for (const auto &path : pd.paths) {
                 // let the async machinery open the driver for us
@@ -1303,6 +1307,10 @@ void AggregatedDriver::open(const boost::filesystem::path &root
                 if (--expectDrivers) { return; }
             }
 
+            done();
+        }
+
+        void done() {
             // last driver has been opened, we can finally construct this driver
             callback->done(std::make_shared<AggregatedDriver>
                            (AggregatedDriver::PrivateTag()
