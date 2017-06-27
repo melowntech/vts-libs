@@ -92,63 +92,6 @@ void unite(registry::IdSet &out, const registry::IdSet &in)
     out.insert(in.begin(), in.end());
 }
 
-const char TM_MAGIC[2] = { 'T', 'M' };
-
-inline std::string
-serializeTsMap(const AggregatedDriver::TilesetReferencesList &tsMap)
-{
-    using utility::binaryio::write;
-    std::ostringstream os;
-    os.exceptions(std::ostream::failbit | std::ostream::badbit);
-
-    write(os, TM_MAGIC, sizeof(TM_MAGIC));
-
-    // write number of datasets
-    write(os, std::uint16_t(tsMap.size()));
-
-    // write all references
-    for (const auto &references : tsMap) {
-        write(os, std::uint8_t(references.size()));
-        for (auto reference : references) {
-            write(os, reference);
-        }
-    }
-
-    return os.str();
-}
-
-inline AggregatedDriver::TilesetReferencesList
-deserializeTsMap(const std::string &raw)
-{
-    using utility::binaryio::read;
-    std::istringstream is(raw);
-    is.exceptions(std::istream::failbit | std::istream::badbit);
-
-    char magic[sizeof(TM_MAGIC)];
-    read(is, magic);
-    if (std::memcmp(magic, TM_MAGIC, sizeof(TM_MAGIC))) {
-        LOGTHROW(err1, storage::BadFileFormat)
-            << "Invalid tile mapping magic.";
-    }
-
-    std::uint16_t mapCount;
-    read(is, mapCount);
-
-    AggregatedDriver::TilesetReferencesList tsMap;
-    tsMap.resize(mapCount);
-
-    for (auto &references : tsMap) {
-        std::uint8_t rCount;
-        read(is, rCount);
-        references.resize(rCount);
-
-        for (auto &reference : references) {
-            read(is, reference);
-        }
-    }
-
-    return tsMap;
-}
 
 typedef TileIndex::Flag TiFlag;
 typedef TiFlag::value_type value_type;

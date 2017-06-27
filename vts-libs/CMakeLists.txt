@@ -250,6 +250,7 @@ set(vts-nucleus_SOURCES
   vts/debug.hpp vts/debug.cpp
   vts/geomextents.hpp vts/geomextents.cpp
   vts/virtualsurface.cpp
+  vts/tsmap.hpp vts/tsmap.cpp
   )
 
 # vts core files

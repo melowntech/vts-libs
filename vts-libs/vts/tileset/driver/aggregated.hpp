@@ -32,6 +32,7 @@
 
 #include "../driver.hpp"
 #include "../../storage.hpp"
+#include "../../tsmap.hpp"
 #include "./cache.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
