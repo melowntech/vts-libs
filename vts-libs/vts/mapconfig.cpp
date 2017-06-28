@@ -162,9 +162,12 @@ Json::Value asJson(const VirtualSurfaceConfig &vs)
                                       , vs.revision)).string();
     }
 
-    s["mapping"] = (vs.root / VirtualSurface::TilesetMappingPath).string();
+    if (!vs.mapping.empty()) {
+        s["mapping"] = vs.mapping;
+    } else {
+        s["mapping"] = (vs.root / VirtualSurface::TilesetMappingPath).string();
+    }
 
-    // TODO: implement me
     return s;
 }
 
@@ -248,6 +251,20 @@ void fromJson(GlueConfig &glue, const Json::Value &value)
     fromJson(static_cast<SurfaceCommonConfig&>(glue), value);
 }
 
+void fromJson(VirtualSurfaceConfig &vs, const Json::Value &value)
+{
+    fromJson(vs.id, value["id"]);
+
+    Json::get(vs.lodRange.min, value, "lodRange", 0);
+    Json::get(vs.lodRange.max, value, "lodRange", 1);
+
+    vs.tileRange = registry::tileRangeFromJson(value["tileRange"]);
+
+    vs.urls3d = boost::in_place();
+    Json::get(vs.urls3d->meta, value, "metaUrl");
+    Json::get(vs.mapping, value, "mapping");
+}
+
 void fromJson(SurfaceConfig::list &surfaces
               , const Json::Value &value)
 {
@@ -257,12 +274,21 @@ void fromJson(SurfaceConfig::list &surfaces
     }
 }
 
-void fromJson(GlueConfig::list &surfaces
+void fromJson(GlueConfig::list &glues
               , const Json::Value &value)
 {
-    for (const auto &surface : value) {
-        surfaces.emplace_back();
-        fromJson(surfaces.back(), surface);
+    for (const auto &glue : value) {
+        glues.emplace_back();
+        fromJson(glues.back(), glue);
+    }
+}
+
+void fromJson(VirtualSurfaceConfig::list &vss
+              , const Json::Value &value)
+{
+    for (const auto &vs : value) {
+        vss.emplace_back();
+        fromJson(vss.back(), vs);
     }
 }
 
@@ -447,6 +473,11 @@ void parse1(MapConfig &mapConfig, const Json::Value &config)
 
     fromJson(mapConfig.surfaces, config["surfaces"]);
     fromJson(mapConfig.glues, config["glue"]);
+
+    if (config.isMember("virtualSurfaces")) {
+        // virtual surfaces are optional
+        fromJson(mapConfig.virtualSurfaces, config["virtualSurfaces"]);
+    }
 
     fromJson(mapConfig.view, config["view"]);
     fromJson(mapConfig.namedViews, config["namedViews"]);
