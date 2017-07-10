@@ -30,6 +30,8 @@
 #include <boost/format.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/preprocessor/seq.hpp>
+#include <boost/preprocessor/stringize.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -74,50 +76,53 @@ namespace vr = vtslibs::registry;
 namespace vs = vtslibs::storage;
 namespace ba = boost::algorithm;
 
-UTILITY_GENERATE_ENUM(Command,
-                      ((info))
-                      ((create))
-                      ((add))
-                      ((remove))
-                      ((generateGlues)("glue-generate-pending"))
-                      ((generateGlue)("glue-generate"))
-                      ((listPendingGlues)("list-pending-glues"))
+#define VTS_COMMAND_LIST                                            \
+    ((info))                                                        \
+    ((create))                                                      \
+    ((add))                                                         \
+    ((remove))                                                      \
+    ((generateGlues)("glue-generate-pending"))                      \
+    ((generateGlue)("glue-generate"))                               \
+    ((listPendingGlues)("list-pending-glues"))                      \
+                                                                    \
+    ((dumpMetatile)("dump-metatile"))                               \
+    ((metatileVersion)("metatile-version"))                         \
+    ((mapConfig)("map-config"))                                     \
+    ((dirs)("dirs"))                                                \
+    ((dumpTileIndex)("dump-tileindex"))                             \
+    ((tileInfo)("tile-info"))                                       \
+    ((dumpMesh)("dump-mesh"))                                       \
+    ((dumpMeshMask)("dump-mesh-mask"))                              \
+    ((tileIndexInfo)("tileindex-info"))                             \
+    ((tileIndexRanges)("tileindex-ranges"))                         \
+    ((convertTileIndex)("convert-tileindex"))                       \
+    ((concat)("concat"))                                            \
+    ((aggregate)("aggregate"))                                      \
+    ((remote)("remote"))                                            \
+    ((local)("local"))                                              \
+    ((clone)("clone"))                                              \
+    ((relocate)("relocate"))                                        \
+    ((reencode)("reencode"))                                        \
+    ((reencodeCleanup)("reencode-cleanup"))                         \
+    ((tilePick)("tile-pick"))                                       \
+    ((file)("file"))                                                \
+    ((tags)("tags"))                                                \
+    ((glueRulesSyntax)("glue-rules-syntax"))                        \
+    ((mergeConfSyntax)("merge-conf-syntax"))                        \
+    ((dumpNavtile)("dump-navtile"))                                 \
+    ((dumpNavtileMask)("dump-navtile-mask"))                        \
+    ((navtile2dem))                                                 \
+    ((queryNavtile)("query-navtile"))                               \
+    ((showLockerApi)("show-locker-api"))                            \
+    ((deriveMetaIndex)("derive-metaindex"))                         \
+    ((virtualSurfaceCreate)("vs-create"))                           \
+    ((virtualSurfaceRemove)("vs-remove"))                           \
+                                                                    \
+    ((locker2Stresser)("locker2-stresser"))                         \
+                                                                    \
+    ((listReferenceFrames)("list-reference-frames"))
 
-                      ((dumpMetatile)("dump-metatile"))
-                      ((metatileVersion)("metatile-version"))
-                      ((mapConfig)("map-config"))
-                      ((dirs)("dirs"))
-                      ((dumpTileIndex)("dump-tileindex"))
-                      ((tileInfo)("tile-info"))
-                      ((dumpMesh)("dump-mesh"))
-                      ((dumpMeshMask)("dump-mesh-mask"))
-                      ((tileIndexInfo)("tileindex-info"))
-                      ((tileIndexRanges)("tileindex-ranges"))
-                      ((convertTileIndex)("convert-tileindex"))
-                      ((concat)("concat"))
-                      ((aggregate)("aggregate"))
-                      ((remote)("remote"))
-                      ((local)("local"))
-                      ((clone)("clone"))
-                      ((relocate)("relocate"))
-                      ((reencode)("reencode"))
-                      ((reencodeCleanup)("reencode-cleanup"))
-                      ((tilePick)("tile-pick"))
-                      ((file)("file"))
-                      ((tags)("tags"))
-                      ((glueRulesSyntax)("glue-rules-syntax"))
-                      ((mergeConfSyntax)("merge-conf-syntax"))
-                      ((dumpNavtile)("dump-navtile"))
-                      ((dumpNavtileMask)("dump-navtile-mask"))
-                      ((navtile2dem))
-                      ((queryNavtile)("query-navtile"))
-                      ((showLockerApi)("show-locker-api"))
-                      ((deriveMetaIndex)("derive-metaindex"))
-                      ((virtualSurfaceCreate)("vs-create"))
-                      ((virtualSurfaceRemove)("vs-remove"))
-
-                      ((locker2Stresser)("locker2-stresser"))
-                      )
+UTILITY_GENERATE_ENUM(Command, VTS_COMMAND_LIST)
 
 struct Verbosity {
     int level;
@@ -295,6 +300,8 @@ private:
     int queryNavtile();
 
     int locker2Stresser();
+
+    int listReferenceFrames();
 
     bool noexcept_;
     fs::path path_;
@@ -1321,6 +1328,14 @@ void VtsStorage::configuration(po::options_description &cmdline
     {
         (void) p;
     });
+
+    createParser(cmdline, Command::listReferenceFrames
+                 , "--command=list-reference-frames: "
+                 "list available reference frames"
+                 , [&](UP &p)
+    {
+        (void) p;
+    });
 }
 
 po::ext_parser VtsStorage::extraParser()
@@ -1403,56 +1418,19 @@ bool VtsStorage::help(std::ostream &out, const std::string &what) const
 
 int VtsStorage::runCommand()
 {
+
+#define VTS_COMMAND_LIST_distribute(r, NOTHING, value)                 \
+    case Command::BOOST_PP_SEQ_ELEM(0, value):                         \
+        return BOOST_PP_SEQ_ELEM(0, value)();
+
     switch (command_) {
-    case Command::info: return info();
-
-    // storage related stuff
-    case Command::create: return create();
-    case Command::add: return add();
-    case Command::remove: return remove();
-    case Command::generateGlues: return generateGlues();
-    case Command::generateGlue: return generateGlue();
-    case Command::listPendingGlues: return listPendingGlues();
-    case Command::tags: return tags();
-
-    case Command::virtualSurfaceCreate: return virtualSurfaceCreate();
-    case Command::virtualSurfaceRemove: return virtualSurfaceRemove();
-
-    case Command::dumpMetatile: return dumpMetatile();
-    case Command::metatileVersion: return metatileVersion();
-    case Command::mapConfig: return mapConfig();
-    case Command::dirs: return dirs();
-    case Command::dumpTileIndex: return dumpTileIndex();
-    case Command::tileInfo: return tileInfo();
-    case Command::dumpMesh: return dumpMesh();
-    case Command::dumpMeshMask: return dumpMeshMask();
-    case Command::tileIndexInfo: return tileIndexInfo();
-    case Command::tileIndexRanges: return tileIndexRanges();
-    case Command::convertTileIndex: return convertTileIndex();
-    case Command::concat: return concat();
-    case Command::aggregate: return aggregate();
-    case Command::remote: return remote();
-    case Command::local: return local();
-    case Command::clone: return clone();
-    case Command::tilePick: return tilePick();
-    case Command::relocate: return relocate();
-    case Command::reencode: return reencode();
-    case Command::reencodeCleanup: return reencodeCleanup();
-    case Command::file: return file();
-    case Command::glueRulesSyntax: return glueRulesSyntax();
-    case Command::mergeConfSyntax: return mergeConfSyntax();
-    case Command::dumpNavtile: return dumpNavtile();
-    case Command::dumpNavtileMask: return dumpNavtileMask();
-    case Command::navtile2dem: return navtile2dem();
-    case Command::showLockerApi: return showLockerApi();
-    case Command::deriveMetaIndex: return deriveMetaIndex();
-
-    case Command::queryNavtile: return queryNavtile();
-
-    case Command::locker2Stresser: return locker2Stresser();
+        BOOST_PP_SEQ_FOR_EACH(VTS_COMMAND_LIST_distribute
+                              , NOTHING, VTS_COMMAND_LIST)
     }
     std::cerr << "vts: no operation requested" << '\n';
     return EXIT_FAILURE;
+
+#undef VTS_COMMAND_LIST_distribute
 }
 
 int VtsStorage::run()
@@ -2977,6 +2955,15 @@ int VtsStorage::locker2Stresser()
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
 
     storage.lockStressTest(running);
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::listReferenceFrames()
+{
+    for (const auto &rf : vr::system.referenceFrames) {
+        std::cout << rf.first << '\n';
+    }
+    std::cout << std::flush;
     return EXIT_SUCCESS;
 }
 
