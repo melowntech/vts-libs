@@ -405,9 +405,15 @@ void saveMesh(const fs::path &path, const Mesh &mesh, const Atlas *atlas)
 }
 
 void saveMeshProper(std::ostream &out, const Mesh &mesh
-                    , const Atlas *atlas)
+                    , const Atlas *atlas, bool compress)
 {
-    // save gzipped (level=9, a bit bigger buffer)
+    if (!compress) {
+        // non-compressed
+        detail::saveMeshProper(out, mesh, atlas);
+        return;
+    }
+
+    // compressed: save gzipped (level=9, a bit bigger buffer)
     bio::filtering_ostream gzipped;
     gzipped.push(bio::gzip_compressor(bio::gzip_params(9), 1 << 16));
     gzipped.push(out);

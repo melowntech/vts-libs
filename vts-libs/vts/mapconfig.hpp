@@ -100,6 +100,7 @@ struct GlueConfig : SurfaceCommonConfig {
 
 struct VirtualSurfaceConfig : SurfaceCommonConfig {
     VirtualSurface::Id id;
+    std::string mapping;
 
     VirtualSurfaceConfig() {}
     VirtualSurfaceConfig(const SurfaceConfig &surface)

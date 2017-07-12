@@ -349,8 +349,8 @@ Mesh loadMesh(const storage::IStream::pointer &in);
 /** Saves mesh as is.
  */
 void saveMeshProper(std::ostream &out, const Mesh &mesh
-                    , const Atlas *atlas = nullptr);
-
+                    , const Atlas *atlas = nullptr
+                    , bool compress = true);
 
 NormalizedSubMesh::list
 loadMeshProperNormalized(std::istream &in
