@@ -1635,6 +1635,12 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
             addBoundLayers((fl["boundLayers"] = Json::arrayValue)
                            , params.boundLayers);
         }
+        if (params.depthOffset) {
+            auto &d(fl["depthOffset"] = Json::arrayValue);
+            d.append((*params.depthOffset)[0]);
+            d.append((*params.depthOffset)[1]);
+            d.append((*params.depthOffset)[2]);
+        }
     }
 
     return nv;
@@ -1702,13 +1708,26 @@ void fromJson(View &view, const Json::Value &value)
             auto &fl(view.freeLayers[fId]);
             if (jfl.isMember("boundLayers")) {
                 // add bound layers
-                addBoundLayers(fl.boundLayers, jfl);
+                addBoundLayers(fl.boundLayers, jfl["boundLayers"]);
             }
             if (jfl.isMember("style")) {
                 fl.style = boost::in_place();
                 Json::get(*fl.style, jfl, "style");
             }
 
+            if (jfl.isMember("depthOffset")) {
+                const auto &d(jfl["depthOffset"]);
+                if (!d.isArray()) {
+                    LOGTHROW(err1, Json::Error)
+                        << "Type of view[freeLayers].depthOffset is "
+                        "not an array.";
+                }
+
+                fl.depthOffset = boost::in_place();
+                (*fl.depthOffset)[0] = d[0].asDouble();
+                (*fl.depthOffset)[1] = d[1].asDouble();
+                (*fl.depthOffset)[2] = d[2].asDouble();
+            }
         }
     }
 }

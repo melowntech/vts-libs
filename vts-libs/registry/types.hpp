@@ -73,6 +73,7 @@ struct View {
     struct FreeLayerParams {
         boost::optional<std::string> style;
         BoundLayerParams::list boundLayers;
+        boost::optional<std::array<double, 3>> depthOffset;
     };
 
     typedef std::map<std::string, BoundLayerParams::list> Surfaces;
