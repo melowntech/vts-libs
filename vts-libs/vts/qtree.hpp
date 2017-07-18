@@ -32,6 +32,7 @@
 #include <iostream>
 #include <functional>
 
+#include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include "dbglog/dbglog.hpp"
@@ -43,6 +44,7 @@ namespace vtslibs { namespace vts {
 class QTree {
 public:
     typedef std::uint32_t value_type;
+    typedef boost::optional<value_type> opt_value_type;
 
     QTree(unsigned int order = 0, value_type value = 0);
 
@@ -216,6 +218,32 @@ public:
 
     void swap(QTree &other);
 
+    /** Converter support.
+     *
+     *  Conterter interface:
+     *
+     *  // shortcut to optional value
+     *  typedef boost::optional<QTree::value_type> opt_value_type;
+     *
+     *  struct Converter {
+     *      // called when root has value; no other function is called
+     *      void root(value_type);
+     *
+     *      // called with values of all node's children
+     *      // invalid value marks non-leaf node
+     *      void children(opt_value_type ul, opt_value_type ur
+     *                   , opt_value_type ll, opt_value_type lr);
+     *
+     *      called before descending into individual internal children
+     *      auto enter();
+     *
+     *      // called on node exit with any value returned by enter function
+     *      void leave(const auto &any);
+     *  }
+     */
+    template <typename Converter>
+    void convert(Converter &converter) const;
+
 private:
     /** Re-calculates number of non-zero elements.
      */
@@ -342,6 +370,16 @@ private:
         void force(value_type value);
 
         void swap(Node &other);
+
+        template <typename Converter>
+        void convert(Converter &converter) const;
+
+        /** Returns value as boost optional.
+         */
+        opt_value_type optValue() const {
+            if (children) { return boost::none; }
+            return value;
+        }
     };
 
     unsigned int order_;
@@ -867,6 +905,41 @@ inline void QTree::Node::swap(Node &other)
 {
     std::swap(value, other.value);
     std::swap(children, other.children);
+}
+
+template <typename Converter>
+void QTree::convert(Converter &converter) const
+{
+    if (!root_.children) {
+        converter.root(root_.value);
+        return;
+    }
+
+    root_.convert(converter);
+}
+
+template <typename Converter>
+void QTree::Node::convert(Converter &converter) const
+{
+    const auto &nodes(children->nodes);
+
+    // pass value of all 4 child nodes
+    converter.children(nodes[0].optValue(), nodes[1].optValue()
+                       , nodes[2].optValue(), nodes[3].optValue());
+
+    auto descend([&converter](const Node &node) -> void
+    {
+        if (!node.children) { return; }
+        auto any(converter.enter());
+        node.convert(converter);
+        converter.leave(any);
+    });
+
+    // descend to all 4 nodes
+    descend(nodes[0]);
+    descend(nodes[1]);
+    descend(nodes[2]);
+    descend(nodes[3]);
 }
 
 } } // namespace vtslibs::vts
