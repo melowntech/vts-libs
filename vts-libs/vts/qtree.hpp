@@ -226,16 +226,17 @@ public:
      *  typedef boost::optional<QTree::value_type> opt_value_type;
      *
      *  struct Converter {
-     *      // called when root has value; no other function is called
-     *      void root(value_type);
+     *      // called once for tree root
+     *      void root(opt_value_type);
      *
      *      // called with values of all node's children
      *      // invalid value marks non-leaf node
      *      void children(opt_value_type ul, opt_value_type ur
      *                   , opt_value_type ll, opt_value_type lr);
      *
-     *      called before descending into individual internal children
-     *      auto enter();
+     *      // called before descending into individual internal children
+     *      // last is true if this is the last internal node
+     *      auto enter(bool lastInternalNode);
      *
      *      // called on node exit with any value returned by enter function
      *      void leave(const auto &any);
@@ -910,12 +911,11 @@ inline void QTree::Node::swap(Node &other)
 template <typename Converter>
 void QTree::convert(Converter &converter) const
 {
-    if (!root_.children) {
-        converter.root(root_.value);
-        return;
+    converter.root(root_.optValue());
+    if (root_.children) {
+        // descend
+        root_.convert(converter);
     }
-
-    root_.convert(converter);
 }
 
 template <typename Converter>
@@ -923,14 +923,26 @@ void QTree::Node::convert(Converter &converter) const
 {
     const auto &nodes(children->nodes);
 
-    // pass value of all 4 child nodes
-    converter.children(nodes[0].optValue(), nodes[1].optValue()
-                       , nodes[2].optValue(), nodes[3].optValue());
+    // get node values as optional values
+    const auto node0(nodes[0].optValue());
+    const auto node1(nodes[1].optValue());
+    const auto node2(nodes[2].optValue());
+    const auto node3(nodes[3].optValue());
 
-    auto descend([&converter](const Node &node) -> void
+    // compute number of internal nodes
+    auto internalNodeCount(4 - bool(node0) + bool(node1)
+                           + bool(node2) + bool(node3));
+
+    // pass value of all 4 child nodes
+    converter.children(node0, node1, node2, node3);
+
+    // no internal node? no need to handle any node
+    if (!internalNodeCount) { return; }
+
+    auto descend([&](const Node &node) -> void
     {
         if (!node.children) { return; }
-        auto any(converter.enter());
+        auto any(converter.enter(!--internalNodeCount));
         node.convert(converter);
         converter.leave(any);
     });
