@@ -930,8 +930,8 @@ void QTree::Node::convert(Converter &converter) const
     const auto node3(nodes[3].optValue());
 
     // compute number of internal nodes
-    auto internalNodeCount(4 - bool(node0) + bool(node1)
-                           + bool(node2) + bool(node3));
+    auto internalNodeCount(4 - bool(node0) - bool(node1)
+                           - bool(node2) - bool(node3));
 
     // pass value of all 4 child nodes
     converter.children(node0, node1, node2, node3);
