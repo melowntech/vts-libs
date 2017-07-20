@@ -231,15 +231,19 @@ public:
      *
      *      // called with values of all node's children
      *      // invalid value marks non-leaf node
-     *      void children(opt_value_type ul, opt_value_type ur
-     *                   , opt_value_type ll, opt_value_type lr);
+     *      // returned value is sent to individual calls to enter()
+     *      any_type children(opt_value_type ul, opt_value_type ur
+     *                        , opt_value_type ll, opt_value_type lr);
      *
-     *      // called before descending into individual internal children
-     *      // last is true if this is the last internal node
-     *      auto enter(bool lastInternalNode);
+     *      // called before descending into individual internal node
+     *      // any is anything children callback returned
+     *      // node index: 0=ul, 1=ur, 2=ll, 3=lr
+     *      void ender(const any_type &any, int nodeIndex);
      *
-     *      // called on node exit with any value returned by enter function
-     *      void leave(const auto &any);
+     *      // called on node exit
+     *      // any is anything children callback returned
+     *      // node index: 0=ul, 1=ur, 2=ll, 3=lr
+     *      void leave(const any_type &any, int nodeIndex);
      *  }
      */
     template <typename Converter>
@@ -923,35 +927,21 @@ void QTree::Node::convert(Converter &converter) const
 {
     const auto &nodes(children->nodes);
 
-    // get node values as optional values
-    const auto node0(nodes[0].optValue());
-    const auto node1(nodes[1].optValue());
-    const auto node2(nodes[2].optValue());
-    const auto node3(nodes[3].optValue());
-
-    // compute number of internal nodes
-    auto internalNodeCount(4 - bool(node0) - bool(node1)
-                           - bool(node2) - bool(node3));
-
-    // pass value of all 4 child nodes
-    converter.children(node0, node1, node2, node3);
-
-    // no internal node? no need to handle any node
-    if (!internalNodeCount) { return; }
-
-    auto descend([&](const Node &node) -> void
-    {
-        if (!node.children) { return; }
-        auto any(converter.enter(!--internalNodeCount));
-        node.convert(converter);
-        converter.leave(any);
-    });
+    // pass value of all 4 child nodes to children callback and colled whatever
+    // it retuns
+    const auto any(converter.children
+                   (nodes[0].optValue(), nodes[1].optValue()
+                    , nodes[2].optValue(), nodes[3].optValue()));
 
     // descend to all 4 nodes
-    descend(nodes[0]);
-    descend(nodes[1]);
-    descend(nodes[2]);
-    descend(nodes[3]);
+    for (int i(0); i < 4; ++i) {
+        const auto &node(nodes[i]);
+        if (!node.children) { continue; }
+
+        converter.enter(any, i);
+        node.convert(converter);
+        converter.leave(any, i);
+    }
 }
 
 } } // namespace vtslibs::vts
