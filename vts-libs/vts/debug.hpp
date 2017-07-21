@@ -36,9 +36,36 @@ struct DebugNode {
     std::uint32_t metaFlags;
 };
 
-DebugNode getNodeDebugInfo(const TileIndex &tileIndex, const TileId &tileId);
+template <typename TileIndexType>
+DebugNode getNodeDebugInfo(const TileIndexType &tileIndex
+                           , const TileId &tileId);
 
 void saveDebug(std::ostream &out, const DebugNode &debugNode);
+
+// inlines
+
+template <typename TileIndexType>
+DebugNode getNodeDebugInfo(const TileIndexType &tileIndex
+                           , const TileId &tileId)
+{
+    DebugNode node;
+
+    // get tile flags
+    const auto tflags(tileIndex.get(tileId));
+
+    // get child information
+    MetaNode::Flag::value_type mflags(0);
+    for (const auto &childId : vts::children(tileId)) {
+        MetaNode::setChildFromId
+            (mflags, childId
+             , tileIndex.validSubtree(childId));
+    }
+
+    node.indexFlags = tflags;
+    node.metaFlags = mflags;
+
+    return node;
+}
 
 } } // namespace vtslibs::vts
 

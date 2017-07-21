@@ -47,7 +47,8 @@ GrayImage mask2d(const Mesh::CoverageMask &coverageMask
 
 GrayImage mask2d(const MeshMask &mask, bool singleSourced = false);
 
-GrayImage meta2d(const TileIndex &tileIndex, const TileId &tileId);
+template <typename TileIndexType>
+GrayImage meta2d(const TileIndexType &tileIndex, const TileId &tileId);
 
 void saveCreditTile(std::ostream &out, const CreditTile &creditTile
                     , bool inlineCredits = true);
@@ -77,6 +78,49 @@ inline GrayImage mask2d(const MeshMask &mask, bool singleSourced) {
 inline RgbaImage debugMask(const MeshMask &mask, bool singleSourced) {
     return debugMask(mask.coverageMask, mask.surfaceReferences, singleSourced);
 }
+
+template <typename TileIndexType>
+inline GrayImage meta2d(const TileIndexType &tileIndex, const TileId &tileId)
+{
+    typedef TileIndex::Flag TiFlag;
+    constexpr TiFlag::value_type nonmaskedMask =
+        (TiFlag::watertight | TiFlag::multimesh);
+    constexpr TiFlag::value_type nonmaskedValue =
+        (TiFlag::watertight);
+
+    if (!Meta2d::isMetaId(tileId)) {
+        LOGTHROW(err1, storage::NoSuchTile)
+            << "Tile ID " << tileId << " is not valid for 2d metatile.";
+    }
+
+    auto size(Meta2d::size());
+
+    GrayImage out(size.width, size.height, boost::gil::gray8_pixel_t(0x00), 0);
+    auto outView(view(out));
+
+    if (const auto *tree = tileIndex.tree(tileId.lod)) {
+        auto parentId(parent(tileId, Meta2d::binaryOrder));
+
+        rasterize(*tree, parentId.lod, parentId.x, parentId.y
+                  , outView, [&](QTree::value_type flags) -> std::uint8_t
+        {
+            std::uint8_t out(0);
+
+            if (flags & TiFlag::mesh) { out |= Meta2d::Flag::geometry; }
+            if (TiFlag::check(flags, nonmaskedMask, nonmaskedValue)) {
+                out |= Meta2d::Flag::nonmasked;
+            }
+
+            // TODO: ophoto goes here
+
+            if (TiFlag::isAlien(flags)) { out |= Meta2d::Flag::alien; }
+
+            return out;
+        });
+    }
+    return out;
+}
+
 
 } } // vtslibs::vts
 
