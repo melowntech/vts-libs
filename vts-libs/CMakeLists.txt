@@ -246,6 +246,7 @@ set(vts-nucleus_SOURCES
   vts/types2d.hpp
   vts/2d.hpp vts/2d.cpp
   vts/urltemplate.hpp vts/urltemplate.cpp
+  vts/urltemplate-po.hpp
   vts/gil/colors.hpp vts/gil/colors.cpp
   vts/debug.hpp vts/debug.cpp
   vts/geomextents.hpp vts/geomextents.cpp
