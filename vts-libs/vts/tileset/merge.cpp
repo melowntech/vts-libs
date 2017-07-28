@@ -36,12 +36,15 @@
 
 #include "imgproc/rastermask/cvmat.hpp"
 #include "imgproc/scanconversion.hpp"
+#include "imgproc/const-raster.hpp"
+#include "imgproc/contours.hpp"
 
 #include "../csconvertor.hpp"
 
 #include "./merge.hpp"
 #include "../io.hpp"
 #include "../meshop.hpp"
+#include "../opencv/colors.hpp"
 
 namespace fs = boost::filesystem;
 
@@ -481,6 +484,63 @@ void rasterize(const MeshOpInput &input, const cv::Scalar &color
         << "Skipping fallback tile.";
 }
 
+typedef std::vector<imgproc::Contours> CookieCutters;
+
+struct SvgColor { const cv::Vec3b &value; };
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os, const SvgColor &color)
+{
+    return os << "rgb(" << (unsigned int)(color.value[0])
+              << "," << (unsigned int)(color.value[1])
+              << "," << (unsigned int)(color.value[2])
+              << ")";
+}
+
+void dumpCookieCutters(const fs::path &dumpDir, const TileId &tileId
+                       , const CookieCutters &cookieCutters
+                       , const math::Size2 &size = Mesh::coverageSize())
+{
+    const auto filename(str(boost::format("cookie-cutters-%s.svg")
+                            % tileId));
+    fs::create_directories(dumpDir);
+    const auto path(dumpDir / filename);
+
+    std::ofstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    f.open(path.string(), std::ios_base::out | std::ios_base::trunc);
+
+    f << "<?xml version=\"1.0\"?>\n"
+      << "<svg xmlns=\"http://www.w3.org/2000/svg\"\n"
+      << "     xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n"
+      << "     width=\"" << size.width
+      << "\" height=\"" << size.height << "\">\n";
+
+    f << "<rect width=\"" << size.width
+      << "\" height=\"" << size.height
+      << "\" style=\"fill:black;stroke-width:0\" />\n";
+
+    auto colorIndex(0);
+    for (const auto contours : cookieCutters) {
+        const auto &color(opencv::palette256vec[++colorIndex]);
+        for (const auto &contour : contours) {
+            if (contour.empty()) { continue; }
+
+            f << "<polygon points=\"";
+            for (const auto &point : contour) {
+                f << point(0) << ',' << point(1) << ' ';
+            }
+            f << "\" style=\"fill:none;stroke:" << SvgColor{color}
+            << ";stroke-width:.25\" />\n";
+        }
+    }
+
+    f << "</svg>\n";
+
+    f.close();
+}
+
 struct Coverage {
     typedef std::int16_t pixel_type;
 
@@ -490,6 +550,7 @@ struct Coverage {
     bool hasHoles;
     std::vector<bool> indices;
     boost::optional<Input::Id> single;
+    CookieCutters cookieCutters;
 
     Coverage(const TileId &tileId, const NodeInfo &nodeInfo
              , const Input::list &sources)
@@ -498,6 +559,7 @@ struct Coverage {
     {
         generateCoverage(nodeInfo);
         analyze();
+        findCookieCutters();
     }
 
     void getSources(Output &output, const Input::list &navtileSource) const {
@@ -569,16 +631,7 @@ struct Coverage {
     }
 
     void dump(const fs::path &dump, const TileId &tileId) const {
-        const cv::Vec3b colors[10] = {
-            { 0, 0, 0 }
-            , { 0, 0, 255 }
-            , { 0, 255, 0 }
-            , { 255, 0, 0 }
-            , { 0, 255, 255 }
-            , { 255, 0, 255 }
-            , { 255, 255, 0 }
-            , { 255, 255, 255 }
-        };
+        const auto &colors(opencv::palette256vec);
 
         cv::Mat_<cv::Vec3b> img(coverage.rows, coverage.cols);
 
@@ -691,6 +744,66 @@ private:
         if (count > 1) {
             // more than one dataset -> reset single
             single = boost::none;
+        }
+    }
+
+    void findCookieCutters() {
+        // single case -> no mesh clipping needed, do not find any cookie cutter
+        if (single) { return; }
+
+        // prepare workplace
+        cv::Mat binary
+            (coverage.rows + 2, coverage.cols + 2, CV_8UC1, cv::Scalar(0));
+        cv::Mat view(binary, cv::Range(1, coverage.rows + 1)
+                     , cv::Range(1, coverage.cols + 1));
+
+        for (const auto &source : sources) {
+            if (!indices[source.id()]) {
+                cookieCutters.emplace_back();
+                continue;
+            }
+
+#if 0
+            // make room for cookie cutters
+            cookieCutters.emplace_back();
+            auto &cutters(cookieCutters.back());
+
+            // coverage -> binary image
+            binary = cv::Scalar(0);
+            const auto id(source.id());
+            cv::inRange(coverage, cv::Scalar(id), cv::Scalar(id), view);
+
+            {
+                std::vector<std::vector<cv::Point>> contours;
+                cv::findContours(binary, contours, CV_RETR_CCOMP
+                                 , CV_CHAIN_APPROX_SIMPLE, cv::Point(-1, -1));
+                for (const auto &contour : contours) {
+                    cutters.emplace_back();
+                    auto &cutter(cutters.back());
+                    for (const auto &p : contour) {
+                        cutter.emplace_back(p.x, p.y);
+                    }
+                }
+            }
+#else
+            const auto raster
+                (imgproc::cvConstRaster<Coverage::pixel_type>(coverage));
+            typedef decltype(raster) RasterType;
+            const auto id(source.id());
+            cookieCutters.push_back
+                (imgproc::findContours
+                 (raster, [id](const RasterType::value_type &value) {
+                     return (value(0) == id);
+                 }));
+#endif
+
+            LOG(info3) << "Found " << cookieCutters.back().size()
+                       << " cookie cutters for source: "
+                       << source.name() << ".";
+        }
+
+        if (const auto *dumpDir = ::getenv("MERGE_COOKIE_CUTTERS_DUMP_DIR")) {
+            dumpCookieCutters(dumpDir, tileId, cookieCutters);
         }
     }
 };
