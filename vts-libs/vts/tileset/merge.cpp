@@ -28,9 +28,12 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+
+#include "utility/base64.hpp"
 
 #include "math/transform.hpp"
 
@@ -498,49 +501,6 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const SvgColor &color)
               << ")";
 }
 
-void dumpCookieCutters(const fs::path &dumpDir, const TileId &tileId
-                       , const CookieCutters &cookieCutters
-                       , const math::Size2 &size = Mesh::coverageSize())
-{
-    const auto filename(str(boost::format("cookie-cutters-%s.svg")
-                            % tileId));
-    fs::create_directories(dumpDir);
-    const auto path(dumpDir / filename);
-
-    std::ofstream f;
-    f.exceptions(std::ios::badbit | std::ios::failbit);
-    f.open(path.string(), std::ios_base::out | std::ios_base::trunc);
-
-    f << "<?xml version=\"1.0\"?>\n"
-      << "<svg xmlns=\"http://www.w3.org/2000/svg\"\n"
-      << "     xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n"
-      << "     width=\"" << size.width
-      << "\" height=\"" << size.height << "\">\n";
-
-    f << "<rect width=\"" << size.width
-      << "\" height=\"" << size.height
-      << "\" style=\"fill:black;stroke-width:0\" />\n";
-
-    auto colorIndex(0);
-    for (const auto contours : cookieCutters) {
-        const auto &color(opencv::palette256vec[++colorIndex]);
-        for (const auto &contour : contours) {
-            if (contour.empty()) { continue; }
-
-            f << "<polygon points=\"";
-            for (const auto &point : contour) {
-                f << point(0) << ',' << point(1) << ' ';
-            }
-            f << "\" style=\"fill:none;stroke:" << SvgColor{color}
-            << ";stroke-width:.25\" />\n";
-        }
-    }
-
-    f << "</svg>\n";
-
-    f.close();
-}
-
 struct Coverage {
     typedef std::int16_t pixel_type;
 
@@ -757,56 +717,149 @@ private:
         cv::Mat view(binary, cv::Range(1, coverage.rows + 1)
                      , cv::Range(1, coverage.cols + 1));
 
-        for (const auto &source : sources) {
+        // find cookie cutter, in reverse order (from topmost surface)
+        imgproc::FindContours findContours;
+        for (const auto &source : boost::adaptors::reverse(sources)) {
             if (!indices[source.id()]) {
                 cookieCutters.emplace_back();
                 continue;
             }
 
-#if 0
-            // make room for cookie cutters
-            cookieCutters.emplace_back();
-            auto &cutters(cookieCutters.back());
-
-            // coverage -> binary image
-            binary = cv::Scalar(0);
-            const auto id(source.id());
-            cv::inRange(coverage, cv::Scalar(id), cv::Scalar(id), view);
-
-            {
-                std::vector<std::vector<cv::Point>> contours;
-                cv::findContours(binary, contours, CV_RETR_CCOMP
-                                 , CV_CHAIN_APPROX_SIMPLE, cv::Point(-1, -1));
-                for (const auto &contour : contours) {
-                    cutters.emplace_back();
-                    auto &cutter(cutters.back());
-                    for (const auto &p : contour) {
-                        cutter.emplace_back(p.x, p.y);
-                    }
-                }
-            }
-#else
             const auto raster
                 (imgproc::cvConstRaster<Coverage::pixel_type>(coverage));
             typedef decltype(raster) RasterType;
             const auto id(source.id());
             cookieCutters.push_back
-                (imgproc::findContours
-                 (raster, [id](const RasterType::value_type &value) {
+                (findContours(raster, [id](const RasterType::value_type &value)
+                 {
                      return (value(0) == id);
                  }));
-#endif
 
             LOG(info3) << "Found " << cookieCutters.back().size()
                        << " cookie cutters for source: "
                        << source.name() << ".";
         }
 
-        if (const auto *dumpDir = ::getenv("MERGE_COOKIE_CUTTERS_DUMP_DIR")) {
-            dumpCookieCutters(dumpDir, tileId, cookieCutters);
-        }
+        // reverse cookie cutter to match list of surfaces
+        std::reverse(cookieCutters.begin(), cookieCutters.end());
     }
 };
+
+
+void rasterizeSvg(std::ostream &os, const MeshOpInput &input
+                  , const cv::Vec3b &color, const TileId &diff
+                  , const math::Size2 &size = Mesh::coverageSize())
+{
+    // size of source pixel in destination pixels
+    int pixelSize(1 << diff.lod);
+
+    // offset in destination pixels
+    cv::Point2i offset(diff.x * size.width, diff.y * size.height);
+
+    LOG(info1) << "Rasterize coverage " << input.tileId()
+               << " (diff: " << diff
+               << "): pixel size: " << pixelSize
+               << ", offset " << offset
+               << (input.watertight() ? " (watertight)" : "")
+               << ".";
+
+    cv::Rect bounds(0, 0, size.width, size.height);
+
+    auto draw([&](uint xstart, uint ystart, uint size, bool)
+    {
+        // scale
+        xstart *= pixelSize;
+        ystart *= pixelSize;
+        size *= pixelSize;
+
+        // shift
+        xstart -= offset.x;
+        ystart -= offset.y;
+
+        // construct rectangle and intersect it with bounds
+        cv::Rect r(xstart, ystart, size, size);
+        auto rr(r & bounds);
+
+        os << "<rect x=\"" << rr.x << "\" y=\"" << rr.y
+           << "\" width=\"" << rr.width << "\" height=\"" << rr.height
+           << "\" style=\"fill:" << SvgColor{color}
+           << ";stroke:none;stroke-width:0\" />\n";
+    });
+
+    if (input.watertight()) {
+        // fully covered -> simulate full coverage
+        draw(0, 0, size.width, true);
+        return;
+    }
+
+    input.mesh().coverageMask.forEachNode
+        (draw, Mesh::CoverageMask::Filter::white);
+
+    (void) os;
+}
+
+void dumpCookieCutters(const fs::path &dumpDir, const Coverage &coverage
+                       , const math::Size2 &size = Mesh::coverageSize())
+{
+    const auto filename(str(boost::format("cookie-cutters-%s.svg")
+                            % coverage.tileId));
+    fs::create_directories(dumpDir);
+    const auto path(dumpDir / filename);
+
+    std::ofstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    f.open(path.string(), std::ios_base::out | std::ios_base::trunc);
+
+    f << "<?xml version=\"1.0\"?>\n"
+      << "<svg xmlns=\"http://www.w3.org/2000/svg\"\n"
+      << "     xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n"
+      << "     width=\"" << ((size.width + 2) * 4)
+      << "\" height=\"" << ((size.height + 2) * 4)
+      << "\">\n";
+
+    f << "<g transform=\"scale(4)\">\n";
+    f << "<rect width=\"" << (size.width + 2)
+      << "\" height=\"" << (size.height + 2)
+      << "\" style=\"fill:black;stroke:none,stroke-width:0\" />\n";
+
+    f << "<g transform=\"translate(1, 1)\">\n";
+    for (const auto &input : coverage.sources) {
+        if (!coverage.indices[input.id()]) { continue; }
+        auto color(opencv::palette256vec[input.id() + 1]);
+        color[0] *= .5; color[1] *= .5; color[2] *= .5;
+        rasterizeSvg(f, input, color
+                     , local(input.tileId().lod, coverage.tileId)
+                     , size);
+    };
+
+    f << "\n";
+
+    f << "<g transform=\"translate(0.5, 0.5)\">\n";
+    auto iinput(coverage.sources.begin());
+    for (const auto contours : coverage.cookieCutters) {
+        const auto &input(*iinput++);
+        const auto &color(opencv::palette256vec[input.id() + 1]);
+        for (const auto &contour : contours) {
+            if (contour.empty()) { continue; }
+
+            f << "<polygon points=\"";
+            for (const auto &point : contour) {
+                f << point(0) << ',' << point(1) << ' ';
+            }
+            f << "\" style=\"fill:none;stroke:" << SvgColor{color}
+              << ";stroke-width:1\""
+              << " vector-effect=\"non-scaling-stroke\""
+              << " />\n";
+        }
+    }
+    f << "</g>\n";
+
+    f << "</g>\n";
+    f << "</g>\n";
+    f << "</svg>\n";
+
+    f.close();
+}
 
 class MeshFilter {
 public:
@@ -1344,6 +1397,10 @@ Output mergeTile(const TileId &tileId
 
     if (const auto *dumpDir = ::getenv("MERGE_MASK_DUMP_DIR")) {
         coverage.dump(dumpDir, tileId);
+    }
+
+    if (const auto *dumpDir = ::getenv("MERGE_COOKIE_CUTTERS_DUMP_DIR")) {
+        dumpCookieCutters(dumpDir, coverage);
     }
 
     // get contributing tile sets
