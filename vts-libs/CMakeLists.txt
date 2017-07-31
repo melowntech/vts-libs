@@ -315,9 +315,14 @@ endif()
 set(vts_SOURCES
   vts/tileset/glue.cpp
   vts/tileset/merge.hpp vts/tileset/merge.cpp
-  vts/meshop.hpp vts/meshopinput.hpp
+  vts/tileset/merge/support.hpp vts/tileset/merge/support.cpp
+  vts/tileset/merge/coverage.hpp vts/tileset/merge/coverage.cpp
+
+  vts/meshopinput.hpp vts/meshopinput.cpp
+  vts/meshop.hpp
   vts/meshop/refineandclip.cpp
   vts/meshop/merge.cpp
+
   vts/storage/change.cpp
   vts/storage/locking.hpp vts/storage/locking.cpp
 
