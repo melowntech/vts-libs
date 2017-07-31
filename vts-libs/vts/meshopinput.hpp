@@ -115,7 +115,7 @@ public:
 
     bool operator<(const MeshOpInput &o) const { return id_ < o.id_; }
 
-    bool inMergeableRange() const { 
+    bool inMergeableRange() const {
         return in(mergeableRange_, tileId_.lod); }
 
 private:

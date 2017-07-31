@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <vector>
 
+#include <boost/logic/tribool.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include <opencv2/core/core.hpp>
@@ -49,6 +50,10 @@ struct Coverage {
     bool hasHoles;
     std::vector<bool> indices;
     boost::optional<Input::Id> single;
+
+    /** List of cookie cutters for valid sources (i.e. indices[id] == bool)
+     *  NB: use input.id() as index to this list.
+     */
     CookieCutters cookieCutters;
 
     Coverage(const TileId &tileId, const NodeInfo &nodeInfo
@@ -56,13 +61,16 @@ struct Coverage {
 
     void getSources(Output &output, const Input::list &navtileSource) const;
 
-    std::tuple<bool, bool>
-    covered(const Face &face, const math::Points3d &vertices
-            , Input::Id id) const;
+    boost::tribool covered(const Face &face, const math::Points3d &vertices
+                           , Input::Id id) const;
 
     void dump(const boost::filesystem::path &dump) const;
 
     void dumpCookieCutters(const boost::filesystem::path &dump) const;
+
+    bool topmost(const Input &input) const { return topmost(input.id()); }
+
+    bool topmost(const Input::Id &id) const { return id == topmost_; }
 
 private:
     void generateCoverage(const NodeInfo &nodeInfo);
@@ -70,6 +78,10 @@ private:
     void analyze();
 
     void findCookieCutters();
+
+    /** Id of topmost surface
+     */
+    Input::Id topmost_;
 };
 
 } } } // namespace vtslibs::vts::merge

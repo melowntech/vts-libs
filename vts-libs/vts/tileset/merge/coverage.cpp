@@ -179,6 +179,7 @@ Coverage::Coverage(const TileId &tileId, const NodeInfo &nodeInfo
                    , const Input::list &sources)
     : tileId(tileId), sources(sources), hasHoles(false)
     , indices(sources.back().id() + 1, false)
+    , cookieCutters(sources.back().id() + 1)
 {
     generateCoverage(nodeInfo);
     analyze();
@@ -197,13 +198,12 @@ void Coverage::getSources(Output &output, const Input::list &navtileSource)
             = filterSources(output.source.mesh, navtileSource);
 }
 
-std::tuple<bool, bool>
-Coverage::covered(const Face &face, const math::Points3d &vertices
-                  , Input::Id id) const
+boost::tribool Coverage::covered(const Face &face
+                                 , const math::Points3d &vertices
+                                 , Input::Id id) const
 {
-    std::tuple<bool, bool> res(false, false);
-    auto &covered(std::get<0>(res));
-    auto &inside(std::get<1>(res));
+    bool hit(false);
+    bool miss(false);
 
     // TODO: repeat border for some distance to take triangles from the tile
     // margin into account
@@ -223,14 +223,15 @@ Coverage::covered(const Face &face, const math::Points3d &vertices
                                  , [&](int x, int y, float)
         {
             // triangle passes through
-            inside = true;
-
-            // TODO: early exit
             if (coverage(y, x) == id) {
-                covered = true;
+                hit = true;
+            } else {
+                miss = true;
             }
         });
-        if (covered) { return res; }
+
+        // early exit partially covered face
+        if (hit && miss) { return boost::indeterminate; }
     }
 
     // do one more check in case the triangle is thinner than one pixel
@@ -245,14 +246,16 @@ Coverage::covered(const Face &face, const math::Points3d &vertices
             continue;
         }
 
-        inside = true;
         if (coverage(y, x) == id) {
-            covered = true;
-            return res;
+            hit = true;
+        } else {
+            miss = true;
         }
     }
 
-    return res;
+    // both hits and misses -> partially covered face
+    if (hit && miss) { return boost::indeterminate; }
+    return hit;
 }
 
 void Coverage::generateCoverage(const NodeInfo &nodeInfo)
@@ -319,7 +322,8 @@ void Coverage::analyze() {
     // BEGIN OPTIMIZATION {
     if (single) {
         // already analyzed during coverage generation
-            return;
+        topmost_ = *single;
+        return;
     }
     // } END OPTIMIZATION
 
@@ -343,19 +347,16 @@ void Coverage::analyze() {
         hasHoles = true;
     }
 
+    // count valid source, remember last one (i.e. topmost one)
     int count(0);
     for (Input::Id id(0), eid(indices.size()); id != eid; ++id) {
         if (!indices[id]) { continue; }
-        if (!single) {
-            single = id;
-        }
+        topmost_ = id;
         ++count;
     }
 
-    if (count > 1) {
-        // more than one dataset -> reset single
-        single = boost::none;
-    }
+    // single dataset: topmost -> single
+    if (count == 1) { single = topmost_; }
 }
 
 void Coverage::findCookieCutters() {
@@ -370,30 +371,24 @@ void Coverage::findCookieCutters() {
 
     // find cookie cutter, in reverse order (from topmost surface)
     imgproc::FindContours findContours;
-    bool first(true);
     for (const auto &source : boost::adaptors::reverse(sources)) {
-        if (!indices[source.id()]) {
-            cookieCutters.emplace_back();
-            continue;
-        }
+        const auto id(source.id());
 
-        // skip topmost surface (no need to cut it)
-        if (first) {
-            first = false;
-            continue;
-        }
+        // skip invalid surfaces, skip the topmost surfaces
+        if (!indices[id] || topmost(id)) { continue; }
 
         const auto raster
             (imgproc::cvConstRaster<Coverage::pixel_type>(coverage));
         typedef decltype(raster) RasterType;
-        const auto id(source.id());
-        cookieCutters.push_back
-            (findContours(raster, [id](const RasterType::value_type &value)
-                          {
-                              return (value(0) == id);
-                          }));
 
-        LOG(info3) << "Found " << cookieCutters.back().size()
+        // find contours and place to proper place
+        cookieCutters[id]
+             = findContours(raster, [id](const RasterType::value_type &value)
+                            {
+                                return (value(0) == id);
+                            });
+
+        LOG(info1) << "Found " << cookieCutters.back().size()
                    << " cookie cutters for source: "
                    << source.name() << ".";
     }

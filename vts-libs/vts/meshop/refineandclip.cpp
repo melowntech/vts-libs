@@ -784,6 +784,26 @@ SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
     return out;
 }
 
+EnhancedSubMesh clip(const SubMesh &mesh, const math::Points3d &projected
+                     , const math::Extents2 &projectedExtents
+                     , const MeshVertexConvertor &convertor
+                     , const VertexMask &mask)
+{
+    LOG(debug) << std::fixed << "Clipping mesh to: " << projectedExtents;
+    const ClipPlane clipPlanes[4] = {
+        { 1.,  .0, .0, -projectedExtents.ll(0) }
+        , { -1., .0, .0, projectedExtents.ur(0) }
+        , { .0,  1., .0, -projectedExtents.ll(1) }
+        , { 0., -1., .0, projectedExtents.ur(1) }
+    };
+
+    Clipper clipper(mesh, projected, mask);
+
+    for (const auto &cp : clipPlanes) { clipper.clip(cp); }
+
+    return clipper.mesh(&convertor);
+}
+
 namespace {
 
 template <typename Container>

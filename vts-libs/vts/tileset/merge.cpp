@@ -27,6 +27,9 @@
 #include <set>
 #include <numeric>
 
+#include <boost/optional.hpp>
+#include <boost/utility/in_place_factory.hpp>
+
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include "math/transform.hpp"
@@ -44,10 +47,78 @@
 
 namespace fs = boost::filesystem;
 
-
 namespace vtslibs { namespace vts {
 
 namespace merge {
+
+class SdMeshConvertor : public MeshVertexConvertor {
+public:
+    SdMeshConvertor(const Input &input, const NodeInfo &nodeInfo
+                    , const TileId &tileId)
+        : geoTrafo_(input.coverage2Sd(nodeInfo))
+        , geoConv_(nodeInfo.srs()
+                   , nodeInfo.referenceFrame().model.physicalSrs)
+        , etcNCTrafo_(etcNCTrafo(tileId))
+        , coverage2Texture_(input.coverage2Texture())
+    {}
+
+    virtual math::Point3d vertex(const math::Point3d &v) const {
+        // point is in node SD SRS
+        return geoConv_(transform(geoTrafo_, v));
+    }
+
+    virtual math::Point2d etc(const math::Point3d &v) const {
+        // point is in projected space (i.e. in coverage raster)
+        auto tmp(transform(coverage2Texture_, v));
+        return math::Point2d(tmp(0), tmp(1));
+    }
+
+    virtual math::Point2d etc(const math::Point2d &v) const {
+        // point is in the input's texture coordinates system
+        return transform(etcNCTrafo_, v);
+    }
+
+    struct Lazy;
+
+private:
+    /** Linear transformation from local coverage coordinates to node's SD SRS.
+     */
+    math::Matrix4 geoTrafo_;
+
+    /** Convertor between node's SD SRS and reference frame's physical SRS.
+     */
+    CsConvertor geoConv_;
+
+    /** Converts external texture coordinates between fallback tile and current
+     *  tile.
+     */
+    math::Matrix4 etcNCTrafo_;
+
+    /** Converts between coverage coordinates and normalized external texture
+     *  cooridnates.
+     */
+    math::Matrix4 coverage2Texture_;
+};
+
+struct SdMeshConvertor::Lazy {
+public:
+    Lazy(const Input &input, const NodeInfo &nodeInfo, const TileId &tileId)
+        : factory_(input, nodeInfo, tileId)
+    {}
+
+    operator const SdMeshConvertor&() const {
+        if (!convertor_) { convertor_ = factory_; }
+        return *convertor_;
+    }
+
+    const SdMeshConvertor& operator()() const { return *this; }
+
+private:
+    decltype(boost::in_place
+             (std::declval<Input>(), std::declval<NodeInfo>()
+              , std::declval<TileId>())) factory_;
+    mutable boost::optional<SdMeshConvertor> convertor_;
+};
 
 /** Returns mesh vertices (vector per submesh) converted to coverage space.
  */
@@ -162,51 +233,76 @@ public:
     MeshFilter(const SubMesh &original, int submeshIndex
                , const math::Points3 &originalCoverage
                , const Input &input, const Coverage &coverage
-               , const MergeOptions &options)
+               , const MergeOptions &options
+               , const SdMeshConvertor::Lazy &sdmc
+               , const TileId &diff)
         : original_(original), submeshIndex_(submeshIndex)
         , originalCoverage_(originalCoverage)
-        , input_(input)
+        , input_(input), sdmc_(sdmc), diff_(diff)
         , mesh_(result_.mesh), coverageVertices_(result_.projected)
         , vertexMap_(original.vertices.size(), -1)
         , tcMap_(original.tc.size(), -1)
-        , incidentTriangles_(0)
     {
         original_.cloneMetadataInto(mesh_);
         filter(coverage, options.clip);
     }
 
-    void addTo(Output &out, double uvAreaScale = 1.0);
+    void addTo(Output &out);
 
     EnhancedSubMesh result() const { return result_; }
 
     operator bool() const { return mesh_.vertices.size(); }
 
-    std::size_t maxRefinedFaceCount() const {
-        return ((original_.faces.size() * mesh_.faces.size())
-                / incidentTriangles_);
-    }
-
 private:
-    void filter(const Coverage &coverage, bool clip) {
-        if (!clip) {
-            // no clipping -> just pass all faces
+    void filter(const Coverage &coverage, bool clipping) {
+        // clipping is off: just pass all faces
+        if (!clipping) {
             for (int f(0), ef(original_.faces.size()); f != ef; ++f) {
                 addFace(f);
-                ++incidentTriangles_;
             }
             return;
         }
 
-        // each face covered at least by one pixel is added to new mesh
-        for (int f(0), ef(original_.faces.size()); f != ef; ++f) {
-            // clipping -> only when covered
-            auto covered(coverage.covered
-                         (original_.faces[f], originalCoverage_
-                          , input_.id()));
-            if (std::get<0>(covered)) {
-                addFace(f);
+        const auto id(input_.id());
+
+        // clipping is on: add face only when covered
+
+        // topmost surface: pass as is
+        if (coverage.topmost(id)) {
+            if (diff_.lod) {
+                // deriving from fallback tile -> clip
+                const auto clipped(clip(original_, originalCoverage_
+                                        , coverageExtents(1.), sdmc_));
+                if (clipped) {
+                    mesh_ = clipped.mesh;
+                    coverageVertices_ = clipped.projected;
+                    original_.cloneMetadataInto(mesh_);
+                }
+                return;
             }
-            incidentTriangles_ += std::get<1>(covered);
+
+            // keep as-is
+            mesh_ = original_;
+            return;
+        }
+
+        // we have to filter the input mesh
+        const auto &cookieCutter(coverage.cookieCutters[id]);
+
+        for (int f(0), ef(original_.faces.size()); f != ef; ++f) {
+            const auto covered(coverage.covered
+                               (original_.faces[f], originalCoverage_
+                                , input_.id()));
+            if (!covered) { continue; }
+
+            if (covered) {
+                // all fully covered faces are added as-is
+                addFace(f);
+            } else {
+                // partially covered faces are clipped by mesh cookie cutter
+                // TODO: clip
+                (void) cookieCutter;
+            }
         }
     }
 
@@ -253,13 +349,14 @@ private:
     const int submeshIndex_;
     const math::Points3 originalCoverage_;
     const Input &input_;
+    const SdMeshConvertor::Lazy &sdmc_;
+    const TileId diff_;
 
     EnhancedSubMesh result_;
     SubMesh &mesh_;
     math::Points3 &coverageVertices_;
     std::vector<int> vertexMap_;
     std::vector<int> tcMap_;
-    int incidentTriangles_;
 };
 
 void addInputToOutput(Output &out, const Input &input
@@ -332,85 +429,11 @@ void addInputToOutput(Output &out, const Input &input
     }
 }
 
-void MeshFilter::addTo(Output &out, double uvAreaScale)
+void MeshFilter::addTo(Output &out)
 {
     addInputToOutput(out, input_, mesh_, coverageVertices_
-                     , submeshIndex_, uvAreaScale);
+                     , submeshIndex_, (1 << (2 * diff_.lod)));
 }
-
-class SdMeshConvertor : public MeshVertexConvertor {
-public:
-    SdMeshConvertor(const Input &input, const NodeInfo &nodeInfo
-                    , const TileId &tileId
-                    , Lod lodDiff = 0
-                    , std::size_t faceLimit = 0)
-        : geoTrafo_(input.coverage2Sd(nodeInfo))
-        , geoConv_(nodeInfo.srs()
-                   , nodeInfo.referenceFrame().model.physicalSrs)
-        , etcNCTrafo_(etcNCTrafo(tileId))
-        , coverage2Texture_(input.coverage2Texture())
-        , lodDiff_(lodDiff), faceLimit_(faceLimit)
-    {}
-
-    virtual math::Point3d vertex(const math::Point3d &v) const {
-        // point is in node SD SRS
-        return geoConv_(transform(geoTrafo_, v));
-    }
-
-    virtual math::Point2d etc(const math::Point3d &v) const {
-        // point is in projected space (i.e. in coverage raster)
-        auto tmp(transform(coverage2Texture_, v));
-        return math::Point2d(tmp(0), tmp(1));
-    }
-
-    virtual math::Point2d etc(const math::Point2d &v) const {
-        // point is in the input's texture coordinates system
-        return transform(etcNCTrafo_, v);
-    }
-
-    virtual std::size_t refineToFaceCount(std::size_t current) const
-    {
-        // no refinement -> use current count
-        if (!lodDiff_) { return current; }
-
-        // scale current number of faces by 4^lodDiff (i.e. 2^(2 * lodDiff))
-        // Limit lodDiff to 8;
-        int exponent(2 * std::min(lodDiff_, Lod(8)));
-        // scale current number of faces
-        std::size_t scaled(current << exponent);
-        // limit scaled number of faces by original number of faces in the mesh
-        return std::min(scaled, faceLimit_);
-    }
-
-    void faceLimit(std::size_t value) { faceLimit_ = value; }
-
-private:
-    /** Linear transformation from local coverage coordinates to node's SD SRS.
-     */
-    math::Matrix4 geoTrafo_;
-
-    /** Convertor between node's SD SRS and reference frame's physical SRS.
-     */
-    CsConvertor geoConv_;
-
-    /** Converts external texture coordinates between fallback tile and current
-     *  tile.
-     */
-    math::Matrix4 etcNCTrafo_;
-
-    /** Converts between coverage coordinates and normalized external texture
-     *  cooridnates.
-     */
-    math::Matrix4 coverage2Texture_;
-
-    /** Difference between current LOD and tile's original lod.
-     */
-    Lod lodDiff_;
-
-    /** Limit number of faces after refinement to given number.
-     */
-    std::size_t faceLimit_;
-};
 
 void renderNavtile(cv::Mat &nt, cv::Mat &ntCoverage
                    , const opencv::NavTile &navtile)
@@ -561,6 +584,9 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
 
     // clip source mesh/navtile
 
+    LOG(info4) << "clipping single source derived tile: "
+               << tileId;
+
     CsConvertor phys2sd(nodeInfo.referenceFrame().model.physicalSrs
                         , nodeInfo.srs());
 
@@ -569,15 +595,13 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
     SdMeshConvertor sdmc(input, nodeInfo, localId);
 
     std::size_t smIndex(0);
-    std::size_t outSmIndex(0);
     for (const auto &sm : input.mesh()) {
-        auto refined
-            (clipAndRefine({ sm, coverageVertices[smIndex] }
-                           , coverageExtents(1.), sdmc));
+        auto clipped(clip(sm, coverageVertices[smIndex]
+                          , coverageExtents(1.), sdmc));
 
-        if (refined) {
-            addInputToOutput(result, input, refined.mesh
-                             , refined.projected, outSmIndex++
+        if (clipped) {
+            addInputToOutput(result, input, clipped.mesh
+                             , clipped.projected, smIndex
                              , (1 << (2 * localId.lod)));
         }
 
@@ -726,20 +750,12 @@ Output mergeTile(const TileId &tileId
     CsConvertor phys2sd(nodeInfo.referenceFrame().model.physicalSrs
                         , nodeInfo.srs());
 
-    // compute bottom (maximum) lod from all inputs
-    auto bottomLod(std::accumulate
-                   (result.source.mesh.begin()
-                    , result.source.mesh.end()
-                    , Lod(0), [](Lod lod, const MeshOpInput &i)
-                    {
-                        return std::max(lod, i.tileId().lod);
-                    }));
-
     // process all input tiles from result source (i.e. only those contributing
     // to the tile)
 
     SurrogateCalculator sc;
 
+    // process all inputs
     for (const auto &input : result.source.mesh) {
         const auto &mesh(input.mesh());
 
@@ -753,40 +769,23 @@ Output mergeTile(const TileId &tileId
         const auto &tileLod(input.tileId().lod);
         const auto localId(local(tileLod, tileId));
 
+        // mesh convertor, lazy (instance is create when needed)
+        SdMeshConvertor::Lazy sdmc(input, nodeInfo, localId);
+
         // traverse all submeshes
         for (int m(0), em(mesh.submeshes.size()); m != em; ++m) {
             const auto &sm(mesh[m]);
             // accumulate new mesh
             MeshFilter mf(sm, m, *icoverageVertices++, input
-                          , coverage, options);
+                          , coverage, options, sdmc, localId);
             if (!mf) {
                 // empty result mesh -> nothing to do
                 continue;
             }
 
-            if (!localId.lod) {
-                // add as is
-                mf.addTo(result);
-                sc.update(result, input, sm);
-                continue;
-            }
-
-            // fallback mesh: we have to clip and refine accumulated
-            // mesh and process again
-            auto refined
-                (clipAndRefine
-                 (mf.result(), coverageExtents(1.)
-                  , SdMeshConvertor(input, nodeInfo, localId
-                                    , (bottomLod - tileLod)
-                                    , mf.maxRefinedFaceCount())));
-
-            MeshFilter rmf(refined.mesh, m, refined.projected
-                           , input, coverage, options);
-            if (rmf) {
-                // add refined
-                rmf.addTo(result, (1 << (2 * localId.lod)));
-                sc.update(result, input, sm);
-            }
+            // add as is
+            mf.addTo(result);
+            sc.update(result, input, sm);
         }
     }
 

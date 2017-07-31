@@ -137,6 +137,19 @@ SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
              , const math::Extents2 &projectedExtents
              , const VertexMask &mask = VertexMask());
 
+/** Full interface to clip mesh .
+ *
+ * \param mesh submesh
+ * \param projected vertices in projected space
+ * \param projectedExtents extents in projected space
+ * \param mask optional vertex mask (masked out vertices are removed)
+ * \return clipped enhanced mesh
+ */
+EnhancedSubMesh clip(const SubMesh &mesh, const math::Points3d &projected
+                     , const math::Extents2 &projectedExtents
+                     , const MeshVertexConvertor &convertor
+                     , const VertexMask &mask = VertexMask());
+
 /** Options for submesh merging.
  */
 struct SubmeshMergeOptions {
