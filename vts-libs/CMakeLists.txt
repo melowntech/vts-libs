@@ -317,6 +317,7 @@ set(vts_SOURCES
   vts/tileset/merge.hpp vts/tileset/merge.cpp
   vts/tileset/merge/support.hpp vts/tileset/merge/support.cpp
   vts/tileset/merge/coverage.hpp vts/tileset/merge/coverage.cpp
+  vts/tileset/merge/output.cpp
 
   vts/meshopinput.hpp vts/meshopinput.cpp
   vts/meshop.hpp

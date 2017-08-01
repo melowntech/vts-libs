@@ -27,19 +27,13 @@
 #include <set>
 #include <numeric>
 
-#include <boost/optional.hpp>
-#include <boost/utility/in_place_factory.hpp>
-
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include "math/transform.hpp"
 
 #include "imgproc/scanconversion.hpp"
 
-#include "../csconvertor.hpp"
-
 #include "../io.hpp"
-#include "../meshop.hpp"
 
 #include "./merge.hpp"
 #include "./merge/support.hpp"
@@ -50,75 +44,6 @@ namespace fs = boost::filesystem;
 namespace vtslibs { namespace vts {
 
 namespace merge {
-
-class SdMeshConvertor : public MeshVertexConvertor {
-public:
-    SdMeshConvertor(const Input &input, const NodeInfo &nodeInfo
-                    , const TileId &tileId)
-        : geoTrafo_(input.coverage2Sd(nodeInfo))
-        , geoConv_(nodeInfo.srs()
-                   , nodeInfo.referenceFrame().model.physicalSrs)
-        , etcNCTrafo_(etcNCTrafo(tileId))
-        , coverage2Texture_(input.coverage2Texture())
-    {}
-
-    virtual math::Point3d vertex(const math::Point3d &v) const {
-        // point is in node SD SRS
-        return geoConv_(transform(geoTrafo_, v));
-    }
-
-    virtual math::Point2d etc(const math::Point3d &v) const {
-        // point is in projected space (i.e. in coverage raster)
-        auto tmp(transform(coverage2Texture_, v));
-        return math::Point2d(tmp(0), tmp(1));
-    }
-
-    virtual math::Point2d etc(const math::Point2d &v) const {
-        // point is in the input's texture coordinates system
-        return transform(etcNCTrafo_, v);
-    }
-
-    struct Lazy;
-
-private:
-    /** Linear transformation from local coverage coordinates to node's SD SRS.
-     */
-    math::Matrix4 geoTrafo_;
-
-    /** Convertor between node's SD SRS and reference frame's physical SRS.
-     */
-    CsConvertor geoConv_;
-
-    /** Converts external texture coordinates between fallback tile and current
-     *  tile.
-     */
-    math::Matrix4 etcNCTrafo_;
-
-    /** Converts between coverage coordinates and normalized external texture
-     *  cooridnates.
-     */
-    math::Matrix4 coverage2Texture_;
-};
-
-struct SdMeshConvertor::Lazy {
-public:
-    Lazy(const Input &input, const NodeInfo &nodeInfo, const TileId &tileId)
-        : factory_(input, nodeInfo, tileId)
-    {}
-
-    operator const SdMeshConvertor&() const {
-        if (!convertor_) { convertor_ = factory_; }
-        return *convertor_;
-    }
-
-    const SdMeshConvertor& operator()() const { return *this; }
-
-private:
-    decltype(boost::in_place
-             (std::declval<Input>(), std::declval<NodeInfo>()
-              , std::declval<TileId>())) factory_;
-    mutable boost::optional<SdMeshConvertor> convertor_;
-};
 
 /** Returns mesh vertices (vector per submesh) converted to coverage space.
  */
@@ -138,31 +63,6 @@ Vertices3List inputCoverageVertices(const Input &input
         }
     }
     return out;
-}
-
-Mesh& Output::forceMesh()
-{
-    if (!mesh) {
-        // mesh with empty mask
-        mesh = boost::in_place(false);
-    }
-    return *mesh;
-}
-
-RawAtlas& Output::forceAtlas()
-{
-    if (!atlas) {
-        atlas = boost::in_place();
-    }
-    return *atlas;
-}
-
-opencv::NavTile& Output::forceNavtile()
-{
-    if (!navtile) {
-        navtile = boost::in_place();
-    }
-    return *navtile;
 }
 
 namespace {
@@ -416,7 +316,6 @@ void addInputToOutput(Output &out, const Input &input
     // use (position + 1) as a mask color
     auto color(outMesh.size());
 
-    // TODO: optimize by using input mask and coverage
     for (const auto &face : faces) {
         std::vector<imgproc::Scanline> scanlines;
 
@@ -822,50 +721,6 @@ Output mergeTile(const TileId &tileId
     result.geomExtents.surrogate = sc.surrogate();
 
     return result;
-}
-
-Tile Output::tile(int textureQuality)
-{
-    Tile tile;
-
-    if (textureQuality && mesh) {
-        // we have mesh and should generate textures, try to optimize it
-
-        // wrap mesh and atlas in shared pointers
-        Mesh::pointer m;
-        RawAtlas::pointer a;
-        if (atlas) { a.reset(&*atlas, [](void*) {}); }
-        if (mesh) { m.reset(&*mesh, [](void*) {}); }
-
-        if (textureQuality) {
-            // optimize
-            auto optimized(mergeSubmeshes(tileId, m, a, textureQuality));
-            // assign output
-            tile.mesh = std::get<0>(optimized);
-            tile.atlas = std::get<1>(optimized);
-        } else {
-            // no optimization
-            tile.mesh = m;
-            tile.atlas = a;
-        }
-    } else {
-        // nothing, just wrap members into output
-        if (mesh) { tile.mesh.reset(&*mesh, [](void*) {}); }
-        if (atlas) { tile.atlas.reset(&*atlas, [](void*) {}); }
-    }
-
-    if (navtile) { tile.navtile.reset(&*navtile, [](void*) {}); }
-
-    // join all credits from tile mesh source
-    for (const auto &src : source.mesh) {
-        const auto &sCredits(src.node().credits());
-        tile.credits.insert(sCredits.begin(), sCredits.end());
-    }
-
-    // update geom extents
-    tile.geomExtents = geomExtents;
-
-    return tile;
 }
 
 } } } // namespace vtslibs::vts::merge

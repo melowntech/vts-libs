@@ -207,6 +207,11 @@ SubMeshArea area(const EnhancedSubMesh &submesh, const VertexMask &mask);
  */
 MeshArea area(const EnhancedSubMesh::list &mesh, const VertexMasks &masks);
 
+/** Adds skirt to existing mesh.
+ */
+void addSkirt(EnhancedSubMesh::list &mesh
+              , const MeshVertexConvertor &convertor);
+
 // inlines
 
 inline SubMesh clip(const SubMesh &mesh

@@ -27,11 +27,20 @@
 #ifndef vtslibs_vts_merge_support_hpp_included_
 #define vtslibs_vts_merge_support_hpp_included_
 
+#include <utility>
+
+#include <boost/optional.hpp>
+#include <boost/utility/in_place_factory.hpp>
+
+#include "math/transform.hpp"
 #include "math/geometry_core.hpp"
 #include "math/transform.hpp"
 
 #include "imgproc/contours.hpp"
 
+#include "../../basetypes.hpp"
+#include "../../meshop.hpp"
+#include "../../csconvertor.hpp"
 #include "../merge.hpp"
 
 namespace vtslibs { namespace vts { namespace merge {
@@ -63,6 +72,61 @@ math::Matrix4 coverage2EtcTrafo(const math::Size2 &gridSize);
 
 math::Extents2 coverageExtents(double margin = .0);
 
+/** Physical <-> SDS mask mesh coordinate system convertor.
+ */
+class SdMeshConvertor : public MeshVertexConvertor {
+public:
+    SdMeshConvertor(const Input &input, const NodeInfo &nodeInfo
+                    , const TileId &tileId);
+
+    virtual math::Point3d vertex(const math::Point3d &v) const;
+
+    virtual math::Point2d etc(const math::Point3d &v) const;
+
+    virtual math::Point2d etc(const math::Point2d &v) const;
+
+    // On-demand SdMeshConvertor instantiation.
+    struct Lazy;
+
+private:
+    /** Linear transformation from local coverage coordinates to node's SD SRS.
+     */
+    math::Matrix4 geoTrafo_;
+
+    /** Convertor between node's SD SRS and reference frame's physical SRS.
+     */
+    CsConvertor geoConv_;
+
+    /** Converts external texture coordinates between fallback tile and current
+     *  tile.
+     */
+    math::Matrix4 etcNCTrafo_;
+
+    /** Converts between coverage coordinates and normalized external texture
+     *  cooridnates.
+     */
+    math::Matrix4 coverage2Texture_;
+};
+
+struct SdMeshConvertor::Lazy {
+public:
+    Lazy(const Input &input, const NodeInfo &nodeInfo, const TileId &tileId)
+        : factory_(input, nodeInfo, tileId)
+    {}
+
+    operator const SdMeshConvertor&() const {
+        if (!convertor_) { convertor_ = factory_; }
+        return *convertor_;
+    }
+
+    const SdMeshConvertor& operator()() const { return *this; }
+
+private:
+    decltype(boost::in_place
+             (std::declval<Input>(), std::declval<NodeInfo>()
+              , std::declval<TileId>())) factory_;
+    mutable boost::optional<SdMeshConvertor> convertor_;
+};
 
 // inlines
 
@@ -152,6 +216,35 @@ inline math::Extents2 coverageExtents(double margin)
                           , -.5 - margin
                           , grid.width - .5 + margin
                           , grid.height - .5 + margin);
+}
+
+inline SdMeshConvertor::SdMeshConvertor(const Input &input
+                                        , const NodeInfo &nodeInfo
+                                        , const TileId &tileId)
+    : geoTrafo_(input.coverage2Sd(nodeInfo))
+    , geoConv_(nodeInfo.srs()
+               , nodeInfo.referenceFrame().model.physicalSrs)
+    , etcNCTrafo_(etcNCTrafo(tileId))
+    , coverage2Texture_(input.coverage2Texture())
+{}
+
+inline math::Point3d SdMeshConvertor::vertex(const math::Point3d &v) const
+{
+    // point is in node SD SRS
+    return geoConv_(transform(geoTrafo_, v));
+}
+
+inline math::Point2d SdMeshConvertor::etc(const math::Point3d &v) const
+{
+    // point is in projected space (i.e. in coverage raster)
+    auto tmp(transform(coverage2Texture_, v));
+    return math::Point2d(tmp(0), tmp(1));
+}
+
+inline math::Point2d SdMeshConvertor::etc(const math::Point2d &v) const
+{
+    // point is in the input's texture coordinates system
+    return transform(etcNCTrafo_, v);
 }
 
 } } } // namespace vtslibs::vts::merge
