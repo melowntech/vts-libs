@@ -43,6 +43,7 @@ typedef std::vector<imgproc::Contours> CookieCutters;
 
 struct Coverage {
     typedef std::int16_t pixel_type;
+    typedef cv::Mat_<float> HeightMap;
 
     const TileId tileId;
     const Input::list &sources;
@@ -56,13 +57,28 @@ struct Coverage {
      */
     CookieCutters cookieCutters;
 
+    /** Heightmap filled in by covered() function.
+     */
+    HeightMap hm;
+
     Coverage(const TileId &tileId, const NodeInfo &nodeInfo
              , const Input::list &sources);
 
     void getSources(Output &output, const Input::list &navtileSource) const;
 
+    /** Checks for face coverage by givensurface (id). Updates height map with
+     *  minumum sampled value.
+     *
+     * \param face face to check
+     * \param vertices vertices referenced by face
+     * \param id surface identifier
+     * \return tribool where:
+     *             false: face is fully outside
+     *             true: face is fully inside
+     *             intermediate: face is partially inside
+     */
     boost::tribool covered(const Face &face, const math::Points3d &vertices
-                           , Input::Id id) const;
+                           , Input::Id id);
 
     void dump(const boost::filesystem::path &dump) const;
 

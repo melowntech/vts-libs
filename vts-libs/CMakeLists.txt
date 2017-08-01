@@ -313,17 +313,21 @@ else()
 endif()
 
 set(vts_SOURCES
+  # glue/merge stuff
   vts/tileset/glue.cpp
   vts/tileset/merge.hpp vts/tileset/merge.cpp
   vts/tileset/merge/support.hpp vts/tileset/merge/support.cpp
   vts/tileset/merge/coverage.hpp vts/tileset/merge/coverage.cpp
   vts/tileset/merge/output.cpp
 
+  # mesh operations
   vts/meshopinput.hpp vts/meshopinput.cpp
   vts/meshop.hpp
   vts/meshop/refineandclip.cpp
   vts/meshop/merge.cpp
+  vts/meshop/skirt.cpp
 
+  # storage
   vts/storage/change.cpp
   vts/storage/locking.hpp vts/storage/locking.cpp
 

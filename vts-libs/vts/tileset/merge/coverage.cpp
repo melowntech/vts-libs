@@ -24,6 +24,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <limits>
+
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/range/adaptor/reversed.hpp>
@@ -200,7 +202,7 @@ void Coverage::getSources(Output &output, const Input::list &navtileSource)
 
 boost::tribool Coverage::covered(const Face &face
                                  , const math::Points3d &vertices
-                                 , Input::Id id) const
+                                 , Input::Id id)
 {
     bool hit(false);
     bool miss(false);
@@ -220,11 +222,12 @@ boost::tribool Coverage::covered(const Face &face
 
     for (const auto &sl : scanlines) {
         imgproc::processScanline(sl, 0, coverage.cols
-                                 , [&](int x, int y, float)
+                                 , [&](int x, int y, float z)
         {
             // triangle passes through
             if (coverage(y, x) == id) {
                 hit = true;
+                auto &oz(hm(y, x)); if (z < oz) { oz = z; }
             } else {
                 miss = true;
             }
@@ -248,6 +251,9 @@ boost::tribool Coverage::covered(const Face &face
 
         if (coverage(y, x) == id) {
             hit = true;
+
+            const float z((*tri[i])(2));
+            auto &oz(hm(y, x)); if (z < oz) { oz = z; }
         } else {
             miss = true;
         }
@@ -262,7 +268,13 @@ void Coverage::generateCoverage(const NodeInfo &nodeInfo)
 {
     // prepare coverage map
     auto coverageSize(Mesh::coverageSize());
+    // set coverage to invalid index
     coverage.create(coverageSize.height, coverageSize.width);
+    coverage = pixel_type(-1);
+    // set heightmap to infinity
+    hm.create(coverageSize.height, coverageSize.width);
+    hm = std::numeric_limits<float>::infinity();
+
 
     // BEGIN OPTIMIZATION {
 
@@ -274,7 +286,7 @@ void Coverage::generateCoverage(const NodeInfo &nodeInfo)
         {
             if (rinput->watertight()) {
                 return std::prev(rinput.base());
-                            }
+            }
         }
 
         // not found -> just from start
@@ -299,9 +311,6 @@ void Coverage::generateCoverage(const NodeInfo &nodeInfo)
     }
 
     // } END OPTIMIZATION
-
-    // set coverage to invalid index
-    static_cast<cv::Mat&>(coverage) = cv::Scalar(-1);
 
     // process all sources from (limited) bottom to the top
     for (auto einput(sources.end()); iinput != einput; ++iinput) {

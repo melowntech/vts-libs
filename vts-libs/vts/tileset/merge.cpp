@@ -45,26 +45,6 @@ namespace vtslibs { namespace vts {
 
 namespace merge {
 
-/** Returns mesh vertices (vector per submesh) converted to coverage space.
- */
-Vertices3List inputCoverageVertices(const Input &input
-                                    , const NodeInfo &nodeInfo
-                                    , const CsConvertor &conv)
-{
-    const auto trafo(input.sd2Coverage(nodeInfo));
-
-    const auto &mesh(input.mesh());
-    Vertices3List out(mesh.submeshes.size());
-    auto iout(out.begin());
-    for (const auto &sm : mesh.submeshes) {
-        auto &ov(*iout++);
-        for (const auto &v : sm.vertices) {
-            ov.push_back(transform(trafo, conv(v)));
-        }
-    }
-    return out;
-}
-
 namespace {
 
 /** Build uniform source by merging current and parent sources current data have
@@ -128,62 +108,50 @@ Input::list mergeSource(const Input::list &currentSource
     return source;
 }
 
+struct IntermediateOutput {
+    std::reference_wrapper<const Input> input;
+    EnhancedSubMesh mesh;
+    int submeshIndex;
+    double uvAreaScale;
+
+    typedef std::vector<IntermediateOutput> list;
+
+    IntermediateOutput(const Input &input, EnhancedSubMesh mesh
+                       , int submeshIndex, double uvAreaScale)
+        : input(input), mesh(std::move(mesh)), submeshIndex(submeshIndex)
+        , uvAreaScale(uvAreaScale)
+    {}
+
+    IntermediateOutput(const Input &input, SubMesh sm, math::Points3 projected
+                       , int submeshIndex, double uvAreaScale)
+        : input(input), mesh(std::move(sm), std::move(projected))
+        , submeshIndex(submeshIndex)
+        , uvAreaScale(uvAreaScale)
+    {}
+};
+
 class MeshFilter {
 public:
     MeshFilter(const SubMesh &original, int submeshIndex
                , const math::Points3 &originalCoverage
-               , const Input &input, const Coverage &coverage
+               , const Input &input, Coverage &coverage
                , const MergeOptions &options
                , const SdMeshConvertor::Lazy &sdmc
-               , const TileId &diff)
-        : original_(original), submeshIndex_(submeshIndex)
-        , originalCoverage_(originalCoverage)
-        , input_(input), sdmc_(sdmc), diff_(diff)
-        , keep_(false)
-    {
-        filter(coverage, options.clip);
-    }
+               , const TileId &diff);
 
-    void addTo(Output &out);
+    void addTo(IntermediateOutput::list &out);
 
     operator bool() const {
         return !(keep_ ? original_.empty() : mesh_.empty());
     }
 
 private:
-    void filter(const Coverage &coverage, bool clipping) {
-        LOG(info4) << "filtering <" << input_.name() << ">";
-        // clipping is off: just pass all faces
-        if (!clipping) {
-            keep_ = true;
-            return;
-        }
+    void filter(Coverage &coverage, bool clipping);
 
-        // clipping is on: add face only when covered
+    void updateHeightmap(Coverage &coverage, const Faces &faces
+                         , const math::Points3 &vertices);
 
-        // topmost surface: pass as is
-        if (coverage.topmost(input_.id())) {
-            if (diff_.lod) {
-                // deriving from fallback tile -> clip
-                const auto clipped(clip(original_, originalCoverage_
-                                        , coverageExtents(1.), sdmc_));
-                if (clipped) {
-                    mesh_ = clipped.mesh;
-                    coverageVertices_ = clipped.projected;
-                    original_.cloneMetadataInto(mesh_);
-                }
-                return;
-            }
-
-            // keep as-is
-            keep_ = true;
-            return;
-        }
-
-        complexClip(coverage);
-    }
-
-    void complexClip(const Coverage &coverage);
+    void complexClip(Coverage &coverage);
 
     const SubMesh &original_;
     const int submeshIndex_;
@@ -197,7 +165,70 @@ private:
     bool keep_;
 };
 
-void MeshFilter::complexClip(const Coverage &coverage)
+MeshFilter::MeshFilter(const SubMesh &original, int submeshIndex
+                       , const math::Points3 &originalCoverage
+                       , const Input &input, Coverage &coverage
+                       , const MergeOptions &options
+                       , const SdMeshConvertor::Lazy &sdmc
+                       , const TileId &diff)
+    : original_(original), submeshIndex_(submeshIndex)
+    , originalCoverage_(originalCoverage)
+    , input_(input), sdmc_(sdmc), diff_(diff)
+    , keep_(false)
+{
+    // clipping is off: just pass all faces
+    if (!options.clip) {
+        keep_ = true;
+        updateHeightmap(coverage, original_.faces, originalCoverage_);
+        return;
+    }
+
+    // clipping is on: add face only when covered
+
+    // topmost surface: pass as is
+    if (coverage.topmost(input_.id())) {
+        if (diff_.lod) {
+            // deriving from fallback tile -> clip
+            const auto clipped(clip(original_, originalCoverage_
+                                    , coverageExtents(1.), sdmc_));
+            if (clipped) {
+                mesh_ = clipped.mesh;
+                coverageVertices_ = clipped.projected;
+                original_.cloneMetadataInto(mesh_);
+                updateHeightmap(coverage, mesh_.faces, coverageVertices_);
+            }
+            return;
+        }
+
+        // keep as-is
+        keep_ = true;
+        updateHeightmap(coverage, original_.faces, originalCoverage_);
+        return;
+    }
+
+    complexClip(coverage);
+}
+
+void MeshFilter::addTo(IntermediateOutput::list &out) {
+    if (keep_) {
+        out.emplace_back(input_, original_, originalCoverage_
+                         , submeshIndex_, (1 << (2 * diff_.lod)));
+    } else {
+        out.emplace_back(input_, mesh_, coverageVertices_
+                         , submeshIndex_, (1 << (2 * diff_.lod)));
+    }
+}
+
+void MeshFilter::updateHeightmap(Coverage &coverage, const Faces &faces
+                                 , const math::Points3 &vertices)
+{
+    const auto id(input_.id());
+    for (const auto &face : faces) {
+        coverage.covered(face, vertices, id);
+    }
+}
+
+void MeshFilter::complexClip(Coverage &coverage)
 {
     struct Clipper {
         Clipper(MeshFilter &mf, const SdMeshConvertor *sdmc)
@@ -253,8 +284,6 @@ void MeshFilter::complexClip(const Coverage &coverage)
         std::vector<int> vertexMap;
         std::vector<int> tcMap;
     };
-
-    LOG(info4) << "complex clip";
 
     Clipper clipper(*this, diff_.lod ? &sdmc_() : nullptr);
 
@@ -353,11 +382,12 @@ void addInputToOutput(Output &out, const Input &input
     }
 }
 
-void MeshFilter::addTo(Output &out)
+void toOutput(Output &out, const IntermediateOutput::list &imo)
 {
-    addInputToOutput(out, input_, (keep_ ? original_ : mesh_)
-                     , (keep_ ? originalCoverage_ : coverageVertices_)
-                     , submeshIndex_, (1 << (2 * diff_.lod)));
+    for (const auto &io : imo) {
+        addInputToOutput(out, io.input, io.mesh.mesh, io.mesh.projected
+                         , io.submeshIndex, io.uvAreaScale);
+    }
 }
 
 void renderNavtile(cv::Mat &nt, cv::Mat &ntCoverage
@@ -509,15 +539,12 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
 
     // clip source mesh/navtile
 
-    LOG(info4) << "clipping single source derived tile: "
-               << tileId;
-
     CsConvertor phys2sd(nodeInfo.referenceFrame().model.physicalSrs
                         , nodeInfo.srs());
 
     const auto coverageVertices
         (inputCoverageVertices(input, nodeInfo, phys2sd));
-    SdMeshConvertor sdmc(input, nodeInfo, localId);
+    SdMeshConvertor sdmc(nodeInfo, localId);
 
     std::size_t smIndex(0);
     for (const auto &sm : input.mesh()) {
@@ -679,6 +706,10 @@ Output mergeTile(const TileId &tileId
     // to the tile)
 
     SurrogateCalculator sc;
+    IntermediateOutput::list imo;
+
+    // mesh convertor (for this tile)
+    SdMeshConvertor thisSdmc(nodeInfo);
 
     // process all inputs
     for (const auto &input : result.source.mesh) {
@@ -694,25 +725,46 @@ Output mergeTile(const TileId &tileId
         const auto &tileLod(input.tileId().lod);
         const auto localId(local(tileLod, tileId));
 
-        // mesh convertor, lazy (instance is create when needed)
-        SdMeshConvertor::Lazy sdmc(input, nodeInfo, localId);
+        // mesh vertex convertor: use convertor for this tile or create lazy
+        // instance if we are using fallback data (deriving subtile)
+        auto sdmc(localId.lod
+                  ? SdMeshConvertor::Lazy(nodeInfo, localId)
+                  : SdMeshConvertor::Lazy(thisSdmc));
 
         // traverse all submeshes
         for (int m(0), em(mesh.submeshes.size()); m != em; ++m) {
             const auto &sm(mesh[m]);
-            // accumulate new mesh
+
+            // filter mesh
             MeshFilter mf(sm, m, *icoverageVertices++, input
                           , coverage, options, sdmc, localId);
-            if (!mf) {
-                // empty result mesh -> nothing to do
-                continue;
-            }
 
-            // add as is
-            mf.addTo(result);
-            sc.update(result, input, sm);
+            if (mf) {
+                // add to intermediate result
+                mf.addTo(imo);
+
+                // TODO: move surrogate update after skirting?
+                // FIXME: use only cut mesh, not input mesh?
+                sc.update(result, input, sm);
+            }
         }
     }
+
+    // add skirt
+    if (1) {
+        for (auto &io : imo) {
+            addSkirt(io.mesh, thisSdmc
+                     , [&](const math::Point3d &p) -> math::Point3d
+            {
+                (void) p;
+                // TODO: implement me
+                return math::Point3d(0, 0, -10.0);
+            });
+        }
+    }
+
+    // pass intermediate result to output
+    toOutput(result, imo);
 
     // generate navtile if asked to
     if (constraints.generateNavtile()) { mergeNavtile(result); }

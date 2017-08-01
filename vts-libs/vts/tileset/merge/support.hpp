@@ -48,6 +48,12 @@ namespace vtslibs { namespace vts { namespace merge {
 Input::list filterSources(const Input::list &reference
                           , const Input::list &sources);
 
+/** Returns mesh vertices (vector per submesh) converted to coverage space.
+ */
+Vertices3List inputCoverageVertices(const Input &input
+                                    , const NodeInfo &nodeInfo
+                                    , const CsConvertor &conv);
+
 /** Geo coordinates to coverage mask mapping.
  * NB: result is in pixel system: pixel centers have integral indices
  */
@@ -76,8 +82,13 @@ math::Extents2 coverageExtents(double margin = .0);
  */
 class SdMeshConvertor : public MeshVertexConvertor {
 public:
-    SdMeshConvertor(const Input &input, const NodeInfo &nodeInfo
-                    , const TileId &tileId);
+    /** Create convertor
+     *
+     * \param input mesh operation input
+     * \param nodeInfo curren node info
+     * \param tileId local tile ID.
+     */
+    SdMeshConvertor(const NodeInfo &nodeInfo, const TileId &tileId = TileId());
 
     virtual math::Point3d vertex(const math::Point3d &v) const;
 
@@ -103,29 +114,38 @@ private:
     math::Matrix4 etcNCTrafo_;
 
     /** Converts between coverage coordinates and normalized external texture
-     *  cooridnates.
+     *  coordinates.
      */
     math::Matrix4 coverage2Texture_;
 };
 
 struct SdMeshConvertor::Lazy {
 public:
-    Lazy(const Input &input, const NodeInfo &nodeInfo, const TileId &tileId)
-        : factory_(input, nodeInfo, tileId)
+    Lazy(const NodeInfo &nodeInfo, const TileId &tileId)
+        : factory_(Factory(nodeInfo, tileId)), convertor_(nullptr)
+    {}
+
+    Lazy(const SdMeshConvertor &convertor)
+        : convertor_(&convertor)
     {}
 
     operator const SdMeshConvertor&() const {
-        if (!convertor_) { convertor_ = factory_; }
+        if (!convertor_) {
+            own_ = *factory_;
+            convertor_ = &*own_;
+        }
         return *convertor_;
     }
 
     const SdMeshConvertor& operator()() const { return *this; }
 
 private:
-    decltype(boost::in_place
-             (std::declval<Input>(), std::declval<NodeInfo>()
-              , std::declval<TileId>())) factory_;
-    mutable boost::optional<SdMeshConvertor> convertor_;
+    typedef decltype(boost::in_place
+                     (std::declval<NodeInfo>(), std::declval<TileId>()))
+        Factory;
+    boost::optional<Factory> factory_;
+    mutable boost::optional<SdMeshConvertor> own_;
+    mutable const SdMeshConvertor* convertor_;
 };
 
 // inlines
@@ -218,14 +238,13 @@ inline math::Extents2 coverageExtents(double margin)
                           , grid.height - .5 + margin);
 }
 
-inline SdMeshConvertor::SdMeshConvertor(const Input &input
-                                        , const NodeInfo &nodeInfo
+inline SdMeshConvertor::SdMeshConvertor(const NodeInfo &nodeInfo
                                         , const TileId &tileId)
-    : geoTrafo_(input.coverage2Sd(nodeInfo))
+    : geoTrafo_(Input::coverage2Sd(nodeInfo))
     , geoConv_(nodeInfo.srs()
                , nodeInfo.referenceFrame().model.physicalSrs)
     , etcNCTrafo_(etcNCTrafo(tileId))
-    , coverage2Texture_(input.coverage2Texture())
+    , coverage2Texture_(Input::coverage2Texture())
 {}
 
 inline math::Point3d SdMeshConvertor::vertex(const math::Point3d &v) const

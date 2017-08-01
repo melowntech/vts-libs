@@ -52,4 +52,22 @@ Input::list filterSources(const Input::list &reference
     return out;
 }
 
+Vertices3List inputCoverageVertices(const Input &input
+                                    , const NodeInfo &nodeInfo
+                                    , const CsConvertor &conv)
+{
+    const auto trafo(input.sd2Coverage(nodeInfo));
+
+    const auto &mesh(input.mesh());
+    Vertices3List out(mesh.submeshes.size());
+    auto iout(out.begin());
+    for (const auto &sm : mesh.submeshes) {
+        auto &ov(*iout++);
+        for (const auto &v : sm.vertices) {
+            ov.push_back(transform(trafo, conv(v)));
+        }
+    }
+    return out;
+}
+
 } } } // namespace vtslibs::vts::merge

@@ -207,10 +207,15 @@ SubMeshArea area(const EnhancedSubMesh &submesh, const VertexMask &mask);
  */
 MeshArea area(const EnhancedSubMesh::list &mesh, const VertexMasks &masks);
 
-/** Adds skirt to existing mesh.
+/** Skirting callback. Returns skirt vector to be added to given vertex.
  */
-void addSkirt(EnhancedSubMesh::list &mesh
-              , const MeshVertexConvertor &convertor);
+typedef std::function<math::Point3d(math::Point3d)> SkirtVectorCallback;
+
+/** Adds skirt to given mesh.
+ */
+void addSkirt(EnhancedSubMesh &mesh
+              , const MeshVertexConvertor &convertor
+              , const SkirtVectorCallback &skirtVector);
 
 // inlines
 
