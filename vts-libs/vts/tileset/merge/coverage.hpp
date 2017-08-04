@@ -29,21 +29,25 @@
 
 #include <cstdint>
 #include <vector>
+#include <iosfwd>
 
 #include <boost/logic/tribool.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include <opencv2/core/core.hpp>
 
+#include "utility/openmp.hpp"
+
 #include "../merge.hpp"
 
 namespace vtslibs { namespace vts { namespace merge {
 
-typedef std::vector<imgproc::Contours> CookieCutters;
+typedef imgproc::Contour::list CookieCutters;
 
 struct Coverage {
     typedef std::int16_t pixel_type;
-    typedef cv::Mat_<float> HeightMap;
+    typedef cv::Vec2f HeightMapValue;
+    typedef cv::Mat_<HeightMapValue> HeightMap;
 
     const TileId tileId;
     const Input::list &sources;
@@ -81,12 +85,21 @@ struct Coverage {
                            , Input::Id id);
 
     void dump(const boost::filesystem::path &dump) const;
+    void dumpCookieCutters(std::ostream &os) const;
 
     void dumpCookieCutters(const boost::filesystem::path &dump) const;
 
     bool topmost(const Input &input) const { return topmost(input.id()); }
 
     bool topmost(const Input::Id &id) const { return id == topmost_; }
+
+    void dilateHm();
+
+    boost::optional<double> hmMin(int x, int y) const;
+
+    boost::optional<double> hmMax(int x, int y) const;
+
+    boost::optional<double> hmAvg(int x, int y) const;
 
 private:
     void generateCoverage(const NodeInfo &nodeInfo);

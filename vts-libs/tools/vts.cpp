@@ -174,6 +174,8 @@ public:
         addOptions_.dryRun = false;
         addOptions_.mode = vts::Storage::AddOptions::Mode::legacy;
         addOptions_.clip = true;
+        addOptions_.skirtMode = vts::SkirtMode::none;
+        addOptions_.skirtScale = 1.0;
 
         relocateOptions_.dryRun = false;
         reencodeOptions_.dryRun = false;
@@ -570,7 +572,17 @@ void VtsStorage::configuration(po::options_description &cmdline
              "in legacy mode. In conflict with --lazy")
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
+
             ("no-clip", "Don't clip meshes by merge coverage.")
+            ("glue.skirt.mode", po::value(&addOptions_.skirtMode)
+             ->default_value(addOptions_.skirtMode)
+             , utility::concat
+             ("Skirt mode, one of "
+              , enumerationString(addOptions_.skirtMode), ".").c_str())
+            ("glue.skirt.scale", po::value(&addOptions_.skirtScale)
+             ->default_value(addOptions_.skirtScale)
+             , "Scaling factor for computer skirt length")
+
             ("addTag", po::value<std::vector<std::string>>()
              , "Set of tags (string identifiers) assigned to tileset. "
              "Glue rules (stored in user-editable file "
@@ -687,7 +699,16 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
+
             ("no-clip", "Don't clip meshes by merge coverage.")
+            ("glue.skirt.mode", po::value(&addOptions_.skirtMode)
+             ->default_value(addOptions_.skirtMode)
+             , utility::concat
+             ("Skirt mode, one of "
+              , enumerationString(addOptions_.skirtMode), ".").c_str())
+            ("glue.skirt.scale", po::value(&addOptions_.skirtScale)
+             ->default_value(addOptions_.skirtScale)
+             , "Scaling factor for computer skirt length")
             ;
 
         progressConfiguration(p.options);
@@ -723,7 +744,17 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
+
             ("no-clip", "Don't clip meshes by merge coverage.")
+            ("glue.skirt.mode", po::value(&addOptions_.skirtMode)
+             ->default_value(addOptions_.skirtMode)
+             , utility::concat
+             ("Skirt mode, one of "
+              , enumerationString(addOptions_.skirtMode), ".").c_str())
+            ("glue.skirt.scale", po::value(&addOptions_.skirtScale)
+             ->default_value(addOptions_.skirtScale)
+             , "Scaling factor for computer skirt length")
+
             ("overwrite", "Overwrite existing glue, i.e. regenerate.")
             ("debug.tileId", po::value<vts::TileId>()
              , "Limits glue to tiles in the path to "

@@ -276,6 +276,17 @@ private:
     virtual void tile_impl() = 0;
 };
 
+UTILITY_GENERATE_ENUM(SkirtMode,
+                      // do not generate any skirt
+                      ((none))
+                      // stretch skirt to minimum value at given tile point
+                      ((minimum))
+                      // stretch skirt to maximum value at given tile point
+                      ((maximum))
+                      // stretch skirt to average value at given tile point
+                      ((average))
+                      )
+
 /** Glue creation options.
  */
 struct GlueCreationOptions {
@@ -286,6 +297,14 @@ struct GlueCreationOptions {
     /** Clip meshes based on merge coverage.
      */
     bool clip;
+
+    /** Skirt generation mode. Taken into the account only when clip == true.
+     */
+    SkirtMode skirtMode;
+
+    /** Scale computer skirt by provided factor.
+     */
+    double skirtScale;
 
     /** Merge progress reporting.
      *  Pinged with each tile.

@@ -48,8 +48,8 @@ namespace merge {
 namespace {
 
 /** Build uniform source by merging current and parent sources current data have
- *  precedence only tiles with mesh are used.
-*/
+ *  precedence. Only tiles with mesh are used.
+ */
 template <typename Include>
 Input::list mergeSource(const Input::list &currentSource
                         , const Input::list &parentSource
@@ -605,6 +605,66 @@ private:
     double weightSum_;
 };
 
+inline math::Point3d skirtVector(const math::Point3d &p, float z
+                                 , const MergeOptions &options)
+{
+    return { 0.0, 0.0, (z - p(2)) * options.skirtScale };
+}
+
+SkirtVectorCallback skirtVectorCallback(const Input &input
+                                        , const Coverage &coverage
+                                        , const MergeOptions &options)
+{
+    const auto &cookieCutter(coverage.cookieCutters[input.id()]);
+
+    switch (options.skirtMode) {
+    case SkirtMode::none:
+        return [](const math::Point3d&) { return math::Point3d(); };
+
+    case SkirtMode::minimum:
+        return [&](const math::Point3d &p) -> math::Point3d
+        {
+            const int x(std::round(p(0))), y(std::round(p(1)));
+            if (!cookieCutter.border.get(x, y)) { return {}; }
+
+            if (auto z = coverage.hmMin(x, y)) {
+                return skirtVector(p, *z, options);
+            }
+            return {};
+        };
+
+    case SkirtMode::maximum:
+        return [&](const math::Point3d &p) -> math::Point3d
+        {
+            const int x(std::round(p(0))), y(std::round(p(1)));
+            if (!cookieCutter.border.get(x, y)) { return {}; }
+
+            if (auto z = coverage.hmMax(x, y)) {
+                return skirtVector(p, *z, options);
+            }
+            return {};
+        };
+
+    case SkirtMode::average:
+        return [&](const math::Point3d &p) -> math::Point3d
+        {
+            const int x(std::round(p(0))), y(std::round(p(1)));
+            if (!cookieCutter.border.get(x, y)) { return {}; }
+
+            if (auto z = coverage.hmAvg(x, y)) {
+                return skirtVector(p, *z, options);
+            }
+            return {};
+        };
+    }
+
+    LOGTHROW(err2, std::logic_error)
+        << "Skirt mode has invalid value "
+        << static_cast<int>(options.skirtMode)
+        << "; looks like an uninitialized value, check your code.";
+    throw;
+}
+
 } // namespace
 
 Output mergeTile(const TileId &tileId
@@ -750,17 +810,12 @@ Output mergeTile(const TileId &tileId
         }
     }
 
+    coverage.dilateHm();
+
     // add skirt
-    if (1) {
-        for (auto &io : imo) {
-            addSkirt(io.mesh, thisSdmc
-                     , [&](const math::Point3d &p) -> math::Point3d
-            {
-                (void) p;
-                // TODO: implement me
-                return math::Point3d(0, 0, -10.0);
-            });
-        }
+    for (auto &io : imo) {
+        addSkirt(io.mesh, thisSdmc
+                 , skirtVectorCallback(io.input, coverage, options));
     }
 
     // pass intermediate result to output

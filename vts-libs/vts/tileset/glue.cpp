@@ -137,6 +137,8 @@ public:
     {
         // update merge options
         mergeOptions_.clip = options.clip;
+        mergeOptions_.skirtMode = options.skirtMode;
+        mergeOptions_.skirtScale = options.skirtScale;
 
         // make world complete
         world_.complete();

@@ -110,6 +110,8 @@ void addSkirt(EnhancedSubMesh &em
     int even(0);
     int odd(0);
 
+    const math::Point3d zero;
+
     // get down vertex for given vertex
     const auto getDownVertex([&](int v) -> int
     {
@@ -117,14 +119,20 @@ void addSkirt(EnhancedSubMesh &em
         auto fvdownmap(vdownmap.find(v));
         if (fvdownmap != vdownmap.end()) { return fvdownmap->second; }
 
+        // find out whether we need to create new vertex
+        auto vertex(projected[v]);
+        const auto vector(skirtVector(vertex));
+        if (vector == zero) {
+            return vdownmap[v] = v;
+        }
+
         // not found, add new, vertex, copy etc if enabled
         const auto index(vertices.size());
 
         vdownmap[v] = index;
 
         // create new (projected) vertex
-        auto vertex(projected[v]);
-        vertex += skirtVector(vertex);
+        vertex += vector;
         // add to projected vertices
         projected.push_back(vertex);
         // and add physical version to mesh vertices
@@ -151,20 +159,32 @@ void addSkirt(EnhancedSubMesh &em
         // add new faces
         switch (edge.status) {
         case Status::fw:
-            faces.emplace_back(dv1, edge.v2, edge.v1);
-            faces.emplace_back(dv1, dv2, edge.v2);
-            if (hasTc) {
-                facesTc.emplace_back(edge.t1, edge.t2, edge.t1);
-                facesTc.emplace_back(edge.t1, edge.t2, edge.t2);
+            if (dv1 != edge.v1) {
+                faces.emplace_back(dv1, edge.v2, edge.v1);
+                if (hasTc) {
+                    facesTc.emplace_back(edge.t1, edge.t2, edge.t1);
+                }
+            }
+            if (dv2 != edge.v2) {
+                faces.emplace_back(dv1, dv2, edge.v2);
+                if (hasTc) {
+                    facesTc.emplace_back(edge.t1, edge.t2, edge.t2);
+                }
             }
             break;
 
         case Status::bw:
-            faces.emplace_back(dv1, edge.v1, edge.v2);
-            faces.emplace_back(dv1, edge.v2, dv2);
-            if (hasTc) {
-                facesTc.emplace_back(edge.t1, edge.t1, edge.t2);
-                facesTc.emplace_back(edge.t1, edge.t2, edge.t2);
+            if (dv1 != edge.v1) {
+                faces.emplace_back(dv1, edge.v1, edge.v2);
+                if (hasTc) {
+                    facesTc.emplace_back(edge.t1, edge.t1, edge.t2);
+                }
+            }
+            if (dv2 != edge.v2) {
+                faces.emplace_back(dv1, edge.v2, dv2);
+                if (hasTc) {
+                    facesTc.emplace_back(edge.t1, edge.t2, edge.t2);
+                }
             }
             break;
 
