@@ -66,7 +66,7 @@ struct Coverage {
     HeightMap hm;
 
     Coverage(const TileId &tileId, const NodeInfo &nodeInfo
-             , const Input::list &sources);
+             , const Input::list &sources, bool needCookieCutters);
 
     void getSources(Output &output, const Input::list &navtileSource) const;
 
@@ -83,6 +83,16 @@ struct Coverage {
      */
     boost::tribool covered(const Face &face, const math::Points3d &vertices
                            , Input::Id id);
+
+    /** Simplified hit test.
+     */
+    struct Hit {
+        bool inside;
+        bool covered;
+    };
+
+    Hit hit(const Face &face, const math::Points3d &vertices
+            , Input::Id id) const;
 
     void dump(const boost::filesystem::path &dump) const;
     void dumpCookieCutters(std::ostream &os) const;

@@ -31,6 +31,8 @@
 
 #include "math/transform.hpp"
 
+#include "geometry/nonconvexclip.hpp"
+
 #include "imgproc/scanconversion.hpp"
 
 #include "../io.hpp"
@@ -46,6 +48,10 @@ namespace vtslibs { namespace vts {
 namespace merge {
 
 namespace {
+
+const auto *MERGE_MASK_DUMP_DIR(::getenv("MERGE_MASK_DUMP_DIR"));
+const auto *MERGE_COOKIE_CUTTERS_DUMP_DIR
+    (::getenv("MERGE_COOKIE_CUTTERS_DUMP_DIR"));
 
 /** Build uniform source by merging current and parent sources current data have
  *  precedence. Only tiles with mesh are used.
@@ -146,12 +152,17 @@ public:
     }
 
 private:
+    struct Clipper;
+    friend struct Clipper;
+
     void filter(Coverage &coverage, bool clipping);
 
     void updateHeightmap(Coverage &coverage, const Faces &faces
                          , const math::Points3 &vertices);
 
     void complexClip(Coverage &coverage);
+
+    void simpleClip(Coverage &coverage);
 
     const SubMesh &original_;
     const int submeshIndex_;
@@ -176,17 +187,10 @@ MeshFilter::MeshFilter(const SubMesh &original, int submeshIndex
     , input_(input), sdmc_(sdmc), diff_(diff)
     , keep_(false)
 {
-    // clipping is off: just pass all faces
-    if (!options.clip) {
-        keep_ = true;
-        updateHeightmap(coverage, original_.faces, originalCoverage_);
-        return;
-    }
-
-    // clipping is on: add face only when covered
-
-    // topmost surface: pass as is
-    if (coverage.topmost(input_.id())) {
+    // topmost surface or pure compisition -> pass as is
+    if ((options.glueMode == GlueMode::compose)
+        || (coverage.topmost(input_.id())))
+    {
         if (diff_.lod) {
             // deriving from fallback tile -> clip
             const auto clipped(clip(original_, originalCoverage_
@@ -206,7 +210,11 @@ MeshFilter::MeshFilter(const SubMesh &original, int submeshIndex
         return;
     }
 
-    complexClip(coverage);
+    switch (options.glueMode) {
+    case GlueMode::compose: break;
+    case GlueMode::simpleClip: simpleClip(coverage); break;
+    case GlueMode::coverageContour: complexClip(coverage); break;
+    }
 }
 
 void MeshFilter::addTo(IntermediateOutput::list &out) {
@@ -228,62 +236,117 @@ void MeshFilter::updateHeightmap(Coverage &coverage, const Faces &faces
     }
 }
 
+struct MeshFilter::Clipper : boost::noncopyable {
+    Clipper(MeshFilter &mf, const SdMeshConvertor *sdmc = nullptr)
+        : sdmc(sdmc)
+        , im(mf.original_), ipv(mf.originalCoverage_)
+        , om(mf.mesh_), opv(mf.coverageVertices_)
+        , vertexMap(im.vertices.size(), -1)
+        , tcMap(im.vertices.size(), -1)
+    {}
+
+    Clipper(MeshFilter &mf, const SdMeshConvertor *sdmc
+            , const SubMesh &im, const math::Points3 &ipv)
+        : sdmc(sdmc)
+        , im(im), ipv(ipv)
+        , om(mf.mesh_), opv(mf.coverageVertices_)
+        , vertexMap(im.vertices.size(), -1)
+        , tcMap(im.vertices.size(), -1)
+    {}
+
+    void addFace(int faceIndex) {
+        const auto &of(im.faces[faceIndex]);
+
+        om.faces.emplace_back
+            (addVertex(of(0)), addVertex(of(1)), addVertex(of(2)));
+
+        if (!im.facesTc.empty()) {
+            const auto &oftc(im.facesTc[faceIndex]);
+            om.facesTc.emplace_back
+                (addTc(oftc(0)), addTc(oftc(1)), addTc(oftc(2)));
+        }
+    }
+
+    int addVertex(int i) {
+        auto &m(vertexMap[i]);
+        if (m < 0) {
+            // new vertex
+            m = om.vertices.size();
+            om.vertices.push_back(im.vertices[i]);
+            if (!im.etc.empty()) {
+                om.etc.push_back
+                    (sdmc
+                     ? sdmc->etc(im.etc[i])
+                     : im.etc[i]);
+            }
+
+            // coverage vertices (if needed)
+            opv.push_back(ipv[i]);
+        }
+        return m;
+    }
+
+    int addTc(int i) {
+        auto &m(tcMap[i]);
+        if (m < 0) {
+            // new vertex
+            m = im.tc.size();
+            om.tc.push_back(im.tc[i]);
+        }
+        return m;
+    }
+
+    void operator()(const Face &face, const geometry::Region &clipRegion) {
+        LOG(info4) << "face: " << ipv[face(0)]
+                   << ", " << ipv[face(1)] << ", " << ipv[face(2)];
+        const auto clipped
+            (geometry::clipTriangleNonconvex
+             ({{ ipv[face(0)], ipv[face(1)], ipv[face(2)] }}
+                  , clipRegion));
+
+        for (const auto &t : clipped) {
+            (void) t;
+        }
+    }
+
+    void operator()(const Face &face, const Face &faceTc
+                    , const geometry::Region &clipRegion)
+    {
+        math::Triangles3d clipped;
+        math::Triangles2d clippedTc;
+
+        LOG(info4) << "face: " << ipv[face(0)]
+                   << ", " << ipv[face(1)] << ", " << ipv[face(2)];
+
+        std::tie(clipped, clippedTc) =
+            (geometry::clipTexturedTriangleNonconvex
+             ({{ ipv[face(0)], ipv[face(1)], ipv[face(2)] }}
+              , {{ im.tc[faceTc(0)], im.tc[faceTc(1)], im.tc[faceTc(2)] }}
+              , clipRegion));
+
+        auto iclippedTc(clippedTc.begin());
+        for (const auto &t : clipped) {
+            const auto &ttc(*iclippedTc++);
+
+            (void) t;
+            (void) ttc;
+        }
+    }
+
+    const SdMeshConvertor *sdmc;
+
+    const SubMesh &im;
+    const math::Points3 &ipv;
+    SubMesh &om;
+    math::Points3 &opv;
+
+    std::vector<int> vertexMap;
+    std::vector<int> tcMap;
+};
+
 void MeshFilter::complexClip(Coverage &coverage)
 {
-    struct Clipper {
-        Clipper(MeshFilter &mf, const SdMeshConvertor *sdmc)
-            : mf(mf), sdmc(sdmc)
-            , vertexMap(mf.original_.vertices.size(), -1)
-            , tcMap(mf.original_.vertices.size(), -1)
-        {}
-
-        void addFace(int faceIndex) {
-            const auto &of(mf.original_.faces[faceIndex]);
-
-            mf.mesh_.faces.emplace_back
-                (addVertex(of(0)), addVertex(of(1)), addVertex(of(2)));
-
-            if (!mf.original_.facesTc.empty()) {
-                const auto &oftc(mf.original_.facesTc[faceIndex]);
-                mf.mesh_.facesTc.emplace_back
-                    (addTc(oftc(0)), addTc(oftc(1)), addTc(oftc(2)));
-            }
-        }
-
-        int addVertex(int i) {
-            auto &m(vertexMap[i]);
-            if (m < 0) {
-                // new vertex
-                m = mf.mesh_.vertices.size();
-                mf.mesh_.vertices.push_back(mf.original_.vertices[i]);
-                if (!mf.original_.etc.empty()) {
-                    mf.mesh_.etc.push_back
-                        (sdmc
-                         ? sdmc->etc(mf.original_.etc[i])
-                         : mf.original_.etc[i]);
-                }
-
-                // coverage vertices (if needed)
-                mf.coverageVertices_.push_back(mf.originalCoverage_[i]);
-            }
-            return m;
-        }
-
-        int addTc(int i) {
-            auto &m(tcMap[i]);
-            if (m < 0) {
-                // new vertex
-                m = mf.mesh_.tc.size();
-                mf.mesh_.tc.push_back(mf.original_.tc[i]);
-            }
-            return m;
-        }
-
-        MeshFilter &mf;
-        const SdMeshConvertor *sdmc;
-        std::vector<int> vertexMap;
-        std::vector<int> tcMap;
-    };
+    const bool hasTc(!original_.facesTc.empty());
 
     Clipper clipper(*this, diff_.lod ? &sdmc_() : nullptr);
 
@@ -296,20 +359,109 @@ void MeshFilter::complexClip(Coverage &coverage)
     const auto &cookieCutter(coverage.cookieCutters[id]);
 
     for (int f(0), ef(original_.faces.size()); f != ef; ++f) {
-        const auto covered
-            (coverage.covered(original_.faces[f], originalCoverage_, id));
+        const auto &face(original_.faces[f]);
+        const auto covered(coverage.covered(face, originalCoverage_, id));
 
         // not covered at all -> skip
         if (!covered) { continue; }
 
         if (covered) {
-            // all fully covered faces are added as-is
+            // every fully covered face is added as-is
             clipper.addFace(f);
-        } else {
+        } else if (cookieCutter) {
+            (void) hasTc;
+#if 1
             // partially covered faces are clipped by mesh cookie cutter
-            // TODO: clip
-            (void) cookieCutter;
+            (hasTc
+             ? clipper(face, original_.facesTc[f], cookieCutter.rings)
+             : clipper(face, cookieCutter.rings));
+#endif
         }
+    }
+}
+
+void MeshFilter::simpleClip(Coverage &coverage)
+{
+    // building new mesh -> we have to clone metadata from original
+    original_.cloneMetadataInto(mesh_);
+
+    const auto id(input_.id());
+
+    const auto applyClipper([&](Clipper &clipper) -> void
+    {
+        for (int f(0), ef(clipper.im.faces.size()); f != ef; ++f) {
+            if (coverage.hit(clipper.im.faces[f], clipper.ipv, id).covered) {
+                // every hit face is added as-is
+                clipper.addFace(f);
+            }
+        }
+    });
+
+    // same LOD -> just pass all incident faces
+    if (!diff_.lod) {
+        Clipper clipper(*this);
+        return applyClipper(clipper);
+    }
+
+    // LOD difference => we need to refine and clip source mesh
+
+    // accumulate inside faces
+    int coveredFaces(0);
+    int insideFaces(0);
+    for (int f(0), ef(original_.faces.size()); f != ef; ++f) {
+        const auto hit(coverage.hit(original_.faces[f]
+                                    , originalCoverage_, id));
+        coveredFaces += hit.covered;
+        insideFaces += hit.inside;
+    }
+
+    struct MVC : public MeshVertexConvertor {
+        const SdMeshConvertor &sdmc;
+        const Lod lodDiff;
+        const std::size_t faceLimit;
+
+        MVC(const SdMeshConvertor &sdmc, Lod lodDiff, std::size_t faceLimit)
+            : sdmc(sdmc), lodDiff(lodDiff), faceLimit(faceLimit)
+        {}
+
+        virtual math::Point3d vertex(const math::Point3d &v) const {
+            return sdmc.vertex(v);
+        }
+
+        virtual math::Point2d etc(const math::Point3d &v) const {
+            return sdmc.etc(v);
+        }
+
+        virtual math::Point2d etc(const math::Point2d &v) const {
+            return sdmc.etc(v);
+        }
+
+        virtual std::size_t refineToFaceCount(std::size_t current) const {
+            // scale current number of faces by 4^lodDiff (i.e. 2^(2 * lodDiff))
+            // Limit lodDiff to 8;
+            const int exponent(2 * std::min(lodDiff, Lod(8)));
+            // scale current number of faces
+            const std::size_t scaled(current << exponent);
+            // limit scaled number of faces by original number of faces in the
+            // mesh
+            return std::min(scaled, faceLimit);
+        }
+    };
+
+    // compute generated face limit
+    const auto maxRefinedFaceCount
+        ((original_.faces.size() * coveredFaces) / insideFaces);
+
+    // clip and refine mesh
+    auto refined(clipAndRefine
+                 ({ original_, originalCoverage_ }
+                  , coverageExtents(1.)
+                  , MVC(sdmc_(), diff_.lod, maxRefinedFaceCount)));
+
+    if (refined) {
+        // anything left? add to output
+        Clipper clipper(*this, nullptr, refined.mesh, refined.projected);
+        applyClipper(clipper);
     }
 }
 
@@ -572,9 +724,7 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
 
 class SurrogateCalculator {
 public:
-    SurrogateCalculator()
-        : sum_(), weightSum_()
-    {}
+    SurrogateCalculator() : sum_(), weightSum_() {}
 
     /** Updates surrogate calculation with last computed mesh
      *
@@ -665,6 +815,12 @@ SkirtVectorCallback skirtVectorCallback(const Input &input
     throw;
 }
 
+inline bool needCookieCutters(const MergeOptions &options)
+{
+    return ((options.glueMode == GlueMode::coverageContour)
+            || (options.skirtMode != SkirtMode::none));
+}
+
 } // namespace
 
 Output mergeTile(const TileId &tileId
@@ -727,14 +883,16 @@ Output mergeTile(const TileId &tileId
     Output result(tileId);
 
     // analyze coverage
-    Coverage coverage(tileId, nodeInfo, source);
+    Coverage coverage(tileId, nodeInfo, source, needCookieCutters(options));
 
-    if (const auto *dumpDir = ::getenv("MERGE_MASK_DUMP_DIR")) {
-        coverage.dump(dumpDir);
+    // various debug dumps follow
+
+    if (MERGE_MASK_DUMP_DIR) {
+        coverage.dump(MERGE_MASK_DUMP_DIR);
     }
 
-    if (const auto *dumpDir = ::getenv("MERGE_COOKIE_CUTTERS_DUMP_DIR")) {
-        coverage.dumpCookieCutters(dumpDir);
+    if (MERGE_COOKIE_CUTTERS_DUMP_DIR) {
+        coverage.dumpCookieCutters(MERGE_COOKIE_CUTTERS_DUMP_DIR);
     }
 
     // get contributing tile sets
@@ -810,12 +968,14 @@ Output mergeTile(const TileId &tileId
         }
     }
 
-    coverage.dilateHm();
+    // add if asked to skirt
+    if (options.skirtMode != SkirtMode::none) {
+        coverage.dilateHm();
 
-    // add skirt
-    for (auto &io : imo) {
-        addSkirt(io.mesh, thisSdmc
-                 , skirtVectorCallback(io.input, coverage, options));
+        for (auto &io : imo) {
+            addSkirt(io.mesh, thisSdmc
+                     , skirtVectorCallback(io.input, coverage, options));
+        }
     }
 
     // pass intermediate result to output

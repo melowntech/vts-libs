@@ -173,7 +173,7 @@ public:
         addOptions_.bumpVersion = false;
         addOptions_.dryRun = false;
         addOptions_.mode = vts::Storage::AddOptions::Mode::legacy;
-        addOptions_.clip = true;
+        addOptions_.glueMode = vts::GlueMode::simpleClip;
         addOptions_.skirtMode = vts::SkirtMode::none;
         addOptions_.skirtScale = 1.0;
 
@@ -573,8 +573,12 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
 
-            ("no-clip", "Don't clip meshes by merge coverage.")
-            ("glue.skirt.mode", po::value(&addOptions_.skirtMode)
+            ("glue.mode", po::value(&addOptions_.glueMode)
+             ->default_value(addOptions_.glueMode)
+             , utility::concat
+             ("Glue tile generation mode, one of "
+              , enumerationString(addOptions_.glueMode), ".").c_str())
+             ("glue.skirt.mode", po::value(&addOptions_.skirtMode)
              ->default_value(addOptions_.skirtMode)
              , utility::concat
              ("Skirt mode, one of "
@@ -641,7 +645,6 @@ void VtsStorage::configuration(po::options_description &cmdline
 
             addOptions_.bumpVersion = vars.count("bumpVersion");
             addOptions_.dryRun = vars.count("dryRun");
-            addOptions_.clip = !vars.count("no-clip");
 
             // handle add mode
             bool lazyMode(vars.count("lazy"));
@@ -700,7 +703,11 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
 
-            ("no-clip", "Don't clip meshes by merge coverage.")
+            ("glue.mode", po::value(&addOptions_.glueMode)
+             ->default_value(addOptions_.glueMode)
+             , utility::concat
+             ("Glue tile generation mode, one of "
+              , enumerationString(addOptions_.glueMode), ".").c_str())
             ("glue.skirt.mode", po::value(&addOptions_.skirtMode)
              ->default_value(addOptions_.skirtMode)
              , utility::concat
@@ -721,7 +728,6 @@ void VtsStorage::configuration(po::options_description &cmdline
             if (vars.count("tmp")) {
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
             }
-            addOptions_.clip = !vars.count("no-clip");
 
             configureProgress(vars, addOptions_);
         };
@@ -745,7 +751,11 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
 
-            ("no-clip", "Don't clip meshes by merge coverage.")
+            ("glue.mode", po::value(&addOptions_.glueMode)
+             ->default_value(addOptions_.glueMode)
+             , utility::concat
+             ("Glue tile generation mode, one of "
+              , enumerationString(addOptions_.glueMode), ".").c_str())
             ("glue.skirt.mode", po::value(&addOptions_.skirtMode)
              ->default_value(addOptions_.skirtMode)
              , utility::concat
@@ -771,7 +781,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             if (vars.count("tmp")) {
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
             }
-            addOptions_.clip = !vars.count("no-clip");
+
             addOptions_.overwrite = vars.count("overwrite");
 
             configureProgress(vars, addOptions_);

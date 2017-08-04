@@ -276,6 +276,8 @@ private:
     virtual void tile_impl() = 0;
 };
 
+/** Skirt mode
+ */
 UTILITY_GENERATE_ENUM(SkirtMode,
                       // do not generate any skirt
                       ((none))
@@ -287,16 +289,19 @@ UTILITY_GENERATE_ENUM(SkirtMode,
                       ((average))
                       )
 
-/** Glue creation options.
+/** How to generate glue tile
  */
-struct GlueCreationOptions {
-    /** Texture quality. JPEG quality 0-100. 0 means no atlas repacking.
-     */
-    int textureQuality;
+UTILITY_GENERATE_ENUM(GlueMode,
+                      // compose meshes together
+                      ((compose))
+                      // clip by coverate map mask
+                      ((simpleClip))
+                      // clip by coverage map contours
+                      ((coverageContour))
+                      )
 
-    /** Clip meshes based on merge coverage.
-     */
-    bool clip;
+struct MergeOptions {
+    GlueMode glueMode;
 
     /** Skirt generation mode. Taken into the account only when clip == true.
      */
@@ -305,6 +310,20 @@ struct GlueCreationOptions {
     /** Scale computer skirt by provided factor.
      */
     double skirtScale;
+
+    MergeOptions()
+        : glueMode(GlueMode::simpleClip)
+        , skirtMode(SkirtMode::none)
+        , skirtScale(1.0)
+    {}
+};
+
+/** Glue creation options.
+ */
+struct GlueCreationOptions : MergeOptions {
+    /** Texture quality. JPEG quality 0-100. 0 means no atlas repacking.
+     */
+    int textureQuality;
 
     /** Merge progress reporting.
      *  Pinged with each tile.
@@ -318,7 +337,7 @@ struct GlueCreationOptions {
     GenerateSetManipulator generateSetManipulator;
 
     GlueCreationOptions()
-        : textureQuality(), clip(true)
+        : textureQuality()
     {}
 };
 

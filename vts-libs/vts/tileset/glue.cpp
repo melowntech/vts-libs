@@ -135,11 +135,6 @@ public:
         , topId_(src_.size() - 1), progress_(generate_.count())
         , options_(options)
     {
-        // update merge options
-        mergeOptions_.clip = options.clip;
-        mergeOptions_.skirtMode = options.skirtMode;
-        mergeOptions_.skirtScale = options.skirtScale;
-
         // make world complete
         world_.complete();
 
@@ -190,7 +185,6 @@ private:
     utility::Progress progress_;
 
     const GlueCreationOptions options_;
-    merge::MergeOptions mergeOptions_;
 };
 
 inline bool Merger::isAlienTile(const merge::Output &tile) const
@@ -328,7 +322,7 @@ merge::Output Merger::processTile(const NodeInfo &nodeInfo
 
     // run merge operation
     return merge::mergeTile(tileId, nodeInfo, input, parentSource
-                            , constraints, mergeOptions_);
+                            , constraints, options_);
 }
 
 // Make black-white tileindex complete to given ceiling and round -> each

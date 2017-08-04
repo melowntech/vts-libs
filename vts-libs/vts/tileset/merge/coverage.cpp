@@ -209,14 +209,15 @@ const auto InvalidMax(-std::numeric_limits<float>::infinity());
 } // namespace
 
 Coverage::Coverage(const TileId &tileId, const NodeInfo &nodeInfo
-                   , const Input::list &sources)
+                   , const Input::list &sources
+                   , bool needCookieCutters)
     : tileId(tileId), sources(sources), hasHoles(false)
     , indices(sources.back().id() + 1, false)
     , cookieCutters(sources.back().id() + 1)
 {
     generateCoverage(nodeInfo);
     analyze();
-    findCookieCutters();
+    if (needCookieCutters) { findCookieCutters(); }
 }
 
 void Coverage::getSources(Output &output, const Input::list &navtileSource)
@@ -291,6 +292,56 @@ boost::tribool Coverage::covered(const Face &face
 
     // both hits and misses -> partially covered face
     if (hit && miss) { return boost::indeterminate; }
+    return hit;
+}
+
+Coverage::Hit Coverage::hit(const Face &face, const math::Points3d &vertices
+                            , Input::Id id) const
+{
+    Hit hit = { false, false };
+
+    // TODO: repeat border for some distance to take triangles from the tile
+    // margin into account
+    std::vector<imgproc::Scanline> scanlines;
+
+    const math::Point3 *tri[3] = {
+        &vertices[face[0]]
+        , &vertices[face[1]]
+        , &vertices[face[2]]
+    };
+
+    imgproc::scanConvertTriangle
+        (*tri[0], *tri[1], *tri[2], 0, coverage.rows, scanlines);
+
+    for (const auto &sl : scanlines) {
+        imgproc::processScanline(sl, 0, coverage.cols
+                                 , [&](int x, int y, float)
+        {
+            // triangle passes through
+            hit.inside = true;
+            hit.covered |= (coverage(y, x) == id);
+        });
+
+        // early exit partially covered face
+        if (hit.covered) { return hit; }
+    }
+
+    // do one more check in case the triangle is thinner than one pixel
+    for (int i = 0; i < 3; ++i) {
+        int x(std::round((*tri[i])(0)));
+        int y(std::round((*tri[i])(1)));
+
+        if ((x < 0) || (x >= coverage.cols)) { continue; }
+        if ((y < 0) || (y >= coverage.rows)) { continue; }
+
+        hit.inside |= true;
+        if (coverage(y, x) == id) {
+            hit.covered = true;
+            return hit;
+        }
+    }
+
+    // no hit at all
     return hit;
 }
 

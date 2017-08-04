@@ -124,14 +124,6 @@ struct Output {
     }
 };
 
-struct MergeOptions {
-    bool clip;
-    SkirtMode skirtMode;
-    double skirtScale;
-
-    MergeOptions() : clip(true), skirtMode(SkirtMode::none), skirtScale(1.0) {}
-};
-
 /** Various merging constraints.
  */
 class MergeConstraints {
