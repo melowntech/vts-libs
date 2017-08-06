@@ -152,6 +152,9 @@ public:
     }
 
 private:
+    struct Copier;
+    friend struct Copier;
+
     struct Clipper;
     friend struct Clipper;
 
@@ -236,16 +239,19 @@ void MeshFilter::updateHeightmap(Coverage &coverage, const Faces &faces
     }
 }
 
-struct MeshFilter::Clipper : boost::noncopyable {
-    Clipper(MeshFilter &mf, const SdMeshConvertor *sdmc = nullptr)
+typedef std::vector<int> IndexMap;
+
+struct MeshFilter::Copier : boost::noncopyable {
+    Copier(MeshFilter &mf, const SdMeshConvertor *sdmc = nullptr)
         : sdmc(sdmc)
         , im(mf.original_), ipv(mf.originalCoverage_)
         , om(mf.mesh_), opv(mf.coverageVertices_)
+        , hasTc(!im.facesTc.empty()), hasEtc(!im.etc.empty())
         , vertexMap(im.vertices.size(), -1)
         , tcMap(im.vertices.size(), -1)
     {}
 
-    Clipper(MeshFilter &mf, const SdMeshConvertor *sdmc
+    Copier(MeshFilter &mf, const SdMeshConvertor *sdmc
             , const SubMesh &im, const math::Points3 &ipv)
         : sdmc(sdmc)
         , im(im), ipv(ipv)
@@ -254,13 +260,20 @@ struct MeshFilter::Clipper : boost::noncopyable {
         , tcMap(im.vertices.size(), -1)
     {}
 
+    void operator()(Coverage &coverage, Input::Id id) {
+        // every hit face is passed to output mesh as-is
+        for (int f(0), ef(im.faces.size()); f != ef; ++f) {
+            if (coverage.hit(im.faces[f], ipv, id).covered) { addFace(f); }
+        }
+    }
+
     void addFace(int faceIndex) {
         const auto &of(im.faces[faceIndex]);
 
         om.faces.emplace_back
             (addVertex(of(0)), addVertex(of(1)), addVertex(of(2)));
 
-        if (!im.facesTc.empty()) {
+        if (hasTc) {
             const auto &oftc(im.facesTc[faceIndex]);
             om.facesTc.emplace_back
                 (addTc(oftc(0)), addTc(oftc(1)), addTc(oftc(2)));
@@ -273,7 +286,7 @@ struct MeshFilter::Clipper : boost::noncopyable {
             // new vertex
             m = om.vertices.size();
             om.vertices.push_back(im.vertices[i]);
-            if (!im.etc.empty()) {
+            if (hasEtc) {
                 om.etc.push_back
                     (sdmc
                      ? sdmc->etc(im.etc[i])
@@ -296,88 +309,179 @@ struct MeshFilter::Clipper : boost::noncopyable {
         return m;
     }
 
-    void operator()(const Face &face, const geometry::Region &clipRegion) {
-        LOG(info4) << "face: " << ipv[face(0)]
-                   << ", " << ipv[face(1)] << ", " << ipv[face(2)];
-        const auto clipped
-            (geometry::clipTriangleNonconvex
-             ({{ ipv[face(0)], ipv[face(1)], ipv[face(2)] }}
-                  , clipRegion));
-
-        for (const auto &t : clipped) {
-            (void) t;
-        }
-    }
-
-    void operator()(const Face &face, const Face &faceTc
-                    , const geometry::Region &clipRegion)
-    {
-        math::Triangles3d clipped;
-        math::Triangles2d clippedTc;
-
-        LOG(info4) << "face: " << ipv[face(0)]
-                   << ", " << ipv[face(1)] << ", " << ipv[face(2)];
-
-        std::tie(clipped, clippedTc) =
-            (geometry::clipTexturedTriangleNonconvex
-             ({{ ipv[face(0)], ipv[face(1)], ipv[face(2)] }}
-              , {{ im.tc[faceTc(0)], im.tc[faceTc(1)], im.tc[faceTc(2)] }}
-              , clipRegion));
-
-        auto iclippedTc(clippedTc.begin());
-        for (const auto &t : clipped) {
-            const auto &ttc(*iclippedTc++);
-
-            (void) t;
-            (void) ttc;
-        }
-    }
-
     const SdMeshConvertor *sdmc;
 
     const SubMesh &im;
     const math::Points3 &ipv;
     SubMesh &om;
     math::Points3 &opv;
+    bool hasTc;
+    bool hasEtc;
 
-    std::vector<int> vertexMap;
-    std::vector<int> tcMap;
+    IndexMap vertexMap;
+    IndexMap tcMap;
+};
+
+struct MeshFilter::Clipper : boost::noncopyable {
+    Clipper(Copier &copier, const SdMeshConvertor &sdmc
+            , const std::vector<int> &partial
+            , const math::MultiPolygon &clipRings)
+        : sdmc(sdmc), im(copier.im), ipv(copier.ipv)
+        , om(copier.om), opv(copier.opv)
+        , hasTc(copier.hasTc), hasEtc(copier.hasEtc)
+    {
+        // prefill point2index mappings with already used points
+        for (auto f : partial) {
+            for (auto i : im.faces[f]) {
+                auto o(copier.vertexMap[i]);
+                if (o > -1) {
+                    vertexIndices
+                        .insert(Vertex2Index::value_type(opv[o], o));
+                }
+            }
+
+            if (!hasTc) { continue; }
+
+            for (auto i : im.facesTc[f]) {
+                auto o(copier.tcMap[i]);
+                if (o > -1) {
+                    vertexIndices
+                        .insert(Texture2Index::value_type(om.tc[o], o));
+                }
+            }
+        }
+
+        if (hasTc) {
+            for (auto f : partial) {
+                clip(im.faces[f], im.facesTc[f], clipRings);
+            }
+        } else {
+            for (auto f : partial) {
+                clip(im.faces[f], clipRings);
+            }
+        }
+    }
+
+    int addVertex(const math::Point3d &v) {
+        auto fvertexIndices(vertexIndices.find(v));
+        if (fvertexIndices != vertexIndices.end()) {
+            return fvertexIndices->second;
+        }
+
+        const auto index(opv.size());
+
+        vertexIndices.insert(Vertex2Index::value_type(v, index));
+
+        opv.push_back(v);
+        om.vertices.push_back(sdmc.vertex(v));
+        if (hasEtc) { om.etc.push_back(sdmc.etc(v)); }
+
+        return index;
+    }
+
+    int addTc(const math::Point2d &t) {
+        auto ftextureIndices(textureIndices.find(t));
+        if (ftextureIndices != textureIndices.end()) {
+            return ftextureIndices->second;
+        }
+
+        const auto index(om.tc.size());
+
+        textureIndices.insert(Texture2Index::value_type(t, index));
+
+        om.tc.push_back(t);
+        return index;
+    }
+
+    void addFace(const math::Triangle3d &t) {
+        om.faces.emplace_back
+            (addVertex(t[0]), addVertex(t[1]), addVertex(t[2]));
+    }
+
+    void addFace(const math::Triangle2d &t) {
+        om.facesTc.emplace_back(addTc(t[0]), addTc(t[1]), addTc(t[2]));
+    }
+
+    void clip(const Face &face, const math::MultiPolygon &clipRings) {
+        const auto clipped
+            (geometry::clipTriangleNonconvex
+             ({{ ipv[face(0)], ipv[face(1)], ipv[face(2)] }}
+                 , clipRings));
+
+        if (clipped.empty()) { return; }
+
+        for (const auto &t : clipped) { addFace(t); }
+    }
+
+    void clip(const Face &face, const Face &faceTc
+              , const math::MultiPolygon &clipRings)
+    {
+        math::Triangles3d clipped;
+        math::Triangles2d clippedTc;
+
+        std::tie(clipped, clippedTc) =
+            (geometry::clipTexturedTriangleNonconvex
+             ({{ ipv[face(0)], ipv[face(1)], ipv[face(2)] }}
+              , {{ im.tc[faceTc(0)], im.tc[faceTc(1)], im.tc[faceTc(2)] }}
+              , clipRings));
+
+        if (clipped.empty()) { return; }
+
+        auto iclippedTc(clippedTc.begin());
+        for (const auto &t : clipped) {
+            const auto &ttc(*iclippedTc++);
+            addFace(t);
+            addFace(ttc);
+        }
+    }
+
+    const SdMeshConvertor &sdmc;
+
+    const SubMesh &im;
+    const math::Points3 &ipv;
+    SubMesh &om;
+    math::Points3 &opv;
+
+    bool hasTc;
+    bool hasEtc;
+
+    typedef std::map<math::Point3d, int> Vertex2Index;
+    typedef std::map<math::Point2d, int> Texture2Index;
+
+    Vertex2Index vertexIndices;
+    Texture2Index textureIndices;
 };
 
 void MeshFilter::complexClip(Coverage &coverage)
 {
-    const bool hasTc(!original_.facesTc.empty());
-
-    Clipper clipper(*this, diff_.lod ? &sdmc_() : nullptr);
+    Copier copier(*this, diff_.lod ? &sdmc_() : nullptr);
 
     // building new mesh -> we have to clone metadata from original
     original_.cloneMetadataInto(mesh_);
 
     const auto id(input_.id());
 
-    // we have to filter the input mesh
+    std::vector<int> partial;
+
     const auto &cookieCutter(coverage.cookieCutters[id]);
 
     for (int f(0), ef(original_.faces.size()); f != ef; ++f) {
-        const auto &face(original_.faces[f]);
-        const auto covered(coverage.covered(face, originalCoverage_, id));
+        const auto covered
+            (coverage.covered(original_.faces[f], originalCoverage_, id));
 
         // not covered at all -> skip
         if (!covered) { continue; }
 
         if (covered) {
             // every fully covered face is added as-is
-            clipper.addFace(f);
+            copier.addFace(f);
         } else if (cookieCutter) {
-            (void) hasTc;
-#if 1
-            // partially covered faces are clipped by mesh cookie cutter
-            (hasTc
-             ? clipper(face, original_.facesTc[f], cookieCutter.rings)
-             : clipper(face, cookieCutter.rings));
-#endif
+            partial.push_back(f);
         }
     }
+
+    if (partial.empty()) { return; }
+    Clipper(copier, sdmc_, partial, cookieCutter.rings);
 }
 
 void MeshFilter::simpleClip(Coverage &coverage)
@@ -387,21 +491,8 @@ void MeshFilter::simpleClip(Coverage &coverage)
 
     const auto id(input_.id());
 
-    const auto applyClipper([&](Clipper &clipper) -> void
-    {
-        for (int f(0), ef(clipper.im.faces.size()); f != ef; ++f) {
-            if (coverage.hit(clipper.im.faces[f], clipper.ipv, id).covered) {
-                // every hit face is added as-is
-                clipper.addFace(f);
-            }
-        }
-    });
-
     // same LOD -> just pass all incident faces
-    if (!diff_.lod) {
-        Clipper clipper(*this);
-        return applyClipper(clipper);
-    }
+    if (!diff_.lod) { return Copier(*this)(coverage, id); }
 
     // LOD difference => we need to refine and clip source mesh
 
@@ -460,8 +551,7 @@ void MeshFilter::simpleClip(Coverage &coverage)
 
     if (refined) {
         // anything left? add to output
-        Clipper clipper(*this, nullptr, refined.mesh, refined.projected);
-        applyClipper(clipper);
+        Copier(*this, nullptr, refined.mesh, refined.projected)(coverage, id);
     }
 }
 
