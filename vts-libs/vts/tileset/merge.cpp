@@ -256,6 +256,7 @@ struct MeshFilter::Copier : boost::noncopyable {
         : sdmc(sdmc)
         , im(im), ipv(ipv)
         , om(mf.mesh_), opv(mf.coverageVertices_)
+        , hasTc(!im.facesTc.empty()), hasEtc(!im.etc.empty())
         , vertexMap(im.vertices.size(), -1)
         , tcMap(im.vertices.size(), -1)
     {}

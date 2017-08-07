@@ -214,6 +214,7 @@ Coverage::Coverage(const TileId &tileId, const NodeInfo &nodeInfo
     : tileId(tileId), sources(sources), hasHoles(false)
     , indices(sources.back().id() + 1, false)
     , cookieCutters(sources.back().id() + 1)
+    , coverageSize_(Mesh::coverageSize())
 {
     generateCoverage(nodeInfo);
     analyze();
@@ -232,6 +233,10 @@ void Coverage::getSources(Output &output, const Input::list &navtileSource)
             = filterSources(output.source.mesh, navtileSource);
 }
 
+/** Round continuous coordinate to close pixel value.
+ */
+inline int nearestPixel(double c) { return std::floor(c); }
+
 boost::tribool Coverage::covered(const Face &face
                                  , const math::Points3d &vertices
                                  , Input::Id id)
@@ -241,7 +246,6 @@ boost::tribool Coverage::covered(const Face &face
 
     // TODO: repeat border for some distance to take triangles from the tile
     // margin into account
-    std::vector<imgproc::Scanline> scanlines;
 
     const math::Point3 *tri[3] = {
         &vertices[face[0]]
@@ -249,6 +253,7 @@ boost::tribool Coverage::covered(const Face &face
         , &vertices[face[2]]
     };
 
+    std::vector<imgproc::Scanline> scanlines;
     imgproc::scanConvertTriangle
         (*tri[0], *tri[1], *tri[2], 0, coverage.rows, scanlines);
 
@@ -265,19 +270,22 @@ boost::tribool Coverage::covered(const Face &face
             }
         });
 
-        // early exit partially covered face
-        if (hit && miss) { return boost::indeterminate; }
+
+        // TODO: use early exit only when samples heightmap is not needed
+        // // early exit partially covered face
+        // if (hit && miss) { return boost::indeterminate; }
     }
 
     // do one more check in case the triangle is thinner than one pixel
     for (int i = 0; i < 3; ++i) {
-        int x(std::round((*tri[i])(0)));
-        int y(std::round((*tri[i])(1)));
+        int x(nearestPixel((*tri[i])(0)));
+        int y(nearestPixel((*tri[i])(1)));
 
-        if ((x < 0) || (x >= coverage.cols)) {
-            continue;
-        }
-        if ((y < 0) || (y >= coverage.rows)) {
+        if ((x < 0) || (x >= coverage.cols)
+            || (y < 0) || (y >= coverage.rows))
+        {
+            // vertex outside -> mix
+            miss = true;
             continue;
         }
 
@@ -328,8 +336,8 @@ Coverage::Hit Coverage::hit(const Face &face, const math::Points3d &vertices
 
     // do one more check in case the triangle is thinner than one pixel
     for (int i = 0; i < 3; ++i) {
-        int x(std::round((*tri[i])(0)));
-        int y(std::round((*tri[i])(1)));
+        int x(nearestPixel((*tri[i])(0)));
+        int y(nearestPixel((*tri[i])(1)));
 
         if ((x < 0) || (x >= coverage.cols)) { continue; }
         if ((y < 0) || (y >= coverage.rows)) { continue; }
@@ -348,12 +356,11 @@ Coverage::Hit Coverage::hit(const Face &face, const math::Points3d &vertices
 void Coverage::generateCoverage(const NodeInfo &nodeInfo)
 {
     // prepare coverage map
-    auto coverageSize(Mesh::coverageSize());
     // set coverage to invalid index
-    coverage.create(coverageSize.height, coverageSize.width);
+    coverage.create(coverageSize_.height, coverageSize_.width);
     coverage = pixel_type(-1);
     // set heightmap to infinity
-    hm.create(coverageSize.height, coverageSize.width);
+    hm.create(coverageSize_.height, coverageSize_.width);
     hm = HeightMapValue(InvalidMin, InvalidMax);
 
     // BEGIN OPTIMIZATION {
@@ -459,7 +466,9 @@ void Coverage::findCookieCutters() {
                  , cv::Range(1, coverage.cols + 1));
 
     // find cookie cutter, in reverse order (from topmost surface)
-    imgproc::FindContour findContour;
+    //
+    // we work in grid coordinates (0,0 is pixel corner) => pixelCoords = false
+    imgproc::FindContour findContour(imgproc::PixelOrigin::corner);
     for (const auto &source : boost::adaptors::reverse(sources)) {
         const auto id(source.id());
 
@@ -501,17 +510,16 @@ void Coverage::dump(const fs::path &dump) const
 
 void Coverage::dumpCookieCutters(std::ostream &os) const
 {
-    const auto size(Mesh::coverageSize());
-
     imgproc::svg::Svg svgDoc
-        (os, { ((size.width + 2) * 4), ((size.height + 2) * 4) });
+        (os, { ((coverageSize_.width + 2) * 4)
+                , ((coverageSize_.height + 2) * 4) });
 
     imgproc::svg::Tag scaleGroup
         (os, "g", [](std::ostream &os)
          { os << "transform=\"scale(4)\""; });
 
-    os << "<rect width=\"" << (size.width + 2)
-       << "\" height=\"" << (size.height + 2)
+    os << "<rect width=\"" << (coverageSize_.width + 2)
+       << "\" height=\"" << (coverageSize_.height + 2)
        << "\" style=\"fill:black;stroke:none,stroke-width:0\" />\n";
 
     // shift by 1 pixel to start of tile
@@ -528,7 +536,7 @@ void Coverage::dumpCookieCutters(std::ostream &os) const
 
         svg::rasterize(os, input, imgproc::svg::color(color)
                        , local(input.tileId().lod, tileId)
-                       , size);
+                       , coverageSize_);
     };
 
     os << "\n";
@@ -550,10 +558,12 @@ void Coverage::dumpCookieCutters(std::ostream &os) const
 
     os << "\n";
 
+#if 0
     // shift to grid coordinates
     imgproc::svg::Tag px2gridGroup
         (os, "g", [](std::ostream &os)
          { os << "transform=\"translate(0.5, 0.5)\""; });
+#endif
 
     for (const auto &input : sources) {
         const auto id(input.id());
@@ -644,10 +654,12 @@ void Coverage::dilateHm()
 
     const std::size_t total(hm.rows * hm.cols);
 
+    auto ptmp(&tmp);
+
     auto filter([&]() -> void
     {
-
-        for (std::size_t idx(0); idx < total; ++idx) {
+        UTILITY_OMP(parallel for)
+        for (std::size_t idx = 0; idx < total; ++idx) {
             int x(idx % hm.cols);
             int y(idx / hm.cols);
 
@@ -663,7 +675,7 @@ void Coverage::dilateHm()
             }
 
             // store
-            tmp(y, x) = newValue;
+            (*ptmp)(y, x) = newValue;
         }
     });
     filter();

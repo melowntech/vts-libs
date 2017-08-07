@@ -153,21 +153,21 @@ private:
 inline math::Matrix4 geo2mask(const math::Extents2 &extents
                               , const math::Size2 &gridSize)
 {
-    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
-
-    auto es(size(extents));
+    const auto es(size(extents));
 
     // scales
-    math::Size2f scale(gridSize.width / es.width
-                       , gridSize.height / es.height);
+    const math::Size2f scale(gridSize.width / es.width
+                             , gridSize.height / es.height);
+
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
 
     // scale to grid
     trafo(0, 0) = scale.width;
     trafo(1, 1) = -scale.height;
 
-    // move to origin and also move pixel centers to integral indices
-    trafo(0, 3) = -extents.ll(0) * scale.width - 0.5;
-    trafo(1, 3) = extents.ur(1) * scale.height - 0.5;
+    // move to origin
+    trafo(0, 3) = -extents.ll(0) * scale.width;
+    trafo(1, 3) = extents.ur(1) * scale.height;
 
     return trafo;
 }
@@ -175,21 +175,21 @@ inline math::Matrix4 geo2mask(const math::Extents2 &extents
 inline math::Matrix4 mask2geo(const math::Extents2 &extents
                               , const math::Size2 &gridSize)
 {
-    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
-
-    auto es(size(extents));
+    const auto es(size(extents));
 
     // scales
-    math::Size2f scale(es.width / gridSize.width
-                       , es.height / gridSize.height);
+    const math::Size2f scale(es.width / gridSize.width
+                             , es.height / gridSize.height);
+
+    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
 
     // scale to grid
     trafo(0, 0) = scale.width;
     trafo(1, 1) = -scale.height;
 
     // move to origin
-    trafo(0, 3) = extents.ll(0) + 0.5 * scale.width;
-    trafo(1, 3) = extents.ur(1) - 0.5 * scale.height;
+    trafo(0, 3) = extents.ll(0);
+    trafo(1, 3) = extents.ur(1);
 
     return trafo;
 }
@@ -222,9 +222,9 @@ inline math::Matrix4 coverage2EtcTrafo(const math::Size2 &gridSize)
     trafo(0, 0) = 1.0 / gridSize.width;
     trafo(1, 1) = -1.0 / gridSize.height;
 
-    // shift to proper orientation and cancel halfpixel offset
-    trafo(0, 3) = 0.5 / gridSize.width;
-    trafo(1, 3) = 1 - 0.5 / gridSize.height;
+    // shift to proper orientation
+    trafo(0, 3) = 0;
+    trafo(1, 3) = 1;
 
     return trafo;
 }
@@ -232,10 +232,10 @@ inline math::Matrix4 coverage2EtcTrafo(const math::Size2 &gridSize)
 inline math::Extents2 coverageExtents(double margin)
 {
     const auto grid(Mesh::coverageSize());
-    return math::Extents2(-.5 - margin
-                          , -.5 - margin
-                          , grid.width - .5 + margin
-                          , grid.height - .5 + margin);
+    return math::Extents2(-margin
+                          , -margin
+                          , grid.width + margin
+                          , grid.height + margin);
 }
 
 inline SdMeshConvertor::SdMeshConvertor(const NodeInfo &nodeInfo

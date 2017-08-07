@@ -121,6 +121,10 @@ private:
     /** Id of topmost surface
      */
     Input::Id topmost_;
+
+    math::Size2 coverageSize_;
+    math::Point2d minBound_;
+    math::Point2d maxBound_;
 };
 
 } } } // namespace vtslibs::vts::merge
