@@ -63,75 +63,6 @@ else()
   set(vts-registry_python_SOURCES)
 endif()
 
-if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core:tilestorage)
-  # old tilestorage browser files
-  set(tilestorage_BROWSER_SOURCES
-    tilestorage/support.hpp tilestorage/support.cpp
-    )
-  file_to_cpp(tilestorage_BROWSER_SOURCES
-    vtslibs::tilestorage::browser::index_html
-    tilestorage/browser/index.html)
-  file_to_cpp(tilestorage_BROWSER_SOURCES
-    vtslibs::tilestorage::browser::index_offline_html
-    tilestorage/browser/index-offline.html)
-  file_to_cpp(tilestorage_BROWSER_SOURCES
-    vtslibs::tilestorage::browser::skydome_jpg
-    tilestorage/browser/skydome.jpg)
-
-
-  # old tilestorage core files
-  set(tilestorage-core_SOURCES
-    tilestorage/basetypes.hpp
-    tilestorage/properties.hpp
-    tilestorage/tileop.hpp tilestorage/tileop.cpp
-    tilestorage/io.hpp
-    tilestorage/json.hpp tilestorage/json.cpp
-    tilestorage/metatile.hpp tilestorage/metatile.cpp
-
-    tilestorage/driver.hpp tilestorage/driver/driver.cpp
-    tilestorage/driver/fsbased.hpp tilestorage/driver/fsbased.cpp
-    tilestorage/driver/flat.hpp
-    tilestorage/driver/hash-crc.hpp tilestorage/driver/hash-crc.cpp
-    tilestorage/driver/ro-base.hpp
-    tilestorage/driver/tar.hpp tilestorage/driver/tar.cpp
-
-    tilestorage/driver/tilardriver.hpp
-    tilestorage/driver/tilardriver/tilardriver.cpp
-    tilestorage/driver/tilardriver/options.hpp
-    tilestorage/driver/tilardriver/cache.hpp
-    tilestorage/driver/tilardriver/cache.cpp
-
-    tilestorage/config.hpp tilestorage/config.cpp
-    )
-else()
-  message(STATUS "vts-libs-core: compiling without tilestorage stuff")
-  set(tilestorage_BROWSER_SOURCES)
-  set(tilestorage-core_SOURCES)
-
-  # disable main tilestorage stuff as well
-  buildsys_nobuild_target(vts-libs:tilestorage)
-endif()
-
-if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs:tilestorage)
-  set(tilestorage_SOURCES
-    tilestorage.hpp
-    tilestorage/types.hpp
-    tilestorage/storage.hpp tilestorage/storage.cpp
-    tilestorage/tileset.hpp tilestorage/tileset.cpp
-    tilestorage/po.hpp
-    tilestorage/tileindex.hpp tilestorage/tileindex.cpp
-    tilestorage/metatileop.hpp tilestorage/metatileop.cpp
-
-    tilestorage/merge.hpp tilestorage/merge.cpp
-    tilestorage/tileset/merge.cpp
-    tilestorage/tileset/dump.hpp
-    tilestorage/tileset/heightmap.cpp
-    )
-else()
-  message(STATUS "vts-libs: compiling without tilestorage stuff")
-  set(tilestorage_SOURCES)
-endif()
-
 if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core:vts0)
   # old vts0 browser files
   set(vts0_BROWSER_SOURCES
@@ -383,9 +314,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core)
 
     ${vts0_BROWSER_SOURCES}
     ${vts0-core_SOURCES}
-
-    ${tilestorage_BROWSER_SOURCES}
-    ${tilestorage-core_SOURCES}
     )
   buildsys_library(vts-libs-core)
   target_link_libraries(vts-libs-core
@@ -405,7 +333,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
   add_library(vts-libs STATIC
     ${vts_SOURCES}
     ${vts0_SOURCES}
-    ${tilestorage_SOURCES}
     )
   buildsys_library(vts-libs)
   target_link_libraries(vts-libs ${MODULE_LIBRARIES})

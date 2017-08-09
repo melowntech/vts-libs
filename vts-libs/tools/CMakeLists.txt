@@ -65,9 +65,5 @@ if (TARGET service)
       vts0/create.cpp vts0/info.cpp vts0/add.cpp
       vts0/tileset-info.cpp vts0/tileset-clone.cpp
       vts0/tileset-paste.cpp)
-
-    if(MAGIC_FOUND)
-      vts_libs_tool(ts2vts0 ts2vts0.cpp)
-    endif()
   endif()
 endif()
