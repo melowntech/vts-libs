@@ -609,7 +609,6 @@ boost::optional<double> Coverage::hmMin(int x, int y) const
     }
 
     const auto value(hm(y, x)[0]);
-    LOG(info4) << "sample: " << x << ", " << y << ", " << value;
     if (std::isfinite(value)) { return value; }
     return boost::none;
 }
