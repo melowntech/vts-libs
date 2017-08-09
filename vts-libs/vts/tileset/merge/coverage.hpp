@@ -51,6 +51,7 @@ struct Coverage {
 
     const TileId tileId;
     const Input::list &sources;
+    const math::Size2 coverageSize;
     cv::Mat_<pixel_type> coverage;
     bool hasHoles;
     std::vector<bool> indices;
@@ -122,7 +123,6 @@ private:
      */
     Input::Id topmost_;
 
-    math::Size2 coverageSize_;
     math::Point2d minBound_;
     math::Point2d maxBound_;
 };

@@ -122,9 +122,7 @@ void addSkirt(EnhancedSubMesh &em
         // find out whether we need to create new vertex
         auto vertex(projected[v]);
         const auto vector(skirtVector(vertex));
-        if (vector == zero) {
-            return vdownmap[v] = v;
-        }
+        if (vector == zero) { return vdownmap[v] = v; }
 
         // not found, add new, vertex, copy etc if enabled
         const auto index(vertices.size());

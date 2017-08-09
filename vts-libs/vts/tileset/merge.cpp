@@ -852,6 +852,18 @@ inline math::Point3d skirtVector(const math::Point3d &p, float z
     return { 0.0, 0.0, (z - p(2)) * options.skirtScale };
 }
 
+math::Point2i clip(const Coverage &coverage, const math::Point3d &p)
+{
+    math::Point2i pp(std::floor(p(0)), std::floor(p(1)));
+    if (pp(0) < 0) { pp(0) = 0; }
+    if (pp(0) >= coverage.hm.cols) { pp(0) = coverage.hm.cols - 1; }
+
+    if (pp(1) < 0) { pp(1) = 0; }
+    if (pp(1) >= coverage.hm.rows) { pp(1) = coverage.hm.rows - 1; }
+
+    return pp;
+}
+
 SkirtVectorCallback skirtVectorCallback(const Input &input
                                         , const Coverage &coverage
                                         , const MergeOptions &options)
@@ -865,10 +877,10 @@ SkirtVectorCallback skirtVectorCallback(const Input &input
     case SkirtMode::minimum:
         return [&](const math::Point3d &p) -> math::Point3d
         {
-            const int x(std::round(p(0))), y(std::round(p(1)));
-            if (!cookieCutter.border.get(x, y)) { return {}; }
+            const auto cp(clip(coverage, p));
+            if (!cookieCutter.border.get(cp(0), cp(1))) { return {}; }
 
-            if (auto z = coverage.hmMin(x, y)) {
+            if (auto z = coverage.hmMin(cp(0), cp(1))) {
                 return skirtVector(p, *z, options);
             }
             return {};
@@ -877,10 +889,10 @@ SkirtVectorCallback skirtVectorCallback(const Input &input
     case SkirtMode::maximum:
         return [&](const math::Point3d &p) -> math::Point3d
         {
-            const int x(std::round(p(0))), y(std::round(p(1)));
-            if (!cookieCutter.border.get(x, y)) { return {}; }
+            const auto cp(clip(coverage, p));
+            if (!cookieCutter.border.get(cp(0), cp(1))) { return {}; }
 
-            if (auto z = coverage.hmMax(x, y)) {
+            if (auto z = coverage.hmMax(cp(0), cp(1))) {
                 return skirtVector(p, *z, options);
             }
             return {};
@@ -889,10 +901,10 @@ SkirtVectorCallback skirtVectorCallback(const Input &input
     case SkirtMode::average:
         return [&](const math::Point3d &p) -> math::Point3d
         {
-            const int x(std::round(p(0))), y(std::round(p(1)));
-            if (!cookieCutter.border.get(x, y)) { return {}; }
+            const auto cp(clip(coverage, p));
+            if (!cookieCutter.border.get(cp(0), cp(1))) { return {}; }
 
-            if (auto z = coverage.hmAvg(x, y)) {
+            if (auto z = coverage.hmAvg(cp(0), cp(1))) {
                 return skirtVector(p, *z, options);
             }
             return {};

@@ -34,6 +34,8 @@
 
 #include "math/transform.hpp"
 
+#include "geometry/polygon.hpp"
+
 #include "imgproc/rastermask/cvmat.hpp"
 #include "imgproc/scanconversion.hpp"
 #include "imgproc/const-raster.hpp"
@@ -211,10 +213,14 @@ const auto InvalidMax(-std::numeric_limits<float>::infinity());
 Coverage::Coverage(const TileId &tileId, const NodeInfo &nodeInfo
                    , const Input::list &sources
                    , bool needCookieCutters)
-    : tileId(tileId), sources(sources), hasHoles(false)
+    : tileId(tileId), sources(sources)
+    , coverageSize(Mesh::coverageSize())
+    , coverage(coverageSize.height, coverageSize.width, pixel_type(-1))
+    , hasHoles(false)
     , indices(sources.back().id() + 1, false)
     , cookieCutters(sources.back().id() + 1)
-    , coverageSize_(Mesh::coverageSize())
+    , hm(coverageSize.height, coverageSize.width
+         , HeightMapValue(InvalidMin, InvalidMax))
 {
     generateCoverage(nodeInfo);
     analyze();
@@ -291,7 +297,6 @@ boost::tribool Coverage::covered(const Face &face
 
         if (coverage(y, x) == id) {
             hit = true;
-
             storeHeight(hm, x, y, (*tri[i])(2));
         } else {
             miss = true;
@@ -355,14 +360,6 @@ Coverage::Hit Coverage::hit(const Face &face, const math::Points3d &vertices
 
 void Coverage::generateCoverage(const NodeInfo &nodeInfo)
 {
-    // prepare coverage map
-    // set coverage to invalid index
-    coverage.create(coverageSize_.height, coverageSize_.width);
-    coverage = pixel_type(-1);
-    // set heightmap to infinity
-    hm.create(coverageSize_.height, coverageSize_.width);
-    hm = HeightMapValue(InvalidMin, InvalidMax);
-
     // BEGIN OPTIMIZATION {
 
     // analyze input and skip all sets masked by first watertight tile
@@ -456,19 +453,20 @@ void Coverage::analyze() {
 }
 
 void Coverage::findCookieCutters() {
+    const bool simplifyContour(false);
+
     // single case -> no mesh clipping needed, do not find any cookie cutter
     if (single) { return; }
 
-    // prepare workplace
-    cv::Mat binary
-        (coverage.rows + 2, coverage.cols + 2, CV_8UC1, cv::Scalar(0));
-    cv::Mat view(binary, cv::Range(1, coverage.rows + 1)
-                 , cv::Range(1, coverage.cols + 1));
-
     // find cookie cutter, in reverse order (from topmost surface)
     //
-    // we work in grid coordinates (0,0 is pixel corner) => pixelCoords = false
-    imgproc::FindContour findContour(imgproc::PixelOrigin::corner);
+    // * we work in grid coordinates (0,0 is pixel corner) => pixelCoords =
+    //   false
+    // * we want to simplify bunch of contours at once => do not join straight
+    //   segments
+    imgproc::FindContour findContour
+        (imgproc::ContourParameters(imgproc::PixelOrigin::corner)
+         .setJoinStraightSegments(!simplifyContour));
     for (const auto &source : boost::adaptors::reverse(sources)) {
         const auto id(source.id());
 
@@ -491,6 +489,11 @@ void Coverage::findCookieCutters() {
                    << " cookie cutters for source: id=" << id << ", name="
                    << source.name() << ".";
     }
+
+    if (simplifyContour) {
+        // simplify
+        cookieCutters = simplify(cookieCutters);
+    }
 }
 
 void Coverage::dump(const fs::path &dump) const
@@ -511,15 +514,15 @@ void Coverage::dump(const fs::path &dump) const
 void Coverage::dumpCookieCutters(std::ostream &os) const
 {
     imgproc::svg::Svg svgDoc
-        (os, { ((coverageSize_.width + 2) * 4)
-                , ((coverageSize_.height + 2) * 4) });
+        (os, { ((coverageSize.width + 2) * 4)
+                , ((coverageSize.height + 2) * 4) });
 
     imgproc::svg::Tag scaleGroup
         (os, "g", [](std::ostream &os)
          { os << "transform=\"scale(4)\""; });
 
-    os << "<rect width=\"" << (coverageSize_.width + 2)
-       << "\" height=\"" << (coverageSize_.height + 2)
+    os << "<rect width=\"" << (coverageSize.width + 2)
+       << "\" height=\"" << (coverageSize.height + 2)
        << "\" style=\"fill:black;stroke:none,stroke-width:0\" />\n";
 
     // shift by 1 pixel to start of tile
@@ -536,7 +539,7 @@ void Coverage::dumpCookieCutters(std::ostream &os) const
 
         svg::rasterize(os, input, imgproc::svg::color(color)
                        , local(input.tileId().lod, tileId)
-                       , coverageSize_);
+                       , coverageSize);
     };
 
     os << "\n";
@@ -557,13 +560,6 @@ void Coverage::dumpCookieCutters(std::ostream &os) const
     };
 
     os << "\n";
-
-#if 0
-    // shift to grid coordinates
-    imgproc::svg::Tag px2gridGroup
-        (os, "g", [](std::ostream &os)
-         { os << "transform=\"translate(0.5, 0.5)\""; });
-#endif
 
     for (const auto &input : sources) {
         const auto id(input.id());
@@ -613,7 +609,8 @@ boost::optional<double> Coverage::hmMin(int x, int y) const
     }
 
     const auto value(hm(y, x)[0]);
-    if (value != InvalidMin) { return value; }
+    LOG(info4) << "sample: " << x << ", " << y << ", " << value;
+    if (std::isfinite(value)) { return value; }
     return boost::none;
 }
 
@@ -624,7 +621,7 @@ boost::optional<double> Coverage::hmMax(int x, int y) const
     }
 
     const auto value(hm(y, x)[1]);
-    if (value != InvalidMax) { return value; }
+    if (std::isfinite(value)) { return value; }
     return boost::none;
 }
 
@@ -636,14 +633,14 @@ boost::optional<double> Coverage::hmAvg(int x, int y) const
 
     const auto &value(hm(y, x));
 
-    if (value[0] != InvalidMin) {
-        if (value[1] != InvalidMax) {
+    if (std::isfinite(value[0])) {
+        if (std::isfinite(value[1])) {
             return (value[0] + value[1]) / 2.0;
         }
         return value[0];
     }
 
-    if (value[1] != InvalidMax) { return value[1]; }
+    if (std::isfinite(value[1])) { return value[1]; }
 
     return boost::none;
 }
@@ -684,38 +681,22 @@ void Coverage::dilateHm()
     cv::transpose(tmp, hm);
 
 #if 0
-    auto save([&](int index, const cv::Mat &data) -> void
     {
-       const auto filename
-           (str(boost::format("hm-%s-%s.jpg") % tileId % index));
+        const auto filename
+            (str(boost::format("hm-%s.png") % tileId));
 
-       std::ofstream f;
-       f.exceptions(std::ios::badbit | std::ios::failbit);
-       f.open(filename, std::ios_base::out | std::ios_base::trunc);
+        cv::Mat_<cv::Vec3b> tmp(hm.size(), cv::Vec3b());
 
-       opencv::NavTile nt(data);
+        auto itmp(tmp.begin());
+        for (const auto &px : hm) {
+            auto &out(*itmp++);
+            out[2] = std::isfinite(px[0]) ? 255 : 0;
+            out[1] = std::isfinite(px[1]) ? 255 : 0;
+            out[0] = 0;
+        }
 
-       int invalid(0);
-
-       auto &cm(nt.coverageMask());
-       for (auto j(0); j < data.rows; ++j) {
-           for (auto i(0); i < data.cols; ++i) {
-               if (!std::isfinite(data.at<float>(j, i))) {
-                   cm.set(i, j, false);
-                   ++invalid;
-               }
-           }
-       }
-
-       nt.serialize(f);
-
-       f.close();
-    });
-
-    std::vector<cv::Mat> channels;
-    cv::split(hm, channels);
-    save(0, channels[0]);
-    save(1, channels[1]);
+        cv::imwrite(filename, tmp, {});
+    }
 #endif
 }
 
