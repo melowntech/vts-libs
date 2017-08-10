@@ -247,7 +247,7 @@ inline NodeInfo::NodeInfo(const registry::ReferenceFrame &referenceFrame
                           , const registry::Registry &reg)
     : referenceFrame_(&referenceFrame)
     , subtree_(referenceFrame.root(), reg)
-    , node_(subtree_.root()), partial_(false)
+    , node_(subtree_.root()), partial_(!node_.real())
 {}
 
 inline bool compatible(const NodeInfo &ni1, const NodeInfo &ni2)
