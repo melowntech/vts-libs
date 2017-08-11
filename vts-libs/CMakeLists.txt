@@ -270,6 +270,9 @@ set(vts_SOURCES
   vts/heightmap.hpp vts/heightmap.cpp
   vts/ntgenerator.hpp vts/ntgenerator.cpp
 
+  # various stuff
+  vts/options-po.hpp
+
   # tool stuff
   tools/progress.hpp tools/progress.cpp
   )
