@@ -47,6 +47,7 @@
 #include "service/runninguntilsignalled.cpp"
 
 #include "math/io.hpp"
+#include "math/transform.hpp"
 
 #include "imgproc/png.hpp"
 #include "imgproc/rastermask/cvmat.hpp"
@@ -66,6 +67,8 @@
 #include "../vts/2d.hpp"
 #include "../vts/visit.hpp"
 #include "../vts/csconvertor.hpp"
+#include "../vts/options-po.hpp"
+#include "../vts/meshopinput.hpp"
 
 #include "./locker.hpp"
 
@@ -93,6 +96,7 @@ namespace ba = boost::algorithm;
     ((tileInfo)("tile-info"))                                       \
     ((dumpMesh)("dump-mesh"))                                       \
     ((dumpMeshMask)("dump-mesh-mask"))                              \
+    ((exportMesh)("export-mesh"))                                   \
     ((tileIndexInfo)("tileindex-info"))                             \
     ((tileIndexRanges)("tileindex-ranges"))                         \
     ((convertTileIndex)("convert-tileindex"))                       \
@@ -143,6 +147,14 @@ struct MetaLodRange {
     vts::LodRange lodRange;
 };
 
+UTILITY_GENERATE_ENUM(MeshFormat,
+                      ((geo))
+                      ((normalized))
+                      ((sds))
+                      ((sdsNormalized)("sds-normalized"))
+                      ((coverage))
+                      )
+
 void validate(boost::any &v, const std::vector<std::string> &values
               , MetaLodRange*, int)
 {
@@ -167,7 +179,7 @@ public:
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
         , tileFlags_(), metaFlags_(), encodeFlags_()
-        , queryLod_(), textureQuality_(70)
+        , queryLod_(), textureQuality_(70), meshFormat_(MeshFormat::normalized)
     {
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
@@ -260,6 +272,7 @@ private:
 
     int dumpMesh();
     int dumpMeshMask();
+    int exportMesh();
 
     int tileIndexInfo();
     int tileIndexRanges();
@@ -341,6 +354,8 @@ private:
     math::Point2IOWrapper<double> queryPoint_;
 
     int textureQuality_;
+
+    MeshFormat meshFormat_;
 
     /** External lock.
      */
@@ -573,20 +588,6 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
 
-            ("glue.mode", po::value(&addOptions_.glueMode)
-             ->default_value(addOptions_.glueMode)
-             , utility::concat
-             ("Glue tile generation mode, one of "
-              , enumerationString(addOptions_.glueMode), ".").c_str())
-             ("glue.skirt.mode", po::value(&addOptions_.skirtMode)
-             ->default_value(addOptions_.skirtMode)
-             , utility::concat
-             ("Skirt mode, one of "
-              , enumerationString(addOptions_.skirtMode), ".").c_str())
-            ("glue.skirt.scale", po::value(&addOptions_.skirtScale)
-             ->default_value(addOptions_.skirtScale)
-             , "Scaling factor for computer skirt length")
-
             ("addTag", po::value<std::vector<std::string>>()
              , "Set of tags (string identifiers) assigned to tileset. "
              "Glue rules (stored in user-editable file "
@@ -594,12 +595,16 @@ void VtsStorage::configuration(po::options_description &cmdline
              "result in incompatible combination of tags are not generated.")
             ;
 
+        vts::configuration(p.options, addOptions_);
+
         progressConfiguration(p.options);
 
         p.positional.add("tileset", 1);
 
         p.configure = [&](const po::variables_map &vars) {
             lockConfigure(vars);
+
+            vts::configure(vars, addOptions_);
 
             if (vars.count("tilesetId")) {
                 optTilesetId_ = vars["tilesetId"].as<std::string>();
@@ -703,20 +708,9 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
 
-            ("glue.mode", po::value(&addOptions_.glueMode)
-             ->default_value(addOptions_.glueMode)
-             , utility::concat
-             ("Glue tile generation mode, one of "
-              , enumerationString(addOptions_.glueMode), ".").c_str())
-            ("glue.skirt.mode", po::value(&addOptions_.skirtMode)
-             ->default_value(addOptions_.skirtMode)
-             , utility::concat
-             ("Skirt mode, one of "
-              , enumerationString(addOptions_.skirtMode), ".").c_str())
-            ("glue.skirt.scale", po::value(&addOptions_.skirtScale)
-             ->default_value(addOptions_.skirtScale)
-             , "Scaling factor for computer skirt length")
             ;
+
+        vts::configuration(p.options, addOptions_);
 
         progressConfiguration(p.options);
 
@@ -724,6 +718,8 @@ void VtsStorage::configuration(po::options_description &cmdline
 
         p.configure = [&](const po::variables_map &vars) {
             lockConfigure(vars);
+
+            vts::configure(vars, addOptions_);
 
             if (vars.count("tmp")) {
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
@@ -751,25 +747,13 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tmp", po::value<fs::path>()
              , "Temporary directory where to work with temporary data.")
 
-            ("glue.mode", po::value(&addOptions_.glueMode)
-             ->default_value(addOptions_.glueMode)
-             , utility::concat
-             ("Glue tile generation mode, one of "
-              , enumerationString(addOptions_.glueMode), ".").c_str())
-            ("glue.skirt.mode", po::value(&addOptions_.skirtMode)
-             ->default_value(addOptions_.skirtMode)
-             , utility::concat
-             ("Skirt mode, one of "
-              , enumerationString(addOptions_.skirtMode), ".").c_str())
-            ("glue.skirt.scale", po::value(&addOptions_.skirtScale)
-             ->default_value(addOptions_.skirtScale)
-             , "Scaling factor for computer skirt length")
-
             ("overwrite", "Overwrite existing glue, i.e. regenerate.")
             ("debug.tileId", po::value<vts::TileId>()
              , "Limits glue to tiles in the path to "
              "given tileId (optional).")
             ;
+
+        vts::configuration(p.options, addOptions_);
 
         progressConfiguration(p.options);
 
@@ -777,6 +761,8 @@ void VtsStorage::configuration(po::options_description &cmdline
 
         p.configure = [&](const po::variables_map &vars) {
             lockConfigure(vars);
+
+            vts::configure(vars, addOptions_);
 
             if (vars.count("tmp")) {
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
@@ -867,7 +853,7 @@ void VtsStorage::configuration(po::options_description &cmdline
     });
 
     createParser(cmdline, Command::dumpMesh
-                 , "--command=dump-mesh: mesh content"
+                 , "--command=dump-mesh: dump mesh content"
                  , [&](UP &p)
     {
         p.options.add_options()
@@ -878,7 +864,7 @@ void VtsStorage::configuration(po::options_description &cmdline
     });
 
     createParser(cmdline, Command::dumpMeshMask
-                 , "--command=dump-mesh-mask: mesh mask as an image"
+                 , "--command=dump-mesh-mask: dump mesh mask as an image"
                  , [&](UP &p)
     {
         p.options.add_options()
@@ -889,6 +875,31 @@ void VtsStorage::configuration(po::options_description &cmdline
             ;
 
         p.positional.add("output", 1);
+    });
+
+    createParser(cmdline, Command::exportMesh
+                 , "--command=export-mesh: export mesh contents as a "
+                 "directory with OBJ files and textures"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileId", po::value(&tileId_)->required()
+             , "ID of tile to query.")
+            ("output", po::value(&outputPath_)
+             , "Output directory; defaults to tileId.")
+            ("format", po::value(&meshFormat_)
+             , "Mesh format.")
+            ("margin", po::value(&addOptions_.safetyMargin)
+             , "Margin arount tiles extents in pixels of coverage.")
+            ;
+        p.positional.add("tileId", 1);
+        p.positional.add("output", 1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            if (!vars.count("output")) {
+                outputPath_ = boost::lexical_cast<std::string>(tileId_);
+            }
+        };
     });
 
     createParser(cmdline, Command::tileIndexInfo
@@ -2148,6 +2159,111 @@ int VtsStorage::dumpMeshMask()
 
     imgproc::png::write
         (outputPath_, vts::debugMask(ts.getMeshMask(tileId_)), 9);
+
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::exportMesh()
+{
+    auto ts(vts::openTileSet(path_));
+
+    const auto flags(ts.tileIndex().get(tileId_));
+
+    if (!(flags & vts::TileIndex::Flag::mesh)) {
+        std::cerr << tileId_ << ": has no mesh" << '\n';
+        return EXIT_FAILURE;
+    }
+
+    auto mesh(ts.getMesh(tileId_));
+
+    {
+        const auto &rf(ts.referenceFrame());
+        const vts::NodeInfo ni(rf, tileId_);
+        const auto c(math::center(vts::extents(mesh)));
+        const vts::CsConvertor conv(rf.model.physicalSrs, ni.srs());
+        const auto trafo(vts::MeshOpInput::sd2Coverage
+                         (ni, addOptions_.safetyMargin));
+
+        switch (meshFormat_) {
+        case MeshFormat::geo: break;
+
+        case MeshFormat::normalized:
+            for (auto &sm : mesh.submeshes) {
+                for (auto &v : sm.vertices) {
+                    v(0) -= c(0);
+                    v(1) -= c(1);
+                }
+            }
+            break;
+
+        case MeshFormat::sds:
+            for (auto &sm : mesh.submeshes) {
+                for (auto &v : sm.vertices) {
+                    v = conv(v);
+                }
+            }
+            break;
+
+        case MeshFormat::sdsNormalized:
+            for (auto &sm : mesh.submeshes) {
+                for (auto &v : sm.vertices) {
+                    v = conv(v);
+                    v(0) -= c(0);
+                    v(1) -= c(1);
+                }
+            }
+            break;
+
+        case MeshFormat::coverage:
+            for (auto &sm : mesh.submeshes) {
+                for (auto &v : sm.vertices) {
+                    v = transform(trafo, conv(v));
+                }
+            }
+            break;
+        }
+    }
+
+    boost::optional<vts::RawAtlas> atlas;
+    if (flags & vts::TileIndex::Flag::atlas) {
+        atlas = boost::in_place();
+        ts.getAtlas(tileId_, *atlas);
+    }
+
+    fs::create_directories(outputPath_);
+
+    std::string mtlLib;
+
+    if (atlas) {
+        mtlLib = "textures.mtl";
+
+        std::ofstream f((outputPath_ / mtlLib).string());
+
+        int index(0);
+        for (const auto &image : atlas->get()) {
+            const auto textureName(str(boost::format("%s.jpg") % index));
+            utility::write(outputPath_ / textureName
+                           , image.data(), image.size());
+            f << "newmtl " << index
+              << "\nmap_Kd " << textureName
+              << "\n";
+
+            ++index;
+        }
+
+        f.close();
+    }
+
+    int index(0);
+    for (const auto &sm : mesh.submeshes) {
+        const auto objName(str(boost::format("%s.obj") % index));
+
+        vts::saveSubMeshAsObj(outputPath_ / objName, sm
+                              , index, atlas ? &*atlas : nullptr
+                              , mtlLib);
+
+        ++index;
+    }
 
     return EXIT_SUCCESS;
 }
