@@ -311,10 +311,15 @@ struct MergeOptions {
      */
     double skirtScale;
 
+    /** Safety margin around tile (in mesh coverage mask pixels).
+     */
+    int safetyMargin;
+
     MergeOptions()
         : glueMode(GlueMode::simpleClip)
         , skirtMode(SkirtMode::none)
         , skirtScale(1.0)
+        , safetyMargin(1)
     {}
 };
 
