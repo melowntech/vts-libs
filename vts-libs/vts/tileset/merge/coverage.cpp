@@ -58,7 +58,7 @@ namespace svg {
 
 template <typename Color>
 void rasterize(std::ostream &os, const MeshOpInput &input
-               , const Color &color, const TileId &diff
+               , const Color &color, const int margin, const TileId &diff
                , const math::Size2 &size = Mesh::coverageSize())
 {
     os << "<!-- mask: id=" << input.id() << ", name="
@@ -68,7 +68,7 @@ void rasterize(std::ostream &os, const MeshOpInput &input
     int pixelSize(1 << diff.lod);
 
     // offset in destination pixels
-    cv::Point2i offset(diff.x * size.width, diff.y * size.height);
+    const cv::Point2i offset(diff.x * size.width, diff.y * size.height);
 
     LOG(info1) << "Rasterize coverage " << input.tileId()
                << " (diff: " << diff
@@ -77,9 +77,17 @@ void rasterize(std::ostream &os, const MeshOpInput &input
                << (input.watertight() ? " (watertight)" : "")
                << ".";
 
-    cv::Rect bounds(0, 0, size.width, size.height);
+    if (input.watertight()) {
+        // fully covered
+        os << "<rect width=\"" << size.width << "\" height=\"" << size.height
+           << "\" style=\"" << imgproc::svg::fill(color)
+           << ";stroke:none;stroke-width:0\" />\n";
+        return;
+    }
 
-    auto draw([&](uint xstart, uint ystart, uint size, bool)
+    const cv::Rect bounds(0, 0, size.width, size.height);
+
+    const auto draw([&](uint xstart, uint ystart, uint size, bool)
     {
         // scale
         xstart *= pixelSize;
@@ -90,21 +98,29 @@ void rasterize(std::ostream &os, const MeshOpInput &input
         xstart -= offset.x;
         ystart -= offset.y;
 
+        // move to real data start
+        xstart += margin;
+        ystart += margin;
+
         // construct rectangle and intersect it with bounds
         cv::Rect r(xstart, ystart, size, size);
         auto rr(r & bounds);
+
+        // expand at tile border
+        if (rr.x == margin) { rr.x = 0; rr.width += margin; }
+        if (rr.y == margin) { rr.y = 0; rr.height += margin; }
+        if ((rr.x + rr.width + margin) == bounds.width) {
+            rr.width += margin;
+        }
+        if ((rr.y + rr.height + margin) == bounds.height) {
+            rr.height += margin;
+        }
 
         os << "<rect x=\"" << rr.x << "\" y=\"" << rr.y
            << "\" width=\"" << rr.width << "\" height=\"" << rr.height
            << "\" style=\"" << imgproc::svg::fill(color)
            << ";stroke:none;stroke-width:0\" />\n";
     });
-
-    if (input.watertight()) {
-        // fully covered -> simulate full coverage
-        draw(0, 0, size.width, true);
-        return;
-    }
 
     input.mesh().coverageMask.forEachNode
         (draw, Mesh::CoverageMask::Filter::white);
@@ -136,14 +152,20 @@ void rasterize(std::ostream &os, const imgproc::Contour &contour
 } // namespace svg
 
 void rasterize(const MeshOpInput &input, const cv::Scalar &color
-               , cv::Mat &coverage
+               , cv::Mat &coverage, int margin
                , const TileId &diff = TileId())
 {
+    if (input.watertight()) {
+        // fully covered -> full coverage
+        coverage = color;
+        return;
+    }
+
     // size of source pixel in destination pixels
-    int pixelSize(1 << diff.lod);
+    const int pixelSize(1 << diff.lod);
 
     // offset in destination pixels
-    cv::Point2i offset(diff.x * coverage.cols, diff.y * coverage.rows);
+    const cv::Point2i offset(diff.x * coverage.cols, diff.y * coverage.rows);
 
     LOG(info1) << "Rasterize coverage " << input.tileId()
                << " (diff: " << diff
@@ -152,9 +174,9 @@ void rasterize(const MeshOpInput &input, const cv::Scalar &color
                << (input.watertight() ? " (watertight)" : "")
                << ".";
 
-    cv::Rect bounds(0, 0, coverage.cols, coverage.rows);
+    const cv::Rect bounds(0, 0, coverage.cols, coverage.rows);
 
-    auto draw([&](uint xstart, uint ystart, uint size, bool)
+    const auto draw([&](uint xstart, uint ystart, uint size, bool)
     {
         // scale
         xstart *= pixelSize;
@@ -165,18 +187,26 @@ void rasterize(const MeshOpInput &input, const cv::Scalar &color
         xstart -= offset.x;
         ystart -= offset.y;
 
+        // move to real data start
+        xstart += margin;
+        ystart += margin;
+
         // construct rectangle and intersect it with bounds
         cv::Rect r(xstart, ystart, size, size);
         auto rr(r & bounds);
+
+        // expand at tile border
+        if (rr.x == margin) { rr.x = 0; rr.width += margin; }
+        if (rr.y == margin) { rr.y = 0; rr.height += margin; }
+        if ((rr.x + rr.width + margin) == bounds.width) {
+            rr.width += margin;
+        }
+        if ((rr.y + rr.height + margin) == bounds.height) {
+            rr.height += margin;
+        }
+
         cv::rectangle(coverage, rr, color, CV_FILLED, 4);
     });
-
-    if (input.watertight()) {
-        // fully covered -> simulate full coverage
-        auto s(Mesh::coverageSize());
-        draw(0, 0, s.width, true);
-        return;
-    }
 
     input.mesh().coverageMask.forEachNode
         (draw, Mesh::CoverageMask::Filter::white);
@@ -185,13 +215,14 @@ void rasterize(const MeshOpInput &input, const cv::Scalar &color
 void rasterize(const MeshOpInput &input, const cv::Scalar &color
                , cv::Mat &coverage
                , const NodeInfo &srcNodeInfo
-               , const NodeInfo &dstNodeInfo)
+               , const NodeInfo &dstNodeInfo, int margin)
 {
     (void) input;
     (void) color;
     (void) coverage;
     (void) srcNodeInfo;
     (void) dstNodeInfo;
+    (void) margin;
 
     LOG(warn3)
         << "Cross SRS fallback merge is unsupported so far. "
@@ -211,10 +242,12 @@ const auto InvalidMax(-std::numeric_limits<float>::infinity());
 } // namespace
 
 Coverage::Coverage(const TileId &tileId, const NodeInfo &nodeInfo
-                   , const Input::list &sources
+                   , const Input::list &sources, const MergeOptions &options
                    , bool needCookieCutters)
-    : tileId(tileId), sources(sources)
-    , coverageSize(Mesh::coverageSize())
+    : tileId(tileId), sources(sources), options(options)
+    , innerSize(Mesh::coverageSize())
+    , coverageSize((innerSize.width + 2 * options.safetyMargin)
+                   , (innerSize.height + 2 * options.safetyMargin))
     , coverage(coverageSize.height, coverageSize.width, pixel_type(-1))
     , hasHoles(false)
     , indices(sources.back().id() + 1, false)
@@ -402,11 +435,11 @@ void Coverage::generateCoverage(const NodeInfo &nodeInfo)
 
         if (nodeInfo.srs() == input.nodeInfo().srs()) {
             // same SRS -> mask is rendered as is (possible scale and shift)
-            rasterize(input, input.id(), coverage
+            rasterize(input, input.id(), coverage, options.safetyMargin
                       , local(input.tileId().lod, tileId));
         } else {
             rasterize(input, input.id(), coverage
-                      , input.nodeInfo(), nodeInfo);
+                      , input.nodeInfo(), nodeInfo, options.safetyMargin);
         }
     }
 }
@@ -538,6 +571,7 @@ void Coverage::dumpCookieCutters(std::ostream &os) const
         color[0] *= .5; color[1] *= .5; color[2] *= .5;
 
         svg::rasterize(os, input, imgproc::svg::color(color)
+                       , options.safetyMargin
                        , local(input.tileId().lod, tileId)
                        , coverageSize);
     };

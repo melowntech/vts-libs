@@ -51,6 +51,8 @@ struct Coverage {
 
     const TileId tileId;
     const Input::list &sources;
+    const MergeOptions &options;
+    const math::Size2 innerSize;
     const math::Size2 coverageSize;
     cv::Mat_<pixel_type> coverage;
     bool hasHoles;
@@ -67,7 +69,8 @@ struct Coverage {
     HeightMap hm;
 
     Coverage(const TileId &tileId, const NodeInfo &nodeInfo
-             , const Input::list &sources, bool needCookieCutters);
+             , const Input::list &sources, const MergeOptions &options
+             , bool needCookieCutters);
 
     void getSources(Output &output, const Input::list &navtileSource) const;
 
@@ -122,9 +125,6 @@ private:
     /** Id of topmost surface
      */
     Input::Id topmost_;
-
-    math::Point2d minBound_;
-    math::Point2d maxBound_;
 };
 
 } } } // namespace vtslibs::vts::merge

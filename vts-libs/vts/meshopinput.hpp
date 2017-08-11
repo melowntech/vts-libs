@@ -97,11 +97,11 @@ public:
 
     typedef std::vector<MeshOpInput> list;
 
-    static math::Matrix4 sd2Coverage(const NodeInfo &nodeInfo);
+    static math::Matrix4 sd2Coverage(const NodeInfo &nodeInfo, int margin);
 
-    static math::Matrix4 coverage2Sd(const NodeInfo &nodeInfo);
+    static math::Matrix4 coverage2Sd(const NodeInfo &nodeInfo, int margin);
 
-    static math::Matrix4 coverage2Texture();
+    static math::Matrix4 coverage2Texture(int margin);
 
     /** Return owning tileset
      */

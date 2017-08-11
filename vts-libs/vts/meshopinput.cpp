@@ -155,19 +155,19 @@ const opencv::NavTile& MeshOpInput::navtile() const
     return *navtile_;
 }
 
-math::Matrix4 MeshOpInput::sd2Coverage(const NodeInfo &nodeInfo)
+math::Matrix4 MeshOpInput::sd2Coverage(const NodeInfo &nodeInfo, int margin)
 {
-    return merge::geo2mask(nodeInfo.extents(), Mesh::coverageSize());
+    return merge::geo2mask(nodeInfo.extents(), Mesh::coverageSize(), margin);
 }
 
-math::Matrix4 MeshOpInput::coverage2Sd(const NodeInfo &nodeInfo)
+math::Matrix4 MeshOpInput::coverage2Sd(const NodeInfo &nodeInfo, int margin)
 {
-    return merge::mask2geo(nodeInfo.extents(), Mesh::coverageSize());
+    return merge::mask2geo(nodeInfo.extents(), Mesh::coverageSize(), margin);
 }
 
-math::Matrix4 MeshOpInput::coverage2Texture()
+math::Matrix4 MeshOpInput::coverage2Texture(int margin)
 {
-    return merge::coverage2EtcTrafo(Mesh::coverageSize());
+    return merge::coverage2EtcTrafo(Mesh::coverageSize(), margin);
 }
 
 

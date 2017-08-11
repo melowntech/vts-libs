@@ -167,6 +167,7 @@ private:
 
     void simpleClip(Coverage &coverage);
 
+    const MergeOptions &options_;
     const SubMesh &original_;
     const int submeshIndex_;
     const math::Points3 originalCoverage_;
@@ -185,19 +186,20 @@ MeshFilter::MeshFilter(const SubMesh &original, int submeshIndex
                        , const MergeOptions &options
                        , const SdMeshConvertor::Lazy &sdmc
                        , const TileId &diff)
-    : original_(original), submeshIndex_(submeshIndex)
+    : options_(options), original_(original), submeshIndex_(submeshIndex)
     , originalCoverage_(originalCoverage)
     , input_(input), sdmc_(sdmc), diff_(diff)
     , keep_(false)
 {
     // topmost surface or pure compisition -> pass as is
-    if ((options.glueMode == GlueMode::compose)
+    if ((options_.glueMode == GlueMode::compose)
         || (coverage.topmost(input_.id())))
     {
         if (diff_.lod) {
             // deriving from fallback tile -> clip
             const auto clipped(clip(original_, originalCoverage_
-                                    , coverageExtents(1.), sdmc_));
+                                    , coverageExtents(options_.safetyMargin)
+                                    , sdmc_));
             if (clipped) {
                 mesh_ = clipped.mesh;
                 coverageVertices_ = clipped.projected;
@@ -213,7 +215,7 @@ MeshFilter::MeshFilter(const SubMesh &original, int submeshIndex
         return;
     }
 
-    switch (options.glueMode) {
+    switch (options_.glueMode) {
     case GlueMode::compose: break;
     case GlueMode::simpleClip: simpleClip(coverage); break;
     case GlueMode::coverageContour: complexClip(coverage); break;
@@ -547,7 +549,7 @@ void MeshFilter::simpleClip(Coverage &coverage)
     // clip and refine mesh
     auto refined(clipAndRefine
                  ({ original_, originalCoverage_ }
-                  , coverageExtents(1.)
+                  , coverageExtents(options_.safetyMargin)
                   , MVC(sdmc_(), diff_.lod, maxRefinedFaceCount)));
 
     if (refined) {
@@ -752,7 +754,8 @@ void mergeNavtile(Output &output)
 
 Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
                      , const Input &input, const Input::list &navtileSource
-                     , bool generateNavtile)
+                     , bool generateNavtile
+                     , const MergeOptions &options)
 {
     Output result(tileId, input, navtileSource);
     if (input.tileId().lod == tileId.lod) {
@@ -786,13 +789,14 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
                         , nodeInfo.srs());
 
     const auto coverageVertices
-        (inputCoverageVertices(input, nodeInfo, phys2sd));
-    SdMeshConvertor sdmc(nodeInfo, localId);
+        (inputCoverageVertices
+         (input, nodeInfo, phys2sd, options.safetyMargin));
+    SdMeshConvertor sdmc(nodeInfo, options.safetyMargin, localId);
 
     std::size_t smIndex(0);
     for (const auto &sm : input.mesh()) {
         auto clipped(clip(sm, coverageVertices[smIndex]
-                          , coverageExtents(1.), sdmc));
+                          , coverageExtents(options.safetyMargin), sdmc));
 
         if (clipped) {
             addInputToOutput(result, input, clipped.mesh
@@ -979,14 +983,16 @@ Output mergeTile(const TileId &tileId
         // just one source
         return singleSourced(tileId, nodeInfo, source.front()
                              , filterSources(source, navtileSource)
-                             , constraints.generateNavtile());
+                             , constraints.generateNavtile()
+                             , options);
     }
 
     // merge result
     Output result(tileId);
 
     // analyze coverage
-    Coverage coverage(tileId, nodeInfo, source, needCookieCutters(options));
+    Coverage coverage(tileId, nodeInfo, source, options
+                      , needCookieCutters(options));
 
     // various debug dumps follow
 
@@ -1016,7 +1022,8 @@ Output mergeTile(const TileId &tileId
         // process single source
         return singleSourced(tileId, nodeInfo, result.source.mesh.front()
                              , result.source.navtile
-                             , constraints.generateNavtile());
+                             , constraints.generateNavtile()
+                             , options);
     }
 
     // merge meshes
@@ -1030,7 +1037,7 @@ Output mergeTile(const TileId &tileId
     IntermediateOutput::list imo;
 
     // mesh convertor (for this tile)
-    SdMeshConvertor thisSdmc(nodeInfo);
+    SdMeshConvertor thisSdmc(nodeInfo, options.safetyMargin);
 
     // process all inputs
     for (const auto &input : result.source.mesh) {
@@ -1038,7 +1045,8 @@ Output mergeTile(const TileId &tileId
 
         // get current mesh vertices converted to coverage coordinate system
         const auto coverageVertices
-            (inputCoverageVertices(input, nodeInfo, phys2sd));
+            (inputCoverageVertices
+             (input, nodeInfo, phys2sd, options.safetyMargin));
 
         auto icoverageVertices(coverageVertices.begin());
 
@@ -1049,7 +1057,8 @@ Output mergeTile(const TileId &tileId
         // mesh vertex convertor: use convertor for this tile or create lazy
         // instance if we are using fallback data (deriving subtile)
         auto sdmc(localId.lod
-                  ? SdMeshConvertor::Lazy(nodeInfo, localId)
+                  ? SdMeshConvertor::Lazy(nodeInfo, options.safetyMargin
+                                          , localId)
                   : SdMeshConvertor::Lazy(thisSdmc));
 
         // traverse all submeshes

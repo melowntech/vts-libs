@@ -76,9 +76,9 @@ math::Matrix4 geo2mask(const math::Extents2 &extents
     trafo(0, 0) = scale.width;
     trafo(1, 1) = -scale.height;
 
-    // move to origin and also move pixel centers to integral indices
-    trafo(0, 3) = -extents.ll(0) * scale.width - 0.5;
-    trafo(1, 3) = extents.ur(1) * scale.height - 0.5;
+    // move to origin
+    trafo(0, 3) = -extents.ll(0);
+    trafo(1, 3) = extents.ur(1);
 
     return trafo;
 }

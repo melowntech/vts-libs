@@ -52,31 +52,44 @@ Input::list filterSources(const Input::list &reference
  */
 Vertices3List inputCoverageVertices(const Input &input
                                     , const NodeInfo &nodeInfo
-                                    , const CsConvertor &conv);
+                                    , const CsConvertor &conv
+                                    , int margin);
 
 /** Geo coordinates to coverage mask mapping.
- * NB: result is in pixel system: pixel centers have integral indices
+ *
+ * NB: result is from left-top edge (0, 0) to bottom-right edge (width, height)
+ *
+ * \param extents tile SDS extents
+ * \param gridSize mask grid size (in pixels)
+ * \param margin safety margin around tile (in pixels)
  */
 math::Matrix4 geo2mask(const math::Extents2 &extents
-                       , const math::Size2 &gridSize);
+                       , const math::Size2 &gridSize
+                       , int margin);
 
 /** Coverage mask mapping to geo coordinates.
- * NB: result is in pixel system: pixel centers have integral indices
+ *
+ * NB: source is from left-top edge (0, 0) to bottom-right edge (width, height)
+ *
+ * \param extents tile SDS extents
+ * \param gridSize mask grid size (in pixels)
+ * \param margin safety margin around tile (in pixels)
  */
 math::Matrix4 mask2geo(const math::Extents2 &extents
-                       , const math::Size2 &gridSize);
+                       , const math::Size2 &gridSize
+                       , int margin);
 
 /** Maps external texture coordinates from parent tile into subtile.
  *  Relationship defined by tile id, parent is a root of the tree (i.e. tile id
  *  0-0-0).
  */
-math::Matrix4 etcNCTrafo(const TileId &id);
+math::Matrix3 etcNCTrafo(const TileId &id);
 
 /** Maps coverage coordinate into normalized external texture coordinates.
  */
-math::Matrix4 coverage2EtcTrafo(const math::Size2 &gridSize);
+math::Matrix4 coverage2EtcTrafo(const math::Size2 &gridSize, int margin);
 
-math::Extents2 coverageExtents(double margin = .0);
+math::Extents2 coverageExtents(int margin);
 
 /** Physical <-> SDS mask mesh coordinate system convertor.
  */
@@ -86,9 +99,11 @@ public:
      *
      * \param input mesh operation input
      * \param nodeInfo curren node info
+     * \param margin margin around tile (in pixels)
      * \param tileId local tile ID.
      */
-    SdMeshConvertor(const NodeInfo &nodeInfo, const TileId &tileId = TileId());
+    SdMeshConvertor(const NodeInfo &nodeInfo, int margin
+                    , const TileId &tileId = TileId());
 
     virtual math::Point3d vertex(const math::Point3d &v) const;
 
@@ -111,7 +126,7 @@ private:
     /** Converts external texture coordinates between fallback tile and current
      *  tile.
      */
-    math::Matrix4 etcNCTrafo_;
+    math::Matrix3 etcNCTrafo_;
 
     /** Converts between coverage coordinates and normalized external texture
      *  coordinates.
@@ -121,8 +136,8 @@ private:
 
 struct SdMeshConvertor::Lazy {
 public:
-    Lazy(const NodeInfo &nodeInfo, const TileId &tileId)
-        : factory_(Factory(nodeInfo, tileId)), convertor_(nullptr)
+    Lazy(const NodeInfo &nodeInfo, int margin, const TileId &tileId)
+        : factory_(Factory(nodeInfo, margin, tileId)), convertor_(nullptr)
     {}
 
     Lazy(const SdMeshConvertor &convertor)
@@ -141,7 +156,7 @@ public:
 
 private:
     typedef decltype(boost::in_place
-                     (std::declval<NodeInfo>(), std::declval<TileId>()))
+                     (std::declval<NodeInfo>(), int(), std::declval<TileId>()))
         Factory;
     boost::optional<Factory> factory_;
     mutable boost::optional<SdMeshConvertor> own_;
@@ -150,101 +165,21 @@ private:
 
 // inlines
 
-inline math::Matrix4 geo2mask(const math::Extents2 &extents
-                              , const math::Size2 &gridSize)
-{
-    const auto es(size(extents));
-
-    // scales
-    const math::Size2f scale(gridSize.width / es.width
-                             , gridSize.height / es.height);
-
-    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
-
-    // scale to grid
-    trafo(0, 0) = scale.width;
-    trafo(1, 1) = -scale.height;
-
-    // move to origin
-    trafo(0, 3) = -extents.ll(0) * scale.width;
-    trafo(1, 3) = extents.ur(1) * scale.height;
-
-    return trafo;
-}
-
-inline math::Matrix4 mask2geo(const math::Extents2 &extents
-                              , const math::Size2 &gridSize)
-{
-    const auto es(size(extents));
-
-    // scales
-    const math::Size2f scale(es.width / gridSize.width
-                             , es.height / gridSize.height);
-
-    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
-
-    // scale to grid
-    trafo(0, 0) = scale.width;
-    trafo(1, 1) = -scale.height;
-
-    // move to origin
-    trafo(0, 3) = extents.ll(0);
-    trafo(1, 3) = extents.ur(1);
-
-    return trafo;
-}
-
-inline math::Matrix4 etcNCTrafo(const TileId &id)
-{
-    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
-
-    // LOD=0 -> identity
-    if (!id.lod) { return trafo; }
-
-    double tileCount(1 << id.lod);
-
-    // number of tiles -> scale
-    trafo(0, 0) = tileCount;
-    trafo(1, 1) = tileCount;
-
-    // NB: id.x is unsigned -> must cast to double first
-    trafo(0, 3) = - double(id.x);
-    trafo(1, 3) = (id.y + 1) - tileCount;
-
-    return trafo;
-}
-
-inline math::Matrix4 coverage2EtcTrafo(const math::Size2 &gridSize)
-{
-    math::Matrix4 trafo(boost::numeric::ublas::identity_matrix<double>(4));
-
-    // scale to normalized range (0, 1)
-    trafo(0, 0) = 1.0 / gridSize.width;
-    trafo(1, 1) = -1.0 / gridSize.height;
-
-    // shift to proper orientation
-    trafo(0, 3) = 0;
-    trafo(1, 3) = 1;
-
-    return trafo;
-}
-
-inline math::Extents2 coverageExtents(double margin)
+inline math::Extents2 coverageExtents(int margin)
 {
     const auto grid(Mesh::coverageSize());
-    return math::Extents2(-margin
-                          , -margin
-                          , grid.width + margin
-                          , grid.height + margin);
+    return math::Extents2(0.0, 0.0, grid.width + 2.0 * margin
+                          , grid.height + 2.0 * margin);
 }
 
 inline SdMeshConvertor::SdMeshConvertor(const NodeInfo &nodeInfo
+                                        , int margin
                                         , const TileId &tileId)
-    : geoTrafo_(Input::coverage2Sd(nodeInfo))
+    : geoTrafo_(Input::coverage2Sd(nodeInfo, margin))
     , geoConv_(nodeInfo.srs()
                , nodeInfo.referenceFrame().model.physicalSrs)
     , etcNCTrafo_(etcNCTrafo(tileId))
-    , coverage2Texture_(Input::coverage2Texture())
+    , coverage2Texture_(Input::coverage2Texture(margin))
 {}
 
 inline math::Point3d SdMeshConvertor::vertex(const math::Point3d &v) const
