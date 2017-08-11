@@ -250,7 +250,7 @@ struct MeshFilter::Copier : boost::noncopyable {
         , om(mf.mesh_), opv(mf.coverageVertices_)
         , hasTc(!im.facesTc.empty()), hasEtc(!im.etc.empty())
         , vertexMap(im.vertices.size(), -1)
-        , tcMap(im.vertices.size(), -1)
+        , tcMap(im.tc.size(), -1)
     {}
 
     Copier(MeshFilter &mf, const SdMeshConvertor *sdmc
@@ -260,7 +260,7 @@ struct MeshFilter::Copier : boost::noncopyable {
         , om(mf.mesh_), opv(mf.coverageVertices_)
         , hasTc(!im.facesTc.empty()), hasEtc(!im.etc.empty())
         , vertexMap(im.vertices.size(), -1)
-        , tcMap(im.vertices.size(), -1)
+        , tcMap(im.tc.size(), -1)
     {}
 
     void operator()(Coverage &coverage, Input::Id id) {
@@ -306,7 +306,7 @@ struct MeshFilter::Copier : boost::noncopyable {
         auto &m(tcMap[i]);
         if (m < 0) {
             // new vertex
-            m = im.tc.size();
+            m = om.tc.size();
             om.tc.push_back(im.tc[i]);
         }
         return m;
@@ -348,7 +348,7 @@ struct MeshFilter::Clipper : boost::noncopyable {
             for (auto i : im.facesTc[f]) {
                 auto o(copier.tcMap[i]);
                 if (o > -1) {
-                    vertexIndices
+                    textureIndices
                         .insert(Texture2Index::value_type(om.tc[o], o));
                 }
             }
