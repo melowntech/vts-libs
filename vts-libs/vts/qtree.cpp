@@ -92,7 +92,7 @@ QTree::value_type QTree::get(unsigned int depth
     // not trimming -> regular get
     if (depth >= order_) {
         // too deep, move up
-        get(x >> (depth - order_), y >> (depth - order_));
+        return get(x >> (depth - order_), y >> (depth - order_));
     }
 
     // calculate size in of a trimmed tree

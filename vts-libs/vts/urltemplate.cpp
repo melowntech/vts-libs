@@ -24,6 +24,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <atomic>
+#include <limits>
 #include <sstream>
 #include <iomanip>
 
@@ -51,15 +52,48 @@ inline unsigned int variableValue(UrlTemplate::Variable what
 
     // expand variable
     switch (what) {
-    case Variable::lod: return vars.tileId.lod; break;
-    case Variable::x: return vars.tileId.x; break;
-    case Variable::y: return vars.tileId.y; break;
-    case Variable::loclod: return vars.localId.lod; break;
-    case Variable::locx: return vars.localId.x; break;
-    case Variable::locy: return vars.localId.y; break;
-    case Variable::sub: return vars.subMesh; break;
+    case Variable::lod: return vars.tileId.lod;
+    case Variable::x: return vars.tileId.x;
+    case Variable::y: return vars.tileId.y;
+    case Variable::loclod: return vars.localId.lod;
+    case Variable::locx: return vars.localId.x;
+    case Variable::locy: return vars.localId.y;
+    case Variable::sub: return vars.subMesh;
+
+    case Variable::srs:
+        LOG(warn1) << "Using variable <srs> in numeric context.";
+        return std::numeric_limits<unsigned int>::max();
     }
     return 0;
+}
+
+struct Expand {
+    UrlTemplate::Variable what;
+    const UrlTemplate::Vars &vars;
+};
+
+inline std::ostream& operator<<(std::ostream &os, const Expand &e)
+{
+    typedef UrlTemplate::Variable Variable;
+
+    // expand variable
+    switch (e.what) {
+    case Variable::lod: os << e.vars.tileId.lod; break;
+    case Variable::x: os << e.vars.tileId.x; break;
+    case Variable::y: os << e.vars.tileId.y; break;
+    case Variable::loclod: os << e.vars.localId.lod; break;
+    case Variable::locx: os << e.vars.localId.x; break;
+    case Variable::locy: os << e.vars.localId.y; break;
+    case Variable::sub: os << e.vars.subMesh; break;
+    case Variable::srs: os << e.vars.srs; break;
+    }
+    return os;
+}
+
+inline std::string variableStringValue(UrlTemplate::Variable what
+                                       , const UrlTemplate::Vars &vars)
+{
+    return boost::lexical_cast<std::string>(Expand{what, vars});
 }
 
 unsigned int hash(unsigned int x) {
@@ -204,6 +238,65 @@ UrlTemplate::Expander makeQuadExpander(const std::string &str
     return {};
 }
 
+UrlTemplate::Expander makeSwitchExpander(const std::string &str
+                                         , const std::string::size_type &start
+                                         , const std::string::size_type &end)
+{
+    // split args
+    std::vector<std::string> args;
+    auto range(std::make_pair(str.data() + start, str.data() + end));
+    ba::split(args, range, ba::is_any_of(", ")
+              , ba::token_compress_on);
+
+    if (args.size() < 1) { return {}; }
+
+    typedef std::map<std::string, std::string> Mapping;
+    Mapping mapping;
+    std::string default_;
+
+    for (std::size_t i(1), e(args.size()); i != e; ++i) {
+        const auto &arg(args[i]);
+
+        auto colon(arg.find(':'));
+        if (colon == std::string::npos) {
+            // as-is
+            mapping.insert(Mapping::value_type(arg, arg));
+            continue;
+        }
+
+        Mapping::value_type pair(arg.substr(0, colon), arg.substr(colon + 1));
+        if (pair.first == "*") {
+            // default value
+            default_ = std::move(pair.second);
+            continue;
+        }
+
+        // store mapping
+        mapping.insert(std::move(pair));
+    }
+
+    try {
+        auto var(boost::lexical_cast<UrlTemplate::Variable>(args[0]));
+
+        return [var, mapping, default_](std::ostream &os
+                                        , const UrlTemplate::Vars &vars)
+        {
+            const auto value(variableStringValue(var, vars));
+
+            const auto fmapping(mapping.find(value));
+            if (fmapping == mapping.end()) {
+                // not found, use default
+                os << ((default_ == "*") ? value : default_);
+            } else {
+                os << ((default_ == "*") ? value : fmapping->second);
+            }
+        };
+
+    } catch (boost::bad_lexical_cast) {}
+
+    return {};
+}
+
 UrlTemplate::Expander parseFunction(const std::string &str
                                  , const std::string::size_type &start
                                  , const std::string::size_type &end)
@@ -238,6 +331,10 @@ UrlTemplate::Expander parseFunction(const std::string &str
 
     if (name == "quad") {
         return makeQuadExpander(str, open + 1, close);
+    }
+
+    if (name == "switch") {
+        return makeSwitchExpander(str, open + 1, close);
     }
 
     return {};
@@ -316,7 +413,7 @@ void UrlTemplate::Token::expand(std::ostream &os, const Vars &vars)
 
     if (variable) {
         // expand variable
-        os << variableValue(*variable, vars);
+        os << Expand{*variable, vars};
         return;
     }
 

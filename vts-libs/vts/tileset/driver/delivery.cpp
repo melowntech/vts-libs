@@ -41,6 +41,7 @@
 #include "../../2d.hpp"
 #include "../../tileset.hpp"
 #include "../../debug.hpp"
+#include "../../qtree-rasterize.hpp"
 
 #include "../delivery.hpp"
 #include "../driver.hpp"

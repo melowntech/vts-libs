@@ -293,9 +293,22 @@ bool RFTreeSubtree::initSampler() const
 
 boost::tribool RFTreeSubtree::valid(const RFNode &node) const
 {
-    // try to init sampler; if sampler cannot be initialized, we are fully
-    // inside
-    if (!initSampler()) { return true; }
+    // try to init sampler
+    if (!initSampler()) {
+        // sampler cannot be initialized because there are no extra constraints
+        if (!root_->valid()) {
+            // invalid node -> invalid
+            return false;
+        }
+
+        if (!root_->real()) {
+            // not a real node, we have no idea...
+            return boost::indeterminate;
+        }
+
+        // valid
+        return true;
+    }
 
     class Checker {
     public:

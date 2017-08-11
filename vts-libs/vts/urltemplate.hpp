@@ -57,6 +57,7 @@ public:
     struct Vars {
         vts::TileId tileId;
         vts::TileId localId;
+        std::string srs;
         unsigned int subMesh;
 
         Vars(const vts::TileId &tileId, unsigned int subMesh = 0)
@@ -66,6 +67,11 @@ public:
         Vars(const vts::TileId &tileId, const vts::TileId &localId
              , unsigned int subMesh = 0)
             : tileId(tileId), localId(localId), subMesh(subMesh)
+        {}
+
+        Vars(const vts::TileId &tileId, const vts::TileId &localId
+             , const std::string &srs, unsigned int subMesh = 0)
+            : tileId(tileId), localId(localId), srs(srs), subMesh(subMesh)
         {}
 
         Vars addSubmesh(int subMesh) {
@@ -82,7 +88,7 @@ public:
     void dump(std::ostream &os) const;
 
     enum Variable {
-        lod, x, y, loclod, locx, locy, sub
+        lod, x, y, loclod, locx, locy, sub, srs
     };
 
     typedef std::function<void(std::ostream &os
@@ -120,6 +126,7 @@ UTILITY_GENERATE_ENUM_IO(UrlTemplate::Variable,
                          ((locx))
                          ((locy))
                          ((sub))
+                         ((srs))
 )
 
 inline std::ostream& operator<<(std::ostream &os, const UrlTemplate &t)
