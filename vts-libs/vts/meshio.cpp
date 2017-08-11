@@ -864,4 +864,64 @@ loadMeshProperNormalized(std::istream &in
     return submeshes;
 }
 
+void saveSubMeshAsObj(std::ostream &out, const SubMesh &sm
+                      , std::size_t index, const Atlas*
+                      , const std::string &matlib)
+{
+    out.setf(std::ios::scientific, std::ios::floatfield);
+
+    const bool hasTc(!sm.facesTc.empty());
+
+    if (hasTc && !matlib.empty()) {
+        out << "mtllib " << matlib << '\n';
+    }
+
+    for (const auto &vertex : sm.vertices) {
+        out << "v " << vertex(0) << ' ' << vertex(1) << ' '  << vertex(2)
+            << '\n';
+    }
+
+    if (hasTc) {
+        for (const auto &tc : sm.tc) {
+            out << "vt " << tc(0) << ' ' << tc(1) << '\n';
+        }
+    }
+
+    if (hasTc && !matlib.empty()) {
+        out << "usemtl " << index << '\n';
+    }
+
+    auto ifacesTc(sm.facesTc.begin());
+    for (const auto &face : sm.faces) {
+        if (hasTc) {
+            const auto &faceTc(*ifacesTc++);
+            out << "f " << (face(0) + 1) << '/' << (faceTc(0) + 1)
+                << ' ' << (face(1) + 1) << '/' << (faceTc(1) + 1)
+                << ' ' << (face(2) + 1) << '/' << (faceTc(2) + 1)
+                << '\n';
+        } else {
+            out << "f " << (face(0) + 1) << ' ' << (face(1) + 1) << ' '
+                << (face(2) + 1) << '\n';
+        }
+    }
+}
+
+void saveSubMeshAsObj(const boost::filesystem::path &filepath
+                      , const SubMesh &sm, std::size_t index
+                      , const Atlas *atlas
+                      , const std::string &matlib)
+{
+    LOG(info2) << "Saving submesh to file <" << filepath << ">.";
+
+    std::ofstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    try {
+        f.open(filepath.string(), std::ios_base::out | std::ios_base::trunc);
+    } catch (const std::exception&) {
+        LOGTHROW(err3, std::runtime_error)
+            << "Unable to save mesh to <" << filepath << ">.";
+    }
+    saveSubMeshAsObj(f, sm, index, atlas, matlib);
+}
+
 } } // namespace vadstena::vts

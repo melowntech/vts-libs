@@ -352,6 +352,14 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh
                     , const Atlas *atlas = nullptr
                     , bool compress = true);
 
+void saveSubMeshAsObj(std::ostream &out, const SubMesh &sm
+                      , std::size_t index, const Atlas *atlas = nullptr
+                      , const std::string &matlib = "");
+
+void saveSubMeshAsObj(const boost::filesystem::path &path, const SubMesh &sm
+                      , std::size_t index, const Atlas *atlas = nullptr
+                      , const std::string &matlib = "");
+
 NormalizedSubMesh::list
 loadMeshProperNormalized(std::istream &in
                          , const boost::filesystem::path &path);
