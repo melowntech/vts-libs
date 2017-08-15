@@ -489,6 +489,22 @@ void Coverage::analyze() {
     if (count == 1) { single = topmost_; }
 }
 
+inline imgproc::ChainSimplification
+chainSimplification(ContourSimplification simplification)
+{
+    switch (simplification) {
+    case ContourSimplification::none:
+        return imgproc::ChainSimplification::none;
+    case ContourSimplification::straight:
+        return imgproc::ChainSimplification::simple;
+    case ContourSimplification::rdp:
+        return imgproc::ChainSimplification::rdp;
+    }
+
+    // default
+    return imgproc::ChainSimplification::rdp;
+}
+
 void Coverage::findCookieCutters() {
     // single case -> no mesh clipping needed, do not find any cookie cutter
     if (single) { return; }
@@ -498,7 +514,9 @@ void Coverage::findCookieCutters() {
     cookieCutters = imgproc::findContours
         (raster, indices.size()
          , imgproc::ContourParameters(imgproc::PixelOrigin::corner)
-         .setSimplification(imgproc::ChainSimplification::rdp));
+         .setSimplification
+         (chainSimplification(options.contourSimplification))
+         .setRdpMaxError(options.rdpMaxError));
 }
 
 void Coverage::dump(const fs::path &dump) const

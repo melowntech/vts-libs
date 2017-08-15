@@ -65,7 +65,25 @@ inline void configuration(boost::program_options::options_description &od
          , utility::concat
          ("Safety margin added around tile when generating new tile. "
           "Value is in pixels, where 1 pixel is [1/", cs.width
-          , ", 1/", cs.height, "] of tile SDS extents size.").c_str())
+          , ", 1/", cs.height, "] of tile SDS extents size. "
+          "Should not be touched in production environment."
+          ).c_str())
+
+        ("glue.mode.coverageContour.simplification"
+         , po::value(&mo.contourSimplification)
+         ->default_value(mo.contourSimplification)
+         , utility::concat
+         ("Contour simplification algorithm for glue.mode=coverageContour, "
+          " one of "
+          , enumerationString(mo.contourSimplification)
+          , ". Should not be touched in production environment.").c_str())
+
+        ("glue.mode.coverageContour.simplification.rdp.maxError"
+         , po::value(&mo.rdpMaxError)
+         ->default_value(mo.rdpMaxError)
+         , "Maximum simplified segment error setting for "
+         "glue.mode.coverageContour=rdp. In pixels. "
+         "Should not be touched in production environment.")
         ;
 }
 

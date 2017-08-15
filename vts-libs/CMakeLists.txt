@@ -282,7 +282,7 @@ set(vts_SOURCES
 # vts nucleus library
 define_module(LIBRARY vts-libs-nucleus=${vts-libs_VERSION}
   DEPENDS
-  http>=1.1 geo>=1.24 geometry>=1.7 imgproc>=1.19 math>=1.2
+  http>=1.1 geo>=1.24 geometry>=1.7 imgproc>=1.21 math>=1.2
   utility>=1.16 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
 
   Boost_IOSTREAMS

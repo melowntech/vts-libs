@@ -300,10 +300,20 @@ UTILITY_GENERATE_ENUM(GlueMode,
                       ((coverageContour))
                       )
 
+UTILITY_GENERATE_ENUM(ContourSimplification,
+                      // no simplification at all
+                      ((none))
+                      // simplify straight segments
+                      ((straight))
+                      // use Ramer–Douglas–Peucker algorithm
+                      ((rdp))
+                      )
+
 struct MergeOptions {
     GlueMode glueMode;
 
-    /** Skirt generation mode. Taken into the account only when clip == true.
+    /** Skirt generation mode. Taken into the account by other glue modes than
+     *  GlueMode::compose.
      */
     SkirtMode skirtMode;
 
@@ -315,11 +325,21 @@ struct MergeOptions {
      */
     int safetyMargin;
 
+    /** Contour simplification (used by GlueMode::coverageContour glue mode).
+     */
+    ContourSimplification contourSimplification;
+
+    /** Maximum segment error for ContourSimplification::rpd.
+     */
+    double rdpMaxError;
+
     MergeOptions()
         : glueMode(GlueMode::simpleClip)
         , skirtMode(SkirtMode::none)
         , skirtScale(1.0)
         , safetyMargin(1)
+        , contourSimplification(ContourSimplification::rdp)
+        , rdpMaxError(0.9)
     {}
 };
 
