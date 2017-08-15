@@ -118,12 +118,14 @@ void rasterize(std::ostream &os, const MeshOpInput &input
 
         os << "<rect x=\"" << rr.x << "\" y=\"" << rr.y
            << "\" width=\"" << rr.width << "\" height=\"" << rr.height
-           << "\" style=\"" << imgproc::svg::fill(color)
-           << ";stroke:none;stroke-width:0\" />\n";
+           << "\" />\n";
     });
 
+    os << "<g style=\"" << imgproc::svg::fill(color)
+       << ";stroke:none;stroke-width:0\">\n";
     input.mesh().coverageMask.forEachNode
         (draw, Mesh::CoverageMask::Filter::white);
+    os << "</g>\n";
 }
 
 template <typename Color>
@@ -136,10 +138,11 @@ void rasterize(std::ostream &os, const imgproc::Contour &contour
     {
         os << "<rect x=\"" << xstart << "\" y=\"" << ystart
            << "\" width=\"" << size << "\" height=\"" << size
-           << "\" style=\"" << imgproc::svg::fill(color)
-           << ";stroke:none;stroke-width:0\" />\n";
+           << "\" />\n";
     });
 
+    os << "<g style=\"" << imgproc::svg::fill(color)
+       << ";stroke:none;stroke-width:0\">\n";
     for (int j(0); j < size.height; ++j) {
         for (int i(0); i < size.width; ++i) {
             if (contour.border.get(i, j)) {
@@ -147,6 +150,7 @@ void rasterize(std::ostream &os, const imgproc::Contour &contour
               }
         }
     }
+    os << "</g>\n";
 }
 
 } // namespace svg
@@ -486,47 +490,15 @@ void Coverage::analyze() {
 }
 
 void Coverage::findCookieCutters() {
-    const bool simplifyContour(false);
-
     // single case -> no mesh clipping needed, do not find any cookie cutter
     if (single) { return; }
 
-    // find cookie cutter, in reverse order (from topmost surface)
-    //
-    // * we work in grid coordinates (0,0 is pixel corner) => pixelCoords =
-    //   false
-    // * we want to simplify bunch of contours at once => do not join straight
-    //   segments
-    imgproc::FindContour findContour
-        (imgproc::ContourParameters(imgproc::PixelOrigin::corner)
-         .setJoinStraightSegments(!simplifyContour));
-    for (const auto &source : boost::adaptors::reverse(sources)) {
-        const auto id(source.id());
-
-        // skip invalid surfaces
-        if (!indices[id]) { continue; }
-
-        const auto raster
-            (imgproc::cvConstRaster<Coverage::pixel_type>(coverage));
-        typedef decltype(raster) RasterType;
-
-        // find contours and place to proper place
-        auto &cookieCutter(cookieCutters[id]);
-        cookieCutter
-            = findContour(raster, [id](const RasterType::value_type &value)
-                          {
-                              return (value(0) == id);
-                          });
-
-        LOG(info1) << "Found " << cookieCutter.rings.size()
-                   << " cookie cutters for source: id=" << id << ", name="
-                   << source.name() << ".";
-    }
-
-    if (simplifyContour) {
-        // simplify
-        cookieCutters = simplify(cookieCutters);
-    }
+    const auto raster
+        (imgproc::cvConstRaster<Coverage::pixel_type>(coverage));
+    cookieCutters = imgproc::findContours
+        (raster, indices.size()
+         , imgproc::ContourParameters(imgproc::PixelOrigin::corner)
+         .setSimplification(imgproc::ChainSimplification::rdp));
 }
 
 void Coverage::dump(const fs::path &dump) const
