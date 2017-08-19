@@ -109,7 +109,8 @@ void ExternalProgress::done()
     if (currentPhase_ != int(weights_.size())) {
         LOGTHROW(err2, std::runtime_error)
             << "Inconsistent external progress: done not called "
-            "after last phase.";
+            "after last phase (" << (weights_.size() - currentPhase_)
+            << " more to go).";
     }
 
     // force report of 100%

@@ -153,7 +153,11 @@ EnhancedSubMesh clip(const SubMesh &mesh, const math::Points3d &projected
 /** Options for submesh merging.
  */
 struct SubmeshMergeOptions {
-    enum class AtlasPacking { legacy, progressive };
+    enum class AtlasPacking {
+        legacy // old texturing mode
+        , progressive // new texturing mode
+        , repack // we are repacking temporarily packed textures
+    };
 
     /** Atlas packing style.
      */

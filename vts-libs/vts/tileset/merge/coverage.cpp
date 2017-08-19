@@ -68,7 +68,8 @@ void rasterize(std::ostream &os, const MeshOpInput &input
     int pixelSize(1 << diff.lod);
 
     // offset in destination pixels
-    const cv::Point2i offset(diff.x * size.width, diff.y * size.height);
+    const auto cs(Mesh::coverageSize());
+    const cv::Point2i offset(diff.x * cs.width, diff.y * cs.height);
 
     LOG(info1) << "Rasterize coverage " << input.tileId()
                << " (diff: " << diff
@@ -169,7 +170,8 @@ void rasterize(const MeshOpInput &input, const cv::Scalar &color
     const int pixelSize(1 << diff.lod);
 
     // offset in destination pixels
-    const cv::Point2i offset(diff.x * coverage.cols, diff.y * coverage.rows);
+    const auto cs(Mesh::coverageSize());
+    const cv::Point2i offset(diff.x * cs.width, diff.y * cs.height);
 
     LOG(info1) << "Rasterize coverage " << input.tileId()
                << " (diff: " << diff

@@ -90,6 +90,7 @@ struct SubMesh {
     boost::optional<std::uint16_t> textureLayer;
 
     typedef std::uint8_t SurfaceReference;
+
     /** Surface reference. One-based. Defaults to 1.
      */
     SurfaceReference surfaceReference;
@@ -211,6 +212,8 @@ struct MeshArea {
 struct MeshMask {
     Mesh::CoverageMask coverageMask;
     std::vector<SubMesh::SurfaceReference> surfaceReferences;
+
+    void createCoverage(bool fullyCovered);
 };
 
 /** Submesh normalized inside its bounding box (extents).
@@ -332,6 +335,11 @@ void updateCoverage(Mesh &mesh, const SubMesh &sm
  */
 void generateCoverage(Mesh &mesh, const math::Extents2 &sdsExtents);
 
+/** Generates coverage to mesh mask.
+ */
+void generateMeshMask(MeshMask &mask, const Mesh &mesh
+                      , const math::Extents2 &sdsExtents);
+
 // IO
 void saveMesh(std::ostream &out, const Mesh &mesh
               , const Atlas *atlas = nullptr);
@@ -391,6 +399,11 @@ inline Mesh::Mesh(bool fullyCovered)
 inline void Mesh::createCoverage(bool fullyCovered)
 {
     coverageMask.recreate(coverageOrder, fullyCovered);
+}
+
+inline void MeshMask::createCoverage(bool fullyCovered)
+{
+    coverageMask.recreate(Mesh::coverageOrder, fullyCovered);
 }
 
 inline void SubMesh::cloneMetadataInto(SubMesh &dst) const

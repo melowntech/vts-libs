@@ -558,7 +558,8 @@ void MeshFilter::simpleClip(Coverage &coverage)
     }
 }
 
-void addInputToOutput(Output &out, const Input &input
+void addInputToOutput(const MergeOptions &options
+                      , Output &out, const Input &input
                       , SubMesh mesh, const math::Points3 &projected
                       , int submeshIndex, double uvAreaScale)
 {
@@ -590,6 +591,9 @@ void addInputToOutput(Output &out, const Input &input
     // use (position + 1) as a mask color
     auto color(outMesh.size());
 
+    const auto margin(options.safetyMargin);
+    const math::Size2 sizeMargin(size.width + margin, size.height + margin);
+
     for (const auto &face : faces) {
         std::vector<imgproc::Scanline> scanlines;
 
@@ -600,20 +604,20 @@ void addInputToOutput(Output &out, const Input &input
         };
 
         imgproc::scanConvertTriangle
-            (*tri[0], *tri[1], *tri[2], 0, size.height, scanlines);
+            (*tri[0], *tri[1], *tri[2], margin, sizeMargin.height, scanlines);
 
         for (const auto &sl : scanlines) {
-            imgproc::processScanline(sl, 0, size.width
-                                         , [&](int x, int y, float)
+            imgproc::processScanline(sl, margin, sizeMargin.width
+                                     , [&](int x, int y, float)
             {
-                cm.set(x, y, color);
+                cm.set(x - margin, y - margin, color);
             });
         }
 
         // do one more check in case the triangle is thinner than one pixel
         for (int i = 0; i < 3; ++i) {
-            int x(std::round((*tri[i])(0)));
-            int y(std::round((*tri[i])(1)));
+            int x(std::floor((*tri[i])(0)) - margin);
+            int y(std::floor((*tri[i])(1)) - margin);
 
             if ((x < 0) || (x >= size.width)) {
                 continue;
@@ -627,11 +631,13 @@ void addInputToOutput(Output &out, const Input &input
     }
 }
 
-void toOutput(Output &out, const IntermediateOutput::list &imo)
+void toOutput(const MergeOptions &options, Output &out
+              , const IntermediateOutput::list &imo)
 {
     for (const auto &io : imo) {
-        addInputToOutput(out, io.input, io.mesh.mesh, io.mesh.projected
-                         , io.submeshIndex, io.uvAreaScale);
+        addInputToOutput(options, out, io.input, io.mesh.mesh
+                         , io.mesh.projected, io.submeshIndex
+                         , io.uvAreaScale);
     }
 }
 
@@ -799,7 +805,7 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
                           , coverageExtents(options.safetyMargin), sdmc));
 
         if (clipped) {
-            addInputToOutput(result, input, clipped.mesh
+            addInputToOutput(options, result, input, clipped.mesh
                              , clipped.projected, smIndex
                              , (1 << (2 * localId.lod)));
         }
@@ -838,6 +844,28 @@ public:
                           / area3d(source));
 
         sum_ += weight * input.node().geomExtents.surrogate;
+        weightSum_ += weight;
+    }
+
+    /** Updates surrogate calculation with last computed mesh
+     *
+     * \param imo generated intermediate output, last submesh is used
+     * \param input input used to generate mesh, metanode is used
+     * \param source source submesh from input
+     */
+    void update(const IntermediateOutput::list &imo, const SubMesh &source)
+    {
+        // grab last input
+        if (imo.empty()) { return; }
+        auto &im(imo.back());
+
+        // get submesh
+        const auto &submesh(im.mesh.mesh);
+        if (submesh.empty()) { return; }
+
+        // compute contribution
+        const auto weight(area3d(submesh) / area3d(source));
+        sum_ += weight * im.input.get().node().geomExtents.surrogate;
         weightSum_ += weight;
     }
 
@@ -1075,7 +1103,7 @@ Output mergeTile(const TileId &tileId
 
                 // TODO: move surrogate update after skirting?
                 // FIXME: use only cut mesh, not input mesh?
-                sc.update(result, input, sm);
+                sc.update(imo, sm);
             }
         }
     }
@@ -1091,7 +1119,7 @@ Output mergeTile(const TileId &tileId
     }
 
     // pass intermediate result to output
-    toOutput(result, imo);
+    toOutput(options, result, imo);
 
     // generate navtile if asked to
     if (constraints.generateNavtile()) { mergeNavtile(result); }

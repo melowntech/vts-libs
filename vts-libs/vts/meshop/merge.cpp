@@ -98,6 +98,7 @@ namespace {
 namespace fs = boost::filesystem;
 
 const char *VTS_MESH_MERGE_DUMP_DIR(std::getenv("VTS_MESH_MERGE_DUMP_DIR"));
+const char *NO_ATLAS_INPAINT(std::getenv("NO_ATLAS_INPAINT"));
 
 typedef std::vector<cv::Mat> MatList;
 
@@ -120,8 +121,14 @@ public:
         case SubmeshMergeOptions::AtlasPacking::legacy:
             opencv::rasterizeMaskLegacy(mask_, faces_, tc_);
             break;
+
         case SubmeshMergeOptions::AtlasPacking::progressive:
             opencv::rasterizeMask(mask_, faces_, tc_);
+            break;
+
+        case SubmeshMergeOptions::AtlasPacking::repack:
+            // everything is valid
+            mask_ = cv::Scalar(255);
             break;
         }
     }
@@ -741,8 +748,16 @@ void Component::copy(cv::Mat &tex, const cv::Mat &texture, const cv::Mat &mask)
 
     // copy texture from source best rectangle to output uv rectangle
     for (int y = 0; y < rrect.size.height; ++y) {
+        // destination point + bound check
+        const int yy(y + rect.packY);
+        if (yy >= tex.rows) { continue; }
+
         for (int x = 0; x < rrect.size.width; ++x) {
-            // compute destination point
+            // destination point + bound check
+            const int xx(x + rect.packX);
+            if (xx >= tex.cols) { continue; }
+
+            // compute source point
             auto pos(math::transform
                      (trafo, math::Point2(x + 0.5, y + 0.5)));
             pos(0) -= 0.5; pos(1) -= 0.5;
@@ -751,8 +766,7 @@ void Component::copy(cv::Mat &tex, const cv::Mat &texture, const cv::Mat &mask)
             auto res(imgproc::reconstruct(raster, filter, pos));
 
             // store result
-            tex.at<cv::Vec3b>(y + rect.packY, x + rect.packX)
-                = cv::Vec3b(res[0], res[1], res[2]);
+            tex.at<cv::Vec3b>(yy, xx) = cv::Vec3b(res[0], res[1], res[2]);
         }
     }
 }
@@ -816,6 +830,33 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const Range &r)
     return os;
 }
 
+struct EntityCounter {
+    std::size_t count;
+    std::size_t vertexCount;
+    std::size_t faceCount;
+
+    EntityCounter(std::size_t vertexCount = 0, std::size_t faceCount = 0)
+        : count(0), vertexCount(vertexCount), faceCount(faceCount)
+    {}
+
+    void update(const SubMesh &sm) {
+        vertexCount += sm.vertices.size();
+        faceCount += sm.faces.size();
+        ++count;
+    }
+
+    bool check(const EntityCounter &limits) const {
+        return ((count < 2)
+                || ((vertexCount < limits.vertexCount)
+                    && (faceCount < limits.faceCount)));
+    }
+
+    void reset() { vertexCount = faceCount = count = 0; }
+};
+
+// limits, TODO: make configurable
+const EntityCounter MeshLimits(1 << 14, 1 << 14);
+
 /** Precondition: submeshes from the same source are grouped.
  */
 Range::list groupSubmeshes(const SubMesh::list &sms, Indices &indices
@@ -841,11 +882,16 @@ Range::list groupSubmeshes(const SubMesh::list &sms, Indices &indices
                                  , bool textured)
     {
         bool first(true);
+        EntityCounter ec;
         for (auto i(begin); i != end; ++i) {
             const auto &sm(sms[indices[i]]);
-            if (first || !out.back().compatible(sm)) {
+            ec.update(sm);
+            if (first || !out.back().compatible(sm)
+                || !ec.check(MeshLimits))
+            {
                 out.emplace_back(indices, sm, textured);
                 out.back().indexStart = i;
+                ec.reset();
                 first = false;
             }
             out.back().indexEnd = i + 1;
@@ -1210,8 +1256,7 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
         }
     }
 
-    if (!std::getenv("NO_ATLAS_INPAINT"))
-    {
+    if (!NO_ATLAS_INPAINT) {
         // rasterize valid triangles
         cv::Mat mask(tex.rows, tex.cols, CV_8U, cv::Scalar(0x00));
         opencv::rasterizeMask(mask, faces, dnTc);

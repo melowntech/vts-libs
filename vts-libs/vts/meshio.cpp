@@ -47,6 +47,8 @@ namespace bin = utility::binaryio;
 namespace vtslibs { namespace vts { namespace detail {
 
 namespace {
+    const char *NO_MESH_COMPRESSION(std::getenv("NO_MESH_COMPRESSION"));
+
     // mesh proper
     const char MAGIC[2] = { 'M', 'E' };
     const std::uint16_t VERSION = 3;
@@ -490,7 +492,7 @@ void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
 
 void saveMeshProper(std::ostream &out, const Mesh &mesh, const Atlas *atlas)
 {
-    if (!std::getenv("NO_MESH_COMPRESSION")) {
+    if (NO_MESH_COMPRESSION) {
         saveMeshVersion3(out, mesh, atlas);
     }
     else {

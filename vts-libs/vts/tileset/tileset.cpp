@@ -81,9 +81,9 @@ Mesh TileSet::getMesh(const TileId &tileId) const
     return detail().getMesh(tileId);
 }
 
-MeshMask TileSet::getMeshMask(const TileId &tileId) const
+MeshMask TileSet::getMeshMask(const TileId &tileId, bool generate) const
 {
-    return detail().getMeshMask(tileId);
+    return detail().getMeshMask(tileId, generate);
 }
 
 void TileSet::getAtlas(const TileId &tileId, Atlas &atlas) const
@@ -1326,7 +1326,8 @@ Mesh TileSet::Detail::getMesh(const TileId &tileId
 }
 
 MeshMask TileSet::Detail::getMeshMask(const TileId &tileId
-                                      , const MetaNode *node)
+                                      , const MetaNode *node
+                                      , bool generate)
     const
 {
     if (!node) {
@@ -1340,13 +1341,31 @@ MeshMask TileSet::Detail::getMeshMask(const TileId &tileId
     }
 
     MeshMask meshMask;
-    load(driver->input(tileId, TileFile::mesh), meshMask);
+    if (!generate) {
+        // OK, we can return stored mesh
+        load(driver->input(tileId, TileFile::mesh), meshMask);
+    } else {
+        // generate fresh mask from mesh
+        NodeInfo ni(referenceFrame, tileId);
+
+        Mesh mesh;
+        load(driver->input(tileId, TileFile::mesh), mesh);
+
+        // convert to SDS
+        CsConvertor conv(referenceFrame.model.physicalSrs, ni.srs());
+        for (auto &sm : mesh.submeshes) {
+            for (auto &v : sm.vertices) { v = conv(v); }
+        }
+
+        generateMeshMask(meshMask, mesh, ni.extents());
+    }
     return meshMask;
 }
 
-MeshMask TileSet::Detail::getMeshMask(const TileId &tileId) const
+MeshMask TileSet::Detail::getMeshMask(const TileId &tileId, bool generate)
+    const
 {
-    return getMeshMask(tileId, findMetaNode(tileId));
+    return getMeshMask(tileId, findMetaNode(tileId), generate);
 }
 
 void TileSet::Detail::getAtlas(const TileId &tileId, Atlas &atlas
@@ -1488,7 +1507,7 @@ void TileSet::Detail::flush()
             math::Point2 p(center(item.second));
             position.position = { p(0), p(1), 1000 };
             position.verticalExtent = 5000;
-            position.verticalFov = 55;
+            position.verticalFov = registry::Position::naturalFov();
 
             CsConvertor conv(item.first, referenceFrame.model.navigationSrs);
             position.position = conv(position.position);

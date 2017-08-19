@@ -180,6 +180,7 @@ public:
         , noexcept_(false), command_(Command::info)
         , tileFlags_(), metaFlags_(), encodeFlags_()
         , queryLod_(), textureQuality_(70), meshFormat_(MeshFormat::normalized)
+        , generate_(false)
     {
         addOptions_.textureQuality = 0;
         addOptions_.bumpVersion = false;
@@ -356,6 +357,8 @@ private:
     int textureQuality_;
 
     MeshFormat meshFormat_;
+
+    bool generate_;
 
     /** External lock.
      */
@@ -872,6 +875,8 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "ID of tile to query.")
             ("output", po::value(&outputPath_)->required()
              , "Path of output image.")
+            ("generate", po::value<bool>(&generate_)->implicit_value(true)
+             ->default_value(false))
             ;
 
         p.positional.add("output", 1);
@@ -2157,8 +2162,9 @@ int VtsStorage::dumpMeshMask()
         return EXIT_FAILURE;
     }
 
-    imgproc::png::write
-        (outputPath_, vts::debugMask(ts.getMeshMask(tileId_)), 9);
+    imgproc::png::write(outputPath_
+                        , vts::debugMask(ts.getMeshMask(tileId_, generate_))
+                        , 9);
 
     return EXIT_SUCCESS;
 }

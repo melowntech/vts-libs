@@ -103,9 +103,10 @@ public:
      */
     Mesh getMesh(const TileId &tileId) const;
 
-    /** Returns tile's mesh mask.
+    /** Returns stured tile's mesh mask unless generate is set to true. In that case,
+     *  fresh mesh mask is generated from mesh data.
      */
-    MeshMask getMeshMask(const TileId &tileId) const;
+    MeshMask getMeshMask(const TileId &tileId, bool generate = false) const;
 
     /** Returns tiles' atlas.
      */

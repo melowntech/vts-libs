@@ -77,19 +77,16 @@ math::Matrix4 geo2mask(const math::Extents2 &extents
     trafo(1, 1) = -scale.height;
 
     // move to origin
-    trafo(0, 3) = -extents.ll(0);
-    trafo(1, 3) = extents.ur(1);
+    trafo(0, 3) = -extents.ll(0) * scale.width;
+    trafo(1, 3) = extents.ur(1) * scale.height;
 
     return trafo;
 }
 
-} // namespace
-
-void updateCoverage(Mesh &mesh, const SubMesh &sm
+void updateCoverage(Mesh::CoverageMask &cm, const SubMesh &sm
                     , const math::Extents2 &sdsExtents
                     , std::uint8_t smIndex)
 {
-    auto &cm(mesh.coverageMask);
     const auto rasterSize(cm.size());
     auto trafo(geo2mask(sdsExtents, rasterSize));
 
@@ -114,6 +111,15 @@ void updateCoverage(Mesh &mesh, const SubMesh &sm
     }
 }
 
+} // namespace
+
+void updateCoverage(Mesh &mesh, const SubMesh &sm
+                    , const math::Extents2 &sdsExtents
+                    , std::uint8_t smIndex)
+{
+    updateCoverage(mesh.coverageMask, sm, sdsExtents, smIndex);
+}
+
 void generateCoverage(Mesh &mesh, const math::Extents2 &sdsExtents)
 {
     mesh.createCoverage(false);
@@ -121,6 +127,19 @@ void generateCoverage(Mesh &mesh, const math::Extents2 &sdsExtents)
     std::uint8_t smIndex(0);
     for (const auto &sm : mesh) {
         updateCoverage(mesh, sm, sdsExtents, smIndex++);
+    }
+}
+
+void generateMeshMask(MeshMask &mask, const Mesh &mesh
+                      , const math::Extents2 &sdsExtents)
+{
+    mask.createCoverage(false);
+    mask.surfaceReferences.clear();
+
+    std::uint8_t smIndex(0);
+    for (const auto &sm : mesh) {
+        updateCoverage(mask.coverageMask, sm, sdsExtents, smIndex++);
+        mask.surfaceReferences.push_back(sm.surfaceReference);
     }
 }
 

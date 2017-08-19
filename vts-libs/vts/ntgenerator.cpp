@@ -422,7 +422,7 @@ void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius
         pos.heightMode = registry::Position::HeightMode::fixed;
         pos.orientation = { 0.0, -90.0, 0.0 };
         pos.verticalExtent = bestPosition->verticalExtent;
-        pos.verticalFov = 55;
+        pos.verticalFov = registry::Position::naturalFov();
         ts.setPosition(pos);
     }
 }

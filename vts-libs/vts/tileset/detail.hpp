@@ -187,14 +187,15 @@ public:
 
     bool exists(const TileId &tileId) const;
     Mesh getMesh(const TileId &tileId) const;
-    MeshMask getMeshMask(const TileId &tileId) const;
+    MeshMask getMeshMask(const TileId &tileId, bool generate) const;
     void getAtlas(const TileId &tileId, Atlas &atlas) const;
     void getNavTile(const TileId &tileId, NavTile &navtile) const;
 
     /** Trusts that findMetaNode(tileId) yields the same value as node.
      */
     Mesh getMesh(const TileId &tileId, const MetaNode *node) const;
-    MeshMask getMeshMask(const TileId &tileId, const MetaNode *node) const;
+    MeshMask getMeshMask(const TileId &tileId, const MetaNode *node
+                         , bool generate) const;
     void getAtlas(const TileId &tileId, Atlas &atlas
                   , const MetaNode *node) const;
     void getNavTile(const TileId &tileId, NavTile &navtile
