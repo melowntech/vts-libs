@@ -156,7 +156,6 @@ struct SubmeshMergeOptions {
     enum class AtlasPacking {
         legacy // old texturing mode
         , progressive // new texturing mode
-        , repack // we are repacking temporarily packed textures
     };
 
     /** Atlas packing style.

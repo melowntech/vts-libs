@@ -893,7 +893,9 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("output", po::value(&outputPath_)
              , "Output directory; defaults to tileId.")
             ("format", po::value(&meshFormat_)
-             , "Mesh format.")
+             , utility::concat
+             ("Mesh format, one of "
+              , enumerationString(meshFormat_), ".").c_str())
             ("margin", po::value(&addOptions_.safetyMargin)
              , "Margin arount tiles extents in pixels of coverage.")
             ;
@@ -2185,7 +2187,6 @@ int VtsStorage::exportMesh()
     {
         const auto &rf(ts.referenceFrame());
         const vts::NodeInfo ni(rf, tileId_);
-        const auto c(math::center(vts::extents(mesh)));
         const vts::CsConvertor conv(rf.model.physicalSrs, ni.srs());
         const auto trafo(vts::MeshOpInput::sd2Coverage
                          (ni, addOptions_.safetyMargin));
@@ -2193,14 +2194,14 @@ int VtsStorage::exportMesh()
         switch (meshFormat_) {
         case MeshFormat::geo: break;
 
-        case MeshFormat::normalized:
+        case MeshFormat::normalized: {
+            const auto c(math::center(vts::extents(mesh)));
             for (auto &sm : mesh.submeshes) {
                 for (auto &v : sm.vertices) {
-                    v(0) -= c(0);
-                    v(1) -= c(1);
+                    v -= c;
                 }
             }
-            break;
+        } break;
 
         case MeshFormat::sds:
             for (auto &sm : mesh.submeshes) {
@@ -2210,7 +2211,8 @@ int VtsStorage::exportMesh()
             }
             break;
 
-        case MeshFormat::sdsNormalized:
+        case MeshFormat::sdsNormalized: {
+            const auto c(math::center(ni.extents()));
             for (auto &sm : mesh.submeshes) {
                 for (auto &v : sm.vertices) {
                     v = conv(v);
@@ -2218,7 +2220,7 @@ int VtsStorage::exportMesh()
                     v(1) -= c(1);
                 }
             }
-            break;
+        } break;
 
         case MeshFormat::coverage:
             for (auto &sm : mesh.submeshes) {

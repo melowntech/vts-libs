@@ -125,11 +125,6 @@ public:
         case SubmeshMergeOptions::AtlasPacking::progressive:
             opencv::rasterizeMask(mask_, faces_, tc_);
             break;
-
-        case SubmeshMergeOptions::AtlasPacking::repack:
-            // everything is valid
-            mask_ = cv::Scalar(255);
-            break;
         }
     }
 
@@ -666,9 +661,17 @@ void ComponentInfo::debug(const fs::path &dir, const cv::Mat &outAtlas)
                  , dr);
 }
 
+imgproc::UVRect uvRect(float width, float height)
+{
+    imgproc::UVRect r;
+    r.update({0.f, 0.f});
+    r.update({width, height});
+    return r;
+}
+
 void Component::bestRectangle(const TextureInfo &tx) {
     // find best rectangle
-    if (indices.size()) {
+    if (!indices.empty()) {
         std::vector<cv::Point2f> points;
         points.reserve(indices.size());
 
@@ -680,8 +683,9 @@ void Component::bestRectangle(const TextureInfo &tx) {
 
         // find best rectangle fitting around this patch
         rrect = cv::minAreaRect(points);
-        rrect.size.width = std::ceil(rrect.size.width + 1.0);
-        rrect.size.height = std::ceil(rrect.size.height + 1.0);
+
+        // calculate UV rectangle for this rotated rect
+        rect = uvRect(rrect.size.width, rrect.size.height);
     }
 
     {
@@ -697,15 +701,9 @@ void Component::bestRectangle(const TextureInfo &tx) {
                          (rrectTrafo, math::Point2
                           (rrect.center.x, rrect.center.y)));
 
-        rrectTrafo(0, 3) = -shift(0) + double(rrect.size.width) / 2.0;
-        rrectTrafo(1, 3) = -shift(1) + double(rrect.size.height) / 2.0;
+        rrectTrafo(0, 3) = -shift(0) + double(rect.width()) / 2.0;
+        rrectTrafo(1, 3) = -shift(1) + double(rect.height()) / 2.0;
     }
-
-    // create uv rectangle
-    rect = {};
-    rect.update({ 0.f, 0.f });
-    // -2 due to: +-1 pixels added by packer for integral rectangles
-    rect.update({ rrect.size.width - 2.f, rrect.size.height - 2.f });
 }
 
 double Component::area(const TextureInfo &tx) const
@@ -746,18 +744,18 @@ void Component::copy(cv::Mat &tex, const cv::Mat &texture, const cv::Mat &mask)
     // and invert: patch to original atlas
     math::Matrix4 trafo(math::matrixInvert(rrectTrafo));
 
+    const math::Size2 size(rect.width(), rect.height());
+
     // copy texture from source best rectangle to output uv rectangle
-    for (int y = 0; y < rrect.size.height; ++y) {
+    for (int y = 0; y < size.height; ++y) {
         // destination point + bound check
         const int yy(y + rect.packY);
-        if (yy >= tex.rows) { continue; }
-
-        for (int x = 0; x < rrect.size.width; ++x) {
+        for (int x = 0; x < size.width; ++x) {
             // destination point + bound check
             const int xx(x + rect.packX);
-            if (xx >= tex.cols) { continue; }
 
             // compute source point
+            // NB: we have mapped corners of rectanges, not pixel centers
             auto pos(math::transform
                      (trafo, math::Point2(x + 0.5, y + 0.5)));
             pos(0) -= 0.5; pos(1) -= 0.5;
@@ -782,7 +780,6 @@ typedef std::vector<int> Indices;
 
 /** TODO: observe other differences in submeshes (texture mode, external
  *  texture coordinates, texture layer, UV area factor etc.
- *  TODO: check for limits in vertex/face count
  *  Not so simple :)
  */
 struct Range {
@@ -855,7 +852,8 @@ struct EntityCounter {
 };
 
 // limits, TODO: make configurable
-const EntityCounter MeshLimits(1 << 14, 1 << 14);
+// cannot be larger than 2^16-1
+const EntityCounter MeshLimits(1 << 15, 1 << 15);
 
 /** Precondition: submeshes from the same source are grouped.
  */
