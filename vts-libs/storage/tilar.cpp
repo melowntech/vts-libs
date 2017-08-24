@@ -945,7 +945,7 @@ Tilar Tilar::create(const fs::path &path, const Options &options
         (::open(path.string().c_str(), flags(createMode)
                 , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
          , path);
-    if (-1 == fd) {
+    if (!fd) {
         std::system_error e
             (errno, std::system_category()
              , utility::formatError

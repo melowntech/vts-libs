@@ -39,7 +39,7 @@
 
 namespace vtslibs { namespace storage {
 
-const NullWhenNotFound_t NullWhenNotFound;
+const NullWhenNotFound_t NullWhenNotFound{};
 
 void copyFile(const IStream::pointer &in
               , const OStream::pointer &out)

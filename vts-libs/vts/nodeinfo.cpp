@@ -318,9 +318,9 @@ boost::tribool RFTreeSubtree::valid(const RFNode &node) const
 
         bool operator()(const math::Point2 &p) {
             if (sampler_.inside(p)) {
-                ++inside_;
+                inside_ = true;
             } else {
-                ++outside_;
+                outside_ = true;
             }
 
             return (inside_ && outside_);
