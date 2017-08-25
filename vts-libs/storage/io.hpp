@@ -47,6 +47,8 @@ UTILITY_GENERATE_ENUM_IO(TileFile,
 UTILITY_GENERATE_ENUM_IO(File,
                          ((config))
                          ((tileIndex))
+                         ((extraConfig))
+                         ((registry))
                          )
 
 template<typename CharT, typename Traits>
