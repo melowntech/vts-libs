@@ -107,13 +107,17 @@ typedef boost::optional<Face> OFace;
 struct ClipFace {
     Face face;
     OFace faceTc;
+    unsigned int origin;
 
     typedef std::vector<ClipFace> list;
 
+    ClipFace() : origin() {}
     ClipFace(const ClipFace&) = default;
-    ClipFace(const Face &face) : face(face) {}
-    ClipFace(Face::value_type a, Face::value_type b, Face::value_type c)
-        : face(a, b, c)
+    ClipFace(const Face &face, unsigned int origin = 0)
+        : face(face), origin(origin) {}
+    ClipFace(Face::value_type a, Face::value_type b, Face::value_type c
+             , unsigned int origin = 0)
+        : face(a, b, c), origin(origin)
     {}
 };
 
@@ -123,8 +127,9 @@ struct ClipFace {
 template <typename PointType>
 class PointMapper {
 public:
-    PointMapper(const std::vector<PointType> &points)
-        : points_(points)
+    template <typename Container>
+    PointMapper(const Container &container)
+        : points_(container.begin(), container.end())
     {}
 
     std::size_t add(const PointType &point)
@@ -182,7 +187,8 @@ public:
 
     void clip(const ClipPlane &line);
 
-    EnhancedSubMesh mesh(const MeshVertexConvertor *convertor = nullptr);
+    EnhancedSubMesh mesh(const MeshVertexConvertor *convertor = nullptr
+                         , FaceOriginList * = nullptr);
 
     std::size_t faceCount() const { return faces_.size(); }
 
@@ -190,7 +196,7 @@ private:
     void extractFaces() {
         bool hasTc(!mesh_.facesTc.empty());
         for (std::size_t i(0), e(mesh_.faces.size()); i != e; ++i) {
-            faces_.emplace_back(mesh_.faces[i]);
+            faces_.emplace_back(mesh_.faces[i], i);
             if (hasTc) { faces_.back().faceTc = mesh_.facesTc[i]; }
         }
     }
@@ -288,7 +294,7 @@ void Clipper::clip(const ClipPlane &line)
 
             if (oneInside) {
                 // one vertex inside: just one face:
-                out.emplace_back(cf.face[vm.a], vi1, vi2);
+                out.emplace_back(cf.face[vm.a], vi1, vi2, cf.origin);
 
                 // LOG(debug)
                 //     << std::fixed
@@ -299,8 +305,9 @@ void Clipper::clip(const ClipPlane &line)
 
             } else {
                 // one vertex outside: two new faces
-                out.emplace_back(vi1, cf.face[vm.b], cf.face[vm.c]);
-                out.emplace_back(vi1, cf.face[vm.c], vi2);
+                out.emplace_back(vi1, cf.face[vm.b], cf.face[vm.c]
+                                 , cf.origin);
+                out.emplace_back(vi1, cf.face[vm.c], vi2, cf.origin);
 
                 // LOG(debug)
                 //     << std::fixed
@@ -613,7 +620,8 @@ void Clipper::refine(std::size_t faceCount)
     }
 }
 
-EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor *convertor)
+EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor *convertor
+                              , FaceOriginList *faceOrigin)
 {
     /** Generate new mesh.
      */
@@ -624,6 +632,7 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor *convertor)
         const math::Points3d &projected;
         const math::Points2d &tc;
         const MeshVertexConvertor *convertor;
+        FaceOriginList *faceOrigin;
 
         std::vector<int> vertexMap;
         std::vector<int> tcMap;
@@ -632,10 +641,13 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor *convertor)
         SubMesh &mesh;
 
         Filter(const SubMesh &original, const ClipFace::list &faces
-               , const math::Points3d &projected, const math::Points2d &tc
-               , const MeshVertexConvertor *convertor)
+               , const math::Points3d &projected
+               , const math::Points2d &tc
+               , const MeshVertexConvertor *convertor
+               , FaceOriginList *faceOrigin)
             : original(original), faces(faces), vertices(original.vertices)
             , projected(projected), tc(tc), convertor(convertor)
+            , faceOrigin(faceOrigin)
             , vertexMap(projected.size(), -1)
             , tcMap(tc.size(), -1)
             , mesh(emesh.mesh)
@@ -661,6 +673,8 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor *convertor)
                 // LOG(debug) << "Added tc face: " << *cf.faceTc << " -> "
                 //            << mesh.facesTc.back();
             }
+
+            if (faceOrigin) { faceOrigin->push_back(cf.origin); }
         }
 
         std::size_t addVertex(std::size_t i) {
@@ -715,8 +729,9 @@ EnhancedSubMesh Clipper::mesh(const MeshVertexConvertor *convertor)
     };
 
     // run the machinery
-    return Filter(mesh_, faces_, fpmap_.points(), ftpmap_.points()
-                  , convertor).emesh;
+    return Filter(mesh_, faces_, fpmap_.points()
+                  , ftpmap_.points()
+                  , convertor, faceOrigin).emesh;
 }
 
 } // namespace
@@ -747,7 +762,7 @@ EnhancedSubMesh clipAndRefine(const EnhancedSubMesh &mesh
 
 SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
              , const math::Extents2 &projectedExtents
-             , const VertexMask &mask)
+             , const VertexMask &mask, FaceOriginList *faceOrigin)
 {
     LOG(debug) << std::fixed << "Clipping mesh to: " << projectedExtents;
     const ClipPlane clipPlanes[4] = {
@@ -762,7 +777,8 @@ SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
     for (const auto &cp : clipPlanes) { clipper.clip(cp); }
 
     // extract enhanced mesh from clipper (use no convertor)
-    auto emesh(clipper.mesh());
+    auto emesh(clipper.mesh(nullptr, faceOrigin));
+    (void) faceOrigin;
     // swap vertices with projected vertices (we are working in local system
     emesh.mesh.vertices.swap(emesh.projected);
 
@@ -787,7 +803,8 @@ SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
 EnhancedSubMesh clip(const SubMesh &mesh, const math::Points3d &projected
                      , const math::Extents2 &projectedExtents
                      , const MeshVertexConvertor &convertor
-                     , const VertexMask &mask)
+                     , const VertexMask &mask
+                     , FaceOriginList *faceOrigin)
 {
     LOG(debug) << std::fixed << "Clipping mesh to: " << projectedExtents;
     const ClipPlane clipPlanes[4] = {
@@ -801,7 +818,7 @@ EnhancedSubMesh clip(const SubMesh &mesh, const math::Points3d &projected
 
     for (const auto &cp : clipPlanes) { clipper.clip(cp); }
 
-    return clipper.mesh(&convertor);
+    return clipper.mesh(&convertor, faceOrigin);
 }
 
 namespace {

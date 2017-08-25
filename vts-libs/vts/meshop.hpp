@@ -63,6 +63,8 @@ struct EnhancedSubMesh {
     }
 };
 
+typedef std::vector<unsigned int> FaceOriginList;
+
 /** Converts projected vertex (whatever it means) to real world coordinates
  *  and to (normalized) external texture coordinates.
  */
@@ -131,11 +133,13 @@ SubMesh clip(const SubMesh &mesh
  * \param projected vertices in projected space
  * \param projectedExtents extents in projected space
  * \param mask optional vertex mask (masked out vertices are removed)
+ * \param faceOrigin vector of indices to original mesh faces, optional
  * \return clipped mesh
  */
 SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
              , const math::Extents2 &projectedExtents
-             , const VertexMask &mask = VertexMask());
+             , const VertexMask &mask = VertexMask()
+             , FaceOriginList *faceOrigin = nullptr);
 
 /** Full interface to clip mesh .
  *
@@ -148,7 +152,8 @@ SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
 EnhancedSubMesh clip(const SubMesh &mesh, const math::Points3d &projected
                      , const math::Extents2 &projectedExtents
                      , const MeshVertexConvertor &convertor
-                     , const VertexMask &mask = VertexMask());
+                     , const VertexMask &mask = VertexMask()
+                     , FaceOriginList *faceOrigin = nullptr);
 
 /** Options for submesh merging.
  */
