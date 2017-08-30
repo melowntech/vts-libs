@@ -41,11 +41,9 @@
 
 #include "./basetypes.hpp"
 #include "./tileindex.hpp"
+#include "./metatile.hpp"
 
 namespace vtslibs { namespace vts {
-
-// fwd declaration; include metatile.hpp if MetaNode is needed.
-struct MetaNode;
 
 /** Tileset open options.
  *
