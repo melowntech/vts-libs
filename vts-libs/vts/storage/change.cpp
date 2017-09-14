@@ -573,7 +573,7 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
 
     // for each tileset in the input
     {
-        // TODO skip fitst since it coverder in preceeding FOR 
+        // TODO skip fitst since it coverder in preceeding FOR
         for (auto iincidentSets(incidentSets.begin())
                  , eincidentSets(incidentSets.end());
              iincidentSets != eincidentSets; ++iincidentSets)
@@ -638,6 +638,10 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
                     return;
                 }
             }
+
+            // test if tileindex is not the same as one of the previous
+            // tileindexes
+            // TODO:
 
             // seems fine, add tileset
             glueMembers.push_back(&tsToAdd);
