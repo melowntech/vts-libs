@@ -426,6 +426,10 @@ LodRange range(const TileSets &tilesets)
 }
 
 struct Ts {
+    typedef std::vector<Ts> list;
+    typedef std::vector<Ts*> ptrlist;
+    typedef std::vector<const Ts*> const_ptrlist;
+
     /** Own index in the list of tilesets.
      */
     std::size_t index;
@@ -470,10 +474,24 @@ struct Ts {
         return *sphereOfInfluence_;
     }
 
-    typedef std::vector<Ts> list;
+    bool tileindexIdentical(const const_ptrlist &tss) const {
+        // tile indices are identical if they have same quality for mesh and
+        // watertighness
+        const TileIndex::Flag::value_type mask
+            (TileIndex::Flag::mesh | TileIndex::Flag::watertight);
 
-    typedef std::vector<Ts*> ptrlist;
-    typedef std::vector<const Ts*> const_ptrlist;
+        const auto compare([](TileIndex::Flag::value_type v1
+                              , TileIndex::Flag::value_type v2)
+        {
+            return (v1 & mask) == (v2 & mask);
+        });
+
+        const auto &ti(set.tileIndex());
+        for (const auto *ts : tss) {
+            if (!ti.identical(ts->set.tileIndex(), compare)) { return false; }
+        }
+        return true;
+    }
 
 private:
     /** Tileset's sphere of influence.
@@ -546,7 +564,8 @@ struct GlueDescriptor {
     typedef std::vector<GlueDescriptor> list;
 };
 
-GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
+GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added
+                                  , const Storage::AddOptions &addOptions)
 {
     Ts::ptrlist incidentSets;
     {
@@ -573,7 +592,7 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
 
     // for each tileset in the input
     {
-        // TODO skip fitst since it coverder in preceeding FOR
+        // TODO skip first since it coverder in preceeding FOR
         for (auto iincidentSets(incidentSets.begin())
                  , eincidentSets(incidentSets.end());
              iincidentSets != eincidentSets; ++iincidentSets)
@@ -639,9 +658,14 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
                 }
             }
 
-            // test if tileindex is not the same as one of the previous
-            // tileindexes
-            // TODO:
+            // do not descend this path if tileindex is the same as one of the
+            // previous tileset's tileindices and we are allowed to make such
+            // shortcut
+            if (addOptions.checkTileindexIdentity
+                && tsToAdd.tileindexIdentical(glueMembers))
+            {
+                return;
+            }
 
             // seems fine, add tileset
             glueMembers.push_back(&tsToAdd);
@@ -686,7 +710,8 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added)
 
 GlueDescriptor::list
 prepareGlues(Tx &tx, Storage::Properties properties
-             , const std::tuple<TileSets, std::size_t> &tsets)
+             , const std::tuple<TileSets, std::size_t> &tsets
+             , const Storage::AddOptions &addOptions)
 {
     if (properties.tilesets.size() <= 1) {
         LOG(info3) << "No need to create any glue.";
@@ -709,7 +734,8 @@ prepareGlues(Tx &tx, Storage::Properties properties
     }
 
     // prepare glues
-    auto gds(prepareGlues(tx, tilesets, tilesets[std::get<1>(tsets)]));
+    auto gds(prepareGlues(tx, tilesets, tilesets[std::get<1>(tsets)]
+                          , addOptions));
 
     // done
     return gds;
@@ -1158,7 +1184,7 @@ void Storage::Detail::add(const TileSet &tileset, const Location &where
     auto tilesets(openTilesets(tx, nProperties.tilesets
                                , dst, tilesetInfo.tilesetId));
 
-    auto gds(prepareGlues(tx, nProperties, tilesets));
+    auto gds(prepareGlues(tx, nProperties, tilesets, addOptions));
 
     // dry run -> do nothing
     if (addOptions.dryRun) { return; }

@@ -411,6 +411,9 @@ public:
 
     Flag::value_type allSetFlags() const { return allSetFlags_; }
 
+    template <typename Comparator>
+    bool identical(const TileIndex &other, const Comparator &compare) const;
+
     /** Returns true if given file is (or seams to be) a tile index file.
      */
     static bool check(const boost::filesystem::path &path);
@@ -607,6 +610,49 @@ void TileIndex::update(Lod lod, const TileRange &range, Op op
     if (auto *m = tree(lod, adding)) {
         m->update(range.ll(0), range.ll(1), range.ur(0), range.ur(1), op);
     }
+}
+
+template <typename Comparator>
+bool TileIndex::identical(const TileIndex &other, const Comparator &compare)
+    const
+{
+    const auto lr(unite(lodRange(), other.lodRange()));
+
+    // both trees empty
+    if (lr.empty()) { return compare(0, 0); }
+
+    // helper function when only one quad tree is valid
+    const auto match([&compare](Flag::value_type value)
+    {
+            return compare(value, 0);
+    });
+
+    for (const auto lod : lr) {
+        const auto *t1(tree(lod));
+        const auto *t2(other.tree(lod));
+
+        if (t1) {
+            if (t2) {
+                // both valid, compare
+                if (!t1->compare(*t2, compare)) { return false; }
+            } else {
+                // only t2 valid
+                if (!t1->matchAll(match)) { return false; }
+            }
+        } else {
+            if (t2) {
+                // only t2 valid
+                if (!t2->matchAll(match)) { return false; }
+            } else {
+                // both invalid
+                if (!compare(0, 0)) { return false; }
+            }
+        }
+
+    }
+
+    // no mismatch found -> identical tile indices
+    return true;
 }
 
 } } // namespace vtslibs::vts

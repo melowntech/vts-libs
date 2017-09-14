@@ -249,6 +249,16 @@ public:
     template <typename Converter>
     void convert(Converter &converter) const;
 
+    /** Check that all values stored in the quad tree pass given matcher.
+     */
+    template <typename Matcher>
+    bool matchAll(const Matcher &matcher) const;
+
+    /** Compare this quad tree with another via provided comparator.
+     */
+    template <typename Comparator>
+    bool compare(const QTree &other, const Comparator &comparator) const;
+
 private:
     /** Re-calculates number of non-zero elements.
      */
@@ -385,6 +395,14 @@ private:
             if (children) { return boost::none; }
             return value;
         }
+
+        /** Check valud by given matcher.
+         */
+        template <typename Matcher>
+        bool match(const Matcher &matcher) const;
+
+        template <typename Comparator>
+        bool compare(const Node &other, const Comparator &comparator) const;
     };
 
     unsigned int order_;
@@ -942,6 +960,69 @@ void QTree::Node::convert(Converter &converter) const
         node.convert(converter);
         converter.leave(any, i);
     }
+}
+
+template <typename Matcher>
+bool QTree::matchAll(const Matcher &matcher) const
+{
+    return root_.match(matcher);
+}
+
+template <typename Matcher>
+bool QTree::Node::match(const Matcher &matcher) const
+{
+    if (children) {
+        return (children->nodes[0].match(matcher)
+                && children->nodes[1].match(matcher)
+                && children->nodes[2].match(matcher)
+                && children->nodes[3].match(matcher));
+    }
+
+    return matcher(value);
+}
+
+template <typename Comparator>
+bool QTree::compare(const QTree &other, const Comparator &comparator) const
+{
+    return root_.compare(other.root_, comparator);
+}
+
+template <typename Comparator>
+bool QTree::Node::compare(const Node &other, const Comparator &comparator)
+    const
+{
+    if (children) {
+        // internal + ?
+        const auto &n(children->nodes);
+
+        if (other.children) {
+            // internal + internal: full recurse, child with child
+            const auto &cn(other.children->nodes);
+            return (n[0].compare(cn[0], comparator)
+                    && n[1].compare(cn[1], comparator)
+                    && n[2].compare(cn[2], comparator)
+                    && n[3].compare(cn[3], comparator));
+        }
+
+        // internal + leaf: recurse into children and pass leaf
+        return (n[0].compare(other, comparator)
+                && n[1].compare(other, comparator)
+                && n[2].compare(other, comparator)
+                && n[3].compare(other, comparator));
+    }
+
+    // leaf + ?
+    if (other.children) {
+        // leaf + internal: recurse into self and pass children
+        const auto &cn(other.children->nodes);
+        return (compare(cn[0], comparator)
+                && compare(cn[1], comparator)
+                && compare(cn[2], comparator)
+                && compare(cn[3], comparator));
+    }
+
+    // leaf + leaf, just compare
+    return comparator(value, other.value);
 }
 
 } } // namespace vtslibs::vts

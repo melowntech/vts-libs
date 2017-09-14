@@ -183,6 +183,7 @@ public:
         , generate_(false)
     {
         addOptions_.textureQuality = 0;
+        addOptions_.checkTileindexIdentity = true;
         addOptions_.bumpVersion = false;
         addOptions_.dryRun = false;
         addOptions_.mode = vts::Storage::AddOptions::Mode::legacy;
@@ -581,6 +582,11 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("textureQuality", po::value(&addOptions_.textureQuality)
              ->required()->default_value(addOptions_.textureQuality)
              , "Quality of repacked atlases. 0 means no repacking.")
+            ("checkTileindexIdentity"
+             , po::value(&addOptions_.checkTileindexIdentity)
+             ->required()->default_value(addOptions_.checkTileindexIdentity)
+             , "Do not generate a glue if glue candidate contains tilesets "
+             "with identical tile indices when set to true.")
 
             ("bumpVersion", "Add dataset under new version")
             ("dryRun", "Simulate glue creation.")

@@ -206,9 +206,15 @@ public:
         Mode mode;
         bool overwrite;
 
+        /** Do not generate glue when multiple tilesets have identical tile
+         *  indices
+         */
+        bool checkTileindexIdentity;
+
         AddOptions()
             : bumpVersion(false), filter(), dryRun(false)
             , mode(Mode::legacy), overwrite(false)
+            , checkTileindexIdentity(true)
         {}
     };
 
