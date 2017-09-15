@@ -74,6 +74,8 @@ private:
     Item::map content_;
 };
 
+enum class GlueType { valid, empty, pending, unknown };
+
 struct Storage::Properties : StorageProperties {
     /** Data version/revision. Should be incremented anytime the data change.
      *  Used in template URL's to push through caches.
@@ -137,6 +139,13 @@ struct Storage::Properties : StorageProperties {
 
     bool hasEmptyGlue(const Glue::Id &glue) const {
         return emptyGlues.find(glue) != emptyGlues.end();
+    }
+
+    GlueType glueType(const Glue::Id &glue) const {
+        if (hasGlue(glue)) { return GlueType::valid; }
+        if (hasEmptyGlue(glue)) { return GlueType::empty; }
+        if (hasPendingGlue(glue)) { return GlueType::pending; }
+        return GlueType::unknown;
     }
 
     VirtualSurface::map::iterator

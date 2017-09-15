@@ -204,7 +204,13 @@ public:
         OpenOptions openOptions;
         enum Mode { legacy, full, lazy };
         Mode mode;
-        bool overwrite;
+
+        /** Check for glue existence:
+         *  true: fail if glue already exist
+         *  false: overwrite any existing glue
+         *  indeterminate: honors existing glue
+         */
+        boost::tribool collisionCheck;
 
         /** Do not generate glue when multiple tilesets have identical tile
          *  indices
@@ -213,7 +219,7 @@ public:
 
         AddOptions()
             : bumpVersion(false), filter(), dryRun(false)
-            , mode(Mode::legacy), overwrite(false)
+            , mode(Mode::legacy), collisionCheck(true)
             , checkTileindexIdentity(true)
         {}
     };

@@ -188,6 +188,7 @@ public:
         addOptions_.dryRun = false;
         addOptions_.mode = vts::Storage::AddOptions::Mode::legacy;
         addOptions_.glueMode = vts::GlueMode::simpleClip;
+        addOptions_.collisionCheck = true;
         addOptions_.skirtMode = vts::SkirtMode::none;
         addOptions_.skirtScale = 1.0;
 
@@ -739,8 +740,11 @@ void VtsStorage::configuration(po::options_description &cmdline
     });
 
     createParser(cmdline, Command::generateGlue
-                 , "--command=glue-generate: generates given glues "
-                 "if pending"
+                 , "--command=glue-generate: generates given glue if pending"
+                 "\n\n  Fails if glue is not pending unless "
+                 "explicitly asked to overwrite it (--overwrite)"
+                 "\n  or to be benevolent (--onlyIfPending).\n"
+                 "\n  Options"
                  , [&](UP &p)
     {
         lockConfiguration(p.options);
@@ -757,6 +761,9 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "Temporary directory where to work with temporary data.")
 
             ("overwrite", "Overwrite existing glue, i.e. regenerate.")
+            ("onlyIfPending"
+             , "Generate glue only if pending. Ignore any other glue state.")
+
             ("debug.tileId", po::value<vts::TileId>()
              , "Limits glue to tiles in the path to "
              "given tileId (optional).")
@@ -777,7 +784,20 @@ void VtsStorage::configuration(po::options_description &cmdline
                 addOptions_.tmp = vars["tmp"].as<fs::path>();
             }
 
-            addOptions_.overwrite = vars.count("overwrite");
+            const bool overwrite(vars.count("overwrite"));
+            const bool onlyIfPending(vars.count("onlyIfPending"));
+
+            if (overwrite && onlyIfPending) {
+                throw po::validation_error
+                    (po::validation_error::multiple_values_not_allowed
+                     , "overwrite,onlyIfPending");
+            }
+
+            if (overwrite) {
+                addOptions_.collisionCheck = false;
+            } else if (onlyIfPending) {
+                addOptions_.collisionCheck = boost::indeterminate;
+            }
 
             configureProgress(vars, addOptions_);
             configureGeneratesetModifier(vars, addOptions_);

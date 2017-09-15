@@ -1243,33 +1243,63 @@ void Storage::Detail::generateGlue(const Glue::Id &glueId
     // (re)load config to have fresh copy when under lock
     if (storageLock) { loadConfig(); }
 
-    bool overwrite(false);
-
-    if (properties.hasGlue(glueId)) {
-        if (addOptions.overwrite) {
-            overwrite = true;
+    switch (properties.glueType(glueId)) {
+    case GlueType::valid:
+        // An existing glue, we generate it only when asked to.
+        if (addOptions.collisionCheck) {
+            // check for collision -> fail
+            LOGTHROW(err3, std::runtime_error)
+                << "Glue <" << utility::join(glueId, ",")
+                << "> already exists.";
+        } else if (!addOptions.collisionCheck) {
+            // do not check for collision -> overwrite
             LOG(info3)
                 << "Re-generating existing glue <"
                 << utility::join(glueId, ",") << ">.";
         } else {
-            LOGTHROW(err3, std::runtime_error)
+            // keep existing glue
+            LOG(info2)
                 << "Glue <" << utility::join(glueId, ",")
-                << "> already exists.";
+                << "> already exists, not touching.";
+            return;
         }
-    }
+        break;
 
-    if (properties.hasEmptyGlue((glueId))) {
-        if (!overwrite) {
+    case GlueType::empty:
+        // An existing "empty" glue.
+        if (addOptions.collisionCheck) {
+            // check for collision -> fail
             LOGTHROW(err3, std::runtime_error)
                 << "Glue <" << utility::join(glueId, ",") << "> is empty.";
+        } else if (!addOptions.collisionCheck) {
+            // do not check for collision -> overwrite
+            LOG(info3)
+                << "Glue <" << utility::join(glueId, ",")
+                << "> is empty, trying to regenerate as instructed.";
+        } else {
+            // keep existing "empty" glue
+            LOG(info3)
+                << "Glue <" << utility::join(glueId, ",")
+                << "> is empty, not touching.";
+            return;
         }
-    }
+        break;
 
-    if (!properties.hasPendingGlue((glueId))) {
-        if (!overwrite) {
+    case GlueType::pending:
+        // A pending glue! Our best friend here!
+        break;
+
+    case GlueType::unknown:
+        // Completely unknown glue.
+        if (addOptions.collisionCheck) {
             LOGTHROW(err3, std::runtime_error)
                 << "Glue <" << utility::join(glueId, ",") << "> not found.";
         }
+
+        LOG(info3)
+            << "Glue <" << utility::join(glueId, ",") << "> not found"
+            << ", ignoring.";
+        return;
     }
 
     Glue::list glues;
