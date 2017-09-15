@@ -488,9 +488,9 @@ struct Ts {
 
         const auto &ti(set.tileIndex());
         for (const auto *ts : tss) {
-            if (!ti.identical(ts->set.tileIndex(), compare)) { return false; }
+            if (ti.identical(ts->set.tileIndex(), compare)) { return true; }
         }
-        return true;
+        return false;
     }
 
 private:
@@ -664,6 +664,7 @@ GlueDescriptor::list prepareGlues(Tx &tx, Ts::list &tilesets, Ts &added
             if (addOptions.checkTileindexIdentity
                 && tsToAdd.tileindexIdentical(glueMembers))
             {
+                LOG(info1) << "Backtracking due to identical tileindices.";
                 return;
             }
 
