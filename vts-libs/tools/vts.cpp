@@ -187,7 +187,7 @@ public:
         addOptions_.bumpVersion = false;
         addOptions_.dryRun = false;
         addOptions_.mode = vts::Storage::AddOptions::Mode::legacy;
-        addOptions_.glueMode = vts::GlueMode::simpleClip;
+        addOptions_.glueMode = vts::GlueMode::coverageContour;
         addOptions_.collisionCheck = true;
         addOptions_.skirtMode = vts::SkirtMode::none;
         addOptions_.skirtScale = 1.0;
