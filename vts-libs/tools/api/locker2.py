@@ -11,6 +11,9 @@ import dbglog as log
 
 _lock_timeout = 60
 
+def now():
+    return time.time() * 1000
+
 class Locker2:
     def __init__(self, impl):
         self._impl = impl
@@ -27,13 +30,13 @@ class Locker2:
 
         # TODO: make configurable
         self._renewPeriod = _lock_timeout * 1000 / 2
-        self._nextRenew = time.time() + self._renewPeriod
+        self._nextRenew = now() + self._renewPeriod
 
     def __call__(self):
         while (not self._handle(1000)):
-            if (time.time() > self._nextRenew):
+            if (now() > self._nextRenew):
                 self._impl.renew()
-                self._nextRenew = time.time() + self._renewPeriod
+                self._nextRenew = now() + self._renewPeriod
 
 
     def _handle(self, timeout):
