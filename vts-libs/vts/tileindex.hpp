@@ -636,7 +636,7 @@ bool TileIndex::identical(const TileIndex &other, const Comparator &compare)
                 // both valid, compare
                 if (!t1->compare(*t2, compare)) { return false; }
             } else {
-                // only t2 valid
+                // only t1 valid
                 if (!t1->matchAll(match)) { return false; }
             }
         } else {
