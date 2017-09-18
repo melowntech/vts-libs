@@ -23,7 +23,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <cmath>
+#include <stack>
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
@@ -552,6 +554,48 @@ vts::NavTile::pointer HeightMap::navtile(const vts::TileId &tileId) const
     return nt;
 }
 
+namespace {
+
+double findNearestValid(const cv::Mat &pane, int x, int y)
+{
+    cv::Mat_<std::uint8_t> seen(pane.rows, pane.cols, std::uint8_t(false));
+    std::stack<math::Point2i> stack;
+
+    const auto add([&](int x, int y) -> void
+    {
+        // was this place seen alreay?
+        auto &marker(seen(y, x));
+        if (marker) { return; }
+        marker = true;
+
+        stack.emplace(x, y);
+    });
+
+    int xend(pane.cols - 1);
+    int yend(pane.rows - 1);
+
+    // start with initial point
+    add(x, y);
+
+    while (!stack.empty()) {
+        const auto p(stack.top());
+        stack.pop();
+
+        const auto &value(pane.at<HeightMapBase::DataType>(p(1), p(0)));
+        if (value != HeightMapBase::InvalidHeight) { return value; }
+
+        if (p(0) > 0) { add(p(0) - 1, p(1)); }
+        if (p(0) < xend) { add(p(0) + 1, p(1)); }
+        if (p(1) > 0) { add(p(0), p(1) - 1); }
+        if (p(1) < yend) { add(p(0), p(1)  + 1); }
+    }
+
+    // not found, force zero
+    return 0.0;
+}
+
+} // namespace
+
 void HeightMap::dump(const boost::filesystem::path &filename) const
 {
     DataType min(Infinity);
@@ -616,7 +660,19 @@ HeightMap::BestPosition HeightMap::bestPosition() const
         c(1) = cc(1);
     }
 
-    c(2) = pane_.at<DataType>(c(1), c(0));
+    if (count) {
+        c(2) = pane_.at<DataType>(c(1), c(0));
+    } else {
+        // no valid pixel -> zero
+        c(2) = 0;
+    }
+
+    if (c(2) == InvalidHeight) {
+        // invalid pixel samples, find nearest valid pixel
+        // TODO: interpolate value
+
+        c(2) = findNearestValid(pane_, c(0), c(1));
+    }
 
     auto es(math::size(worldExtents_));
     auto eul(ul(worldExtents_));
