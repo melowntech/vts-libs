@@ -25,7 +25,7 @@
  */
 
 #include <cmath>
-#include <stack>
+#include <queue>
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
@@ -559,7 +559,7 @@ namespace {
 double findNearestValid(const cv::Mat &pane, int x, int y)
 {
     cv::Mat_<std::uint8_t> seen(pane.rows, pane.cols, std::uint8_t(false));
-    std::stack<math::Point2i> stack;
+    std::queue<math::Point2i> queue;
 
     const auto add([&](int x, int y) -> void
     {
@@ -568,7 +568,7 @@ double findNearestValid(const cv::Mat &pane, int x, int y)
         if (marker) { return; }
         marker = true;
 
-        stack.emplace(x, y);
+        queue.emplace(x, y);
     });
 
     int xend(pane.cols - 1);
@@ -577,9 +577,9 @@ double findNearestValid(const cv::Mat &pane, int x, int y)
     // start with initial point
     add(x, y);
 
-    while (!stack.empty()) {
-        const auto p(stack.top());
-        stack.pop();
+    while (!queue.empty()) {
+        const auto p(queue.front());
+        queue.pop();
 
         const auto &value(pane.at<HeightMapBase::DataType>(p(1), p(0)));
         if (value != HeightMapBase::InvalidHeight) { return value; }
