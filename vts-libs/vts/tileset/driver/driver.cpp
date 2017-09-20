@@ -140,14 +140,12 @@ Driver::Driver(const boost::filesystem::path &root
 {
 }
 
-Driver::~Driver()
-{
-}
+Driver::~Driver() {}
 
 bool Driver::externallyChanged() const
 {
-    return (rootStat_.changed(FileStat::stat(root_))
-            || configStat_.changed(FileStat::stat(configPath_))
+    return (rootStat_.changed(FileStat::stat(root_, std::nothrow))
+            || configStat_.changed(FileStat::stat(configPath_, std::nothrow))
             || extraConfigStat_.changed(FileStat::stat
                                         (extraConfigPath_, std::nothrow))
             || registryStat_.changed(FileStat::stat

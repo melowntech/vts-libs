@@ -93,7 +93,7 @@ FileStat FileStat::stat(const boost::filesystem::path &path
 {
     struct ::stat st;
     if (::stat(path.string().c_str(), &st) == -1) {
-        return { 0, 0 };
+        return { 0, -1 };
     }
 
     return { std::size_t(st.st_size), st.st_mtime
