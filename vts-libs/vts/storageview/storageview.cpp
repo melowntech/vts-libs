@@ -205,7 +205,7 @@ vtslibs::storage::Resources StorageView::resources() const
 
 bool StorageView::Detail::externallyChanged() const
 {
-    return (configStat.changed(FileStat::stat(configPath))
+    return (configStat.changed(FileStat::stat(configPath, std::nothrow))
             || storage.externallyChanged());
 }
 
