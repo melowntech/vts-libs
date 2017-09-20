@@ -1209,7 +1209,7 @@ void AggregatedDriver::open(const boost::filesystem::path &root
 
         virtual void done(Storage storage) {
             // fetch driver info
-            const auto pd(prepareDrivers(*dependencies.storage, options));
+            const auto pd(prepareDrivers(storage, options));
 
             {
                 // store info (under lock)
