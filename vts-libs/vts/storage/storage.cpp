@@ -647,8 +647,8 @@ vtslibs::storage::Resources Storage::resources() const
 
 bool Storage::Detail::externallyChanged() const
 {
-    return (rootStat.changed(FileStat::stat(root))
-            || configStat.changed(FileStat::stat(configPath))
+    return (rootStat.changed(FileStat::stat(root, std::nothrow))
+            || configStat.changed(FileStat::stat(configPath, std::nothrow))
             || extraConfigStat.changed(FileStat::stat
                                        (extraConfigPath, std::nothrow)));
 }
