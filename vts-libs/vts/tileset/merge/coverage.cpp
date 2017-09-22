@@ -570,6 +570,8 @@ void Coverage::dumpCookieCutters(std::ostream &os) const
 
     os << "\n";
 
+#if 0
+    // border information
     for (const auto &input : sources) {
         const auto id(input.id());
         if (!indices[id]) { continue; }
@@ -586,6 +588,7 @@ void Coverage::dumpCookieCutters(std::ostream &os) const
     };
 
     os << "\n";
+#endif
 
     for (const auto &input : sources) {
         const auto id(input.id());
