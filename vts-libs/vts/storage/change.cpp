@@ -1382,9 +1382,14 @@ void Storage::Detail
             << "> not found in storage " << root << ".";
     }
 
-    if ((createOptions.mode() == CreateMode::failIfExists)
-        && properties.getVirtualSurface(vs.id))
-    {
+    // get existing tileset (NB we have to copy if since pointer is changed by
+    // manipulation with the storage properties)
+    boost::optional<VirtualSurface> existing;
+    if (const auto *e = properties.getVirtualSurface(vs.id)) {
+        existing = *e;
+    }
+
+    if (existing && (createOptions.mode() == CreateMode::failIfExists)) {
         LOGTHROW(err1, vtslibs::storage::TileSetAlreadyExists)
             << "Virtual surface <" << utility::join(vs.id, ",")
             << "> already present in storage "
@@ -1403,7 +1408,6 @@ void Storage::Detail
 
     Tx tx(root, boost::none);
 
-    // TODO: checka and remove existing virtual surface with another ID
     {
         // lock virtual surface and unlock storage
         ScopedStorageLock vsLock(&storageLock, lockName(vs));
@@ -1436,6 +1440,13 @@ void Storage::Detail
     // commit new properties and changes to the transaction
     saveConfig();
     tx.commit();
+
+    // if virtual surface's path has been changed remove original
+    if (existing && (existing->path != vs.path)) {
+        const auto path(tx.virtualSurfacePath(*existing));
+        LOG(info2) << "commit(rm(" << path << "))";
+        rmrf(path);
+    }
 }
 
 void Storage::Detail
