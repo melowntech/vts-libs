@@ -103,6 +103,21 @@ public:
                         , const BareConfigTag&
                         , const OpenOptions &openOptions = OpenOptions());
 
+    /** Opens config-reading driver for existing dataset.
+     *  NP: May return full driver for some tileset types.
+     */
+    static pointer configReader(const boost::filesystem::path &root
+                                , const OpenOptions &openOptions
+                                = OpenOptions());
+
+    /** Opens config-reading driver for existing dataset.
+     *  NP: May return full driver for some tileset types.
+     */
+    static pointer configReader(const boost::filesystem::path &root
+                                , const boost::any &options
+                                , const OpenOptions &openOptions
+                                = OpenOptions());
+
     /** Async driver open. Uses provided callback to report success/error and to
      *  obtain dependencies (e.g. storage and other drivers for aggregated
      *  driver)
@@ -228,15 +243,6 @@ public:
                          , const std::string &prefix = "");
 
     inline const OpenOptions& openOptions() const { return openOptions_; }
-
-    /** Raw interface.
-     */
-    static boost::filesystem::path
-    configPath(const boost::filesystem::path &root);
-    static boost::filesystem::path
-    extraConfigPath(const boost::filesystem::path &root);
-    static boost::filesystem::path
-    registryPath(const boost::filesystem::path &root);
 
 protected:
     /** Creates new storage. Existing storage is overwritten only if mode ==

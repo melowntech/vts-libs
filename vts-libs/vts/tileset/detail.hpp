@@ -225,13 +225,9 @@ public:
 
     ExtraTileSetProperties loadExtraConfig() const;
     static ExtraTileSetProperties loadExtraConfig(const Driver &driver);
-    static ExtraTileSetProperties
-    loadExtraConfig(const boost::filesystem::path &driver);
 
     registry::RegistryBase loadRegistry() const;
     static registry::RegistryBase loadRegistry(const Driver &driver);
-    static registry::RegistryBase
-    loadRegistry(const boost::filesystem::path &path);
 
     Detail& other(TileSet &otherSet) {
         return otherSet.detail();
