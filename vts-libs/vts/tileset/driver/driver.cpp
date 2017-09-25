@@ -276,6 +276,45 @@ Driver::pointer Driver::open(const boost::filesystem::path &root
     throw;
 }
 
+Driver::pointer Driver::configReader(const boost::filesystem::path &root
+                                     , const OpenOptions &openOptions)
+{
+    return configReader(root
+                        , tileset::loadConfig(root / filePath(File::config))
+                        .driverOptions, openOptions);;
+}
+
+Driver::pointer Driver::configReader(const boost::filesystem::path &root
+                                     , const boost::any &genericOptions
+                                     , const OpenOptions &openOptions)
+{
+    if (auto o = boost::any_cast<const driver::PlainOptions>
+        (&genericOptions))
+    {
+        return std::make_shared<driver::PlainDriver>(root, openOptions, *o);
+    } else if (boost::any_cast<const driver::AggregatedOptions>
+               (&genericOptions))
+    {
+        // fake driver via plain driver
+        return std::make_shared<driver::PlainDriver>
+            (root, openOptions, driver::PlainOptions(0));
+    } else if (boost::any_cast<const driver::RemoteOptions>(&genericOptions)) {
+        // fake driver via plain driver
+        return std::make_shared<driver::PlainDriver>
+            (root, openOptions, driver::PlainOptions(0));
+    } else if (auto o = boost::any_cast<const driver::LocalOptions>
+               (&genericOptions))
+    {
+        return std::make_shared<driver::LocalDriver>
+            (root, openOptions, *o);
+    }
+
+    LOGTHROW(err2, storage::BadFileFormat)
+        << "Cannot open tileset config reader at " << root
+        << ": Invalid type of driver options: <"
+        << genericOptions.type().name() << ">.";
+    throw;
+}
 
 namespace {
 

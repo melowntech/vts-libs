@@ -103,6 +103,21 @@ public:
                         , const BareConfigTag&
                         , const OpenOptions &openOptions = OpenOptions());
 
+    /** Opens config-reading driver for existing dataset.
+     *  NP: May return full driver for some tileset types.
+     */
+    static pointer configReader(const boost::filesystem::path &root
+                                , const OpenOptions &openOptions
+                                = OpenOptions());
+
+    /** Opens config-reading driver for existing dataset.
+     *  NP: May return full driver for some tileset types.
+     */
+    static pointer configReader(const boost::filesystem::path &root
+                                , const boost::any &options
+                                , const OpenOptions &openOptions
+                                = OpenOptions());
+
     /** Async driver open. Uses provided callback to report success/error and to
      *  obtain dependencies (e.g. storage and other drivers for aggregated
      *  driver)

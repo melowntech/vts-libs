@@ -1588,7 +1588,7 @@ TileIndex TileSet::metaIndex() const
 MapConfig TileSet::mapConfig(const boost::filesystem::path &root
                              , bool includeExtra)
 {
-    return Detail::mapConfig(*Driver::open(root), includeExtra);
+    return Detail::mapConfig(*Driver::configReader(root), includeExtra);
 }
 
 MapConfig TileSet::mapConfig(const Driver &driver, bool includeExtra)
