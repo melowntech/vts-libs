@@ -1579,6 +1579,15 @@ ExtraTileSetProperties TileSet::Detail::loadExtraConfig(const Driver &driver)
     return {};
 }
 
+ExtraTileSetProperties
+TileSet::Detail::loadExtraConfig(const boost::filesystem::path &path)
+{
+    if (fs::exists(path)) {
+        return tileset::loadExtraConfig(path);
+    }
+    return {};
+}
+
 registry::RegistryBase TileSet::Detail::loadRegistry() const
 {
     return loadRegistry(*driver);
@@ -1589,6 +1598,17 @@ registry::RegistryBase TileSet::Detail::loadRegistry(const Driver &driver)
     if (auto is = driver.input(File::registry, NullWhenNotFound)) {
         registry::RegistryBase rb;
         registry::load(rb, *is);
+        return rb;
+    }
+    return {};
+}
+
+registry::RegistryBase
+TileSet::Detail::loadRegistry(const boost::filesystem::path &path)
+{
+    if (fs::exists(path)) {
+        registry::RegistryBase rb;
+        registry::load(rb, path);
         return rb;
     }
     return {};
@@ -1607,7 +1627,12 @@ TileIndex TileSet::metaIndex() const
 MapConfig TileSet::mapConfig(const boost::filesystem::path &root
                              , bool includeExtra)
 {
-    return Detail::mapConfig(*Driver::open(root), includeExtra);
+    return vts::mapConfig
+        (tileset::loadConfig(Driver::configPath(root))
+         , Detail::loadRegistry(Driver::registryPath(root))
+         , (includeExtra
+            ? Detail::loadExtraConfig(Driver::extraConfigPath(root))
+            : ExtraTileSetProperties()));
 }
 
 MapConfig TileSet::mapConfig(const Driver &driver, bool includeExtra)

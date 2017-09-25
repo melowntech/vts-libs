@@ -552,4 +552,21 @@ void openTilesetDriver(const boost::filesystem::path &root
     }
 }
 
+// raw interface
+
+fs::path Driver::configPath(const fs::path &root)
+{
+    return root / filePath(File::config);
+}
+
+fs::path Driver::extraConfigPath(const fs::path &root)
+{
+    return root / filePath(File::extraConfig);
+}
+
+fs::path Driver::registryPath(const fs::path &root)
+{
+    return root / filePath(File::registry);
+}
+
 } } // namespace vtslibs::vts

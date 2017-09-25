@@ -229,6 +229,15 @@ public:
 
     inline const OpenOptions& openOptions() const { return openOptions_; }
 
+    /** Raw interface.
+     */
+    static boost::filesystem::path
+    configPath(const boost::filesystem::path &root);
+    static boost::filesystem::path
+    extraConfigPath(const boost::filesystem::path &root);
+    static boost::filesystem::path
+    registryPath(const boost::filesystem::path &root);
+
 protected:
     /** Creates new storage. Existing storage is overwritten only if mode ==
      *  CreateMode::overwrite.
