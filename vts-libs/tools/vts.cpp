@@ -1344,6 +1344,10 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("staticMetaLodRange", po::value<MetaLodRange>()
              , "LOD range where metatiles are pre-generated. Use \"full\" "
              "to force whole metatile tree generation.")
+            ("tilesetId", po::value<std::string>()
+             , "ID of virtual surface's tileset: used both for an internal ID "
+             " and as a directory name. Default is underscore-joined list of "
+             "constituent surfaces.")
             ;
         p.positional.add("tileset", -1);
 
@@ -1357,6 +1361,10 @@ void VtsStorage::configuration(po::options_description &cmdline
             if (vars.count("staticMetaLodRange")) {
                 optLodRange_ = vars["staticMetaLodRange"].as<MetaLodRange>()
                     .lodRange;
+            }
+
+            if (vars.count("tilesetId")) {
+                optTilesetId_ = vars["tilesetId"].as<std::string>();
             }
         };
     });
@@ -2944,6 +2952,7 @@ int VtsStorage::virtualSurfaceCreate()
         vts::CloneOptions createOptions;
         createOptions.mode(createMode_);
         createOptions.lodRange(optLodRange_);
+        createOptions.tilesetId(optTilesetId_);
 
         storage.createVirtualSurface(tids, createOptions);
     }, "create virtual surface");

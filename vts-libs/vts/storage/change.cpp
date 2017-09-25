@@ -1394,12 +1394,16 @@ void Storage::Detail
     LOG(info3) << "Creating virtual surface <" << utility::join(vs.id, ",")
                << "> in storage " << root << ".";
 
-    const auto vsSetId(boost::lexical_cast<std::string>
-                       (utility::join(vs.id, "_")));
+    // use provided tilesetId or build one from contituent tilesets' IDs
+    const auto vsSetId
+        (createOptions.tilesetId()
+         ? *createOptions.tilesetId()
+         : boost::lexical_cast<std::string>(utility::join(vs.id, "_")));
     vs.path = vsSetId;
 
     Tx tx(root, boost::none);
 
+    // TODO: checka and remove existing virtual surface with another ID
     {
         // lock virtual surface and unlock storage
         ScopedStorageLock vsLock(&storageLock, lockName(vs));
@@ -1414,11 +1418,6 @@ void Storage::Detail
 
         vts::aggregateTileSets
             (vsPath, "../..", aggCreateOptions
-             //, CloneOptions()
-             //.mode(CreateMode::overwrite)
-             //.tilesetId(vsSetId)
-             //.createFlags(AggregateFlags::dontAbsolutize
-             //             | AggregateFlags::sourceReferencesInMetatiles)
              , TilesetIdSet(vs.id.begin(), vs.id.end()));
     }
 
