@@ -70,13 +70,17 @@ private:
 
     virtual math::Size2 imageSize_impl(std::size_t index) const;
 
+    virtual void write_impl(std::ostream &os, std::size_t index) const;
+
     int quality_;
     Images images_;
 };
 
-/** Hybrid atlas that can contain both encoded and decoded JPEG data.
+/** Hybrid atlas that can contain on of: encoded image, decoded image or path to
+ *  file on the disk.
  *
  *  Deserialization decodes images.
+ *  Serialization re-encodes images from disk.
  */
 class HybridAtlas : public vts::Atlas {
 private:
@@ -108,9 +112,11 @@ public:
 
     void add(const Image &image);
     void add(const Raw &raw);
+    void add(const boost::filesystem::path &file);
 
     void set(std::size_t index, const Image &image);
     void set(std::size_t index, const Raw &raw);
+    void set(std::size_t index, const boost::filesystem::path &file);
 
     /** Get image at given index.
      */
@@ -126,6 +132,7 @@ public:
 
     static Image imageFromRaw(const Raw &raw);
     static Raw rawFromImage(const Image &image, int quality);
+    static Image imageFromFile(const boost::filesystem::path &file);
 
 private:
     virtual multifile::Table serialize_impl(std::ostream &os) const;
@@ -136,6 +143,8 @@ private:
 
     virtual math::Size2 imageSize_impl(std::size_t index) const;
 
+    virtual void write_impl(std::ostream &os, std::size_t index) const;
+
     int quality_;
 
     /** "union" of raw data and color image
@@ -144,9 +153,11 @@ private:
     struct Entry {
         Raw raw;
         Image image;
+        boost::filesystem::path file;
 
         Entry(const Raw &raw) : raw(raw) {}
         Entry(const Image &image) : image(image) {}
+        Entry(const boost::filesystem::path &file) : file(file) {}
         Entry() {}
     };
 

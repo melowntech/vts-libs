@@ -28,6 +28,7 @@
 #include "dbglog/dbglog.hpp"
 
 #include "utility/binaryio.hpp"
+#include "utility/streams.hpp"
 #include "imgproc/jpeg.hpp"
 
 #include "../storage/error.hpp"
@@ -66,6 +67,13 @@ void Atlas::deserialize(std::istream &is
 math::Size2 Atlas::imageSize(std::size_t index) const
 {
     return imageSize_impl(index);
+}
+
+void Atlas::write(const boost::filesystem::path &file, std::size_t index) const
+{
+    utility::ofstreambuf os(file.string());
+    write(os, index);
+    os.flush();
 }
 
 // raw atlas implementation
@@ -114,6 +122,15 @@ void RawAtlas::add(const RawAtlas &other)
 {
     images_.insert(images_.end(), other.images_.begin()
                    , other.images_.end());
+}
+
+void RawAtlas::write_impl(std::ostream &os, std::size_t index) const
+{
+    using utility::binaryio::write;
+
+    if (index >= images_.size()) { return; }
+    const auto &image(get(index));
+    write(os, image.data(), image.size());
 }
 
 } } // namespace vtslibs::vts

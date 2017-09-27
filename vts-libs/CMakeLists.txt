@@ -258,6 +258,7 @@ set(vts_SOURCES
   vts/meshop/refineandclip.cpp
   vts/meshop/merge.cpp
   vts/meshop/skirt.cpp
+  vts/meshop/optimize.cpp
 
   # storage
   vts/storage/change.cpp
@@ -341,6 +342,34 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
   buildsys_library(vts-libs)
   target_link_libraries(vts-libs ${MODULE_LIBRARIES})
   buildsys_target_compile_definitions(vts-libs ${MODULE_DEFINITIONS})
+endif()
+
+if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-tools-support AND TARGET vts-libs)
+  set(vts-libs-tools-support_EXTRA_DEPENDS )
+  set(vts-libs-tools-support_EXTRA_SOURCES )
+
+  if (ASSIMP_FOUND)
+    list(APPEND vts-libs-tools-support_EXTRA_DEPENDS ASSIMP)
+     list(APPEND vts-libs-tools-support_EXTRA_SOURCES
+      tools-support/assimp.hpp tools-support/assimp.cpp
+      )
+  endif()
+
+  # support library for VTS tools
+  define_module(LIBRARY vts-libs-tools-support=${vts-libs_VERSION}
+    DEPENDS vts-libs ${vts-libs-tools-support_EXTRA_DEPENDS}
+    )
+
+  set(vts-libs-tools-support_SOURCES
+    # TODO: copy stuff from vts-tools repository
+    )
+
+  add_library(vts-libs-tools-support
+    STATIC ${vts-libs-tools-support_SOURCES}
+    ${vts-libs-tools-support_EXTRA_SOURCES})
+  buildsys_library(vts-libs-tools-support)
+  target_link_libraries(vts-libs-tools-support ${MODULE_LIBRARIES})
+  buildsys_target_compile_definitions(vts-libs-tools-support ${MODULE_DEFINITIONS})
 endif()
 
 # add tools subdirectory

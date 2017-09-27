@@ -396,6 +396,13 @@ private:
         return size_;
     }
 
+    void write_impl(std::ostream&, std::size_t) const
+        UTILITY_OVERRIDE
+    {
+        LOGTHROW(err4, std::runtime_error)
+            << "This atlas cannot be written to output stream.";
+    }
+
     vs::IStream::pointer stream_;
     math::Size2 size_;
 };

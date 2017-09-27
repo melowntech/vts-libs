@@ -69,6 +69,14 @@ public:
 
     bool empty() const { return !size(); }
 
+    /** Write image at given index to output stream.
+     */
+    void write(std::ostream &os, std::size_t index) const;
+
+    /** Write image at given index to output file.
+     */
+    void write(const boost::filesystem::path &file, std::size_t index) const;
+
     static multifile::Table readTable(std::istream &is
                                       , const boost::filesystem::path &path
                                       = "unknown");
@@ -81,6 +89,8 @@ private:
                                   , const multifile::Table &table) = 0;
 
     virtual math::Size2 imageSize_impl(std::size_t index) const = 0;
+
+    virtual void write_impl(std::ostream &os, std::size_t index) const = 0;
 };
 
 class RawAtlas : public Atlas {
@@ -111,6 +121,8 @@ private:
 
     virtual math::Size2 imageSize_impl(std::size_t index) const;
 
+    virtual void write_impl(std::ostream &os, std::size_t index) const;
+
     Images images_;
 };
 
@@ -125,6 +137,11 @@ inline double Atlas::area(std::size_t index) const
 {
     auto s(imageSize(index));
     return double(s.width) * double(s.height);
+}
+
+inline void Atlas::write(std::ostream &os, std::size_t index) const
+{
+    write_impl(os, index);
 }
 
 } } // namespace vtslibs::vts

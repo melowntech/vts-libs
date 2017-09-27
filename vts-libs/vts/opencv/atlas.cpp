@@ -30,10 +30,13 @@
 #include "utility/binaryio.hpp"
 
 #include "imgproc/jpeg.hpp"
+#include "imgproc/readimage.hpp"
 
 #include "../../storage/error.hpp"
 
 #include "./atlas.hpp"
+
+namespace fs = boost::filesystem;
 
 namespace vtslibs { namespace vts { namespace opencv {
 
@@ -122,6 +125,16 @@ math::Size2 Atlas::imageSize_impl(std::size_t index) const
     return math::Size2(image.cols, image.rows);
 }
 
+void Atlas::write_impl(std::ostream &os, std::size_t index) const
+{
+    if (index >= images_.size()) { return; }
+    const auto &image(get(index));
+
+    using utility::binaryio::write;
+    auto buf(mat2jpeg(image, quality_));
+    write(os, buf.data(), buf.size());
+}
+
 void Atlas::append(const Atlas &atlas)
 {
     images_.insert(images_.end(), atlas.images_.begin(), atlas.images_.end());
@@ -158,6 +171,11 @@ void HybridAtlas::add(const Raw &raw)
     entries_.emplace_back(raw);
 }
 
+void HybridAtlas::add(const fs::path &file)
+{
+    entries_.emplace_back(file);
+}
+
 HybridAtlas::Image HybridAtlas::imageFromRaw(const Raw &raw)
 {
     return jpeg2mat(raw);
@@ -168,6 +186,11 @@ HybridAtlas::Raw HybridAtlas::rawFromImage(const Image &image, int quality)
     return mat2jpeg(image, quality);
 }
 
+HybridAtlas::Image HybridAtlas::imageFromFile(const fs::path &file)
+{
+    return imgproc::readImage(file);
+}
+
 void HybridAtlas::set(std::size_t index, const Image &image)
 {
     if (entries_.size() <= index) {
@@ -176,6 +199,7 @@ void HybridAtlas::set(std::size_t index, const Image &image)
     auto &entry(entries_[index]);
     entry.raw.clear();
     entry.image = image;
+    entry.file.clear();
 }
 
 void HybridAtlas::set(std::size_t index, const Raw &raw)
@@ -186,12 +210,25 @@ void HybridAtlas::set(std::size_t index, const Raw &raw)
     auto &entry(entries_[index]);
     entry.raw = raw;
     entry.image = cv::Mat();
+    entry.file.clear();
+}
+
+void HybridAtlas::set(std::size_t index, const fs::path &file)
+{
+    if (entries_.size() <= index) {
+        entries_.resize(index + 1);
+    }
+    auto &entry(entries_[index]);
+    entry.raw.clear();
+    entry.image = cv::Mat();
+    entry.file = file;
 }
 
 HybridAtlas::Image HybridAtlas::get(std::size_t index) const
 {
     const auto &entry(entries_[index]);
     if (entry.image.data) { return entry.image; }
+    if (!entry.file.empty()) { return imgproc::readImage(entry.file); }
     return imageFromRaw(entry.raw);
 }
 
@@ -227,6 +264,10 @@ multifile::Table HybridAtlas::serialize_impl(std::ostream &os) const
         using utility::binaryio::write;
         if (entry.image.data) {
             auto buf(mat2jpeg(entry.image, quality_));
+            write(os, buf.data(), buf.size());
+            pos = table.add(pos, buf.size());
+        } else if (!entry.file.empty()) {
+            auto buf(mat2jpeg(imageFromFile(entry.file), quality_));
             write(os, buf.data(), buf.size());
             pos = table.add(pos, buf.size());
         } else {
@@ -265,8 +306,34 @@ math::Size2 HybridAtlas::imageSize_impl(std::size_t index) const
         return math::Size2(entry.image.cols, entry.image.rows);
     }
 
+    if (!entry.file.empty()) {
+        return imgproc::imageSize(entry.file);
+    }
+
     // raw data
     return imgproc::jpegSize(entry.raw.data(), entry.raw.size());
+}
+
+void HybridAtlas::write_impl(std::ostream &os, std::size_t index) const
+{
+    if (index >= entries_.size()) { return; }
+    const auto &e(entry(index));
+
+    using utility::binaryio::write;
+    if (e.image.data) {
+        auto buf(mat2jpeg(e.image, quality_));
+        write(os, buf.data(), buf.size());
+    } else if (!e.file.empty()) {
+        const auto mat(imageFromFile(e.file));
+        if (!mat.data) {
+            LOGTHROW(err1, storage::BadFileFormat)
+                << "Cannot read image file from " << e.file << ".";
+        }
+        auto buf(mat2jpeg(mat, quality_));
+        write(os, buf.data(), buf.size());
+    } else {
+        write(os, e.raw.data(), e.raw.size());
+    }
 }
 
 Atlas::Atlas(const vts::Atlas &atlas, int textureQuality)
