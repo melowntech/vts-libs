@@ -348,8 +348,8 @@ if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-tools-support AND TARGET vts-lib
   set(vts-libs-tools-support_EXTRA_DEPENDS )
   set(vts-libs-tools-support_EXTRA_SOURCES )
 
-  if (ASSIMP_FOUND)
-    list(APPEND vts-libs-tools-support_EXTRA_DEPENDS ASSIMP)
+  if (ASSIMP_FOUND AND MODULE_roarchive_FOUND)
+    list(APPEND vts-libs-tools-support_EXTRA_DEPENDS roarchive ASSIMP)
      list(APPEND vts-libs-tools-support_EXTRA_SOURCES
       tools-support/assimp.hpp tools-support/assimp.cpp
       )

@@ -33,13 +33,22 @@
 
 #include <assimp/Importer.hpp>
 
-#include "../vts/opencv/atlas.hpp"
+#include "roarchive/roarchive.hpp"
+
 #include "../vts/mesh.hpp"
 
 namespace vtslibs { namespace vts { namespace tools {
 
-std::tuple<Mesh, opencv::HybridAtlas::pointer>
+typedef std::vector<boost::filesystem::path> TexturePaths;
+typedef std::vector<roarchive::IStream::pointer> TextureStreams;
+
+std::tuple<Mesh, TexturePaths>
 loadAssimpScene(Assimp::Importer &imp, const boost::filesystem::path &path
+                , const math::Point3 &origin = math::Point3());
+
+std::tuple<Mesh, TextureStreams>
+loadAssimpScene(Assimp::Importer &imp, const roarchive::RoArchive &archive
+                , const boost::filesystem::path &path
                 , const math::Point3 &origin = math::Point3());
 
 } } } // namespace vtslibs::vts::tools

@@ -76,15 +76,11 @@ void asMesh(vts::Mesh &mesh, const aiScene *scene
         vts::SubMesh sm;
 
         const auto aimesh(scene->mMeshes[m]);
-        const bool hasUv(aimesh->GetNumUVChannels());
-
         for (unsigned i = 0; i < aimesh->mNumVertices; ++i) {
             sm.vertices.push_back(origin + point3(aimesh->mVertices[i]));
 
-            if (hasUv) {
-                const aiVector3D &tc(aimesh->mTextureCoords[0][i]);
-                sm.tc.emplace_back(tc.x, tc.y);
-            }
+            const aiVector3D &tc(aimesh->mTextureCoords[0][i]);
+            sm.tc.emplace_back(tc.x, tc.y);
         }
 
         for (unsigned i = 0; i < aimesh->mNumFaces; ++i) {
@@ -99,55 +95,29 @@ void asMesh(vts::Mesh &mesh, const aiScene *scene
     }
 }
 
-TexturePaths asTextures(const fs::path &scenePath, const aiScene *scene)
+Textures asTextures(const roarchive::RoArchive &archive
+                    , const fs::path &scenePath, const aiScene *scene)
 {
-    TexturePaths textures;
+    Textures textures;
     for (unsigned m = 0; m < scene->mNumMeshes; ++m) {
         const auto aimesh(scene->mMeshes[m]);
-        textures.push_back
-            (scenePath.parent_path() / textureFile(scene, aimesh, 0));
-    }
-    return textures;
-}
-
-TextureStreams asTextures(const roarchive::RoArchive &archive
-                          , const fs::path &scenePath, const aiScene *scene)
-{
-    TextureStreams textures;
-    for (unsigned m = 0; m < scene->mNumMeshes; ++m) {
-        const auto aimesh(scene->mMeshes[m]);
-        textures.push_back
-            (archive.istream
-             (scenePath.parent_path() / textureFile(scene, aimesh, 0)));
+        atlas->add(archive.istream
+                   (scenePath.parent_path() / textureFile(scene, aimesh, 0)));
     }
     return textures;
 }
 
 } // namespace
 
-std::tuple<Mesh, TexturePaths>
-loadAssimpScene(Assimp::Importer &imp, const boost::filesystem::path &path
-                , const math::Point3 &origin)
-{
-    const auto *scene(readScene(imp, path, aiProcess_Triangulate));
-
-    std::tuple<Mesh, TexturePaths> result;
-
-    asMesh(std::get<0>(result), scene, origin);
-    std::get<1>(result) = asTextures(path, scene);
-
-    return result;
-}
-
-std::tuple<Mesh, TextureStreams>
+std::tuple<Mesh, Textures>
 loadAssimpScene(Assimp::Importer &imp, const roarchive::RoArchive &archive
                 , const boost::filesystem::path &path
                 , const math::Point3 &origin)
 {
-    // TODO: get scene from archive
+    // TODO: get from archive
     const auto *scene(readScene(imp, path, aiProcess_Triangulate));
 
-    std::tuple<Mesh, TextureStreams> result;
+    std::tuple<Mesh, Textures> result;
 
     asMesh(std::get<0>(result), scene, origin);
     std::get<1>(result) = asTextures(archive, path, scene);
