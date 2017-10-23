@@ -159,6 +159,7 @@ set(vts-nucleus_SOURCES
   vts/meshio.hpp vts/meshio.cpp
   vts/metatile.hpp vts/metatile.cpp
   vts/navtile.hpp vts/navtile.cpp
+  vts/atlas.hpp vts/atlas.cpp
   vts/csconvertor.hpp vts/csconvertor.cpp
   vts/math.hpp
   vts/subtrees.hpp vts/subtrees.cpp
@@ -182,7 +183,6 @@ set(vts-core_SOURCES
 
   vts/meshcoverage.cpp
   vts/options.hpp vts/options.cpp
-  vts/atlas.hpp vts/atlas.cpp
   vts/encoder.hpp vts/encoder.cpp
   vts/tileindex.hpp vts/tileindex.cpp vts/tileindex-io.hpp
   vts/tileflags.hpp vts/tileflags.cpp
