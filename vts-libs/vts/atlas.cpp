@@ -29,7 +29,7 @@
 
 #include "utility/binaryio.hpp"
 #include "utility/streams.hpp"
-#include "imgproc/readimage.hpp"
+#include "imgproc/imagesize.hpp"
 
 #include "../storage/error.hpp"
 
