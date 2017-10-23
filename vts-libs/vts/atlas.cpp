@@ -29,7 +29,7 @@
 
 #include "utility/binaryio.hpp"
 #include "utility/streams.hpp"
-#include "imgproc/jpeg.hpp"
+#include "imgproc/readimage.hpp"
 
 #include "../storage/error.hpp"
 
@@ -111,7 +111,7 @@ math::Size2 RawAtlas::imageSize_impl(std::size_t index) const
 {
     if (index >= images_.size()) { return {}; }
     const auto &image(images_[index]);
-    return imgproc::jpegSize(image.data(), image.size());
+    return imgproc::imageSize(image.data(), image.size());
 }
 
 void RawAtlas::add(const Image &image) {
