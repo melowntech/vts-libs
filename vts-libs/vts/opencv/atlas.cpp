@@ -29,7 +29,7 @@
 
 #include "utility/binaryio.hpp"
 
-#include "imgproc/jpeg.hpp"
+#include "imgproc/readimage.hpp"
 
 #include "../../storage/error.hpp"
 
@@ -266,7 +266,7 @@ math::Size2 HybridAtlas::imageSize_impl(std::size_t index) const
     }
 
     // raw data
-    return imgproc::jpegSize(entry.raw.data(), entry.raw.size());
+    return imgproc::imageSize(entry.raw.data(), entry.raw.size());
 }
 
 Atlas::Atlas(const vts::Atlas &atlas, int textureQuality)
