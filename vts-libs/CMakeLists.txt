@@ -169,7 +169,6 @@ set(vts-nucleus_SOURCES
   vts/metaflags.hpp vts/metaflags.cpp
   vts/mapconfig.hpp vts/mapconfig.cpp
   vts/types2d.hpp
-  vts/2d.hpp vts/2d.cpp
   vts/urltemplate.hpp vts/urltemplate.cpp
   vts/urltemplate-po.hpp
   vts/geomextents.hpp vts/geomextents.cpp
@@ -190,6 +189,7 @@ set(vts-core_SOURCES
   vts/encodeflags.hpp vts/encodeflags.cpp
   vts/gil/colors.hpp vts/gil/colors.cpp
   vts/debug.hpp vts/debug.cpp
+  vts/2d.hpp vts/2d.cpp
 
   vts/tileset.hpp
   vts/tileset/detail.hpp
