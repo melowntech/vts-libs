@@ -131,6 +131,9 @@ public:
      */
     static bool check(const boost::filesystem::path &root);
 
+    static bool check(const boost::filesystem::path &root
+                      , const std::string &mime);
+
     /** Creates driver for new dataset as exact copy of the original one.
      */
     pointer clone(const boost::filesystem::path &root

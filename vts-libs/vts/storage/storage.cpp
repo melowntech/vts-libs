@@ -635,6 +635,13 @@ bool Storage::check(const boost::filesystem::path &root)
     return false;
 }
 
+bool Storage::check(const boost::filesystem::path &root
+                    , const std::string &mime)
+{
+    if (mime == "inode/directory") { return check(root); }
+    return false;
+}
+
 bool Storage::externallyChanged() const
 {
     return detail().externallyChanged();

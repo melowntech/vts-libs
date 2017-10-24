@@ -418,6 +418,9 @@ public:
      */
     static bool check(const boost::filesystem::path &path);
 
+    static bool check(const boost::filesystem::path &path
+                      , const std::string &mime);
+
 private:
     QTree* tree(Lod lod, bool create = false);
 

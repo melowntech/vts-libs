@@ -54,6 +54,9 @@ enum class DatasetType {
 
 DatasetType datasetType(const boost::filesystem::path &path);
 
+DatasetType datasetType(const boost::filesystem::path &path
+                        , const std::string &mime);
+
 TileSet createTileSet(const boost::filesystem::path &path
                       , const TileSetProperties &properties
                       , CreateMode mode = CreateMode::failIfExists);

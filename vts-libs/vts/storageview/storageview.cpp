@@ -41,6 +41,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/range/adaptor/reversed.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include "utility/streams.hpp"
 #include "utility/guarded-call.hpp"
@@ -191,6 +192,15 @@ Glue::IdSet StorageView::pendingGlues() const
 bool StorageView::check(const fs::path &root)
 {
     return storageview::checkConfig(root);
+}
+
+bool StorageView::check(const fs::path &root, const std::string &mime)
+{
+    // full json mime
+    if (mime == "application/json") { return check(root); }
+    // text file
+    if (boost::algorithm::istarts_with(mime, "text/")) { return check(root); }
+    return false;
 }
 
 bool StorageView::externallyChanged() const

@@ -497,6 +497,13 @@ bool Driver::check(const boost::filesystem::path &root)
     return false;
 }
 
+bool Driver::check(const boost::filesystem::path &root
+                   , const std::string &mime)
+{
+    if (mime == "inode/directory") { return check(root); }
+    return false;
+}
+
 IStream::pointer Driver::input_impl(const std::string &name) const
 {
     LOGTHROW(err1, storage::NoSuchFile)

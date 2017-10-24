@@ -23,6 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <boost/algorithm/string/predicate.hpp>
 
 #include <boost/filesystem.hpp>
@@ -43,6 +44,22 @@ DatasetType datasetType(const boost::filesystem::path &path)
     } else if (StorageView::check(path)) {
         return DatasetType::StorageView;
     } else if (TileIndex::check(path)) {
+        return DatasetType::TileIndex;
+    }
+
+    return DatasetType::Unknown;
+}
+
+DatasetType datasetType(const boost::filesystem::path &path
+                        , const std::string &mime)
+{
+    if (TileSet::check(path, mime)) {
+        return DatasetType::TileSet;
+    } else if (Storage::check(path, mime)) {
+        return DatasetType::Storage;
+    } else if (StorageView::check(path, mime)) {
+        return DatasetType::StorageView;
+    } else if (TileIndex::check(path, mime)) {
         return DatasetType::TileIndex;
     }
 

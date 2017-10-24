@@ -1798,6 +1798,12 @@ bool TileSet::check(const boost::filesystem::path &root)
     return Driver::check(root);
 }
 
+bool TileSet::check(const boost::filesystem::path &root
+                    , const std::string &mime)
+{
+    return Driver::check(root, mime);
+}
+
 std::shared_ptr<Driver>
 TileSet::openDriver(const boost::filesystem::path &root
                     , const OpenOptions &openOptions)

@@ -347,6 +347,11 @@ public:
      */
     static bool check(const boost::filesystem::path &root);
 
+    /** Check for tileset at given path.
+     */
+    static bool check(const boost::filesystem::path &root
+                      , const std::string &mime);
+
     /** Low level access: open driver directly.
      *  You need to include tileset/driver.hpp to access it.
      */

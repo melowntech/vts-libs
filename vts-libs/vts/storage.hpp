@@ -399,6 +399,9 @@ public:
      */
     static bool check(const boost::filesystem::path &path);
 
+    static bool check(const boost::filesystem::path &path
+                      , const std::string &mime);
+
     static void relocate(const boost::filesystem::path &root
                          , const RelocateOptions &options
                          , const std::string &prefix = "");

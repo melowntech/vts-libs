@@ -965,6 +965,13 @@ bool TileIndex::check(const boost::filesystem::path &path)
     return checkMagic(f);
 }
 
+bool TileIndex::check(const boost::filesystem::path &path
+                      , const std::string &mime)
+{
+    if (mime == "inode/directory") { return false; }
+    return check(path);
+}
+
 TileRange TileIndex::tileRange(Lod lod, QTree::value_type mask) const
 {
     TileRange tr(math::InvalidExtents{});
