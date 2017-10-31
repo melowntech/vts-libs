@@ -382,6 +382,9 @@ MeshMask loadMeshMask(std::istream &is
 MeshMask loadMeshMask(const boost::filesystem::path &path);
 MeshMask loadMeshMask(const storage::IStream::pointer &in);
 
+Mesh loadMeshFromObj(std::istream &is
+                     , const boost::filesystem::path &path = "unknown");
+
 // inlines
 
 inline std::uint32_t extraFlags(const Mesh *mesh) {

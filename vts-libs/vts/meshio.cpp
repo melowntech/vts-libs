@@ -23,6 +23,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
+#include <vector>
+
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 
@@ -33,6 +36,7 @@
 #include "math/math.hpp"
 
 #include "geometry/forsyth.hpp"
+#include "geometry/parse-obj.hpp"
 
 #include "../storage/error.hpp"
 #include "../registry/referenceframe.hpp"
@@ -924,6 +928,110 @@ void saveSubMeshAsObj(const boost::filesystem::path &filepath
             << "Unable to save mesh to <" << filepath << ">.";
     }
     saveSubMeshAsObj(f, sm, index, atlas, matlib);
+}
+
+namespace {
+
+class ObjLoader : public geometry::ObjParserBase {
+public:
+    ObjLoader()
+        : textureId_(0), vMap_(), tcMap_()
+    {
+        // make sure we have at least one valid material
+        useMaterial(0);
+    }
+
+    /** Steal mesh.
+     */
+    vts::Mesh&& mesh() { return std::move(mesh_); }
+
+private:
+    typedef std::vector<int> VertexMap;
+    typedef std::vector<VertexMap> VertexMaps;
+
+    virtual void addVertex(const Vector3d &v) {
+        vertices_.emplace_back(v.x, v.y, v.z);
+    }
+
+    virtual void addTexture(const Vector3d &t) {
+        tc_.emplace_back(t.x, t.y);
+    }
+
+    template <typename VertexType>
+    void addFace(const int f[3], vts::Face &face
+                 , const std::vector<VertexType> &vertices
+                 , std::vector<VertexType> &out
+                 , VertexMap &vmap)
+    {
+        for (int i(0); i < 3; ++i) {
+            const std::size_t src(f[i]);
+            // ensure space in map
+            if (vmap.size() <= src) { vmap.resize(src + 1, -1); }
+
+            auto &dst(vmap[src]);
+            if (dst < 0) {
+                // new mapping
+                dst = out.size();
+                out.push_back(vertices[src]);
+            }
+            face(i) = dst;
+        }
+    }
+
+    virtual void addFacet(const Facet &f) {
+        auto &sm(mesh_.submeshes[textureId_]);
+        sm.faces.emplace_back();
+        addFace(f.v, sm.faces.back(), vertices_, sm.vertices, *vMap_);
+
+        sm.facesTc.emplace_back();
+        addFace(f.t, sm.facesTc.back(), tc_, sm.tc, *tcMap_);
+    }
+
+    virtual void useMaterial(const std::string &m) {
+        // get new material index
+        useMaterial(boost::lexical_cast<unsigned int>(m));
+    }
+
+    void useMaterial(unsigned int textureId) {
+        textureId_ = textureId;
+
+        // ensure space in all lists
+        if (mesh_.submeshes.size() <= textureId_) {
+            mesh_.submeshes.resize(textureId_ + 1);
+            vMaps_.resize(textureId_ + 1);
+            tcMaps_.resize(textureId_ + 1);
+
+            vMap_ = &vMaps_[textureId_];
+            tcMap_ = &tcMaps_[textureId_];
+        }
+    }
+
+    virtual void addNormal(const Vector3d&) { /*ignored*/ }
+    virtual void materialLibrary(const std::string&) { /*ignored*/ }
+
+    math::Points3 vertices_;
+    math::Points2 tc_;
+    VertexMaps vMaps_;
+    VertexMaps tcMaps_;
+
+    vts::Mesh mesh_;
+    unsigned int textureId_;
+
+    VertexMap *vMap_;
+    VertexMap *tcMap_;
+};
+
+} // namespace
+
+Mesh loadMeshFromObj(std::istream &is
+                     , const boost::filesystem::path &path)
+{
+    ObjLoader loader;
+    if (!loader.parse(is)) {
+        LOGTHROW(err2, std::runtime_error)
+            << "Unable to load mesh from OBJ file at " << path << ".";
+    }
+    return loader.mesh();
 }
 
 } } // namespace vadstena::vts
