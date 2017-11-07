@@ -167,8 +167,17 @@ struct SubmeshMergeOptions {
      */
     AtlasPacking atlasPacking;
 
+    /** Maximum number of vertices per one submesh. Use 0 for safe default.
+     */
+    std::size_t maxVertexCount;
+
+    /** Maximum number of face per one submesh. Use 0 for safe default.
+     */
+    std::size_t maxFaceCount;
+
     SubmeshMergeOptions()
         : atlasPacking(AtlasPacking::progressive)
+        , maxVertexCount(), maxFaceCount()
     {}
 };
 

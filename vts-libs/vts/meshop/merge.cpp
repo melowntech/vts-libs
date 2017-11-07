@@ -100,6 +100,10 @@ namespace fs = boost::filesystem;
 const char *VTS_MESH_MERGE_DUMP_DIR(std::getenv("VTS_MESH_MERGE_DUMP_DIR"));
 const char *NO_ATLAS_INPAINT(std::getenv("NO_ATLAS_INPAINT"));
 
+
+const std::size_t DefaultMaxVertexCount(1 << 15);
+const std::size_t DefaultMaxFaceCount(1 << 15);
+
 typedef std::vector<cv::Mat> MatList;
 
 inline math::Point2d normalize(const imgproc::UVCoord &uv
@@ -851,14 +855,11 @@ struct EntityCounter {
     void reset() { vertexCount = faceCount = count = 0; }
 };
 
-// limits, TODO: make configurable
-// cannot be larger than 2^16-1
-const EntityCounter MeshLimits(1 << 15, 1 << 15);
-
 /** Precondition: submeshes from the same source are grouped.
  */
 Range::list groupSubmeshes(const SubMesh::list &sms, Indices &indices
-                           , std::size_t textured)
+                           , std::size_t textured
+                           , const EntityCounter meshLimits)
 {
     // compare submeshes to group together submeshes with the same
     // surfaceReference and the same uvAreaScale (i.e. compatible ones)
@@ -885,7 +886,7 @@ Range::list groupSubmeshes(const SubMesh::list &sms, Indices &indices
             const auto &sm(sms[indices[i]]);
             ec.update(sm);
             if (first || !out.back().compatible(sm)
-                || !ec.check(MeshLimits))
+                || !ec.check(meshLimits))
             {
                 out.emplace_back(indices, sm, textured);
                 out.back().indexStart = i;
@@ -995,6 +996,11 @@ private:
     std::size_t index_;
 };
 
+inline std::size_t applyDefault(std::size_t value, std::size_t dflt)
+{
+    return value ? value : dflt;
+}
+
 class MeshAtlasBuilder {
 public:
     MeshAtlasBuilder(const TileId &tileId
@@ -1009,7 +1015,11 @@ public:
     {
         merge(groupSubmeshes
               (mesh->submeshes, smIndices_
-               , boost::apply_visitor(GetAtlas(), atlas)->size()));
+               , boost::apply_visitor(GetAtlas(), atlas)->size()
+               , EntityCounter(applyDefault(options.maxVertexCount
+                                            , DefaultMaxVertexCount)
+                               , (applyDefault(options.maxFaceCount
+                                               , DefaultMaxFaceCount)))));
     }
 
     MeshAtlas result() const {
