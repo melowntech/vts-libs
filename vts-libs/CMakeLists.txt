@@ -105,7 +105,7 @@ if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core:tilestorage)
     )
 
   set(VTSLIBS_HAS_TILESTORAGE TRUE PARENT_SCOPE)
-  list(APPEND MODULE_DEFINITIONS VTSLIBS_HAS_TILESTORAGE=1)
+  list(APPEND tilestorage-core_DEFINITIONS VTSLIBS_HAS_TILESTORAGE=1)
 else()
   message(STATUS "vts-libs-core: compiling without tilestorage stuff")
   set(tilestorage_BROWSER_SOURCES)
@@ -366,6 +366,8 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core)
 
     ${vts-registry_python_DEPENDS}
     ${vts-core_EXTRA_DEPENDS}
+
+    DEFINITIONS ${tilestorage-core_DEFINITIONS}
     )
 
   add_library(vts-libs-core STATIC
