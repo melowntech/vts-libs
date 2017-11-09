@@ -103,6 +103,9 @@ if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core:tilestorage)
 
     tilestorage/config.hpp tilestorage/config.cpp
     )
+
+  set(VTSLIBS_HAS_TILESTORAGE TRUE PARENT_SCOPE)
+  list(APPEND MODULE_DEFINITIONS VTSLIBS_HAS_TILESTORAGE=1)
 else()
   message(STATUS "vts-libs-core: compiling without tilestorage stuff")
   set(tilestorage_BROWSER_SOURCES)
