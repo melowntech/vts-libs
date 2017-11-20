@@ -387,4 +387,10 @@ HybridAtlas::HybridAtlas(const Atlas &atlas, int textureQuality)
         << "Cannot extract images from provided atlas.";
 }
 
+void HybridAtlas::duplicate()
+{
+    if (empty()) { return; }
+    add(entry(size() - 1));
+}
+
 } } } // namespace vtslibs::vts::opencv
