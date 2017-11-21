@@ -89,12 +89,17 @@ bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileIndex
                   , FileFlavor *flavor = nullptr);
 
 std::string fileTemplate(TileFile type
-                         , boost::optional<unsigned int> revision
+                         , const boost::optional<unsigned int> &revision
                          = boost::none);
 
 std::string fileTemplate(TileFile type, FileFlavor flavor
-                         , boost::optional<unsigned int> revision
+                         , const boost::optional<unsigned int> &revision
                          = boost::none);
+
+std::string filePath(TileFile type, const TileId &tileId
+                     , const boost::optional<unsigned int> &subfile
+                     , const boost::optional<unsigned int> &revision
+                     = boost::none);
 
 std::size_t tileCount(Lod lod);
 
@@ -423,7 +428,8 @@ inline TileId local(const NodeInfo &nodeInfo)
 }
 
 inline std::string fileTemplate(TileFile type
-                                , boost::optional<unsigned int> revision)
+                                , const boost::optional<unsigned int>
+                                &revision)
 {
     return fileTemplate(type, FileFlavor::regular, revision);
 }
