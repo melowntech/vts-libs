@@ -40,6 +40,7 @@
 
 #include "utility/streams.hpp"
 #include "utility/expect.hpp"
+#include "utility/stl-helpers.hpp"
 
 #include "math/math.hpp"
 #include "math/transform.hpp"
@@ -834,32 +835,48 @@ operator<<(std::basic_ostream<CharT, Traits> &os, const Range &r)
 struct EntityCounter {
     std::size_t count;
     std::size_t vertexCount;
+    std::size_t tcCount;
     std::size_t faceCount;
 
     EntityCounter(std::size_t vertexCount = 0, std::size_t faceCount = 0)
-        : count(0), vertexCount(vertexCount), faceCount(faceCount)
+        : count(0), vertexCount(vertexCount), tcCount(vertexCount)
+        , faceCount(faceCount)
+    {}
+
+    EntityCounter(const SubMesh &sm)
+        : count(1), vertexCount(sm.vertices.size()), tcCount(sm.tc.size())
+        , faceCount(sm.faces.size())
     {}
 
     void update(const SubMesh &sm) {
         vertexCount += sm.vertices.size();
+        tcCount += sm.tc.size();
         faceCount += sm.faces.size();
         ++count;
     }
 
-    bool check(const EntityCounter &limits) const {
-        return ((count < 2)
-                || ((vertexCount < limits.vertexCount)
-                    && (faceCount < limits.faceCount)));
+    bool check(const EntityCounter &limits, bool atLeastOne = false) const {
+        if (atLeastOne && (count == 1)) { return true; }
+        return ((vertexCount <= limits.vertexCount)
+                && (tcCount <= limits.tcCount)
+                && (faceCount <= limits.faceCount));
     }
 
-    void reset() { vertexCount = faceCount = count = 0; }
+    bool available(const SubMesh &sm) const {
+        if ((sm.vertices.size() + 3) > vertexCount) { return false; }
+        if ((sm.tc.size() + 3) > tcCount) { return false; }
+        if ((sm.faces.size() + 1) > faceCount) { return false; }
+        return true;
+    }
+
+    void reset() { vertexCount = faceCount = tcCount = count = 0; }
 };
 
 /** Precondition: submeshes from the same source are grouped.
  */
 Range::list groupSubmeshes(const SubMesh::list &sms, Indices &indices
                            , std::size_t textured
-                           , const EntityCounter meshLimits)
+                           , const EntityCounter &meshLimits)
 {
     // compare submeshes to group together submeshes with the same
     // surfaceReference and the same uvAreaScale (i.e. compatible ones)
@@ -886,7 +903,7 @@ Range::list groupSubmeshes(const SubMesh::list &sms, Indices &indices
             const auto &sm(sms[indices[i]]);
             ec.update(sm);
             if (first || !out.back().compatible(sm)
-                || !ec.check(meshLimits))
+                || !ec.check(meshLimits, true))
             {
                 out.emplace_back(indices, sm, textured);
                 out.back().indexStart = i;
@@ -1011,15 +1028,16 @@ public:
         : tileId_(tileId), textureQuality_(textureQuality), options_(options)
         , originalMesh_(mesh), originalAtlas_(atlas)
         , oSubmeshes_(mesh->submeshes)
-        , meshEnd_(0), atlasEnd_(0)
+        , meshLimits_(applyDefault(options.maxVertexCount
+                                   , DefaultMaxVertexCount)
+                      , (applyDefault(options.maxFaceCount
+                                      , DefaultMaxFaceCount)))
+        , meshEnd_(), atlasEnd_()
     {
         merge(groupSubmeshes
               (mesh->submeshes, smIndices_
                , boost::apply_visitor(GetAtlas(), atlas)->size()
-               , EntityCounter(applyDefault(options.maxVertexCount
-                                            , DefaultMaxVertexCount)
-                               , (applyDefault(options.maxFaceCount
-                                               , DefaultMaxFaceCount)))));
+               , meshLimits_));
     }
 
     MeshAtlas result() const {
@@ -1041,6 +1059,8 @@ private:
     SubMesh& mergeNonTextured(const Range &range);
     void mergeTextured(const Range &range);
 
+    void breakSubmesh();
+
     TextureInfo::list texturing(const Range &range) const;
 
     const TileId tileId_;
@@ -1049,6 +1069,7 @@ private:
     const Mesh::pointer originalMesh_;
     const InputAtlas originalAtlas_;
     const SubMesh::list oSubmeshes_;
+    const EntityCounter meshLimits_;
     Mesh::pointer mesh_;
     HybridAtlas::pointer atlas_;
     std::size_t meshEnd_;
@@ -1080,17 +1101,12 @@ void MeshAtlasBuilder::merge(const Range &range)
 
     // textured range - always merge (even if it is only one mesh because we
     // want to repack atlas)
-    if (range.textured) {
-        mergeTextured(range);
-        return;
-    }
+    if (range.textured) { return mergeTextured(range); }
 
-    // non textured
-    if (range.size() == 1) {
-        // just one, pass as is
-        pass(range);
-        return;
-    }
+    // non textured submeshes
+
+    // single submes -> pass as is
+    if (range.size() == 1) { return pass(range); }
 
     // merge non-textured submeshes
     mergeNonTextured(range);
@@ -1185,9 +1201,117 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
     std::tie(texture, sm.tc, sm.facesTc)
         = joinTextures(tileId_, texturing(range));
     atlas_->add(texture);
-
     // housekeeping
     atlasEnd_ += range.size();
+
+    if (!EntityCounter(sm).check(meshLimits_)) {
+        // breaks last submesh into compliant submeshes
+        breakSubmesh();
+    }
+}
+
+class MeshBuilder {
+public:
+    MeshBuilder(const EntityCounter &meshLimits, const SubMesh &src)
+        : meshLimits_(meshLimits), src_(src)
+        , vertexMap_(src_.vertices.size(), -1)
+        , tcMap_(src_.tc.size(), -1)
+        , ifaces_(src_.faces.begin())
+        , efaces_(src_.faces.end())
+        , ifacesTc_(src_.facesTc.begin())
+    {}
+
+    std::size_t run(Mesh &mesh);
+
+private:
+    bool run(SubMesh &dst);
+
+    void reset() {
+        vertexMap_.assign(src_.vertices.size(), -1);
+        tcMap_.assign(src_.tc.size(), -1);
+    }
+
+    int addVertex(SubMesh &dst, int v) {
+        auto& mv(vertexMap_[v]);
+        if (mv < 0) {
+            mv = dst.vertices.size();
+            dst.vertices.push_back(src_.vertices[v]);
+
+            // copy external texture coordinate if present
+            if (!src_.etc.empty()) { dst.etc.push_back(src_.etc[v]); }
+        }
+
+
+        return mv;
+    }
+
+    int addTc(SubMesh &dst, int v) {
+        auto& mv(tcMap_[v]);
+        if (mv < 0) {
+            mv = dst.tc.size();
+            dst.tc.push_back(src_.tc[v]);
+        }
+        return mv;
+    }
+
+    void addFace(SubMesh &dst, const Face &f, const Face &ftc) {
+        dst.faces.emplace_back(addVertex(dst, f(0))
+                               , addVertex(dst, f(1))
+                               , addVertex(dst, f(2)));
+        dst.facesTc.emplace_back(addTc(dst, ftc(0))
+                                 , addTc(dst, ftc(1))
+                                 , addTc(dst, ftc(2)));
+    }
+
+    /** TODO: implement capacity check here
+     */
+    bool check(const SubMesh &dst) const {
+        return meshLimits_.available(dst);
+    }
+
+    const EntityCounter &meshLimits_;
+    const SubMesh &src_;
+    std::vector<int> vertexMap_;
+    std::vector<int> tcMap_;
+
+    Faces::const_iterator ifaces_;
+    Faces::const_iterator efaces_;
+    Faces::const_iterator ifacesTc_;
+};
+
+std::size_t MeshBuilder::run(Mesh &mesh)
+{
+    LOG(info1)
+        << "Breaking submesh apart ["
+        << src_.vertices.size() << "/" << src_.tc.size()
+        << "/" << src_.faces.size() << "].";
+
+    const auto start(mesh.submeshes.size());
+    while (run(utility::append(mesh.submeshes))) { reset(); }
+    return (mesh.submeshes.size() - start);
+}
+
+bool MeshBuilder::run(SubMesh &dst)
+{
+    for (; (ifaces_ != efaces_) && check(dst); ++ifaces_, ++ifacesTc_) {
+        addFace(dst, *ifaces_, *ifacesTc_);
+    }
+
+    return (ifaces_ != efaces_);
+}
+
+void MeshAtlasBuilder::breakSubmesh()
+{
+    // steal source mesh from the back of the submeshes
+    auto src(std::move(mesh_->submeshes.back()));
+    mesh_->submeshes.resize(mesh_->submeshes.size() - 1);
+
+    // duplicate texture
+    for (auto smCount(MeshBuilder(meshLimits_, src).run(*mesh_));
+         smCount > 1; --smCount)
+    {
+        atlas_->duplicate();
+    }
 }
 
 std::tuple<cv::Mat, math::Points2d, Faces>

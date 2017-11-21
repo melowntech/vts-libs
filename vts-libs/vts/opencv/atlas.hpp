@@ -130,6 +130,10 @@ public:
     Entry entry(std::size_t index) const;
     void add(const Entry &entry);
 
+    /** Duplicates last image.
+     */
+    void duplicate();
+
     static Image imageFromRaw(const Raw &raw);
     static Raw rawFromImage(const Image &image, int quality);
     static Image imageFromFile(const boost::filesystem::path &file);
@@ -154,10 +158,12 @@ private:
         Raw raw;
         Image image;
         boost::filesystem::path file;
+        boost::optional<std::size_t> source;
 
         Entry(const Raw &raw) : raw(raw) {}
         Entry(const Image &image) : image(image) {}
         Entry(const boost::filesystem::path &file) : file(file) {}
+        Entry(std::size_t source) : source(source) {}
         Entry() {}
     };
 

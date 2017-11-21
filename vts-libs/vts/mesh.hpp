@@ -375,6 +375,7 @@ loadMeshProperNormalized(std::istream &in
 multifile::Table readMeshTable(std::istream &is
                                , const boost::filesystem::path &path
                                = "unknown");
+multifile::Table readMeshTable(const storage::IStream::pointer &in);
 
 MeshMask loadMeshMask(std::istream &is
                       , const boost::filesystem::path &path
@@ -420,6 +421,11 @@ UTILITY_GENERATE_ENUM_IO(SubMesh::TextureMode,
     ((internal))
     ((external))
 )
+
+inline multifile::Table readMeshTable(const storage::IStream::pointer &in)
+{
+    return readMeshTable(*in, in->name());
+}
 
 inline void saveMesh(const storage::OStream::pointer &out, const Mesh &mesh
                      , const Atlas *atlas)
