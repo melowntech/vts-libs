@@ -1281,7 +1281,7 @@ private:
 
 std::size_t MeshBuilder::run(Mesh &mesh)
 {
-    LOG(info4)
+    LOG(info1)
         << "Breaking submesh apart ["
         << src_.vertices.size() << "/" << src_.tc.size()
         << "/" << src_.faces.size() << "].";

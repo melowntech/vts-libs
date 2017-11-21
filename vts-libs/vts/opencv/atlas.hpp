@@ -158,10 +158,12 @@ private:
         Raw raw;
         Image image;
         boost::filesystem::path file;
+        boost::optional<std::size_t> source;
 
         Entry(const Raw &raw) : raw(raw) {}
         Entry(const Image &image) : image(image) {}
         Entry(const boost::filesystem::path &file) : file(file) {}
+        Entry(std::size_t source) : source(source) {}
         Entry() {}
     };
 

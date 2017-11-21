@@ -76,6 +76,32 @@ cv::Mat jpeg2mat(const std::vector<unsigned char> &buf
 
 } // namespace
 
+Atlas::Atlas(const vts::Atlas &atlas, int textureQuality)
+    : quality_(textureQuality)
+{
+    if (const auto *in = dynamic_cast<const RawAtlas*>(&atlas)) {
+        for (const auto &image : in->get()) {
+            images_.push_back(jpeg2mat(image));
+        }
+        return;
+    }
+
+    if (const auto *in = dynamic_cast<const opencv::Atlas*>(&atlas)) {
+        images_ = in->get();
+        return;
+    }
+
+    if (const auto *in = dynamic_cast<const HybridAtlas*>(&atlas)) {
+        for (std::size_t i(0), e(in->size()); i != e; ++i) {
+            images_.push_back(in->get(i));
+        }
+        return;
+    }
+
+    LOGTHROW(err1, storage::Unimplemented)
+        << "Cannot extract images from provided atlas.";
+}
+
 multifile::Table Atlas::serialize_impl(std::ostream &os) const
 {
     multifile::Table table;
@@ -226,6 +252,9 @@ void HybridAtlas::set(std::size_t index, const fs::path &file)
 HybridAtlas::Image HybridAtlas::get(std::size_t index) const
 {
     const auto &entry(entries_[index]);
+    // redirect
+    if (entry.source) { return get(*entry.source); }
+
     if (entry.image.data) { return entry.image; }
     if (!entry.file.empty()) { return imgproc::readImage(entry.file); }
     return imageFromRaw(entry.raw);
@@ -259,6 +288,7 @@ multifile::Table HybridAtlas::serialize_impl(std::ostream &os) const
     multifile::Table table;
     auto pos(os.tellp());
 
+    std::size_t index(0);
     for (const auto &entry : entries_) {
         using utility::binaryio::write;
         if (entry.image.data) {
@@ -269,10 +299,18 @@ multifile::Table HybridAtlas::serialize_impl(std::ostream &os) const
             auto buf(mat2jpeg(imageFromFile(entry.file), quality_));
             write(os, buf.data(), buf.size());
             pos = table.add(pos, buf.size());
+        } else if (entry.source) {
+            if (*entry.source >= index) {
+                LOGTHROW(err1, storage::BadFileFormat)
+                    << "Invalid source index " << *entry.source << ".";
+            }
+            // clone table entry
+            table.add(table.entries[*entry.source]);
         } else {
             write(os, entry.raw.data(), entry.raw.size());
             pos = table.add(pos, entry.raw.size());
         }
+        ++index;
     }
 
     return table;
@@ -300,6 +338,10 @@ math::Size2 HybridAtlas::imageSize_impl(std::size_t index) const
 {
     if (index >= entries_.size()) { return {}; }
     const auto &entry(entries_[index]);
+
+    // redirect
+    if (entry.source) { return imageSize_impl(*entry.source); }
+
     if (entry.image.data) {
         // opencv image
         return math::Size2(entry.image.cols, entry.image.rows);
@@ -330,35 +372,11 @@ void HybridAtlas::write_impl(std::ostream &os, std::size_t index) const
         }
         auto buf(mat2jpeg(mat, quality_));
         write(os, buf.data(), buf.size());
+    } else if (e.source) {
+        write_impl(os, *e.source);
     } else {
         write(os, e.raw.data(), e.raw.size());
     }
-}
-
-Atlas::Atlas(const vts::Atlas &atlas, int textureQuality)
-    : quality_(textureQuality)
-{
-    if (const auto *in = dynamic_cast<const RawAtlas*>(&atlas)) {
-        for (const auto &image : in->get()) {
-            images_.push_back(jpeg2mat(image));
-        }
-        return;
-    }
-
-    if (const auto *in = dynamic_cast<const opencv::Atlas*>(&atlas)) {
-        images_ = in->get();
-        return;
-    }
-
-    if (const auto *in = dynamic_cast<const HybridAtlas*>(&atlas)) {
-        for (std::size_t i(0), e(in->size()); i != e; ++i) {
-            images_.push_back(in->get(i));
-        }
-        return;
-    }
-
-    LOGTHROW(err1, storage::Unimplemented)
-        << "Cannot extract images from provided atlas.";
 }
 
 HybridAtlas::HybridAtlas(const Atlas &atlas, int textureQuality)
@@ -390,7 +408,13 @@ HybridAtlas::HybridAtlas(const Atlas &atlas, int textureQuality)
 void HybridAtlas::duplicate()
 {
     if (empty()) { return; }
-    add(entry(size() - 1));
+
+    std::size_t index(size() - 1);
+    while (entries_[index].source) {
+        index = *entries_[index].source;
+    }
+
+    add(Entry(index));
 }
 
 } } } // namespace vtslibs::vts::opencv

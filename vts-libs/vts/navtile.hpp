@@ -35,6 +35,7 @@
 #include "math/geometry_core.hpp"
 #include "imgproc/rastermask/quadtree.hpp"
 
+#include "../storage/streams.hpp"
 #include "../storage/range.hpp"
 
 #include "./multifile.hpp"
@@ -74,6 +75,7 @@ public:
     static multifile::Table readTable(std::istream &is
                                       , const boost::filesystem::path &path
                                       = "unknown");
+    static multifile::Table readTable(const storage::IStream::pointer &is);
 
     static constexpr unsigned int imageIndex() { return 0; }
 
@@ -120,6 +122,11 @@ private:
     Image image_;
     CoverageMask coverageMask_;
 };
+
+inline multifile::Table NavTile::readTable(const storage::IStream::pointer &is)
+{
+    return readTable(*is, is->name());
+}
 
 } } // namespace vtslibs::vts
 

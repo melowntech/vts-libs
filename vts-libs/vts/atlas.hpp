@@ -38,6 +38,8 @@
 
 #include "./multifile.hpp"
 
+#include "../storage/streams.hpp"
+
 namespace vtslibs { namespace vts {
 
 class Mesh;
@@ -80,6 +82,8 @@ public:
     static multifile::Table readTable(std::istream &is
                                       , const boost::filesystem::path &path
                                       = "unknown");
+
+    static multifile::Table readTable(const storage::IStream::pointer &is);
 
 private:
     virtual multifile::Table serialize_impl(std::ostream &os) const = 0;
@@ -142,6 +146,11 @@ inline double Atlas::area(std::size_t index) const
 inline void Atlas::write(std::ostream &os, std::size_t index) const
 {
     write_impl(os, index);
+}
+
+inline multifile::Table Atlas::readTable(const storage::IStream::pointer &is)
+{
+    return readTable(*is, is->name());
 }
 
 } } // namespace vtslibs::vts

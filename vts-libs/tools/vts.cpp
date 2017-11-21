@@ -57,6 +57,7 @@
 #include "../registry/po.hpp"
 #include "../vts.hpp"
 #include "../vts/io.hpp"
+#include "../vts/mesh.hpp"
 #include "../vts/atlas.hpp"
 #include "../vts/tileflags.hpp"
 #include "../vts/metaflags.hpp"
@@ -64,6 +65,7 @@
 #include "../vts/opencv/colors.hpp"
 #include "../vts/opencv/navtile.hpp"
 #include "../vts/tileset/delivery.hpp"
+#include "../vts/tileset/driver.hpp"
 #include "../vts/2d.hpp"
 #include "../vts/visit.hpp"
 #include "../vts/csconvertor.hpp"
@@ -97,6 +99,7 @@ namespace ba = boost::algorithm;
     ((dumpMesh)("dump-mesh"))                                       \
     ((dumpMeshMask)("dump-mesh-mask"))                              \
     ((exportMesh)("export-mesh"))                                   \
+    ((tileMultifileLayout)("tile-multifile-layout"))                \
     ((tileIndexInfo)("tileindex-info"))                             \
     ((tileIndexRanges)("tileindex-ranges"))                         \
     ((convertTileIndex)("convert-tileindex"))                       \
@@ -276,6 +279,8 @@ private:
     int dumpMesh();
     int dumpMeshMask();
     int exportMesh();
+
+    int tileMultifileLayout();
 
     int tileIndexInfo();
     int tileIndexRanges();
@@ -933,6 +938,24 @@ void VtsStorage::configuration(po::options_description &cmdline
                 outputPath_ = boost::lexical_cast<std::string>(tileId_);
             }
         };
+    });
+
+    createParser(cmdline, Command::tileMultifileLayout
+                 , "--command=tile-multifile-layout: show multifile layout "
+                 "(reads multifile table)"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileId", po::value(&tileId_)->required()
+             , "ID of tile to query.")
+            ("filter", po::value(&tileFlags_)
+             ->default_value(vts::TileIndex::Flag::mesh)
+             ->required()
+             , "File type filter (mesh, altas, navtile)")
+            ;
+
+        p.positional.add("tileId", 1);
+        p.positional.add("filter", 1);
     });
 
     createParser(cmdline, Command::tileIndexInfo
@@ -2201,6 +2224,38 @@ int VtsStorage::dumpMeshMask()
     imgproc::png::write(outputPath_
                         , vts::debugMask(ts.getMeshMask(tileId_, generate_))
                         , 9);
+
+    return EXIT_SUCCESS;
+}
+
+void dumpMT(const std::string &what, const vts::multifile::Table &mt)
+{
+    std::cout << what << ": version=" << mt.version << ", magic=\""
+              << mt.magic << "\", entries:\n";
+    for (const auto &e : mt.entries) {
+        std::cout << "    " << e.start << ", " << e.size << "\n";
+    }
+}
+
+int VtsStorage::tileMultifileLayout()
+{
+    auto ts(vts::openTileSet(path_));
+    auto &driver(ts.driver());
+
+    if (tileFlags_.value & vts::TileIndex::Flag::mesh) {
+        dumpMT("mesh", vts::readMeshTable
+               (driver.input(tileId_, vs::TileFile::mesh)));
+    }
+
+    if (tileFlags_.value & vts::TileIndex::Flag::atlas) {
+        dumpMT("atlas", vts::Atlas::readTable
+               (driver.input(tileId_, vs::TileFile::atlas)));
+    }
+
+    if (tileFlags_.value & vts::TileIndex::Flag::navtile) {
+        dumpMT("navtile", vts::NavTile::readTable
+               (driver.input(tileId_, vs::TileFile::navtile)));
+    }
 
     return EXIT_SUCCESS;
 }
