@@ -48,6 +48,10 @@ struct Table {
         std::size_t end() const { return start + size; }
 
         operator bool() const { return size; }
+
+        bool operator==(const Entry &e) const {
+            return (start == e.start) && (size == e.size);
+        }
     };
 
     typedef std::vector<Entry> Entries;
