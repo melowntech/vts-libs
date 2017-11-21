@@ -183,9 +183,8 @@ std::string asFilename(const TileId &tileId, TileFile type, FileFlavor flavor)
 }
 
 std::string fileTemplate(TileFile type, FileFlavor flavor
-                         , boost::optional<unsigned int> revision)
+                         , const boost::optional<unsigned int> &revision)
 {
-
     std::string ext(extension(type, flavor));
     if (revision) {
         ext = str(boost::format("%s?%s") % ext % *revision);
@@ -200,6 +199,29 @@ std::string fileTemplate(TileFile type, FileFlavor flavor
     }
 
     return str(boost::format("{lod}-{x}-{y}.%s") % ext);
+}
+
+std::string filePath(TileFile type, const TileId &tileId
+                     , const boost::optional<unsigned int> &subfile
+                     , const boost::optional<unsigned int> &revision)
+{
+    std::string ext(extension(type, FileFlavor::regular));
+    if (revision) {
+        ext = str(boost::format("%s?%s") % ext % *revision);
+    }
+
+    switch (type) {
+    case TileFile::atlas:
+    case TileFile::ortho:
+        return str(boost::format("%d-%d-%d-%d.%s")
+                   % tileId.lod % tileId.x % tileId.y
+                   % (subfile ? *subfile : 0) % ext);
+
+    default: break;
+    }
+
+    return str(boost::format("%d-%d-%d.%s")
+               % tileId.lod % tileId.x % tileId.y % ext);
 }
 
 namespace {
