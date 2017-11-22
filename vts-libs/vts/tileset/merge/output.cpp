@@ -45,7 +45,7 @@ Mesh& Output::forceMesh()
     return *mesh;
 }
 
-RawAtlas& Output::forceAtlas()
+opencv::HybridAtlas& Output::forceAtlas()
 {
     if (!atlas) {
         atlas = boost::in_place();
@@ -70,7 +70,7 @@ Tile Output::tile(int textureQuality)
 
         // wrap mesh and atlas in shared pointers
         Mesh::pointer m;
-        RawAtlas::pointer a;
+        opencv::HybridAtlas::pointer a;
         if (atlas) { a.reset(&*atlas, [](void*) {}); }
         if (mesh) { m.reset(&*mesh, [](void*) {}); }
 

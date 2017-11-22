@@ -462,7 +462,9 @@ public:
             , const vts::TileSet &input
             , const Config &config)
         : vts::Encoder(path, properties, mode)
-        , config_(config), input_(input), srcRf_(input_.referenceFrame())
+        , config_(config), input_(input)
+        , inputSource_(tilesetDataSource(input_))
+        , srcRf_(input_.referenceFrame())
         , srcInfo_(input_, referenceFrame(), config.maxClipMargin())
         , debugTileIds_(config.debugTileIds.empty() ? nullptr
                         : &config.debugTileIds)
@@ -482,6 +484,7 @@ private:
     const Config config_;
 
     const vts::TileSet &input_;
+    const vts::MeshOpInput::DataSource::pointer inputSource_;
     const vr::ReferenceFrame srcRf_;
 
     SourceInfoBuilder srcInfo_;
@@ -660,7 +663,7 @@ Encoder::generate(const vts::TileId &tileId, const vts::NodeInfo &nodeInfo
                 // build input for tile transformation:
                 //     * node info is generated on the fly
                 //     * this cannot be a lazy operation
-                vts::MeshOpInput t(id++, input_, srcId, nullptr, false);
+                vts::MeshOpInput t(id++, inputSource_, srcId, nullptr, false);
                 if (t) { source.push_back(t); }
             }
         }

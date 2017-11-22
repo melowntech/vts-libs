@@ -23,6 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 /**
  * \file vts/meshopinput.hpp
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
@@ -37,33 +38,20 @@
 
 namespace vtslibs { namespace vts {
 
-MeshOpInput::MeshOpInput(Id id, const TileSet::Detail &owner
+MeshOpInput::DataSource::~DataSource() {}
+
+MeshOpInput::MeshOpInput(Id id, DataSource::pointer owner
                          , const TileId &tileId
                          , const NodeInfo *nodeInfo, bool lazy)
-    : id_(id), tileId_(tileId), owner_(&owner)
-    , flags_(owner_->tileIndex.get(tileId))
+    : id_(id), tileId_(tileId), owner_(std::move(owner))
+    , flags_(owner_->flags(tileId))
     , nodeInfo_(nodeInfo)
     , nodeLoaded_(false), node_()
-    , mergeableRange_(owner_->properties.lodRange)
+    , mergeableRange_(owner_->properties().lodRange)
 {
     prepare(lazy);
 
-    if (auto bottom = owner_->properties.mergeBottomLod) {
-        mergeableRange_.max = bottom;
-    }
-}
-
-MeshOpInput::MeshOpInput(Id id, const TileSet &owner, const TileId &tileId
-             , const NodeInfo *nodeInfo, bool lazy)
-    : id_(id), tileId_(tileId), owner_(&owner.detail())
-    , flags_(owner_->tileIndex.get(tileId))
-    , nodeInfo_(nodeInfo)
-    , nodeLoaded_(false), node_()
-    , mergeableRange_(owner_->properties.lodRange)
-{
-    prepare(lazy);
-
-    if (auto bottom = owner_->properties.mergeBottomLod) {
+    if (auto bottom = owner_->properties().mergeBottomLod) {
         mergeableRange_.max = bottom;
     }
 }
@@ -89,14 +77,14 @@ void MeshOpInput::prepare(bool lazy)
     }
 
     if (!nodeInfo_) {
-        ownNodeInfo_ = NodeInfo(owner_->referenceFrame, tileId_);
+        ownNodeInfo_ = owner_->nodeInfo(tileId_);
         nodeInfo_ = &*ownNodeInfo_;
     }
 }
 
 const std::string& MeshOpInput::name() const
 {
-    return owner_->properties.id;
+    return owner_->properties().id;
 }
 
 const MetaNode& MeshOpInput::node() const
@@ -134,7 +122,7 @@ const Mesh& MeshOpInput::mesh() const
     return *mesh_;
 }
 
-const RawAtlas& MeshOpInput::atlas() const
+const opencv::HybridAtlas& MeshOpInput::atlas() const
 {
     if (!atlas_) {
         atlas_ = boost::in_place();
@@ -170,5 +158,63 @@ math::Matrix4 MeshOpInput::coverage2Texture(int margin)
     return merge::coverage2EtcTrafo(Mesh::coverageSize(), margin);
 }
 
+
+/** Tileset data source.
+ */
+class TsDataSource : public MeshOpInput::DataSource {
+public:
+    TsDataSource(const TileSet::Detail &detail)
+        : DataSource(detail.properties), detail_(detail)
+    {}
+
+    virtual ~TsDataSource() {}
+
+private:
+    virtual TileIndex::Flag::value_type flags_impl(const TileId &tileId)
+        const
+    {
+        return detail_.tileIndex.get(tileId);
+    }
+
+    virtual const MetaNode* findMetaNode_impl(const TileId &tileId)
+        const
+    {
+        return detail_.findMetaNode(tileId);
+    }
+
+    virtual Mesh getMesh_impl(const TileId &tileId
+                              , TileIndex::Flag::value_type flags)
+        const
+    {
+        return detail_.getMesh(tileId, flags);
+    }
+
+    virtual void getAtlas_impl(const TileId &tileId, Atlas &atlas
+                               , TileIndex::Flag::value_type flags)
+        const
+    {
+        return detail_.getAtlas(tileId, atlas, flags);
+    }
+
+    virtual void getNavTile_impl(const TileId &tileId, NavTile &navtile
+                                 , const MetaNode *node)
+        const
+    {
+        return detail_.getNavTile(tileId, navtile, node);
+    }
+
+    virtual NodeInfo nodeInfo_impl(const TileId &tileId) const
+    {
+        return NodeInfo(detail_.referenceFrame, tileId);
+    }
+
+    const TileSet::Detail &detail_;
+};
+
+MeshOpInput::DataSource::pointer
+tilesetDataSource(const TileSet::Detail &detail)
+{
+    return std::make_shared<TsDataSource>(detail);
+}
 
 } } // namespace vtslibs::vts

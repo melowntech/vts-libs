@@ -37,7 +37,7 @@
 
 #include "../basetypes.hpp"
 #include "../tileop.hpp"
-#include "../atlas.hpp"
+#include "../opencv/atlas.hpp"
 #include "../opencv/navtile.hpp"
 #include "../meshopinput.hpp"
 #include "./detail.hpp"
@@ -68,7 +68,7 @@ struct Output {
     TileId tileId;
 
     boost::optional<Mesh> mesh;
-    boost::optional<RawAtlas> atlas;
+    boost::optional<opencv::HybridAtlas> atlas;
     boost::optional<opencv::NavTile> navtile;
     GeomExtents geomExtents;
 
@@ -91,7 +91,7 @@ struct Output {
     }
 
     const Mesh* getMesh() const { return mesh ? &*mesh : nullptr; }
-    const RawAtlas* getAtlas() const {
+    const opencv::HybridAtlas* getAtlas() const {
         return atlas ? &*atlas : nullptr;
     }
     const NavTile* getNavtile() const { return navtile ? &*navtile : nullptr; }
@@ -104,7 +104,7 @@ struct Output {
     Tile tile(int textureQuality);
 
     Mesh& forceMesh();
-    RawAtlas& forceAtlas();
+    opencv::HybridAtlas& forceAtlas();
     opencv::NavTile& forceNavtile();
 
     bool derived(std::size_t index) const {

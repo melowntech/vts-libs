@@ -110,14 +110,11 @@ inline void dump(const char *root, const boost::filesystem::path &dir
     }
 }
 
-typedef std::vector<const TileSet::Detail*> DetailList;
-
-DetailList details(TileSet::Detail &detail
-                   , const TileSet::list &sets)
+MeshOpInput::DataSource::list sources(const TileSet::list &sets)
 {
-    DetailList out;
+    MeshOpInput::DataSource::list out;
     for (const auto &set : sets) {
-        out.push_back(&detail.other(set));
+        out.push_back(tilesetDataSource(set.detail()));
     }
     return out;
 }
@@ -131,7 +128,7 @@ public:
            , const GlueCreationOptions &options)
         : glue_(glue), world_(generate), generate_(generate)
         , navtileGenerate_(navtileGenerate)
-        , src_(details(glue, srcSets)), top_(*src_.back())
+        , src_(sources(srcSets)), top_(srcSets.back().detail())
         , topId_(src_.size() - 1), progress_(generate_.count())
         , options_(options)
     {
@@ -178,7 +175,7 @@ private:
     TileIndex world_;
     const TileIndex &generate_;
     const TileIndex &navtileGenerate_;
-    const DetailList src_;
+    const MeshOpInput::DataSource::list src_;
     const TileSet::Detail &top_;
     const merge::Input::Id topId_;
 
@@ -314,8 +311,8 @@ merge::Output Merger::processTile(const NodeInfo &nodeInfo
     merge::Input::list input;
     {
         merge::Input::Id id(0);
-        for (const auto *ts : src_) {
-            merge::Input t(id++, *ts, tileId, &nodeInfo);
+        for (const auto &source : src_) {
+            merge::Input t(id++, source, tileId, &nodeInfo);
             if (t) { input.push_back(t); }
         }
     }

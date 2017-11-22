@@ -229,14 +229,6 @@ public:
     registry::RegistryBase loadRegistry() const;
     static registry::RegistryBase loadRegistry(const Driver &driver);
 
-    Detail& other(TileSet &otherSet) {
-        return otherSet.detail();
-    }
-
-    const Detail& other(const TileSet &otherSet) const {
-        return otherSet.detail();
-    }
-
     bool fullyCovered(const TileId &tileId) const;
 
     TileIndex::Flag::value_type extraFlags(const TileId &tileId) const;

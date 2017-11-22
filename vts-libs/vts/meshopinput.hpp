@@ -23,6 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 /**
  * \file vts/meshopinput.hpp
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
@@ -33,11 +34,14 @@
 #ifndef vtslibs_vts_meshop_hpp_included_
 #define vtslibs_vts_meshop_hpp_included_
 
+#include <memory>
+#include <vector>
+
 #include <boost/optional.hpp>
 
 #include "./basetypes.hpp"
 #include "./tileop.hpp"
-#include "./atlas.hpp"
+#include "./opencv/atlas.hpp"
 #include "./opencv/navtile.hpp"
 #include "./tileset.hpp"
 
@@ -47,6 +51,8 @@ namespace vtslibs { namespace vts {
  */
 class MeshOpInput {
 public:
+    class DataSource;
+
     typedef int Id;
 
     /** Create meshop input.
@@ -57,18 +63,8 @@ public:
      *  \param nodeInfo node info (fetched from tileset if null)
      *  \param lazy loads data on demand
      */
-    MeshOpInput(Id id, const TileSet::Detail &owner, const TileId &tileId
-                , const NodeInfo *nodeInfo = nullptr, bool lazy = true);
-
-    /** Create meshop input.
-     *
-     *  \param id owner identifier; used for sorting purposes
-     *  \param owner owner of the tile
-     *  \param tileId tile identifier
-     *  \param nodeInfo node info (fetched from tileset if null)
-     *  \param lazy loads data on demand
-     */
-    MeshOpInput(Id id, const TileSet &owner, const TileId &tileId
+    MeshOpInput(Id id, std::shared_ptr<DataSource> owner
+                , const TileId &tileId
                 , const NodeInfo *nodeInfo = nullptr, bool lazy = true);
 
     /** Input is valid only if there is node with geometry
@@ -89,7 +85,7 @@ public:
 
     /** Returns atlas. Lazy load.
      */
-    const RawAtlas& atlas() const;
+    const opencv::HybridAtlas& atlas() const;
 
     /** Returns atlas. Lazy load.
      */
@@ -103,9 +99,9 @@ public:
 
     static math::Matrix4 coverage2Texture(int margin);
 
-    /** Return owning tileset
+    /** Return owning datasource
      */
-    const TileSet::Detail *owner() const { return owner_; }
+    std::shared_ptr<DataSource> owner() const { return owner_; }
 
     const std::string& name() const;
 
@@ -133,14 +129,14 @@ private:
      *  Default to (0, 0, 0).
      */
     TileId tileDiff_;
-    const TileSet::Detail *owner_;
+    std::shared_ptr<DataSource> owner_;
     TileIndex::Flag::value_type flags_;
     const NodeInfo *nodeInfo_;
 
     mutable bool nodeLoaded_;
     mutable const MetaNode *node_;
     mutable boost::optional<Mesh> mesh_;
-    mutable boost::optional<RawAtlas> atlas_;
+    mutable boost::optional<opencv::HybridAtlas> atlas_;
     mutable boost::optional<opencv::NavTile> navtile_;
 
     /** Valid only when not using exernal node info
@@ -149,6 +145,126 @@ private:
 
     LodRange mergeableRange_;
 };
+
+class MeshOpInput::DataSource {
+public:
+    typedef std::shared_ptr<DataSource> pointer;
+    typedef std::vector<pointer> list;
+
+    DataSource(const TileSet::Properties &properties)
+        : properties_(properties)
+    {}
+
+    virtual ~DataSource();
+
+    /** Return datasource properties.
+     */
+    const TileSet::Properties& properties() const { return properties_; }
+
+    /** Get tileindex flags for given tile.
+     */
+    TileIndex::Flag::value_type flags(const TileId &tileId) const;
+
+    /** Find metanode for given tile.
+     */
+    const MetaNode* findMetaNode(const TileId &tileId) const;
+
+    /** Get tile's mesh.
+     */
+    Mesh getMesh(const TileId &tileId, TileIndex::Flag::value_type flags)
+        const;
+
+    /** Get tile's atlas.
+     */
+    void getAtlas(const TileId &tileId, Atlas &atlas
+                  , TileIndex::Flag::value_type flags) const;
+
+    /** Get tile's navtile.
+     */
+    void getNavTile(const TileId &tileId, NavTile &navtile
+                    , const MetaNode *node) const;
+
+    /** Get node info for given tile.
+     */
+    NodeInfo nodeInfo(const TileId &tileId) const;
+
+private:
+    virtual TileIndex::Flag::value_type flags_impl(const TileId &tileId)
+        const = 0;
+
+    virtual const MetaNode* findMetaNode_impl(const TileId &tileId)
+        const = 0;
+
+    virtual Mesh getMesh_impl(const TileId &tileId
+                              , TileIndex::Flag::value_type flags)
+        const = 0;
+
+    virtual void getAtlas_impl(const TileId &tileId, Atlas &atlas
+                               , TileIndex::Flag::value_type flags)
+        const = 0;
+
+    virtual void getNavTile_impl(const TileId &tileId, NavTile &navtile
+                                 , const MetaNode *node)
+        const = 0;
+
+    virtual NodeInfo nodeInfo_impl(const TileId &tileId) const = 0;
+
+    /** Datasource properties.
+     */
+    const TileSet::Properties properties_;
+};
+
+MeshOpInput::DataSource::pointer
+tilesetDataSource(const TileSet &tileset);
+
+MeshOpInput::DataSource::pointer
+tilesetDataSource(const TileSet::Detail &detail);
+
+// inlines
+
+inline TileIndex::Flag::value_type
+MeshOpInput::DataSource::flags(const TileId &tileId) const
+{
+    return flags_impl(tileId);
+}
+
+inline const MetaNode*
+MeshOpInput::DataSource::findMetaNode(const TileId &tileId) const
+{
+    return findMetaNode_impl(tileId);
+}
+
+inline Mesh
+MeshOpInput::DataSource::getMesh(const TileId &tileId
+                                 , TileIndex::Flag::value_type flags) const
+{
+    return getMesh_impl(tileId, flags);
+}
+
+inline void
+MeshOpInput::DataSource::getAtlas(const TileId &tileId, Atlas &atlas
+                                  , TileIndex::Flag::value_type flags) const
+{
+    return getAtlas_impl(tileId, atlas, flags);
+}
+
+inline void
+MeshOpInput::DataSource::getNavTile(const TileId &tileId, NavTile &navtile
+                                    , const MetaNode *node)
+    const
+{
+    return getNavTile_impl(tileId, navtile, node);
+}
+
+inline NodeInfo MeshOpInput::DataSource::nodeInfo(const TileId &tileId) const
+{
+    return nodeInfo_impl(tileId);
+}
+inline MeshOpInput::DataSource::pointer
+tilesetDataSource(const TileSet &tileset)
+{
+    return tilesetDataSource(tileset.detail());
+}
 
 } } // namespace vtslibs::vts
 
