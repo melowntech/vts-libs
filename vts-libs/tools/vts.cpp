@@ -2217,7 +2217,7 @@ int VtsStorage::dumpMeshMask()
     auto ts(vts::openTileSet(path_));
 
     if (!(ts.tileIndex().get(tileId_) & vts::TileIndex::Flag::mesh)) {
-        std::cerr << tileId_ << ": has no mesh" << '\n';
+        std::cerr << tileId_ << ": has no mesh\n";
         return EXIT_FAILURE;
     }
 
@@ -2240,19 +2240,28 @@ void dumpMT(const std::string &what, const vts::multifile::Table &mt)
 int VtsStorage::tileMultifileLayout()
 {
     auto ts(vts::openTileSet(path_));
-    auto &driver(ts.driver());
+    auto flags(ts.tileIndex().get(tileId_));
 
-    if (tileFlags_.value & vts::TileIndex::Flag::mesh) {
+    if (!flags) {
+        std::cerr << tileId_ << ": no such tile\n";
+        return EXIT_FAILURE;
+    }
+
+    flags &= tileFlags_.value;
+
+    const auto &driver(ts.driver());
+
+    if (flags & vts::TileIndex::Flag::mesh) {
         dumpMT("mesh", vts::readMeshTable
                (driver.input(tileId_, vs::TileFile::mesh)));
     }
 
-    if (tileFlags_.value & vts::TileIndex::Flag::atlas) {
+    if (flags & vts::TileIndex::Flag::atlas) {
         dumpMT("atlas", vts::Atlas::readTable
                (driver.input(tileId_, vs::TileFile::atlas)));
     }
 
-    if (tileFlags_.value & vts::TileIndex::Flag::navtile) {
+    if (flags & vts::TileIndex::Flag::navtile) {
         dumpMT("navtile", vts::NavTile::readTable
                (driver.input(tileId_, vs::TileFile::navtile)));
     }
