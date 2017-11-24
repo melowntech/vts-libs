@@ -357,6 +357,12 @@ public:
      */
     TileIndex& round(Flag::value_type type = Flag::any);
 
+    /** Ensures that quad-tree comdition is met for tiles filtered by
+     *  ((storedValue & mask) == value) every such tile has sibling.
+     */
+    TileIndex& conditionalRound(Flag::value_type mask
+                                , Flag::value_type value);
+
     /** Unsets every occurence of given flag(s).
      */
     TileIndex& unset(Flag::value_type type = Flag::none);

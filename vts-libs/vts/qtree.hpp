@@ -122,6 +122,13 @@ public:
     template <typename FilterOp>
     void coarsen(const FilterOp &filter, bool resize = false);
 
+    /** Coarsen one level up if filter is valid for at least one leaf.
+     *
+     * \param filter filtering operation
+     */
+    template <typename FilterOp>
+    void conditionalCoarsen(const FilterOp &filter);
+
     /** Intersect nodes.
      */
     template <typename FilterOp>
@@ -346,9 +353,14 @@ private:
 
         /** Coarsen one level up.
          *  Uses type(op) to determine node type.
+         *
+         * \param size node size
+         * \param filter determines node color (false->black, true->white)
+         * \param force keeps "black" children as-is if false
          */
         template <typename FilterOp>
-        void coarsen(unsigned int size, const FilterOp &filter);
+        void coarsen(unsigned int size, const FilterOp &filter
+                     , bool force = true);
 
         /** Intersect nodes.
          */
@@ -564,11 +576,19 @@ inline void QTree::merge(const QTree &other, const FilterOp &filter)
 template <typename FilterOp>
 void QTree::coarsen(const FilterOp &filter, bool resize)
 {
-    root_.coarsen(size_, filter);
+    root_.coarsen(size_, filter, true);
     if (resize && order_) {
         --order_;
         size_ = 1 << order_;
     }
+    recount();
+}
+
+
+template <typename FilterOp>
+void QTree::conditionalCoarsen(const FilterOp &filter)
+{
+    root_.coarsen(size_, filter, false);
     recount();
 }
 
@@ -641,20 +661,37 @@ void QTree::Node::merge(const Node &other, const FilterOp &filter)
 }
 
 template <typename FilterOp>
-void QTree::Node::coarsen(unsigned int size, const FilterOp &filter)
+void QTree::Node::coarsen(unsigned int size, const FilterOp &filter
+                          , bool force)
 {
     if (size == 2) {
         if (!children) { return; }
 
-        // 2-pixel non-leaf node -> copy value of first white (or last black)
-        // node into this one
-        for (const auto &child : children->nodes) {
-            value = child.value;
-            if (filter(child.value)) { break; }
+        // 2-pixel non-leaf node
+
+        if (force) {
+            // forced coarsen: copy value of first white (or last black) node
+            // into this one
+            for (const auto &child : children->nodes) {
+                value = child.value;
+                if (filter(child.value)) { break; }
+            }
+            // always drop children
+            children.reset();
+            return;
         }
 
-        // drop children
-        children.reset();
+        // non-forced: keep all black nodes
+        for (const auto &child : children->nodes) {
+            if (filter(child.value)) {
+                // only if filter matches
+                value = child.value;
+                // drop children
+                children.reset();
+                return;
+            }
+        }
+
         return;
     }
 
@@ -663,10 +700,10 @@ void QTree::Node::coarsen(unsigned int size, const FilterOp &filter)
 
     // non leaf -> descend
     size >>= 1;
-    children->nodes[0].coarsen(size, filter);
-    children->nodes[1].coarsen(size, filter);
-    children->nodes[2].coarsen(size, filter);
-    children->nodes[3].coarsen(size, filter);
+    children->nodes[0].coarsen(size, filter, force);
+    children->nodes[1].coarsen(size, filter, force);
+    children->nodes[2].coarsen(size, filter, force);
+    children->nodes[3].coarsen(size, filter, force);
 
     // contract if possible
     contract();

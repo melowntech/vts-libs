@@ -654,6 +654,27 @@ TileIndex& TileIndex::round(Flag::value_type type)
     return *this;
 }
 
+TileIndex& TileIndex::conditionalRound(Flag::value_type mask
+                                       , Flag::value_type value)
+{
+    auto filter([mask, value](QTree::value_type v) {
+            return ((v & mask) == value);
+        });
+
+    if (trees_.empty()) { return *this; }
+
+    // traverse trees top to bottom
+    auto itrees(trees_.begin());
+
+    for (auto &tree : trees_) {
+        // coarsen this node to add siblings (only when filter marks at least
+        // one child as a white)
+        tree.conditionalCoarsen(filter);
+    }
+
+    return *this;
+}
+
 TileIndex& TileIndex::invert(Flag::value_type type)
 {
     auto translate([type](QTree::value_type value) -> QTree::value_type {
