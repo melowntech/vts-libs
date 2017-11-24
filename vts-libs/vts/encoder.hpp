@@ -149,6 +149,16 @@ public:
             return boost::any_cast<T>(&userData_);
         }
 
+        /** Returns reference to stored userdata or to a default if not set.
+         */
+        template <typename T>
+        const T& userDataWithDefault(const T &defaultValue) const {
+            if (const auto *value = boost::any_cast<T>(&userData_)) {
+                return *value;
+            }
+            return defaultValue;
+        }
+
         /** Sets userdata and returns reference to them.
          */
         template <typename T>
