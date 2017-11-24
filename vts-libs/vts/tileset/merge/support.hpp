@@ -103,7 +103,8 @@ public:
      * \param tileId local tile ID.
      */
     SdMeshConvertor(const NodeInfo &nodeInfo, int margin
-                    , const TileId &tileId = TileId());
+                    , const TileId &tileId = TileId()
+                    , bool meshesInSds = false);
 
     virtual math::Point3d vertex(const math::Point3d &v) const;
 
@@ -136,8 +137,10 @@ private:
 
 struct SdMeshConvertor::Lazy {
 public:
-    Lazy(const NodeInfo &nodeInfo, int margin, const TileId &tileId)
-        : factory_(Factory(nodeInfo, margin, tileId)), convertor_(nullptr)
+    Lazy(const NodeInfo &nodeInfo, int margin, const TileId &tileId
+         , bool meshesInSds)
+        : factory_(Factory(nodeInfo, margin, tileId, meshesInSds))
+        , convertor_(nullptr)
     {}
 
     Lazy(const SdMeshConvertor &convertor)
@@ -156,7 +159,8 @@ public:
 
 private:
     typedef decltype(boost::in_place
-                     (std::declval<NodeInfo>(), int(), std::declval<TileId>()))
+                     (std::declval<NodeInfo>(), int(), std::declval<TileId>()
+                      , bool()))
         Factory;
     boost::optional<Factory> factory_;
     mutable boost::optional<SdMeshConvertor> own_;
@@ -174,10 +178,13 @@ inline math::Extents2 coverageExtents(int margin)
 
 inline SdMeshConvertor::SdMeshConvertor(const NodeInfo &nodeInfo
                                         , int margin
-                                        , const TileId &tileId)
+                                        , const TileId &tileId
+                                        , bool meshesInSds)
     : geoTrafo_(Input::coverage2Sd(nodeInfo, margin))
-    , geoConv_(nodeInfo.srs()
-               , nodeInfo.referenceFrame().model.physicalSrs)
+    , geoConv_(meshesInSds
+               ? CsConvertor()
+               : CsConvertor(nodeInfo.srs()
+                             , nodeInfo.referenceFrame().model.physicalSrs))
     , etcNCTrafo_(etcNCTrafo(tileId))
     , coverage2Texture_(Input::coverage2Texture(margin))
 {}

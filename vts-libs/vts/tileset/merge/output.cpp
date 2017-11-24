@@ -40,7 +40,7 @@ Mesh& Output::forceMesh()
 {
     if (!mesh) {
         // mesh with empty mask
-        mesh = boost::in_place(false);
+        mesh = std::make_shared<Mesh>(false);
     }
     return *mesh;
 }
@@ -48,7 +48,7 @@ Mesh& Output::forceMesh()
 opencv::HybridAtlas& Output::forceAtlas()
 {
     if (!atlas) {
-        atlas = boost::in_place();
+        atlas = std::make_shared<opencv::HybridAtlas>();
     }
     return *atlas;
 }
@@ -56,7 +56,7 @@ opencv::HybridAtlas& Output::forceAtlas()
 opencv::NavTile& Output::forceNavtile()
 {
     if (!navtile) {
-        navtile = boost::in_place();
+        navtile = std::make_shared<opencv::NavTile>();
     }
     return *navtile;
 }

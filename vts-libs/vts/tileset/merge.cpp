@@ -509,6 +509,9 @@ void MeshFilter::simpleClip(Coverage &coverage)
         insideFaces += hit.inside;
     }
 
+    // sanity check
+    if (!insideFaces) { return; }
+
     struct MVC : public MeshVertexConvertor {
         const SdMeshConvertor &sdmc;
         const Lod lodDiff;
@@ -766,7 +769,7 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
     Output result(tileId, input, navtileSource);
     if (input.tileId().lod == tileId.lod) {
         // as is -> copy
-        result.mesh = input.mesh();
+        result.mesh = cloneEntity(input.mesh());
         result.geomExtents = input.node().geomExtents;
 
         // update surface references of all submeshes
@@ -774,8 +777,12 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
             sm.surfaceReference = input.id() + 1;
         }
 
-        if (input.hasAtlas()) { result.atlas = input.atlas(); }
-        if (input.hasNavtile()) { result.navtile = input.navtile(); }
+        if (input.hasAtlas()) {
+            result.atlas = cloneEntity(input.atlas());
+        }
+        if (input.hasNavtile()) {
+            result.navtile = cloneEntity(input.navtile());
+        }
         if (generateNavtile) { mergeNavtile(result); }
         return result;
     }
@@ -963,7 +970,8 @@ Output mergeTile(const TileId &tileId
                  , const Input::list &currentSource
                  , const TileSource &parentSource
                  , const MergeConstraints &constraints
-                 , const MergeOptions &options)
+                 , const MergeOptions &options
+                 , const ExtraOptions &extraOptions)
 {
     // merge sources for meshes and navtiles
     auto source
@@ -1055,8 +1063,11 @@ Output mergeTile(const TileId &tileId
     }
 
     // merge meshes
-    CsConvertor phys2sd(nodeInfo.referenceFrame().model.physicalSrs
-                        , nodeInfo.srs());
+    CsConvertor phys2sd;
+    if (!extraOptions.meshesInSds) {
+        phys2sd = CsConvertor(nodeInfo.referenceFrame().model.physicalSrs
+                              , nodeInfo.srs());
+    }
 
     // process all input tiles from result source (i.e. only those contributing
     // to the tile)
@@ -1065,7 +1076,8 @@ Output mergeTile(const TileId &tileId
     IntermediateOutput::list imo;
 
     // mesh convertor (for this tile)
-    SdMeshConvertor thisSdmc(nodeInfo, options.safetyMargin);
+    SdMeshConvertor thisSdmc(nodeInfo, options.safetyMargin
+                             , {}, extraOptions.meshesInSds);
 
     // process all inputs
     for (const auto &input : result.source.mesh) {
@@ -1086,7 +1098,7 @@ Output mergeTile(const TileId &tileId
         // instance if we are using fallback data (deriving subtile)
         auto sdmc(localId.lod
                   ? SdMeshConvertor::Lazy(nodeInfo, options.safetyMargin
-                                          , localId)
+                                          , localId, extraOptions.meshesInSds)
                   : SdMeshConvertor::Lazy(thisSdmc));
 
         // traverse all submeshes

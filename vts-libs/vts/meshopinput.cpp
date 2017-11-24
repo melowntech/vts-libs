@@ -45,7 +45,7 @@ MeshOpInput::MeshOpInput(Id id, DataSource::pointer owner
                          , const NodeInfo *nodeInfo, bool lazy)
     : id_(id), tileId_(tileId), owner_(std::move(owner))
     , flags_(owner_->flags(tileId))
-    , nodeInfo_(nodeInfo)
+    , nodeInfo_(nodeInfo ? *nodeInfo : owner_->nodeInfo(tileId_))
     , nodeLoaded_(false), node_()
     , mergeableRange_(owner_->properties().lodRange)
 {
@@ -67,18 +67,13 @@ bool MeshOpInput::loadNode() const
 
 void MeshOpInput::prepare(bool lazy)
 {
-    if (!lazy) {
-        // preload stuff if not lazy
-        if (loadNode()) {
-            if (hasMesh()) { mesh(); }
-            if (hasAtlas()) { atlas(); }
-            if (hasNavtile()) { navtile(); }
-        }
-    }
+    if (lazy) { return; }
 
-    if (!nodeInfo_) {
-        ownNodeInfo_ = owner_->nodeInfo(tileId_);
-        nodeInfo_ = &*ownNodeInfo_;
+    // preload stuff if not lazy
+    if (loadNode()) {
+        if (hasMesh()) { mesh(); }
+        if (hasAtlas()) { atlas(); }
+        if (hasNavtile()) { navtile(); }
     }
 }
 
@@ -125,8 +120,7 @@ const Mesh& MeshOpInput::mesh() const
 const opencv::HybridAtlas& MeshOpInput::atlas() const
 {
     if (!atlas_) {
-        atlas_ = boost::in_place();
-        owner_->getAtlas(tileId_, *atlas_, flags_);
+        atlas_ = owner_->getAtlas(tileId_, flags_);
     }
 
     return *atlas_;
@@ -136,8 +130,7 @@ const opencv::NavTile& MeshOpInput::navtile() const
 {
     // navtile must have valid node to work properly
     if (!navtile_ && loadNode()) {
-        navtile_ = boost::in_place();
-        owner_->getNavTile(tileId_, *navtile_, node_);
+        navtile_ = owner_->getNavTile(tileId_, node_);
     }
 
     return *navtile_;
@@ -182,25 +175,28 @@ private:
         return detail_.findMetaNode(tileId);
     }
 
-    virtual Mesh getMesh_impl(const TileId &tileId
-                              , TileIndex::Flag::value_type flags)
+    virtual Mesh::pointer getMesh_impl(const TileId &tileId
+                                       , TileIndex::Flag::value_type flags)
         const
     {
-        return detail_.getMesh(tileId, flags);
+        return std::make_shared<Mesh>(detail_.getMesh(tileId, flags));
     }
 
-    virtual void getAtlas_impl(const TileId &tileId, Atlas &atlas
-                               , TileIndex::Flag::value_type flags)
+    virtual opencv::HybridAtlas::pointer
+    getAtlas_impl(const TileId &tileId, TileIndex::Flag::value_type flags)
         const
     {
-        return detail_.getAtlas(tileId, atlas, flags);
+        auto atlas(std::make_shared<opencv::HybridAtlas>());
+        detail_.getAtlas(tileId, *atlas, flags);
+        return atlas;
     }
 
-    virtual void getNavTile_impl(const TileId &tileId, NavTile &navtile
-                                 , const MetaNode *node)
-        const
+    virtual opencv::NavTile::pointer
+    getNavTile_impl(const TileId &tileId, const MetaNode *node)  const
     {
-        return detail_.getNavTile(tileId, navtile, node);
+        auto navtile(std::make_shared<opencv::NavTile>());
+        detail_.getNavTile(tileId, *navtile, node);
+        return navtile;
     }
 
     virtual NodeInfo nodeInfo_impl(const TileId &tileId) const

@@ -67,9 +67,9 @@ struct TileSource {
 struct Output {
     TileId tileId;
 
-    boost::optional<Mesh> mesh;
-    boost::optional<opencv::HybridAtlas> atlas;
-    boost::optional<opencv::NavTile> navtile;
+    Mesh::pointer mesh;
+    opencv::HybridAtlas::pointer atlas;
+    opencv::NavTile::pointer navtile;
     GeomExtents geomExtents;
 
     // list of tiles this tile was generated from
@@ -90,11 +90,13 @@ struct Output {
         return mesh || atlas || navtile;
     }
 
-    const Mesh* getMesh() const { return mesh ? &*mesh : nullptr; }
+    const Mesh* getMesh() const { return mesh ? mesh.get() : nullptr; }
     const opencv::HybridAtlas* getAtlas() const {
-        return atlas ? &*atlas : nullptr;
+        return atlas ? atlas.get() : nullptr;
     }
-    const NavTile* getNavtile() const { return navtile ? &*navtile : nullptr; }
+    const NavTile* getNavtile() const {
+        return navtile ? navtile.get() : nullptr;
+    }
 
     /** Takes content as a tile
      *
@@ -139,16 +141,29 @@ public:
      */
     bool generable() const { return generable_; }
 
+    /** Navtile is generable.
+     */
+    bool generateNavtile() const { return generateNavtile_; }
+
     /** Called when exact sources are identified. Merge returns immediately on
      *  false. By default returns true.
      */
     virtual bool feasible(const Output &result) const;
 
-    bool generateNavtile() const { return generateNavtile_; }
-
 private:
     bool generable_;
     bool generateNavtile_;
+};
+
+/** Extra merge options. Use only in special cases.
+ */
+struct ExtraOptions {
+    /** Meshes are stored in spatial division SRS already if true. Output mesh
+     *  is kept in SDS as well.
+     */
+    bool meshesInSds;
+
+    ExtraOptions() : meshesInSds(false) {}
 };
 
 /** Generates new tile from given source and parent source fallback.
@@ -168,7 +183,8 @@ Output mergeTile(const TileId &tileId
                  , const Input::list &source
                  , const TileSource &parentSource
                  , const MergeConstraints &constraints
-                 , const MergeOptions &options);
+                 , const MergeOptions &options
+                 , const ExtraOptions &extraOptions = ExtraOptions());
 
 // inlines
 

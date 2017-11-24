@@ -47,6 +47,12 @@
 
 namespace vtslibs { namespace vts {
 
+template <typename T>
+std::shared_ptr<T> cloneEntity(const T &value)
+{
+    return std::make_shared<T>(value);
+}
+
 /** Mesh operation input.
  */
 class MeshOpInput {
@@ -72,7 +78,7 @@ public:
     operator bool() const { return hasMesh(); }
 
     const MetaNode& node() const;
-    const NodeInfo& nodeInfo() const { return *nodeInfo_; }
+    const NodeInfo& nodeInfo() const { return nodeInfo_; }
 
     bool watertight() const;
     bool hasMesh() const;
@@ -131,17 +137,13 @@ private:
     TileId tileDiff_;
     std::shared_ptr<DataSource> owner_;
     TileIndex::Flag::value_type flags_;
-    const NodeInfo *nodeInfo_;
+    NodeInfo nodeInfo_;
 
     mutable bool nodeLoaded_;
     mutable const MetaNode *node_;
-    mutable boost::optional<Mesh> mesh_;
-    mutable boost::optional<opencv::HybridAtlas> atlas_;
-    mutable boost::optional<opencv::NavTile> navtile_;
-
-    /** Valid only when not using exernal node info
-     */
-    boost::optional<NodeInfo> ownNodeInfo_;
+    mutable Mesh::pointer mesh_;
+    mutable opencv::HybridAtlas::pointer atlas_;
+    mutable opencv::NavTile::pointer navtile_;
 
     LodRange mergeableRange_;
 };
@@ -171,18 +173,19 @@ public:
 
     /** Get tile's mesh.
      */
-    Mesh getMesh(const TileId &tileId, TileIndex::Flag::value_type flags)
-        const;
+    Mesh::pointer getMesh(const TileId &tileId
+                          , TileIndex::Flag::value_type flags) const;
 
     /** Get tile's atlas.
      */
-    void getAtlas(const TileId &tileId, Atlas &atlas
-                  , TileIndex::Flag::value_type flags) const;
+    opencv::HybridAtlas::pointer getAtlas(const TileId &tileId
+                                          , TileIndex::Flag::value_type flags)
+        const;
 
     /** Get tile's navtile.
      */
-    void getNavTile(const TileId &tileId, NavTile &navtile
-                    , const MetaNode *node) const;
+    opencv::NavTile::pointer getNavTile(const TileId &tileId
+                                        , const MetaNode *node) const;
 
     /** Get node info for given tile.
      */
@@ -195,16 +198,16 @@ private:
     virtual const MetaNode* findMetaNode_impl(const TileId &tileId)
         const = 0;
 
-    virtual Mesh getMesh_impl(const TileId &tileId
-                              , TileIndex::Flag::value_type flags)
+    virtual Mesh::pointer getMesh_impl(const TileId &tileId
+                                       , TileIndex::Flag::value_type flags)
         const = 0;
 
-    virtual void getAtlas_impl(const TileId &tileId, Atlas &atlas
-                               , TileIndex::Flag::value_type flags)
-        const = 0;
+    virtual opencv::HybridAtlas::pointer
+    getAtlas_impl(const TileId &tileId
+                  , TileIndex::Flag::value_type flags) const = 0;
 
-    virtual void getNavTile_impl(const TileId &tileId, NavTile &navtile
-                                 , const MetaNode *node)
+    virtual opencv::NavTile::pointer
+    getNavTile_impl(const TileId &tileId, const MetaNode *node)
         const = 0;
 
     virtual NodeInfo nodeInfo_impl(const TileId &tileId) const = 0;
@@ -234,26 +237,25 @@ MeshOpInput::DataSource::findMetaNode(const TileId &tileId) const
     return findMetaNode_impl(tileId);
 }
 
-inline Mesh
+inline Mesh::pointer
 MeshOpInput::DataSource::getMesh(const TileId &tileId
                                  , TileIndex::Flag::value_type flags) const
 {
     return getMesh_impl(tileId, flags);
 }
 
-inline void
-MeshOpInput::DataSource::getAtlas(const TileId &tileId, Atlas &atlas
+inline opencv::HybridAtlas::pointer
+MeshOpInput::DataSource::getAtlas(const TileId &tileId
                                   , TileIndex::Flag::value_type flags) const
 {
-    return getAtlas_impl(tileId, atlas, flags);
+    return getAtlas_impl(tileId, flags);
 }
 
-inline void
-MeshOpInput::DataSource::getNavTile(const TileId &tileId, NavTile &navtile
-                                    , const MetaNode *node)
+inline opencv::NavTile::pointer
+MeshOpInput::DataSource::getNavTile(const TileId &tileId, const MetaNode *node)
     const
 {
-    return getNavTile_impl(tileId, navtile, node);
+    return getNavTile_impl(tileId, node);
 }
 
 inline NodeInfo MeshOpInput::DataSource::nodeInfo(const TileId &tileId) const

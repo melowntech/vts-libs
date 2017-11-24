@@ -138,6 +138,10 @@ public:
 
         Result result() const { return result_; }
 
+        /** Are there any userdata.
+         */
+        bool hasUserData() const { return !userData_.empty(); }
+
         /** Returns pointer to userdata. Can be NULL.
          */
         template <typename T>
