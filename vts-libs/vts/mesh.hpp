@@ -184,6 +184,12 @@ struct Mesh {
     bool empty() const { return submeshes.empty(); }
 
     void createCoverage(bool fullyCovered);
+
+    /** Resets surface reference to default.
+     */
+    void resetSurfaceReference() {
+        for (auto &sm : submeshes) { sm.surfaceReference = 1; }
+    }
 };
 
 /** Single submesh area
