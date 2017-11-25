@@ -764,7 +764,8 @@ void mergeNavtile(Output &output)
 Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
                      , const Input &input, const Input::list &navtileSource
                      , bool generateNavtile
-                     , const MergeOptions &options)
+                     , const MergeOptions &options
+                     , const ExtraOptions &extraOptions)
 {
     Output result(tileId, input, navtileSource);
     if (input.tileId().lod == tileId.lod) {
@@ -798,13 +799,17 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
 
     // clip source mesh/navtile
 
-    CsConvertor phys2sd(nodeInfo.referenceFrame().model.physicalSrs
-                        , nodeInfo.srs());
+    CsConvertor phys2sd;
+    if (!extraOptions.meshesInSds) {
+        phys2sd = CsConvertor(nodeInfo.referenceFrame().model.physicalSrs
+                              , nodeInfo.srs());
+    }
 
     const auto coverageVertices
         (inputCoverageVertices
          (input, nodeInfo, phys2sd, options.safetyMargin));
-    SdMeshConvertor sdmc(nodeInfo, options.safetyMargin, localId);
+    SdMeshConvertor sdmc(nodeInfo, options.safetyMargin, localId
+                         , extraOptions.meshesInSds);
 
     std::size_t smIndex(0);
     for (const auto &sm : input.mesh()) {
@@ -1020,7 +1025,7 @@ Output mergeTile(const TileId &tileId
         return singleSourced(tileId, nodeInfo, source.front()
                              , filterSources(source, navtileSource)
                              , constraints.generateNavtile()
-                             , options);
+                             , options, extraOptions);
     }
 
     // merge result
@@ -1059,7 +1064,7 @@ Output mergeTile(const TileId &tileId
         return singleSourced(tileId, nodeInfo, result.source.mesh.front()
                              , result.source.navtile
                              , constraints.generateNavtile()
-                             , options);
+                             , options, extraOptions);
     }
 
     // merge meshes
