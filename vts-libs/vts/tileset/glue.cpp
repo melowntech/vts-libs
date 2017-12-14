@@ -400,7 +400,7 @@ TileIndex optimizeGenerateSet(const TileIndex & generateSet
     boost::sub_range<TileIndexList> subset( std::next(all.begin())
                                           , std::prev(all.end()));
 
-    // unite watertight tileindices - that is where the glue will not 
+    // unite watertight tileindices - that is where the glue will not
     // be generated
     TileIndex watertight;
 
@@ -415,8 +415,8 @@ TileIndex optimizeGenerateSet(const TileIndex & generateSet
     }
 
     // add watertight from top dataset - do not complete down as this may be
-    // needed to override lower LODS 
-    watertight = unite(watertight, all.back()); 
+    // needed to override lower LODS
+    watertight = unite(watertight, all.back());
 
     // now we have tileset showing where at least one (except bottom) set is
     // watertight -> no glue
@@ -448,9 +448,18 @@ TileIndex buildGenerateSet(const TileSet::list &sets, const LodRange &lr
 
     Lod glueCeiling(0);
 
+    /* For tilesets with LOD-uneven bottom, the simple growDownFromBottom
+    does not work. For this purpose, the tiles that would be in the tileset if
+    it was generated to have flat bottom at the fines LOD are marked as
+    'influenced' in the tileindex - they do not physically exist but they should
+    be generated from tileset's data (they are influenced by some meshes above
+    them) if needed.
+    Same behavior could be achieved if the tileset was split at the common
+    bottom into two (or more) tilesets that would enter merge individually.
+    */
     auto generateRaw(buildGenerateSet(dumpRoot, lr, sets
-                                      , TileIndex::Flag::mesh
-                                      , glueCeiling));
+                        , TileIndex::Flag::mesh | TileIndex::Flag::influenced
+                        , glueCeiling));
 
     dumpTileIndex(dumpRoot, "generate-raw", generateRaw);
 
@@ -519,9 +528,13 @@ void TileSet::createGlue(TileSet &glue, const list &sets
 
     LOG(info2) << "Navtile LOD range: " << navLr;
 
+    // regarding influenced tiles look at the remark in buildGenerateSet for
+    // normal melh tiles
     auto navtileGenerateRaw
         (buildGenerateSet(dumpRoot, navLr, sets
-                          , TileIndex::Flag::navtile, glueCeiling));
+                , TileIndex::Flag::navtile | TileIndex::Flag::influenced
+                , glueCeiling));
+
     dumpTileIndex(dumpRoot, "generate-navtile-raw", navtileGenerateRaw);
 
     auto navtileGenerate(optimizeGenerateSet(navtileGenerateRaw, dumpRoot
