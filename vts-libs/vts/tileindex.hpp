@@ -49,7 +49,6 @@ public:
             , watertight = 0x02 // tile's mesh has no holes
             , atlas = 0x04
             , navtile = 0x08
-            , virtual_ = 0x10
             , alien = 0x20 // alien tile shared value with reference in the past
             , multimesh = 0x40 // tile's mesh has multiple submeshes
 
@@ -67,6 +66,14 @@ public:
 
             // (mask) all flags without alien flag
             , nonAlien = any & ~alien
+
+            // non-existent tile influenced by tiles from coarser LOD; shares
+            // value with alien tile; in fact, indluenced tile is meshless alien
+            // tile
+            , influenced = alien
+
+            // (mask) mask to detect influenced tile
+            , influencedMask = any
 
             // no flag set
             , none = 0x00

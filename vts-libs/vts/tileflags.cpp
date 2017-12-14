@@ -34,6 +34,7 @@ std::vector<TileFlags::TileFlag> TileFlags::mapping = {
     , TileFlag(Match(TiFlag::watertight, TiFlag::watertight), "watertight")
     , TileFlag(Match(TiFlag::atlas, TiFlag::atlas), "atlas")
     , TileFlag(Match(TiFlag::navtile, TiFlag::navtile), "navtile")
+    , TileFlag(Match(TiFlag::influencedMask, TiFlag::influenced), "influenced")
 };
 
 } } // namespace vtslibs::vts

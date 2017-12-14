@@ -1576,6 +1576,7 @@ void tiInfo(const vts::TileIndex &ti, const std::string &prefix = "")
                 , Flags(TiFlag::navtile, TiFlag::navtile)
                 , Flags(TiFlag::alien | TiFlag::mesh
                         , TiFlag::alien | TiFlag::mesh)
+                , Flags(TiFlag::influencedMask, TiFlag::influenced)
                 })
     {
         auto stat(ti.statMask(flag.first, flag.second));
