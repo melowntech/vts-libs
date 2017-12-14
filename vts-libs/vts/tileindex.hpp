@@ -49,7 +49,7 @@ public:
             , watertight = 0x02 // tile's mesh has no holes
             , atlas = 0x04
             , navtile = 0x08
-            // 0x10 free, probably bottom tile belongs here
+            , virtual_ = 0x10
             , alien = 0x20 // alien tile shared value with reference in the past
             , multimesh = 0x40 // tile's mesh has multiple submeshes
 
