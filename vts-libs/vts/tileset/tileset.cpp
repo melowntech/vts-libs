@@ -2022,4 +2022,17 @@ NodeInfo TileSet::rootNode() const {
     return NodeInfo(detail().referenceFrame);
 }
 
+void TileSet::markInfluencedTile(const TileId &tileId)
+{
+    const auto flags(detail().tileIndex.get(tileId));
+    if (TileIndex::Flag::isReal(flags)) {
+        LOGTHROW(err2, storage::Error)
+            << "Tile <" << tileId
+            << " cannot be marked as an influenced tile since it "
+            "contains data";
+    }
+
+    detail().tileIndex.set(tileId, flags | TileIndex::Flag::influenced);
+}
+
 } } // namespace vtslibs::vts

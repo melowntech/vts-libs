@@ -146,6 +146,11 @@ public:
     void setTile(const TileId &tileId, const TileSource &tile
                  , const NodeInfo &nodeInfo);
 
+    /** Marks tile as influenced tile.
+     *  Fails if tile is already a valid tile.
+     */
+    void markInfluencedTile(const TileId &tileId);
+
     /** Sets tile's navtile. Tile must already have mesh.
      *  Only navtile is stored.
      */
