@@ -99,6 +99,10 @@ public:
             return check(flags, mesh | alien, mesh | alien);
         };
 
+        static bool isInfluenced(value_type flags) {
+            return check(flags, influencedMask, influenced);
+        };
+
         static value_type getReference(value_type flags) {
             return flags >> 16;
         }
@@ -426,6 +430,18 @@ public:
 
     template <typename Comparator>
     bool identical(const TileIndex &other, const Comparator &compare) const;
+
+    /** If tile has any flag marked by provided mask distribute it down to
+     *  all children, recursively. I.e. if tile is watertight, all its children,
+     *  grandchildren and so will have this flags set as well.
+     *
+     *  Algo:
+     *     For n in (lodRange.min, lodRange.max-1):
+     *        * extract a temporary quadtree from LOD(n) where new value is
+     *          (original.value & mask)
+     *        * or the temporary quadtree with LOD(n+1) quadtree
+     */
+    TileIndex& distributeFlags(Flag::value_type mask);
 
     /** Returns true if given file is (or seams to be) a tile index file.
      */

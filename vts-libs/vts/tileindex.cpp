@@ -1013,4 +1013,31 @@ TileRange TileIndex::tileRange(Lod lod, QTree::value_type mask) const
     return tr;
 }
 
+TileIndex& TileIndex::distributeFlags(Flag::value_type mask)
+{
+    if (trees_.empty()) { return *this; }
+
+    // traverse trees top to bottom
+    auto lod(lodRange().min);
+    auto itrees(trees_.begin());
+
+    const auto combiner([mask](Flag::value_type o, Flag::value_type n)
+                        -> Flag::value_type
+    {
+        return o | (n & mask);
+    });
+
+    for (auto ctrees(itrees + 1), etrees(trees_.end());
+         itrees != etrees; ++itrees, ++lod)
+    {
+        if (ctrees == etrees) { continue; }
+        LOG(debug) << "distributeFlags: " << lod << " -> " << (lod + 1);
+
+        ctrees->combine(*itrees, combiner);
+        ++ctrees;
+    }
+
+    return *this;
+}
+
 } } // namespace vtslibs::vts
