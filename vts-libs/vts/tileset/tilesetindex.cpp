@@ -148,19 +148,13 @@ Index::checkAndGetFlags(const TileId &tileId, TileFile type) const
     }
 }
 
-namespace {
-const TileIndex::Flag::value_type
-metanodePresentFlags(TileIndex::Flag::mesh | TileIndex::Flag::navtile
-                     | TileIndex::Flag::atlas);
-} // namespace
-
 TileIndex Index::deriveMetaIndex() const
 {
     if (tileIndex.empty()) { return {}; }
 
     // clone tile index
     return TileIndex(tileIndex)
-        .simplify(metanodePresentFlags) // only real tiles have metanodes
+        .simplify(TileIndex::Flag::content) // only real tiles have metanodes
         .shrinkAndComplete(metaBinaryOrder_);
 }
 
@@ -169,7 +163,7 @@ TileIndex Index::deriveMetaIndex(Lod ceiling) const
     if (tileIndex.empty()) { return {}; }
 
     return TileIndex(LodRange(ceiling, tileIndex.maxLod()), &tileIndex, false)
-        .simplify(metanodePresentFlags) // only real tiles have metanodes
+        .simplify(TileIndex::Flag::content) // only real tiles have metanodes
         .shrinkAndComplete(metaBinaryOrder_, true, ceiling);
 }
 
