@@ -562,6 +562,7 @@ void QTree::Node::simplify(const FilterOp &filter)
         children->nodes[1].simplify(filter);
         children->nodes[2].simplify(filter);
         children->nodes[3].simplify(filter);
+        contract();
         break;
     }
 }
