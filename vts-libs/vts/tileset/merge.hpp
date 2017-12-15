@@ -163,7 +163,14 @@ struct ExtraOptions {
      */
     bool meshesInSds;
 
-    ExtraOptions() : meshesInSds(false) {}
+    /** Single sourced merges nornally skip coverage checking. Setting this flag
+     *  to true forces check even for single sourced tiles.
+     */
+    bool checkCoverageForSingleSources;
+
+    ExtraOptions()
+        : meshesInSds(false), checkCoverageForSingleSources(false)
+    {}
 };
 
 /** Generates new tile from given source and parent source fallback.

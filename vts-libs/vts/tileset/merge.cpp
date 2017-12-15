@@ -1017,7 +1017,7 @@ Output mergeTile(const TileId &tileId
                }
            }) << ".";
 
-    if ((source.size() == 1)) {
+    if ((source.size() == 1) && !extraOptions.checkCoverageForSingleSources) {
         Output result(tileId, source, navtileSource);
         if (!constraints.feasible(result)) { return result; }
 
