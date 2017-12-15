@@ -107,6 +107,10 @@ public:
             /** Valid tile source.
              */
             , source
+
+            /** Influence marker.
+             */
+            , influenced
        };
 
         TileResult(Result result = Result::noData) : result_(result) {}
@@ -130,11 +134,17 @@ public:
 
         /** Switches to no-data-yet state.
          */
-        TileResult noDataYet() { result_ = Result::noDataYet; return *this; }
+        TileResult& noDataYet() { result_ = Result::noDataYet; return *this; }
 
         /** Switches to no-data state.
          */
-        TileResult noData() { result_ = Result::noData; return *this; }
+        TileResult& noData() { result_ = Result::noData; return *this; }
+
+        /** Switches to influenced state.
+         */
+        TileResult& influenced() {
+            result_ = Result::influenced; return *this;
+        }
 
         Result result() const { return result_; }
 

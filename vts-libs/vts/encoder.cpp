@@ -331,6 +331,20 @@ void Encoder::Detail::process(const TileId &tileId
             break;
         }
 
+        case TileResult::Result::influenced: {
+            auto number(++generated_);
+
+            // no data generated, only influenced flag to be set
+            LOGR(options.level())
+                << "Generated tile " << Estimated(number, estimated_) << ": "
+                << tileId << " ("  << nodeInfo.srs()
+                << ", extents: " << std::fixed << extents
+                << (nodeInfo.partial() ? ", partial" : "")
+                << ") [influenced].";
+
+            tileSet.markInfluencedTile(tileId);
+        } break;
+
         case TileResult::Result::noDataYet:
             // fine, something could be down there
             break;
