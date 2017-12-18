@@ -73,12 +73,16 @@ public:
     checkAndGetFlags(const TileId &tileId, TileFile type) const;
 
     /** Derives whole metatile index.
+     *
+     * \param contentOnly takes into account only tiles with real data.
      */
-    TileIndex deriveMetaIndex() const;
+    TileIndex deriveMetaIndex(bool contentOnly = false) const;
 
     /** Derives metatile index from bottom to given lod
+     *
+     * \param contentOnly takes into account only tiles with real data.
      */
-    TileIndex deriveMetaIndex(Lod upperLod) const;
+    TileIndex deriveMetaIndex(Lod upperLod, bool contentOnly = false) const;
 
     unsigned int metaBinaryOrder() const { return metaBinaryOrder_; }
 

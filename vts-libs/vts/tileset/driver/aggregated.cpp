@@ -133,7 +133,8 @@ void addTileIndex(unsigned int metaBinaryOrder
 
     // derive metatile index from tileset's tile index
     if (!alien) {
-        de.metaIndex = work.deriveMetaIndex();
+        // mark metatile presence only for content tiles
+        de.metaIndex = work.deriveMetaIndex(true);
     }
 }
 

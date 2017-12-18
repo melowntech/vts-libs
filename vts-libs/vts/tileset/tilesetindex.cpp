@@ -148,23 +148,30 @@ Index::checkAndGetFlags(const TileId &tileId, TileFile type) const
     }
 }
 
-TileIndex Index::deriveMetaIndex() const
+TileIndex Index::deriveMetaIndex(bool contentOnly) const
 {
     if (tileIndex.empty()) { return {}; }
 
-    // clone tile index
-    return TileIndex(tileIndex)
-        .simplify(TileIndex::Flag::content) // only real tiles have metanodes
-        .shrinkAndComplete(metaBinaryOrder_);
+    // make tileindex copy
+    TileIndex ti(tileIndex);
+    if (contentOnly) {
+        // filter-out non-content tiles
+        ti.simplify(TileIndex::Flag::content);
+    }
+    return ti.shrinkAndComplete(metaBinaryOrder_);
 }
 
-TileIndex Index::deriveMetaIndex(Lod ceiling) const
+TileIndex Index::deriveMetaIndex(Lod ceiling, bool contentOnly) const
 {
     if (tileIndex.empty()) { return {}; }
 
-    return TileIndex(LodRange(ceiling, tileIndex.maxLod()), &tileIndex, false)
-        .simplify(TileIndex::Flag::content) // only real tiles have metanodes
-        .shrinkAndComplete(metaBinaryOrder_, true, ceiling);
+    // make tileindex copy
+    TileIndex ti(LodRange(ceiling, tileIndex.maxLod()), &tileIndex, false);
+    if (contentOnly) {
+        // filter-out non-content tiles
+        ti.simplify(TileIndex::Flag::content);
+    }
+    return ti.shrinkAndComplete(metaBinaryOrder_);
 }
 
 void Index::loadRest_impl(std::istream&, const boost::filesystem::path&) {}

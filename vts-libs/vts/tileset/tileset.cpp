@@ -511,6 +511,7 @@ struct TileSet::Factory
                 }
 
                 UTILITY_OMP(critical(clone_dd))
+                {
                     if (*mnm) {
                         // filter metanode
                         dst->updateNode(tid, (*mnm)(useMetanode())
@@ -520,6 +521,15 @@ struct TileSet::Factory
                         dst->updateNode(tid, useMetanode()
                                         , (mask & TileIndex::Flag::nonmeta));
                     }
+
+                    if (TileIndex::Flag::isInfluenced(mask)) {
+                        // mark as influenced tile
+
+                        // TODO: mark only if we have copied content tile from
+                        // above this tile as well
+                        dst->markInfluencedTile(tid);
+                    }
+                }
 
                 LOG(info1) << "Stored tile " << tid << ".";
                 report();
@@ -1890,11 +1900,14 @@ void TileSet::paste(const TileSet &srcSet
                      , dd.output(tid, storage::TileFile::atlas));
         }
 
-        if (mask & TileIndex::Flag::navtile){
+        if (mask & TileIndex::Flag::navtile) {
             // copy navtile if allowed
             copyFile(sd.input(tid, storage::TileFile::navtile)
                      , dd.output(tid, storage::TileFile::navtile));
         }
+
+        // TODO: do not copy influenced flag if we have not copied any tile that
+        // influences this one
 
         dst.updateNode(tid, *metanode
                        , mask & TileIndex::Flag::nonmeta);
@@ -2022,9 +2035,9 @@ NodeInfo TileSet::rootNode() const {
     return NodeInfo(detail().referenceFrame);
 }
 
-void TileSet::markInfluencedTile(const TileId &tileId)
+void TileSet::Detail::markInfluencedTile(const TileId &tileId)
 {
-    const auto flags(detail().tileIndex.get(tileId));
+    const auto flags(tileIndex.get(tileId));
     if (TileIndex::Flag::isReal(flags)) {
         LOGTHROW(err2, storage::Error)
             << "Tile <" << tileId
@@ -2032,7 +2045,15 @@ void TileSet::markInfluencedTile(const TileId &tileId)
             "contains data";
     }
 
-    detail().tileIndex.set(tileId, flags | TileIndex::Flag::influenced);
+    // ensure there is (and empty) metanode
+    findNode(tileId, true);
+    // mark
+    tileIndex.set(tileId, flags | TileIndex::Flag::influenced);
+}
+
+void TileSet::markInfluencedTile(const TileId &tileId)
+{
+    detail().markInfluencedTile(tileId);
 }
 
 } } // namespace vtslibs::vts

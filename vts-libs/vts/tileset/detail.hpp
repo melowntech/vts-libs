@@ -239,6 +239,8 @@ public:
 
     double texelSize() const;
 
+    void markInfluencedTile(const TileId &tileId);
+
 private:
     void updateProperties(Lod lod, const MetaNode &metanode
                           , const MetaNode &oldMetanode);
