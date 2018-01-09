@@ -60,8 +60,8 @@ fs::path buildTmpPath(const fs::path &path)
 ConfigFileGuard::ConfigFileGuard(const fs::path &path)
     : path_(path), tmpPath_(buildTmpPath(path))
 {
-    LOG(info4) << "tmp(" << path_ << ") -> "
-               << tmpPath_;
+    LOG(info1) << "Config " << path_ << " temporary file name is "
+               << tmpPath_ << ".";
 }
 
 ConfigFileGuard::~ConfigFileGuard() noexcept(false)
