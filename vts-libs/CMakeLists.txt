@@ -361,6 +361,11 @@ if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-tools-support AND TARGET vts-lib
   set(vts-libs-tools-support_SOURCES
     # TODO: copy stuff from vts-tools repository
     tools-support/progress.hpp tools-support/progress.cpp
+
+    tools-support/analyze.cpp tools-support/analyze.hpp
+    tools-support/repackatlas.cpp tools-support/repackatlas.hpp
+    tools-support/tmptileset.cpp tools-support/tmptileset.hpp
+    tools-support/tmptsencoder.cpp tools-support/tmptsencoder.hpp
     )
 
   add_library(vts-libs-tools-support

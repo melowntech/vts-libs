@@ -26,9 +26,9 @@
 
 #include <boost/logic/tribool.hpp>
 
-#include "vts-libs/vts/meshop.hpp"
-#include "vts-libs/vts/tileset/merge.hpp"
-#include "vts-libs/registry/po.hpp"
+#include "../vts/meshop.hpp"
+#include "../vts/tileset/merge.hpp"
+#include "../registry/po.hpp"
 
 #include "./tmptsencoder.hpp"
 

@@ -36,9 +36,9 @@
 
 #include "math/math.hpp"
 
-#include "vts-libs/vts/tileset/driver.hpp"
-#include "vts-libs/vts/opencv/atlas.hpp"
-#include "vts-libs/vts/tileset/config.hpp"
+#include "../vts/tileset/driver.hpp"
+#include "../vts/opencv/atlas.hpp"
+#include "../vts/tileset/config.hpp"
 
 #include "./tmptileset.hpp"
 

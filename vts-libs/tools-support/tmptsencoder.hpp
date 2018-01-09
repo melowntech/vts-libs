@@ -31,9 +31,9 @@
 
 #include "utility/gccversion.hpp"
 
-#include "vts-libs/vts/encoder.hpp"
-#include "vts-libs/tools-support/progress.hpp"
-#include "vts-libs/vts/ntgenerator.hpp"
+#include "../vts/encoder.hpp"
+#include "../tools-support/progress.hpp"
+#include "../vts/ntgenerator.hpp"
 
 #include "./tmptileset.hpp"
 

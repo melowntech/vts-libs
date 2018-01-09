@@ -34,9 +34,9 @@
 
 #include "math/geometry_core.hpp"
 
-#include "vts-libs/vts/nodeinfo.hpp"
-#include "vts-libs/vts/mesh.hpp"
-#include "vts-libs/vts/ntgenerator.hpp"
+#include "../vts/nodeinfo.hpp"
+#include "../vts/mesh.hpp"
+#include "../vts/ntgenerator.hpp"
 
 namespace vtslibs { namespace vts { namespace tools {
 

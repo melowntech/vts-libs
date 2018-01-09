@@ -28,9 +28,9 @@
 
 #include "math/geometry_core.hpp"
 
-#include "vts-libs/vts/types.hpp"
-#include "vts-libs/vts/mesh.hpp"
-#include "vts-libs/vts/opencv/atlas.hpp"
+#include "../vts/types.hpp"
+#include "../vts/mesh.hpp"
+#include "../vts/opencv/atlas.hpp"
 
 namespace vtslibs { namespace vts { namespace tools {
 
