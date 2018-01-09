@@ -234,7 +234,7 @@ void addSkirt(EnhancedSubMesh &mesh
               , const MeshVertexConvertor &convertor
               , const SkirtVectorCallback &skirtVector);
 
-SubMesh optimize(const SubMesh &mesh);
+SubMesh optimize(SubMesh mesh);
 
 // inlines
 

@@ -25,7 +25,7 @@
  */
 
 #include <vector>
-#include <map>
+#include <unordered_map>
 
 #include "dbglog/dbglog.hpp"
 
@@ -33,14 +33,54 @@
 
 namespace vtslibs { namespace vts {
 
-vts::SubMesh optimize(const vts::SubMesh &mesh)
+/** Original code from vts-tools' importutil.
+ * \author Jakub Cerveny <jakub.cerveny.melown.com>
+ */
+vts::SubMesh optimize(vts::SubMesh mesh)
 {
-    vts::SubMesh out;
+    auto hash2 = [](const math::Point2 &p) -> std::size_t {
+        return p(0)*218943212 + p(1)*168875421;
+    };
+    auto hash3 = [](const math::Point3 &p) -> std::size_t {
+        return p(0)*218943212 + p(1)*168875421 + p(2)*385120205;
+    };
 
-    // TODO: implement me
-    out = mesh;
+    std::unordered_map<math::Point2, int, decltype(hash2)> map2(1024, hash2);
+    std::unordered_map<math::Point3, int, decltype(hash3)> map3(1024, hash3);
 
-    return out;
+    // assign unique indices to vertices and texcoords
+    for (const auto &pt : mesh.vertices) {
+        int &idx(map3[pt]);
+        if (!idx) { idx = map3.size(); }
+    }
+    for (const auto &pt : mesh.tc) {
+        int &idx(map2[pt]);
+        if (!idx) { idx = map2.size(); }
+    }
+
+    // change face indices
+    for (auto &f : mesh.faces) {
+        for (int i = 0; i < 3; i++) {
+            f(i) = map3[mesh.vertices[f(i)]] - 1;
+        }
+    }
+    for (auto &f : mesh.facesTc) {
+        for (int i = 0; i < 3; i++) {
+            f(i) = map2[mesh.tc[f(i)]] - 1;
+        }
+    }
+
+    // update vertices, tc
+    mesh.vertices.resize(map3.size());
+    for (const auto &item : map3) {
+        mesh.vertices[item.second - 1] = item.first;
+    }
+    mesh.tc.resize(map2.size());
+    for (const auto &item : map2) {
+        mesh.tc[item.second - 1] = item.first;
+    }
+
+    return mesh;
 }
 
 } } // namespace vtslibs::vts
