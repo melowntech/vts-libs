@@ -130,6 +130,11 @@ loadAssimpScene(Assimp::Importer &imp, const boost::filesystem::path &path
                 , const math::Point3 &origin)
 {
     const auto *scene(readScene(imp, path, aiProcess_Triangulate));
+    if (!scene) {
+        LOGTHROW(err3, std::runtime_error)
+                << "Error loading scene " << path
+                << "( " << imp.GetErrorString() << " ).";
+    }
 
     std::tuple<Mesh, TexturePaths> result;
 
@@ -144,8 +149,16 @@ loadAssimpScene(Assimp::Importer &imp, const roarchive::RoArchive &archive
                 , const boost::filesystem::path &path
                 , const math::Point3 &origin)
 {
-    // TODO: get scene from archive
-    const auto *scene(readScene(imp, path, aiProcess_Triangulate));
+    const auto buf(archive.istream(path)->read());
+
+    const auto *scene
+        (imp.ReadFileFromMemory(buf.data(), buf.size()
+                                , aiProcess_Triangulate));
+    if (!scene) {
+        LOGTHROW(err3, std::runtime_error)
+                << "Error loading scene " << path
+                << "( " << imp.GetErrorString() << " ).";
+    }
 
     std::tuple<Mesh, TextureStreams> result;
 

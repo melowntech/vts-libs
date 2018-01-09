@@ -274,9 +274,6 @@ set(vts_SOURCES
 
   # various stuff
   vts/options-po.hpp
-
-  # tool stuff
-  tools/progress.hpp tools/progress.cpp
   )
 
 
@@ -363,6 +360,7 @@ if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-tools-support AND TARGET vts-lib
 
   set(vts-libs-tools-support_SOURCES
     # TODO: copy stuff from vts-tools repository
+    tools-support/progress.hpp tools-support/progress.cpp
     )
 
   add_library(vts-libs-tools-support
