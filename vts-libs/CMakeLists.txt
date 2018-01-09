@@ -181,6 +181,8 @@ set(vts-nucleus_SOURCES
 set(vts-core_SOURCES
   vts.hpp vts/vts.cpp
 
+  vts/config.hpp vts/config.cpp
+
   vts/meshcoverage.cpp
   vts/options.hpp vts/options.cpp
   vts/encoder.hpp vts/encoder.cpp

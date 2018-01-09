@@ -51,6 +51,7 @@
 #include "../../vts.hpp"
 #include "./detail.hpp"
 #include "../tileset/detail.hpp"
+#include "../config.hpp"
 
 #include "./config.hpp"
 #include "./paths.hpp"
@@ -193,12 +194,12 @@ void Storage::Detail::saveConfig()
 {
     // save json
     try {
-        auto tmpPath(utility::addExtension(configPath, ".tmp"));
-        storage::saveConfig(tmpPath, properties);
-        fs::rename(tmpPath, configPath);
+        ConfigFileGuard tmpFile(configPath);
+        storage::saveConfig(tmpFile.path(), properties);
     } catch (const std::exception &e) {
         LOGTHROW(err2, vtslibs::storage::Error)
-            << "Unable to write config: <" << e.what() << ">.";
+            << "Unable to write config " << configPath
+            << ": <" << e.what() << ">.";
     }
 }
 

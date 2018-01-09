@@ -1438,7 +1438,7 @@ void VtsStorage::configuration(po::options_description &cmdline
     {});
 
     createParser(cmdline, Command::locker2Stresser
-                 , "--command=locker2Stresser: "
+                 , "--command=locker2-stresser: "
                  "stress locker implementation"
                  , [&](UP &p)
     {
