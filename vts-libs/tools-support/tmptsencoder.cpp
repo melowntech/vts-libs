@@ -420,6 +420,9 @@ void TmpTsEncoder::finish(TileSet &ts)
 
 void TmpTsEncoder::Config::configuration(po::options_description &config)
 {
+    vr::registryConfiguration(config, vr::defaultPath());
+    vr::creditsConfiguration(config);
+
     config.add_options()
         ("textureQuality", po::value(&textureQuality)
          ->default_value(textureQuality)->required()
@@ -454,7 +457,9 @@ void TmpTsEncoder::Config::configuration(po::options_description &config)
 
 void TmpTsEncoder::Config::configure(const po::variables_map &vars)
 {
+    vr::registryConfigure(vars);
     credits = registry::creditsConfigure(vars);
+
     if ((textureQuality < 0) || (textureQuality > 100)) {
         throw po::validation_error
             (po::validation_error::invalid_option_value, "textureQuality");
