@@ -24,8 +24,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef vts_tools_analyze_hpp_
-#define vts_tools_analyze_hpp_
+#ifndef vtslibs_tools_support_analyze_hpp_included_
+#define vtslibs_tools_support_analyze_hpp_included_
 
 #include <limits>
 #include <cmath>
@@ -37,6 +37,8 @@
 #include "../vts/nodeinfo.hpp"
 #include "../vts/mesh.hpp"
 #include "../vts/ntgenerator.hpp"
+
+#include "./repackatlas.hpp"
 
 namespace vtslibs { namespace vts { namespace tools {
 
@@ -111,6 +113,17 @@ struct MeshInfo {
     MeshInfo& operator+=(const MeshInfo &o);
 };
 
+tools::MeshInfo measureMesh(const vts::NodeInfo &rfNode
+                            , const vts::CsConvertor conv
+                            , const vts::Mesh &mesh
+                            , const std::vector<math::Size2> &sizes);
+
+tools::MeshInfo measureMesh(const vts::NodeInfo &rfNode
+                            , const vts::CsConvertor conv
+                            , const vts::Mesh &mesh
+                            , const TextureRegionInfo::list &regions
+                            , const std::vector<math::Size2> &sizes);
+
 // inline implementation
 
 inline double bestLod(const vts::NodeInfo &rfNode
@@ -118,7 +131,6 @@ inline double bestLod(const vts::NodeInfo &rfNode
                       , const math::Size2 &optimalTextureSize)
 {
     const double texelArea(area.mesh / area.internalTexture);
-
     const auto optimalTileArea
         (math::area(optimalTextureSize) * texelArea);
     const auto optimalTileCount(rfNode.extents().area()
@@ -168,4 +180,4 @@ inline MeshInfo& MeshInfo::operator+=(const MeshInfo &o)
 
 } } } // namespace vtslibs::vts::tools
 
-#endif // vts_tools_analyze_hpp_
+#endif // vtslibs_tools_support_analyze_hpp_included_

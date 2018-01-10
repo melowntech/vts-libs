@@ -24,6 +24,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef vtslibs_tools_support_repackatlas_hpp_included_
+#define vtslibs_tools_support_repackatlas_hpp_included_
+
 #include <vector>
 
 #include "math/geometry_core.hpp"
@@ -65,3 +68,5 @@ void repack(const TileId &tileId, Mesh &mesh, opencv::Atlas &atlas
             , const TextureRegionInfo::list &textureRegions);
 
 } } } // namespace vtslibs::vts::tools
+
+#endif // vtslibs_tools_support_repackatlas_hpp_included_

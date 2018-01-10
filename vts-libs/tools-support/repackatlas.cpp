@@ -498,7 +498,6 @@ void repack(const TileId &tileId, vts::Mesh &mesh, opencv::Atlas &atlas)
     }
 }
 
-// TODO: implement me
 void repack(const TileId &tileId, Mesh &mesh, opencv::Atlas &atlas
             , const TextureRegionInfo::list &textureRegions)
 {

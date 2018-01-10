@@ -24,6 +24,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "../vts/meshop.hpp"
+
 #include "./analyze.hpp"
 
 namespace vtslibs { namespace vts { namespace tools {
@@ -107,6 +109,132 @@ vts::TileRange computeTileRange(const math::Extents2 &nodeExtents
     }
 
     return r;
+}
+
+MeshInfo measureMesh(const vts::NodeInfo &rfNode
+                     , const vts::CsConvertor conv
+                     , const vts::Mesh &mesh
+                     , const std::vector<math::Size2> &sizes)
+{
+    MeshInfo mi;
+
+    auto isizes(sizes.begin());
+    for (const auto &sm : mesh) {
+        const auto &size(*isizes++);
+
+        // make all faces valid by default
+        vts::VertexMask valid(sm.vertices.size(), true);
+        math::Points3 projected;
+        projected.reserve(sm.vertices.size());
+
+        auto ivalid(valid.begin());
+        for (const auto &v : sm.vertices) {
+            try {
+                projected.push_back(conv(v));
+                ++ivalid;
+            } catch (const std::exception&) {
+                // failed to convert vertex, mask it and skip
+                projected.emplace_back();
+                *ivalid++ = false;
+            }
+        }
+
+        // clip mesh to node's extents
+        // FIXME: implement mask application in clipping!
+        auto osm(vts::clip(sm, projected, rfNode.extents(), valid));
+        if (osm.faces.empty()) { continue; }
+
+        // at least one face survived remember
+        mi.update(osm, size);
+    }
+
+    return mi;
+}
+
+namespace {
+
+void remapTcToRegion(vts::SubMesh &sm, const vts::FaceOriginList &faceOrigin
+                     , const TextureRegionInfo &ri)
+{
+    if (ri.regions.empty()) {
+        // nothing to inflate
+        return;
+    }
+
+    // remap texture coordinates from region coordinates to texture coordinates
+
+    std::vector<char> seen(sm.tc.size(), false);
+    const auto &remap([&](int index, const TextureRegionInfo::Region &region)
+                      -> void
+    {
+        auto &iseen(seen[index]);
+        if (iseen) { return; }
+
+        // remap from region space to texture space
+        auto &tc(sm.tc[index]);
+        tc(0) *= region.size.width;
+        tc(1) *= region.size.height;
+
+        iseen = true;
+    });
+
+    auto ifaceOrigin(faceOrigin.begin());
+    for (const auto &face : sm.facesTc) {
+        // grab index to regions
+        const auto regionIndex(ri.faces[*ifaceOrigin++]);
+        const auto &region(ri.regions[regionIndex]);
+
+        for (const auto &tc : face) { remap(tc, region); }
+    }
+}
+
+} // namespace
+
+MeshInfo measureMesh(const vts::NodeInfo &rfNode
+                     , const vts::CsConvertor conv
+                     , const vts::Mesh &mesh
+                     , const TextureRegionInfo::list &regions
+                     , const std::vector<math::Size2> &sizes)
+{
+    MeshInfo mi;
+
+    auto isizes(sizes.begin());
+    auto iregions(regions.begin());
+    for (const auto &sm : mesh) {
+        const auto &size(*isizes++);
+        const auto &ri(*iregions++);
+
+        // make all faces valid by default
+        vts::VertexMask valid(sm.vertices.size(), true);
+        math::Points3 projected;
+        projected.reserve(sm.vertices.size());
+
+        auto ivalid(valid.begin());
+        for (const auto &v : sm.vertices) {
+            try {
+                projected.push_back(conv(v));
+                ++ivalid;
+            } catch (const std::exception&) {
+                // failed to convert vertex, mask it and skip
+                projected.emplace_back();
+                *ivalid++ = false;
+            }
+        }
+
+        // clip mesh to node's extents
+        // FIXME: implement mask application in clipping!
+        vts::FaceOriginList faceOrigin;
+        auto osm(vts::clip(sm, projected, rfNode.extents(), valid
+                           , &faceOrigin));
+        if (osm.faces.empty()) { continue; }
+
+        remapTcToRegion(osm, faceOrigin, ri);
+
+        // at least one face survived remember
+        mi.update(osm, size);
+    }
+
+    return mi;
 }
 
 } } } // namespace vtslibs::vts::tools
