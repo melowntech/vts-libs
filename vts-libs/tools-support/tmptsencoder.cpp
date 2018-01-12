@@ -271,12 +271,20 @@ MeshResult glueHolesFromParent(const TileId &tileId
                                , bool influencedOnly
                                , Encoder::TileResult &tileResult)
 {
+    // we pass mesh/atlas into merge only if it is non-watertight (i.e. we are
+    // asked to glue the holes) or it is marked as an alien tile (i.e. it is
+    // source of influence data).
+    const bool mergeable(!(flags & TileIndex::Flag::watertight)
+                         || (flags & TileIndex::Flag::alien));
+
     merge::Input::list input;
     if (mesh && atlas) {
-        input.emplace_back
-            (tileId.lod
-             , std::make_shared<DataSource>(nodeInfo, mesh, atlas)
-             , tileId, &nodeInfo);
+        if (mergeable) {
+            input.emplace_back
+                (tileId.lod
+                 , std::make_shared<DataSource>(nodeInfo, mesh, atlas)
+                 , tileId, &nodeInfo);
+        }
     }
 
     // merge tile; tile is generated only when it's not marked as a watertight
@@ -294,9 +302,12 @@ MeshResult glueHolesFromParent(const TileId &tileId
     tileResult.userData(result.source);
 
     // we are processing single tileset -> reset surface reference
-    if (result.mesh) { result.mesh->resetSurfaceReference(); }
+    if (result.mesh) {
+        result.mesh->resetSurfaceReference();
+        return MeshResult(std::move(result.mesh), std::move(result.atlas));
+    }
 
-    return MeshResult(std::move(result.mesh), std::move(result.atlas));
+    return MeshResult(mesh, atlas);
 }
 
 } // namespace

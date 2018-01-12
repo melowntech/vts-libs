@@ -421,8 +421,10 @@ TmpTileset::load(const TileId &tileId, int quality) const
     auto &atlas(std::get<1>(tile));
     auto &flags(std::get<2>(tile));
 
+    flags = 0;
+
     for (const auto &slice : slices_) {
-        auto sliceFlags(slice->hasTile(tileId));
+        auto sliceFlags(slice->getTile(tileId));
         if (!sliceFlags) { continue; }
 
         // remember flags
