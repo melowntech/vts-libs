@@ -37,6 +37,7 @@
 #include <iterator>
 
 #include <boost/optional.hpp>
+#include <boost/utility/in_place_factory.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
@@ -381,10 +382,66 @@ MapConfig Storage::Detail::mapConfig() const
 
 namespace {
 
+/** Helper type to hold exact tileset ids and base tileset ids with tags
+ */
+struct TilesetSubset {
+    typedef boost::optional<TilesetSubset> optional;
+
+    typedef std::map<TilesetId, std::string> TaggedIds;
+
+    TilesetIdSet ids;
+    TaggedIds taggedIds;
+};
+
+TilesetSubset::optional makeSubsetFilter(const TilesetIdSet *subset)
+{
+    if (!subset) { return boost::none; }
+
+    boost::optional<TilesetSubset> res;
+    res = boost::in_place();
+    auto &filter(*res);
+
+    for (const auto &tid : *subset) {
+        auto hash(tid.find('#'));
+        if (hash == std::string::npos) {
+            // no @ character
+            filter.ids.insert(tid);
+            continue;
+        }
+
+        // tagged
+        filter.taggedIds.insert
+            (TilesetSubset::TaggedIds::value_type
+             (tid.substr(0, hash), tid.substr(hash + 1)));
+    }
+
+    return filter;
+}
+
 inline bool allowed(const TilesetIdSet *subset, const TilesetId &id)
 {
     if (!subset) { return true; }
     return subset->count(id);
+}
+
+inline bool allowed(const TilesetSubset::optional &ofilter
+                    , const StoredTileset &storedTs)
+{
+    if (!ofilter) { return true; }
+    const auto &filter(*ofilter);
+
+    // check exact match
+    if (filter.ids.count(storedTs.tilesetId)) { return true; }
+
+    // check for tag via tileset's baseId
+    auto ftagged(filter.taggedIds.find(storedTs.baseId));
+    if (ftagged == filter.taggedIds.end()) {
+        // no such baseId
+        return false;
+    }
+
+    // check for tag presence
+    return storedTs.tags.count(ftagged->second);
 }
 
 inline bool allowed(const TilesetIdSet *subset, const Glue::Id &id)
@@ -413,12 +470,14 @@ inline bool allowed(const TilesetIdSet &subset, const Glue::Id &id)
 
 TilesetIdSet Storage::Properties::unique(const TilesetIdSet *subset) const
 {
+    const auto filter(makeSubsetFilter(subset));
+
     typedef std::map<TilesetId, const StoredTileset*> Seen;
     Seen seen;
 
     for (const auto &tileset : tilesets) {
         // filter by set of allowed tilesets
-        if (!allowed(subset, tileset.tilesetId)) { continue; }
+        if (!allowed(filter, tileset)) { continue; }
 
         auto fseen(seen.find(tileset.baseId));
         if (fseen != seen.end()) {
@@ -511,7 +570,8 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     // get in mapconfigs of tilesets and their glues; do not use any tileset's
     // extra configuration
 
-    // grab list of unique tilesets to be sent into the output
+    // grab list of unique tilesets and tilesets-as-freelayer to be sent into
+    // the output
     const auto unique(properties.unique(subset));
 
     // // counts of pending glues for unique tilesets
@@ -520,35 +580,14 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     // set of tilesets with glues
     TilesetIdSet glueable;
 
-    // surfaces converted to free layers
-    TilesetIdSet syntheticFreeLayers;
-
     // tilesets
     // bool surfacesAvailable(true);
     for (const auto &tileset : properties.tilesets) {
         // check for tileset being both requested and fully available
         bool surface(allowed(unique, tileset.tilesetId));
 
-        // free layer?
+        // should we use it as a free layer?
         bool fl(freeLayers && freeLayers->count(tileset.tilesetId));
-
-#if 0
-        // NB: unwanted feature, keep it as a surface
-        // pending glue check
-        if (surface && (!surfacesAvailable || pgc.at(tileset.tilesetId))) {
-            // this tileset cannot be a surface because this or some preceding
-            // tileset has pending glues
-            // surface -> free layer
-            surface = false;
-            fl = true;
-
-            // no surfaces from this point
-            surfacesAvailable = false;
-
-            // remember in sythetic free layers)
-            syntheticFreeLayers.insert(tileset.tilesetId);
-        }
-#endif
 
         // handle tileset as a free layers
         if (fl) {
@@ -604,11 +643,6 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     if (extra.view) {
         // use settings from extra config
         mapConfig.view = extra.view;
-    }
-
-    // inject sythetic free layers into view
-    for (const auto &tilesetId : syntheticFreeLayers) {
-        mapConfig.view.addFreeLayer(tilesetId);
     }
 
     // browser setup if present
