@@ -42,7 +42,7 @@
 
 namespace vtslibs { namespace vts {
 
-class Mesh;
+struct Mesh;
 
 class Atlas {
 public:

@@ -83,7 +83,7 @@ public:
 private:
     bool initSampler() const;
 
-    struct Sampler;
+    class Sampler;
 
     const RFNode *root_;
     const registry::Registry *registry_;
