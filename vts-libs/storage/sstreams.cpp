@@ -42,7 +42,7 @@ namespace vtslibs { namespace storage {
 
 namespace detail {
 
-const std::streamsize IOBufferSize = 1 << 16;
+//const std::streamsize IOBufferSize = 1 << 16;
 
 class MemIStream : public storage::IStream {
 public:
