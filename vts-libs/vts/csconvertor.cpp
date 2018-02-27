@@ -68,6 +68,13 @@ CsConvertor::CsConvertor(const boost::optional<geo::CsConvertor> &conv
     : conv_(conv), srcAdjuster_(srcAdjuster), dstAdjuster_(dstAdjuster)
 {}
 
+CsConvertor::CsConvertor(const registry::Srs &srsFrom
+                         , const std::string &srsIdTo
+                         , const registry::Registry &reg)
+{
+    init(&srsFrom, &reg.srs(srsIdTo));
+}
+
 void CsConvertor::init(const registry::Srs *srsFrom
                        , const registry::Srs *srsTo)
 {

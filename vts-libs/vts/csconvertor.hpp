@@ -73,6 +73,12 @@ public:
                 , const ::OGRSpatialReference &srsTo
                 , const registry::Registry &reg = registry::system);
 
+    /** Combined convertor, never results in no-op convertor.
+     */
+    CsConvertor(const registry::Srs &srsFrom
+                , const std::string &srsIdTo
+                , const registry::Registry &reg = registry::system);
+
     /** Returns inverse convertor (uses stored pointer to comples SRS
      *  definitions) -- swaps FROM and TO.
      *

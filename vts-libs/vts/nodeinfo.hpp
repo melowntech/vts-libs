@@ -196,7 +196,7 @@ public:
      *
      *  This SRS is used to interpret data stored inside navtiles.
      */
-    geo::SrsDefinition navsds() const;
+    registry::Srs navsds() const;
 
     /** Generate list of nodeinfos from valid referenceframes' nodes.
      */
