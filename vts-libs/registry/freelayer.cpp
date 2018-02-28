@@ -266,4 +266,16 @@ void saveFreeLayer(std::ostream &out, const FreeLayer &freeLayer)
     Json::write(out, content);
 }
 
+FreeLayer loadFreeLayer(std::istream &in
+                        , const boost::filesystem::path &path)
+{
+    // load json
+    auto content(Json::read<storage::FormatError>
+                 (in, path, "free layer"));
+
+    FreeLayer freeLayer;
+    parse(freeLayer, content);
+    return freeLayer;
+}
+
 } } // namespace vtslibs::registry

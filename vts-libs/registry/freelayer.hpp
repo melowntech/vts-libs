@@ -95,6 +95,9 @@ struct FreeLayer {
 
 void saveFreeLayer(std::ostream &out, const FreeLayer &freeLayer);
 
+FreeLayer loadFreeLayer(std::istream &in
+                        , const boost::filesystem::path &path = "unknown");
+
 // inlines
 
 inline FreeLayer::FreeLayer(std::string id, std::string externalUrl)
