@@ -45,10 +45,8 @@ namespace vtslibs { namespace vts {
 class UrlTemplate {
 public:
     UrlTemplate() = default;
-
-    // FIXME: make copyable/assignable when token copy problem is fixed
-    UrlTemplate(const UrlTemplate&) = delete;
-    UrlTemplate& operator=(const UrlTemplate&) = delete;
+    UrlTemplate(const UrlTemplate&) = default;
+    UrlTemplate& operator=(const UrlTemplate&) = default;
 
     UrlTemplate(const std::string &str) { parse(str); }
 
