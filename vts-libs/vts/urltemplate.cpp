@@ -384,9 +384,13 @@ void UrlTemplate::parse(const std::string &str)
                                      , func);
             } else {
                 tokens_.emplace_back(str.substr(open, close - open + 1));
-                LOG(warn2)
-                    << "Unprocessed directive <" << tokens_.back().value
-                    << ">.";
+
+                // ignore viewspec, otherwise issue a warning
+                if (tokens_.back().value != "{viewspec}") {
+                    LOG(warn2)
+                        << "Unprocessed directive <" << tokens_.back().value
+                        << ">.";
+                }
             }
         }
 
