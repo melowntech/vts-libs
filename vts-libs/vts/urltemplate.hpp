@@ -51,6 +51,8 @@ public:
     UrlTemplate(const std::string &str) { parse(str); }
 
     void parse(const std::string &str);
+    void clear() { tokens_.clear(); }
+    bool empty() const { return tokens_.empty(); }
 
     struct Vars {
         vts::TileId tileId;
