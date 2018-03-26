@@ -133,6 +133,9 @@ inline double bestLod(const vts::NodeInfo &rfNode
     const double texelArea(area.mesh / area.internalTexture);
     const auto optimalTileArea
         (math::area(optimalTextureSize) * texelArea);
+    if (rfNode.extents().area() <= 0) { return 0; }
+    if (optimalTileArea <= 0) { return 0; }
+
     const auto optimalTileCount(rfNode.extents().area()
                                 / optimalTileArea);
     return (0.5 * std::log2(optimalTileCount));
