@@ -147,7 +147,7 @@ UrlTemplate::Expander makePpExpander(const std::string &str
 
         if (xAxis) {
             // ppx
-            return [lodVar, posVar, xAxis](std::ostream &os
+            return [lodVar, posVar](std::ostream &os
                                            , const UrlTemplate::Vars &vars)
             {
                 vts::Lod lod(variableValue(lodVar, vars));
@@ -160,7 +160,7 @@ UrlTemplate::Expander makePpExpander(const std::string &str
         }
 
         // ppy
-        return [lodVar, posVar, xAxis](std::ostream &os
+        return [lodVar, posVar](std::ostream &os
                                        , const UrlTemplate::Vars &vars)
         {
             vts::Lod lod(variableValue(lodVar, vars));
