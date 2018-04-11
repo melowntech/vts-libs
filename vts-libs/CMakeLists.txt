@@ -33,11 +33,16 @@ set(vts-common_SOURCES
   storage/fstreams.hpp storage/fstreams.cpp
   storage/sstreams.hpp storage/sstreams.cpp
 
-  storage/tilar.hpp storage/tilar.cpp
-  storage/tilar-io.hpp
-
   storage/support.hpp storage/support.cpp
   )
+
+# tilar not available on windows, sorry
+if(NOT WIN32)
+  list(APPEND vts-common_SOURCES
+    storage/tilar.hpp storage/tilar.cpp
+    storage/tilar-io.hpp
+    )
+endif()
 
 # registry
 set(vts-registry_SOURCES
@@ -51,16 +56,18 @@ set(vts-registry_SOURCES
   )
 
 set(vts-registry_python_DEPENDS)
-if(VTS_REGISTRY_PYTHON)
-  message(STATUS "vts-libs-core: compiling in python support")
-  list(APPEND vts-registry_python_DEPENDS
-    pysupport pydbglog Boost_PYTHON)
-  set(vts-registry_python_SOURCES
-    registry/py.hpp registry/py.cpp
-    )
-else()
-  message(STATUS "vts-libs-core: compiling without python support")
-  set(vts-registry_python_SOURCES)
+if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core)
+  if(VTS_REGISTRY_PYTHON)
+    message(STATUS "vts-libs-core: compiling in python support")
+    list(APPEND vts-registry_python_DEPENDS
+      pysupport pydbglog Boost_PYTHON)
+    set(vts-registry_python_SOURCES
+      registry/py.hpp registry/py.cpp
+      )
+  else()
+    message(STATUS "vts-libs-core: compiling without python support")
+    set(vts-registry_python_SOURCES)
+  endif()
 endif()
 
 if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core:vts0)
@@ -283,7 +290,7 @@ set(vts_SOURCES
 define_module(LIBRARY vts-libs-nucleus=${vts-libs_VERSION}
   DEPENDS
   geo>=1.24 geometry>=1.7 imgproc>=1.22 math>=1.2
-  utility>=1.16 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
+  utility>=1.24 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
 
   Boost_IOSTREAMS
   Boost_FILESYSTEM
@@ -345,6 +352,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
 endif()
 
 if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-tools-support AND TARGET vts-libs)
+  message(STATUS "Compiling vts-libs-tools library.")
   set(vts-libs-tools-support_EXTRA_DEPENDS )
   set(vts-libs-tools-support_EXTRA_SOURCES )
 
@@ -379,7 +387,7 @@ if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-tools-support AND TARGET vts-lib
 endif()
 
 # add tools subdirectory
-if(MODULE_service_FOUND)
+if(MODULE_service_FOUND AND TARGET vts-libs)
   if (vts-libs_vts-install_component)
     add_subdirectory(tools)
   else()

@@ -214,7 +214,7 @@ long QTree::Node::set(unsigned int size, unsigned int x, unsigned int y
         // we are inside given range, set full value
         if (children) {
             // accumulate area to destroy
-            std::size_t removedCount(0);
+            long removedCount(0);
             descend(size, x, y, [&](unsigned int, unsigned int
                                     , unsigned int size, value_type)
             {
@@ -241,7 +241,7 @@ long QTree::Node::set(unsigned int size, unsigned int x, unsigned int y
         auto old(this->value);
         this->value = value;
         if ((old && value) || (!old && !value)) { return 0; }
-        if (old && !value) { return -(size * size); }
+        if (old && !value) { return -long(size * size); }
         return (size * size);
     }
 

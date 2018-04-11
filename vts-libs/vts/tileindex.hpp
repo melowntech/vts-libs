@@ -483,7 +483,7 @@ inline bool TileIndex::empty() const
 
 inline Lod TileIndex::maxLod() const
 {
-    return minLod_ + trees_.size() - 1;
+    return minLod_ + int(trees_.size()) - 1;
 }
 
 inline LodRange TileIndex::lodRange() const

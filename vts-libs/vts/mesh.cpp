@@ -308,7 +308,7 @@ SubMesh SubMesh::cleanUp() const
             {
                 int &idx(vindex[rface(i)]);
                 if (idx < 0) {
-                    idx = ret.vertices.size();
+                    idx = int(ret.vertices.size());
                     ret.vertices.push_back(vertices[rface(i)]);
                     if (have_etc) {
                         ret.etc.push_back(etc[rface(i)]);
@@ -323,7 +323,7 @@ SubMesh SubMesh::cleanUp() const
                 {
                     int &idx(tindex[tface(i)]);
                     if (idx < 0) {
-                        idx = ret.tc.size();
+                        idx = int(ret.tc.size());
                         ret.tc.push_back(tc[tface(i)]);
                     }
                     tface(i) = idx;

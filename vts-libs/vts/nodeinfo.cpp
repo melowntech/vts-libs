@@ -396,7 +396,7 @@ NodeInfo::coverageMask(CoverageType type, const math::Size2 &size
 
 RFTreeSubtree::CoverageMask
 RFTreeSubtree::coverageMask(CoverageType type, const math::Size2 &size
-                            , unsigned int dilation, const RFNode &node) const
+                            , int dilation, const RFNode &node) const
 {
     if (!initSampler()) {
         // no sampler -> no constraints -> full mask

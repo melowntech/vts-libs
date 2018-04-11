@@ -218,7 +218,7 @@ public:
     /** Create qtree from this qtrees's subtree at given coordinates.
      */
     QTree subTree(unsigned int order, unsigned int depth
-                  , uint x, uint y) const
+                  , unsigned int x, unsigned int y) const
     {
         return { *this, order, depth, x, y };
     }
@@ -456,11 +456,11 @@ inline void QTree::forEach(const Op &op, Filter filter) const
                           , value_type value)
     {
         // rasterize node
-        uint ex(x + size);
-        uint ey(y + size);
+        unsigned int ex(x + size);
+        unsigned int ey(y + size);
 
-        for (uint j(y); j < ey; ++j) {
-            for (uint i(x); i < ex; ++i) {
+        for (unsigned int j(y); j < ey; ++j) {
+            for (unsigned int i(x); i < ex; ++i) {
                 op(i, j, value);
             }
         }
@@ -512,11 +512,11 @@ inline void QTree::forEach(unsigned int depth, unsigned int x, unsigned int y
                             , value_type value)
     {
         // rasterize node
-        uint ex(x + size);
-        uint ey(y + size);
+        unsigned int ex(x + size);
+        unsigned int ey(y + size);
 
-        for (uint j(y); j < ey; ++j) {
-            for (uint i(x); i < ex; ++i) {
+        for (unsigned int j(y); j < ey; ++j) {
+            for (unsigned int i(x); i < ex; ++i) {
                 op(i, j, value);
             }
         }

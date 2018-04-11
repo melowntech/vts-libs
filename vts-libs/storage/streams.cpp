@@ -23,9 +23,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include <cerrno>
 #include <system_error>
@@ -33,6 +33,8 @@
 #include "dbglog/dbglog.hpp"
 
 #include "utility/raise.hpp"
+#include "utility/filesystem.hpp"
+#include "utility/time.hpp"
 
 #include "./streams.hpp"
 #include "./error.hpp"
@@ -75,55 +77,27 @@ std::size_t IStream::read(char *buf, std::size_t size
 
 FileStat FileStat::stat(const boost::filesystem::path &path)
 {
-    struct ::stat st;
-    if (::stat(path.string().c_str(), &st) == -1) {
-        std::system_error e
-            (errno, std::system_category()
-             , utility::formatError("Cannot stat file %s.", path));
-        LOG(err1) << e.what();
-        throw e;
-    }
-
-    return { std::size_t(st.st_size), st.st_mtime
-            , "application/octet-stream" };
+    auto s(utility::FileStat::from(path));
+    return { s.size, s.modified, "application/octet-stream" };
 }
 
 FileStat FileStat::stat(const boost::filesystem::path &path
                         , std::nothrow_t)
 {
-    struct ::stat st;
-    if (::stat(path.string().c_str(), &st) == -1) {
-        return { 0, -1 };
-    }
-
-    return { std::size_t(st.st_size), st.st_mtime
-            , "application/octet-stream" };
+    auto s(utility::FileStat::from(path, std::nothrow));
+    return { s.size, s.modified, "application/octet-stream" };
 }
 
 FileStat FileStat::stat(int fd)
 {
-    struct ::stat st;
-    if (::fstat(fd, &st) == -1) {
-        std::system_error e
-            (errno, std::system_category()
-             , utility::formatError("Cannot stat fd %d.", fd));
-        LOG(err1) << e.what();
-        throw e;
-    }
-
-    return { std::size_t(st.st_size), st.st_mtime
-            , "application/octet-stream" };
+    auto s(utility::FileStat::from(fd));
+    return { s.size, s.modified, "application/octet-stream" };
 }
 
 FileStat FileStat::stat(int fd, std::nothrow_t)
 {
-    struct ::stat st;
-    if (::fstat(fd, &st) == -1) {
-        return { 0, 0 };
-    }
-
-    return { std::size_t(st.st_size), st.st_mtime
-            , "application/octet-stream" };
+    auto s(utility::FileStat::from(fd, std::nothrow));
+    return { s.size, s.modified, "application/octet-stream" };
 }
 
 const char* contentType(File type)
@@ -177,6 +151,60 @@ bool gzipped(const IStream::pointer &s, std::size_t offset)
 {
     return gzipped(*s, offset);
 }
+
+#ifdef _WIN32
+
+FileStat FileStat::stat(::HANDLE h)
+{
+    ::LARGE_INTEGER size;
+    if (!::GetFileSizeEx(h, &size)) {
+        std::system_error e(::GetLastError(), std::generic_category()
+                            , utility::formatError
+                            ("Cannot get file size via handle %s.", h));
+        LOG(err1) << e.what();
+        throw e;
+    }
+
+    ::ULARGE_INTEGER modified;
+    {
+        ::FILETIME tmp;
+        if (!::GetFileTime(h, nullptr, nullptr, &tmp)) {
+            std::system_error e(::GetLastError(), std::generic_category()
+                                , utility::formatError
+                                ("Cannot get file time via handle %s.", h));
+            LOG(err1) << e.what();
+            throw e;
+        }
+
+        modified.LowPart  = tmp.dwLowDateTime;
+        modified.HighPart = tmp.dwHighDateTime;
+    }
+
+    return { std::size_t(size.QuadPart)
+            , utility::windowsFileTime2Unix(modified.QuadPart)
+            , "application/octet-stream"};
+}
+
+FileStat FileStat::stat(::HANDLE h, std::nothrow_t)
+{
+    ::LARGE_INTEGER size;
+    if (!::GetFileSizeEx(h, &size)) { return { 0, -1 }; }
+
+    ::ULARGE_INTEGER modified;
+    {
+        ::FILETIME tmp;
+        if (!::GetFileTime(h, nullptr, nullptr, &tmp)) { return { 0, -1 }; }
+
+        modified.LowPart  = tmp.dwLowDateTime;
+        modified.HighPart = tmp.dwHighDateTime;
+    }
+
+    return { std::size_t(size.QuadPart)
+            , utility::windowsFileTime2Unix(modified.QuadPart)
+            , "application/octet-stream"};
+}
+
+#endif
 
 } } // namespace vtslibs::storage
 

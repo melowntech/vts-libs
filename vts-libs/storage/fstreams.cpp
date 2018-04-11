@@ -147,9 +147,17 @@ public:
             (const_cast<decltype(buffer_)&>(buffer_)->handle());
     }
 
+#if _WIN32
+    // cannot convert from HANDLE to filedescriptor (only vice-versa)
+    virtual boost::optional<ReadOnlyFd> fd() UTILITY_OVERRIDE {
+        return boost::none;
+    }
+
+#else
     virtual boost::optional<ReadOnlyFd> fd() UTILITY_OVERRIDE {
         return ReadOnlyFd(buffer_->handle(), 0, stat_impl().size);
     }
+#endif
 
 private:
     void open() {

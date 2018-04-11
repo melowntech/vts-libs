@@ -85,7 +85,7 @@ Table readTable(std::istream &is, const std::string &expectMagic
 
     const auto tailSize(expectMagic.size() + sizeof(version) + sizeof(size));
 
-    is.seekg(-tailSize, std::ios_base::end);
+    is.seekg(-long(tailSize), std::ios_base::end);
 
     // read magic
     bin::read(is, magic.get(), expectMagic.size());
@@ -103,7 +103,7 @@ Table readTable(std::istream &is, const std::string &expectMagic
 
     // seek to table start
     std::uint32_t u32;
-    is.seekg(-(tailSize + size * 2 * sizeof(u32)), std::ios_base::end);
+    is.seekg(-long(tailSize + size * 2 * sizeof(u32)), std::ios_base::end);
 
     // read table
     Table table(version, expectMagic);

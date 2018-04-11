@@ -118,7 +118,7 @@ TileSetGlues::list glueOrder(const TileSetGlues::list &in)
 
                 while (i < stack.size()) {
                     if (stack[i] == id) {
-                        glue.indices.push_back(i);
+                        glue.indices.push_back(int(i));
                         ++i;
                         break;
                     } else {

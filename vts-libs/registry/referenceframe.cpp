@@ -1095,7 +1095,8 @@ ReferenceFrame::dict loadReferenceFrames(const boost::filesystem::path &path)
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to load reference frame file " << path << ".";
+            << "Unable to load reference frame file " << path
+            << ": <" << e.what() << ">.";
     }
     auto rfs(loadReferenceFrames(f, path));
     f.close();
@@ -1121,7 +1122,8 @@ void saveReferenceFrames(const boost::filesystem::path &path
         f.open(path.string(), std::ios_base::out);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to save reference frame file " << path << ".";
+            << "Unable to save reference frame file " << path
+            << ": <" << e.what() << ">.";
     }
     saveReferenceFrames(f, rfs);
     f.close();
@@ -1147,7 +1149,8 @@ Srs::dict loadSrs(const boost::filesystem::path &path)
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to load srs file " << path << ".";
+            << "Unable to load srs file " << path
+            << ": <" << e.what() << ">.";
     }
     auto srs(loadSrs(f, path));
     f.close();
@@ -1172,7 +1175,8 @@ void saveSrs(const boost::filesystem::path &path
         f.open(path.string(), std::ios_base::out);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to save srs file " << path << ".";
+            << "Unable to save srs file " << path
+            << ": <" << e.what() << ">.";
     }
     saveSrs(f, srs);
     f.close();
@@ -1199,7 +1203,8 @@ BoundLayer::dict loadBoundLayers(const boost::filesystem::path &path)
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to load bound layer file " << path << ".";
+            << "Unable to load bound layer file " << path
+            << ": <" << e.what() << ">.";
     }
     auto boundLayers(loadBoundLayers(f, path));
     f.close();
@@ -1224,7 +1229,8 @@ void saveBoundLayers(const boost::filesystem::path &path
         f.open(path.string(), std::ios_base::out);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to save bound Layers file " << path << ".";
+            << "Unable to save bound Layers file " << path
+            << ": <" << e.what() << ">.";
     }
     saveBoundLayers(f, boundLayers);
     f.close();
@@ -1271,7 +1277,8 @@ Credit::dict loadCredits(const boost::filesystem::path &path)
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to load credits from file " << path << ".";
+            << "Unable to load credits from file " << path
+            << ": <" << e.what() << ">.";
     }
     auto credits(loadCredits(f, path));
     f.close();
@@ -1296,7 +1303,8 @@ void saveCredits(const boost::filesystem::path &path
         f.open(path.string(), std::ios_base::out);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to save credits to file " << path << ".";
+            << "Unable to save credits to file " << path
+            << ": <" << e.what() << ">.";
     }
     saveCredits(f, credits);
     f.close();
@@ -1899,7 +1907,8 @@ void load(RegistryBase &rb, const boost::filesystem::path &path)
         f.open(path.string(), std::ios_base::in);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to load registry base file " << path << ".";
+            << "Unable to load registry base file " << path
+            << ": <" << e.what() << ">.";
     }
 
     load(rb, f, path);
@@ -1921,7 +1930,8 @@ void save(const boost::filesystem::path &path, const RegistryBase &rb)
         f.open(path.string(), std::ios_base::out);
     } catch (const std::exception &e) {
         LOGTHROW(err1, storage::IOError)
-            << "Unable to save registry base file " << path << ".";
+            << "Unable to save registry base file " << path
+            << ": <" << e.what() << ">.";
     }
     save(f, rb);
     f.close();

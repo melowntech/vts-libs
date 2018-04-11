@@ -43,7 +43,7 @@ int getOpenFilesThreshold()
     if (auto value = std::getenv(TILESET_MAX_OPEN_FILES)) {
         count = boost::lexical_cast<int>(value);
     } else {
-        count = utility::maxOpenFiles() / 2;
+        count = int(utility::maxOpenFiles() / 2);
     }
     return count;
 }

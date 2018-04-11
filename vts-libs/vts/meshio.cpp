@@ -81,9 +81,9 @@ void getMeshOrdering(const SubMesh &submesh,
                      std::vector<int> &vorder,
                      std::vector<int> &torder)
 {
-    int nfaces = submesh.faces.size();
-    int nvertices = submesh.vertices.size();
-    int ntexcoords = submesh.tc.size();
+    auto nfaces = int(submesh.faces.size());
+    auto nvertices = int(submesh.vertices.size());
+    auto ntexcoords = int(submesh.tc.size());
 
 #if 1
     std::vector<geometry::ForsythVertexIndexType> indices;
@@ -260,7 +260,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
         int b1 = dw.nbytes();
         {
             // TODO: check: nv must be < 2^16
-            int nv(sm.vertices.size());
+            auto nv(int(sm.vertices.size()));
             bin::write(out, std::uint16_t(nv));
             bin::write(out, std::uint16_t(GeomQuant));
 
@@ -273,7 +273,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
                 for (int j = 0; j < 3; j++)
                 {
                     double ncoord = (v(j) - center(j)) * scale;
-                    int qcoord = round(ncoord * GeomQuant);
+                    auto qcoord(int(round(ncoord * GeomQuant)));
                     dw.writeDelta(qcoord, last[j]);
                 }
             }
@@ -290,7 +290,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
                     const auto &etc(sm.etc[ivorder[i]]);
                     for (int j = 0; j < 2; j++)
                     {
-                        int qcoord = round(etc(j) * quant);
+                        auto qcoord(int(round(etc(j) * quant)));
                         dw.writeDelta(qcoord, last[j]);
                     }
                 }
@@ -302,7 +302,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
         if (flags & SubMeshFlag::internalTexture)
         {
             // TODO: check: ntc must be < 2^16
-            int ntc(sm.tc.size());
+            auto ntc(int(sm.tc.size()));
             bin::write(out, uint16_t(ntc));
 
             math::Size2 dflt{DefaultTextureSize, DefaultTextureSize};
@@ -323,7 +323,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
                 const auto &t(sm.tc[itorder[i]]);
                 for (int j = 0; j < 2; j++)
                 {
-                    int qcoord = round(t(j) * quant[j]);
+                    auto qcoord(int(round(t(j) * quant[j])));
                     dw.writeDelta(qcoord, last[j]);
                 }
             }
@@ -333,7 +333,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
         int b3, b4;
         {
             // TODO: check: nf must be < 2^16
-            int nf(sm.faces.size());
+            auto nf(int(sm.faces.size()));
             bin::write(out, uint16_t(nf));
 
             // write delta coded vertex indices
@@ -528,7 +528,8 @@ public:
     int readDelta(int &last)
     {
         unsigned word = readWord();
-        int delta = (word >> 1) ^ (-(word & 1));
+        // FIXME: fix for proper bit operations
+        int delta((word >> 1) ^ (-(word & 1)));
         return (last += delta);
     }
 
@@ -971,7 +972,7 @@ private:
             auto &dst(vmap[src]);
             if (dst < 0) {
                 // new mapping
-                dst = out.size();
+                dst = int(out.size());
                 out.push_back(vertices[src]);
             }
             face(i) = dst;

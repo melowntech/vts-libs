@@ -75,7 +75,7 @@ public:
     enum class CoverageType { pixel, grid };
 
     CoverageMask coverageMask(CoverageType type, const math::Size2 &size
-                              , unsigned int dilation, const RFNode &node)
+                              , int dilation, const RFNode &node)
         const;
 
     const registry::Registry& registry() const { return *registry_; }

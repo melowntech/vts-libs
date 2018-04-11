@@ -153,7 +153,7 @@ buildGeomExtents(Lod lod, const math::Extents3 &extents)
             }
 
             // convert to integer
-            std::uint32_t index(dindex);
+            auto index = std::uint32_t(dindex);
 
             for (std::uint32_t bm(1 << (bits - 1)); bm; bm >>= 1) {
                 push(index & bm);
@@ -371,7 +371,7 @@ inline void MetaNode::save(std::ostream &out, const StoreParams &sp) const
 
     // limit texel size to fit inside half float
     // TODO: make better
-    auto ts((texelSize > 65000.0) ? 65000.0 : texelSize);
+    auto ts(float((texelSize > 65000.0) ? 65000.0 : texelSize));
     bin::write(out, std::uint16_t
                (half::float2half<std::round_to_nearest>(ts)));
     bin::write(out, std::uint16_t(displaySize));

@@ -36,6 +36,13 @@
 #include <boost/optional.hpp>
 #include <boost/filesystem/path.hpp>
 
+#ifdef _WIN32
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  include <Windows.h>
+#endif
+
 #include "./filetypes.hpp"
 
 namespace vtslibs { namespace storage {
@@ -64,6 +71,10 @@ struct FileStat {
 
     static FileStat stat(int fd);
     static FileStat stat(int fd, std::nothrow_t);
+#ifdef _WIN32
+    static FileStat stat(::HANDLE h);
+    static FileStat stat(::HANDLE h, std::nothrow_t);
+#endif
 };
 
 /** Read only file descriptor.

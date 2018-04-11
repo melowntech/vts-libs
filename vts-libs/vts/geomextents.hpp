@@ -62,7 +62,7 @@ struct GeomExtents {
     /** Compute surrogate as average from height range.
      */
     void makeAverageSurrogate() {
-        surrogate = (z.min + z.max) / 2.0;
+        surrogate = (z.min + z.max) / 2.f;
     }
 
     static constexpr float invalidSurrogate
