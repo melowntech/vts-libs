@@ -52,13 +52,13 @@ namespace detail {
 
 QTree::QTree(unsigned int order, value_type value)
     : order_(order), size_(1 << order), root_(value)
-    , count_(value ? (size_ * size_) : 0)
+    , count_(value ? (size_ * size_) : 0), allSetFlags_()
 {
 }
 
 QTree::QTree(const QTree &other)
     : order_(other.order_), size_(other.size_), root_(other.root_)
-    , count_(other.count_)
+    , count_(other.count_), allSetFlags_()
 {}
 
 QTree& QTree::operator=(const QTree &other)
@@ -776,7 +776,7 @@ void QTree::Node::shrink(unsigned int depth)
 QTree::QTree(const QTree &other, unsigned int order
              , unsigned int depth, unsigned int x, unsigned int y)
     : order_(order), size_(1 << order), root_(other.root_.find(depth, x, y))
-    , count_(0)
+    , count_(0), allSetFlags_()
 {
     recount();
 }

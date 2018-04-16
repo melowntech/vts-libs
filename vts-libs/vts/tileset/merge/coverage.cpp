@@ -31,6 +31,7 @@
 #include <boost/range/adaptor/reversed.hpp>
 
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include "math/transform.hpp"
 
