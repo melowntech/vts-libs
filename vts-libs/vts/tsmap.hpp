@@ -29,6 +29,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <iosfwd>
 
 namespace vtslibs { namespace vts {
 
@@ -40,9 +41,13 @@ typedef std::vector<TilesetReferences> TilesetReferencesList;
  */
 std::string serializeTsMap(const TilesetReferencesList &tsMap);
 
-/** Deserialize tileset mapping from string.
+/** Deserialize tileset mapping from a string.
  */
 TilesetReferencesList deserializeTsMap(const std::string &raw);
+
+/** Deserialize tileset mapping from an input stream.
+ */
+TilesetReferencesList deserializeTsMap(std::istream &is);
 
 } } // namespace vtslibs::vts
 

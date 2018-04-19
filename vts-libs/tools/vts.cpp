@@ -71,6 +71,7 @@
 #include "../vts/csconvertor.hpp"
 #include "../vts/options-po.hpp"
 #include "../vts/meshopinput.hpp"
+#include "../vts/tsmap.hpp"
 
 #include "./locker.hpp"
 
@@ -126,6 +127,8 @@ namespace ba = boost::algorithm;
     ((virtualSurfaceRemove)("vs-remove"))                           \
                                                                     \
     ((locker2Stresser)("locker2-stresser"))                         \
+                                                                    \
+    ((decodeTsMap)("decode-tsmap"))                                 \
                                                                     \
     ((listReferenceFrames)("list-reference-frames"))
 
@@ -323,6 +326,8 @@ private:
     int queryNavtile();
 
     int locker2Stresser();
+
+    int decodeTsMap();
 
     int listReferenceFrames();
 
@@ -1440,6 +1445,14 @@ void VtsStorage::configuration(po::options_description &cmdline
     createParser(cmdline, Command::locker2Stresser
                  , "--command=locker2-stresser: "
                  "stress locker implementation"
+                 , [&](UP &p)
+    {
+        (void) p;
+    });
+
+    createParser(cmdline, Command::decodeTsMap
+                 , "--command=decode-tsmap: "
+                 "decodes tileset.map file"
                  , [&](UP &p)
     {
         (void) p;
@@ -3220,6 +3233,20 @@ int VtsStorage::locker2Stresser()
     auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
 
     storage.lockStressTest(running);
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::decodeTsMap()
+{
+    utility::ifstreambuf is(path_.string());
+    const auto tsm(vts::deserializeTsMap(is));
+
+    int id(1);
+    for (const auto &rl : tsm) {
+        std::cout << id << ": " << utility::join(rl, ",", "-") << '\n';
+        ++id;
+    }
+
     return EXIT_SUCCESS;
 }
 

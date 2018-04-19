@@ -25,6 +25,7 @@
  */
 
 #include <cstring>
+#include <istream>
 #include <sstream>
 
 #include "dbglog/dbglog.hpp"
@@ -44,56 +45,63 @@ const char TM_MAGIC[2] = { 'T', 'M' };
 
 std::string serializeTsMap(const TilesetReferencesList &tsMap)
 {
-    using utility::binaryio::write;
+    namespace bin = utility::binaryio;
+
     std::ostringstream os;
     os.exceptions(std::ostream::failbit | std::ostream::badbit);
 
-    write(os, TM_MAGIC, sizeof(TM_MAGIC));
+    bin::write(os, TM_MAGIC, sizeof(TM_MAGIC));
 
     // write number of datasets
-    write(os, std::uint16_t(tsMap.size()));
+    bin::write(os, std::uint16_t(tsMap.size()));
 
     // write all references
     for (const auto &references : tsMap) {
-        write(os, std::uint8_t(references.size()));
+        bin::write(os, std::uint8_t(references.size()));
         for (auto reference : references) {
-            write(os, reference);
+            bin::write(os, reference);
         }
     }
 
     return os.str();
 }
 
-TilesetReferencesList deserializeTsMap(const std::string &raw)
+TilesetReferencesList deserializeTsMap(std::istream &is)
 {
-    using utility::binaryio::read;
-    std::istringstream is(raw);
-    is.exceptions(std::istream::failbit | std::istream::badbit);
+    namespace bin = utility::binaryio;
 
     char magic[sizeof(TM_MAGIC)];
-    read(is, magic);
+    bin::read(is, magic);
     if (std::memcmp(magic, TM_MAGIC, sizeof(TM_MAGIC))) {
         LOGTHROW(err1, storage::BadFileFormat)
             << "Invalid tile mapping magic.";
     }
 
     std::uint16_t mapCount;
-    read(is, mapCount);
+    bin::read(is, mapCount);
 
     TilesetReferencesList tsMap;
     tsMap.resize(mapCount);
 
     for (auto &references : tsMap) {
         std::uint8_t rCount;
-        read(is, rCount);
+        bin::read(is, rCount);
         references.resize(rCount);
 
         for (auto &reference : references) {
-            read(is, reference);
+            bin::read(is, reference);
         }
     }
 
     return tsMap;
+}
+
+TilesetReferencesList deserializeTsMap(const std::string &raw)
+{
+    std::istringstream is(raw);
+    is.exceptions(std::istream::failbit | std::istream::badbit);
+
+    return deserializeTsMap(is);
 }
 
 } } // namespace vtslibs::vts
