@@ -398,6 +398,15 @@ public:
         GlueStatistics() : tilesToGenerate() {}
     };
 
+    /** Updates revision to be at least equal to the provided number.
+     */
+    unsigned int ensureRevision(unsigned int revision);
+
+    /** Tries to get revision from other tileset. If such revision can be read
+     *  then calls ensureRevision(oldRevision + 1).
+     */
+    unsigned int ensureRevision(const boost::filesystem::path &root);
+
     /** Analyze glue from given sets.
      *
      * \param sets input tilesets

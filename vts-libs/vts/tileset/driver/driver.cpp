@@ -102,7 +102,7 @@ Driver::Driver(const boost::filesystem::path &root
         }
 
         // OK, we can overwrite; cache contents of old config (if any)
-        oldRevision_ = tileset::loadRevision(root_ / filePath(File::config));
+        oldRevision_ = oldRevision(root_);
     }
 }
 
@@ -596,6 +596,12 @@ void openTilesetDriver(const boost::filesystem::path &root
         // report error
         callback->error(std::current_exception());
     }
+}
+
+boost::optional<unsigned int>
+Driver::oldRevision(const boost::filesystem::path &root)
+{
+    return tileset::loadRevision(root / filePath(File::config));
 }
 
 } } // namespace vtslibs::vts

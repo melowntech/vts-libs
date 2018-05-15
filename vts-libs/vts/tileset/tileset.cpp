@@ -2056,4 +2056,22 @@ void TileSet::markInfluencedTile(const TileId &tileId)
     detail().markInfluencedTile(tileId);
 }
 
+unsigned int TileSet::ensureRevision(unsigned int revision)
+{
+    auto &d(detail());
+    if (revision > d.properties.revision) {
+        d.properties.revision = revision;
+        d.propertiesChanged = true;
+    }
+    return d.properties.revision;
+}
+
+unsigned int TileSet::ensureRevision(const boost::filesystem::path &root)
+{
+    if (const auto oldRevision = Driver::oldRevision(root)) {
+        return ensureRevision(*oldRevision + 1);
+    }
+    return detail().properties.revision;
+}
+
 } } // namespace vtslibs::vts

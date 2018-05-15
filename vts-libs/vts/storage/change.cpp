@@ -250,6 +250,11 @@ public:
 
     const GlueRule::list& glueRules() const { return glueRules_; }
 
+    /** Returns real path for temporary path.
+     *  Returns provided path if there is no such temporaty path.
+     */
+    fs::path realPath(const fs::path &tmpPath) const;
+
 private:
     struct SubTx {};
     Tx(const SubTx&, const Tx &other);
@@ -372,6 +377,13 @@ fs::path Tx::createPath(const fs::path &path) const
 void Tx::remove(const fs::path &path)
 {
     mapping_[path] = fs::path();
+}
+
+fs::path Tx::realPath(const fs::path &tmpPath) const
+{
+    auto fmapping_(mapping_.find(tmpPath));
+    if (fmapping_ == mapping_.end()) { return tmpPath; }
+    return fmapping_->second;
 }
 
 } // namespace
@@ -809,6 +821,8 @@ Glue createGlue(Tx &tx, const GlueDescriptor &gd
     // create glue
     auto gPath(tx.addGlue(gd.glue));
     auto gts(createTileSet(gPath, gprop, CreateMode::overwrite));
+    // make sure we have newer revision than any possible other revision
+    gts.ensureRevision(tx.realPath(gPath));
 
     // create glue
     utility::DurationMeter timer;

@@ -199,9 +199,14 @@ public:
 
     /** Gets old revision (if any)
      */
-    boost::optional<unsigned int> oldRevision() {
+    boost::optional<unsigned int> oldRevision() const {
         return oldRevision_;
     }
+
+    /** Returns old revision for provided root path.
+     */
+    static boost::optional<unsigned int>
+    oldRevision(const boost::filesystem::path &root);
 
     const boost::filesystem::path& root() const { return root_; }
 
