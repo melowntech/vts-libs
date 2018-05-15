@@ -288,7 +288,7 @@ UrlTemplate::Expander makeSwitchExpander(const std::string &str
                 // not found, use default
                 os << ((default_ == "*") ? value : default_);
             } else {
-                os << ((default_ == "*") ? value : fmapping->second);
+                os << ((fmapping->second == "*") ? value : fmapping->second);
             }
         };
 
