@@ -33,6 +33,7 @@
 #include "utility/binaryio.hpp"
 
 #include "imgproc/binterpolate.hpp"
+#include "imgproc/fillrect.hpp"
 
 #include "../../storage/error.hpp"
 
@@ -235,10 +236,8 @@ cv::Mat renderCoverage(const NavTile &navtile)
         .forEachQuad([&](uint xstart, uint ystart, uint xsize
                          , uint ysize, bool)
     {
-        cv::Point2i start(xstart, ystart);
-        cv::Point2i end(xstart + xsize - 1, ystart + ysize - 1);
-
-        cv::rectangle(coverage, start, end, white, CV_FILLED, 4);
+        imgproc::fillRectangle(coverage, cv::Rect(xstart, ystart, xsize, ysize)
+                               , white);
     }, NavTile::CoverageMask::Filter::white);
 
     return coverage;

@@ -30,6 +30,8 @@
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
 
+#include "imgproc/fillrect.hpp"
+
 #include "./qtree.hpp"
 
 namespace fs = boost::filesystem;
@@ -61,7 +63,7 @@ void dump(const QTree &tree, const fs::path &path
             (int(std::ceil(pixelSize * (x + size - fracAdj )))
              , int(std::ceil(pixelSize * (y + size - fracAdj))));
 
-        cv::rectangle(m, start, end, white, CV_FILLED, 4);
+        imgproc::fillRectangle(m, start, end, white);
     }, QTree::Filter::white);
 
     imwrite(path.string(), m);
