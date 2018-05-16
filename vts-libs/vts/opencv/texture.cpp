@@ -26,6 +26,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include "imgproc/scanconversion.hpp"
+#include "imgproc/fillrect.hpp"
 
 #include "./texture.hpp"
 
@@ -71,12 +72,10 @@ void rasterizeMaskLegacy(cv::Mat &mask, const Faces &faces
                          , const math::Points2d &tc)
 {
     const auto white(cv::Scalar(0xff));
-    const cv::Rect bounds(0, 0, mask.cols, mask.rows);
 
     auto paint([&](int x, int y, int w, int h) -> void
     {
-        cv::Rect r(x, y, w, h);
-        cv::rectangle(mask, r & bounds, white, CV_FILLED, 4);
+        imgproc::fillRectangle(mask, cv::Rect(x, y, w, h), white);
     });
 
     cv::Point3f tri[3];

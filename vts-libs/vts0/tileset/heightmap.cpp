@@ -23,6 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <array>
 
 #include <boost/format.hpp>
@@ -32,6 +33,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include "imgproc/filtering.hpp"
+#include "imgproc/fillrect.hpp"
 
 #include "../tileset-detail.hpp"
 
@@ -260,8 +262,7 @@ void createMask(const char *dumpDir, Frontier &frontier
                       , cv::Size(size.width - 2 * (margin + hwin)
                                  , size.height - 2 * (margin + hwin)));
         if ((rect.width > 0) && (rect.height > 0)) {
-            cv::rectangle(outside, rect
-                          , cv::Scalar(0x00), CV_FILLED, 4);
+            imgproc::fillRectangle(outside, rect, cv::Scalar(0x00));
         }
     }
 
@@ -276,8 +277,8 @@ void createMask(const char *dumpDir, Frontier &frontier
         cv::Point2i end(xstart + xsize - offset(0) + hwin - 1
                         , ystart + ysize - offset(1) + hwin - 1);
 
-        cv::rectangle((valid ? inside : outside)
-                      , start, end, white, CV_FILLED, 4);
+        imgproc::fillRectangle((valid ? inside : outside)
+                               , start, end, white);
     }, RasterMask::Filter::both);
 
     // render dilate valid quads from concrete mask in both inside and outside
@@ -291,8 +292,8 @@ void createMask(const char *dumpDir, Frontier &frontier
             cv::Point2i end(xstart + xsize - offset(0) + hwin - 1
                             , ystart + ysize - offset(1) + hwin - 1);
 
-            cv::rectangle(inside, start, end, white, CV_FILLED, 4);
-            cv::rectangle(outside, start, end, white, CV_FILLED, 4);
+            imgproc::fillRectangle(inside, start, end, white);
+            imgproc::fillRectangle(outside, start, end, white);
         }, RasterMask::Filter::white);
     }
 
@@ -354,7 +355,7 @@ void renderMasks(cv::Mat &m, const RasterMask *continuous
                 cv::Point2i start(xstart - offset(0), ystart - offset(1));
                 cv::Point2i end(xstart + xsize - offset(0) - 1
                                 , ystart + ysize - offset(1) - 1);
-                cv::rectangle(m, start, end, *color, CV_FILLED, 4);
+                imgproc::fillRectangle(m, start, end, *color);
             }, RasterMask::Filter::white);
         }
         ++color;
@@ -554,8 +555,7 @@ public:
                 cv::Rect area
                     (cv::Point2i(x, y), cv::Size(TileMetadata::HMSize
                                                  , TileMetadata::HMSize));
-                cv::rectangle
-                    (mask_, area, cv::Scalar(0xff), CV_FILLED, 4);
+                imgproc::fillRectangle(mask_, area, cv::Scalar(0xff));
             }
         }
 

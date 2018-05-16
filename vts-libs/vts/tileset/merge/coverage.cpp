@@ -39,6 +39,7 @@
 
 #include "imgproc/rastermask/cvmat.hpp"
 #include "imgproc/scanconversion.hpp"
+#include "imgproc/fillrect.hpp"
 #include "imgproc/const-raster.hpp"
 #include "imgproc/svg.hpp"
 
@@ -181,8 +182,6 @@ void rasterize(const MeshOpInput &input, const cv::Scalar &color
                << (input.watertight() ? " (watertight)" : "")
                << ".";
 
-    const cv::Rect bounds(0, 0, coverage.cols, coverage.rows);
-
     const auto draw([&](uint xstart, uint ystart, uint size, bool)
     {
         // scale
@@ -198,21 +197,20 @@ void rasterize(const MeshOpInput &input, const cv::Scalar &color
         xstart += margin;
         ystart += margin;
 
-        // construct rectangle and intersect it with bounds
+        // construct rectangle for this node
         cv::Rect r(xstart, ystart, size, size);
-        auto rr(r & bounds);
 
         // expand at tile border
-        if (rr.x == margin) { rr.x = 0; rr.width += margin; }
-        if (rr.y == margin) { rr.y = 0; rr.height += margin; }
-        if ((rr.x + rr.width + margin) == bounds.width) {
-            rr.width += margin;
+        if (r.x == margin) { r.x = 0; r.width += margin; }
+        if (r.y == margin) { r.y = 0; r.height += margin; }
+        if ((r.x + r.width + margin) == coverage.cols) {
+            r.width += margin;
         }
-        if ((rr.y + rr.height + margin) == bounds.height) {
-            rr.height += margin;
+        if ((r.y + r.height + margin) == coverage.rows) {
+            r.height += margin;
         }
 
-        cv::rectangle(coverage, rr, color, CV_FILLED, 4);
+        imgproc::fillRectangle(coverage, r, color);
     });
 
     input.mesh().coverageMask.forEachNode
