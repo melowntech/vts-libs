@@ -76,6 +76,7 @@ namespace ba = boost::algorithm;
 UTILITY_GENERATE_ENUM(Command,
                       ((info))
                       ((convert))
+                      ((save))
                       )
 
 struct Verbosity {
@@ -157,6 +158,10 @@ private:
 
     int convert();
 
+    int save();
+
+    vts::MapConfig loadMapConfig();
+
     bool noexcept_;
     fs::path path_;
     Command command_;
@@ -164,6 +169,7 @@ private:
 
     std::string ssrs_;
     std::string tsrs_;
+    fs::path output_;
 
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
 };
@@ -206,6 +212,18 @@ void MapConfig::configuration(po::options_description &cmdline
         p.positional
             .add("ssrs", 1)
             .add("tsrs", 1);
+    });
+
+    createParser(cmdline, Command::save
+                 , "--command=save: save map configuration to given file"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("output", po::value(&output_)->required(), "Output file.")
+            ;
+
+        p.positional
+            .add("output", 1);
     });
 }
 
@@ -290,6 +308,7 @@ int MapConfig::runCommand()
     switch (command_) {
     case Command::info: return info();
     case Command::convert: return convert();
+    case Command::save: return save();
     }
     std::cerr << "mapconfig: no operation requested" << '\n';
     return EXIT_FAILURE;
@@ -309,7 +328,7 @@ int MapConfig::run()
     }
 }
 
-int MapConfig::info()
+vts::MapConfig MapConfig::loadMapConfig()
 {
     vts::MapConfig mc;
     {
@@ -318,6 +337,13 @@ int MapConfig::info()
         f.open(path_.string(), std::ios_base::in);
         vts::loadMapConfig(mc, f, path_);
     }
+    return mc;
+}
+
+
+int MapConfig::info()
+{
+    auto mc(loadMapConfig());
 
     std::cout << "referenceFrame: " << mc.referenceFrame.id << "\n";
 
@@ -333,22 +359,29 @@ int MapConfig::info()
     }
     std::cout << "\n";
 
-    return EXIT_FAILURE;
+    return EXIT_SUCCESS;
 }
 
 int MapConfig::convert()
 {
-    vts::MapConfig mc;
-    {
-        std::ifstream f;
-        f.exceptions(std::ios::badbit | std::ios::failbit);
-        f.open(path_.string(), std::ios_base::in);
-        vts::loadMapConfig(mc, f, path_);
-    }
+    auto mc(loadMapConfig());
 
     vts::CsConvertor conv(ssrs_, tsrs_, mc);
 
-    return EXIT_FAILURE;
+    return EXIT_SUCCESS;
+}
+
+int MapConfig::save()
+{
+    auto mc(loadMapConfig());
+
+    std::ofstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    f.open(output_.string(), std::ios_base::out);
+    vts::saveMapConfig(mc, f);
+    f.close();
+
+    return EXIT_SUCCESS;
 }
 
 int main(int argc, char *argv[])

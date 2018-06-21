@@ -112,6 +112,30 @@ struct Srs {
     }
 };
 
+/** Celestial (or other) body: Planet, moon, satelite, whatever.
+ */
+struct Body {
+    typedef std::string Id;
+
+    /** Unique identifier.
+     */
+    Id id;
+
+    /** Parent body, if available.
+     */
+    boost::optional<Id> parent;
+
+    /** Json data. Not modified, only parent is parsed.
+     */
+    boost::any json;
+
+    static constexpr char typeName[] = "body";
+
+    typedef StringDictionary<Body> dict;
+
+    typedef std::set<Id> IdList;
+};
+
 struct ReferenceFrame {
     struct Model {
         std::string physicalSrs;
@@ -263,7 +287,7 @@ struct ReferenceFrame {
 
     std::string id;
     std::string description;
-    boost::optional<std::string> body;
+    boost::optional<Body::Id> body;
     Model model;
     Division division;
 
@@ -425,28 +449,6 @@ struct BoundLayer {
     };
 
     typedef DualDictionary<BoundLayer, BoundLayer::NumericId> dict;
-};
-
-/** Celestial (or other) body: Planet, moon, satelite, whatever.
- */
-struct Body {
-    typedef std::string Id;
-
-    /** Unique identifier.
-     */
-    Id id;
-
-    /** Parent body, if available.
-     */
-    boost::optional<Id> parent;
-
-    /** Json data. Not modified, only parent is parsed.
-     */
-    boost::any json;
-
-    static constexpr char typeName[] = "body";
-
-    typedef StringDictionary<Body> dict;
 };
 
 // general I/O
@@ -634,6 +636,7 @@ inline bool Position::operator==(const Position &p) const
 Srs::dict listSrs(const ReferenceFrame &referenceFrame);
 
 Body::dict listBodies(const ReferenceFrame &referenceFrame);
+Body::IdList listParentBodies(const ReferenceFrame &referenceFrame);
 
 Credit::dict creditsAsDict(const StringIdSet &credits);
 Credit::dict creditsAsDict(const Credits &credits);

@@ -149,6 +149,10 @@ struct ExtraTileSetProperties {
      */
     registry::FreeLayer::dict freeLayers;
 
+    /** Extra bodies.
+     */
+    registry::Body::dict bodies;
+
     /** Browser core options. Opaque structure.
      */
     boost::any browserOptions;

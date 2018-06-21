@@ -1553,9 +1553,11 @@ Json::Value asJson(const Body::dict &bodies)
     return content;
 }
 
-void fromJson(Body::dict &bodies, const Json::Value &value)
+Body::dict bodiesFromJson(const Json::Value &value)
 {
+    Body::dict bodies;
     parse(bodies, value);
+    return bodies;
 }
 
 Position positionFromJson(const Json::Value &value)
@@ -1631,6 +1633,17 @@ void addBody(Body::dict &bodies, const std::string &bodyId)
     }
 }
 
+void addParentBodyId(Body::IdList &bodies, const std::string &bodyId)
+{
+    if (const auto body = system.bodies(bodyId, std::nothrow)) {
+        if (body->parent) {
+            if (bodies.insert(*body->parent).second) {
+                addParentBodyId(bodies, *body->parent);
+            }
+        }
+    }
+}
+
 } // namespace
 
 Body::dict listBodies(const ReferenceFrame &referenceFrame)
@@ -1638,6 +1651,14 @@ Body::dict listBodies(const ReferenceFrame &referenceFrame)
     if (!referenceFrame.body) { return {}; }
     Body::dict bodies;
     addBody(bodies, *referenceFrame.body);
+    return bodies;
+}
+
+Body::IdList listParentBodies(const ReferenceFrame &referenceFrame)
+{
+    if (!referenceFrame.body) { return {}; }
+    Body::IdList bodies;
+    addParentBodyId(bodies, *referenceFrame.body);
     return bodies;
 }
 
@@ -1780,6 +1801,13 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
         }
     }
 
+    if (!view.bodies.empty()) {
+        auto &bodies(nv["bodies"] = Json::arrayValue);
+        for (const auto &body : view.bodies) {
+            bodies.append(body);
+        }
+    }
+
     return nv;
 }
 
@@ -1865,6 +1893,17 @@ void fromJson(View &view, const Json::Value &value)
                 (*fl.depthOffset)[1] = d[1].asDouble();
                 (*fl.depthOffset)[2] = d[2].asDouble();
             }
+        }
+    }
+
+    const auto &bodies(value["bodies"]);
+    if (!bodies.isNull()) {
+        if (!bodies.isArray()) {
+            LOGTHROW(err1, Json::Error)
+                << "Type of view[bodies] member is not an array.";
+        }
+        for (const auto &body : bodies) {
+            view.bodies.insert(body.asString());
         }
     }
 }

@@ -52,7 +52,7 @@ Json::Value asJson(const Credits &credits, bool inlineCredits = true);
 void fromJson(Credits &credits, const Json::Value &value);
 
 Json::Value asJson(const Body::dict &bodies);
-void fromJson(Body::dict &bodies, const Json::Value &value);
+Body::dict bodiesFromJson(const Json::Value &value);
 
 Json::Value asJson(const Credit::dict &credits);
 Credit::dict creditsFromJson(const Json::Value &value);
