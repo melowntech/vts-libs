@@ -263,6 +263,7 @@ struct ReferenceFrame {
 
     std::string id;
     std::string description;
+    boost::optional<std::string> body;
     Model model;
     Division division;
 
@@ -426,6 +427,28 @@ struct BoundLayer {
     typedef DualDictionary<BoundLayer, BoundLayer::NumericId> dict;
 };
 
+/** Celestial (or other) body: Planet, moon, satelite, whatever.
+ */
+struct Body {
+    typedef std::string Id;
+
+    /** Unique identifier.
+     */
+    Id id;
+
+    /** Parent body, if available.
+     */
+    boost::optional<Id> parent;
+
+    /** Json data. Not modified, only parent is parsed.
+     */
+    boost::any json;
+
+    static constexpr char typeName[] = "body";
+
+    typedef StringDictionary<Body> dict;
+};
+
 // general I/O
 
 ReferenceFrame::dict loadReferenceFrames(std::istream &in
@@ -483,6 +506,15 @@ void loadCredits(std::istream &in, Credits &credits
 
 void saveCredits(std::ostream &out, const Credits &credits
                  , bool inlineCredits = true);
+
+Body::dict loadBodies(const boost::filesystem::path &path);
+
+Body::dict loadBodies(const boost::filesystem::path &path
+                      , std::nothrow_t);
+
+Body::dict loadBodies(std::istream &in
+                      , const boost::filesystem::path &path
+                      = "unknown");
 
 // extra stuff
 
@@ -600,6 +632,8 @@ inline bool Position::operator==(const Position &p) const
 }
 
 Srs::dict listSrs(const ReferenceFrame &referenceFrame);
+
+Body::dict listBodies(const ReferenceFrame &referenceFrame);
 
 Credit::dict creditsAsDict(const StringIdSet &credits);
 Credit::dict creditsAsDict(const Credits &credits);

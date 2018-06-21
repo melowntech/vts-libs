@@ -406,6 +406,7 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
 
     content["srses"] = registry::asJson(mapConfig.srs, true);
     content["referenceFrame"] = registry::asJson(mapConfig.referenceFrame);
+    content["bodies"] = registry::asJson(mapConfig.bodies);
 
     auto boundLayers(mapConfig.boundLayers);
 
@@ -468,6 +469,9 @@ void parse1(MapConfig &mapConfig, const Json::Value &config)
     fromJson(mapConfig.srs, config["srses"]);
     fromJson(mapConfig.referenceFrame, config["referenceFrame"]);
     fromJson(mapConfig.credits, config["credits"]);
+    if (config.isMember("bodies")) {
+        fromJson(mapConfig.bodies, config["bodies"]);
+    }
     fromJson(mapConfig.boundLayers, config["boundLayers"]);
     fromJson(mapConfig.freeLayers, config["freeLayers"]);
 

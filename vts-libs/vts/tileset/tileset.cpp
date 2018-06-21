@@ -1660,6 +1660,7 @@ MapConfig mapConfig(const FullTileSetProperties &properties
 
     // build
     mapConfig.referenceFrame = referenceFrame;
+    mapConfig.bodies = registry::listBodies(referenceFrame);
     mapConfig.srs = registry::listSrs(referenceFrame);
     mapConfig.credits.update(registry::creditsAsDict(properties.credits));
     mapConfig.boundLayers.update

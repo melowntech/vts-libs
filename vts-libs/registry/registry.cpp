@@ -47,6 +47,7 @@ void init(const boost::filesystem::path &confRoot)
         = loadReferenceFrames(confRoot / "referenceframes.json");
     system.boundLayers = loadBoundLayers(confRoot / "boundlayers.json");
     system.credits = loadCredits(confRoot / "credits.json");
+    system.bodies = loadBodies(confRoot / "bodies.json", std::nothrow);
 
     // grab geoid grid files from srs
     for (const auto &srs : system.srs) {

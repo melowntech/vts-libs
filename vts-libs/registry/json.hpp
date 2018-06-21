@@ -51,6 +51,9 @@ void fromJson(Srs::dict &srs, const Json::Value &value);
 Json::Value asJson(const Credits &credits, bool inlineCredits = true);
 void fromJson(Credits &credits, const Json::Value &value);
 
+Json::Value asJson(const Body::dict &bodies);
+void fromJson(Body::dict &bodies, const Json::Value &value);
+
 Json::Value asJson(const Credit::dict &credits);
 Credit::dict creditsFromJson(const Json::Value &value);
 void fromJson(Credit::dict &credits, const Json::Value &value);
