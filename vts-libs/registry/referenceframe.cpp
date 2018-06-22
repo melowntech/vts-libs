@@ -59,6 +59,7 @@ constexpr char ReferenceFrame::typeName[];
 constexpr char Credit::typeName[];
 constexpr char BoundLayer::typeName[];
 constexpr char DataFile::typeName[];
+constexpr char Body::typeName[];
 
 constexpr int BoundLayer::binaryOrder;
 constexpr int BoundLayer::tileWidth;
@@ -256,6 +257,7 @@ void parse(ReferenceFrame &rf, const Json::Value &content
             << "Type of referenceframe[model] is not an object.";
     }
     parse(rf.model, model);
+    Json::get(rf.body, content, "body");
 
     const auto &division(content["division"]);
     if (!division.isObject()) {
@@ -628,6 +630,8 @@ void build(Json::Value &content, const ReferenceFrame &rf)
 
     content["id"] = rf.id;
     content["description"] = rf.description;
+    if (rf.body) { content["body"] = *rf.body; }
+
     build(content["model"], rf.model);
     build(content["division"], rf.division);
 
@@ -1072,6 +1076,50 @@ void build(Json::Value &content, const BoundLayer::dict &bls
     }
 }
 
+void parse(Body &b, const Json::Value &content)
+{
+    b.json = content;
+    Json::get(b.parent, content, "parent");
+}
+
+void parse(Body::dict &bodies, const Json::Value &content)
+{
+    for (const auto &id : Json::check(content, Json::objectValue)
+             .getMemberNames())
+    {
+        try {
+            Body b;
+            b.id = id;
+            parse(b, Json::check(content[id], Json::objectValue));
+            bodies.add(b);
+        } catch (const Json::Error &e) {
+            LOGTHROW(err1, storage::FormatError)
+                << "Invalid bodies collection format (" << e.what()
+                << ").";
+        }
+    }
+}
+
+void build(Json::Value &content, const Body &b)
+{
+    if (const auto json = boost::any_cast<Json::Value>(&b.json)) {
+        content = Json::check(*json, Json::objectValue);
+        return;
+    }
+
+    LOGTHROW(err1, storage::FormatError)
+        << "Body <" << b.id << "> is not an Json::Value instance.";
+}
+
+void build(Json::Value &content, const Body::dict &bodies)
+{
+    content = Json::objectValue;
+
+    for (const auto &b : bodies) {
+        build(content[b.first], b.second);
+    }
+}
+
 } // namesapce
 
 ReferenceFrame::dict loadReferenceFrames(std::istream &in
@@ -1329,6 +1377,52 @@ void saveCredits(std::ostream &out, const Credits &credits
     Json::write(out, content);
 }
 
+Body::dict loadBodies(std::istream &in, const boost::filesystem::path &path)
+{
+    // load json
+    auto content(Json::read<storage::FormatError>
+                 (in, path, "bodies"));
+
+    Body::dict bodies;
+    parse(bodies, content);
+    return bodies;
+}
+
+Body::dict loadBodies(const boost::filesystem::path &path)
+{
+    LOG(info1) << "Loading bodies file from " << path  << ".";
+    std::ifstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    try {
+        f.open(path.string(), std::ios_base::in);
+    } catch (const std::exception &e) {
+        LOGTHROW(err1, storage::IOError)
+            << "Unable to load bodies from file " << path
+            << ": <" << e.what() << ">.";
+    }
+    auto bodies(loadBodies(f, path));
+    f.close();
+    return bodies;
+}
+
+Body::dict loadBodies(const boost::filesystem::path &path, std::nothrow_t)
+{
+    LOG(info1) << "Loading bodies file from " << path  << ".";
+    std::ifstream f;
+    f.exceptions(std::ios::badbit | std::ios::failbit);
+    try {
+        f.open(path.string(), std::ios_base::in);
+    } catch (const std::exception &e) {
+        LOG(warn1)
+            << "Unable to load bodies from file " << path
+            << ": <" << e.what() << ">.";
+        return {};
+    }
+    auto bodies(loadBodies(f, path));
+    f.close();
+    return bodies;
+}
+
 const ReferenceFrame::Division::Node*
 ReferenceFrame::Division::find(const Node::Id &id, std::nothrow_t) const
 {
@@ -1452,6 +1546,20 @@ Json::Value asJson(const Position &position)
     return value;
 }
 
+Json::Value asJson(const Body::dict &bodies)
+{
+    Json::Value content;
+    build(content, bodies);
+    return content;
+}
+
+Body::dict bodiesFromJson(const Json::Value &value)
+{
+    Body::dict bodies;
+    parse(bodies, value);
+    return bodies;
+}
+
 Position positionFromJson(const Json::Value &value)
 {
 
@@ -1510,6 +1618,48 @@ Srs::dict listSrs(const ReferenceFrame &referenceFrame)
     }
 
     return srs;
+}
+
+namespace {
+
+void addBody(Body::dict &bodies, const std::string &bodyId)
+{
+    // do not allow infinite loops...
+    if (bodies.has(bodyId)) { return; }
+
+    if (const auto body = system.bodies(bodyId, std::nothrow)) {
+        bodies.set(bodyId, *body);
+        if (body->parent) { addBody(bodies, *body->parent); }
+    }
+}
+
+void addParentBodyId(Body::IdList &bodies, const std::string &bodyId)
+{
+    if (const auto body = system.bodies(bodyId, std::nothrow)) {
+        if (body->parent) {
+            if (bodies.insert(*body->parent).second) {
+                addParentBodyId(bodies, *body->parent);
+            }
+        }
+    }
+}
+
+} // namespace
+
+Body::dict listBodies(const ReferenceFrame &referenceFrame)
+{
+    if (!referenceFrame.body) { return {}; }
+    Body::dict bodies;
+    addBody(bodies, *referenceFrame.body);
+    return bodies;
+}
+
+Body::IdList listParentBodies(const ReferenceFrame &referenceFrame)
+{
+    if (!referenceFrame.body) { return {}; }
+    Body::IdList bodies;
+    addParentBodyId(bodies, *referenceFrame.body);
+    return bodies;
 }
 
 Credit::dict creditsAsDict(const StringIdSet &credits)
@@ -1651,6 +1801,13 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
         }
     }
 
+    if (!view.bodies.empty()) {
+        auto &bodies(nv["bodies"] = Json::arrayValue);
+        for (const auto &body : view.bodies) {
+            bodies.append(body);
+        }
+    }
+
     return nv;
 }
 
@@ -1736,6 +1893,17 @@ void fromJson(View &view, const Json::Value &value)
                 (*fl.depthOffset)[1] = d[1].asDouble();
                 (*fl.depthOffset)[2] = d[2].asDouble();
             }
+        }
+    }
+
+    const auto &bodies(value["bodies"]);
+    if (!bodies.isNull()) {
+        if (!bodies.isArray()) {
+            LOGTHROW(err1, Json::Error)
+                << "Type of view[bodies] member is not an array.";
+        }
+        for (const auto &body : bodies) {
+            view.bodies.insert(body.asString());
         }
     }
 }

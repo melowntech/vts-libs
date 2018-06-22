@@ -566,6 +566,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     mapConfig.credits = extra.credits;
     mapConfig.boundLayers = extra.boundLayers;
     mapConfig.freeLayers = extra.freeLayers;
+    mapConfig.bodies = extra.bodies;
 
     // get in mapconfigs of tilesets and their glues; do not use any tileset's
     // extra configuration

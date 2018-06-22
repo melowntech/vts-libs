@@ -78,10 +78,12 @@ struct View {
 
     typedef std::map<std::string, BoundLayerParams::list> Surfaces;
     typedef std::map<std::string, FreeLayerParams> FreeLayers;
+    typedef std::set<std::string> Bodies;
 
     boost::optional<std::string> description;
     Surfaces surfaces;
     FreeLayers freeLayers;
+    Bodies bodies;
 
     operator bool() const { return !(surfaces.empty() && freeLayers.empty()); }
 
@@ -96,6 +98,7 @@ struct View {
     void merge(const View &view) {
         surfaces.insert(view.surfaces.begin(), view.surfaces.end());
         freeLayers.insert(view.freeLayers.begin(), view.freeLayers.end());
+        bodies.insert(view.bodies.begin(), view.bodies.end());
     }
 
     bool hasSurface(const std::string &surfaceId) const {
@@ -107,6 +110,10 @@ struct View {
             if (!surfaces.count(id)) { return false; }
         }
         return true;
+    }
+
+    void addBodies(const Bodies &other) {
+        bodies.insert(other.begin(), other.end());
     }
 
     /** So-called named views

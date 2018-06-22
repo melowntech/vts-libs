@@ -102,10 +102,10 @@ void asJson(const SurfaceCommonConfig &surface, Json::Value &s
     if (surface.has2dInterface) {
         auto &i2d(s["2d"] = Json::objectValue);
         if (surface.urls2d) {
-            s["metaUrl"] = surface.urls2d->meta;
-            s["maskUrl"] = surface.urls2d->mask;
-            s["orthoUrl"] = surface.urls2d->ortho;
-            s["creditsUrl"] = surface.urls2d->credits;
+            i2d["metaUrl"] = surface.urls2d->meta;
+            i2d["maskUrl"] = surface.urls2d->mask;
+            i2d["orthoUrl"] = surface.urls2d->ortho;
+            i2d["creditsUrl"] = surface.urls2d->credits;
         } else {
             i2d["metaUrl"]
                 = (surface.root / fileTemplate(storage::TileFile::meta2d
@@ -298,6 +298,7 @@ void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
     out.credits.update(in.credits);
     out.boundLayers.update(in.boundLayers);
     out.freeLayers.update(in.freeLayers);
+    out.bodies.update(in.bodies);
 
     // merge views
     if (surface) {
@@ -406,6 +407,7 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
 
     content["srses"] = registry::asJson(mapConfig.srs, true);
     content["referenceFrame"] = registry::asJson(mapConfig.referenceFrame);
+    content["bodies"] = registry::asJson(mapConfig.bodies);
 
     auto boundLayers(mapConfig.boundLayers);
 
@@ -468,6 +470,9 @@ void parse1(MapConfig &mapConfig, const Json::Value &config)
     fromJson(mapConfig.srs, config["srses"]);
     fromJson(mapConfig.referenceFrame, config["referenceFrame"]);
     fromJson(mapConfig.credits, config["credits"]);
+    if (config.isMember("bodies")) {
+        mapConfig.bodies = registry::bodiesFromJson(config["bodies"]);
+    }
     fromJson(mapConfig.boundLayers, config["boundLayers"]);
     fromJson(mapConfig.freeLayers, config["freeLayers"]);
 

@@ -407,6 +407,10 @@ ExtraStorageProperties parse1(const Json::Value &config)
         ep.view = registry::viewFromJson(config["view"]);
     }
 
+    if (config.isMember("bodies")) {
+        ep.bodies = registry::bodiesFromJson(config["bodies"]);
+    }
+
     // browser config options -- whole JSON object held in opaque pointer.
     if (config.isMember("browserOptions")) {
         const auto &bco(config["browserOptions"]);
@@ -443,6 +447,10 @@ void build(Json::Value &config, const ExtraStorageProperties &ep)
         registry::BoundLayer::dict tmp;
         config["namedViews"]
             = registry::asJson(ep.namedViews, tmp);
+    }
+
+    if (!ep.bodies.empty()) {
+        config["bodies"] == registry::asJson(ep.bodies);
     }
 
     if (ep.view) {

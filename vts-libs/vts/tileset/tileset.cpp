@@ -1657,9 +1657,11 @@ MapConfig mapConfig(const FullTileSetProperties &properties
     mapConfig.credits.update(extra.credits);
     mapConfig.boundLayers.update(extra.boundLayers);
     mapConfig.freeLayers = extra.freeLayers;
+    mapConfig.bodies.update(extra.bodies);
 
     // build
     mapConfig.referenceFrame = referenceFrame;
+    mapConfig.bodies.update(registry::listBodies(referenceFrame));
     mapConfig.srs = registry::listSrs(referenceFrame);
     mapConfig.credits.update(registry::creditsAsDict(properties.credits));
     mapConfig.boundLayers.update
@@ -1702,6 +1704,8 @@ MapConfig mapConfig(const FullTileSetProperties &properties
     } else {
         // just one surface in the view
         mapConfig.view.addSurface(surface.id);
+        mapConfig.view.addBodies
+            (registry::listParentBodies(referenceFrame));
     }
 
     mapConfig.browserOptions = extra.browserOptions;

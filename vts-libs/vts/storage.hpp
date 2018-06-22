@@ -89,7 +89,9 @@ struct ExtraStorageProperties {
      */
     boost::any browserOptions;
 
-    // TODO: freeLayers
+    /** Extra bodies.
+     */
+    registry::Body::dict bodies;
 
     ExtraStorageProperties() {}
 };

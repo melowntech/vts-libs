@@ -51,6 +51,7 @@ struct RegistryBase {
 struct Registry : RegistryBase {
     Srs::dict srs;
     ReferenceFrame::dict referenceFrames;
+    Body::dict bodies;
 
     Registry() = default;
     Registry(const Registry&) = default;
