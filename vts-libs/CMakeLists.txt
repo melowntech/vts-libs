@@ -183,6 +183,7 @@ set(vts-nucleus_SOURCES
   vts/geomextents.hpp vts/geomextents.cpp
   vts/virtualsurface.cpp
   vts/tsmap.hpp vts/tsmap.cpp
+  vts/atmosphereDensityTexture.hpp vts/atmosphereDensityTexture.cpp
   )
 
 # vts core files
