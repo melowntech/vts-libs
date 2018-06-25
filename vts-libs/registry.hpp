@@ -34,6 +34,7 @@
 #include "./registry/referenceframe.hpp"
 #include "./registry/freelayer.hpp"
 #include "./registry/datafile.hpp"
+#include "./registry/service.hpp"
 
 namespace vtslibs { namespace registry {
 

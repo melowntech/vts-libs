@@ -89,6 +89,9 @@ View::map namedViewsFromJson(const Json::Value &value);
 Json::Value asJson(const RegistryBase &r);
 void fromJson(RegistryBase &r, const Json::Value &value);
 
+Json::Value asJson(const Service::dict &services);
+void fromJson(Service::dict &services, const Json::Value &value);
+
 // inlines
 
 inline ReferenceFrame referenceFrame(const Json::Value &value

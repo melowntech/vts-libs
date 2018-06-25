@@ -145,6 +145,8 @@ struct MapConfig : public registry::Registry {
      */
     boost::any browserOptions;
 
+    registry::Service::dict services;
+
     static const char *contentType;
 
     MapConfig() : textureAtlasReady(false) {}

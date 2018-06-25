@@ -49,6 +49,7 @@ set(vts-registry_SOURCES
   registry.hpp registry/registry.cpp
   registry/referenceframe.hpp registry/referenceframe.cpp
   registry/freelayer.hpp registry/freelayer.cpp
+  registry/service.hpp registry/service.cpp
   registry/json.hpp registry/dict.hpp
   registry/po.hpp registry/po.cpp
   registry/io.hpp

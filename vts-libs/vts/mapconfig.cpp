@@ -459,6 +459,10 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
         }
     }
 
+    if (!mapConfig.services.empty()) {
+        content["services"] = registry::asJson(mapConfig.services);
+    }
+
     os.precision(15);
     Json::write(os, content);
 }
@@ -491,6 +495,10 @@ void parse1(MapConfig &mapConfig, const Json::Value &config)
 
     if (config.isMember("browserOptions")) {
         mapConfig.browserOptions = config["browserOptions"];
+    }
+
+    if (config.isMember("services")) {
+        registry::fromJson(mapConfig.services, config["services"]);
     }
 }
 
