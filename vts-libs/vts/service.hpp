@@ -24,27 +24,26 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <cstdint>
-#include <vector>
+#ifndef vtslibs_vts_service_hpp_included_
+#define vtslibs_vts_service_hpp_included_
 
-namespace vtslibs { namespace vts {
+#include "../storage/streams.hpp"
 
-struct generateAtmosphereTextureSpec
-{
-    generateAtmosphereTextureSpec();
+namespace vtslibs { namespace vts { namespace service {
 
-    // inputs
-    std::uint32_t width, height;
-    double thickness; // normalized to planet radius
-    double verticalCoefficient;
-    double normFactor;
-    double integrationStep;
+/** Matches provided filename with supported service files and returns opaque
+ *  identifier that can be passed to file generator.
+ *
+ *  \return 0: unknown file, >0: known file
+ */
+unsigned int match(const std::string &filename);
 
-    // outputs
-    std::vector<unsigned char> data;
-    std::uint32_t components;
-};
+/** Generates service file.
+ */
+storage::IStream::pointer generate(unsigned int type
+                                   , const std::string &filename
+                                   , const std::string &query);
 
-void generateAtmosphereTexture(generateAtmosphereTextureSpec &spec);
+} } } // namespace vtslibs::vts::service
 
-} }
+#endif // vtslibs_vts_service_hpp_included_

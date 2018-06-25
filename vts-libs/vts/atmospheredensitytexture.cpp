@@ -28,9 +28,16 @@
 #include <algorithm> // min, max
 
 #include "dbglog/dbglog.hpp"
-#include "atmosphereDensityTexture.hpp"
+
+#include "../storage/error.hpp"
+#include "atmospheredensitytexture.hpp"
 
 namespace vtslibs { namespace vts {
+
+AtmosphereTextureSpec::AtmosphereTextureSpec()
+    : version(0), size(512, 512), thickness(0), verticalCoefficient(0),
+    normFactor(0.2), integrationStep(0.0003)
+{}
 
 namespace
 {
@@ -60,20 +67,11 @@ T clamp(T v, T a, T b)
     return std::min(std::max(v, a), b);
 }
 
-}
-
-generateAtmosphereTextureSpec::generateAtmosphereTextureSpec() :
-    width(512), height(512), thickness(0), verticalCoefficient(0),
-    normFactor(0.2), integrationStep(0.0003),
-    components(0)
-{}
-
-void generateAtmosphereTexture(generateAtmosphereTextureSpec &spec)
+AtmosphereTexture v0(const AtmosphereTextureSpec &spec)
 {
-    if (spec.width == 0 || spec.height == 0)
+    if (math::empty(spec.size))
         LOGTHROW(err1, std::invalid_argument)
-            << "invalid resolution <"
-            << spec.width << "x" << spec.height << ">";
+            << "invalid resolution <" << spec.size << ">";
     if (spec.thickness <= 0)
         LOGTHROW(err1, std::invalid_argument)
             << "invalid thickness <"
@@ -94,20 +92,25 @@ void generateAtmosphereTexture(generateAtmosphereTextureSpec &spec)
     double atmRad = 1.0 + spec.thickness;
     double atmRad2 = atmRad * atmRad;
     double invThickness = 1.0 / spec.thickness;
-    double invWidth = 1.0 / spec.width;
-    double invHeight = 1.0 / spec.height;
+    double invWidth = 1.0 / spec.size.width;
+    double invHeight = 1.0 / spec.size.height;
 
-    spec.components = 4;
-    spec.data.resize(spec.width * spec.height * 4);
-    unsigned char *valsArray = (unsigned char*)spec.data.data();
+    AtmosphereTexture texture;
+    texture.components = 4;
+    texture.size = spec.size;
+    texture.data.resize(spec.size.width * spec.size.height * 4);
+    unsigned char *valsArray = (unsigned char*)texture.data.data();
 
-    for (std::uint32_t xx = 0; xx < spec.width; xx++)
+    const std::uint32_t width(spec.size.width);
+    const std::uint32_t height(spec.size.height);
+
+    for (std::uint32_t xx = 0; xx < width; xx++)
     {
         double cosfi = 2 * xx * invWidth - 1;
         double fi = std::acos(cosfi);
         double sinfi = std::sin(fi);
 
-        for (std::uint32_t yy = 0; yy < spec.height; yy++)
+        for (std::uint32_t yy = 0; yy < height; yy++)
         {
             double yyy = yy * invHeight;
             double r = 2 * spec.thickness * yyy - spec.thickness + 1;
@@ -127,9 +130,27 @@ void generateAtmosphereTexture(generateAtmosphereTextureSpec &spec)
             }
             density *= spec.integrationStep;
             encodeFloat(density * spec.normFactor,
-                valsArray + ((yy * spec.width + xx) * 4));
+                valsArray + ((yy * width + xx) * 4));
         }
     }
+
+    return texture;
 }
 
-} }
+} // namespace
+
+AtmosphereTexture generateAtmosphereTexture(const AtmosphereTextureSpec &spec)
+{
+    switch (spec.version) {
+    case 0: return v0(spec);
+    default: break;
+    }
+
+    LOGTHROW(err2, storage::VersionError)
+        << "Atmosphere density texture: unsupported version <"
+        << spec.version  << ">.";
+    throw;
+}
+
+
+} } // namespace vtslibs::vts

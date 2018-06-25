@@ -183,7 +183,7 @@ set(vts-nucleus_SOURCES
   vts/geomextents.hpp vts/geomextents.cpp
   vts/virtualsurface.cpp
   vts/tsmap.hpp vts/tsmap.cpp
-  vts/atmosphereDensityTexture.hpp vts/atmosphereDensityTexture.cpp
+  vts/atmospheredensitytexture.hpp vts/atmospheredensitytexture.cpp
   )
 
 # vts core files
@@ -235,6 +235,8 @@ set(vts-core_SOURCES
   vts/storageview/detail.hpp
   vts/storageview/storageview.cpp
   vts/storageview/config.hpp vts/storageview/config.cpp
+
+  vts/service.hpp vts/service.cpp
   )
 
 set(vts-core_EXTRA_DEPENDS)
