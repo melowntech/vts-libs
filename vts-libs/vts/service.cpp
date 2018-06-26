@@ -26,6 +26,9 @@
 
 #include "dbglog/dbglog.hpp"
 
+#include "utility/httpquery.hpp"
+#include "utility/httpcode.hpp"
+
 #include "imgproc/png.hpp"
 
 #include "../storage/error.hpp"
@@ -33,6 +36,8 @@
 
 #include "./service.hpp"
 #include "./atmospheredensitytexture.hpp"
+
+namespace uq = utility::query;
 
 namespace vtslibs { namespace vts { namespace service {
 
@@ -50,9 +55,18 @@ namespace ServiceFile {
 storage::IStream::pointer
 atmosphereDensity(const std::string &filename, const std::string &query)
 {
-    (void) query;
+    const auto args(uq::splitQuery(query));
+    const auto params(uq::asString(uq::find(args, "p")));
 
-    AtmosphereTextureSpec spec;
+    if (params.empty()) {
+        LOGTHROW(err1, utility::HttpErrorWithCode
+                 <utility::HttpCode::UnprocessableEntity>)
+            << "Cannot find required query argument p=?.";
+        throw;
+    }
+
+    const auto spec(AtmosphereTextureSpec::fromQueryArg(params));
+
     const auto raw(generateAtmosphereTexture(spec));
 
     const auto format([&]() -> imgproc::png::RawFormat
@@ -64,7 +78,7 @@ atmosphereDensity(const std::string &filename, const std::string &query)
         }
 
         LOGTHROW(err1, storage::Error)
-            << "Cannot serilize image with " << raw.components
+            << "Cannot serialize image with " << raw.components
             << " components to PNG.";
         throw;
     }());
@@ -96,7 +110,7 @@ storage::IStream::pointer generate(unsigned int type
         return atmosphereDensity(filename, query);
     }
 
-    LOGTHROW(err1, storage::Unimplemented)
+    LOGTHROW(err1, utility::HttpErrorWithCode<utility::HttpCode::NotFound>)
         << "Unknown service file type <" << type << "> for file "
         << filename << ".";
     throw;

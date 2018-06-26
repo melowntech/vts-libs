@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 Melown Technologies SE
+ * Copyright (c) 2018 Melown Technologies SE
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,6 +44,14 @@ struct AtmosphereTextureSpec {
     double verticalCoefficient;
     double normFactor;
     double integrationStep;
+
+    /** Build and HTTP query argument from this spec.
+     */
+    std::string toQueryArg() const;
+
+    /** Parse from an HTTP query argument.
+     */
+    static AtmosphereTextureSpec fromQueryArg(const std::string &arg);
 };
 
 struct AtmosphereTexture {

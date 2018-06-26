@@ -26,14 +26,23 @@
 
 #include <cassert>
 #include <algorithm> // min, max
+#include <sstream>
 
 #include "dbglog/dbglog.hpp"
+
+#include "utility/httpcode.hpp"
+#include "utility/binaryio.hpp"
+#include "utility/base64.hpp"
 
 #include "../storage/error.hpp"
 #include "atmospheredensitytexture.hpp"
 
+namespace bin = utility::binaryio;
+
 namespace vtslibs { namespace vts {
 
+/** Do not change any defaults here.
+ */
 AtmosphereTextureSpec::AtmosphereTextureSpec()
     : version(0), size(512, 512), thickness(0), verticalCoefficient(0),
     normFactor(0.2), integrationStep(0.0003)
@@ -129,6 +138,7 @@ AtmosphereTexture v0(const AtmosphereTextureSpec &spec)
                 density += a;
             }
             density *= spec.integrationStep;
+
             encodeFloat(density * spec.normFactor,
                 valsArray + ((yy * width + xx) * 4));
         }
@@ -150,6 +160,73 @@ AtmosphereTexture generateAtmosphereTexture(const AtmosphereTextureSpec &spec)
         << "Atmosphere density texture: unsupported version <"
         << spec.version  << ">.";
     throw;
+}
+
+std::string AtmosphereTextureSpec::toQueryArg() const
+{
+    std::ostringstream os(std::ios_base::out | std::ios_base::binary);
+
+    os << 0; // always 0
+    bin::write<std::uint8_t>(os, 0);
+    bin::write<std::uint16_t>(os, size.width);
+    bin::write<std::uint16_t>(os, size.height);
+    bin::write<float>(os, thickness);
+    bin::write<float>(os, verticalCoefficient);
+    bin::write<float>(os, normFactor);
+    bin::write<float>(os, integrationStep);
+
+    return utility::base64::encode(os.str());
+}
+
+namespace {
+
+void parse0(AtmosphereTextureSpec &spec, std::istream &is, std::size_t size)
+{
+    if (size != (2 * sizeof(std::uint16_t) + 4 * sizeof(float))) {
+        LOGTHROW(err1, utility::HttpErrorWithCode
+                 <utility::HttpCode::UnprocessableEntity>)
+            << "Unable to parse atmosphere parameters.";
+    }
+
+    spec.size.width = bin::read<std::uint16_t>(is);
+    spec.size.height = bin::read<std::uint16_t>(is);
+    spec.thickness = bin::read<float>(is);
+    spec.verticalCoefficient = bin::read<float>(is);
+    spec.normFactor = bin::read<float>(is);
+    spec.integrationStep = bin::read<float>(is);
+}
+
+} // namespace
+
+AtmosphereTextureSpec
+AtmosphereTextureSpec::fromQueryArg(const std::string &arg)
+{
+    AtmosphereTextureSpec spec;
+
+    auto decoded(utility::base64::decode(arg));
+
+    try {
+        std::istringstream is
+            (decoded, std::ios_base::in | std::ios_base::binary);
+        is.exceptions(std::ios::failbit);
+        spec.version = bin::read<std::uint8_t>(is);
+
+        switch (spec.version) {
+        case 0: parse0(spec, is, decoded.size() - sizeof(std::uint8_t));
+            break;
+
+        default:
+            LOGTHROW(err2, storage::VersionError)
+                << "Atmosphere density texture: unsupported version <"
+                << spec.version  << ">.";
+        }
+    } catch (...) {
+        LOGTHROW(err1, utility::HttpErrorWithCode
+                 <utility::HttpCode::UnprocessableEntity>)
+            << "Unable to parse atmosphere parameters.";
+    }
+
+    return spec;
 }
 
 
