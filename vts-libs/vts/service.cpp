@@ -68,11 +68,11 @@ atmphereDensity(const std::string &filename, const std::string &query
 
     const auto spec(AtmosphereTextureSpec::fromQueryArg(def));
 
-    const auto raw(generateAtmosphereTexture(spec, format));
+    const auto texture(generateAtmosphereTexture(spec, format));
 
     switch (format) {
     case AtmosphereTexture::Format::float_: {
-        std::vector<char> tmp(raw.data.begin(), raw.data.end());
+        std::vector<char> tmp(texture.data.begin(), texture.data.end());
         return storage::memIStream
             ("application/octet-stream", std::move(tmp)
              , std::time(nullptr), filename);
@@ -83,23 +83,23 @@ atmphereDensity(const std::string &filename, const std::string &query
     case AtmosphereTexture::Format::gray4:
     case AtmosphereTexture::Format::rgb:
     case AtmosphereTexture::Format::rgba: {
-        const auto format([&]() -> imgproc::png::RawFormat
+        const auto pngFormat([&]() -> imgproc::png::RawFormat
         {
-            switch (raw.components) {
+            switch (texture.components) {
             case 1: return imgproc::png::RawFormat::gray;
             case 3: return imgproc::png::RawFormat::rgb;
             case 4: return imgproc::png::RawFormat::rgba;
             }
 
             LOGTHROW(err1, storage::Error)
-                << "Cannot serialize image with " << raw.components
+                << "Cannot serialize image with " << texture.components
                 << " components to PNG.";
             throw;
         }());
 
         auto png(imgproc::png::serialize
-                 (raw.data.data(), raw.data.size()
-                  , raw.size, format, 9));
+                 (texture.data.data(), texture.data.size()
+                  , texture.size, pngFormat, 9));
 
         return storage::memIStream
             ("image/png", std::move(png), std::time(nullptr), filename);

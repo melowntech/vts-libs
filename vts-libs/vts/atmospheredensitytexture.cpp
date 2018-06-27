@@ -51,7 +51,7 @@ namespace
 {
 
 template <AtmosphereTexture::Format format>
-void encodeFloat(double v, unsigned char *target, int index)
+void encodeFloat(double v, unsigned char *target, int index, int planeSize)
 {
     if (v < 0 || v >= 1) {
         LOGTHROW(err2, std::invalid_argument)
@@ -65,36 +65,43 @@ void encodeFloat(double v, unsigned char *target, int index)
     }
 
     double enc[4] = { v, 256.0 * v, 256.0*256.0 * v, 256.0*256.0*256.0 * v };
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 4; i++) {
         enc[i] -= std::floor(enc[i]); // frac
+    }
     double tmp[4];
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 3; i++) {
         tmp[i] = enc[i + 1] / 256.0; // shift
+    }
     tmp[3] = 0;
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 4; i++) {
         enc[i] -= tmp[i]; // subtract
+    }
 
     switch (format) {
     case AtmosphereTexture::Format::rgba:
         target += index * 4;
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++) {
             target[i] = enc[i] * 256.0;
+        }
         break;
 
     case AtmosphereTexture::Format::rgb:
         target += index * 3;
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 3; i++) {
             target[i] = enc[i] * 256.0;
+        }
         break;
 
     case AtmosphereTexture::Format::gray3:
-        for (int i = 0; i < 3; i++)
-            target[i * index] = enc[i] * 256.0;
+        for (int i = 0; i < 3; i++) {
+            target[i * planeSize + index] = enc[i] * 256.0;
+        }
         break;
 
     case AtmosphereTexture::Format::gray4:
-        for (int i = 0; i < 4; i++)
-            target[i * index] = enc[i] * 256.0;
+        for (int i = 0; i < 4; i++) {
+            target[i * planeSize + index] = enc[i] * 256.0;
+        }
         break;
 
     default: break;
@@ -119,6 +126,7 @@ AtmosphereTexture v0(const AtmosphereTextureSpec &spec)
     AtmosphereTexture texture;
     texture.size = spec.size;
     auto byteSize(math::area(spec.size));
+    auto planeSize(byteSize);
     switch (format) {
     case AtmosphereTexture::Format::rgba:
         texture.components = 4;
@@ -181,7 +189,8 @@ AtmosphereTexture v0(const AtmosphereTextureSpec &spec)
             density *= spec.integrationStep;
 
             encodeFloat<format>(density * spec.normFactor
-                                , valsArray, (yy * width + xx));
+                                , valsArray, (yy * width + xx)
+                                , planeSize);
         }
     }
 
