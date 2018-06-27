@@ -48,7 +48,8 @@ storage::IStream::pointer generate(unsigned int type
 
 /** Adds local services.
  */
-void addLocal(MapConfig &mapConfig);
+void addLocal(MapConfig &mapConfig, const boost::filesystem::path &root
+              = boost::filesystem::path());
 
 } } } // namespace vtslibs::vts::service
 

@@ -310,6 +310,9 @@ void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
 
     // all inputs must be texture-atlas-ready
     out.textureAtlasReady &= in.textureAtlasReady;
+
+    // overwrite services
+    out.services = in.services;
 }
 
 void MapConfig::mergeTileSet(const MapConfig &tilesetMapConfig

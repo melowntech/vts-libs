@@ -134,12 +134,13 @@ storage::IStream::pointer generate(unsigned int type
     throw;
 }
 
-void addLocal(MapConfig &mapConfig)
+void addLocal(MapConfig &mapConfig, const boost::filesystem::path &root)
 {
     mapConfig.services.add
         (registry::Service
          (constants::AtmDensityName
-          , constants::AtmDensityFilename + "?def={param(0)}"));
+          , (root / (constants::AtmDensityFilename + "?def={param(0)}"))
+          .string()));
 }
 
 } } } // namespace vtslibs::vts::service
