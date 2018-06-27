@@ -55,6 +55,9 @@ struct AtmosphereTextureSpec {
 };
 
 struct AtmosphereTexture {
+    enum class Format { rgba = 0, rgb = 1, gray4 = 2, gray3 = 3, float_ = 4 };
+
+    Format format;
     math::Size2 size;
     std::uint32_t components;
     std::vector<unsigned char> data;
@@ -62,7 +65,10 @@ struct AtmosphereTexture {
     AtmosphereTexture() : components() {}
 };
 
-AtmosphereTexture generateAtmosphereTexture(const AtmosphereTextureSpec &spec);
+AtmosphereTexture
+generateAtmosphereTexture(const AtmosphereTextureSpec &spec
+                          , AtmosphereTexture::Format format
+                          = AtmosphereTexture::Format::rgba);
 
 } } // namespace vtslibs::vts
 

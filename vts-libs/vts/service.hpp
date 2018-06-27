@@ -29,6 +29,8 @@
 
 #include "../storage/streams.hpp"
 
+#include "./mapconfig.hpp"
+
 namespace vtslibs { namespace vts { namespace service {
 
 /** Matches provided filename with supported service files and returns opaque
@@ -43,6 +45,10 @@ unsigned int match(const std::string &filename);
 storage::IStream::pointer generate(unsigned int type
                                    , const std::string &filename
                                    , const std::string &query);
+
+/** Adds local services.
+ */
+void addLocal(MapConfig &mapConfig);
 
 } } } // namespace vtslibs::vts::service
 

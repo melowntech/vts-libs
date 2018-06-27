@@ -30,7 +30,6 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "utility/httpcode.hpp"
 #include "utility/binaryio.hpp"
 #include "utility/base64.hpp"
 
@@ -51,12 +50,20 @@ AtmosphereTextureSpec::AtmosphereTextureSpec()
 namespace
 {
 
-void encodeFloat(double v, unsigned char *target)
+template <AtmosphereTexture::Format format>
+void encodeFloat(double v, unsigned char *target, int index)
 {
-    if (v < 0 || v >= 1)
+    if (v < 0 || v >= 1) {
         LOGTHROW(err2, std::invalid_argument)
             << "invalid value for float encoding <"
             << v << ">";
+    }
+
+    if (format == AtmosphereTexture::Format::float_) {
+        *reinterpret_cast<float*>(target + index * 4) = float(v);
+        return;
+    }
+
     double enc[4] = { v, 256.0 * v, 256.0*256.0 * v, 256.0*256.0*256.0 * v };
     for (int i = 0; i < 4; i++)
         enc[i] -= std::floor(enc[i]); // frac
@@ -66,8 +73,32 @@ void encodeFloat(double v, unsigned char *target)
     tmp[3] = 0;
     for (int i = 0; i < 4; i++)
         enc[i] -= tmp[i]; // subtract
-    for (int i = 0; i < 4; i++)
-        target[i] = enc[i] * 256.0;
+
+    switch (format) {
+    case AtmosphereTexture::Format::rgba:
+        target += index * 4;
+        for (int i = 0; i < 4; i++)
+            target[i] = enc[i] * 256.0;
+        break;
+
+    case AtmosphereTexture::Format::rgb:
+        target += index * 3;
+        for (int i = 0; i < 3; i++)
+            target[i] = enc[i] * 256.0;
+        break;
+
+    case AtmosphereTexture::Format::gray3:
+        for (int i = 0; i < 3; i++)
+            target[i * index] = enc[i] * 256.0;
+        break;
+
+    case AtmosphereTexture::Format::gray4:
+        for (int i = 0; i < 4; i++)
+            target[i * index] = enc[i] * 256.0;
+        break;
+
+    default: break;
+    }
 }
 
 template <class T>
@@ -76,28 +107,9 @@ T clamp(T v, T a, T b)
     return std::min(std::max(v, a), b);
 }
 
+template <AtmosphereTexture::Format format>
 AtmosphereTexture v0(const AtmosphereTextureSpec &spec)
 {
-    if (math::empty(spec.size))
-        LOGTHROW(err1, std::invalid_argument)
-            << "invalid resolution <" << spec.size << ">";
-    if (spec.thickness <= 0)
-        LOGTHROW(err1, std::invalid_argument)
-            << "invalid thickness <"
-            << spec.thickness << ">";
-    if (spec.verticalCoefficient <= 0)
-        LOGTHROW(err1, std::invalid_argument)
-            << "invalid vertical coefficient <"
-            << spec.verticalCoefficient << ">";
-    if (spec.normFactor <= 0)
-        LOGTHROW(err1, std::invalid_argument)
-            << "invalid normalization factor <"
-            << spec.normFactor << ">";
-    if (spec.integrationStep <= 0)
-        LOGTHROW(err1, std::invalid_argument)
-            << "invalid integration step <"
-            << spec.integrationStep << ">";
-
     double atmRad = 1.0 + spec.thickness;
     double atmRad2 = atmRad * atmRad;
     double invThickness = 1.0 / spec.thickness;
@@ -105,10 +117,39 @@ AtmosphereTexture v0(const AtmosphereTextureSpec &spec)
     double invHeight = 1.0 / spec.size.height;
 
     AtmosphereTexture texture;
-    texture.components = 4;
     texture.size = spec.size;
-    texture.data.resize(spec.size.width * spec.size.height * 4);
-    unsigned char *valsArray = (unsigned char*)texture.data.data();
+    auto byteSize(math::area(spec.size));
+    switch (format) {
+    case AtmosphereTexture::Format::rgba:
+        texture.components = 4;
+        byteSize *= 4;
+        break;
+
+    case AtmosphereTexture::Format::rgb:
+        texture.components = 3;
+        byteSize *= 3;
+        break;
+
+    case AtmosphereTexture::Format::gray4:
+        texture.components = 1;
+        texture.size.height *= 4;
+        byteSize *= 4;
+        break;
+
+    case AtmosphereTexture::Format::gray3:
+        texture.components = 1;
+        texture.size.height *= 3;
+        byteSize *= 3;
+        break;
+
+    case AtmosphereTexture::Format::float_:
+        texture.components = 1;
+        byteSize *= sizeof(float);
+        break;
+    }
+
+    texture.data.resize(byteSize);
+    auto *valsArray = (unsigned char*)texture.data.data();
 
     const std::uint32_t width(spec.size.width);
     const std::uint32_t height(spec.size.height);
@@ -139,20 +180,64 @@ AtmosphereTexture v0(const AtmosphereTextureSpec &spec)
             }
             density *= spec.integrationStep;
 
-            encodeFloat(density * spec.normFactor,
-                valsArray + ((yy * width + xx) * 4));
+            encodeFloat<format>(density * spec.normFactor
+                                , valsArray, (yy * width + xx));
         }
     }
 
     return texture;
 }
 
+AtmosphereTexture v0(const AtmosphereTextureSpec &spec
+                     , AtmosphereTexture::Format format)
+{
+    if (math::empty(spec.size)) {
+        LOGTHROW(err1, std::invalid_argument)
+            << "invalid resolution <" << spec.size << ">";
+    }
+    if (spec.thickness <= 0) {
+        LOGTHROW(err1, std::invalid_argument)
+            << "invalid thickness <"
+            << spec.thickness << ">";
+    }
+    if (spec.verticalCoefficient <= 0) {
+        LOGTHROW(err1, std::invalid_argument)
+            << "invalid vertical coefficient <"
+            << spec.verticalCoefficient << ">";
+    }
+    if (spec.normFactor <= 0) {
+        LOGTHROW(err1, std::invalid_argument)
+            << "invalid normalization factor <"
+            << spec.normFactor << ">";
+    }
+    if (spec.integrationStep <= 0) {
+        LOGTHROW(err1, std::invalid_argument)
+            << "invalid integration step <"
+            << spec.integrationStep << ">";
+    }
+
+    switch (format) {
+    case AtmosphereTexture::Format::rgba:
+        return v0<AtmosphereTexture::Format::rgba>(spec);
+    case AtmosphereTexture::Format::rgb:
+        return v0<AtmosphereTexture::Format::rgb>(spec);
+    case AtmosphereTexture::Format::gray3:
+        return v0<AtmosphereTexture::Format::gray3>(spec);
+    case AtmosphereTexture::Format::gray4:
+        return v0<AtmosphereTexture::Format::gray4>(spec);
+    case AtmosphereTexture::Format::float_:
+        return v0<AtmosphereTexture::Format::float_>(spec);
+    }
+    throw;
+}
+
 } // namespace
 
-AtmosphereTexture generateAtmosphereTexture(const AtmosphereTextureSpec &spec)
+AtmosphereTexture generateAtmosphereTexture(const AtmosphereTextureSpec &spec
+                                            , AtmosphereTexture::Format format)
 {
     switch (spec.version) {
-    case 0: return v0(spec);
+    case 0: return v0(spec, format);
     default: break;
     }
 
@@ -183,8 +268,7 @@ namespace {
 void parse0(AtmosphereTextureSpec &spec, std::istream &is, std::size_t size)
 {
     if (size != (2 * sizeof(std::uint16_t) + 4 * sizeof(float))) {
-        LOGTHROW(err1, utility::HttpErrorWithCode
-                 <utility::HttpCode::UnprocessableEntity>)
+        LOGTHROW(err1, std::invalid_argument)
             << "Unable to parse atmosphere parameters.";
     }
 
@@ -221,8 +305,7 @@ AtmosphereTextureSpec::fromQueryArg(const std::string &arg)
                 << spec.version  << ">.";
         }
     } catch (...) {
-        LOGTHROW(err1, utility::HttpErrorWithCode
-                 <utility::HttpCode::UnprocessableEntity>)
+        LOGTHROW(err1, std::invalid_argument)
             << "Unable to parse atmosphere parameters.";
     }
 

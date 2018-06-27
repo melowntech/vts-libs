@@ -26,8 +26,8 @@
 
 #include "dbglog/dbglog.hpp"
 
+#include "utility/uri.hpp"
 #include "utility/httpquery.hpp"
-#include "utility/httpcode.hpp"
 
 #include "imgproc/png.hpp"
 
@@ -44,59 +44,76 @@ namespace vtslibs { namespace vts { namespace service {
 namespace {
 
 namespace constants {
-    const std::string AtmosDensity("atmosdensity.png");
+    const std::string AtmDensityName("atmdensity");
+    const std::string AtmDensityFilename("atmdensity.png");
 } // namespace constants
 
 namespace ServiceFile {
     const unsigned int unknown = 0;
-    const unsigned int atmosphereDensity = 1;
+    const unsigned int atmphereDensity = 1;
 }
 
 storage::IStream::pointer
-atmosphereDensity(const std::string &filename, const std::string &query)
+atmphereDensity(const std::string &filename, const std::string &query
+                  , AtmosphereTexture::Format format)
 {
     const auto args(uq::splitQuery(query));
-    const auto params(uq::asString(uq::find(args, "p")));
+    const auto def(utility::urlDecode(uq::asString(uq::find(args, "def"))));
 
-    if (params.empty()) {
-        LOGTHROW(err1, utility::HttpErrorWithCode
-                 <utility::HttpCode::UnprocessableEntity>)
-            << "Cannot find required query argument p=?.";
+    if (def.empty()) {
+        LOGTHROW(err1, std::invalid_argument)
+            << "Cannot find required query argument def=?.";
         throw;
     }
 
-    const auto spec(AtmosphereTextureSpec::fromQueryArg(params));
+    const auto spec(AtmosphereTextureSpec::fromQueryArg(def));
 
-    const auto raw(generateAtmosphereTexture(spec));
+    const auto raw(generateAtmosphereTexture(spec, format));
 
-    const auto format([&]() -> imgproc::png::RawFormat
-    {
-        switch (raw.components) {
-        case 1: return imgproc::png::RawFormat::gray;
-        case 3: return imgproc::png::RawFormat::rgb;
-        case 4: return imgproc::png::RawFormat::rgba;
-        }
+    switch (format) {
+    case AtmosphereTexture::Format::float_: {
+        std::vector<char> tmp(raw.data.begin(), raw.data.end());
+        return storage::memIStream
+            ("application/octet-stream", std::move(tmp)
+             , std::time(nullptr), filename);
 
-        LOGTHROW(err1, storage::Error)
-            << "Cannot serialize image with " << raw.components
-            << " components to PNG.";
-        throw;
-    }());
+    }
 
-    auto png(imgproc::png::serialize
-             (raw.data.data(), raw.data.size()
-              , raw.size, format, 9));
+    case AtmosphereTexture::Format::gray3:
+    case AtmosphereTexture::Format::gray4:
+    case AtmosphereTexture::Format::rgb:
+    case AtmosphereTexture::Format::rgba: {
+        const auto format([&]() -> imgproc::png::RawFormat
+        {
+            switch (raw.components) {
+            case 1: return imgproc::png::RawFormat::gray;
+            case 3: return imgproc::png::RawFormat::rgb;
+            case 4: return imgproc::png::RawFormat::rgba;
+            }
 
-    return storage::memIStream
-        ("image/png", std::move(png), std::time(nullptr), filename);
+            LOGTHROW(err1, storage::Error)
+                << "Cannot serialize image with " << raw.components
+                << " components to PNG.";
+            throw;
+        }());
+
+        auto png(imgproc::png::serialize
+                 (raw.data.data(), raw.data.size()
+                  , raw.size, format, 9));
+
+        return storage::memIStream
+            ("image/png", std::move(png), std::time(nullptr), filename);
+    }
+    }
+    throw;
 }
 
 } // namespace
 
 unsigned int match(const std::string &filename)
 {
-    if (filename == constants::AtmosDensity) {
-        return ServiceFile::atmosphereDensity;
+    if (filename == constants::AtmDensityFilename) {
+        return ServiceFile::atmphereDensity;
     }
     return ServiceFile::unknown;
 }
@@ -106,14 +123,23 @@ storage::IStream::pointer generate(unsigned int type
                                    , const std::string &query)
 {
     switch (type) {
-    case ServiceFile::atmosphereDensity:
-        return atmosphereDensity(filename, query);
+    case ServiceFile::atmphereDensity:
+        return atmphereDensity
+            (filename, query, AtmosphereTexture::Format::gray3);
     }
 
-    LOGTHROW(err1, utility::HttpErrorWithCode<utility::HttpCode::NotFound>)
+    LOGTHROW(err1, std::invalid_argument)
         << "Unknown service file type <" << type << "> for file "
         << filename << ".";
     throw;
+}
+
+void addLocal(MapConfig &mapConfig)
+{
+    mapConfig.services.add
+        (registry::Service
+         (constants::AtmDensityName
+          , constants::AtmDensityFilename + "?def={param(0)}"));
 }
 
 } } } // namespace vtslibs::vts::service
