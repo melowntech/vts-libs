@@ -60,6 +60,8 @@ public:
         std::string srs;
         unsigned int subMesh;
 
+        std::vector<std::string> params;
+
         Vars(const vts::TileId &tileId, unsigned int subMesh = 0)
             : tileId(tileId), localId(tileId), subMesh(subMesh)
         {}
@@ -73,6 +75,8 @@ public:
              , const std::string &srs, unsigned int subMesh = 0)
             : tileId(tileId), localId(localId), srs(srs), subMesh(subMesh)
         {}
+
+        Vars() : subMesh() {}
 
         Vars addSubmesh(int subMesh) {
             Vars out(*this);

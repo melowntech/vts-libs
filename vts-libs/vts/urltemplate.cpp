@@ -34,6 +34,7 @@
 
 #include "dbglog/dbglog.hpp"
 #include "utility/streams.hpp"
+#include "utility/uri.hpp"
 
 #include "./tileop.hpp"
 
@@ -297,6 +298,33 @@ UrlTemplate::Expander makeSwitchExpander(const std::string &str
     return {};
 }
 
+UrlTemplate::Expander makeParamExpander(const std::string &str
+                                        , const std::string::size_type &start
+                                        , const std::string::size_type &end)
+{
+    // split args
+    std::vector<std::string> args;
+    auto range(std::make_pair(str.data() + start, str.data() + end));
+    ba::split(args, range, ba::is_any_of(", ")
+              , ba::token_compress_on);
+
+    if (args.size() != 1) { return {}; }
+
+    try {
+        auto index(boost::lexical_cast<unsigned int>(args[0]));
+
+        return [index](std::ostream &os
+                       , const UrlTemplate::Vars &vars)
+        {
+            if (index >= vars.params.size()) { return; }
+            os << utility::urlEncode(vars.params[index]);
+        };
+
+    } catch (boost::bad_lexical_cast) {}
+
+    return {};
+}
+
 UrlTemplate::Expander parseFunction(const std::string &str
                                  , const std::string::size_type &start
                                  , const std::string::size_type &end)
@@ -335,6 +363,10 @@ UrlTemplate::Expander parseFunction(const std::string &str
 
     if (name == "switch") {
         return makeSwitchExpander(str, open + 1, close);
+    }
+
+    if (name == "param") {
+        return makeParamExpander(str, open + 1, close);
     }
 
     return {};
