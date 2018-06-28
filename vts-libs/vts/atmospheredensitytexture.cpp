@@ -260,7 +260,6 @@ std::string AtmosphereTextureSpec::toQueryArg() const
 {
     std::ostringstream os(std::ios_base::out | std::ios_base::binary);
 
-    os << 0; // always 0
     bin::write<std::uint8_t>(os, 0);
     bin::write<std::uint16_t>(os, size.width);
     bin::write<std::uint16_t>(os, size.height);
