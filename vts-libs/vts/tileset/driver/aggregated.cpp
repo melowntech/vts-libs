@@ -699,6 +699,11 @@ AggregatedDriver::AggregatedDriver(PrivateTag
                             , properties);
     }
 
+    // clone registry if exists
+    if (auto registry = src.input(File::registry, NullWhenNotFound)) {
+        copyFile(registry, output(File::registry));
+    }
+
     // make me read-only
     readOnly(true);
 }

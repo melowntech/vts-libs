@@ -186,7 +186,7 @@ public:
         , noexcept_(false), command_(Command::info)
         , tileFlags_(), metaFlags_(), encodeFlags_()
         , queryLod_(), textureQuality_(70), meshFormat_(MeshFormat::normalized)
-        , generate_(false)
+        , generate_(false), sameType_(false)
     {
         addOptions_.textureQuality = 0;
         addOptions_.checkTileindexIdentity = true;
@@ -371,6 +371,8 @@ private:
     MeshFormat meshFormat_;
 
     bool generate_;
+
+    bool sameType_;
 
     /** External lock.
      */
@@ -1125,6 +1127,10 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("textureQuality", po::value(&textureQuality_)
              ->required()->default_value(textureQuality_)
              , "Texture quality for inpaint.")
+            ("sameType", po::value<bool>(&sameType_)->implicit_value(true)
+             ->default_value(false)
+             , "Clones tileset as-is if true. Otherwise clones all data "
+             "using plain driver.")
             ;
 
         p.configure = [&](const po::variables_map &vars) {
@@ -2584,6 +2590,7 @@ int VtsStorage::clone()
         .mode(createMode_)
         .encodeFlags(encodeFlags_.value)
         .textureQuality(textureQuality_)
+        .sameType(sameType_)
         ;
 
     if (!forceCredits_.empty()) {

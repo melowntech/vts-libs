@@ -280,6 +280,11 @@ struct TileSet::Factory
         copyFile(sd.input(storage::File::tileIndex)
                  , dd.output(storage::File::tileIndex));
 
+        // clone registry
+        if (auto registry = sd.input(File::registry, NullWhenNotFound)) {
+            copyFile(registry, dd.output(File::registry));
+        }
+
         auto metaIndex(src.tsi.deriveMetaIndex());
 
         const utility::Progress::ratio_t reportRatio(1, 100);
@@ -427,6 +432,11 @@ struct TileSet::Factory
                       ? *cloneOptions->lodRange() : src->lodRange);
         auto mnm_(cloneOptions->metaNodeManipulator());
         auto mnm(&mnm_);
+
+        // clone registry
+        if (auto registry = sd->input(File::registry, NullWhenNotFound)) {
+            copyFile(registry, dd->output(File::registry));
+        }
 
         const utility::Progress::ratio_t reportRatio(1, 100);
         utility::ts::Progress progress(reportName, src->tileIndex.count()
@@ -729,7 +739,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver)
 TileSet::Detail::Detail(const Driver::pointer &driver
                         , const TileSet::Properties &properties)
     : referenceFrame(registry::system.referenceFrames
-		     (properties.referenceFrame))
+                     (properties.referenceFrame))
     , tsi_(referenceFrame.metaBinaryOrder)
     , driverTsi_()
     , readOnly(false), driver(driver)
