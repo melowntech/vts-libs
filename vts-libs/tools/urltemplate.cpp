@@ -47,7 +47,7 @@ public:
     UrlTemplate()
         : service::Cmdline("urltemplate", BUILD_TARGET_VERSION
                            , (service::DISABLE_EXCESSIVE_LOGGING))
-        , vars_({})
+        , vars_(vts::TileId())
     {}
 
     ~UrlTemplate() {}

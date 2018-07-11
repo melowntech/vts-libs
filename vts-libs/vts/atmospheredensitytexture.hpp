@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 Melown Technologies SE
+ * Copyright (c) 2018 Melown Technologies SE
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -24,27 +24,52 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef vtslibs_vts_atmospheredensity_hpp_included_
+#define vtslibs_vts_atmospheredensity_hpp_included_
+
 #include <cstdint>
 #include <vector>
 
+#include "math/geometry_core.hpp"
+
 namespace vtslibs { namespace vts {
 
-struct generateAtmosphereTextureSpec
-{
-    generateAtmosphereTextureSpec();
+struct AtmosphereTextureSpec {
+    AtmosphereTextureSpec();
 
-    // inputs
-    std::uint32_t width, height;
+    int version;
+
+    math::Size2 size;
     double thickness; // normalized to planet radius
     double verticalCoefficient;
     double normFactor;
     double integrationStep;
 
-    // outputs
-    std::vector<unsigned char> data;
-    std::uint32_t components;
+    /** Build and HTTP query argument from this spec.
+     */
+    std::string toQueryArg() const;
+
+    /** Parse from an HTTP query argument.
+     */
+    static AtmosphereTextureSpec fromQueryArg(const std::string &arg);
 };
 
-void generateAtmosphereTexture(generateAtmosphereTextureSpec &spec);
+struct AtmosphereTexture {
+    enum class Format { rgba = 0, rgb = 1, gray4 = 2, gray3 = 3, float_ = 4 };
 
-} }
+    Format format;
+    math::Size2 size;
+    std::uint32_t components;
+    std::vector<unsigned char> data;
+
+    AtmosphereTexture() : components() {}
+};
+
+AtmosphereTexture
+generateAtmosphereTexture(const AtmosphereTextureSpec &spec
+                          , AtmosphereTexture::Format format
+                          = AtmosphereTexture::Format::rgba);
+
+} } // namespace vtslibs::vts
+
+#endif // vtslibs_vts_atmospheredensity_hpp_included_

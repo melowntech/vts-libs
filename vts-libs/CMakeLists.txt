@@ -10,7 +10,7 @@
 # major dependency is OpenCV
 
 # bump version here
-set(vts-libs_VERSION 2.10)
+set(vts-libs_VERSION 2.11)
 
 # settable path to VTS registry
 set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
@@ -183,7 +183,7 @@ set(vts-nucleus_SOURCES
   vts/geomextents.hpp vts/geomextents.cpp
   vts/virtualsurface.cpp
   vts/tsmap.hpp vts/tsmap.cpp
-  vts/atmosphereDensityTexture.hpp vts/atmosphereDensityTexture.cpp
+  vts/atmospheredensitytexture.hpp vts/atmospheredensitytexture.cpp
   )
 
 # vts core files
@@ -235,6 +235,8 @@ set(vts-core_SOURCES
   vts/storageview/detail.hpp
   vts/storageview/storageview.cpp
   vts/storageview/config.hpp vts/storageview/config.cpp
+
+  vts/service.hpp vts/service.cpp
   )
 
 set(vts-core_EXTRA_DEPENDS)
@@ -291,8 +293,8 @@ set(vts_SOURCES
 # vts nucleus library
 define_module(LIBRARY vts-libs-nucleus=${vts-libs_VERSION}
   DEPENDS
-  geo>=1.24 geometry>=1.7 imgproc>=1.26 math>=1.2
-  utility>=1.24 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
+  geo>=1.24 geometry>=1.7 imgproc>=1.27 math>=1.2
+  utility>=1.25 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
 
   Boost_IOSTREAMS
   Boost_FILESYSTEM
