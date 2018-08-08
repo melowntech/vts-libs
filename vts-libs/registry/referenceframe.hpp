@@ -125,7 +125,9 @@ struct Body {
      */
     boost::optional<Id> parent;
 
-    /** Json data. Not modified, only parent is parsed.
+    boost::optional<std::string> defaultGeoidGrid;
+
+    /** Json data. Not modified, only parent and defaultGeoidGrid areparsed.
      */
     boost::any json;
 

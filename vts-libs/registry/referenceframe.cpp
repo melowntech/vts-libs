@@ -1080,6 +1080,7 @@ void parse(Body &b, const Json::Value &content)
 {
     b.json = content;
     Json::get(b.parent, content, "parent");
+    Json::get(b.defaultGeoidGrid, content, "defaultGeoidGrid");
 }
 
 void parse(Body::dict &bodies, const Json::Value &content)
