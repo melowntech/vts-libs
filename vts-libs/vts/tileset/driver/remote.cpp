@@ -154,6 +154,11 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
     // clone tile index
     copyFile(src.input(File::tileIndex), output(File::tileIndex));
 
+    // clone registry if exists
+    if (auto registry = src.input(File::registry, NullWhenNotFound)) {
+        copyFile(registry, output(File::registry));
+    }
+
     // and load it
     tileset::loadTileSetIndex(tsi_, *this);
 
