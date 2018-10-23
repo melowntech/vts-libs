@@ -218,7 +218,6 @@ set(vts-core_SOURCES
   vts/tileset/driver/plain.hpp vts/tileset/driver/plain.cpp
   vts/tileset/driver/aggregated.hpp vts/tileset/driver/aggregated.cpp
   vts/tileset/driver/remote.hpp vts/tileset/driver/remote.cpp
-  vts/tileset/driver/httpfetcher.hpp vts/tileset/driver/httpfetcher.cpp
   vts/tileset/driver/local.hpp vts/tileset/driver/local.cpp
 
   vts/tileset/delivery.hpp vts/tileset/driver/delivery.cpp
@@ -239,7 +238,21 @@ set(vts-core_SOURCES
   vts/service.hpp vts/service.cpp
   )
 
+
+
 set(vts-core_EXTRA_DEPENDS)
+
+if (MODULE_http_FOUND)
+  message(STATUS "vts-core: compiling in HTTP support")
+
+  list(APPEND vts-core_SOURCES
+    vts/tileset/driver/httpfetcher.hpp vts/tileset/driver/httpfetcher.cpp)
+  list(APPEND vts-core_EXTRA_DEPENDS http>=1.6)
+else()
+  list(APPEND vts-core_SOURCES
+    vts/tileset/driver/httpfetcher.hpp vts/tileset/driver/httpfetcher.dummy.cpp)
+  message(STATUS "vts-core: compiling without HTTP support")
+endif()
 
 if(OpenCV_FOUND)
   # OpenCV -- link in core opencv stuff
@@ -315,7 +328,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core)
   define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
     DEPENDS
     vts-libs-nucleus>=${vts-libs_VERSION}
-    http>=1.1
     CURL PNG
 
     ${vts-registry_python_DEPENDS}
