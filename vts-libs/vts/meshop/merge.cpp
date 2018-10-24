@@ -1061,6 +1061,8 @@ private:
 
     void breakSubmesh();
 
+    void makeSharedFaces();
+
     TextureInfo::list texturing(const Range &range) const;
 
     const TileId tileId_;
@@ -1204,6 +1206,10 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
     // housekeeping
     atlasEnd_ += range.size();
 
+    if (options_.sharedFaces) {
+        makeSharedFaces();
+    }
+
     if (!EntityCounter(sm).check(meshLimits_)) {
         // breaks last submesh into compliant submeshes
         breakSubmesh();
@@ -1312,6 +1318,53 @@ void MeshAtlasBuilder::breakSubmesh()
     {
         atlas_->duplicate();
     }
+}
+
+void MeshAtlasBuilder::makeSharedFaces()
+{
+    // get last submesh
+    auto &sm(mesh_->submeshes.back());
+
+    math::Points3d vertices;
+    math::Points2d tc;
+    Faces faces;
+
+    typedef std::pair<int, int> VertexTcPair;
+    typedef std::map<VertexTcPair, int> VertexMap;
+
+    VertexMap vmap;
+
+    auto ifaces(sm.faces.begin());
+    for (const auto &tface : sm.facesTc) {
+        const auto &face(*ifaces++);
+
+        faces.emplace_back();
+        auto &oface(faces.back());
+
+        for (int i(0); i < 3; ++i) {
+            const VertexTcPair pair(face(i), tface(i));
+
+            auto fvmap(vmap.find(pair));
+            if (fvmap == vmap.end()) {
+                // unknown vertex/tc pair
+                const auto idx(faces.size());
+                vertices.emplace_back(sm.vertices[pair.first]);
+                tc.emplace_back(sm.tc[pair.second]);
+
+                vmap.insert(VertexMap::value_type(pair, idx));
+                oface(i) = idx;
+            } else {
+                oface(i) = fvmap->second;
+            }
+        }
+    }
+
+    // fill in new data
+    sm.vertices.swap(vertices);
+    sm.tc.swap(tc);
+    // and use the same data for both 3D and 2D face
+    sm.faces.swap(faces);
+    sm.facesTc = sm.faces;
 }
 
 std::tuple<cv::Mat, math::Points2d, Faces>

@@ -175,9 +175,15 @@ struct SubmeshMergeOptions {
      */
     std::size_t maxFaceCount;
 
+    /** Each submesh has the same mesh and texture faces if set. Useful when
+     **  mesh is intended to be used in system that cannot use different indices
+     **  in vertices and texture coordinates. Can be used by OpenGL.
+     */
+    bool sharedFaces;
+
     SubmeshMergeOptions()
         : atlasPacking(AtlasPacking::progressive)
-        , maxVertexCount(), maxFaceCount()
+        , maxVertexCount(), maxFaceCount(), sharedFaces(false)
     {}
 };
 
