@@ -1347,7 +1347,7 @@ void MeshAtlasBuilder::makeSharedFaces()
             auto fvmap(vmap.find(pair));
             if (fvmap == vmap.end()) {
                 // unknown vertex/tc pair
-                const auto idx(faces.size());
+                const auto idx(vertices.size());
                 vertices.emplace_back(sm.vertices[pair.first]);
                 tc.emplace_back(sm.tc[pair.second]);
 
