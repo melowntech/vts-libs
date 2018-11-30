@@ -96,7 +96,8 @@ public:
 
     /** Generates map configuration for this storage view.
      */
-    MapConfig mapConfig() const;
+    MapConfig mapConfig(const MapConfigOptions &mco = MapConfigOptions())
+        const;
 
     const Storage& storage() const;
 
@@ -118,7 +119,9 @@ public:
 
     /** Generates map configuration for storage view at given path.
      */
-    static MapConfig mapConfig(const boost::filesystem::path &path);
+    static MapConfig mapConfig(const boost::filesystem::path &path
+                               , const MapConfigOptions &mco
+                               = MapConfigOptions());
 
     /** Check for storageview at given path.
      */

@@ -43,6 +43,14 @@
 
 namespace vtslibs { namespace vts {
 
+/** Map configuration options.
+ */
+struct MapConfigOptions {
+    /** Proxy name.
+     */
+    boost::optional<std::string> proxy;
+};
+
 struct SurfaceUrls3d {
     std::string meta;
     std::string mesh;

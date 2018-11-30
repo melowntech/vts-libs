@@ -157,31 +157,35 @@ StorageView::Properties StorageView::Detail::loadConfig(const fs::path &path)
     throw;
 }
 
-MapConfig StorageView::mapConfig() const
+MapConfig StorageView::mapConfig(const MapConfigOptions &mco) const
 {
-    return detail().mapConfig();
+    return detail().mapConfig(mco);
 }
 
-MapConfig StorageView::mapConfig(const fs::path &configPath)
+MapConfig StorageView::mapConfig(const fs::path &configPath
+                                 , const MapConfigOptions &mco)
 
 {
-    return Detail::mapConfig(configPath, Detail::loadConfig(configPath));
+    return Detail::mapConfig(configPath, Detail::loadConfig(configPath)
+                             , mco);
 }
 
-MapConfig StorageView::Detail::mapConfig() const
+MapConfig StorageView::Detail::mapConfig(const MapConfigOptions &mco) const
 {
-    return mapConfig(configPath, properties);
+    return mapConfig(configPath, properties, mco);
 }
 
 MapConfig
 StorageView::Detail::mapConfig(const fs::path &configPath
-                               , const StorageView::Properties &properties)
+                               , const StorageView::Properties &properties
+                               , const MapConfigOptions &mco)
 {
     // NB: view behaves like a directory although it is a single file
     return Storage::mapConfig
         (properties.storagePath, properties.extra
          , properties.tilesets, properties.freeLayerTilesets
-         , utility::relpath(configPath, properties.storagePath));
+         , utility::relpath(configPath, properties.storagePath)
+         , mco);
 }
 
 Glue::IdSet StorageView::pendingGlues() const

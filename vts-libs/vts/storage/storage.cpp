@@ -359,25 +359,29 @@ VirtualSurface::map Storage::virtualSurfaces() const
     return detail().properties.virtualSurfaces;
 }
 
-MapConfig Storage::mapConfig() const
+MapConfig Storage::mapConfig(const MapConfigOptions &mco) const
 {
-    return detail().mapConfig();
+    return detail().mapConfig(mco);
 }
 
-MapConfig Storage::mapConfig(const boost::filesystem::path &path)
+MapConfig Storage::mapConfig(const boost::filesystem::path &path
+                             , const MapConfigOptions &mco)
 
 {
-    return Detail::mapConfig(path);
+    return Detail::mapConfig(path, mco);
 }
 
-MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &path)
+MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &path
+                                     , const MapConfigOptions &mco)
 {
-    return mapConfig(path, loadConfig(path), loadExtraConfig(path));
+    return mapConfig(path, loadConfig(path), loadExtraConfig(path)
+                     , nullptr, nullptr, {}, mco);
 }
 
-MapConfig Storage::Detail::mapConfig() const
+MapConfig Storage::Detail::mapConfig(const MapConfigOptions &mco) const
 {
-    return mapConfig(root, properties, loadExtraConfig());
+    return mapConfig(root, properties, loadExtraConfig()
+                     , nullptr, nullptr, {}, mco);
 }
 
 namespace {
@@ -552,7 +556,8 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
                                      , const ExtraStorageProperties &extra
                                      , const TilesetIdSet *subset
                                      , const TilesetIdSet *freeLayers
-                                     , const fs::path &prefix)
+                                     , const fs::path &prefix
+                                     , const MapConfigOptions &mco)
 {
     auto referenceFrame(registry::system.referenceFrames
                         (properties.referenceFrame));
@@ -581,6 +586,20 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     // set of tilesets with glues
     TilesetIdSet glueable;
 
+    const auto tilesetUrl([&](const StoredTileset &tileset) -> fs::path
+    {
+        if (mco.proxy && !tileset.proxy2ExternalUrl.empty()) {
+            const auto &fproxy2ExternalUrl
+                (tileset.proxy2ExternalUrl.find(*mco.proxy));
+            if (fproxy2ExternalUrl != tileset.proxy2ExternalUrl.end()) {
+                return fproxy2ExternalUrl->second;
+            }
+        }
+
+        // synthetic default URL
+        return prefix / storage_paths::tilesetRoot() / tileset.tilesetId;
+    });
+
     // tilesets
     // bool surfacesAvailable(true);
     for (const auto &tileset : properties.tilesets) {
@@ -596,8 +615,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             mapConfig.addMeshTilesConfig
                 (TileSet::meshTilesConfig
                  (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-                 , prefix / storage_paths::tilesetRoot()
-                 / tileset.tilesetId);
+                 , tilesetUrl(tileset));
         }
 
         // handle tileset as a surface
@@ -606,7 +624,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             mapConfig.mergeTileSet
                 (TileSet::mapConfig
                  (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-                 , prefix / storage_paths::tilesetRoot() / tileset.tilesetId);
+                 , tilesetUrl(tileset));
         }
     }
 
@@ -656,10 +674,11 @@ MapConfig Storage::mapConfig(const boost::filesystem::path &root
                              , const ExtraStorageProperties &extra
                              , const TilesetIdSet &subset
                              , const TilesetIdSet &freeLayers
-                             , const fs::path &prefix)
+                             , const fs::path &prefix
+                             , const MapConfigOptions &mco)
 {
     return Detail::mapConfig(root, Detail::loadConfig(root)
-                             , extra, &subset, &freeLayers, prefix);
+                             , extra, &subset, &freeLayers, prefix, mco);
 }
 
 bool Storage::check(const boost::filesystem::path &root)
@@ -1027,6 +1046,42 @@ void Storage::Detail::updateTags(const TilesetId &tilesetId
 
     // remove tags to be removed
     for (const auto &tag : remove) { tileset->tags.erase(tag); }
+
+    // store config
+    saveConfig();
+}
+
+void Storage::updateExternalUrl(const TilesetId &tilesetId
+                                , const Proxy2ExternalUrl &add
+                                , const std::vector<std::string> &remove)
+{
+    detail().updateExternalUrl(tilesetId, add, remove);
+}
+
+void Storage::Detail
+::updateExternalUrl(const TilesetId &tilesetId
+                    , const Proxy2ExternalUrl &add
+                    , const std::vector<std::string> &remove)
+{
+    // (re)load config to have fresh copy when under lock
+    if (storageLock) { loadConfig(); }
+
+    auto *tileset(properties.findTileset(tilesetId));
+    if (!tileset) {
+        LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
+            << "Tileset <" << tilesetId << "> not found in storage "
+            << root << ".";
+    }
+
+    // add external URLs
+    for (const auto &item : add) {
+        tileset->proxy2ExternalUrl[item.first] = item.second;
+    }
+
+    // remove external URLs for given proxies
+    for (const auto &proxy : remove) {
+        tileset->proxy2ExternalUrl.erase(proxy);
+    }
 
     // store config
     saveConfig();

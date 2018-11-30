@@ -303,9 +303,14 @@ struct Storage::Detail
     void updateTags(const TilesetId &tilesetId, const Tags &add
                     , const Tags &remove);
 
-    MapConfig mapConfig() const;
+    void updateExternalUrl(const TilesetId &tilesetId
+                           , const Proxy2ExternalUrl &add
+                           , const std::vector<std::string> &remove);
 
-    static MapConfig mapConfig(const boost::filesystem::path &path);
+    MapConfig mapConfig(const MapConfigOptions &mco) const;
+
+    static MapConfig mapConfig(const boost::filesystem::path &path
+                               , const MapConfigOptions &mco);
 
     static MapConfig mapConfig(const boost::filesystem::path &root
                                , const Properties &properties
@@ -313,7 +318,9 @@ struct Storage::Detail
                                , const TilesetIdSet *subset = nullptr
                                , const TilesetIdSet *freeLayers = nullptr
                                , const boost::filesystem::path &prefix
-                               = boost::filesystem::path());
+                               = boost::filesystem::path()
+                               , const MapConfigOptions &mco
+                               = MapConfigOptions());
 
     Glue::IdSet pendingGlues(const TilesetIdSet *subset) const;
 

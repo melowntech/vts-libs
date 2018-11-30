@@ -115,6 +115,7 @@ namespace ba = boost::algorithm;
     ((tilePick)("tile-pick"))                                       \
     ((file)("file"))                                                \
     ((tags)("tags"))                                                \
+    ((proxies)("proxies"))                                          \
     ((glueRulesSyntax)("glue-rules-syntax"))                        \
     ((mergeConfSyntax)("merge-conf-syntax"))                        \
     ((dumpNavtile)("dump-navtile"))                                 \
@@ -152,6 +153,26 @@ void validate(boost::any &v, const std::vector<std::string>&, Verbosity*, int)
 struct MetaLodRange {
     vts::LodRange lodRange;
 };
+
+typedef std::vector<std::string> Values;
+
+vts::Tags tagsFromValues(const Values &values)
+{
+    return { values.begin(), values.end() };
+}
+
+vts::Proxy2ExternalUrl proxiesFromValues(const Values &values)
+{
+    vts::Proxy2ExternalUrl mapping;
+
+    for (const auto &value : values) {
+        const auto eq(value.find('='));
+        if (eq == std::string::npos) { continue; }
+        mapping[value.substr(0, eq)] = value.substr(eq + 1);
+    }
+
+    return mapping;
+}
 
 UTILITY_GENERATE_ENUM(MeshFormat,
                       ((geo))
@@ -267,6 +288,8 @@ private:
 
     int tags();
 
+    int proxies();
+
     int dumpMetatile();
 
     int metatileVersion();
@@ -360,8 +383,8 @@ private:
     Verbosity verbose_;
     bool computeTexelSize_;
     vs::CreditIds forceCredits_;
-    vts::Tags addTags_;
-    vts::Tags removeTags_;
+    Values addValues_;
+    Values removeValues_;
 
     boost::optional<vts::Lod> queryLod_;
     math::Point2IOWrapper<double> queryPoint_;
@@ -373,6 +396,8 @@ private:
     bool generate_;
 
     bool sameType_;
+
+    vts::MapConfigOptions mco_;
 
     /** External lock.
      */
@@ -493,12 +518,22 @@ void configureGeneratesetModifier(const po::variables_map &vars
         gs = gs.intersect(constraint);
     };
 }
-void getTags(vts::Tags &tags, const po::variables_map &vars
+
+void getValues(Values &values, const po::variables_map &vars
              , const std::string &option)
 {
     if (vars.count(option)) {
-        const auto &value(vars[option].as<std::vector<std::string>>());
-        tags.insert(value.begin(), value.end());
+        const auto &value(vars[option].as<Values>());
+        values.insert(values.end(), value.begin(), value.end());
+    }
+}
+
+void getValues(vts::Tags &values, const po::variables_map &vars
+               , const std::string &option)
+{
+    if (vars.count(option)) {
+        const auto &value(vars[option].as<Values>());
+        values.insert(value.begin(), value.end());
     }
 }
 
@@ -688,7 +723,7 @@ void VtsStorage::configuration(po::options_description &cmdline
                 addOptions_.mode = vts::Storage::AddOptions::Mode::full;
             }
 
-            getTags(addOptions_.tags, vars, "addTag");
+            getValues(addOptions_.tags, vars, "addTag");
 
             configureProgress(vars, addOptions_);
         };
@@ -856,7 +891,16 @@ void VtsStorage::configuration(po::options_description &cmdline
                  "map-config"
                  , [&](UP &p)
     {
-        (void) p;
+        p.options.add_options()
+            ("proxy", po::value<std::string>()
+             , "Proxy name for external URL selection. Storage(view) only.")
+            ;
+
+        p.configure = [&](const po::variables_map &vars) {
+            if (vars.count("proxy")) {
+                mco_.proxy = vars["proxy"].as<std::string>();
+            }
+        };
     });
 
     createParser(cmdline, Command::dirs
@@ -1269,10 +1313,54 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.positional.add("addTag", -1);
 
         p.configure = [&](const po::variables_map &vars) {
-            getTags(addTags_, vars, "addTag");
-            getTags(removeTags_, vars, "removeTag");
+            getValues(addValues_, vars, "addTag");
+            getValues(removeValues_, vars, "removeTag");
 
-            if (!addTags_.empty() || !removeTags_.empty()) {
+            if (!addValues_.empty() || !removeValues_.empty()) {
+                if (!vars.count("tileset")) {
+                    throw po::required_option("tileset");
+                }
+
+                tilesetId_ = vars["tileset"].as<std::string>();
+            } else if (vars.count("tileset")) {
+                optTilesetId_ = vars["tileset"].as<std::string>();
+            }
+        };
+    });
+
+    createParser(cmdline, Command::proxies
+                 , "--command=proxies: operate on tileset's proxies "
+                 "inside storage"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileset", po::value<std::string>()
+             , "Id of tileset which proxies to edit or display. Optional "
+             "when dislaying tag info (all tilesets are shown).")
+            ("addProxy", po::value<std::vector<std::string>>()
+             , "Proxies to add in format name=URL. All positional arguments "
+             "are treated as proxies to be added")
+            ("removeProxy", po::value<std::vector<std::string>>()
+             , "Proxy names to remove.")
+            ;
+
+        p.positional.add("addProxy", -1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            getValues(addValues_, vars, "addProxy");
+            getValues(removeValues_, vars, "removeProxy");
+
+            // sanity check
+            for (const auto &value : addValues_) {
+                if (!value.find('=')) {
+                    throw po::validation_error
+                        (po::validation_error::invalid_option_value
+                         , "addProxy");
+                }
+            }
+
+
+            if (!addValues_.empty() || !removeValues_.empty()) {
                 if (!vars.count("tileset")) {
                     throw po::required_option("tileset");
                 }
@@ -1671,6 +1759,15 @@ int storageInfo(const std::string &prefix, const fs::path &path, int verbose)
                 std::cout << subprefix << "Tags: "
                           << utility::join(tileset.tags, ", ") << '\n';
             }
+
+            if (!tileset.proxy2ExternalUrl.empty()) {
+                std::cout << subprefix << "External URL:\n";
+                for (const auto &item : tileset.proxy2ExternalUrl) {
+                    std::cout << subprefix << "    " << item.first
+                              << " -> " << item.second << '\n';
+                }
+            }
+
             std::cout << '\n';
         }
     }
@@ -1875,20 +1972,53 @@ int VtsStorage::tags()
         }
     });
 
-    if (!addTags_.empty() || !removeTags_.empty()) {
+    if (!addValues_.empty() || !removeValues_.empty()) {
         // lock if external locking program is available
         Lock lock(path_, lock_);
         auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
 
-        storage.updateTags(tilesetId_, addTags_, removeTags_);
+        storage.updateTags(tilesetId_, tagsFromValues(addValues_)
+                           , tagsFromValues(removeValues_));
 
         print(storage, tilesetId_);
-        // let the info code print result
-        optTilesetId_ = tilesetId_;
     } else {
         auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
         print(storage, optTilesetId_);
     }
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::proxies()
+{
+    auto print([&](const vts::Storage &storage
+                   , const boost::optional<vts::TilesetId> &filterOut)
+    {
+        for (const auto &tileset : storage.storedTilesets()) {
+            if (filterOut && (tileset.tilesetId != filterOut)) {
+                continue;
+            }
+            std::cout << tileset.tilesetId << '\n';
+            for (const auto &item : tileset.proxy2ExternalUrl) {
+                std::cout << "    " << item.first
+                          << " -> " << item.second << '\n';
+            }
+        }
+    });
+
+    if (!addValues_.empty() || !removeValues_.empty()) {
+        // lock if external locking program is available
+        Lock lock(path_, lock_);
+        auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
+
+        storage.updateExternalUrl(tilesetId_, proxiesFromValues(addValues_)
+                                  , removeValues_);
+
+        print(storage, tilesetId_);
+    } else  {
+        auto storage(vts::Storage(path_, vts::OpenMode::readWrite));
+        print(storage, optTilesetId_);
+    }
+
     return EXIT_SUCCESS;
 }
 
@@ -2012,11 +2142,11 @@ int VtsStorage::mapConfig()
         return EXIT_SUCCESS;
 
     case vts::DatasetType::Storage:
-        saveMapConfig(vts::Storage::mapConfig(path_), std::cout);
+        saveMapConfig(vts::Storage::mapConfig(path_, mco_), std::cout);
         return EXIT_SUCCESS;
 
     case vts::DatasetType::StorageView:
-        saveMapConfig(vts::StorageView::mapConfig(path_), std::cout);
+        saveMapConfig(vts::StorageView::mapConfig(path_, mco_), std::cout);
         return EXIT_SUCCESS;
 
     default: break;

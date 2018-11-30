@@ -98,6 +98,10 @@ struct ExtraStorageProperties {
 
 typedef std::set<std::string> Tags;
 
+/** Proxy name to external URL mapping.
+ */
+typedef std::map<std::string, std::string> Proxy2ExternalUrl;
+
 /** Info about stored tileset
  */
 struct StoredTileset {
@@ -116,6 +120,10 @@ struct StoredTileset {
     /** Tileset tags
      */
     Tags tags;
+
+    /** Proxy to external URL mapping.
+     */
+    Proxy2ExternalUrl proxy2ExternalUrl;
 
     typedef std::vector<StoredTileset> list;
 
@@ -369,9 +377,14 @@ public:
     void updateTags(const TilesetId &tilesetId
                     , const Tags &add, const Tags &remove);
 
+    void updateExternalUrl(const TilesetId &tilesetId
+                           , const Proxy2ExternalUrl &add
+                           , const std::vector<std::string> &remove);
+
     /** Generates map configuration for this storage.
      */
-    MapConfig mapConfig() const;
+    MapConfig mapConfig(const MapConfigOptions &mco = MapConfigOptions())
+        const;
 
     /** Lock stress tester. Randomly loads and writes storage.conf.
      *  Makes sense only when lock is valid.
@@ -380,7 +393,9 @@ public:
 
     /** Generates map configuration for storage at given path.
      */
-    static MapConfig mapConfig(const boost::filesystem::path &path);
+    static MapConfig mapConfig(const boost::filesystem::path &path
+                               , const MapConfigOptions &mco
+                               = MapConfigOptions());
 
     /** Special mapconfig generator to get subset (i.e. storage view) map
      *  configuration.
@@ -395,7 +410,9 @@ public:
                                , const ExtraStorageProperties &extra
                                , const TilesetIdSet &subset
                                , const TilesetIdSet &freeLayers
-                               , const boost::filesystem::path &prefix);
+                               , const boost::filesystem::path &prefix
+                               , const MapConfigOptions &mco
+                               = MapConfigOptions());
 
     /** Check for storage at given path.
      */

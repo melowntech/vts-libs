@@ -74,6 +74,15 @@ void parseTileset(StoredTileset &tileset, const Json::Value &value)
     for (const auto &tag : value["tags"]) {
         tileset.tags.insert(tag.asString());
     }
+
+    if (value.isMember("externalUrl")) {
+        const auto &proxied(value["externalUrl"]);
+        for (const auto &name : proxied.getMemberNames()) {
+            tileset.proxy2ExternalUrl.insert
+                (Proxy2ExternalUrl::value_type
+                 (name, proxied[name].asString()));
+        }
+    }
 }
 
 void parseTilesets(StoredTileset::list &tilesets, const Json::Value &value)
@@ -214,6 +223,13 @@ void buildTileset(const StoredTileset &tileset, Json::Value &object)
         auto &tags(object["tags"] = Json::arrayValue);
         for (const auto &tag : tileset.tags) {
             tags.append(tag);
+        }
+    }
+
+    if (!tileset.proxy2ExternalUrl.empty()) {
+        auto &proxied(object["externalUrl"] = Json::objectValue);
+        for (const auto &item : tileset.proxy2ExternalUrl) {
+            proxied[item.first] = item.second;
         }
     }
 }
