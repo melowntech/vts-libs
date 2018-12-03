@@ -51,6 +51,41 @@ const char* MapConfig::contentType("application/json; charset=utf-8");
 const char* MeshTilesConfig::contentType("application/json; charset=utf-8");
 const char* DebugConfig::contentType("application/json; charset=utf-8");
 
+bool SurfaceRoot::empty() const
+{
+    struct Visitor : public boost::static_visitor<bool> {
+        bool operator()(const fs::path &path) {
+            return path.empty();
+        }
+
+        bool operator()(const PerProxyRootFunction &fn) {
+            return !fn;
+        }
+    } v;
+    return boost::apply_visitor(v, root_);
+}
+
+boost::filesystem::path SurfaceRoot::operator()(const OProxy &proxy) const
+{
+    struct Visitor : public boost::static_visitor<fs::path> {
+        const OProxy &proxy;
+        Visitor(const OProxy &proxy) : proxy(proxy) {}
+
+        fs::path operator()(const fs::path &path) {
+            return path;
+        }
+
+        fs::path operator()(const PerProxyRootFunction &fn) {
+            return fn(proxy);
+        }
+    } v(proxy);
+    return boost::apply_visitor(v, root_);
+}
+
+OProxy proxy(const MapConfigOptions *mco) {
+    return mco ? mco->proxy : boost::none;
+}
+
 Json::Value asJson(const Glue::Id &id)
 {
     Json::Value value(Json::arrayValue);
@@ -74,9 +109,12 @@ void addRanges(const SurfaceCommonConfig &surface, Json::Value &s)
 }
 
 void asJson(const SurfaceCommonConfig &surface, Json::Value &s
-            , registry::BoundLayer::dict &boundLayers)
+            , registry::BoundLayer::dict &boundLayers
+            , const MapConfigOptions *mco = nullptr)
 {
     addRanges(surface, s);
+
+    const auto root(surface.root(proxy(mco)));
 
     // paths
     if (surface.urls3d) {
@@ -86,17 +124,17 @@ void asJson(const SurfaceCommonConfig &surface, Json::Value &s
         s["navUrl"] = surface.urls3d->nav;
     } else {
         s["metaUrl"]
-            = (surface.root / fileTemplate(storage::TileFile::meta
-                                           , surface.revision)).string();
+            = (root / fileTemplate(storage::TileFile::meta
+                                   , surface.revision)).string();
         s["meshUrl"]
-            = (surface.root / fileTemplate(storage::TileFile::mesh
-                                           , surface.revision)).string();
+            = (root / fileTemplate(storage::TileFile::mesh
+                                   , surface.revision)).string();
         s["textureUrl"]
-            = (surface.root / fileTemplate(storage::TileFile::atlas
-                                           , surface.revision)).string();
+            = (root / fileTemplate(storage::TileFile::atlas
+                                   , surface.revision)).string();
         s["navUrl"]
-            = (surface.root / fileTemplate(storage::TileFile::navtile
-                                           , surface.revision)).string();
+            = (root / fileTemplate(storage::TileFile::navtile
+                                   , surface.revision)).string();
     }
 
     if (surface.has2dInterface) {
@@ -108,17 +146,17 @@ void asJson(const SurfaceCommonConfig &surface, Json::Value &s
             i2d["creditsUrl"] = surface.urls2d->credits;
         } else {
             i2d["metaUrl"]
-                = (surface.root / fileTemplate(storage::TileFile::meta2d
-                                               , surface.revision)).string();
+                = (root / fileTemplate(storage::TileFile::meta2d
+                                       , surface.revision)).string();
             i2d["maskUrl"]
-                = (surface.root / fileTemplate(storage::TileFile::mask
-                                               , surface.revision)).string();
+                = (root / fileTemplate(storage::TileFile::mask
+                                       , surface.revision)).string();
             i2d["orthoUrl"]
-                = (surface.root / fileTemplate(storage::TileFile::ortho
-                                               , surface.revision)).string();
+                = (root / fileTemplate(storage::TileFile::ortho
+                                       , surface.revision)).string();
             i2d["creditsUrl"]
-                = (surface.root / fileTemplate(storage::TileFile::credits
-                                               , surface.revision)).string();
+                = (root / fileTemplate(storage::TileFile::credits
+                                       , surface.revision)).string();
         }
     }
 
@@ -130,11 +168,12 @@ void asJson(const SurfaceCommonConfig &surface, Json::Value &s
 }
 
 Json::Value asJson(const SurfaceConfig &surface
-                   , registry::BoundLayer::dict &boundLayers)
+                   , registry::BoundLayer::dict &boundLayers
+                   , const MapConfigOptions *mco = nullptr)
 {
     Json::Value s(Json::objectValue);
     s["id"] = surface.id;
-    asJson(surface, s, boundLayers);
+    asJson(surface, s, boundLayers, mco);
     return s;
 }
 
@@ -153,30 +192,33 @@ Json::Value asJson(const VirtualSurfaceConfig &vs)
     s["id"] = asJson(vs.id);
     addRanges(vs, s);
 
+    const auto root(vs.root());
+
     // paths
     if (vs.urls3d) {
         s["metaUrl"] = vs.urls3d->meta;
     } else {
         s["metaUrl"]
-            = (vs.root / fileTemplate(storage::TileFile::meta
-                                      , vs.revision)).string();
+            = (root / fileTemplate(storage::TileFile::meta
+                                   , vs.revision)).string();
     }
 
     if (!vs.mapping.empty()) {
         s["mapping"] = vs.mapping;
     } else {
-        s["mapping"] = (vs.root / VirtualSurface::TilesetMappingPath).string();
+        s["mapping"] = (root / VirtualSurface::TilesetMappingPath).string();
     }
 
     return s;
 }
 
 Json::Value asJson(const SurfaceConfig::list &surfaces
-                   , registry::BoundLayer::dict &boundLayers)
+                   , registry::BoundLayer::dict &boundLayers
+                   , const MapConfigOptions *mco = nullptr)
 {
     Json::Value s(Json::arrayValue);
     for (const auto &surface : surfaces) {
-        s.append(asJson(surface, boundLayers));
+        s.append(asJson(surface, boundLayers, mco));
     }
     return s;
 }
@@ -316,7 +358,7 @@ void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
 }
 
 void MapConfig::mergeTileSet(const MapConfig &tilesetMapConfig
-                             , const boost::filesystem::path &root)
+                             , const SurfaceRoot &root)
 {
     if (tilesetMapConfig.surfaces.size() != 1) {
         LOGTHROW(err1, storage::NoSuchTileSet)
@@ -333,7 +375,7 @@ void MapConfig::mergeTileSet(const MapConfig &tilesetMapConfig
 }
 
 void MapConfig::addMeshTilesConfig(const MeshTilesConfig &meshTilesConfig
-                                   , const boost::filesystem::path &root)
+                                   , const SurfaceRoot &root)
 {
     meshTiles.push_back(meshTilesConfig);
     auto &s(meshTiles.back().surface);
@@ -403,7 +445,8 @@ void MapConfig::merge(const MapConfig &other)
     mergeRest(*this, other, true);
 }
 
-void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
+void saveMapConfig(const MapConfig &mapConfig, std::ostream &os
+                   , const MapConfigOptions *mco)
 {
     Json::Value content;
     content["version"] = VERSION;
@@ -417,7 +460,7 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     // get credits, append all from bound layers
     auto credits(mapConfig.credits);
 
-    content["surfaces"] = asJson(mapConfig.surfaces, boundLayers);
+    content["surfaces"] = asJson(mapConfig.surfaces, boundLayers, mco);
     content["glue"] = asJson(mapConfig.glues, boundLayers);
     content["virtualSurfaces"] = asJson(mapConfig.virtualSurfaces);
 
@@ -433,7 +476,7 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os)
     for (const auto &config : mapConfig.meshTiles) {
         // no inline credits
         content["freeLayers"][config.surface.id]
-            = asJson(freeLayer(config, false), false);
+            = asJson(freeLayer(config, false, {}, mco), false);
         // and fetch credits
         credits.update(config.credits);
     }
@@ -552,7 +595,8 @@ void loadMapConfig(MapConfig &mapConfig, std::istream &in
 
 registry::FreeLayer freeLayer(const MeshTilesConfig &config
                               , bool inlineCredits
-                              , const boost::filesystem::path &root)
+                              , const boost::filesystem::path &root
+                              , const MapConfigOptions *mco)
 {
     registry::FreeLayer fl;
 
@@ -571,7 +615,8 @@ registry::FreeLayer freeLayer(const MeshTilesConfig &config
     def.lodRange = surface.lodRange;
     def.tileRange = surface.tileRange;
 
-    auto useRoot(surface.root.empty() ? root : surface.root);
+    auto useRoot(surface.root.empty()
+                 ? root : surface.root(proxy(mco)));
 
     def.metaUrl
         = (useRoot / fileTemplate(storage::TileFile::meta
@@ -596,7 +641,7 @@ DebugConfig debugConfig(const MeshTilesConfig &config
     dc.lodRange = surface.lodRange;
     dc.tileRange = surface.tileRange;
 
-    const auto useRoot(surface.root.empty() ? root : surface.root);
+    const auto useRoot(surface.root.empty() ? root : surface.root());
 
     dc.meta
         = (useRoot / fileTemplate(storage::TileFile::meta, FileFlavor::debug
@@ -656,12 +701,13 @@ inline void addBase(Dirs &dirs, const boost::optional<std::string> &path
 }
 
 inline void extractDirs(Dirs &dirs, const SurfaceConfig &surface
-                        , std::set<std::string> &boundLayers)
+                        , std::set<std::string> &boundLayers
+                        , const MapConfigOptions *mco)
 {
     if (surface.root.empty()) {
         update(dirs, ".", surface.id);
     } else {
-        update(dirs, surface.root.string(), surface.id);
+        update(dirs, surface.root(proxy(mco)).string(), surface.id);
     }
     if (surface.textureLayer) {
         boundLayers.insert(*surface.textureLayer);
@@ -674,7 +720,7 @@ inline void extractDirs(Dirs &dirs, const GlueConfig &surface
     if (surface.root.empty()) {
         update(dirs, ".", surface.id);
     } else {
-        update(dirs, surface.root.string(), surface.id);
+        update(dirs, surface.root().string(), surface.id);
     }
     if (surface.textureLayer) {
         boundLayers.insert(*surface.textureLayer);
@@ -687,7 +733,7 @@ inline void extractDirs(Dirs &dirs, const VirtualSurfaceConfig &surface
     if (surface.root.empty()) {
         update(dirs, ".", surface.id);
     } else {
-        update(dirs, surface.root.string(), surface.id);
+        update(dirs, surface.root().string(), surface.id);
     }
     if (surface.textureLayer) {
         boundLayers.insert(*surface.textureLayer);
@@ -733,7 +779,7 @@ inline void extractDirs(Dirs &dirs, const registry::BoundLayer &bl)
     addBase(dirs, bl.creditsUrl, bl.id);
 }
 
-Dirs extractDirs(const MapConfig &mapConfig)
+Dirs extractDirs(const MapConfig &mapConfig, const MapConfigOptions *mco)
 {
     Dirs dirs;
     std::set<std::string> boundLayers;
@@ -742,7 +788,7 @@ Dirs extractDirs(const MapConfig &mapConfig)
     dirs["."];
 
     for (const auto &surface : mapConfig.surfaces) {
-        extractDirs(dirs, surface, boundLayers);
+        extractDirs(dirs, surface, boundLayers, mco);
     }
 
     for (const auto &glue : mapConfig.glues) {
@@ -754,7 +800,7 @@ Dirs extractDirs(const MapConfig &mapConfig)
     }
 
     for (const auto &meshTiles : mapConfig.meshTiles) {
-        extractDirs(dirs, meshTiles.surface, boundLayers);
+        extractDirs(dirs, meshTiles.surface, boundLayers, mco);
     }
 
     for (const auto &pair : mapConfig.freeLayers) {
@@ -780,11 +826,12 @@ Dirs extractDirs(const MapConfig &mapConfig)
 
 } // namespace
 
-void saveDirs(const MapConfig &mapConfig, std::ostream &os)
+void saveDirs(const MapConfig &mapConfig, std::ostream &os
+              , const MapConfigOptions *mco)
 {
     Json::Value content(Json::objectValue);
 
-    for (const auto &item : extractDirs(mapConfig)) {
+    for (const auto &item : extractDirs(mapConfig, mco)) {
         auto &resources(content[item.first] = Json::arrayValue);
         for (const auto &rid : item.second) {
             resources.append(rid);

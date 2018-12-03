@@ -908,7 +908,16 @@ void VtsStorage::configuration(po::options_description &cmdline
                  "list of directories"
                  , [&](UP &p)
     {
-        (void) p;
+        p.options.add_options()
+            ("proxy", po::value<std::string>()
+             , "Proxy name for external URL selection. Storage(view) only.")
+            ;
+
+        p.configure = [&](const po::variables_map &vars) {
+            if (vars.count("proxy")) {
+                mco_.proxy = vars["proxy"].as<std::string>();
+            }
+        };
     });
 
     createParser(cmdline, Command::dumpTileIndex
@@ -2142,11 +2151,11 @@ int VtsStorage::mapConfig()
         return EXIT_SUCCESS;
 
     case vts::DatasetType::Storage:
-        saveMapConfig(vts::Storage::mapConfig(path_, mco_), std::cout);
+        saveMapConfig(vts::Storage::mapConfig(path_), std::cout, &mco_);
         return EXIT_SUCCESS;
 
     case vts::DatasetType::StorageView:
-        saveMapConfig(vts::StorageView::mapConfig(path_, mco_), std::cout);
+        saveMapConfig(vts::StorageView::mapConfig(path_), std::cout, &mco_);
         return EXIT_SUCCESS;
 
     default: break;
@@ -2164,11 +2173,11 @@ int VtsStorage::dirs()
         return EXIT_SUCCESS;
 
     case vts::DatasetType::Storage:
-        saveDirs(vts::Storage::mapConfig(path_), std::cout);
+        saveDirs(vts::Storage::mapConfig(path_), std::cout, &mco_);
         return EXIT_SUCCESS;
 
     case vts::DatasetType::StorageView:
-        saveDirs(vts::StorageView::mapConfig(path_), std::cout);
+        saveDirs(vts::StorageView::mapConfig(path_), std::cout, &mco_);
         return EXIT_SUCCESS;
 
     default: break;

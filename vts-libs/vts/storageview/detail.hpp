@@ -82,14 +82,12 @@ struct StorageView::Detail
 
     bool externallyChanged() const;
 
-    MapConfig mapConfig(const MapConfigOptions &mco) const;
+    MapConfig mapConfig() const;
+
+    static MapConfig mapConfig(const boost::filesystem::path &configPath);
 
     static MapConfig mapConfig(const boost::filesystem::path &configPath
-                               , const MapConfigOptions &mco);
-
-    static MapConfig mapConfig(const boost::filesystem::path &configPath
-                               , const StorageView::Properties &properties
-                               , const MapConfigOptions &mco);
+                               , const StorageView::Properties &properties);
 };
 
 } } // namespace vtslibs::vts

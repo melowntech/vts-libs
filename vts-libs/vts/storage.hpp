@@ -383,8 +383,7 @@ public:
 
     /** Generates map configuration for this storage.
      */
-    MapConfig mapConfig(const MapConfigOptions &mco = MapConfigOptions())
-        const;
+    MapConfig mapConfig() const;
 
     /** Lock stress tester. Randomly loads and writes storage.conf.
      *  Makes sense only when lock is valid.
@@ -393,9 +392,7 @@ public:
 
     /** Generates map configuration for storage at given path.
      */
-    static MapConfig mapConfig(const boost::filesystem::path &path
-                               , const MapConfigOptions &mco
-                               = MapConfigOptions());
+    static MapConfig mapConfig(const boost::filesystem::path &path);
 
     /** Special mapconfig generator to get subset (i.e. storage view) map
      *  configuration.
@@ -410,9 +407,7 @@ public:
                                , const ExtraStorageProperties &extra
                                , const TilesetIdSet &subset
                                , const TilesetIdSet &freeLayers
-                               , const boost::filesystem::path &prefix
-                               , const MapConfigOptions &mco
-                               = MapConfigOptions());
+                               , const boost::filesystem::path &prefix);
 
     /** Check for storage at given path.
      */

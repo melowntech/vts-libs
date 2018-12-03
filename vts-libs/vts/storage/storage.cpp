@@ -359,29 +359,25 @@ VirtualSurface::map Storage::virtualSurfaces() const
     return detail().properties.virtualSurfaces;
 }
 
-MapConfig Storage::mapConfig(const MapConfigOptions &mco) const
+MapConfig Storage::mapConfig() const
 {
-    return detail().mapConfig(mco);
+    return detail().mapConfig();
 }
 
-MapConfig Storage::mapConfig(const boost::filesystem::path &path
-                             , const MapConfigOptions &mco)
+MapConfig Storage::mapConfig(const boost::filesystem::path &path)
 
 {
-    return Detail::mapConfig(path, mco);
+    return Detail::mapConfig(path);
 }
 
-MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &path
-                                     , const MapConfigOptions &mco)
+MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &path)
 {
-    return mapConfig(path, loadConfig(path), loadExtraConfig(path)
-                     , nullptr, nullptr, {}, mco);
+    return mapConfig(path, loadConfig(path), loadExtraConfig(path));
 }
 
-MapConfig Storage::Detail::mapConfig(const MapConfigOptions &mco) const
+MapConfig Storage::Detail::mapConfig() const
 {
-    return mapConfig(root, properties, loadExtraConfig()
-                     , nullptr, nullptr, {}, mco);
+    return mapConfig(root, properties, loadExtraConfig());
 }
 
 namespace {
@@ -556,8 +552,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
                                      , const ExtraStorageProperties &extra
                                      , const TilesetIdSet *subset
                                      , const TilesetIdSet *freeLayers
-                                     , const fs::path &prefix
-                                     , const MapConfigOptions &mco)
+                                     , const fs::path &prefix)
 {
     auto referenceFrame(registry::system.referenceFrames
                         (properties.referenceFrame));
@@ -586,18 +581,26 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     // set of tilesets with glues
     TilesetIdSet glueable;
 
-    const auto tilesetUrl([&](const StoredTileset &tileset) -> fs::path
+    const auto tilesetUrl([&](const StoredTileset &tileset) -> SurfaceRoot
     {
-        if (mco.proxy && !tileset.proxy2ExternalUrl.empty()) {
-            const auto &fproxy2ExternalUrl
-                (tileset.proxy2ExternalUrl.find(*mco.proxy));
-            if (fproxy2ExternalUrl != tileset.proxy2ExternalUrl.end()) {
-                return fproxy2ExternalUrl->second;
-            }
-        }
+            // synthetic default URL
+        const auto defaultPath
+            (prefix / storage_paths::tilesetRoot() / tileset.tilesetId);
 
-        // synthetic default URL
-        return prefix / storage_paths::tilesetRoot() / tileset.tilesetId;
+        // no per-url configuration, return default
+        if (tileset.proxy2ExternalUrl.empty()) { return defaultPath; }
+
+        return SurfaceRoot([tileset, defaultPath](const OProxy &proxy)
+                           -> fs::path
+        {
+            if (proxy) {
+                const auto &f(tileset.proxy2ExternalUrl.find(*proxy));
+                if (f != tileset.proxy2ExternalUrl.end()) { return f->second; }
+            }
+
+            // not found -> default
+            return defaultPath;
+        });
     });
 
     // tilesets
@@ -674,11 +677,10 @@ MapConfig Storage::mapConfig(const boost::filesystem::path &root
                              , const ExtraStorageProperties &extra
                              , const TilesetIdSet &subset
                              , const TilesetIdSet &freeLayers
-                             , const fs::path &prefix
-                             , const MapConfigOptions &mco)
+                             , const fs::path &prefix)
 {
     return Detail::mapConfig(root, Detail::loadConfig(root)
-                             , extra, &subset, &freeLayers, prefix, mco);
+                             , extra, &subset, &freeLayers, prefix);
 }
 
 bool Storage::check(const boost::filesystem::path &root)

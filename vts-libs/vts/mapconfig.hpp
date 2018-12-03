@@ -32,8 +32,11 @@
 #define vtslibs_vts_mapconfig_hpp_included_
 
 #include <memory>
+#include <functional>
 #include <iostream>
 
+#include <boost/optional.hpp>
+#include <boost/variant.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include "../registry.hpp"
@@ -43,12 +46,14 @@
 
 namespace vtslibs { namespace vts {
 
+typedef boost::optional<std::string> OProxy;
+
 /** Map configuration options.
  */
 struct MapConfigOptions {
     /** Proxy name.
      */
-    boost::optional<std::string> proxy;
+    OProxy proxy;
 };
 
 struct SurfaceUrls3d {
@@ -65,10 +70,41 @@ struct SurfaceUrls2d {
     std::string credits;
 };
 
+/** Per-proxy surface root generator.
+ *  Should return default path if proxy is not found.
+ */
+typedef std::function<boost::filesystem::path
+                      (const OProxy&)> PerProxyRootFunction;
+
+/** Surface root. Either given path or path generator.
+ */
+class SurfaceRoot {
+public:
+    SurfaceRoot() : root_(boost::filesystem::path()) {}
+    SurfaceRoot(const boost::filesystem::path &path) : root_(path) {}
+    SurfaceRoot(const PerProxyRootFunction &fn) : root_(fn) {}
+
+    SurfaceRoot& operator=(const boost::filesystem::path &path) {
+        root_ = path; return *this;
+    }
+
+    bool empty() const;
+
+    boost::filesystem::path operator()() const {
+        return operator()(boost::none);
+    }
+
+    boost::filesystem::path operator()(const OProxy &proxy) const;
+
+private:
+    typedef boost::variant<boost::filesystem::path, PerProxyRootFunction> Root;
+    Root root_;
+};
+
 struct SurfaceCommonConfig {
     /** Root makes sense only when generating mapconfig.
      */
-    boost::filesystem::path root;
+    SurfaceRoot root;
     storage::LodRange lodRange;
     registry::TileRange tileRange;
     boost::optional<std::string> textureLayer;
@@ -168,7 +204,7 @@ struct MapConfig : public registry::Registry {
      * \param root path to tileset
      */
     void mergeTileSet(const MapConfig &tilesetMapConfig
-                      , const boost::filesystem::path &root);
+                      , const SurfaceRoot &root);
 
     /** Merges in mapConfig for one tileset as a glue.
      *
@@ -200,7 +236,7 @@ struct MapConfig : public registry::Registry {
      * \param root path to tileset
      */
     void addMeshTilesConfig(const MeshTilesConfig &meshTilesConfig
-                            , const boost::filesystem::path &root);
+                            , const SurfaceRoot &root);
 
     /** Merges in other map config.
      *
@@ -212,7 +248,8 @@ struct MapConfig : public registry::Registry {
 
 /** Save map config into stream.
  */
-void saveMapConfig(const MapConfig &mapConfig, std::ostream &os);
+void saveMapConfig(const MapConfig &mapConfig, std::ostream &os
+                   , const MapConfigOptions *mco = nullptr);
 
 /** Load map config from a stream.
  */
@@ -224,11 +261,13 @@ void loadMapConfig(MapConfig &mapConfig, std::istream &is
 registry::FreeLayer freeLayer(const MeshTilesConfig &config
                               , bool inlineCredits = true
                               , const boost::filesystem::path &root
-                              = boost::filesystem::path());
+                              = boost::filesystem::path()
+                              , const MapConfigOptions *mco = nullptr);
 
 /** Save map config as a list of directories into stream.
  */
-void saveDirs(const MapConfig &mapConfig, std::ostream &os);
+void saveDirs(const MapConfig &mapConfig, std::ostream &os
+              , const MapConfigOptions *mco = nullptr);
 
 /** Debug config.
  */

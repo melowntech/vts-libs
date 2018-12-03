@@ -46,7 +46,6 @@ DatasetType datasetType(const boost::filesystem::path &path)
     } else if (TileIndex::check(path)) {
         return DatasetType::TileIndex;
     }
-
     return DatasetType::Unknown;
 }
 
@@ -62,7 +61,6 @@ DatasetType datasetType(const boost::filesystem::path &path
     } else if (TileIndex::check(path, mime)) {
         return DatasetType::TileIndex;
     }
-
     return DatasetType::Unknown;
 }
 
