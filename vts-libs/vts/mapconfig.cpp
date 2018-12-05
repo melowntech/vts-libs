@@ -632,12 +632,11 @@ registry::FreeLayer freeLayer(const MeshTilesConfig &config
 }
 
 DebugConfig debugConfig(const MeshTilesConfig &config
-                        , const std::string &referenceFrameId
                         , const boost::filesystem::path &root)
 {
     DebugConfig dc;
     const auto &surface(config.surface);
-    dc.referenceFrame = referenceFrameId;
+    dc.referenceFrame = config.referenceFrame;
     dc.lodRange = surface.lodRange;
     dc.tileRange = surface.tileRange;
 

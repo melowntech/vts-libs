@@ -157,6 +157,10 @@ struct VirtualSurfaceConfig : SurfaceCommonConfig {
 /** Configuration for meshTiles free layer.
  */
 struct MeshTilesConfig {
+    /** Needed only by debug, not serialized to freelayer format
+     */
+    std::string referenceFrame;
+
     SurfaceConfig surface;
     registry::Credit::dict credits;
 
@@ -285,7 +289,6 @@ struct DebugConfig {
 /** Generates debug config from mesh tiles config.
  */
 DebugConfig debugConfig(const MeshTilesConfig &config
-                        , const std::string &referenceFrameId
                         , const boost::filesystem::path &root
                         = boost::filesystem::path());
 

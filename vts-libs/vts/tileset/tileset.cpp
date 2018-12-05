@@ -1756,6 +1756,9 @@ meshTilesConfig(const FullTileSetProperties &properties
 {
     MeshTilesConfig config;
 
+    // reference frame
+    config.referenceFrame = properties.referenceFrame;
+
     // prefill with extra entitities
     config.credits = extra.credits;
 
