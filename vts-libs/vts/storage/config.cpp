@@ -53,6 +53,16 @@ void parseList(std::vector<std::string> &ids, const Json::Value &value
     }
 }
 
+void parseExternalUrl(Proxy2ExternalUrl &proxy2ExternalUrl
+                      , const Json::Value &proxied)
+{
+    for (const auto &name : proxied.getMemberNames()) {
+        proxy2ExternalUrl.insert
+            (Proxy2ExternalUrl::value_type
+             (name, proxied[name].asString()));
+    }
+}
+
 void parseTileset(StoredTileset &tileset, const Json::Value &value)
 {
     if (!value.isObject()) {
@@ -76,12 +86,7 @@ void parseTileset(StoredTileset &tileset, const Json::Value &value)
     }
 
     if (value.isMember("externalUrl")) {
-        const auto &proxied(value["externalUrl"]);
-        for (const auto &name : proxied.getMemberNames()) {
-            tileset.proxy2ExternalUrl.insert
-                (Proxy2ExternalUrl::value_type
-                 (name, proxied[name].asString()));
-        }
+        parseExternalUrl(tileset.proxy2ExternalUrl, value["externalUrl"]);
     }
 }
 
@@ -210,6 +215,17 @@ Json::Value buildList(const std::vector<std::string> &ids)
     return value;
 }
 
+void buildExternalUrl(const Proxy2ExternalUrl &proxy2ExternalUrl
+                      , Json::Value &object, const char *name)
+{
+    if (proxy2ExternalUrl.empty()) { return; }
+
+    auto &proxied(object[name] = Json::objectValue);
+    for (const auto &item : proxy2ExternalUrl) {
+        proxied[item.first] = item.second;
+    }
+}
+
 void buildTileset(const StoredTileset &tileset, Json::Value &object)
 {
     object = Json::objectValue;
@@ -226,12 +242,7 @@ void buildTileset(const StoredTileset &tileset, Json::Value &object)
         }
     }
 
-    if (!tileset.proxy2ExternalUrl.empty()) {
-        auto &proxied(object["externalUrl"] = Json::objectValue);
-        for (const auto &item : tileset.proxy2ExternalUrl) {
-            proxied[item.first] = item.second;
-        }
-    }
+    buildExternalUrl(tileset.proxy2ExternalUrl, object, "externalUrl");
 }
 
 void buildTilesets(const StoredTileset::list &tilesets, Json::Value &object)
@@ -302,6 +313,16 @@ Storage::Properties parse1(const Json::Value &config)
     }
     parseTrash(properties.trashBin, config["trashBin"]);
 
+    if (config.isMember("glues.externalUrl")) {
+        parseExternalUrl(properties.gluesExternalUrl
+                         , config["glues.externalUrl"]);
+    }
+
+    if (config.isMember("virtualSurfaces.externalUrl")) {
+        parseExternalUrl(properties.vsExternalUrl
+                         , config["virtualSurfaces.externalUrl"]);
+    }
+
     return properties;
 }
 
@@ -320,6 +341,10 @@ void build(Json::Value &config, const Storage::Properties &properties)
     buildVirtualSurfaces(properties.virtualSurfaces
                          , config["virtualSurfaces"]);
     buildTrash(properties.trashBin, config["trashBin"]);
+
+    buildExternalUrl(properties.gluesExternalUrl, config, "glues.externalUrl");
+    buildExternalUrl(properties.vsExternalUrl, config
+                     , "virtualSurfaces.externalUrl");
 }
 
 } // namespace detail

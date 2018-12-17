@@ -69,17 +69,33 @@ boost::filesystem::path SurfaceRoot::operator()(const OProxy &proxy) const
 {
     struct Visitor : public boost::static_visitor<fs::path> {
         const OProxy &proxy;
-        Visitor(const OProxy &proxy) : proxy(proxy) {}
+        const OPath &suffix;
+
+        Visitor(const OProxy &proxy, const OPath &suffix)
+            : proxy(proxy), suffix(suffix)
+        {}
 
         fs::path operator()(const fs::path &path) {
+            if (suffix) { return path / *suffix; }
             return path;
         }
 
         fs::path operator()(const PerProxyRootFunction &fn) {
+            if (suffix) { return fn(proxy) / *suffix; }
             return fn(proxy);
         }
-    } v(proxy);
+    } v(proxy, suffix_);
     return boost::apply_visitor(v, root_);
+}
+
+SurfaceRoot::SurfaceRoot(const Root &root, const OPath &suffix)
+    : root_(root), suffix_(suffix)
+{}
+
+SurfaceRoot SurfaceRoot::withSuffix(const boost::filesystem::path &suffix)
+    const
+{
+    return SurfaceRoot(root_, suffix);
 }
 
 OProxy proxy(const MapConfigOptions *mco) {
@@ -178,21 +194,23 @@ Json::Value asJson(const SurfaceConfig &surface
 }
 
 Json::Value asJson(const GlueConfig &glue
-                   , registry::BoundLayer::dict &boundLayers)
+                   , registry::BoundLayer::dict &boundLayers
+                   , const MapConfigOptions *mco = nullptr)
 {
     Json::Value s(Json::objectValue);
     s["id"] = asJson(glue.id);
-    asJson(glue, s, boundLayers);
+    asJson(glue, s, boundLayers, mco);
     return s;
 }
 
-Json::Value asJson(const VirtualSurfaceConfig &vs)
+Json::Value asJson(const VirtualSurfaceConfig &vs
+                   , const MapConfigOptions *mco = nullptr)
 {
     Json::Value s(Json::objectValue);
     s["id"] = asJson(vs.id);
     addRanges(vs, s);
 
-    const auto root(vs.root());
+    const auto root(vs.root(proxy(mco)));
 
     // paths
     if (vs.urls3d) {
@@ -224,20 +242,22 @@ Json::Value asJson(const SurfaceConfig::list &surfaces
 }
 
 Json::Value asJson(const GlueConfig::list &glues
-                   , registry::BoundLayer::dict &boundLayers)
+                   , registry::BoundLayer::dict &boundLayers
+                   , const MapConfigOptions *mco = nullptr)
 {
     Json::Value s(Json::arrayValue);
     for (const auto &glue : glues) {
-        s.append(asJson(glue, boundLayers));
+        s.append(asJson(glue, boundLayers, mco));
     }
     return s;
 }
 
-Json::Value asJson(const VirtualSurfaceConfig::list &virtualSurfaces)
+Json::Value asJson(const VirtualSurfaceConfig::list &virtualSurfaces
+                   , const MapConfigOptions *mco = nullptr)
 {
     Json::Value s(Json::arrayValue);
     for (const auto &virtualSurface : virtualSurfaces) {
-        s.append(asJson(virtualSurface));
+        s.append(asJson(virtualSurface, mco));
     }
     return s;
 }
@@ -384,7 +404,7 @@ void MapConfig::addMeshTilesConfig(const MeshTilesConfig &meshTilesConfig
 
 void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
                           , const Glue &glue
-                          , const boost::filesystem::path &root)
+                          , const SurfaceRoot &root)
 {
     if (tilesetMapConfig.surfaces.size() != 1) {
         LOGTHROW(err1, storage::NoSuchTileSet)
@@ -394,7 +414,7 @@ void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
 
     GlueConfig g(tilesetMapConfig.surfaces.front());
     g.id = glue.id;
-    g.root = root / glue.path;
+    g.root = root.withSuffix(glue.path);
     glues.push_back(g);
 
     mergeRest(*this, tilesetMapConfig, false);
@@ -402,7 +422,7 @@ void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
 
 void MapConfig::mergeVirtualSurface(const MapConfig &tilesetMapConfig
                                     , const VirtualSurface &virtualSurface
-                                    , const boost::filesystem::path &root)
+                                    , const SurfaceRoot &root)
 {
     if (tilesetMapConfig.surfaces.size() != 1) {
         LOGTHROW(err1, storage::NoSuchTileSet)
@@ -412,7 +432,7 @@ void MapConfig::mergeVirtualSurface(const MapConfig &tilesetMapConfig
 
     VirtualSurfaceConfig vs(tilesetMapConfig.surfaces.front());
     vs.id = virtualSurface.id;
-    vs.root = root / virtualSurface.path;
+    vs.root = root.withSuffix(virtualSurface.path);
     virtualSurfaces.push_back(vs);
 
     mergeRest(*this, tilesetMapConfig, false);
@@ -461,8 +481,8 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os
     auto credits(mapConfig.credits);
 
     content["surfaces"] = asJson(mapConfig.surfaces, boundLayers, mco);
-    content["glue"] = asJson(mapConfig.glues, boundLayers);
-    content["virtualSurfaces"] = asJson(mapConfig.virtualSurfaces);
+    content["glue"] = asJson(mapConfig.glues, boundLayers, mco);
+    content["virtualSurfaces"] = asJson(mapConfig.virtualSurfaces, mco);
 
     content["position"] = registry::asJson(mapConfig.position);
 

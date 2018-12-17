@@ -1999,18 +1999,36 @@ int VtsStorage::tags()
 
 int VtsStorage::proxies()
 {
+    auto applyFilter([](const boost::optional<vts::TilesetId> &filterOut
+                        , const vts::TilesetId &tilesetId) -> bool
+    {
+        return !(filterOut && (tilesetId != *filterOut));
+    });
+
+    auto printMapping([](const vts::TilesetId &tilesetId
+                         , const vts::Proxy2ExternalUrl &mapping) -> void
+    {
+        std::cout << tilesetId << "\n";
+        for (const auto &item : mapping) {
+            std::cout << "    " << item.first
+                      << " -> " << item.second << '\n';
+        }
+    });
+
     auto print([&](const vts::Storage &storage
                    , const boost::optional<vts::TilesetId> &filterOut)
     {
         for (const auto &tileset : storage.storedTilesets()) {
-            if (filterOut && (tileset.tilesetId != filterOut)) {
-                continue;
-            }
-            std::cout << tileset.tilesetId << '\n';
-            for (const auto &item : tileset.proxy2ExternalUrl) {
-                std::cout << "    " << item.first
-                          << " -> " << item.second << '\n';
-            }
+            if (!applyFilter(filterOut, tileset.tilesetId)) { continue; }
+            printMapping(tileset.tilesetId, tileset.proxy2ExternalUrl);
+        }
+
+        if (applyFilter(filterOut, "@glues")) {
+            printMapping("@glues", storage.gluesExternalUrl());
+        }
+
+        if (applyFilter(filterOut, "@vs")) {
+            printMapping("@vs", storage.vsExternalUrl());
         }
     });
 
@@ -3138,9 +3156,8 @@ int VtsStorage::virtualSurfaceCreate()
     switch (vts::datasetType(path_)) {
     case vts::DatasetType::Storage:
         if (tilesetIds_.empty()) {
-            throw po::validation_error
-                (po::validation_error::invalid_option_value
-                 , "tileset");
+            std::cerr << "Missing tileset IDs." << std::endl;
+            return EXIT_FAILURE;
         }
 
         tids.insert(tilesetIds_.begin(), tilesetIds_.end());
@@ -3148,9 +3165,10 @@ int VtsStorage::virtualSurfaceCreate()
 
     case vts::DatasetType::StorageView:
         if (!tilesetIds_.empty()) {
-            throw po::validation_error
-                (po::validation_error::invalid_option_value
-                 , "tileset");
+            std::cerr
+                << "Cannot use tileset IDs when working with storage view."
+                << std::endl;
+            return EXIT_FAILURE;
         }
 
         {

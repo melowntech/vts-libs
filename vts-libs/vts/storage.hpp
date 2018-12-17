@@ -303,6 +303,14 @@ public:
      */
     StoredTileset::list storedTilesets() const;
 
+    /** External URL mapping for glues.
+     */
+    Proxy2ExternalUrl gluesExternalUrl() const;
+
+    /** External URL mapping for virtual surfaces.
+     */
+    Proxy2ExternalUrl vsExternalUrl() const;
+
     /** Returns list of existing glues.
      */
     Glue::map glues() const;

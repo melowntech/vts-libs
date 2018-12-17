@@ -102,6 +102,14 @@ struct Storage::Properties : StorageProperties {
      */
     VirtualSurface::map virtualSurfaces;
 
+    /** Glue root directory URL behind proxies.
+     */
+    Proxy2ExternalUrl gluesExternalUrl;
+
+    /** Virtual surface root directory URL behind proxies.
+     */
+    Proxy2ExternalUrl vsExternalUrl;
+
     /** Information about removed tilesets/glues.
      */
     TrashBin trashBin;

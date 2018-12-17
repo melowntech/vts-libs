@@ -349,6 +349,16 @@ StoredTileset::list Storage::storedTilesets() const {
     return detail().properties.tilesets;
 }
 
+Proxy2ExternalUrl Storage::gluesExternalUrl() const
+{
+    return detail().properties.gluesExternalUrl;
+}
+
+Proxy2ExternalUrl Storage::vsExternalUrl() const
+{
+    return detail().properties.vsExternalUrl;
+}
+
 Glue::map Storage::glues() const
 {
     return detail().properties.glues;
@@ -583,7 +593,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
 
     const auto tilesetUrl([&](const StoredTileset &tileset) -> SurfaceRoot
     {
-            // synthetic default URL
+        // synthetic default URL
         const auto defaultPath
             (prefix / storage_paths::tilesetRoot() / tileset.tilesetId);
 
@@ -596,6 +606,29 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             if (proxy) {
                 const auto &f(tileset.proxy2ExternalUrl.find(*proxy));
                 if (f != tileset.proxy2ExternalUrl.end()) { return f->second; }
+            }
+
+            // not found -> default
+            return defaultPath;
+        });
+    });
+
+    const auto supportTilesetUrl([&](const Proxy2ExternalUrl &externalUrl
+                                     , const fs::path &defaultRoot)
+                                 -> SurfaceRoot
+    {
+        // synthetic default URL
+        const auto defaultPath(prefix / defaultRoot);
+
+        // no per-url configuration, return default
+        if (externalUrl.empty()) { return defaultPath; }
+
+        return SurfaceRoot([externalUrl, defaultPath](const OProxy &proxy)
+                           -> fs::path
+        {
+            if (proxy) {
+                const auto &f(externalUrl.find(*proxy));
+                if (f != externalUrl.end()) { return f->second; }
             }
 
             // not found -> default
@@ -640,7 +673,8 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
         mapConfig.mergeGlue
             (TileSet::mapConfig
              (storage_paths::gluePath(root, glue), false)
-             , glue, prefix / storage_paths::glueRoot());
+             , glue, supportTilesetUrl
+             (properties.gluesExternalUrl, storage_paths::glueRoot()));
     }
 
     // virtualSurfaces
@@ -652,7 +686,8 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
         mapConfig.mergeVirtualSurface
             (TileSet::mapConfig
              (storage_paths::virtualSurfacePath(root, virtualSurface), false)
-             , virtualSurface, prefix / storage_paths::virtualSurfaceRoot());
+             , virtualSurface, supportTilesetUrl
+             (properties.vsExternalUrl, storage_paths::virtualSurfaceRoot()));
     }
 
     if (extra.position) {
@@ -1068,8 +1103,17 @@ void Storage::Detail
     // (re)load config to have fresh copy when under lock
     if (storageLock) { loadConfig(); }
 
-    auto *tileset(properties.findTileset(tilesetId));
-    if (!tileset) {
+    Proxy2ExternalUrl *proxy2ExternalUrl(nullptr);
+
+    if (tilesetId == "@glues") {
+        proxy2ExternalUrl = &properties.gluesExternalUrl;
+    } else if (tilesetId == "@vs") {
+        proxy2ExternalUrl = &properties.vsExternalUrl;
+    } else if (auto *tileset = properties.findTileset(tilesetId)) {
+        proxy2ExternalUrl = &tileset->proxy2ExternalUrl;
+    }
+
+    if (!proxy2ExternalUrl) {
         LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
             << "Tileset <" << tilesetId << "> not found in storage "
             << root << ".";
@@ -1077,12 +1121,12 @@ void Storage::Detail
 
     // add external URLs
     for (const auto &item : add) {
-        tileset->proxy2ExternalUrl[item.first] = item.second;
+        (*proxy2ExternalUrl)[item.first] = item.second;
     }
 
     // remove external URLs for given proxies
     for (const auto &proxy : remove) {
-        tileset->proxy2ExternalUrl.erase(proxy);
+        proxy2ExternalUrl->erase(proxy);
     }
 
     // store config

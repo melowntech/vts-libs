@@ -47,6 +47,7 @@
 namespace vtslibs { namespace vts {
 
 typedef boost::optional<std::string> OProxy;
+typedef boost::optional<boost::filesystem::path> OPath;
 
 /** Map configuration options.
  */
@@ -96,9 +97,15 @@ public:
 
     boost::filesystem::path operator()(const OProxy &proxy) const;
 
+    SurfaceRoot withSuffix(const boost::filesystem::path &suffix) const;
+
 private:
     typedef boost::variant<boost::filesystem::path, PerProxyRootFunction> Root;
+
+    SurfaceRoot(const Root &root, const OPath &suffix);
+
     Root root_;
+    OPath suffix_;
 };
 
 struct SurfaceCommonConfig {
@@ -219,8 +226,7 @@ struct MapConfig : public registry::Registry {
      * NB: glue path is composed as root / glue.path
      */
     void mergeGlue(const MapConfig &tilesetMapConfig
-                   , const Glue &glue
-                   , const boost::filesystem::path &root);
+                   , const Glue &glue, const SurfaceRoot &root);
 
     /** Merges in mapConfig for one tileset as a virtual surface.
      *
@@ -232,7 +238,7 @@ struct MapConfig : public registry::Registry {
      */
     void mergeVirtualSurface(const MapConfig &tilesetMapConfig
                              , const VirtualSurface &virtualSurface
-                             , const boost::filesystem::path &root);
+                             , const SurfaceRoot &root);
 
     /** Adds in MeshTilesConfig
      *
