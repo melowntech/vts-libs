@@ -40,6 +40,8 @@
 #include "utility/streams.hpp"
 #include "utility/time.hpp"
 #include "utility/filedes.hpp"
+#include "utility/uri.hpp"
+#include "utility/implicit-value.hpp"
 
 #include "service/cmdline.hpp"
 
@@ -49,6 +51,9 @@
 #include "imgproc/rastermask/cvmat.hpp"
 
 #include "geo/geodataset.hpp"
+
+#include "http/ondemandclient.hpp"
+#include "http/error.hpp"
 
 #include "../registry/po.hpp"
 #include "../vts.hpp"
@@ -103,7 +108,7 @@ public:
                            , (service::DISABLE_EXCESSIVE_LOGGING
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
-        , verbose_(0)
+        , verbose_(0), timeout_(5000)
     {
     }
 
@@ -166,12 +171,14 @@ private:
     fs::path path_;
     Command command_;
     Verbosity verbose_;
+    long timeout_;
 
     std::string ssrs_;
     std::string tsrs_;
     fs::path output_;
 
-    boost::optional<std::string> url_;
+    boost::optional<std::string> absolutize_;
+    boost::optional<std::string> renameView_;
 
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
 };
@@ -182,11 +189,13 @@ void MapConfig::configuration(po::options_description &cmdline
 {
     cmdline.add_options()
         ("path", po::value(&path_)->required()
-         , "Path to VTS mapconfig to work with.")
+         , "Path to VTS mapconfig to work with. Can be an HTTP/HTTPS URL.")
         ("command", po::value(&command_)
          ->default_value(Command::info)->required()
          , "Command to run.")
         ("noexcept", "Do not catch exceptions, let the program crash.")
+        ("timeout", po::value(&timeout_)->default_value(timeout_)
+         , "HTTP timeout, in ms.")
         ;
 
     pd.add("path", 1);
@@ -222,17 +231,24 @@ void MapConfig::configuration(po::options_description &cmdline
     {
         p.options.add_options()
             ("output", po::value(&output_)->required(), "Output file.")
-            ("url", po::value<std::string>()
-             , "URL of mapconfig, used to absolutize all relative paths. "
-             "Optional.")
+            ("absolutize", utility::implicit_value<std::string>
+             (nullptr, std::string())
+             , "Absolutize all URLs in the output. Can be a URL of the "
+             "source mapconfig. If left empty the original path/URL "
+             "from --path is used. Optional.")
+            ("renameView", po::value<std::string>()
+             , "Default view gets renamed to this name if specified.")
             ;
 
         p.positional
             .add("output", 1);
 
         p.configure = [&](const po::variables_map &vars) {
-            if (vars.count("url")) {
-                url_ = vars["url"].as<std::string>();
+            if (vars.count("absolutize")) {
+                absolutize_ = vars["absolutize"].as<std::string>();
+            }
+            if (vars.count("renameView")) {
+                renameView_ = vars["renameView"].as<std::string>();
             }
         };
     });
@@ -339,15 +355,60 @@ int MapConfig::run()
     }
 }
 
+http::OnDemandClient httpClient(4);
+
+std::string fetchUrl(const std::string &url, long timeout)
+{
+    const auto &fetcher(httpClient.fetcher());
+
+    auto q(fetcher.perform
+           (utility::ResourceFetcher::Query(url)
+            .timeout(timeout)));
+
+    if (q.ec()) {
+        if (q.check(make_error_code(utility::HttpCode::NotFound))) {
+            LOGTHROW(err2, vs::NoSuchFile)
+                << "File at URL <" << url << "> doesn't exist.";
+            return {};
+        }
+        LOGTHROW(err1, vs::IOError)
+            << "Failed to download tile data from <"
+            << url << ">: Unexpected HTTP status code: <"
+            << q.ec() << ">.";
+    }
+
+    try {
+        return std::move(q.moveOut().data);
+    } catch (const http::Error &e) {
+        LOGTHROW(err1, vs::IOError)
+            << "Failed to download tile data from <"
+            << url << ">: Unexpected error code <"
+            << e.what() << ">.";
+    }
+    throw;
+}
+
 vts::MapConfig MapConfig::loadMapConfig()
 {
     vts::MapConfig mc;
-    {
+
+    utility::Uri url(path_.string());
+    if (url.absolute()) {
+        // fetch from remote HTTP
+        if (url.scheme().empty()) { url.scheme("http"); }
+
+        std::istringstream is(fetchUrl(url.str(), timeout_));
+        is.exceptions(std::ios::badbit | std::ios::failbit);
+        vts::loadMapConfig(mc, is, path_);
+
+    } else {
+
         std::ifstream f;
         f.exceptions(std::ios::badbit | std::ios::failbit);
         f.open(path_.string(), std::ios_base::in);
         vts::loadMapConfig(mc, f, path_);
     }
+
     return mc;
 }
 
@@ -389,7 +450,18 @@ int MapConfig::save()
     f.exceptions(std::ios::badbit | std::ios::failbit);
     f.open(output_.string(), std::ios_base::out);
 
-    if (url_) { vts::absolutize(mc, *url_); }
+    if (absolutize_) {
+        if (absolutize_->empty()) {
+            vts::absolutize(mc, path_.string());
+        } else {
+            vts::absolutize(mc, *absolutize_);
+        }
+    }
+
+    if (renameView_) {
+        mc.namedViews[*renameView_] = mc.view;
+        mc.view = {};
+    }
 
     vts::saveMapConfig(mc, f);
     f.close();

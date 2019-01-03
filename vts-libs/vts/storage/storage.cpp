@@ -714,7 +714,11 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
 
     // merge-in include map configs
     for (const auto &path : extra.includeMapConfigs) {
-        mapConfig.merge(loadMapConfig(path));
+        // load and merge other map config
+        // do not merge any extra stuff, like view and position
+        // but merge named views, though
+        mapConfig.merge(loadMapConfig(path)
+                        , MapConfig::MergeFlags::namedViews);
     }
 
     return mapConfig;

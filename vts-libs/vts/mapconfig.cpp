@@ -356,7 +356,8 @@ void fromJson(VirtualSurfaceConfig::list &vss
     }
 }
 
-void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
+void mergeRest(MapConfig &out, const MapConfig &in
+               , MapConfig::MergeFlags::value_type flags)
 {
     out.srs.update(in.srs);
     out.credits.update(in.credits);
@@ -364,10 +365,17 @@ void mergeRest(MapConfig &out, const MapConfig &in, bool surface)
     out.freeLayers.update(in.freeLayers);
     out.bodies.update(in.bodies);
 
-    // merge views
-    if (surface) {
+    // merge view
+    if (flags & MapConfig::MergeFlags::view) {
         out.view.merge(in.view);
+    }
 
+    // merge named view
+    if (flags & MapConfig::MergeFlags::namedViews) {
+        out.namedViews.insert(in.namedViews.begin(), in.namedViews.end());
+    }
+
+    if (flags & MapConfig::MergeFlags::position) {
         // TODO: find out first valid
         out.position = in.position;
     }
@@ -393,7 +401,7 @@ void MapConfig::mergeTileSet(const MapConfig &tilesetMapConfig
     if (s.root.empty()) { s.root = root; }
     surfaces.push_back(s);
 
-    mergeRest(*this, tilesetMapConfig, true);
+    mergeRest(*this, tilesetMapConfig, MergeFlags::all);
 }
 
 void MapConfig::addMeshTilesConfig(const MeshTilesConfig &meshTilesConfig
@@ -419,7 +427,7 @@ void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
     g.root = root.withSuffix(glue.path);
     glues.push_back(g);
 
-    mergeRest(*this, tilesetMapConfig, false);
+    mergeRest(*this, tilesetMapConfig, MergeFlags::none);
 }
 
 void MapConfig::mergeVirtualSurface(const MapConfig &tilesetMapConfig
@@ -437,10 +445,10 @@ void MapConfig::mergeVirtualSurface(const MapConfig &tilesetMapConfig
     vs.root = root.withSuffix(virtualSurface.path);
     virtualSurfaces.push_back(vs);
 
-    mergeRest(*this, tilesetMapConfig, false);
+    mergeRest(*this, tilesetMapConfig, MergeFlags::none);
 }
 
-void MapConfig::merge(const MapConfig &other)
+void MapConfig::merge(const MapConfig &other, MergeFlags::value_type flags)
 {
     if (referenceFrame.id.empty()) {
         // assign reference frame
@@ -464,7 +472,7 @@ void MapConfig::merge(const MapConfig &other)
     glues.insert(glues.end(), other.glues.begin(), other.glues.end());
     virtualSurfaces.insert(virtualSurfaces.end(), other.virtualSurfaces.begin()
                            , other.virtualSurfaces.end());
-    mergeRest(*this, other, true);
+    mergeRest(*this, other, flags);
 }
 
 void saveMapConfig(const MapConfig &mapConfig, std::ostream &os

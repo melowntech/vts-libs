@@ -248,12 +248,27 @@ struct MapConfig : public registry::Registry {
     void addMeshTilesConfig(const MeshTilesConfig &meshTilesConfig
                             , const SurfaceRoot &root);
 
+    struct MergeFlags {
+        typedef std::uint32_t value_type;
+
+        enum : value_type {
+            view = 0x1
+            , namedViews = 0x2
+            , position = 0x4
+
+            , none = 0x0
+            , all = 0xffffffff
+        }; };
+
     /** Merges in other map config.
      *
      *  Copies reference frame from other configuration if not set yet;
      *  otherwise check for same reference frame (only ID, not content).
+     *
+     *  Other stuff is merged based on the provided flags.
      */
-    void merge(const MapConfig &other);
+    void merge(const MapConfig &other
+               , MergeFlags::value_type flags = MergeFlags::all);
 };
 
 /** Save map config into stream.
