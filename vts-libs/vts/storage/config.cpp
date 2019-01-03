@@ -33,6 +33,8 @@
 #include "../../storage/error.hpp"
 #include "../../registry/json.hpp"
 
+namespace fs = boost::filesystem;
+
 namespace vtslibs { namespace vts { namespace storage {
 
 namespace detail {
@@ -50,6 +52,20 @@ void parseList(std::vector<std::string> &ids, const Json::Value &value
     for (const auto &element : value) {
         Json::check(element, Json::stringValue);
         ids.push_back(element.asString());
+    }
+}
+
+void parseList(std::vector<fs::path> &paths, const Json::Value &value
+               , const char *name)
+{
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of " << name << " is not a list.";
+    }
+
+    for (const auto &element : value) {
+        Json::check(element, Json::stringValue);
+        paths.push_back(element.asString());
     }
 }
 
@@ -206,6 +222,12 @@ void buildList(const std::vector<std::string> &ids, Json::Value &value)
 {
     value = Json::arrayValue;
     for (const auto &id : ids) { value.append(id); }
+}
+
+void buildList(const std::vector<fs::path> &paths, Json::Value &value)
+{
+    value = Json::arrayValue;
+    for (const auto &path : paths) { value.append(path.string()); }
 }
 
 Json::Value buildList(const std::vector<std::string> &ids)
