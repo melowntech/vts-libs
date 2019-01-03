@@ -171,6 +171,8 @@ private:
     std::string tsrs_;
     fs::path output_;
 
+    boost::optional<std::string> url_;
+
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
 };
 
@@ -220,10 +222,19 @@ void MapConfig::configuration(po::options_description &cmdline
     {
         p.options.add_options()
             ("output", po::value(&output_)->required(), "Output file.")
+            ("url", po::value<std::string>()
+             , "URL of mapconfig, used to absolutize all relative paths. "
+             "Optional.")
             ;
 
         p.positional
             .add("output", 1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            if (vars.count("url")) {
+                url_ = vars["url"].as<std::string>();
+            }
+        };
     });
 }
 
@@ -340,7 +351,6 @@ vts::MapConfig MapConfig::loadMapConfig()
     return mc;
 }
 
-
 int MapConfig::info()
 {
     auto mc(loadMapConfig());
@@ -378,6 +388,9 @@ int MapConfig::save()
     std::ofstream f;
     f.exceptions(std::ios::badbit | std::ios::failbit);
     f.open(output_.string(), std::ios_base::out);
+
+    if (url_) { vts::absolutize(mc, *url_); }
+
     vts::saveMapConfig(mc, f);
     f.close();
 

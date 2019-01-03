@@ -459,6 +459,11 @@ ExtraStorageProperties parse1(const Json::Value &config)
         ep.browserOptions = bco;
     }
 
+    if (config.isMember("include")) {
+        detail::parseList(ep.includeMapConfigs, config["include"]
+                          , "include");
+    }
+
     return ep;
 }
 
@@ -506,6 +511,10 @@ void build(Json::Value &config, const ExtraStorageProperties &ep)
         } catch (boost::bad_any_cast) {
             // ignore
         }
+    }
+
+    if (!ep.includeMapConfigs.empty()) {
+        detail::buildList(ep.includeMapConfigs, config["include"]);
     }
 }
 

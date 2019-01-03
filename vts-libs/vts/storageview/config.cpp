@@ -36,6 +36,8 @@
 #include "../../registry/json.hpp"
 #include "../storage/config.hpp"
 
+namespace fs = boost::filesystem;
+
 namespace vtslibs { namespace vts { namespace storageview {
 
 namespace detail {
@@ -77,8 +79,7 @@ StorageView::Properties parse1(const Json::Value &config)
 
 } // namespace detail
 
-StorageView::Properties loadConfig(std::istream &in
-                                   , const boost::filesystem::path &path)
+StorageView::Properties loadConfig(std::istream &in, const fs::path &path)
 {
     // load json
     auto config(Json::read<vtslibs::storage::FormatError>
@@ -105,7 +106,7 @@ StorageView::Properties loadConfig(std::istream &in
     throw;
 }
 
-StorageView::Properties loadConfig(const boost::filesystem::path &path)
+StorageView::Properties loadConfig(const fs::path &path)
 {
     LOG(info1) << "Loading storage view config from " << path  << ".";
     std::ifstream f;
@@ -118,10 +119,9 @@ StorageView::Properties loadConfig(const boost::filesystem::path &path)
             << "Unable to load storage view config file " << path << ".";
     }
     auto p(loadConfig(f, path));
-    // fix path
-    p.storagePath = boost::filesystem::absolute
-        (p.storagePath, boost::filesystem::absolute(path).parent_path());
     f.close();
+
+    p.absolutize(fs::absolute(path).parent_path());
     return p;
 }
 
@@ -156,7 +156,7 @@ void saveConfig(std::ostream &out, const StorageView::Properties &properties)
 
 } // namespace detail
 
-void saveConfig(const boost::filesystem::path &path
+void saveConfig(const fs::path &path
                 , const StorageView::Properties &properties)
 {
     LOG(info1) << "Saving storage view config to " << path  << ".";
@@ -178,7 +178,7 @@ bool checkConfig(std::istream &in)
     return true;
 }
 
-bool checkConfig(const boost::filesystem::path &path)
+bool checkConfig(const fs::path &path)
 {
     LOG(info1) << "Checking storage view config at " << path  << ".";
     std::ifstream f;

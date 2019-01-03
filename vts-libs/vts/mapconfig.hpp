@@ -266,6 +266,14 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os
 void loadMapConfig(MapConfig &mapConfig, std::istream &is
                    , const boost::filesystem::path &path = "unknown");
 
+/** Load map config from a file.
+ */
+MapConfig loadMapConfig(const boost::filesystem::path &path);
+
+/** Applies given base URL to all non-absolute paths.
+ */
+void absolutize(MapConfig &mapConfig, const std::string &base);
+
 /** Convert meshTiles config into free layer definition.
  */
 registry::FreeLayer freeLayer(const MeshTilesConfig &config

@@ -98,8 +98,11 @@ public:
 
     typedef typename map::value_type value_type;
     typedef typename map::const_iterator const_iterator;
+    typedef typename map::iterator iterator;
     const_iterator begin() const { return map_.begin(); }
     const_iterator end() const { return map_.end(); }
+    iterator begin() { return map_.begin(); }
+    iterator end() { return map_.end(); }
 
     void update(const StringDictionary &other);
 

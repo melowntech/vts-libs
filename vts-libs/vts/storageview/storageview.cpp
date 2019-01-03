@@ -104,6 +104,12 @@ fs::path relpath(const fs::path &src, const fs::path &dst)
 
 namespace vtslibs { namespace vts {
 
+void StorageViewProperties::absolutize(const boost::filesystem::path &root)
+{
+    storagePath = fs::absolute(storagePath, root);
+    extra.absolutize(root);
+}
+
 StorageView::StorageView(const fs::path &path)
     : detail_(std::make_shared<Detail>(path))
 {

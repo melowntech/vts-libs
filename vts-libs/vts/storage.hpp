@@ -93,7 +93,15 @@ struct ExtraStorageProperties {
      */
     registry::Body::dict bodies;
 
+    /** Paths to full-blown map configuration to merge-in.
+     */
+    std::vector<boost::filesystem::path> includeMapConfigs;
+
     ExtraStorageProperties() {}
+
+    /** Absolutizes all filesystem paths.
+     */
+    void absolutize(const boost::filesystem::path &root);
 };
 
 typedef std::set<std::string> Tags;

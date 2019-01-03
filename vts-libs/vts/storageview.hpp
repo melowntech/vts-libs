@@ -67,6 +67,10 @@ struct StorageViewProperties  {
     /** Extra properties.
      */
     ExtraStorageProperties extra;
+
+    /** Absolutizes all filesystem paths.
+     */
+    void absolutize(const boost::filesystem::path &root);
 };
 
 /** StorageView interface.

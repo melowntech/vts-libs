@@ -29,6 +29,8 @@
 
 #include "dbglog/dbglog.hpp"
 
+#include "utility/uri.hpp"
+
 #include "jsoncpp/as.hpp"
 #include "jsoncpp/io.hpp"
 
@@ -613,6 +615,18 @@ void loadMapConfig(MapConfig &mapConfig, std::istream &in
     throw;
 }
 
+MapConfig loadMapConfig(const boost::filesystem::path &path)
+{
+    MapConfig mc;
+    {
+        std::ifstream f;
+        f.exceptions(std::ios::badbit | std::ios::failbit);
+        f.open(path.string(), std::ios_base::in);
+        loadMapConfig(mc, f, path);
+    }
+    return mc;
+}
+
 registry::FreeLayer freeLayer(const MeshTilesConfig &config
                               , bool inlineCredits
                               , const boost::filesystem::path &root
@@ -860,7 +874,6 @@ void saveDirs(const MapConfig &mapConfig, std::ostream &os
     Json::write(os, content);
 }
 
-
 void asJson(const DebugConfig &debug, Json::Value &content)
 {
     content["referenceFrame"] = debug.referenceFrame;
@@ -886,6 +899,125 @@ void saveDebug(std::ostream &os, const DebugConfig &debug)
     asJson(debug, content);
     os.precision(15);
     Json::write(os, content);
+}
+
+namespace {
+
+struct Absolutize
+    : boost::static_visitor<>
+{
+    Absolutize(const utility::Uri &base) : base(base) {}
+
+    const utility::Uri base;
+
+    void absolutize(std::string &url) const {
+        url = base.resolve(url).str();
+    }
+
+    void absolutize(boost::optional<std::string> &url) const {
+        if (url) { absolutize(*url); }
+    }
+
+    void absolutize(SurfaceCommonConfig &surface) const {
+        if (!surface.root.empty()) {
+            LOG(warn2)
+                << "absolutize to surface with root: not implemented yet.";
+            return;
+        }
+
+        if (surface.urls3d) {
+            absolutize(surface.urls3d->meta);
+            absolutize(surface.urls3d->mesh);
+            absolutize(surface.urls3d->texture);
+            absolutize(surface.urls3d->nav);
+        }
+
+        if (surface.has2dInterface && surface.urls2d) {
+            absolutize(surface.urls2d->meta);
+            absolutize(surface.urls2d->mask);
+            absolutize(surface.urls2d->ortho);
+            absolutize(surface.urls2d->credits);
+        }
+    }
+
+    void absolutize(VirtualSurfaceConfig &vs) const {
+        absolutize(static_cast<SurfaceCommonConfig&>(vs));
+        absolutize(vs.mapping);
+    }
+
+    void absolutize(registry::BoundLayer &bl) const {
+        absolutize(bl.url);
+        absolutize(bl.maskUrl);
+        absolutize(bl.metaUrl);
+        absolutize(bl.creditsUrl);
+    }
+
+    void absolutize(registry::Srs &srs) {
+        (void) srs;
+    }
+
+    // FreeLayer visitor:
+
+    void operator()(std::string &def) const {
+        absolutize(def);
+    }
+
+    void operator()(registry::FreeLayer::Geodata &def) const {
+        absolutize(def.geodata);
+        absolutize(def.style);
+    }
+
+    void operator()(registry::FreeLayer::GeodataTiles &def) const {
+        absolutize(def.metaUrl);
+        absolutize(def.geodataUrl);
+        absolutize(def.style);
+    }
+
+    void operator()(registry::FreeLayer::MeshTiles &def) const {
+        absolutize(def.metaUrl);
+        absolutize(def.meshUrl);
+        absolutize(def.textureUrl);
+    }
+
+};
+
+} // namespace
+
+void absolutize(MapConfig &mapConfig, const std::string &base)
+{
+    Absolutize a(base);
+
+    for (auto &surface : mapConfig.surfaces) {
+        a.absolutize(surface);
+    }
+
+    for (auto &glue : mapConfig.glues) {
+        a.absolutize(glue);
+    }
+
+    for (auto &vs : mapConfig.virtualSurfaces) {
+        a.absolutize(vs);
+    }
+
+    mapConfig.freeLayers.for_each([&](registry::FreeLayer &fl)
+    {
+        boost::apply_visitor(a, fl.definition);
+    });
+
+    {
+        // need to copy due to boost multi-index container value constness
+        registry::BoundLayer::dict boundLayers;
+        for (auto bl : mapConfig.boundLayers) {
+            a.absolutize(bl);
+            boundLayers.add(bl);
+        }
+        mapConfig.boundLayers = boundLayers;
+    }
+
+    mapConfig.srs.for_each([&](registry::Srs &srs)
+    {
+        a.absolutize(srs);
+    });
 }
 
 } } // namespace vtslibs::vts
