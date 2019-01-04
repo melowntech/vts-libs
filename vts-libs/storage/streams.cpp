@@ -206,5 +206,14 @@ FileStat FileStat::stat(::HANDLE h, std::nothrow_t)
 
 #endif
 
+bool changed(const PathStat::list &stats)
+{
+    for (const auto &stat : stats) {
+        if (stat.changed()) { return true; }
+    }
+    return false;
+}
+
+
 } } // namespace vtslibs::storage
 

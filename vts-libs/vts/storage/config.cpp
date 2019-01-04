@@ -55,20 +55,6 @@ void parseList(std::vector<std::string> &ids, const Json::Value &value
     }
 }
 
-void parseList(std::vector<fs::path> &paths, const Json::Value &value
-               , const char *name)
-{
-    if (!value.isArray()) {
-        LOGTHROW(err1, Json::Error)
-            << "Type of " << name << " is not a list.";
-    }
-
-    for (const auto &element : value) {
-        Json::check(element, Json::stringValue);
-        paths.push_back(element.asString());
-    }
-}
-
 void parseExternalUrl(Proxy2ExternalUrl &proxy2ExternalUrl
                       , const Json::Value &proxied)
 {
@@ -222,12 +208,6 @@ void buildList(const std::vector<std::string> &ids, Json::Value &value)
 {
     value = Json::arrayValue;
     for (const auto &id : ids) { value.append(id); }
-}
-
-void buildList(const std::vector<fs::path> &paths, Json::Value &value)
-{
-    value = Json::arrayValue;
-    for (const auto &path : paths) { value.append(path.string()); }
 }
 
 Json::Value buildList(const std::vector<std::string> &ids)
@@ -481,11 +461,6 @@ ExtraStorageProperties parse1(const Json::Value &config)
         ep.browserOptions = bco;
     }
 
-    if (config.isMember("include")) {
-        detail::parseList(ep.includeMapConfigs, config["include"]
-                          , "include");
-    }
-
     return ep;
 }
 
@@ -533,10 +508,6 @@ void build(Json::Value &config, const ExtraStorageProperties &ep)
         } catch (boost::bad_any_cast) {
             // ignore
         }
-    }
-
-    if (!ep.includeMapConfigs.empty()) {
-        detail::buildList(ep.includeMapConfigs, config["include"]);
     }
 }
 

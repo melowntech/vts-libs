@@ -66,13 +66,6 @@ namespace {
     const fs::path ExtraConfigFilename("extra.conf");
 }
 
-void ExtraStorageProperties::absolutize(const boost::filesystem::path &root)
-{
-    for (auto &path : includeMapConfigs) {
-        path = fs::absolute(path, root);
-    }
-}
-
 void TrashBin::add(const TilesetIdList &id, const Item &item)
 {
     content_[id] = item;
@@ -711,15 +704,6 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
 
     // browser setup if present
     mapConfig.browserOptions = extra.browserOptions;
-
-    // merge-in include map configs
-    for (const auto &path : extra.includeMapConfigs) {
-        // load and merge other map config
-        // do not merge any extra stuff, like view and position
-        // but merge named views, though
-        mapConfig.merge(loadMapConfig(path)
-                        , MapConfig::MergeFlags::namedViews);
-    }
 
     return mapConfig;
 }
