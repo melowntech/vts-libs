@@ -460,7 +460,7 @@ int MapConfig::save()
 
     if (renameView_) {
         mc.namedViews[*renameView_] = mc.view;
-        mc.view = {};
+        mc.view = vr::View();
     }
 
     vts::saveMapConfig(mc, f);
