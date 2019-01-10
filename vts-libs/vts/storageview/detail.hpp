@@ -23,6 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 /**
  * \file vts/storage/detail.hpp
  * \author Vaclav Blazek <vaclav.blazek@citationtech.net>
@@ -40,10 +41,16 @@
 
 namespace vtslibs { namespace vts {
 
-using vtslibs::storage::FileStat;
+using vtslibs::storage::PathStat;
 
 struct StorageView::Properties : StorageViewProperties {
-    // nothing so far
+    /** Paths to full-blown map configuration to merge-in.
+     */
+    std::vector<boost::filesystem::path> includeMapConfigs;
+
+    /** Absolutizes all filesystem paths.
+     */
+    void absolutize(const boost::filesystem::path &root);
 };
 
 struct StorageView::Detail
@@ -54,9 +61,9 @@ struct StorageView::Detail
 
     registry::ReferenceFrame referenceFrame;
 
-    /** Information about config when tileset was opened.
+    /** Information about config (and other files) when tileset was opened.
      */
-    FileStat configStat;
+    PathStat::list stats;
 
     /** Time of last modification
      */
@@ -88,6 +95,9 @@ struct StorageView::Detail
 
     static MapConfig mapConfig(const boost::filesystem::path &configPath
                                , const StorageView::Properties &properties);
+
+private:
+    void makeStat();
 };
 
 } } // namespace vtslibs::vts

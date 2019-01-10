@@ -60,6 +60,20 @@ void parseSet(std::set<std::string> &ids, const Json::Value &object
     }
 }
 
+void parseList(std::vector<fs::path> &paths, const Json::Value &value
+               , const char *name)
+{
+    if (!value.isArray()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of " << name << " is not a list.";
+    }
+
+    for (const auto &element : value) {
+        Json::check(element, Json::stringValue);
+        paths.push_back(element.asString());
+    }
+}
+
 StorageView::Properties parse1(const Json::Value &config)
 {
     StorageView::Properties properties;
@@ -73,6 +87,11 @@ StorageView::Properties parse1(const Json::Value &config)
 
     // let storage stuff parse the extra configuration
     properties.extra = storage::extraStorageConfigFromJson(1, config);
+
+    if (config.isMember("include")) {
+        detail::parseList(properties.includeMapConfigs, config["include"]
+                          , "include");
+    }
 
     return properties;
 }
@@ -135,6 +154,12 @@ void buildSet(Json::Value &object, const std::set<std::string> &ids)
     }
 }
 
+void buildList(const std::vector<fs::path> &paths, Json::Value &value)
+{
+    value = Json::arrayValue;
+    for (const auto &path : paths) { value.append(path.string()); }
+}
+
 void build(Json::Value &config, const StorageView::Properties &properties)
 {
     config["version"]
@@ -144,6 +169,10 @@ void build(Json::Value &config, const StorageView::Properties &properties)
     buildSet(config["tilesets"], properties.tilesets);
 
     storage::extraStorageConfigToJson(config, properties.extra);
+
+    if (!properties.includeMapConfigs.empty()) {
+        detail::buildList(properties.includeMapConfigs, config["include"]);
+    }
 }
 
 void saveConfig(std::ostream &out, const StorageView::Properties &properties)

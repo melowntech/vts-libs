@@ -107,7 +107,15 @@ namespace vtslibs { namespace vts {
 void StorageViewProperties::absolutize(const boost::filesystem::path &root)
 {
     storagePath = fs::absolute(storagePath, root);
-    extra.absolutize(root);
+}
+
+void StorageView::Properties::absolutize(const boost::filesystem::path &root)
+{
+    StorageViewProperties::absolutize(root);
+
+    for (auto &path : includeMapConfigs) {
+        path = fs::absolute(path, root);
+    }
 }
 
 StorageView::StorageView(const fs::path &path)
@@ -129,22 +137,36 @@ StorageView::Detail::~Detail()
 {
 }
 
+void StorageView::Detail::makeStat()
+{
+    stats.emplace_back(configPath);
+    for (const auto &include : properties.includeMapConfigs) {
+        stats.emplace_back(include);
+    }
+
+    for (const auto &stat : stats) {
+        lastModified = std::max(lastModified, stat.lastModified);
+    }
+}
+
 StorageView::Detail::Detail(const fs::path &root)
     : configPath(root)
     , properties(storageview::loadConfig(root))
-    , configStat(FileStat::stat(configPath))
-    , lastModified(configStat.lastModified)
+    , lastModified(-1)
     , storage(properties.storagePath, OpenMode::readOnly)
-{}
+{
+    makeStat();
+}
 
 StorageView::Detail::Detail(const fs::path &root, const Properties &properties
                             , Storage storage)
     : configPath(root)
     , properties(properties)
-    , configStat(FileStat::stat(configPath))
-    , lastModified(configStat.lastModified)
+    , lastModified(-1)
     , storage(std::move(storage))
-{}
+{
+    makeStat();
+}
 
 void StorageView::Detail::loadConfig()
 {
@@ -184,10 +206,21 @@ StorageView::Detail::mapConfig(const fs::path &configPath
                                , const StorageView::Properties &properties)
 {
     // NB: view behaves like a directory although it is a single file
-    return Storage::mapConfig
-        (properties.storagePath, properties.extra
-         , properties.tilesets, properties.freeLayerTilesets
-         , utility::relpath(configPath, properties.storagePath));
+    auto mapConfig(Storage::mapConfig
+                   (properties.storagePath, properties.extra
+                    , properties.tilesets, properties.freeLayerTilesets
+                    , utility::relpath(configPath, properties.storagePath)));
+
+    // merge-in include map configs
+    for (const auto &path : properties.includeMapConfigs) {
+        // load and merge other map config
+        // do not merge any extra stuff, like view and position
+        // but merge named views, though
+        mapConfig.merge(loadMapConfig(path)
+                        , MapConfig::MergeFlags::namedViews);
+    }
+
+    return mapConfig;
 }
 
 Glue::IdSet StorageView::pendingGlues() const
@@ -221,8 +254,7 @@ vtslibs::storage::Resources StorageView::resources() const
 
 bool StorageView::Detail::externallyChanged() const
 {
-    return (configStat.changed(FileStat::stat(configPath, std::nothrow))
-            || storage.externallyChanged());
+    return (changed(stats) || storage.externallyChanged());
 }
 
 std::time_t StorageView::lastModified() const

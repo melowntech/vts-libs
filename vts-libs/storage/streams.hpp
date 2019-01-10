@@ -77,6 +77,23 @@ struct FileStat {
 #endif
 };
 
+struct PathStat : FileStat {
+    boost::filesystem::path path;
+
+    typedef std::vector<PathStat> list;
+
+    PathStat(const boost::filesystem::path &path)
+        : FileStat(PathStat::stat(path))
+        , path(path)
+    {}
+
+    bool changed() const {
+        return FileStat::changed(PathStat::stat(path, std::nothrow));
+    }
+};
+
+bool changed(const PathStat::list &stats);
+
 /** Read only file descriptor.
  *  Can be returned by IStream to access data directly.
  *
