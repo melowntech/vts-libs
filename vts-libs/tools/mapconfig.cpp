@@ -109,6 +109,7 @@ public:
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
         , verbose_(0), timeout_(5000)
+        , expandRemote_(false)
     {
     }
 
@@ -179,6 +180,7 @@ private:
 
     boost::optional<std::string> absolutize_;
     boost::optional<std::string> renameView_;
+    bool expandRemote_;
 
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
 };
@@ -238,6 +240,10 @@ void MapConfig::configuration(po::options_description &cmdline
              "from --path is used. Optional.")
             ("renameView", po::value<std::string>()
              , "Default view gets renamed to this name if specified.")
+            ("expandRemote"
+             , utility::implicit_value<bool>(&expandRemote_, true)
+             , "All remote entities (bound layers and free layers) are "
+             "downloaded and stored in place.")
             ;
 
         p.positional
@@ -388,6 +394,71 @@ std::string fetchUrl(const std::string &url, long timeout)
     throw;
 }
 
+class UrlExpander {
+public:
+    UrlExpander(const utility::Uri &base, long timeout)
+        : base_(base), timeout_(timeout)
+    {
+        // fetch from remote HTTP
+        if (base_.scheme().empty()) { base_.scheme("http"); }
+    }
+
+    void expand(vr::BoundLayer &bl) const {
+        if (bl.type != vr::BoundLayer::Type::external) { return; }
+
+        const auto url(absolute(bl.url));
+        std::istringstream is(fetchUrl(url, timeout_));
+        const auto id(bl.id);
+        bl = vr::absolutize(vr::loadBoundLayer(is, url), url);
+        bl.id = id;
+    }
+
+    void expand(vr::BoundLayer::dict &boundLayers) const {
+        vr::BoundLayer::dict tmp;
+        for (auto bl : boundLayers) {
+            expand(bl);
+            tmp.add(bl);
+        }
+        boundLayers = tmp;
+    }
+
+    void expand(vr::FreeLayer &fl) const {
+        if (auto *flUrl = boost::get<std::string>(&fl.definition)) {
+            const auto url(absolute(*flUrl));
+            std::istringstream is(fetchUrl(url, timeout_));
+            const auto id(fl.id);
+            fl = vr::absolutize(vr::loadFreeLayer(is, url), url);
+            fl.id = id;
+        }
+    }
+
+    void expand(vr::FreeLayer::dict &freeLayers) const {
+        freeLayers.for_each([&](vr::FreeLayer &fl)
+        {
+            expand(fl);
+        });
+    }
+
+private:
+    utility::Uri base_;
+    long timeout_;
+
+    std::string absolute(const std::string &url) const {
+        return base_.resolve(url).str();
+    }
+};
+
+void expandRemote(vts::MapConfig &mc, const std::string &baseUrl
+                  , long timeout)
+{
+    // need to copy due to boost multi-index container value constness
+
+    UrlExpander e(baseUrl, timeout);
+
+    e.expand(mc.boundLayers);
+    e.expand(mc.freeLayers);
+}
+
 vts::MapConfig MapConfig::loadMapConfig()
 {
     vts::MapConfig mc;
@@ -450,12 +521,19 @@ int MapConfig::save()
     f.exceptions(std::ios::badbit | std::ios::failbit);
     f.open(output_.string(), std::ios_base::out);
 
+    auto baseUrl([&]() -> std::string {
+            if (absolutize_ && !absolutize_->empty()) {
+                return *absolutize_;
+            }
+            return path_.string();
+        }());
+
     if (absolutize_) {
-        if (absolutize_->empty()) {
-            vts::absolutize(mc, path_.string());
-        } else {
-            vts::absolutize(mc, *absolutize_);
-        }
+        vts::absolutize(mc, baseUrl);
+    }
+
+    if (expandRemote_) {
+        expandRemote(mc, baseUrl, timeout_);
     }
 
     if (renameView_) {

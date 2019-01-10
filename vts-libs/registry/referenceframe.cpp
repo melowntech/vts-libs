@@ -2106,4 +2106,37 @@ void save(const boost::filesystem::path &path, const RegistryBase &rb)
     f.close();
 }
 
+namespace {
+
+struct Absolutize {
+    Absolutize(const utility::Uri &base) : base(base) {}
+
+    const utility::Uri &base;
+
+    void absolutize(std::string &url) const {
+        url = base.resolve(url).str();
+    }
+
+    void absolutize(boost::optional<std::string> &url) const {
+        if (url) { absolutize(*url); }
+    }
+
+    void absolutize(registry::BoundLayer &bl) const {
+        absolutize(bl.url);
+        absolutize(bl.maskUrl);
+        absolutize(bl.metaUrl);
+        absolutize(bl.creditsUrl);
+    }
+};
+
+} // namespace
+
+BoundLayer absolutize(const BoundLayer &boundLayer
+                      , const utility::Uri &baseUrl)
+{
+    auto bl(boundLayer);
+    Absolutize(baseUrl).absolutize(bl);
+    return bl;
+}
+
 } } // namespace vtslibs::registry
