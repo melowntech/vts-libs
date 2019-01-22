@@ -417,6 +417,24 @@ void saveConfig(const boost::filesystem::path &path
 
 namespace detail_extra {
 
+void parseTilesetIdMap(TilesetIdMap &tilesetRename, const Json::Value &value)
+{
+    for (const auto &id : Json::check(value, Json::objectValue)
+             .getMemberNames())
+    {
+        tilesetRename.insert(TilesetIdMap::value_type
+                             (id, value[id].asString()));
+    }
+}
+
+void buildTilesetIdMap(Json::Value &value, const TilesetIdMap &tilesetRename)
+{
+    value = Json::objectValue;
+    for (const auto &pair : tilesetRename) {
+        value[pair.first] = pair.second;
+    }
+}
+
 ExtraStorageProperties parse1(const Json::Value &config)
 {
     ExtraStorageProperties ep;
@@ -452,6 +470,10 @@ ExtraStorageProperties parse1(const Json::Value &config)
 
     if (config.isMember("bodies")) {
         ep.bodies = registry::bodiesFromJson(config["bodies"]);
+    }
+
+    if (config.isMember("tilesetRename")) {
+        parseTilesetIdMap(ep.tilesetRename, config["tilesetRename"]);
     }
 
     // browser config options -- whole JSON object held in opaque pointer.
@@ -492,13 +514,17 @@ void build(Json::Value &config, const ExtraStorageProperties &ep)
             = registry::asJson(ep.namedViews, tmp);
     }
 
+    if (ep.view) {
+        registry::BoundLayer::dict tmp;
+        config["view"] = registry::asJson(ep.view, tmp);
+    }
+
     if (!ep.bodies.empty()) {
         config["bodies"] == registry::asJson(ep.bodies);
     }
 
-    if (ep.view) {
-        registry::BoundLayer::dict tmp;
-        config["view"] = registry::asJson(ep.view, tmp);
+    if (!ep.tilesetRename.empty()) {
+        buildTilesetIdMap(config["tilesetRename"], ep.tilesetRename);
     }
 
     if (!ep.browserOptions.empty()) {

@@ -85,6 +85,10 @@ struct ExtraStorageProperties {
      */
     registry::FreeLayer::dict freeLayers;
 
+    /** Tileset ID rename used in mapconfig.
+     */
+    TilesetIdMap tilesetRename;
+
     /** Browser core options. Opaque structure.
      */
     boost::any browserOptions;

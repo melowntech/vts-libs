@@ -651,7 +651,8 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             mapConfig.addMeshTilesConfig
                 (TileSet::meshTilesConfig
                  (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-                 , tilesetUrl(tileset));
+                 , tilesetUrl(tileset)
+                 , &extra.tilesetRename);
         }
 
         // handle tileset as a surface
@@ -660,7 +661,8 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             mapConfig.mergeTileSet
                 (TileSet::mapConfig
                  (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-                 , tilesetUrl(tileset));
+                 , tilesetUrl(tileset)
+                 , &extra.tilesetRename);
         }
     }
 
@@ -674,7 +676,8 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             (TileSet::mapConfig
              (storage_paths::gluePath(root, glue), false)
              , glue, supportTilesetUrl
-             (properties.gluesExternalUrl, storage_paths::glueRoot()));
+             (properties.gluesExternalUrl, storage_paths::glueRoot())
+             , &extra.tilesetRename);
     }
 
     // virtualSurfaces
@@ -687,7 +690,8 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             (TileSet::mapConfig
              (storage_paths::virtualSurfacePath(root, virtualSurface), false)
              , virtualSurface, supportTilesetUrl
-             (properties.vsExternalUrl, storage_paths::virtualSurfaceRoot()));
+             (properties.vsExternalUrl, storage_paths::virtualSurfaceRoot())
+             , &extra.tilesetRename);
     }
 
     if (extra.position) {

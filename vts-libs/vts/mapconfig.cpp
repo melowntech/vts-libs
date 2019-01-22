@@ -104,10 +104,42 @@ OProxy proxy(const MapConfigOptions *mco) {
     return mco ? mco->proxy : boost::none;
 }
 
+TilesetId rename(const TilesetIdMap &tilesetRename, const TilesetId &id)
+{
+    auto ftilesetRename(tilesetRename.find(id));
+    if (ftilesetRename == tilesetRename.end()) {
+        return id;
+    }
+    return ftilesetRename->second;
+}
+
+inline TilesetId rename(const TilesetIdMap *tilesetRename, const TilesetId &id)
+{
+    return tilesetRename ? rename(*tilesetRename, id) : id;
+}
+
+Glue::Id rename(const TilesetIdMap &tilesetRename, const Glue::Id &glueId)
+{
+    Glue::Id out;
+    for (const auto &id : glueId) {
+        out.push_back(rename(tilesetRename, id));
+    }
+    return out;
+}
+
+inline Glue::Id rename(const TilesetIdMap *tilesetRename
+                       , const Glue::Id &glueId)
+{
+    if (tilesetRename) { return rename(*tilesetRename, glueId); }
+    return glueId;
+}
+
 Json::Value asJson(const Glue::Id &id)
 {
     Json::Value value(Json::arrayValue);
-    for (const auto &str : id) { value.append(str); }
+    for (const auto &str : id) {
+        value.append(str);
+    }
     return value;
 }
 
@@ -356,8 +388,29 @@ void fromJson(VirtualSurfaceConfig::list &vss
     }
 }
 
+void mergeView(registry::View &out, const TilesetIdMap *tilesetRename
+               , const registry::View &in)
+{
+    if (!tilesetRename) {
+        out.merge(in);
+        return;
+    }
+
+    registry::View tmp(in);
+    tmp.surfaces.clear();
+
+    for (auto &pair : in.surfaces) {
+        tmp.surfaces.insert
+            (registry::View::Surfaces::value_type
+             (rename(*tilesetRename, pair.first), pair.second));
+    }
+
+    out.merge(tmp);
+}
+
 void mergeRest(MapConfig &out, const MapConfig &in
-               , MapConfig::MergeFlags::value_type flags)
+               , MapConfig::MergeFlags::value_type flags
+               , const TilesetIdMap *tilesetRename = nullptr)
 {
     out.srs.update(in.srs);
     out.credits.update(in.credits);
@@ -367,7 +420,7 @@ void mergeRest(MapConfig &out, const MapConfig &in
 
     // merge view
     if (flags & MapConfig::MergeFlags::view) {
-        out.view.merge(in.view);
+        mergeView(out.view, tilesetRename, in.view);
     }
 
     // merge named view
@@ -388,7 +441,8 @@ void mergeRest(MapConfig &out, const MapConfig &in
 }
 
 void MapConfig::mergeTileSet(const MapConfig &tilesetMapConfig
-                             , const SurfaceRoot &root)
+                             , const SurfaceRoot &root
+                             , const TilesetIdMap *tilesetRename)
 {
     if (tilesetMapConfig.surfaces.size() != 1) {
         LOGTHROW(err1, storage::NoSuchTileSet)
@@ -399,22 +453,26 @@ void MapConfig::mergeTileSet(const MapConfig &tilesetMapConfig
     SurfaceConfig s(tilesetMapConfig.surfaces.front());
     // set root if not set so far
     if (s.root.empty()) { s.root = root; }
+    s.id = rename(tilesetRename, s.id);
     surfaces.push_back(s);
 
-    mergeRest(*this, tilesetMapConfig, MergeFlags::all);
+    mergeRest(*this, tilesetMapConfig, MergeFlags::all, tilesetRename);
 }
 
 void MapConfig::addMeshTilesConfig(const MeshTilesConfig &meshTilesConfig
-                                   , const SurfaceRoot &root)
+                                   , const SurfaceRoot &root
+                                   , const TilesetIdMap *tilesetRename)
 {
     meshTiles.push_back(meshTilesConfig);
     auto &s(meshTiles.back().surface);
+    s.id = rename(tilesetRename, s.id);
     if (s.root.empty()) { s.root = root; }
 }
 
 void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
                           , const Glue &glue
-                          , const SurfaceRoot &root)
+                          , const SurfaceRoot &root
+                          , const TilesetIdMap *tilesetRename)
 {
     if (tilesetMapConfig.surfaces.size() != 1) {
         LOGTHROW(err1, storage::NoSuchTileSet)
@@ -423,7 +481,7 @@ void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
     }
 
     GlueConfig g(tilesetMapConfig.surfaces.front());
-    g.id = glue.id;
+    g.id = rename(tilesetRename, glue.id);
     g.root = root.withSuffix(glue.path);
     glues.push_back(g);
 
@@ -432,7 +490,8 @@ void MapConfig::mergeGlue(const MapConfig &tilesetMapConfig
 
 void MapConfig::mergeVirtualSurface(const MapConfig &tilesetMapConfig
                                     , const VirtualSurface &virtualSurface
-                                    , const SurfaceRoot &root)
+                                    , const SurfaceRoot &root
+                                    , const TilesetIdMap *tilesetRename)
 {
     if (tilesetMapConfig.surfaces.size() != 1) {
         LOGTHROW(err1, storage::NoSuchTileSet)
@@ -441,7 +500,7 @@ void MapConfig::mergeVirtualSurface(const MapConfig &tilesetMapConfig
     }
 
     VirtualSurfaceConfig vs(tilesetMapConfig.surfaces.front());
-    vs.id = virtualSurface.id;
+    vs.id = rename(tilesetRename, virtualSurface.id);
     vs.root = root.withSuffix(virtualSurface.path);
     virtualSurfaces.push_back(vs);
 

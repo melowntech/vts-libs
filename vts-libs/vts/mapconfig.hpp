@@ -215,7 +215,8 @@ struct MapConfig : public registry::Registry {
      * \param root path to tileset
      */
     void mergeTileSet(const MapConfig &tilesetMapConfig
-                      , const SurfaceRoot &root);
+                      , const SurfaceRoot &root
+                      , const TilesetIdMap *tilesetRename = nullptr);
 
     /** Merges in mapConfig for one tileset as a glue.
      *
@@ -226,7 +227,8 @@ struct MapConfig : public registry::Registry {
      * NB: glue path is composed as root / glue.path
      */
     void mergeGlue(const MapConfig &tilesetMapConfig
-                   , const Glue &glue, const SurfaceRoot &root);
+                   , const Glue &glue, const SurfaceRoot &root
+                   , const TilesetIdMap *tilesetRename = nullptr);
 
     /** Merges in mapConfig for one tileset as a virtual surface.
      *
@@ -238,7 +240,8 @@ struct MapConfig : public registry::Registry {
      */
     void mergeVirtualSurface(const MapConfig &tilesetMapConfig
                              , const VirtualSurface &virtualSurface
-                             , const SurfaceRoot &root);
+                             , const SurfaceRoot &root
+                             , const TilesetIdMap *tilesetRename = nullptr);
 
     /** Adds in MeshTilesConfig
      *
@@ -246,7 +249,8 @@ struct MapConfig : public registry::Registry {
      * \param root path to tileset
      */
     void addMeshTilesConfig(const MeshTilesConfig &meshTilesConfig
-                            , const SurfaceRoot &root);
+                            , const SurfaceRoot &root
+                            , const TilesetIdMap *tilesetRename = nullptr);
 
     struct MergeFlags {
         typedef std::uint32_t value_type;
