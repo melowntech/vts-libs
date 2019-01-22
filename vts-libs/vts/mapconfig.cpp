@@ -1013,39 +1013,16 @@ struct Absolutize
     }
 
     void absolutize(registry::BoundLayer &bl) const {
-        absolutize(bl.url);
-        absolutize(bl.maskUrl);
-        absolutize(bl.metaUrl);
-        absolutize(bl.creditsUrl);
+        bl = registry::absolutize(bl, base);
     }
 
     void absolutize(registry::Srs &srs) {
         (void) srs;
     }
 
-    // FreeLayer visitor:
-
-    void operator()(std::string &def) const {
-        absolutize(def);
+    void absolutize(registry::FreeLayer &fl) {
+        fl = registry::absolutize(fl, base);
     }
-
-    void operator()(registry::FreeLayer::Geodata &def) const {
-        absolutize(def.geodata);
-        absolutize(def.style);
-    }
-
-    void operator()(registry::FreeLayer::GeodataTiles &def) const {
-        absolutize(def.metaUrl);
-        absolutize(def.geodataUrl);
-        absolutize(def.style);
-    }
-
-    void operator()(registry::FreeLayer::MeshTiles &def) const {
-        absolutize(def.metaUrl);
-        absolutize(def.meshUrl);
-        absolutize(def.textureUrl);
-    }
-
 };
 
 } // namespace
@@ -1068,7 +1045,7 @@ void absolutize(MapConfig &mapConfig, const std::string &base)
 
     mapConfig.freeLayers.for_each([&](registry::FreeLayer &fl)
     {
-        boost::apply_visitor(a, fl.definition);
+        a.absolutize(fl);
     });
 
     {

@@ -53,6 +53,7 @@ set(vts-registry_SOURCES
   registry/json.hpp registry/dict.hpp
   registry/po.hpp registry/po.cpp
   registry/io.hpp
+  registry/urlexpander.hpp registry/urlexpander.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/registry/config.cpp
   )
 

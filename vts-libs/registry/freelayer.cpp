@@ -278,4 +278,58 @@ FreeLayer loadFreeLayer(std::istream &in
     return freeLayer;
 }
 
+namespace {
+
+struct Absolutize
+    : boost::static_visitor<>
+{
+    Absolutize(const utility::Uri &base) : base(base) {}
+
+    const utility::Uri &base;
+
+    void absolutize(std::string &url) const {
+        url = base.resolve(url).str();
+    }
+
+    void absolutize(boost::optional<std::string> &url) const {
+        if (url) { absolutize(*url); }
+    }
+
+    void absolutize(FreeLayer &fl) const {
+        boost::apply_visitor(*this, fl.definition);
+    }
+
+    // FreeLayer::definition visitor:
+
+    void operator()(std::string &def) const {
+        absolutize(def);
+    }
+
+    void operator()(registry::FreeLayer::Geodata &def) const {
+        absolutize(def.geodata);
+        absolutize(def.style);
+    }
+
+    void operator()(registry::FreeLayer::GeodataTiles &def) const {
+        absolutize(def.metaUrl);
+        absolutize(def.geodataUrl);
+        absolutize(def.style);
+    }
+
+    void operator()(registry::FreeLayer::MeshTiles &def) const {
+        absolutize(def.metaUrl);
+        absolutize(def.meshUrl);
+        absolutize(def.textureUrl);
+    }
+};
+
+} // namespace
+
+FreeLayer absolutize(const FreeLayer &freeLayer, const utility::Uri &baseUrl)
+{
+    auto fl(freeLayer);
+    Absolutize(baseUrl).absolutize(fl);
+    return fl;
+}
+
 } } // namespace vtslibs::registry

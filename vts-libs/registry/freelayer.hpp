@@ -39,6 +39,8 @@
 
 #include <boost/variant.hpp>
 
+#include "utility/uri.hpp"
+
 #include "./referenceframe.hpp"
 
 namespace vtslibs { namespace registry {
@@ -97,6 +99,10 @@ void saveFreeLayer(std::ostream &out, const FreeLayer &freeLayer);
 
 FreeLayer loadFreeLayer(std::istream &in
                         , const boost::filesystem::path &path = "unknown");
+
+/** Make all URL's absolute.
+ */
+FreeLayer absolutize(const FreeLayer &freeLayer, const utility::Uri &baseUrl);
 
 // inlines
 

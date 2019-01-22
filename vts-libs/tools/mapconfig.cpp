@@ -47,35 +47,20 @@
 
 #include "math/io.hpp"
 
-#include "imgproc/png.hpp"
-#include "imgproc/rastermask/cvmat.hpp"
-
-#include "geo/geodataset.hpp"
-
-#include "http/ondemandclient.hpp"
-#include "http/error.hpp"
-
 #include "../registry/po.hpp"
+#include "../registry/urlexpander.hpp"
 #include "../vts.hpp"
 #include "../vts/io.hpp"
-#include "../vts/atlas.hpp"
-#include "../vts/tileflags.hpp"
-#include "../vts/metaflags.hpp"
-#include "../vts/encodeflags.hpp"
-#include "../vts/opencv/colors.hpp"
-#include "../vts/opencv/navtile.hpp"
-#include "../vts/tileset/delivery.hpp"
-#include "../vts/2d.hpp"
-#include "../vts/visit.hpp"
 #include "../vts/csconvertor.hpp"
 
-#include "./locker.hpp"
+#include "./support/urlfetcher.hpp"
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 namespace vts = vtslibs::vts;
 namespace vr = vtslibs::registry;
 namespace vs = vtslibs::storage;
+namespace tools = vtslibs::vts::tools;
 namespace ba = boost::algorithm;
 
 UTILITY_GENERATE_ENUM(Command,
@@ -109,6 +94,7 @@ public:
                               | service::ENABLE_UNRECOGNIZED_OPTIONS))
         , noexcept_(false), command_(Command::info)
         , verbose_(0), timeout_(5000)
+        , expandRemote_(false)
     {
     }
 
@@ -179,8 +165,11 @@ private:
 
     boost::optional<std::string> absolutize_;
     boost::optional<std::string> renameView_;
+    bool expandRemote_;
 
     std::map<Command, std::shared_ptr<UP> > commandParsers_;
+
+    boost::optional<tools::UrlFetcher> fetcher_;
 };
 
 void MapConfig::configuration(po::options_description &cmdline
@@ -238,6 +227,10 @@ void MapConfig::configuration(po::options_description &cmdline
              "from --path is used. Optional.")
             ("renameView", po::value<std::string>()
              , "Default view gets renamed to this name if specified.")
+            ("expandRemote"
+             , utility::implicit_value<bool>(&expandRemote_, true)
+             , "All remote entities (bound layers and free layers) are "
+             "downloaded and stored in place.")
             ;
 
         p.positional
@@ -297,6 +290,8 @@ UP::optional MapConfig::getParser(Command command)
 void MapConfig::configure(const po::variables_map &vars)
 {
     noexcept_ = vars.count("noexcept");
+
+    fetcher_ = boost::in_place(timeout_, 1);
 }
 
 std::vector<std::string> MapConfig::listHelps() const
@@ -355,37 +350,17 @@ int MapConfig::run()
     }
 }
 
-http::OnDemandClient httpClient(4);
-
-std::string fetchUrl(const std::string &url, long timeout)
+void expandRemote(vts::MapConfig &mc, const std::string &baseUrl
+                  , const tools::UrlFetcher &fetcher)
 {
-    const auto &fetcher(httpClient.fetcher());
+    // need to copy due to boost multi-index container value constness
 
-    auto q(fetcher.perform
-           (utility::ResourceFetcher::Query(url)
-            .timeout(timeout)));
+    vr::UrlExpander e(baseUrl, [&fetcher](const std::string &url) {
+            return fetcher.fetch(url);
+        });
 
-    if (q.ec()) {
-        if (q.check(make_error_code(utility::HttpCode::NotFound))) {
-            LOGTHROW(err2, vs::NoSuchFile)
-                << "File at URL <" << url << "> doesn't exist.";
-            return {};
-        }
-        LOGTHROW(err1, vs::IOError)
-            << "Failed to download tile data from <"
-            << url << ">: Unexpected HTTP status code: <"
-            << q.ec() << ">.";
-    }
-
-    try {
-        return std::move(q.moveOut().data);
-    } catch (const http::Error &e) {
-        LOGTHROW(err1, vs::IOError)
-            << "Failed to download tile data from <"
-            << url << ">: Unexpected error code <"
-            << e.what() << ">.";
-    }
-    throw;
+    mc.boundLayers = e.expand(mc.boundLayers);
+    mc.freeLayers = e.expand(mc.freeLayers);
 }
 
 vts::MapConfig MapConfig::loadMapConfig()
@@ -397,7 +372,7 @@ vts::MapConfig MapConfig::loadMapConfig()
         // fetch from remote HTTP
         if (url.scheme().empty()) { url.scheme("http"); }
 
-        std::istringstream is(fetchUrl(url.str(), timeout_));
+        std::istringstream is(fetcher_->fetch(url.str()));
         is.exceptions(std::ios::badbit | std::ios::failbit);
         vts::loadMapConfig(mc, is, path_);
 
@@ -450,12 +425,19 @@ int MapConfig::save()
     f.exceptions(std::ios::badbit | std::ios::failbit);
     f.open(output_.string(), std::ios_base::out);
 
+    auto baseUrl([&]() -> std::string {
+            if (absolutize_ && !absolutize_->empty()) {
+                return *absolutize_;
+            }
+            return path_.string();
+        }());
+
     if (absolutize_) {
-        if (absolutize_->empty()) {
-            vts::absolutize(mc, path_.string());
-        } else {
-            vts::absolutize(mc, *absolutize_);
-        }
+        vts::absolutize(mc, baseUrl);
+    }
+
+    if (expandRemote_) {
+        expandRemote(mc, baseUrl, *fetcher_);
     }
 
     if (renameView_) {

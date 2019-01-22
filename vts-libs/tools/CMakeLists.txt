@@ -49,7 +49,7 @@ if (TARGET service)
       PRIVATE ${MODULE_DEFINITIONS})
     buildsys_binary(vts-measure-dataset)
 
-    vts_libs_tool(vts vts.cpp locker.hpp locker.cpp)
+    vts_libs_tool(vts vts.cpp locker.hpp locker.cpp support/urlfetcher.cpp)
 
     vts_libs_tool(vts2vts vts2vts.cpp)
     vts_libs_tool(vts02vts vts02vts.cpp)
@@ -58,7 +58,7 @@ if (TARGET service)
 
     vts_libs_tool(tilar tilar.cpp)
 
-    vts_libs_tool(mapconfig mapconfig.cpp)
+    vts_libs_tool(mapconfig mapconfig.cpp support/urlfetcher.cpp)
 
     vts_libs_tool(urltemplate urltemplate.cpp)
 

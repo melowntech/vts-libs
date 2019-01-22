@@ -45,7 +45,7 @@
 
 #include "utility/streams.hpp"
 #include "utility/guarded-call.hpp"
-#include "utility/streams.hpp"
+#include "utility/path.hpp"
 
 #include "../../storage/error.hpp"
 #include "../storageview.hpp"
@@ -303,8 +303,6 @@ void StorageView::relocate(const fs::path &root, const RelocateOptions &ro
     auto res(ro.apply(config.storagePath.string()));
     if (!ro.dryRun && res.replacement) {
         config.storagePath = *res.replacement;
-
-        // TODO: save config
         storageview::saveConfig(root, config);
     }
 
@@ -367,5 +365,31 @@ void openStorageView(const fs::path &path
     }
 }
 
-} } // namespace vtslibs::vts
+void StorageView
+::saveConfig(const boost::filesystem::path &path
+             , const StorageViewProperties::ExtraFilter &extraFilter
+             , bool relativePaths)
+{
+    auto outFile(fs::absolute(path));
 
+    auto config(detail().properties);
+    if (extraFilter) { extraFilter(config.extra); }
+
+    auto root(outFile.parent_path());
+    fs::create_directories(root);
+
+    if (relativePaths
+        && (!fs::exists(outFile) || fs::is_regular_file(outFile)))
+    {
+        config.storagePath
+            = utility::lexically_relative(config.storagePath, root);
+
+        for (auto &include : config.includeMapConfigs) {
+            include = utility::lexically_relative(include, root);
+        }
+    }
+
+    storageview::saveConfig(path, config);
+}
+
+} } // namespace vtslibs::vts

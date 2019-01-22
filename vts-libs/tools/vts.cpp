@@ -23,6 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <unistd.h>
 
 #include <cerrno>
@@ -42,6 +43,7 @@
 #include "utility/streams.hpp"
 #include "utility/time.hpp"
 #include "utility/filedes.hpp"
+#include "utility/implicit-value.hpp"
 
 #include "service/cmdline.hpp"
 #include "service/runninguntilsignalled.cpp"
@@ -55,6 +57,7 @@
 #include "geo/geodataset.hpp"
 
 #include "../registry/po.hpp"
+#include "../registry/urlexpander.hpp"
 #include "../vts.hpp"
 #include "../vts/io.hpp"
 #include "../vts/mesh.hpp"
@@ -74,16 +77,19 @@
 #include "../vts/tsmap.hpp"
 
 #include "./locker.hpp"
+#include "./support/urlfetcher.hpp"
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
+namespace ba = boost::algorithm;
 namespace vts = vtslibs::vts;
 namespace vr = vtslibs::registry;
 namespace vs = vtslibs::storage;
-namespace ba = boost::algorithm;
+namespace tools = vtslibs::vts::tools;
 
 #define VTS_COMMAND_LIST                                            \
     ((info))                                                        \
+    ((save))                                                        \
     ((create))                                                      \
     ((add))                                                         \
     ((remove))                                                      \
@@ -208,6 +214,7 @@ public:
         , tileFlags_(), metaFlags_(), encodeFlags_()
         , queryLod_(), textureQuality_(70), meshFormat_(MeshFormat::normalized)
         , generate_(false), sameType_(false)
+        , timeout_(5000)
     {
         addOptions_.textureQuality = 0;
         addOptions_.checkTileindexIdentity = true;
@@ -273,6 +280,8 @@ private:
     int runCommand();
 
     int info();
+
+    int save();
 
     int create();
 
@@ -398,6 +407,9 @@ private:
     bool sameType_;
 
     vts::MapConfigOptions mco_;
+
+    boost::optional<std::string> expandRemote_;
+    long timeout_;
 
     /** External lock.
      */
@@ -579,6 +591,29 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("verbose,V", po::value<Verbosity>(&verbose_)->zero_tokens()
              , "Verbose output.")
             ;
+    });
+
+    createParser(cmdline, Command::save
+                 , "--command=save: save tileset/storage/storageview "
+                 "configuration with optional processing"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("output", po::value(&outputPath_)->required()
+             , "Dump path.")
+            ("expandRemote"
+             , utility::implicit_value<std::string>(nullptr, "")
+             , "Expand remote entities before saving. Can be set to a base "
+             "URL used for non-absolute paths.")
+            ("timeout", po::value(&timeout_)->default_value(timeout_)
+             , "HTTP timeout, in ms.")
+            ;
+
+        p.configure = [&](const po::variables_map &vars) {
+            if (vars.count("expandRemote")) {
+                expandRemote_ = vars["expandRemote"].as<std::string>();
+            }
+        };
     });
 
     createParser(cmdline, Command::create
@@ -966,7 +1001,7 @@ void VtsStorage::configuration(po::options_description &cmdline
              , "ID of tile to query.")
             ("output", po::value(&outputPath_)->required()
              , "Path of output image.")
-            ("generate", po::value<bool>(&generate_)->implicit_value(true)
+            ("generate", utility::implicit_value(&generate_, true)
              ->default_value(false))
             ;
 
@@ -1180,7 +1215,7 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("textureQuality", po::value(&textureQuality_)
              ->required()->default_value(textureQuality_)
              , "Texture quality for inpaint.")
-            ("sameType", po::value<bool>(&sameType_)->implicit_value(true)
+            ("sameType", utility::implicit_value(&sameType_, true)
              ->default_value(false)
              , "Clones tileset as-is if true. Otherwise clones all data "
              "using plain driver.")
@@ -1851,6 +1886,53 @@ int VtsStorage::info()
     case vts::DatasetType::TileIndex:
         std::cerr << "Tile index is not supported." << '\n';
         return EXIT_FAILURE;
+
+    default: break;
+    }
+
+    std::cerr << "Unrecognized content " << path_ << "." << '\n';
+    return EXIT_FAILURE;
+}
+
+int saveStorageView(const fs::path &path, const fs::path &outputPath
+                    , const boost::optional<std::string> &expandRemote
+                    , long timeout)
+{
+    const auto filter([&](vts::ExtraStorageProperties &extra) -> void
+    {
+        if (!expandRemote) { return; }
+
+        tools::UrlFetcher fetcher(timeout);
+        vr::UrlExpander e(*expandRemote, [&fetcher](const std::string &url) {
+                return fetcher.fetch(url);
+            });
+
+        extra.boundLayers = e.expand(extra.boundLayers);
+        extra.freeLayers = e.expand(extra.freeLayers);
+    });
+
+    vts::openStorageView(path).saveConfig(outputPath, filter, true);
+
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::save()
+{
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::TileSet:
+        std::cerr << "Save of tileset's configuration not supproted yet.";
+        return EXIT_FAILURE;
+
+    case vts::DatasetType::Storage:
+        std::cerr << "Save of storage's configuration not supproted yet.";
+        return EXIT_FAILURE;
+
+    case vts::DatasetType::TileIndex:
+        std::cerr << "There is no config to save in tileindex.";
+        return EXIT_FAILURE;
+
+    case vts::DatasetType::StorageView:
+        return saveStorageView(path_, outputPath_, expandRemote_, timeout_);
 
     default: break;
     }

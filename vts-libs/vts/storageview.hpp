@@ -71,7 +71,10 @@ struct StorageViewProperties  {
     /** Absolutizes all filesystem paths.
      */
     void absolutize(const boost::filesystem::path &root);
+
+    typedef std::function<void(ExtraStorageProperties&)> ExtraFilter;
 };
+
 
 /** StorageView interface.
  */
@@ -119,6 +122,14 @@ public:
     /** Get list of pending glues needed to display this storage view.
      */
     Glue::IdSet pendingGlues() const;
+
+    /** Saves configuration to another path.
+     *  Provided filter can manipulate with extra storage propeties.
+     */
+    void saveConfig(const boost::filesystem::path &path
+                    , const StorageViewProperties::ExtraFilter &extraFilter
+                    = StorageViewProperties::ExtraFilter()
+                    , bool relativePaths = false);
 
     /** Generates map configuration for storage view at given path.
      */

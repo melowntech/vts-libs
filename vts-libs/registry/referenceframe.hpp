@@ -41,6 +41,7 @@
 
 #include "utility/enum-io.hpp"
 #include "utility/streams.hpp"
+#include "utility/uri.hpp"
 
 #include "geo/srsdef.hpp"
 
@@ -492,6 +493,10 @@ void saveBoundLayer(std::ostream &out, const BoundLayer &bl);
 BoundLayer loadBoundLayer(std::istream &in
                           , const boost::filesystem::path &path
                           = "unknown");
+/** Make all URL's absolute.
+ */
+BoundLayer absolutize(const BoundLayer &boundLayer
+                      , const utility::Uri &baseUrl);
 
 Credit::dict loadCredits(std::istream &in
                          , const boost::filesystem::path &path
