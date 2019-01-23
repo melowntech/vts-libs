@@ -428,30 +428,39 @@ TilesetSubset::optional makeSubsetFilter(const TilesetIdSet *subset)
     return filter;
 }
 
+inline TilesetIdSet asSet(const TilesetIdMap &map) {
+    TilesetIdSet set;
+    for (const auto &pair : map) { set.insert(pair.first); }
+    return set;
+}
+
 inline bool allowed(const TilesetIdSet *subset, const TilesetId &id)
 {
     if (!subset) { return true; }
     return subset->count(id);
 }
 
-inline bool allowed(const TilesetSubset::optional &ofilter
-                    , const StoredTileset &storedTs)
+enum class Allowed { false_ = false, true_ = true, tagged = 2 };
+
+inline Allowed allowed(const TilesetSubset::optional &ofilter
+                       , const StoredTileset &storedTs)
 {
-    if (!ofilter) { return true; }
+    if (!ofilter) { return Allowed::true_; }
     const auto &filter(*ofilter);
 
     // check exact match
-    if (filter.ids.count(storedTs.tilesetId)) { return true; }
+    if (filter.ids.count(storedTs.tilesetId)) { return Allowed::true_; }
 
     // check for tag via tileset's baseId
     auto ftagged(filter.taggedIds.find(storedTs.baseId));
     if (ftagged == filter.taggedIds.end()) {
         // no such baseId
-        return false;
+        return Allowed::false_;
     }
 
     // check for tag presence
-    return storedTs.tags.count(ftagged->second);
+    return (storedTs.tags.count(ftagged->second)
+            ? Allowed::tagged : Allowed::false_);
 }
 
 inline bool allowed(const TilesetIdSet *subset, const Glue::Id &id)
@@ -468,6 +477,11 @@ inline bool allowed(const TilesetIdSet &subset, const TilesetId &id)
     return subset.count(id);
 }
 
+inline bool allowed(const TilesetIdMap &subset, const TilesetId &id)
+{
+    return subset.count(id);
+}
+
 inline bool allowed(const TilesetIdSet &subset, const Glue::Id &id)
 {
     for (const auto &tileset : id) {
@@ -476,36 +490,77 @@ inline bool allowed(const TilesetIdSet &subset, const Glue::Id &id)
     return true;
 }
 
+inline bool allowed(const TilesetIdMap &subset, const Glue::Id &id)
+{
+    for (const auto &tileset : id) {
+        if (!subset.count(tileset)) { return false; }
+    }
+    return true;
+}
+
+/** Checks if there is any real rename in the provided tileset ID map. Returns
+ *  the pointer to the provided map if any difference is encoutered, null
+ *  otherwise.
+ */
+inline const TilesetIdMap* optionalRename(const TilesetIdMap &map)
+{
+    for (const auto &pair : map) {
+        if (pair.first != pair.second) { return &map; }
+    }
+    return nullptr;
+}
+
 } // namespace
 
-TilesetIdSet Storage::Properties::unique(const TilesetIdSet *subset) const
+TilesetIdMap Storage::Properties::unique(const TilesetIdSet *subset) const
 {
     const auto filter(makeSubsetFilter(subset));
 
-    typedef std::map<TilesetId, const StoredTileset*> Seen;
-    Seen seen;
+    struct Seen {
+        const StoredTileset *tileset;
+        TilesetId tilesetId;
+
+        Seen(const StoredTileset *tileset, const TilesetId &tilesetId)
+            : tileset(tileset), tilesetId(tilesetId)
+        {}
+
+        typedef std::map<TilesetId, Seen> map;
+    };
+
+    Seen::map seen;
 
     for (const auto &tileset : tilesets) {
         // filter by set of allowed tilesets
-        if (!allowed(filter, tileset)) { continue; }
+        TilesetId useTilesetId(tileset.tilesetId);
+
+        switch (allowed(filter, tileset)) {
+        case Allowed::false_: continue;
+        case Allowed::true_: break;
+        case Allowed::tagged:
+            // tagged version, rename to baseId
+            useTilesetId = tileset.baseId; break;
+        }
 
         auto fseen(seen.find(tileset.baseId));
         if (fseen != seen.end()) {
             // baseId already seen -> check version and replace if better
             auto &current(fseen->second);
-            if (tileset.version > current->version) {
-                current = &tileset;
+            if (tileset.version > current.tileset->version) {
+                current.tileset = &tileset;
+                current.tilesetId = useTilesetId;
             }
         } else {
             // new, insert and remember
-            seen.insert(Seen::value_type(tileset.baseId, &tileset));
+            seen.insert(Seen::map::value_type
+                        (tileset.baseId, Seen(&tileset, useTilesetId)));
         }
     }
 
     // reconstruct set from seen map
-    TilesetIdSet out;
+    TilesetIdMap out;
     for (const auto &item : seen) {
-        out.insert(item.second->tilesetId);
+        out.insert(TilesetIdMap::value_type
+                   (item.second.tileset->tilesetId, item.second.tilesetId));
     }
 
     return out;
@@ -581,9 +636,13 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     // get in mapconfigs of tilesets and their glues; do not use any tileset's
     // extra configuration
 
-    // grab list of unique tilesets and tilesets-as-freelayer to be sent into
-    // the output
+    // grab list of unique tilesets (well, it is not a list but a mapping
+    // between real tilesetId and tilesetId to be used in the output)
     const auto unique(properties.unique(subset));
+
+    // convert unique map above to optional tilesetId renamer; pointer is null
+    // if there is no id change at all.
+    const auto *tilesetRename(optionalRename(unique));
 
     // // counts of pending glues for unique tilesets
     // const auto pgc(properties.pendingGlueCount(unique));
@@ -651,8 +710,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             mapConfig.addMeshTilesConfig
                 (TileSet::meshTilesConfig
                  (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-                 , tilesetUrl(tileset)
-                 , &extra.tilesetRename);
+                 , tilesetUrl(tileset), tilesetRename);
         }
 
         // handle tileset as a surface
@@ -661,8 +719,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
             mapConfig.mergeTileSet
                 (TileSet::mapConfig
                  (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-                 , tilesetUrl(tileset)
-                 , &extra.tilesetRename);
+                 , tilesetUrl(tileset), tilesetRename);
         }
     }
 
@@ -677,7 +734,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
              (storage_paths::gluePath(root, glue), false)
              , glue, supportTilesetUrl
              (properties.gluesExternalUrl, storage_paths::glueRoot())
-             , &extra.tilesetRename);
+             , tilesetRename);
     }
 
     // virtualSurfaces
@@ -691,7 +748,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
              (storage_paths::virtualSurfacePath(root, virtualSurface), false)
              , virtualSurface, supportTilesetUrl
              (properties.vsExternalUrl, storage_paths::virtualSurfaceRoot())
-             , &extra.tilesetRename);
+             , tilesetRename);
     }
 
     if (extra.position) {
@@ -991,7 +1048,7 @@ TileSet Storage::clone(const boost::filesystem::path &tilesetPath
     // create in-memory
     auto tmp(aggregateTileSets(*this, CloneOptions(createOptions)
                                .tilesetId(TilesetId("storage"))
-                               , detail().properties.unique(subset)));
+                               , asSet(detail().properties.unique(subset))));
 
     // clone
     CloneOptions co(createOptions);

@@ -172,13 +172,18 @@ struct Storage::Properties : StorageProperties {
             ? &fvirtualSurfaces->second : nullptr;
     }
 
-    /** Return set of unique tilesets.
+    /** Return map of unique tilesets. The mapped value (value.second) norally
+     * contains tilesetId unless rename was used in tileset name.
+     *
+     *  To rename use =id suffix. Tagged versions are renamed to base
+     *  tilesetId automatically.
      *
      *  Either use tileset specified in subset or choose tilesets with highest
      *  version. If subset contains tilesets with same base use highest version
-     *  as well.
+     *  as well. Version can be specified via #tag when tileset with highest
+     *  version having this tag is selected.
      */
-    TilesetIdSet unique(const TilesetIdSet *subset) const;
+    TilesetIdMap unique(const TilesetIdSet *subset) const;
 
     /** For each tileset compute number of pending glues where tileset is at the
      *  top of the stack
