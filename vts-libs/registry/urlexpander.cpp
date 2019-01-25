@@ -31,11 +31,16 @@ namespace vtslibs { namespace registry {
 UrlExpander::UrlExpander(const utility::Uri &base, const Fetcher &fetcher)
     : base_(base), fetcher_(fetcher)
 {
-    if (base_.scheme().empty()) { base_.scheme("http"); }
 }
 
-std::string UrlExpander::absolute(const std::string &url) const {
-    return base_.resolve(url).str();
+utility::Uri UrlExpander::absolute(const std::string &url) const {
+    return base_.resolve(url);
+}
+
+std::string UrlExpander::fetch(utility::Uri url) const
+{
+    if (url.scheme().empty()) { url.scheme("http"); }
+    return fetcher_(url.str());
 }
 
 BoundLayer UrlExpander::expand(const BoundLayer &bl) const
@@ -43,8 +48,8 @@ BoundLayer UrlExpander::expand(const BoundLayer &bl) const
     if (bl.type != BoundLayer::Type::external) { return bl; }
 
     const auto url(absolute(bl.url));
-    std::istringstream is(fetcher_(url));
-    auto out(absolutize(loadBoundLayer(is, url), url));
+    std::istringstream is(fetch(url));
+    auto out(absolutize(loadBoundLayer(is, url.str()), url));
     out.id = bl.id;
     return out;
 }
@@ -62,8 +67,8 @@ FreeLayer UrlExpander::expand(const FreeLayer &fl) const
 {
     if (auto *flUrl = boost::get<std::string>(&fl.definition)) {
         const auto url(absolute(*flUrl));
-        std::istringstream is(fetcher_(url));
-        auto out(absolutize(loadFreeLayer(is, url), url));
+        std::istringstream is(fetch(url));
+        auto out(absolutize(loadFreeLayer(is, url.str()), url));
         out.id = fl.id;
         return out;
     }

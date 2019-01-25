@@ -53,7 +53,9 @@ public:
     FreeLayer::dict expand(const FreeLayer::dict &freeLayers) const;
 
 private:
-    std::string absolute(const std::string &url) const;
+    utility::Uri absolute(const std::string &url) const;
+
+    std::string fetch(utility::Uri url) const;
 
     utility::Uri base_;
     Fetcher fetcher_;
