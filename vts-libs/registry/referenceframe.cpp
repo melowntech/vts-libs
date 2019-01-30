@@ -1809,6 +1809,14 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
         }
     }
 
+    if (!view.options.empty()) {
+        try {
+            nv["options"] = boost::any_cast<Json::Value>(view.options);
+        } catch (boost::bad_any_cast) {
+            // ignore
+        }
+    }
+
     return nv;
 }
 
@@ -1906,6 +1914,11 @@ void fromJson(View &view, const Json::Value &value)
         for (const auto &body : bodies) {
             view.bodies.insert(body.asString());
         }
+    }
+
+    {
+        auto options(value["options"]);
+        if (!options.isNull()) { view.options = options; }
     }
 }
 

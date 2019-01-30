@@ -84,6 +84,7 @@ struct View {
     Surfaces surfaces;
     FreeLayers freeLayers;
     Bodies bodies;
+    boost::any options;
 
     operator bool() const { return !(surfaces.empty() && freeLayers.empty()); }
 
