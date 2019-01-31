@@ -198,6 +198,11 @@ public:
      */
     bool exists(const TileId &tileId) const;
 
+    /** Get source reference. Returns zero if tile does not exist. For tileset
+     *  without stored tileset reference always returns 1 for existing tile.
+     */
+    int sourceReference(const TileId &tileId) const;
+
     /** Checks whether tile extist and covers whole tile.
      */
     bool fullyCovered(const TileId &tileId) const;

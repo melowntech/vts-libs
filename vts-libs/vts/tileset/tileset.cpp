@@ -171,6 +171,20 @@ bool TileSet::exists(const TileId &tileId) const
     return detail().exists(tileId);
 }
 
+int TileSet::sourceReference(const TileId &tileId) const
+{
+    const auto &ti(detail().tileIndex);
+    const auto flags(ti.get(tileId));
+
+    if (!TileIndex::Flag::isReal(flags)) { return 0; }
+
+    if (const auto sr = TileIndex::Flag::getReference(flags)) {
+        return sr;
+    }
+
+    return 1;
+}
+
 bool TileSet::fullyCovered(const TileId &tileId) const
 {
     return detail().fullyCovered(tileId);

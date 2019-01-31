@@ -103,6 +103,7 @@ namespace tools = vtslibs::vts::tools;
     ((dirs)("dirs"))                                                \
     ((dumpTileIndex)("dump-tileindex"))                             \
     ((tileInfo)("tile-info"))                                       \
+    ((tileStatus)("tile-status"))                                   \
     ((dumpMesh)("dump-mesh"))                                       \
     ((dumpMeshMask)("dump-mesh-mask"))                              \
     ((exportMesh)("export-mesh"))                                   \
@@ -132,6 +133,7 @@ namespace tools = vtslibs::vts::tools;
     ((deriveMetaIndex)("derive-metaindex"))                         \
     ((virtualSurfaceCreate)("vs-create"))                           \
     ((virtualSurfaceRemove)("vs-remove"))                           \
+    ((virtualSurfaceInfo)("vs-info"))                               \
                                                                     \
     ((locker2Stresser)("locker2-stresser"))                         \
                                                                     \
@@ -310,6 +312,7 @@ private:
     int dumpTileIndex();
 
     int tileInfo();
+    int tileStatus();
 
     int dumpMesh();
     int dumpMeshMask();
@@ -354,6 +357,7 @@ private:
 
     int virtualSurfaceCreate();
     int virtualSurfaceRemove();
+    int virtualSurfaceInfo();
 
     int queryNavtile();
 
@@ -978,7 +982,21 @@ void VtsStorage::configuration(po::options_description &cmdline
             ("tileId", po::value(&tileId_)->required()
              , "ID of tile to query.")
             ;
+
         p.positional.add("tileId", 1);
+    });
+
+    createParser(cmdline, Command::tileStatus
+                 , "--command=tile-status: tile status"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileId", po::value(&tileIds_)->multitoken()
+             , "One or more IDs of tile to query. If not tile ID is provided "
+             "on the command line IDs are read from stdin")
+            ;
+
+        p.positional.add("tileId", -1);
     });
 
     createParser(cmdline, Command::dumpMesh
@@ -1552,6 +1570,19 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.configure = [&](const po::variables_map &vars) {
             lockConfigure(vars);
         };
+    });
+
+    createParser(cmdline, Command::virtualSurfaceInfo
+                 , "--command=vs-info: show storage's virtual "
+                 "surface info"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileset", po::value(&tilesetIds_)->multitoken()
+             , "Id of tileset for info (mandatory "
+             "if working with storage).")
+            ;
+        p.positional.add("tileset", -1);
     });
 
     createParser(cmdline, Command::queryNavtile
@@ -2413,6 +2444,43 @@ int VtsStorage::tileInfo()
     return EXIT_SUCCESS;
 }
 
+void printTileStatus(vts::TileSet &ts, const vts::TileId &tileId)
+{
+    std::cout
+        << "tileId=" << tileId
+        << " metaTileId=" << ts.metaId(tileId)
+        << " flags=" << vts::TileFlags(ts.tileIndex().get(tileId))
+        << '\n';
+}
+
+int VtsStorage::tileStatus()
+{
+    std::cout << std::fixed;
+    auto ts(vts::openTileSet(path_));
+
+    if (tileIds_.empty()) {
+        vts::TileId tileId;
+        for (;;) {
+            if (!(std::cin >> tileId)) {
+                if (std::cin.eof()) { break; }
+
+                std::cin.clear();
+                std::cin.ignore(1);
+                LOG(err2) << "Invalid input.";
+                continue;
+            }
+
+            printTileStatus(ts, tileId);
+        }
+    } else {
+        for (const auto tileId : tileIds_) {
+            printTileStatus(ts, tileId);
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
+
 int VtsStorage::dumpMesh()
 {
     auto ts(vts::openTileSet(path_));
@@ -3246,6 +3314,7 @@ int VtsStorage::virtualSurfaceCreate()
         break;
 
     case vts::DatasetType::StorageView:
+        // FIXME: doesn't work for tagged tilesets
         if (!tilesetIds_.empty()) {
             std::cerr
                 << "Cannot use tileset IDs when working with storage view."
@@ -3298,6 +3367,7 @@ int VtsStorage::virtualSurfaceRemove()
         break;
 
     case vts::DatasetType::StorageView:
+        // FIXME: doesn't work for tagged tilesets
         if (!tilesetIds_.empty()) {
             throw po::validation_error
                 (po::validation_error::invalid_option_value
@@ -3313,7 +3383,7 @@ int VtsStorage::virtualSurfaceRemove()
         break;
 
     default:
-        std::cerr << "Cannot remopve virtual surface from "
+        std::cerr << "Cannot remove virtual surface from "
                   << path_ << "." << '\n';
         return EXIT_FAILURE;
     }
@@ -3323,6 +3393,70 @@ int VtsStorage::virtualSurfaceRemove()
     auto storage(vts::openStorage(path_, vts::OpenMode::readWrite, lock));
 
     storage.removeVirtualSurface(tids);
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::virtualSurfaceInfo()
+{
+    vts::TilesetIdSet tids;
+
+    switch (vts::datasetType(path_)) {
+    case vts::DatasetType::Storage:
+        if (tilesetIds_.empty()) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value
+                 , "tileset");
+        }
+
+        tids.insert(tilesetIds_.begin(), tilesetIds_.end());
+        break;
+
+    case vts::DatasetType::StorageView:
+        // FIXME: doesn't work for tagged tilesets
+        if (!tilesetIds_.empty()) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value
+                 , "tileset");
+        }
+
+        {
+            // open storage view and grab info
+            const auto view(vts::openStorageView(path_));
+            path_ = view.storagePath();
+            tids = view.tilesets();
+        }
+        break;
+
+    default:
+        std::cerr << "Cannot show virtual surface info in "
+                  << path_ << "." << '\n';
+        return EXIT_FAILURE;
+    }
+
+    auto storage(vts::openStorage(path_, vts::OpenMode::readWrite));
+
+    const auto ovs(storage.openVirtualSurface(tids));
+    const auto &vsId(std::get<0>(ovs));
+    const auto &vs(std::get<1>(ovs));
+
+    const auto tsm
+        (vts::deserializeTsMap
+         (vs.driver().input(vts::VirtualSurface::TilesetMappingPath)->get()));
+
+    int id(1);
+    for (const auto &rl : tsm) {
+        std::cout << id << ": ";
+
+        bool first(true);
+        for (const auto tsId : rl) {
+            if (first) { first = false; } else { std::cout << " "; }
+            std::cout << vsId[tsId];
+        }
+
+        std::cout << '\n';
+        ++id;
+    }
+
     return EXIT_SUCCESS;
 }
 

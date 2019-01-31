@@ -279,6 +279,13 @@ public:
      */
     void removeVirtualSurface(const TilesetIdSet &tilesets);
 
+    /** Open virtual surface tileset.
+     *
+     *  \param virtualSurfaceId virtual surface ID
+     */
+    std::tuple<VirtualSurface::Id, TileSet>
+    openVirtualSurface(const TilesetIdSet &tilesets) const;
+
     /** Flattens content of this storage into new tileset at tilesetPath.
      *
      * \param tilesetPath path to tileset

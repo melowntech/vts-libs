@@ -1194,4 +1194,43 @@ void Storage::Detail
     saveConfig();
 }
 
+std::tuple<VirtualSurface::Id, TileSet>
+Storage::openVirtualSurface(const TilesetIdSet &tilesets) const
+{
+    return detail().openVirtualSurface(tilesets);
+}
+
+std::tuple<VirtualSurface::Id, TileSet>
+Storage::Detail::openVirtualSurface(const TilesetIdSet &tilesets) const
+{
+    auto tmp(tilesets);
+
+    VirtualSurface::Id vsId;
+    for (const auto &stored : properties.tilesets) {
+        auto ftmp(tmp.find(stored.tilesetId));
+        if (ftmp == tmp.end()) { continue; }
+
+        vsId.push_back(stored.tilesetId);
+        tmp.erase(ftmp);
+    }
+
+    if (!tmp.empty()) {
+        LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
+            << "Tileset(s) <" << utility::join(tmp, ", ")
+            << "> not found in storage " << root << ".";
+    }
+
+    const auto fvirtualSurfaces(properties.findVirtualSurface(vsId));
+    if (fvirtualSurfaces == properties.virtualSurfaces.end()) {
+        LOGTHROW(err1, vtslibs::storage::NoSuchTileSet)
+            << "Virtual surface <"
+            << utility::join(vsId, ",") << "> "
+            "not found in storage " << root << ".";
+    }
+
+    return std::tuple<VirtualSurface::Id, TileSet>
+        (vsId, openTileSet(storage_paths::virtualSurfacePath
+                           (root, fvirtualSurfaces->second)));
+}
+
 } } // namespace vtslibs::vts

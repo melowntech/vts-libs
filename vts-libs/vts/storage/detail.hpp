@@ -334,6 +334,9 @@ struct Storage::Detail
 
     Glue::IdSet pendingGlues(const TilesetIdSet *subset) const;
 
+    std::tuple<VirtualSurface::Id, TileSet>
+    openVirtualSurface(const TilesetIdSet &tilesets) const;
+
     void lockStressTest(utility::Runnable &runnable);
 };
 
