@@ -248,6 +248,7 @@ Json::Value asJson(const VirtualSurfaceConfig &vs
 
     // paths
     if (vs.urls3d) {
+        // from parsed config, use as-is
         s["metaUrl"] = vs.urls3d->meta;
     } else {
         s["metaUrl"]
@@ -256,9 +257,14 @@ Json::Value asJson(const VirtualSurfaceConfig &vs
     }
 
     if (!vs.mapping.empty()) {
+        // from parsed config, use as-is
         s["mapping"] = vs.mapping;
     } else {
-        s["mapping"] = (root / VirtualSurface::TilesetMappingPath).string();
+        // add revision
+        s["mapping"] =
+            str(boost::format("%s?%s")
+                % (root / VirtualSurface::TilesetMappingPath).string()
+                % vs.revision);
     }
 
     return s;
