@@ -57,6 +57,11 @@ struct StorageProperties {
 };
 
 struct ExtraStorageProperties {
+    /** Switches on/off virtual surface support.
+     *  On by default.
+     */
+    bool virtualSurfacesEnabled;
+
     /** Override position.
      */
     boost::optional<registry::Position> position;
@@ -93,7 +98,7 @@ struct ExtraStorageProperties {
      */
     registry::Body::dict bodies;
 
-    ExtraStorageProperties() {}
+    ExtraStorageProperties() : virtualSurfacesEnabled(true) {}
 };
 
 typedef std::set<std::string> Tags;

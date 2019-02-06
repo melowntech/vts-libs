@@ -421,6 +421,8 @@ ExtraStorageProperties parse1(const Json::Value &config)
 {
     ExtraStorageProperties ep;
 
+    Json::getOpt(ep.virtualSurfacesEnabled, config, "virtualSurfacesEnabled");
+
     if (config.isMember("position")) {
         ep.position = boost::in_place();
         *ep.position = registry::positionFromJson(config["position"]);
@@ -466,6 +468,11 @@ ExtraStorageProperties parse1(const Json::Value &config)
 
 void build(Json::Value &config, const ExtraStorageProperties &ep)
 {
+    // defaults to true, only "false" is interesting here
+    if (!ep.virtualSurfacesEnabled) {
+        config["virtualSurfacesEnabled"] = false;
+    }
+
     if (ep.position) {
         config["position"] = registry::asJson(*ep.position);
     }

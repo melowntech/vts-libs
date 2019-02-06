@@ -738,17 +738,21 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     }
 
     // virtualSurfaces
-    for (const auto &item : properties.virtualSurfaces) {
-        // limit to tileset subset
-        if (!allowed(unique, item.first)) { continue; }
+    if (extra.virtualSurfacesEnabled) {
+        for (const auto &item : properties.virtualSurfaces) {
+            // limit to tileset subset
+            if (!allowed(unique, item.first)) { continue; }
 
-        const auto &virtualSurface(item.second);
-        mapConfig.mergeVirtualSurface
-            (TileSet::mapConfig
-             (storage_paths::virtualSurfacePath(root, virtualSurface), false)
-             , virtualSurface, supportTilesetUrl
-             (properties.vsExternalUrl, storage_paths::virtualSurfaceRoot())
-             , tilesetRename);
+            const auto &virtualSurface(item.second);
+            mapConfig.mergeVirtualSurface
+                (TileSet::mapConfig
+                 (storage_paths::virtualSurfacePath
+                  (root, virtualSurface), false)
+                 , virtualSurface
+                 , supportTilesetUrl(properties.vsExternalUrl
+                                     , storage_paths::virtualSurfaceRoot())
+                 , tilesetRename);
+        }
     }
 
     if (extra.position) {
