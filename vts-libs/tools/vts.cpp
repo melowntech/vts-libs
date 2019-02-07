@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include <cerrno>
+#include <queue>
 
 #include <boost/format.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -134,6 +135,8 @@ namespace tools = vtslibs::vts::tools;
     ((virtualSurfaceCreate)("vs-create"))                           \
     ((virtualSurfaceRemove)("vs-remove"))                           \
     ((virtualSurfaceInfo)("vs-info"))                               \
+                                                                    \
+    ((checkMetatileTree)("check-metatile-tree"))                   \
                                                                     \
     ((locker2Stresser)("locker2-stresser"))                         \
                                                                     \
@@ -358,6 +361,8 @@ private:
     int virtualSurfaceCreate();
     int virtualSurfaceRemove();
     int virtualSurfaceInfo();
+
+    int checkMetatileTree();
 
     int queryNavtile();
 
@@ -1585,6 +1590,18 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.positional.add("tileset", -1);
     });
 
+    createParser(cmdline, Command::checkMetatileTree
+                 , "--command=check-metatile-tree: walk the metatile tree"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileId", po::value(&tileId_)->required()
+             , "ID of any tile inside root metatile.")
+            ;
+
+        p.positional.add("tileId", 1);
+    });
+
     createParser(cmdline, Command::queryNavtile
                  , "--command=query-navtile: query navtiles at given position "
                  "and LOD"
@@ -2208,6 +2225,8 @@ int VtsStorage::dumpMetatile()
         }
     }
 
+    std::set<vts::TileId> metaChildIds;
+
     meta.for_each([&](const vts::TileId &tid, const vts::MetaNode &node)
     {
         auto tiFlags(ts.tileIndex().get(tid));
@@ -2257,9 +2276,21 @@ int VtsStorage::dumpMetatile()
         std::cout << "    children:" << '\n';
         for (const auto &childId : children(node, tid)) {
             std::cout << "        " << childId << '\n';
+            metaChildIds.insert(ts.metaId(childId));
         }
         std::cout << '\n';
     });
+
+    // write meta tile children
+    if (!metaChildIds.empty()) {
+        std::cout << "Metatile children:\n";
+        for (const auto &metaChildId : metaChildIds) {
+            std::cout << "    " << metaChildId << '\n';
+        }
+    }
+
+    // done
+    std::cout.flush();
 
     return EXIT_SUCCESS;
 }
@@ -3488,6 +3519,39 @@ int VtsStorage::listPendingGlues()
 
     std::cerr << "Unrecognized content " << path_ << ".\n";
     return EXIT_FAILURE;
+}
+
+int VtsStorage::checkMetatileTree()
+{
+    const auto ts(vts::openTileSet(path_));
+
+    std::queue<vts::TileId> q;
+    q.push(ts.metaId(tileId_));
+
+    while (!q.empty()) {
+        const auto &metaId(q.front());
+        std::cout << metaId << std::endl;
+
+        const auto meta(ts.getMetaTile(metaId));
+
+        std::set<vts::TileId> metaChildIds;
+        meta.for_each([&](const vts::TileId &tid, const vts::MetaNode &node)
+        {
+            if (node.flags()) {
+                for (const auto &childId : children(node, tid)) {
+                    metaChildIds.insert(ts.metaId(childId));
+                }
+            }
+        });
+
+        q.pop();
+
+        for (const auto &metaId : metaChildIds) {
+            q.push(metaId);
+        }
+    }
+
+    return EXIT_SUCCESS;
 }
 
 namespace {
