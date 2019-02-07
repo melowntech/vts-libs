@@ -296,7 +296,7 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
     }
 
     // generate child flags based on tile index
-    // TODO: make better by some quadtree magic
+    // TODO: make use value computed by ometa.update above
     ometa.for_each([&](const TileId &nodeId, MetaNode &node)
     {
         // create nodeinfo for this node
@@ -309,10 +309,22 @@ buildMeta(const AggregatedDriver::DriverEntry::list &drivers
             node.sourceReference = 0;
         }
 
+        // DEBUG: remember accumulate child flags
+        auto cf(node.childFlags());
+
         for (const auto &child : vts::children(nodeId)) {
             bool valid(tileIndex.validSubtree(child)
                        && ni.child(child).valid());
             node.setChildFromId(child, valid);
+        }
+
+        // DEBUG: compare accumulated flags with computed flags
+        if (cf != node.childFlags()) {
+            LOG(warn2)
+                << "Aggregated tileset " << root
+                << ": " << nodeId << " has mismatching child flags "
+                << "accumulated: " << std::bitset<8>(cf) << ", computed: "
+                << std::bitset<8>(node.childFlags()) << ".";
         }
     });
 
