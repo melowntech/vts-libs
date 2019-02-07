@@ -171,6 +171,10 @@ struct MetaNode {
     static void setChildFromId(Flag::value_type &flags, const TileId &tileId
                                , bool value = true);
 
+    /** Merge-in child flags. Combines current and new flags.
+     */
+    void mergeChildFlags(Flag::value_type cf);
+
     MetaNode& mergeExtents(const MetaNode &other);
     MetaNode& mergeExtents(const math::Extents3 &other);
     MetaNode& mergeExtents(const GeomExtents &other);
@@ -297,7 +301,7 @@ public:
      *     true: take only alien nodes into account
      *
      * \param in input metatile
-     * \param alien marks processing or regular or alien nodes
+     * \param alien marks processing of regular or alien nodes
      */
     void update(const MetaTile &in, bool alien = false);
 
@@ -308,6 +312,11 @@ public:
                          , MetaNode::SourceReference sourceReference);
 
     /** Update this metatile with another metatile honoring references.
+     *
+     *  NB: child flags are merged (union) and alien flag is always cleared.
+     *
+     * \param sourceReference update metatile's source reference
+     * \param in update metatile
      */
     void update(MetaNode::SourceReference sourceReference, const MetaTile &in);
 

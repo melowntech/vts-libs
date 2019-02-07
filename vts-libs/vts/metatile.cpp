@@ -743,6 +743,11 @@ void MetaNode::setChildFromId(Flag::value_type &flags, const TileId &tileId
     }
 }
 
+void MetaNode::mergeChildFlags(Flag::value_type cf)
+{
+    flags_ |= (cf & Flag::allChildren);
+}
+
 MetaNode& MetaNode::mergeExtents(const MetaNode &other)
 {
     return
@@ -872,6 +877,8 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
 
                 // just update geometry extents
                 outn.mergeExtents(inn);
+                // and update child flags
+                outn.mergeChildFlags(inn.flags());
                 continue;
             }
 
@@ -879,17 +886,20 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
             math::update(valid_, point_type(i, j));
 
             if (sourceReference != outn.sourceReference) {
-                // difference reference, just update geometry extents
+                // differente reference, just update geometry extents
                 outn.mergeExtents(inn);
+                // and update child flags
+                outn.mergeChildFlags(inn.flags());
                 continue;
             }
 
             // found matching node, copy
 
-            // we need to keep current geometry extents since they are rewritten
-            // by node copy
+            // we need to keep current geometry extents and child flags since
+            // they are rewritten by node copy
             const auto savedExtents(outn.extents);
             const auto savedGeomExtents(outn.geomExtents);
+            const auto flags(outn.flags());
 
             // copy
             outn = inn;
@@ -901,8 +911,10 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
             outn.mergeExtents(savedExtents);
             outn.mergeExtents(savedGeomExtents);
 
-            // reset children and alien flags
-            outn.reset(MetaNode::Flag::allChildren | MetaNode::Flag::alien);
+            // reset alien flags
+            outn.reset(MetaNode::Flag::alien);
+            // and merge-in child flags
+            outn.mergeChildFlags(flags);
         }
     }
 }
