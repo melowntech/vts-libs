@@ -107,6 +107,8 @@ private:
     /** We are (or do not want to be) running out of memory.
      */
     bool scarceMemory_;
+
+    
 };
 
 /** Tilset clone options. Sometimes used for tileset creation.

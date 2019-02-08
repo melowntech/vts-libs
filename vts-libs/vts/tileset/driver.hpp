@@ -33,6 +33,7 @@
 #include <boost/noncopyable.hpp>
 
 #include "utility/runnable.hpp"
+#include "utility/expected.hpp"
 
 #include "../../storage/streams.hpp"
 #include "../../storage/resources.hpp"
@@ -40,19 +41,10 @@
 #include "../../vts.hpp"
 #include "../options.hpp"
 #include "./driver/options.hpp"
+#include "./driver/streams.hpp"
 #include "./tilesetindex.hpp"
 
 namespace vtslibs { namespace vts {
-
-using storage::OStream;
-using storage::IStream;
-using storage::StringIStream;
-using storage::File;
-using storage::TileFile;
-using storage::FileStat;
-using storage::Resources;
-using storage::NullWhenNotFound_t;
-using storage::NullWhenNotFound;
 
 class Driver : boost::noncopyable {
 public:
@@ -145,6 +137,14 @@ public:
 
     IStream::pointer input(File type, const NullWhenNotFound_t&) const;
 
+    /** Same as input(type) but fetches file asynchronously. Calls callback when
+     *  stream is ready.
+     *
+     * \param type file type
+     * \param cb callback called when input stream is ready
+     */
+    void input(File type, const InputCallback &cb) const;
+
     OStream::pointer output(const TileId &tileId, TileFile type);
 
     IStream::pointer input(const TileId &tileId, TileFile type) const;
@@ -152,9 +152,24 @@ public:
     IStream::pointer input(const TileId &tileId, TileFile type
                            , const NullWhenNotFound_t&) const;
 
+    /** Same as input(tileId, type) but fetches file asynchronously. Calls
+     *  callback when stream is ready.
+     *
+     * \param tileId tile ID
+     * \param type tile file type
+     * \param cb callback called when input stream is ready
+     */
+    void input(const TileId &tileId, TileFile type
+               , const InputCallback &cb) const;
+
     FileStat stat(File type) const;
 
+    void stat(File type, const StatCallback &cb) const;
+
     FileStat stat(const TileId &tileId, TileFile type) const;
+
+    void stat(const TileId &tileId, TileFile type
+              , const StatCallback &cb) const;
 
     /** Extra files provided by driver.
      */
@@ -287,6 +302,11 @@ private:
     virtual IStream::pointer input_impl(File type, const NullWhenNotFound_t&)
         const = 0;
 
+    /** Default version calls cb(input_impl(type)) immediately. Override only
+     *  when needed.
+     */
+    virtual void input_impl(File type, const InputCallback &cb) const;
+
     virtual OStream::pointer
     output_impl(const TileId &tileId, TileFile type) = 0;
 
@@ -297,14 +317,25 @@ private:
     input_impl(const TileId &tileId, TileFile type
                , const NullWhenNotFound_t&) const = 0;
 
+    /** Default version calls cb(input_impl(tileId, type)) immediately. Override
+     *  only when needed.
+     */
+    virtual void input_impl(const TileId &tileId, TileFile type
+                            , const InputCallback &cb) const;
+
     virtual void drop_impl() = 0;
 
     virtual void flush_impl() = 0;
 
     virtual FileStat stat_impl(File type) const = 0;
 
+    virtual void stat_impl(File type, const StatCallback &cb) const;
+
     virtual FileStat stat_impl(const TileId &tileId, TileFile type)
         const = 0;
+
+    virtual void stat_impl(const TileId &tileId, TileFile type
+                           , const StatCallback &cb) const;
 
     /** Extra files provided by driver. Optional.
      */
@@ -423,6 +454,13 @@ inline IStream::pointer Driver::input(File type, const NullWhenNotFound_t&)
     return input_impl(type, NullWhenNotFound);
 }
 
+inline void Driver::input(File type, const InputCallback &cb)
+    const
+{
+    checkRunning();
+    return input_impl(type, cb);
+}
+
 inline OStream::pointer Driver::output(const TileId &tileId, TileFile type)
 {
     checkRunning();
@@ -444,16 +482,36 @@ inline IStream::pointer Driver::input(const TileId &tileId, TileFile type
     return input_impl(tileId, type, NullWhenNotFound);
 }
 
+inline void Driver::input(const TileId &tileId, TileFile type
+                          , const InputCallback &cb) const
+{
+    checkRunning();
+    return input_impl(tileId, type, cb);
+}
+
 inline FileStat Driver::stat(File type) const
 {
     checkRunning();
     return stat_impl(type);
 }
 
+inline void Driver::stat(File type, const StatCallback &cb) const
+{
+    checkRunning();
+    return stat_impl(type, cb);
+}
+
 inline FileStat Driver::stat(const TileId &tileId, TileFile type) const
 {
     checkRunning();
     return stat_impl(tileId, type);
+}
+
+inline void Driver::stat(const TileId &tileId, TileFile type
+                         , const StatCallback &cb) const
+{
+    checkRunning();
+    return stat_impl(tileId, type, cb);
 }
 
 inline storage::Resources Driver::resources() const
