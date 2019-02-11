@@ -59,16 +59,16 @@
 #include "../../storage/tidguard.hpp"
 #include "../storage.hpp"
 #include "../../vts.hpp"
-#include "./detail.hpp"
+#include "detail.hpp"
 #include "../tileset/detail.hpp"
 #include "../encoder.hpp"
 #include "../io.hpp"
 
-#include "./config.hpp"
-#include "./paths.hpp"
-#include "./gluerules.hpp"
-#include "./mergeconf.hpp"
-#include "./locking.hpp"
+#include "config.hpp"
+#include "paths.hpp"
+#include "gluerules.hpp"
+#include "mergeconf.hpp"
+#include "locking.hpp"
 
 namespace fs = boost::filesystem;
 

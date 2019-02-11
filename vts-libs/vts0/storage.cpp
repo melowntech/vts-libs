@@ -27,14 +27,14 @@
 
 #include "jsoncpp/io.hpp"
 
-#include "./storage.hpp"
-#include "./tileset.hpp"
+#include "storage.hpp"
+#include "tileset.hpp"
 #include "../vts0.hpp"
-#include "./tileset-advanced.hpp"
+#include "tileset-advanced.hpp"
 #include "../storage/error.hpp"
-#include "./json.hpp"
-#include "./io.hpp"
-#include "./driver.hpp"
+#include "json.hpp"
+#include "io.hpp"
+#include "driver.hpp"
 
 namespace vtslibs { namespace vts0 {
 

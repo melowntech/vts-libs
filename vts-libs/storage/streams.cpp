@@ -36,8 +36,8 @@
 #include "utility/filesystem.hpp"
 #include "utility/time.hpp"
 
-#include "./streams.hpp"
-#include "./error.hpp"
+#include "streams.hpp"
+#include "error.hpp"
 
 namespace vtslibs { namespace storage {
 

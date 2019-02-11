@@ -27,7 +27,7 @@
 
 #include "../tileset-detail.hpp"
 #include "../merge.hpp"
-#include "./dump.hpp"
+#include "dump.hpp"
 #include "../tileindex-io.hpp"
 #include "../tileopext.hpp"
 

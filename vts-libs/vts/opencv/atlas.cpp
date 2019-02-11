@@ -33,7 +33,7 @@
 
 #include "../../storage/error.hpp"
 
-#include "./atlas.hpp"
+#include "atlas.hpp"
 
 namespace fs = boost::filesystem;
 

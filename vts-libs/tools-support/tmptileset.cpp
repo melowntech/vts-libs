@@ -40,7 +40,7 @@
 #include "../vts/opencv/atlas.hpp"
 #include "../vts/tileset/config.hpp"
 
-#include "./tmptileset.hpp"
+#include "tmptileset.hpp"
 
 namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;

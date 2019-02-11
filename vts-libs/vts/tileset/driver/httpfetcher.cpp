@@ -41,7 +41,7 @@
 #include "../../../storage/error.hpp"
 #include "../../../storage/sstreams.hpp"
 #include "../../tileop.hpp"
-#include "./httpfetcher.hpp"
+#include "httpfetcher.hpp"
 
 namespace ba = boost::algorithm;
 

@@ -30,7 +30,7 @@
 
 #include "../../storage/error.hpp"
 
-#include "./mergeconf.hpp"
+#include "mergeconf.hpp"
 
 namespace po = boost::program_options;
 namespace ba = boost::algorithm;

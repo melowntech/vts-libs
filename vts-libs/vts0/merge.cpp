@@ -44,9 +44,9 @@
 #include "geometry/mesh.hpp"
 #include "geometry/meshop.hpp"
 
-#include "./tileset.hpp"
-#include "./merge.hpp"
-#include "./io.hpp"
+#include "tileset.hpp"
+#include "merge.hpp"
+#include "io.hpp"
 
 #include "geometry/binmesh.hpp"
 

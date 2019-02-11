@@ -27,8 +27,8 @@
 
 #include "jsoncpp/io.hpp"
 
-#include "./config.hpp"
-#include "./json.hpp"
+#include "config.hpp"
+#include "json.hpp"
 #include "../storage/error.hpp"
 
 namespace vtslibs { namespace vts0 {

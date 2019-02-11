@@ -38,10 +38,10 @@
 #include "half/half.hpp"
 
 #include "../storage/error.hpp"
-#include "./tileop.hpp"
-#include "./io.hpp"
-#include "./types.hpp"
-#include "./metatileop.hpp"
+#include "tileop.hpp"
+#include "io.hpp"
+#include "types.hpp"
+#include "metatileop.hpp"
 
 namespace vtslibs { namespace vts0 {
 

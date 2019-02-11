@@ -31,7 +31,7 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./progress.hpp"
+#include "progress.hpp"
 
 namespace po = boost::program_options;
 

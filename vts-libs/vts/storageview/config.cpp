@@ -30,8 +30,8 @@
 #include "jsoncpp/as.hpp"
 #include "jsoncpp/io.hpp"
 
-#include "./config.hpp"
-#include "./detail.hpp"
+#include "config.hpp"
+#include "detail.hpp"
 #include "../../storage/error.hpp"
 #include "../../registry/json.hpp"
 #include "../storage/config.hpp"

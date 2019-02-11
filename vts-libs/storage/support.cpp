@@ -25,7 +25,7 @@
  */
 #include <cstring>
 
-#include "./support.hpp"
+#include "support.hpp"
 
 namespace vtslibs { namespace storage {
 

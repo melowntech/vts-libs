@@ -36,9 +36,9 @@
 
 #include "../storage/error.hpp"
 
-#include "./metatile.hpp"
-#include "./io.hpp"
-#include "./tileop.hpp"
+#include "metatile.hpp"
+#include "io.hpp"
+#include "tileop.hpp"
 
 namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;

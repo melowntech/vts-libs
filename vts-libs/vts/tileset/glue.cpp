@@ -35,8 +35,8 @@
 
 #include "../../storage/tidguard.hpp"
 #include "../meshop.hpp"
-#include "./detail.hpp"
-#include "./merge.hpp"
+#include "detail.hpp"
+#include "merge.hpp"
 
 namespace fs = boost::filesystem;
 

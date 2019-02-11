@@ -31,7 +31,7 @@
 
 #include "vts-libs/vts0.hpp"
 
-#include "./commands.hpp"
+#include "commands.hpp"
 
 namespace fs = boost::filesystem;
 namespace vs = vtslibs::storage;

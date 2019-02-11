@@ -23,7 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include "./colors.hpp"
+#include "colors.hpp"
 
 namespace vtslibs { namespace vts { namespace opencv {
 

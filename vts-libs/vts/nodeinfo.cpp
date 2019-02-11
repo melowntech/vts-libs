@@ -27,9 +27,9 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./nodeinfo.hpp"
-#include "./tileop.hpp"
-#include "./csconvertor.hpp"
+#include "nodeinfo.hpp"
+#include "tileop.hpp"
+#include "csconvertor.hpp"
 
 namespace vtslibs { namespace vts {
 

@@ -37,9 +37,9 @@
 #include "../registry/json.hpp"
 #include "../storage/error.hpp"
 
-#include "./tileop.hpp"
-#include "./mapconfig.hpp"
-#include "./mapconfig-json.hpp"
+#include "tileop.hpp"
+#include "mapconfig.hpp"
+#include "mapconfig-json.hpp"
 
 namespace fs = boost::filesystem;
 

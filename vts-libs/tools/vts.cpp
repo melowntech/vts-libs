@@ -77,8 +77,8 @@
 #include "../vts/meshopinput.hpp"
 #include "../vts/tsmap.hpp"
 
-#include "./locker.hpp"
-#include "./support/urlfetcher.hpp"
+#include "locker.hpp"
+#include "support/urlfetcher.hpp"
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;

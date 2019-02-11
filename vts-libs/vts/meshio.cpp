@@ -41,8 +41,8 @@
 #include "../storage/error.hpp"
 #include "../registry/referenceframe.hpp"
 
-#include "./mesh.hpp"
-#include "./atlas.hpp"
+#include "mesh.hpp"
+#include "atlas.hpp"
 
 namespace fs = boost::filesystem;
 namespace bio = boost::iostreams;

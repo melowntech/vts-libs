@@ -48,7 +48,7 @@
 #include "../tilesetindex.hpp"
 #include "../config.hpp"
 
-#include "./runcallback.hpp"
+#include "runcallback.hpp"
 
 namespace vtslibs { namespace vts {
 

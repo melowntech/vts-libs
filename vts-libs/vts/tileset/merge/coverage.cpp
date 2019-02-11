@@ -44,8 +44,8 @@
 #include "imgproc/svg.hpp"
 
 #include "../../opencv/colors.hpp"
-#include "./support.hpp"
-#include "./coverage.hpp"
+#include "support.hpp"
+#include "coverage.hpp"
 
 // debug
 #include "../../opencv/navtile.hpp"

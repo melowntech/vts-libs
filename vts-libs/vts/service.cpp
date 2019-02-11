@@ -34,8 +34,8 @@
 #include "../storage/error.hpp"
 #include "../storage/sstreams.hpp"
 
-#include "./service.hpp"
-#include "./atmospheredensitytexture.hpp"
+#include "service.hpp"
+#include "atmospheredensitytexture.hpp"
 
 namespace uq = utility::query;
 

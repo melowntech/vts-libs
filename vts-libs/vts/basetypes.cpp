@@ -29,8 +29,8 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./glue.hpp"
-#include "./tileop.hpp"
+#include "glue.hpp"
+#include "tileop.hpp"
 
 namespace vtslibs { namespace vts {
 

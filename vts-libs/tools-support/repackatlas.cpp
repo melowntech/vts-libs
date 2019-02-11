@@ -31,7 +31,7 @@
 
 #include "imgproc/uvpack.hpp"
 
-#include "./repackatlas.hpp"
+#include "repackatlas.hpp"
 
 namespace vtslibs { namespace vts { namespace tools {
 

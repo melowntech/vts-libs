@@ -31,10 +31,10 @@
 
 #include "../storage/error.hpp"
 
-#include "./tileindex.hpp"
-#include "./tileop.hpp"
-#include "./io.hpp"
-#include "./tileindex-io.hpp"
+#include "tileindex.hpp"
+#include "tileop.hpp"
+#include "io.hpp"
+#include "tileindex-io.hpp"
 
 namespace vtslibs { namespace vts {
 

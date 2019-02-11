@@ -50,10 +50,10 @@
 #include "utility/enum.hpp"
 #include "utility/raise.hpp"
 
-#include "./tilar.hpp"
-#include "./tilar-io.hpp"
-#include "./error.hpp"
-#include "./openfiles.hpp"
+#include "tilar.hpp"
+#include "tilar-io.hpp"
+#include "error.hpp"
+#include "openfiles.hpp"
 
 namespace vtslibs { namespace storage {
 

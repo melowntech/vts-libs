@@ -60,7 +60,7 @@
 #include "../../tileflags.hpp"
 #include "../config.hpp"
 #include "../detail.hpp"
-#include "./aggregated.hpp"
+#include "aggregated.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 

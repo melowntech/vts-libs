@@ -36,9 +36,9 @@
 #include "../tileindex-io.hpp"
 #include "../io.hpp"
 #include "../csconvertor.hpp"
-#include "./detail.hpp"
-#include "./driver.hpp"
-#include "./config.hpp"
+#include "detail.hpp"
+#include "driver.hpp"
+#include "config.hpp"
 
 namespace fs = boost::filesystem;
 

@@ -41,7 +41,7 @@
 #include "utility/steady-clock.hpp"
 #include "utility/future.hpp"
 
-#include "./locker.hpp"
+#include "locker.hpp"
 
 namespace asio = boost::asio;
 namespace fs = boost::filesystem;

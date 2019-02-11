@@ -26,10 +26,10 @@
 
 #include "../storage/error.hpp"
 
-#include "./2d.hpp"
-#include "./qtree-rasterize.hpp"
-#include "./tileop.hpp"
-#include "./gil/colors.hpp"
+#include "2d.hpp"
+#include "qtree-rasterize.hpp"
+#include "tileop.hpp"
+#include "gil/colors.hpp"
 
 namespace bgil = boost::gil;
 

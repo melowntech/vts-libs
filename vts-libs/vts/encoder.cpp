@@ -34,10 +34,10 @@
 
 #include "../vts.hpp"
 
-#include "./tileop.hpp"
-#include "./io.hpp"
-#include "./encoder.hpp"
-#include "./csconvertor.hpp"
+#include "tileop.hpp"
+#include "io.hpp"
+#include "encoder.hpp"
+#include "csconvertor.hpp"
 #include "../storage/error.hpp"
 
 namespace vtslibs { namespace vts {

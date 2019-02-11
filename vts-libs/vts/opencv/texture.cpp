@@ -28,7 +28,7 @@
 #include "imgproc/scanconversion.hpp"
 #include "imgproc/fillrect.hpp"
 
-#include "./texture.hpp"
+#include "texture.hpp"
 
 namespace vtslibs { namespace vts { namespace opencv {
 
