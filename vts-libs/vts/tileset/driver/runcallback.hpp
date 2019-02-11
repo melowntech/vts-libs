@@ -33,17 +33,17 @@
 
 namespace vtslibs { namespace vts {
 
-template <typename Generator, typename ValueType>
+template <typename Generator, typename ValueType, typename Traits>
 void runCallback(const Generator &generator
                  , const std::function<void(const utility::Expected
-                                            <ValueType>&)> &cb);
+                                            <ValueType, Traits>&)> &cb);
 
 // implementation
 
-template <typename Generator, typename ValueType>
+template <typename Generator, typename ValueType, typename Traits>
 void runCallback(const Generator &generator
                  , const std::function<void(const utility::Expected
-                                            <ValueType>&)> &cb)
+                                            <ValueType, Traits>&)> &cb)
 {
     utility::Expected<ValueType> evalue;
     try {
