@@ -28,8 +28,8 @@
 
 #include "jsoncpp/json.hpp"
 
-#include "./properties.hpp"
-#include "./storage.hpp"
+#include "properties.hpp"
+#include "storage.hpp"
 
 namespace vtslibs { namespace vts0 {
 

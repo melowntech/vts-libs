@@ -31,7 +31,7 @@
 #ifndef vtslibs_registry_datafile_hpp_included_
 #define vtslibs_registry_datafile_hpp_included_
 
-#include "./dict.hpp"
+#include "dict.hpp"
 
 namespace vtslibs { namespace registry {
 

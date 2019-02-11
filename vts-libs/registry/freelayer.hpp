@@ -41,7 +41,7 @@
 
 #include "utility/uri.hpp"
 
-#include "./referenceframe.hpp"
+#include "referenceframe.hpp"
 
 namespace vtslibs { namespace registry {
 

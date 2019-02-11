@@ -29,7 +29,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "./tileindex.hpp"
+#include "tileindex.hpp"
 
 namespace vtslibs { namespace vts {
 

@@ -49,16 +49,16 @@
 #include "../storage/range.hpp"
 #include "../storage/resources.hpp"
 
-#include "./basetypes.hpp"
-#include "./types.hpp"
-#include "./mesh.hpp"
-#include "./metatile.hpp"
-#include "./atlas.hpp"
-#include "./tileset/properties.hpp"
-#include "./mapconfig.hpp"
-#include "./tileindex.hpp"
-#include "./tilesource.hpp"
-#include "./options.hpp"
+#include "basetypes.hpp"
+#include "types.hpp"
+#include "mesh.hpp"
+#include "metatile.hpp"
+#include "atlas.hpp"
+#include "tileset/properties.hpp"
+#include "mapconfig.hpp"
+#include "tileindex.hpp"
+#include "tilesource.hpp"
+#include "options.hpp"
 
 namespace vtslibs { namespace vts {
 

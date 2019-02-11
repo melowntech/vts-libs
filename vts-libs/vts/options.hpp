@@ -39,9 +39,9 @@
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
 
-#include "./basetypes.hpp"
-#include "./tileindex.hpp"
-#include "./metatile.hpp"
+#include "basetypes.hpp"
+#include "tileindex.hpp"
+#include "metatile.hpp"
 
 namespace vtslibs { namespace vts {
 

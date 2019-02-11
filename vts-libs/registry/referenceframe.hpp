@@ -49,8 +49,8 @@
 #include "../storage/lod.hpp"
 #include "../storage/credits.hpp"
 
-#include "./types.hpp"
-#include "./dict.hpp"
+#include "types.hpp"
+#include "dict.hpp"
 
 namespace vtslibs { namespace registry {
 

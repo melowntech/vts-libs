@@ -33,8 +33,8 @@
 
 #include "../../storage/streams.hpp"
 
-#include "./tilardriver/options.hpp"
-#include "./tilardriver/cache.hpp"
+#include "tilardriver/options.hpp"
+#include "tilardriver/cache.hpp"
 
 namespace vtslibs { namespace vts0 {
 

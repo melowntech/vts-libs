@@ -30,7 +30,7 @@
 
 #include "math/geometry_core.hpp"
 
-#include "./basetypes.hpp"
+#include "basetypes.hpp"
 
 namespace vtslibs { namespace vts {
 

@@ -32,10 +32,10 @@
 #include "jsoncpp/json.hpp"
 
 #include "../vts0.hpp"
-#include "./tileindex.hpp"
-#include "./io.hpp"
-#include "./tileop.hpp"
-#include "./driver.hpp"
+#include "tileindex.hpp"
+#include "io.hpp"
+#include "tileop.hpp"
+#include "driver.hpp"
 
 namespace vtslibs { namespace vts0 {
 

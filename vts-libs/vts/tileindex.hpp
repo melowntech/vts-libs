@@ -30,9 +30,9 @@
 
 #include <boost/filesystem/path.hpp>
 
-#include "./qtree.hpp"
-#include "./basetypes.hpp"
-#include "./tileop.hpp"
+#include "qtree.hpp"
+#include "basetypes.hpp"
+#include "tileop.hpp"
 
 namespace vtslibs { namespace vts {
 

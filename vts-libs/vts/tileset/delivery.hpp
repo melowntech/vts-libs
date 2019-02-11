@@ -33,9 +33,9 @@
 #include "../../storage/streams.hpp"
 #include "../../storage/resources.hpp"
 #include "../mapconfig.hpp"
-#include "./properties.hpp"
+#include "properties.hpp"
 
-#include "./driver/streams.hpp"
+#include "driver/streams.hpp"
 
 namespace vtslibs { namespace vts {
 

@@ -31,9 +31,9 @@
 
 
 #include "../registry.hpp"
-#include "./urltemplate.hpp"
-#include "./nodeinfo.hpp"
-#include "./tileop.hpp"
+#include "urltemplate.hpp"
+#include "nodeinfo.hpp"
+#include "tileop.hpp"
 
 namespace vtslibs { namespace vts {
 

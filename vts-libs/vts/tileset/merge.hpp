@@ -40,7 +40,7 @@
 #include "../opencv/atlas.hpp"
 #include "../opencv/navtile.hpp"
 #include "../meshopinput.hpp"
-#include "./detail.hpp"
+#include "detail.hpp"
 
 namespace vtslibs { namespace vts { namespace merge {
 

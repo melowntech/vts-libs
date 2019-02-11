@@ -35,8 +35,8 @@
 
 #include "utility/runnable.hpp"
 
-#include "./basetypes.hpp"
-#include "./properties.hpp"
+#include "basetypes.hpp"
+#include "properties.hpp"
 #include "../storage/streams.hpp"
 #include "../storage/resources.hpp"
 

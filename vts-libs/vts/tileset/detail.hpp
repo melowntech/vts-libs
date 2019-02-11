@@ -37,10 +37,10 @@
 
 #include "../tileset.hpp"
 #include "../tileindex.hpp"
-#include "./driver.hpp"
-#include "./tilesetindex.hpp"
-#include "./metacache.hpp"
-#include "./extra.hpp"
+#include "driver.hpp"
+#include "tilesetindex.hpp"
+#include "metacache.hpp"
+#include "extra.hpp"
 
 namespace vtslibs { namespace vts {
 

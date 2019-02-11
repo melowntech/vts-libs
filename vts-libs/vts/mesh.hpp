@@ -38,10 +38,10 @@
 
 #include "../storage/streams.hpp"
 
-#include "./qtree.hpp"
-#include "./multifile.hpp"
-#include "./geomextents.hpp"
-#include "./csconvertor.hpp"
+#include "qtree.hpp"
+#include "multifile.hpp"
+#include "geomextents.hpp"
+#include "csconvertor.hpp"
 
 namespace vtslibs { namespace vts {
 

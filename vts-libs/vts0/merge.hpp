@@ -28,8 +28,8 @@
 
 #include <boost/optional.hpp>
 
-#include "./types.hpp"
-#include "./tileset.hpp"
+#include "types.hpp"
+#include "tileset.hpp"
 
 namespace vtslibs { namespace vts0 {
 

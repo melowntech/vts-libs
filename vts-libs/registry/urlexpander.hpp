@@ -31,8 +31,8 @@
 
 #include "utility/uri.hpp"
 
-#include "./referenceframe.hpp"
-#include "./freelayer.hpp"
+#include "referenceframe.hpp"
+#include "freelayer.hpp"
 
 namespace vtslibs { namespace registry {
 

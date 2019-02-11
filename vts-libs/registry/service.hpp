@@ -40,7 +40,7 @@
 
 #include <boost/any.hpp>
 
-#include "./stringdict.hpp"
+#include "stringdict.hpp"
 
 namespace vtslibs { namespace registry {
 

@@ -50,10 +50,10 @@
 #include "math/geometry.hpp"
 #include "geometry/parse-obj.hpp"
 
-#include "./storage/error.hpp"
-#include "./vts0/types.hpp"
-#include "./vts0/tileset.hpp"
-#include "./vts0/storage.hpp"
+#include "storage/error.hpp"
+#include "vts0/types.hpp"
+#include "vts0/tileset.hpp"
+#include "vts0/storage.hpp"
 
 namespace vtslibs { namespace vts0 {
 

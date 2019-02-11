@@ -30,8 +30,8 @@
 
 #include "geometry/parse-obj.hpp"
 
-#include "./basetypes.hpp"
-#include "./metatile.hpp"
+#include "basetypes.hpp"
+#include "metatile.hpp"
 
 namespace vtslibs { namespace vts0 {
 

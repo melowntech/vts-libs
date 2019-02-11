@@ -35,7 +35,7 @@
 #define vtslibs_vts0_tileset_advanced_hpp_included_
 
 #include "../storage/streams.hpp"
-#include "./tileset.hpp"
+#include "tileset.hpp"
 
 namespace vtslibs { namespace vts0 {
 

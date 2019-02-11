@@ -40,9 +40,9 @@
 
 #include "../../vts.hpp"
 #include "../options.hpp"
-#include "./driver/options.hpp"
-#include "./driver/streams.hpp"
-#include "./tilesetindex.hpp"
+#include "driver/options.hpp"
+#include "driver/streams.hpp"
+#include "tilesetindex.hpp"
 
 namespace vtslibs { namespace vts {
 

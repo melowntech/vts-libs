@@ -33,7 +33,7 @@
 #include "utility/supplement.hpp"
 #include "utility/enum-io.hpp"
 
-#include "./basetypes.hpp"
+#include "basetypes.hpp"
 
 namespace vtslibs { namespace vts {
 

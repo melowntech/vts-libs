@@ -27,7 +27,7 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./qtree.hpp"
+#include "qtree.hpp"
 
 namespace vtslibs { namespace vts {
 

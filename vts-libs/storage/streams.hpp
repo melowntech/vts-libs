@@ -43,7 +43,7 @@
 #  include <Windows.h>
 #endif
 
-#include "./filetypes.hpp"
+#include "filetypes.hpp"
 
 namespace vtslibs { namespace storage {
 

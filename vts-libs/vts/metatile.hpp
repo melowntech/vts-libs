@@ -43,9 +43,9 @@
 #include "../storage/credits.hpp"
 #include "../storage/range.hpp"
 
-#include "./basetypes.hpp"
-#include "./tileop.hpp"
-#include "./geomextents.hpp"
+#include "basetypes.hpp"
+#include "tileop.hpp"
+#include "geomextents.hpp"
 
 typedef half_float::half hfloat;
 

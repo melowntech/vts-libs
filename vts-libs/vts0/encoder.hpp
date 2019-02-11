@@ -32,7 +32,7 @@
 
 #include "geo/srsdef.hpp"
 
-#include "./tileset.hpp"
+#include "tileset.hpp"
 
 namespace vtslibs { namespace vts0 {
 

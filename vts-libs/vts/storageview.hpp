@@ -42,10 +42,10 @@
 
 #include "utility/enum-io.hpp"
 
-#include "./tileset.hpp"
-#include "./basetypes.hpp"
+#include "tileset.hpp"
+#include "basetypes.hpp"
 
-#include "./storage.hpp"
+#include "storage.hpp"
 
 namespace vtslibs { namespace vts {
 

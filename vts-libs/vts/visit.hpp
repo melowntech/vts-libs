@@ -33,8 +33,8 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./tileset.hpp"
-#include "./nodeinfo.hpp"
+#include "tileset.hpp"
+#include "nodeinfo.hpp"
 
 namespace vtslibs { namespace vts {
 

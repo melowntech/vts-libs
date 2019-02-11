@@ -41,7 +41,7 @@
 
 #include "utility/runnable.hpp"
 
-#include "./properties.hpp"
+#include "properties.hpp"
 
 namespace vtslibs { namespace vts0 {
 

@@ -31,7 +31,7 @@
 #include <memory>
 
 #include "../driver.hpp"
-#include "./httpfetcher.hpp"
+#include "httpfetcher.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 

@@ -29,7 +29,7 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./streams.hpp"
+#include "streams.hpp"
 
 namespace vtslibs { namespace vts {
 

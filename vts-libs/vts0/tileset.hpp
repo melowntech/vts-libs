@@ -51,9 +51,9 @@
 
 #include "utility/runnable.hpp"
 
-#include "./types.hpp"
-#include "./tileindex.hpp"
-#include "./properties.hpp"
+#include "types.hpp"
+#include "tileindex.hpp"
+#include "properties.hpp"
 
 namespace vtslibs { namespace vts0 {
 

@@ -43,12 +43,12 @@
 #include "utility/enum-io.hpp"
 #include "utility/runnable.hpp"
 
-#include "./tileset.hpp"
-#include "./basetypes.hpp"
-#include "./glue.hpp"
-#include "./virtualsurface.hpp"
-#include "./options.hpp"
-#include "./storage/locking.hpp"
+#include "tileset.hpp"
+#include "basetypes.hpp"
+#include "glue.hpp"
+#include "virtualsurface.hpp"
+#include "options.hpp"
+#include "storage/locking.hpp"
 
 namespace vtslibs { namespace vts {
 

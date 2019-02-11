@@ -28,8 +28,8 @@
 
 #include "../storage/streams.hpp"
 
-#include "./metatile.hpp"
-#include "./tileindex.hpp"
+#include "metatile.hpp"
+#include "tileindex.hpp"
 
 namespace vtslibs { namespace vts {
 

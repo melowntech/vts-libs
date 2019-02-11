@@ -38,7 +38,7 @@
 #include "../storage/streams.hpp"
 #include "../storage/range.hpp"
 
-#include "./multifile.hpp"
+#include "multifile.hpp"
 
 namespace vtslibs { namespace vts {
 

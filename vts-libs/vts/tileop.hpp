@@ -30,9 +30,9 @@
 
 #include "../storage/filetypes.hpp"
 
-#include "./basetypes.hpp"
-#include "./nodeinfo.hpp"
-#include "./types.hpp"
+#include "basetypes.hpp"
+#include "nodeinfo.hpp"
+#include "types.hpp"
 
 namespace vtslibs { namespace vts {
 

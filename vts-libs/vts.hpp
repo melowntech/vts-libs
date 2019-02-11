@@ -38,13 +38,13 @@
 
 #include "utility/runnable.hpp"
 
-#include "./storage/lod.hpp"
-#include "./storage/range.hpp"
+#include "storage/lod.hpp"
+#include "storage/range.hpp"
 
-#include "./vts/options.hpp"
-#include "./vts/tileset.hpp"
-#include "./vts/storage.hpp"
-#include "./vts/storageview.hpp"
+#include "vts/options.hpp"
+#include "vts/tileset.hpp"
+#include "vts/storage.hpp"
+#include "vts/storageview.hpp"
 
 namespace vtslibs { namespace vts {
 

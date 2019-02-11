@@ -36,7 +36,7 @@
 
 #include "math/geometry_core.hpp"
 
-#include "./multifile.hpp"
+#include "multifile.hpp"
 
 #include "../storage/streams.hpp"
 

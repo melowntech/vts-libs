@@ -36,9 +36,9 @@
 #include "geo/geodataset.hpp"
 
 #include "../registry.hpp"
-#include "./basetypes.hpp"
-#include "./opencv/navtile.hpp"
-#include "./meshopinput.hpp"
+#include "basetypes.hpp"
+#include "opencv/navtile.hpp"
+#include "meshopinput.hpp"
 
 namespace vtslibs { namespace vts {
 

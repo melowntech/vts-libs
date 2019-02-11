@@ -35,7 +35,7 @@
 #include "../tools-support/progress.hpp"
 #include "../vts/ntgenerator.hpp"
 
-#include "./tmptileset.hpp"
+#include "tmptileset.hpp"
 
 namespace vtslibs { namespace vts { namespace tools {
 
