@@ -343,23 +343,6 @@ inline void fixmeAsync() {
 
 } // namespace
 
-void Delivery::input(File type, const InputCallback &cb) const
-{
-    switch (type) {
-    case File::config:
-        return driver_->input(type, [cb](const EIStream &eis) -> void
-        {
-            // forward error or run the callback
-            if (!eis) { return cb(eis); }
-            runCallback([&]() { return filterConfig(eis.get()); }, cb);
-        });
-
-    default: break;
-    }
-
-    return driver_->input(type, cb);
-}
-
 IStream::pointer Delivery::input(const TileId &tileId, TileFile type
                                  , FileFlavor flavor) const
 {
@@ -430,11 +413,6 @@ void Delivery::input(const TileId &tileId, TileFile type, FileFlavor flavor
 FileStat Delivery::stat(File type) const
 {
     return driver_->stat(type);
-}
-
-void Delivery::stat(File type, const StatCallback &cb) const
-{
-    return driver_->stat(type, cb);
 }
 
 FileStat Delivery::stat(const TileId &tileId, TileFile type) const

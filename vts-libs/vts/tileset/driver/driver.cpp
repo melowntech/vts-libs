@@ -606,20 +606,10 @@ Driver::oldRevision(const boost::filesystem::path &root)
     return tileset::loadRevision(root / filePath(File::config));
 }
 
-void Driver::input_impl(File type, const InputCallback &cb) const
-{
-    runCallback([&]() { return input_impl(type); }, cb);
-}
-
 void Driver::input_impl(const TileId &tileId, TileFile type
                         , const InputCallback &cb) const
 {
     runCallback([&]() { return input_impl(tileId, type); }, cb);
-}
-
-void Driver::stat_impl(File type, const StatCallback &cb) const
-{
-    runCallback([&]() { return stat_impl(type); }, cb);
 }
 
 void Driver::stat_impl(const TileId &tileId, TileFile type

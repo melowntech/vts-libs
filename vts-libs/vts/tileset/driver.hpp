@@ -137,14 +137,6 @@ public:
 
     IStream::pointer input(File type, const NullWhenNotFound_t&) const;
 
-    /** Same as input(type) but fetches file asynchronously. Calls callback when
-     *  stream is ready.
-     *
-     * \param type file type
-     * \param cb callback called when input stream is ready
-     */
-    void input(File type, const InputCallback &cb) const;
-
     OStream::pointer output(const TileId &tileId, TileFile type);
 
     IStream::pointer input(const TileId &tileId, TileFile type) const;
@@ -163,8 +155,6 @@ public:
                , const InputCallback &cb) const;
 
     FileStat stat(File type) const;
-
-    void stat(File type, const StatCallback &cb) const;
 
     FileStat stat(const TileId &tileId, TileFile type) const;
 
@@ -302,11 +292,6 @@ private:
     virtual IStream::pointer input_impl(File type, const NullWhenNotFound_t&)
         const = 0;
 
-    /** Default version calls cb(input_impl(type)) immediately. Override only
-     *  when needed.
-     */
-    virtual void input_impl(File type, const InputCallback &cb) const;
-
     virtual OStream::pointer
     output_impl(const TileId &tileId, TileFile type) = 0;
 
@@ -328,8 +313,6 @@ private:
     virtual void flush_impl() = 0;
 
     virtual FileStat stat_impl(File type) const = 0;
-
-    virtual void stat_impl(File type, const StatCallback &cb) const;
 
     virtual FileStat stat_impl(const TileId &tileId, TileFile type)
         const = 0;
@@ -454,13 +437,6 @@ inline IStream::pointer Driver::input(File type, const NullWhenNotFound_t&)
     return input_impl(type, NullWhenNotFound);
 }
 
-inline void Driver::input(File type, const InputCallback &cb)
-    const
-{
-    checkRunning();
-    return input_impl(type, cb);
-}
-
 inline OStream::pointer Driver::output(const TileId &tileId, TileFile type)
 {
     checkRunning();
@@ -493,12 +469,6 @@ inline FileStat Driver::stat(File type) const
 {
     checkRunning();
     return stat_impl(type);
-}
-
-inline void Driver::stat(File type, const StatCallback &cb) const
-{
-    checkRunning();
-    return stat_impl(type, cb);
 }
 
 inline FileStat Driver::stat(const TileId &tileId, TileFile type) const
