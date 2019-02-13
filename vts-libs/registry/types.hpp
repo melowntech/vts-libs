@@ -35,6 +35,7 @@
 #include <string>
 
 #include <boost/optional.hpp>
+#include <boost/any.hpp>
 
 #include "math/geometry_core.hpp"
 
