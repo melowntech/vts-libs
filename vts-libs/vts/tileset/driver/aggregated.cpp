@@ -61,6 +61,7 @@
 #include "../config.hpp"
 #include "../detail.hpp"
 #include "aggregated.hpp"
+#include "runcallback.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 
@@ -846,6 +847,61 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
 
     LOG(err1) << "There is no " << type << " for " << tileId << ".";
     return {};
+}
+
+void AggregatedDriver::input_impl(const TileId &tileId, TileFile type
+                                  , const InputCallback &cb) const
+{
+    if (type == TileFile::meta) {
+        if (!tsi_.meta(tileId)) {
+            return runCallback([&]() -> IStream::pointer
+            {
+                LOGTHROW(err1, vs::NoSuchFile)
+                    << "There is no " << type << " for " << tileId << ".";
+                throw;
+            }, cb);
+        }
+
+        if (cache_ && tsi_.staticMeta(tileId)) {
+            return runCallback([&]()
+            {
+                return cache_->input(tileId, type);
+            }, cb);
+        }
+
+        // TODO make me asynchronous!
+        return runCallback([&]()
+        {
+            return buildMeta(drivers_, root(), referenceFrame_
+                             , configStat().lastModified, tileId
+                             , tsi_.tileIndex, surfaceReferences_, true);
+        }, cb);
+    }
+
+    const auto flags(tsi_.checkAndGetFlags(tileId, type));
+    if (!flags) {
+        return runCallback([&]() -> IStream::pointer
+        {
+            LOGTHROW(err1, vs::NoSuchFile)
+                << "There is no " << type << " for " << tileId << ".";
+            throw;
+        }, cb);
+    }
+
+    // get dataset id
+    const auto sourceReference(sourceReferenceFromFlags(flags));
+
+    // NB: source reference is 1-based
+    if (sourceReference && (sourceReference <= drivers_.size())) {
+        return drivers_[sourceReference - 1].driver->input(tileId, type, cb);
+    }
+
+    return runCallback([&]() -> IStream::pointer
+    {
+        LOGTHROW(err1, vs::NoSuchFile)
+            << "There is no " << type << " for " << tileId << ".";
+        throw;
+    }, cb);
 }
 
 FileStat AggregatedDriver::stat_impl(File type) const

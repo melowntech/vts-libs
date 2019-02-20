@@ -42,6 +42,7 @@
 #include "../../../storage/sstreams.hpp"
 #include "../../tileop.hpp"
 #include "httpfetcher.hpp"
+#include "runcallback.hpp"
 
 namespace ba = boost::algorithm;
 
@@ -143,6 +144,18 @@ IStream::pointer fetchAsStream(const std::string rootUrl
     return tryFetch();
 }
 
+void fetchAsStream(const std::string rootUrl
+                   , const std::string &filename
+                   , const char *contentType
+                   , const OpenOptions &options
+                   , const InputCallback &cb)
+{
+    // FIXME: make me really asynchronous
+    LOG(info4) << "async fetch: " << filename << ".";
+    runCallback([&]() { return fetchAsStream(rootUrl, filename, contentType
+                                             , options, true); }, cb);
+}
+
 std::string fixUrl(const std::string &input, const OpenOptions &options)
 {
     utility::Uri uri(input);
@@ -191,8 +204,7 @@ HttpFetcher::HttpFetcher(const std::string &rootUrl
 IStream::pointer HttpFetcher::input(File type, bool noSuchFile)
     const
 {
-    return fetchAsStream(rootUrl_, filePath(type)
-                         , contentType(type), options_
+    return fetchAsStream(rootUrl_, filePath(type), contentType(type), options_
                          , noSuchFile);
 }
 
@@ -201,8 +213,15 @@ IStream::pointer HttpFetcher::input(const TileId &tileId, TileFile type
     const
 {
     return fetchAsStream(rootUrl_, remotePath(tileId, type, revision)
-                         , contentType(type), options_
-                         , noSuchFile);
+                         , contentType(type), options_, noSuchFile);
+}
+
+void HttpFetcher::input(const TileId &tileId, TileFile type
+                        , unsigned int revision
+                        , const InputCallback &cb) const
+{
+    return fetchAsStream(rootUrl_, remotePath(tileId, type, revision)
+                         , contentType(type), options_, cb);
 }
 
 } } } // namespace vtslibs::vts::driver

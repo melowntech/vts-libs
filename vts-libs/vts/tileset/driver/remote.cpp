@@ -226,6 +226,13 @@ IStream::pointer RemoteDriver::input_impl(const TileId &tileId
     return fetcher_.input(tileId, type, revision_, false);
 }
 
+void RemoteDriver::input_impl(const TileId &tileId, TileFile type
+                              , const InputCallback &cb)
+    const
+{
+    return fetcher_.input(tileId, type, revision_, cb);
+}
+
 FileStat RemoteDriver::stat_impl(File type) const
 {
     const auto name(filePath(type));

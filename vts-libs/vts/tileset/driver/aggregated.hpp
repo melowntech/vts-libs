@@ -195,6 +195,9 @@ private:
     IStream::pointer input_impl(const TileId &tileId, TileFile type
                                 , bool noSuchFile) const;
 
+    virtual void input_impl(const TileId &tileId, TileFile type
+                            , const InputCallback &cb) const;
+
     virtual void drop_impl();
 
     virtual void flush_impl();
