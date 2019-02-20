@@ -77,9 +77,9 @@ const std::string remotePath(const TileId &tileId, TileFile type
         case TileFile::mesh: return ".rmesh";
         case TileFile::atlas: return ".ratlas";
         case TileFile::navtile: return ".rnavtile";
-        default: throw "Unexpected TileFile value. Go fix your program.";
+        default: break;
         }
-        throw;
+        throw "Unexpected TileFile value. Go fix your program.";
     }());
 
     return str(boost::format("%d-%d-%d%s?%d")
@@ -88,7 +88,16 @@ const std::string remotePath(const TileId &tileId, TileFile type
 
 http::OnDemandClient sharedClient(4);
 
-IStream::pointer fetchAsStream(const std::string rootUrl
+std::string joinUrl(std::string url, const std::string &filename)
+{
+    if (!url.empty() && (url.back() != '/')) {
+        url.push_back('/');
+    }
+    url.append(filename);
+    return url;
+}
+
+IStream::pointer fetchAsStream(const std::string &rootUrl
                                , const std::string &filename
                                , const char *contentType
                                , const OpenOptions &options
@@ -96,7 +105,7 @@ IStream::pointer fetchAsStream(const std::string rootUrl
 {
     const auto &fetcher(sharedClient.fetcher());
 
-    const std::string url(rootUrl + "/" + filename);
+    const std::string url(joinUrl(rootUrl, filename));
 
     auto tryFetch([&]() -> IStream::pointer
     {
@@ -144,16 +153,103 @@ IStream::pointer fetchAsStream(const std::string rootUrl
     return tryFetch();
 }
 
-void fetchAsStream(const std::string rootUrl
+class AsyncFetcher
+    : public std::enable_shared_from_this<AsyncFetcher>
+{
+public:
+    AsyncFetcher(const std::string &url, const char *contentType
+                 , const OpenOptions &options, const InputCallback &cb)
+        : fetcher_(sharedClient.fetcher())
+        , url_(url), contentType_(contentType)
+        , cb_(cb)
+        , ioWait_(options.ioWait())
+        , triesLeft_(options.ioRetries())
+    {}
+
+    void run();
+
+private:
+    typedef utility::ResourceFetcher::Query Query;
+    typedef utility::ResourceFetcher::MultiQuery MultiQuery;
+
+    void queryDone(MultiQuery &&query);
+
+    utility::ResourceFetcher &fetcher_;
+    const std::string url_;
+    const char *contentType_;
+    InputCallback cb_;
+    const int ioWait_;
+    int triesLeft_;
+};
+
+void AsyncFetcher::run()
+{
+    fetcher_.perform(Query(url_).timeout(ioWait_)
+                     , std::bind(&AsyncFetcher::queryDone
+                                 , shared_from_this()
+                                 , std::placeholders::_1));
+}
+
+void AsyncFetcher::queryDone(MultiQuery &&mq)
+{
+    auto &q(mq.front());
+
+    try {
+        if (q.ec()) {
+            if (q.check(make_error_code(utility::HttpCode::NotFound))) {
+                LOGTHROW(err2, storage::NoSuchFile)
+                    << "File at URL <" << url_ << "> doesn't exist.";
+            }
+
+            LOGTHROW(err1, storage::IOError)
+                << "Failed to download tile data from <"
+                << url_ << ">: Unexpected HTTP status code: <"
+                << q.ec() << ">.";
+        }
+
+        try {
+            auto body(q.moveOut());
+            return runCallback([&]()
+            {
+                return storage::memIStream(contentType_, std::move(body.data)
+                                           , body.lastModified, url_);
+            }, cb_);
+        } catch (const http::Error &e) {
+            LOGTHROW(err1, storage::IOError)
+                << "Failed to download tile data from <"
+                << url_ << ">: Unexpected error code <"
+                << e.what() << ">.";
+        }
+
+    } catch (...) {
+        // we do not touch negative number of tries, otherwise decrement
+        if (triesLeft_ > 0) { --triesLeft_; }
+        if (!triesLeft_) {
+            // no try left -> forward error
+            return runCallback([&]()
+            {
+                return std::current_exception();
+            }, cb_);
+        }
+    }
+
+    // failed, restart
+    LOG(warn2) << "Failed to fetch file from <" << url_
+               << ">; retrying in a while.";
+    // FIXME: yuckity yuck! make async as well
+    ::sleep(1);
+    run();
+}
+
+void fetchAsStream(const std::string &rootUrl
                    , const std::string &filename
                    , const char *contentType
                    , const OpenOptions &options
                    , const InputCallback &cb)
 {
-    // FIXME: make me really asynchronous
     LOG(info4) << "async fetch: " << filename << ".";
-    runCallback([&]() { return fetchAsStream(rootUrl, filename, contentType
-                                             , options, true); }, cb);
+    std::make_shared<AsyncFetcher>
+        (joinUrl(rootUrl, filename), contentType, options, cb)->run();
 }
 
 std::string fixUrl(const std::string &input, const OpenOptions &options)
