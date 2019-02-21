@@ -86,8 +86,6 @@ const std::string remotePath(const TileId &tileId, TileFile type
                % tileId.lod % tileId.x % tileId.y % ext % revision);
 }
 
-http::OnDemandClient sharedClient(4);
-
 std::string joinUrl(std::string url, const std::string &filename)
 {
     if (!url.empty() && (url.back() != '/')) {
@@ -97,13 +95,22 @@ std::string joinUrl(std::string url, const std::string &filename)
     return url;
 }
 
+http::OnDemandClient sharedClient(4);
+
+utility::ResourceFetcher& getFetcher(const OpenOptions &options) {
+    if (const auto &fetcher = options.resourceFetcher()) {
+        return *fetcher;
+    }
+    return sharedClient.fetcher();
+}
+
 IStream::pointer fetchAsStream(const std::string &rootUrl
                                , const std::string &filename
                                , const char *contentType
                                , const OpenOptions &options
                                , bool noSuchFile)
 {
-    const auto &fetcher(sharedClient.fetcher());
+    const auto &fetcher(getFetcher(options));
 
     const std::string url(joinUrl(rootUrl, filename));
 
@@ -151,13 +158,6 @@ IStream::pointer fetchAsStream(const std::string &rootUrl
         }
     }
     return tryFetch();
-}
-
-utility::ResourceFetcher& getFetcher(const OpenOptions &options) {
-    if (const auto &fetcher = options.resourceFetcher()) {
-        return *fetcher;
-    }
-    return sharedClient.fetcher();
 }
 
 class AsyncFetcher

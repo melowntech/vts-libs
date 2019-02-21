@@ -245,6 +245,7 @@ private:
 
 class MetaTile {
 public:
+    typedef std::vector<MetaTile> list;
     typedef std::shared_ptr<MetaTile> pointer;
 
     typedef std::uint32_t size_type;

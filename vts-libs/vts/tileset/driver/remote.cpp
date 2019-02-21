@@ -48,6 +48,7 @@
 #include "../config.hpp"
 #include "../detail.hpp"
 #include "remote.hpp"
+#include "runcallback.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 
@@ -243,9 +244,19 @@ FileStat RemoteDriver::stat_impl(File type) const
 
 FileStat RemoteDriver::stat_impl(const TileId &tileId, TileFile type) const
 {
+    // TODO: implement me
     (void) tileId;
     (void) type;
     return {};
+}
+
+void RemoteDriver::stat_impl(const TileId &tileId, TileFile type
+                             , const StatCallback &cb) const
+{
+    // TODO: implement me
+    (void) tileId;
+    (void) type;
+    runCallback([&]() { return FileStat(); }, cb);
 }
 
 storage::Resources RemoteDriver::resources_impl() const

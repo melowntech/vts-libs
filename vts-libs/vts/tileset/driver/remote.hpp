@@ -104,6 +104,9 @@ private:
 
     virtual FileStat stat_impl(const TileId &tileId, TileFile type) const;
 
+    virtual void stat_impl(const TileId &tileId, TileFile type
+                           , const StatCallback &cb) const;
+
     virtual Resources resources_impl() const;
 
     Driver::pointer clone_impl(const boost::filesystem::path &root

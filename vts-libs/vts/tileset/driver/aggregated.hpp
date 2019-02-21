@@ -246,6 +246,11 @@ private:
 
     FileStat stat_impl(const std::string &name) const;
 
+    /** Asynchronously builds metatile stream.
+     */
+    void buildMeta(const TileId &tileId, std::time_t lastModified
+                   , const InputCallback &cb) const;
+
     Storage storage_;
 
     registry::ReferenceFrame referenceFrame_;

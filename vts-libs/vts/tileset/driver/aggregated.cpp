@@ -816,9 +816,10 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
             return cache_->input(tileId, type, NullWhenNotFound);
         }
 
-        return buildMeta(drivers_, root(), referenceFrame_
-                         , configStat().lastModified, tileId
-                         , tsi_.tileIndex, surfaceReferences_, noSuchFile);
+        return driver::buildMeta
+            (drivers_, root(), referenceFrame_
+             , configStat().lastModified, tileId
+             , tsi_.tileIndex, surfaceReferences_, noSuchFile);
     }
 
     const auto flags(tsi_.checkAndGetFlags(tileId, type));
@@ -869,13 +870,7 @@ void AggregatedDriver::input_impl(const TileId &tileId, TileFile type
             }, cb);
         }
 
-        // TODO make me asynchronous!
-        return runCallback([&]()
-        {
-            return buildMeta(drivers_, root(), referenceFrame_
-                             , configStat().lastModified, tileId
-                             , tsi_.tileIndex, surfaceReferences_, true);
-        }, cb);
+        return buildMeta(tileId, configStat().lastModified, cb);
     }
 
     const auto flags(tsi_.checkAndGetFlags(tileId, type));
@@ -925,9 +920,10 @@ FileStat AggregatedDriver::stat_impl(const TileId &tileId, TileFile type) const
             return cache_->input(tileId, type)->stat();
         }
 
-        return buildMeta(drivers_, root(), referenceFrame_
-                         , configStat().lastModified, tileId
-                         , tsi_.tileIndex, surfaceReferences_)->stat();
+        return driver::buildMeta
+            (drivers_, root(), referenceFrame_
+             , configStat().lastModified, tileId
+             , tsi_.tileIndex, surfaceReferences_)->stat();
     }
 
     const auto flags(tsi_.checkAndGetFlags(tileId, type));
@@ -1101,9 +1097,9 @@ void AggregatedDriver::generateMetatiles(AggregatedOptions &options)
     auto getMeta([&](const TileId &tid)
     {
         // get metatile stream, ask for nullptr when metatile doesn't exist
-        return buildMeta(drivers_, root(), referenceFrame_
-                         , -1, tid
-                         , tsi_.tileIndex, surfaceReferences_, false);
+        return driver::buildMeta(drivers_, root(), referenceFrame_
+                                 , -1, tid
+                                 , tsi_.tileIndex, surfaceReferences_, false);
     });
 
     // process all metatiles in given range
