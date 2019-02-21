@@ -153,13 +153,20 @@ IStream::pointer fetchAsStream(const std::string &rootUrl
     return tryFetch();
 }
 
+utility::ResourceFetcher& getFetcher(const OpenOptions &options) {
+    if (const auto &fetcher = options.resourceFetcher()) {
+        return *fetcher;
+    }
+    return sharedClient.fetcher();
+}
+
 class AsyncFetcher
     : public std::enable_shared_from_this<AsyncFetcher>
 {
 public:
     AsyncFetcher(const std::string &url, const char *contentType
                  , const OpenOptions &options, const InputCallback &cb)
-        : fetcher_(sharedClient.fetcher())
+        : fetcher_(getFetcher(options))
         , url_(url), contentType_(contentType)
         , cb_(cb)
         , ioWait_(options.ioWait())
@@ -178,7 +185,7 @@ private:
     const std::string url_;
     const char *contentType_;
     InputCallback cb_;
-    const int ioWait_;
+    const long ioWait_;
     int triesLeft_;
 };
 
@@ -239,17 +246,6 @@ void AsyncFetcher::queryDone(MultiQuery &&mq)
     // FIXME: yuckity yuck! make async as well
     ::sleep(1);
     run();
-}
-
-void fetchAsStream(const std::string &rootUrl
-                   , const std::string &filename
-                   , const char *contentType
-                   , const OpenOptions &options
-                   , const InputCallback &cb)
-{
-    LOG(info4) << "async fetch: " << filename << ".";
-    std::make_shared<AsyncFetcher>
-        (joinUrl(rootUrl, filename), contentType, options, cb)->run();
 }
 
 std::string fixUrl(const std::string &input, const OpenOptions &options)
@@ -316,8 +312,9 @@ void HttpFetcher::input(const TileId &tileId, TileFile type
                         , unsigned int revision
                         , const InputCallback &cb) const
 {
-    return fetchAsStream(rootUrl_, remotePath(tileId, type, revision)
-                         , contentType(type), options_, cb);
+    std::make_shared<AsyncFetcher>
+        (joinUrl(rootUrl_, remotePath(tileId, type, revision))
+         , contentType(type), options_, cb)->run();
 }
 
 } } } // namespace vtslibs::vts::driver

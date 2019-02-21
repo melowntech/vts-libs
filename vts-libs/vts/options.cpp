@@ -82,6 +82,10 @@ std::ostream& OpenOptions::dump(std::ostream &os, const std::string &prefix)
            << " -> " << item.second << '\n';
     }
 
+    if (resourceFetcher_) {
+        os << prefix << "io.fetcher = " << resourceFetcher_.get() << '\n';
+    }
+
     return os;
 }
 
