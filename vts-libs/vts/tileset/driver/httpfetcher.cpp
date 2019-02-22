@@ -95,7 +95,7 @@ std::string joinUrl(std::string url, const std::string &filename)
     return url;
 }
 
-http::OnDemandClient sharedClient(4);
+http::OnDemandClient sharedClient;
 
 utility::ResourceFetcher& getFetcher(const OpenOptions &options) {
     if (const auto &fetcher = options.resourceFetcher()) {

@@ -38,6 +38,15 @@ void runCallback(const Generator &generator
                  , const std::function<void(const utility::Expected
                                             <ValueType, Traits>&)> &cb);
 
+template <typename ValueType, typename Traits>
+void runCallback(const std::exception_ptr &exc
+                 , const std::function<void(const utility::Expected
+                                            <ValueType, Traits>&)> &cb);
+
+template <typename ValueType, typename Traits>
+void runCallback(const std::function<void(const utility::Expected
+                                          <ValueType, Traits>&)> &cb);
+
 // implementation
 
 template <typename Generator, typename ValueType, typename Traits>
@@ -50,22 +59,45 @@ void runCallback(const Generator &generator
         evalue.set(generator());
     } catch (...) {
         // forward failed attempt to generate source
-        try {
-            cb(std::current_exception());
-        } catch (...) {
-            LOG(warn3)
-                << "Failed to call a callback with current exception.";
-        }
-        return;
+        return runCallback(cb);
     }
 
     // we have valid input, use
     try {
         cb(evalue);
+    } catch (const std::exception &e) {
+        LOG(warn3)
+            << "Failed to call a callback with a walue; reason: <"
+            << e.what() << ">.";
     } catch (...) {
         LOG(warn3)
-            << "Failed call a callback with value.";
+            << "Failed to call a callback with a value: reason unknown.";
     }
+}
+
+template <typename ValueType, typename Traits>
+void runCallback(const std::exception_ptr &exc
+                 , const std::function<void(const utility::Expected
+                                            <ValueType, Traits>&)> &cb)
+{
+    // we have valid input, use
+    try {
+        cb(exc);
+    } catch (const std::exception &e) {
+        LOG(warn3)
+            << "Failed to call a callback with an exception; reason: <"
+            << e.what() << ">.";
+    } catch (...) {
+        LOG(warn3)
+            << "Failed to call a callback with an exception: reason unknown.";
+    }
+}
+
+template <typename ValueType, typename Traits>
+void runCallback(const std::function<void(const utility::Expected
+                                          <ValueType, Traits>&)> &cb)
+{
+    runCallback(std::current_exception(), cb);
 }
 
 } } // namespace vtslibs::vts

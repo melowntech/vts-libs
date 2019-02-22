@@ -92,6 +92,9 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
     , fetcher_(this->options().url, cloneOptions.openOptions())
     , revision_()
 {
+    // asynchronous in nature
+    capabilities().async = true;
+
     {
         auto properties(tileset::loadConfig(fetcher_.input(File::config)));
         if (cloneOptions.tilesetId()) {
@@ -125,6 +128,9 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
     , fetcher_(this->options().url, openOptions)
     , revision_()
 {
+    // asynchronous in nature
+    capabilities().async = true;
+
     {
         auto properties(tileset::loadConfig(*this));
         revision_ = properties.revision;
@@ -140,6 +146,9 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
     , Driver(root, cloneOptions.openOptions(), options, cloneOptions.mode())
     , fetcher_(this->options().url, cloneOptions.openOptions())
 {
+    // asynchronous in nature
+    capabilities().async = true;
+
     // update and save properties
     {
         auto properties(tileset::loadConfig(src));

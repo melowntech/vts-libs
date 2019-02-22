@@ -268,6 +268,12 @@ private:
     mutable std::unique_ptr<Cache> cache_;
 };
 
+inline MetaNode::SourceReference
+sourceReferenceFromFlags(TileIndex::Flag::value_type flags)
+{
+    return flags >> 16;
+}
+
 } } } // namespace vtslibs::vts::driver
 
 #endif // vtslibs_vts_tileset_driver_aggregated_hpp_included_

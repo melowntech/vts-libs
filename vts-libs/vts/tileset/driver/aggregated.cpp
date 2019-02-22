@@ -97,12 +97,6 @@ void unite(registry::IdSet &out, const registry::IdSet &in)
 typedef TileIndex::Flag TiFlag;
 typedef TiFlag::value_type value_type;
 
-inline MetaNode::SourceReference
-sourceReferenceFromFlags(TileIndex::Flag::value_type flags)
-{
-    return flags >> 16;
-}
-
 void addTileIndex(unsigned int metaBinaryOrder
                   , TileIndex &ti, AggregatedDriver::DriverEntry &de
                   , MetaNode::SourceReference setId, bool alien)
@@ -179,6 +173,13 @@ openDrivers(Storage &storage, const OpenOptions &openOptions
     }
 
     return drivers;
+}
+
+bool isAsync(const AggregatedDriver::DriverEntry::list &drivers) {
+    for (const auto &de : drivers) {
+        if (de.driver->ccapabilities().async) { return true; }
+    }
+    return false;
 }
 
 struct PreparedDrivers {
@@ -384,6 +385,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
 {
     // we flatten the content
     capabilities().flattener = true;
+    capabilities().async = isAsync(drivers_);
 
     // build driver information
     auto properties(build(options, cloneOptions, true));
@@ -411,6 +413,8 @@ AggregatedDriver::AggregatedDriver(const AggregatedOptions &options
 
     // build driver information and cache it
     memProperties_ = build(options, cloneOptions);
+
+    capabilities().async = isAsync(drivers_);
 }
 
 void AggregatedDriver::Index::loadRest_impl(std::istream &f
@@ -666,6 +670,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
 {
     // we flatten the content
     capabilities().flattener = true;
+    capabilities().async = isAsync(drivers_);
 
     tileset::loadTileSetIndex(tsi_, *this);
 }
@@ -692,6 +697,7 @@ AggregatedDriver::AggregatedDriver(PrivateTag
 
     // open drivers
     drivers_ = openDrivers(storage_, cloneOptions.openOptions(), options);
+    capabilities().async = isAsync(drivers_);
 
     // relaod tile index
     tileset::loadTileSetIndex(tsi_, *this);
@@ -1217,6 +1223,7 @@ AggregatedDriver::AggregatedDriver(PrivateTag
 {
     // we flatten the content
     capabilities().flattener = true;
+    capabilities().async = isAsync(drivers_);
 
     tileset::loadTileSetIndex(tsi_, *this);
 }

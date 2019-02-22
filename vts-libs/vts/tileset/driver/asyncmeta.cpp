@@ -24,6 +24,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <mutex>
+#include <atomic>
+
 #include "aggregated.hpp"
 #include "runcallback.hpp"
 
@@ -33,104 +36,258 @@ namespace vs = vtslibs::storage;
 
 namespace {
 
-inline MetaNode::SourceReference
-sourceReferenceFromFlags(TileIndex::Flag::value_type flags)
-{
-    return flags >> 16;
-}
+struct MetaBuilder : std::enable_shared_from_this<MetaBuilder> {
+public:
+    typedef std::shared_ptr<MetaBuilder> pointer;
+
+    MetaBuilder(const fs::path &root, const TileId &tileId, int mbo
+                , bool surfaceReferences, std::time_t lastModified
+                , const InputCallback &cb, const TileIndex &tileIndex)
+        : root_(root), tileId_(tileId), mbo_(mbo)
+        , surfaceReferences_(surfaceReferences)
+        , lastModified_(lastModified), cb_(cb)
+
+        , parentId_(parent(tileId_, mbo_))
+        , shrinkedId_(tileId_.lod, parentId_.x, parentId_.y)
+        , meta_(tileId_, mbo_)
+        , expect_()
+        , errorSink_(*this)
+    {
+        // fill in expected source references in the generated metatile
+        if (const auto *tree = tileIndex.tree(tileId_.lod)) {
+            tree->forEach
+                (parentId_.lod, parentId_.x, parentId_.y
+                 , [&](unsigned int x, unsigned int y, QTree::value_type value)
+            {
+                meta_.expectReference
+                    (TileId(tileId_.lod, tileId_.x + x, tileId_.y + y)
+                     , sourceReferenceFromFlags(value));
+            }, QTree::Filter::white);
+        }
+    }
+
+    void run(const AggregatedDriver::DriverEntry::list &drivers) {
+        try {
+            runImpl(drivers);
+        } catch (...) {
+            return runCallback(cb_);
+        }
+    }
+
+private:
+    void runImpl(const AggregatedDriver::DriverEntry::list &drivers) {
+        const auto self(shared_from_this());
+
+        // 1) collect data source information
+        enum class SourceInfo { skip, async, sync };
+        std::vector<SourceInfo> si;
+        si.reserve(drivers.size());
+
+        for (const auto &de : drivers) {
+            if (!de.metaIndex.get(shrinkedId_)) {
+                // no metatile -> skip
+                si.push_back(SourceInfo::skip);
+                continue;
+            }
+            ++expect_;
+
+            // detect driver type
+            si.push_back(de.driver->ccapabilities().async
+                         ? SourceInfo::async
+                         : SourceInfo::sync);
+        }
+
+        if (!expect_) {
+            // no metatile to fetch -> not found
+            return runCallback([&]() -> IStream::pointer
+            {
+                LOGTHROW(err1, vs::NoSuchFile)
+                    << "There is no metatile for " << tileId_ << ".";
+                return {};
+            }, cb_);
+        }
+
+        // 2) asynchronously fetch from source preferring asynchronous fetch
+        {
+            auto isi(si.begin());
+            int idx(0);
+            for (const auto &de : drivers) {
+                ++idx;
+                if (*isi++ != SourceInfo::async) { continue; }
+
+                de.driver->input(tileId_, TileFile::meta
+                                 , [self, this, idx](const EIStream &eis)
+                {
+                    metaFetched(idx, eis);
+                });
+            }
+        }
+
+        // 3) synchronously fetch from rest of drivers
+        {
+            auto isi(si.begin());
+            int idx(0);
+            for (const auto &de : drivers) {
+                ++idx;
+                if (*isi++ != SourceInfo::sync) { continue; }
+
+                IStream::pointer is;
+                try {
+                    is = de.driver->input
+                        (tileId_, TileFile::meta, NullWhenNotFound);
+                } catch (...) {
+                    return error(std::current_exception());
+                }
+
+                if (!metaFetched(idx, is)) { return; }
+            }
+        }
+    }
+
+    bool metaFetched(int index, const IStream::pointer &is) {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        // canceled?
+        if (!expect_) { return false; }
+        --expect_;
+
+        if (!is) { return handleNotFound(); }
+
+        try {
+            // try to update metatile with provided data
+            meta_.update(index, loadMetaTile(*is, mbo_, is->name()));
+        } catch (...) {
+            // forward error and done
+            runCallback(cb_);
+            return false;
+        }
+        return done();
+    }
+
+    void metaFetched(int index, const EIStream &eis) {
+        // finished asynchronously
+        if (const auto &is = eis.get(errorSink_)) {
+            metaFetched(index, is);
+        }
+    }
+
+    void error(const std::exception_ptr &exc) {
+        // failed (a)synchronously: exception
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        // already canceled?
+        if (!expect_) { return; }
+
+        try {
+            // TODO: make better by using somethig like NullWhenNotFound for
+            // async operations
+            std::rethrow_exception(exc);
+        } catch (const vs::NoSuchFile&) {
+            --expect_;
+            handleNotFound();
+            return;
+        }
+
+        // cancel all
+        expect_ = 0;
+
+        // forward error
+        cb_(exc);
+    }
+
+    bool handleNotFound() {
+        // TODO: check for node validity; all metatile nodes invalid ->
+        // fine, empty metatile is ok; otherwise it should be an error
+        return done();
+    }
+
+    bool done() {
+        if (expect_) { return true; }
+
+        // this was the last source metatile, OK
+        if (meta_.empty()) {
+            // empty -> not found
+            runCallback([&]() -> IStream::pointer
+            {
+                LOGTHROW(err1, vs::NoSuchFile)
+                    << "There is no metatile for " << tileId_ << ".";
+                return {};
+            }, cb_);
+        } else {
+            // erase surface references if configured to do so
+            if (!surfaceReferences_) {
+                meta_.for_each([&](const TileId&, MetaNode &node)
+                {
+                    node.sourceReference = 0;
+                });
+            }
+
+            runCallback([this]() { return serialize(); }, cb_);
+        }
+
+        // done
+        return false;
+    }
+
+    IStream::pointer serialize() const {
+        // create in-memory stream
+        auto fname(root_ / str(boost::format("%s.%s")
+                                % tileId_ % TileFile::meta));
+        auto s(std::make_shared<StringIStream>
+               (TileFile::meta, fname.string(), lastModified_));
+
+        // and serialize metatile
+        meta_.save(s->sink());
+        s->updateSize();
+
+        // done
+        return s;
+    }
+
+    const fs::path root_;
+    const TileId tileId_;
+    const int mbo_;
+    const bool surfaceReferences_;
+    const std::time_t lastModified_;
+    const InputCallback cb_;
+
+    const TileId parentId_;
+    const TileId shrinkedId_;
+    MetaTile meta_;
+
+    std::mutex mutex_;
+    unsigned int expect_;
+
+    struct ErrorSink {
+        MetaBuilder &self;
+        ErrorSink(MetaBuilder &self) : self(self) {}
+
+        void operator()(const std::error_code &ec) {
+            self.error(utility::makeErrorCodeException(ec));
+        }
+
+        void operator()(const std::exception_ptr &exc) {
+            self.error(exc);
+        }
+    } errorSink_;
+};
 
 } // namespace
 
 void AggregatedDriver::buildMeta(const TileId &tileId, std::time_t lastModified
                                  , const InputCallback &cb) const
 {
-    LOG(info4) << "Async buildMeta called.";
+    try {
+        auto mb(std::make_shared<MetaBuilder>
+                (root(), tileId, referenceFrame_.metaBinaryOrder
+                 , surfaceReferences_, lastModified, cb
+                 , tsi_.tileIndex));
 
-    const auto mbo(referenceFrame_.metaBinaryOrder);
-    // parent tile at meta-binary-order levels above us
-    const auto parentId(parent(tileId, mbo));
-    // shrinked tile id to be used in meta-index
-    const TileId shrinkedId(tileId.lod, parentId.x, parentId.y);
-
-    // output metatile
-    MetaTile ometa(tileId, mbo);
-
-    const auto &tileIndex(tsi_.tileIndex);
-    if (const auto *tree = tileIndex.tree(tileId.lod)) {
-        tree->forEach
-            (parentId.lod, parentId.x, parentId.y
-             , [&](unsigned int x, unsigned int y, QTree::value_type value)
-        {
-            ometa.expectReference
-                (TileId(tileId.lod, tileId.x + x, tileId.y + y)
-                 , sourceReferenceFromFlags(value));
-        }, QTree::Filter::white);
+        mb->run(drivers_);
+    } catch (...) {
+        // forward exception
+        runCallback(cb);
     }
-
-    // load metatile, doesn't fail
-    auto loadMeta([&](const TileId &tileId, const Driver::pointer &driver)
-                  -> MetaTile
-    {
-        auto ms(driver->input(tileId, TileFile::meta, NullWhenNotFound));
-        if (!ms) {
-            // not found -> empty metanode (at right place)
-
-            // TODO: check for node validity; all metatile nodes invalid ->
-            // fine, empty metatile is ok; otherwise it should be an error
-            return MetaTile(tileId, mbo);
-        }
-        return loadMetaTile(*ms, mbo, ms->name());
-    });
-
-    // start from zero so first round gets 1
-    int idx(0);
-    for (const auto &de : drivers_) {
-        // next index
-        ++idx;
-
-        // check for metatile existence
-        if (!de.metaIndex.get(shrinkedId)) { continue; }
-
-        try {
-            // load metatile from this tileset and update output metatile
-            ometa.update(idx, loadMeta(tileId, de.driver));
-        } catch (...) {
-            return runCallback([&]() { return std::current_exception(); }, cb);
-        }
-    }
-
-    if (ometa.empty()) {
-        return runCallback([&]() -> std::exception_ptr
-        {
-            LOGTHROW(err1, vs::NoSuchFile)
-                << "There is no metatile for " << tileId << ".";
-            return {};
-        }, cb);
-    }
-
-    // erase surface references if configured
-    if (!surfaceReferences_) {
-        ometa.for_each([&](const TileId&, MetaNode &node)
-        {
-            node.sourceReference = 0;
-        });
-    }
-
-    return runCallback([&]()
-    {
-        // create in-memory stream
-        auto fname(root() / str(boost::format("%s.%s")
-                                % tileId % TileFile::meta));
-        auto s(std::make_shared<StringIStream>
-               (TileFile::meta, fname.string(), lastModified));
-
-        // and serialize metatile
-        ometa.save(s->sink());
-        s->updateSize();
-
-        // done
-        return s;
-    }, cb);
 }
 
 } } } // namespace vtslibs::vts::driver

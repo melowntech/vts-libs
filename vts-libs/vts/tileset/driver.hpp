@@ -55,7 +55,11 @@ public:
          */
         bool flattener;
 
-        Capabilities() : flattener(false) {}
+        /** Driver preferes asychronous operations when set.
+         */
+        bool async;
+
+        Capabilities() : flattener(false), async(false) {}
     };
 
     typedef std::shared_ptr<Driver> pointer;
@@ -242,6 +246,7 @@ public:
     /** Returns drivers capabilities.
      */
     inline const Capabilities& capabilities() const { return capabilities_; }
+    inline const Capabilities& ccapabilities() const { return capabilities_; }
 
     /** Relocates referenced resources.
      */
