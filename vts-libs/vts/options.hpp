@@ -57,6 +57,7 @@ class OpenOptions {
 public:
     OpenOptions()
         : ioRetries_(-1) // infinity
+        , ioRetryDelay_(1000) // 1000 ms
         , ioWait_(-1) // infinity
         , scarceMemory_(false)
     {}
@@ -74,6 +75,11 @@ public:
     int ioRetries() const { return ioRetries_; }
     OpenOptions& ioRetries(int ioRetries) {
         ioRetries_ = ioRetries; return *this;
+    }
+
+    unsigned long ioRetryDelay() const { return ioRetryDelay_; }
+    OpenOptions& ioRetryDelay(unsigned long ioRetryDelay) {
+        ioRetryDelay_ = ioRetryDelay; return *this;
     }
 
     long ioWait() const { return ioWait_; }
@@ -111,6 +117,10 @@ private:
     /** Number of IO operation reties. Interpreted by remote driver.
      */
     int ioRetries_;
+
+    /** Delay between individual retries.
+     */
+    unsigned long ioRetryDelay_;
 
     /** Timeout in ms for IO operations. Interpreted by remote driver.
      */

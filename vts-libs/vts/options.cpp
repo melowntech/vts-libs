@@ -40,6 +40,9 @@ void OpenOptions::configuration(po::options_description &od
          , po::value(&ioRetries_)->default_value(ioRetries_)
          , "Max number of retries on I/O operation "
          "(-1 means infinity retries).")
+        ((prefix + "io.retryDelay").c_str()
+         , po::value(&ioRetryDelay_)->default_value(ioRetryDelay_)
+         , "Delay between individual reties. Zero means immediate retry!")
         ((prefix + "io.wait").c_str()
          , po::value(&ioWait_)->default_value(ioWait_)
          , "Timeout for I/O operations [in ms] "
@@ -75,6 +78,7 @@ std::ostream& OpenOptions::dump(std::ostream &os, const std::string &prefix)
     const
 {
     os << prefix << "io.retries = " << ioRetries_ << '\n'
+       << prefix << "io.retryDelay = " << ioRetryDelay_ << '\n'
        << prefix << "io.wait = " << ioWait_ << '\n';
 
     for (const auto &item : cnames_) {

@@ -114,11 +114,11 @@ IStream::pointer fetchAsStream(const std::string &rootUrl
 
     const std::string url(joinUrl(rootUrl, filename));
 
-    auto tryFetch([&]() -> IStream::pointer
+    auto tryFetch([&](unsigned long delay) -> IStream::pointer
     {
         auto q(fetcher.perform
                (utility::ResourceFetcher::Query(url)
-                .timeout(options.ioWait())));
+                .timeout(options.ioWait()).delay(delay)));
 
         if (q.ec()) {
             if (q.check(make_error_code(utility::HttpCode::NotFound))) {
@@ -148,16 +148,18 @@ IStream::pointer fetchAsStream(const std::string &rootUrl
         return {};
     });
 
+    unsigned long delay(0);
     for (auto tries(options.ioRetries()); tries; (tries > 0) ? --tries : 0) {
         try {
-            return tryFetch();
+            return tryFetch(delay);
         } catch (const storage::IOError &e) {
             LOG(warn2) << "Failed to fetch file from <" << url
-                       << ">; retrying in a while.";
-            ::sleep(1);
+                       << ">; retrying in " << options.ioRetryDelay()
+                       << " ms.";
+            delay = options.ioRetryDelay();
         }
     }
-    return tryFetch();
+    return tryFetch(delay);
 }
 
 class AsyncFetcher
@@ -170,10 +172,11 @@ public:
         , url_(url), contentType_(contentType)
         , cb_(cb)
         , ioWait_(options.ioWait())
+        , ioRetryDelay_(options.ioRetryDelay())
         , triesLeft_(options.ioRetries())
     {}
 
-    void run();
+    void run(unsigned long delay = 0);
 
 private:
     typedef utility::ResourceFetcher::Query Query;
@@ -186,12 +189,13 @@ private:
     const char *contentType_;
     InputCallback cb_;
     const long ioWait_;
+    const unsigned long ioRetryDelay_;
     int triesLeft_;
 };
 
-void AsyncFetcher::run()
+void AsyncFetcher::run(unsigned long delay)
 {
-    fetcher_.perform(Query(url_).timeout(ioWait_)
+    fetcher_.perform(Query(url_).timeout(ioWait_).delay(delay)
                      , std::bind(&AsyncFetcher::queryDone
                                  , shared_from_this()
                                  , std::placeholders::_1));
@@ -242,10 +246,8 @@ void AsyncFetcher::queryDone(MultiQuery &&mq)
 
     // failed, restart
     LOG(warn2) << "Failed to fetch file from <" << url_
-               << ">; retrying in a while.";
-    // FIXME: yuckity yuck! make async as well
-    ::sleep(1);
-    run();
+               << ">; retrying in " << ioRetryDelay_ << " ms.";
+    run(ioRetryDelay_);
 }
 
 std::string fixUrl(const std::string &input, const OpenOptions &options)
