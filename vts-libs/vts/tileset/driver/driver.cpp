@@ -607,9 +607,21 @@ Driver::oldRevision(const boost::filesystem::path &root)
 }
 
 void Driver::input_impl(const TileId &tileId, TileFile type
-                        , const InputCallback &cb) const
+                        , const InputCallback &cb
+                        , const IStream::pointer *notFound) const
 {
-    runCallback([&]() { return input_impl(tileId, type); }, cb);
+    if (!notFound) {
+        // regular call
+        return runCallback([&]() { return input_impl(tileId, type); }, cb);
+    }
+
+    // not-found signalling version
+    return runCallback([&]()
+    {
+        auto is(input_impl(tileId, type, NullWhenNotFound));
+        if (!is) { return *notFound; }
+        return is;
+    }, cb);
 }
 
 void Driver::stat_impl(const TileId &tileId, TileFile type

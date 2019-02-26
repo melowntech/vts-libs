@@ -43,7 +43,8 @@ public:
 
     void input(const TileId &tileId, TileFile type
                , unsigned int revision
-               , const InputCallback &cb) const;
+               , const InputCallback &cb
+               , const IStream::pointer *notFound) const;
 
 private:
     const std::string rootUrl_;

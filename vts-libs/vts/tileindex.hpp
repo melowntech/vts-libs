@@ -260,6 +260,8 @@ public:
 
     const QTree* tree(Lod lod) const;
 
+    const QTree* ctree(Lod lod) const { return tree(lod); }
+
     /** Sets value as a bit mask.
      *  Affects only bits set in mask.
      */

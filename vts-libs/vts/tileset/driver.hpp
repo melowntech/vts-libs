@@ -151,12 +151,17 @@ public:
     /** Same as input(tileId, type) but fetches file asynchronously. Calls
      *  callback when stream is ready.
      *
+     * N.B.: notFound is passed as a raw pointer. It must be valid until the
+     * asynchronous opetation uses it. Must be either global or can be a member
+     * of the callback.
+     *
      * \param tileId tile ID
      * \param type tile file type
      * \param cb callback called when input stream is ready
+     * \param notFound value passed to callback when given file is not found
      */
-    void input(const TileId &tileId, TileFile type
-               , const InputCallback &cb) const;
+    void input(const TileId &tileId, TileFile type, const InputCallback &cb
+               , const IStream::pointer *notFound = nullptr) const;
 
     FileStat stat(File type) const;
 
@@ -311,7 +316,8 @@ private:
      *  only when needed.
      */
     virtual void input_impl(const TileId &tileId, TileFile type
-                            , const InputCallback &cb) const;
+                            , const InputCallback &cb
+                            , const IStream::pointer *notFound) const;
 
     virtual void drop_impl() = 0;
 
@@ -464,10 +470,11 @@ inline IStream::pointer Driver::input(const TileId &tileId, TileFile type
 }
 
 inline void Driver::input(const TileId &tileId, TileFile type
-                          , const InputCallback &cb) const
+                          , const InputCallback &cb
+                          , const IStream::pointer *notFound) const
 {
     checkRunning();
-    return input_impl(tileId, type, cb);
+    return input_impl(tileId, type, cb, notFound);
 }
 
 inline FileStat Driver::stat(File type) const

@@ -36,16 +36,41 @@ namespace vs = vtslibs::storage;
 
 namespace {
 
+/** Special in-memory stream.
+ */
+struct NotFoundMarker : public IStream {
+    NotFoundMarker() : IStream(File::config) {}
+    virtual void close() {};
+    virtual std::string name() const { return "Not Found"; }
+
+    virtual std::istream& get() {
+        LOGTHROW(err2, vs::IOError)
+            << "Cannot get stream from not-found marker.";
+        throw;
+    }
+
+    virtual FileStat stat_impl() const {
+        LOGTHROW(err2, vs::IOError)
+            << "Cannot get stat not-found marker.";
+        throw;
+    }
+};
+
+NotFoundMarker notFoundMarkerRaw;
+
+const IStream::pointer notFoundMarker(&notFoundMarkerRaw, [](void*) {});
+
 struct MetaBuilder : std::enable_shared_from_this<MetaBuilder> {
 public:
     typedef std::shared_ptr<MetaBuilder> pointer;
 
     MetaBuilder(const fs::path &root, const TileId &tileId, int mbo
                 , bool surfaceReferences, std::time_t lastModified
-                , const InputCallback &cb, const TileIndex &tileIndex)
+                , const InputCallback &cb, const IStream::pointer *notFound
+                , const TileIndex &tileIndex)
         : root_(root), tileId_(tileId), mbo_(mbo)
         , surfaceReferences_(surfaceReferences)
-        , lastModified_(lastModified), cb_(cb)
+        , lastModified_(lastModified), cb_(cb), callersNotFound_(notFound)
 
         , parentId_(parent(tileId_, mbo_))
         , shrinkedId_(tileId_.lod, parentId_.x, parentId_.y)
@@ -119,7 +144,7 @@ private:
                                  , [self, this, idx](const EIStream &eis)
                 {
                     metaFetched(idx, eis);
-                });
+                }, &notFoundMarker);
             }
         }
 
@@ -167,7 +192,8 @@ private:
     void metaFetched(int index, const EIStream &eis) {
         // finished asynchronously
         if (const auto &is = eis.get(errorSink_)) {
-            metaFetched(index, is);
+            metaFetched(index, (is == notFoundMarker)
+                        ? IStream::pointer() : is);
         }
     }
 
@@ -177,16 +203,6 @@ private:
 
         // already canceled?
         if (!expect_) { return; }
-
-        try {
-            // TODO: make better by using somethig like NullWhenNotFound for
-            // async operations
-            std::rethrow_exception(exc);
-        } catch (const vs::NoSuchFile&) {
-            --expect_;
-            handleNotFound();
-            return;
-        }
 
         // cancel all
         expect_ = 0;
@@ -250,6 +266,7 @@ private:
     const bool surfaceReferences_;
     const std::time_t lastModified_;
     const InputCallback cb_;
+    const IStream::pointer *callersNotFound_;
 
     const TileId parentId_;
     const TileId shrinkedId_;
@@ -275,12 +292,13 @@ private:
 } // namespace
 
 void AggregatedDriver::buildMeta(const TileId &tileId, std::time_t lastModified
-                                 , const InputCallback &cb) const
+                                 , const InputCallback &cb
+                                 , const IStream::pointer *notFound) const
 {
     try {
         auto mb(std::make_shared<MetaBuilder>
                 (root(), tileId, referenceFrame_.metaBinaryOrder
-                 , surfaceReferences_, lastModified, cb
+                 , surfaceReferences_, lastModified, cb, notFound
                  , tsi_.tileIndex));
 
         mb->run(drivers_);

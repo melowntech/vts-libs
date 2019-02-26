@@ -167,10 +167,11 @@ class AsyncFetcher
 {
 public:
     AsyncFetcher(const std::string &url, const char *contentType
-                 , const OpenOptions &options, const InputCallback &cb)
+                 , const OpenOptions &options, const InputCallback &cb
+                 , const IStream::pointer *notFound)
         : fetcher_(getFetcher(options))
         , url_(url), contentType_(contentType)
-        , cb_(cb)
+        , cb_(cb), notFound_(notFound)
         , ioWait_(options.ioWait())
         , ioRetryDelay_(options.ioRetryDelay())
         , triesLeft_(options.ioRetries())
@@ -188,6 +189,7 @@ private:
     const std::string url_;
     const char *contentType_;
     InputCallback cb_;
+    const IStream::pointer *notFound_;
     const long ioWait_;
     const unsigned long ioRetryDelay_;
     int triesLeft_;
@@ -208,6 +210,9 @@ void AsyncFetcher::queryDone(MultiQuery &&mq)
     try {
         if (q.ec()) {
             if (q.check(make_error_code(utility::HttpCode::NotFound))) {
+                if (notFound_) {
+                    return runCallback([&]() { return *notFound_; }, cb_);
+                }
                 LOGTHROW(err2, storage::NoSuchFile)
                     << "File at URL <" << url_ << "> doesn't exist.";
             }
@@ -312,11 +317,12 @@ IStream::pointer HttpFetcher::input(const TileId &tileId, TileFile type
 
 void HttpFetcher::input(const TileId &tileId, TileFile type
                         , unsigned int revision
-                        , const InputCallback &cb) const
+                        , const InputCallback &cb
+                        , const IStream::pointer *notFound) const
 {
     std::make_shared<AsyncFetcher>
         (joinUrl(rootUrl_, remotePath(tileId, type, revision))
-         , contentType(type), options_, cb)->run();
+         , contentType(type), options_, cb, notFound)->run();
 }
 
 } } } // namespace vtslibs::vts::driver

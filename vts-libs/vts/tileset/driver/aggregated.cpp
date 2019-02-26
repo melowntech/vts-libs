@@ -856,37 +856,50 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
     return {};
 }
 
+void reportNotFound(const TileId &tileId, TileFile type
+                    , const InputCallback &cb
+                    , const IStream::pointer *notFound)
+{
+    return runCallback([&]() -> IStream::pointer
+    {
+        if (!notFound) {
+            LOGTHROW(err1, vs::NoSuchFile)
+                << "There is no " << type << " for " << tileId << ".";
+        }
+        return *notFound;
+    }, cb);
+}
+
 void AggregatedDriver::input_impl(const TileId &tileId, TileFile type
-                                  , const InputCallback &cb) const
+                                  , const InputCallback &cb
+                                  , const IStream::pointer *notFound) const
 {
     if (type == TileFile::meta) {
         if (!tsi_.meta(tileId)) {
-            return runCallback([&]() -> IStream::pointer
-            {
-                LOGTHROW(err1, vs::NoSuchFile)
-                    << "There is no " << type << " for " << tileId << ".";
-                throw;
-            }, cb);
+            return reportNotFound(tileId, type, cb, notFound);
         }
 
         if (cache_ && tsi_.staticMeta(tileId)) {
             return runCallback([&]()
             {
+                if (notFound) {
+                    if (const auto &is
+                        = cache_->input(tileId, type, NullWhenNotFound))
+                    {
+                        return is;
+                    }
+                    return *notFound;
+                }
                 return cache_->input(tileId, type);
             }, cb);
         }
 
-        return buildMeta(tileId, configStat().lastModified, cb);
+        return buildMeta(tileId, configStat().lastModified, cb, notFound);
     }
 
     const auto flags(tsi_.checkAndGetFlags(tileId, type));
     if (!flags) {
-        return runCallback([&]() -> IStream::pointer
-        {
-            LOGTHROW(err1, vs::NoSuchFile)
-                << "There is no " << type << " for " << tileId << ".";
-            throw;
-        }, cb);
+        return reportNotFound(tileId, type, cb, notFound);
     }
 
     // get dataset id
@@ -894,15 +907,12 @@ void AggregatedDriver::input_impl(const TileId &tileId, TileFile type
 
     // NB: source reference is 1-based
     if (sourceReference && (sourceReference <= drivers_.size())) {
-        return drivers_[sourceReference - 1].driver->input(tileId, type, cb);
+        // TODO: we can call non-async version if appropriate
+        return drivers_[sourceReference - 1]
+            .driver->input(tileId, type, cb, notFound);
     }
 
-    return runCallback([&]() -> IStream::pointer
-    {
-        LOGTHROW(err1, vs::NoSuchFile)
-            << "There is no " << type << " for " << tileId << ".";
-        throw;
-    }, cb);
+    return reportNotFound(tileId, type, cb, notFound);
 }
 
 FileStat AggregatedDriver::stat_impl(File type) const

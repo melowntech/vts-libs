@@ -94,7 +94,8 @@ private:
         const;
 
     virtual void input_impl(const TileId &tileId, TileFile type
-                            , const InputCallback &cb) const;
+                            , const InputCallback &cb
+                            , const IStream::pointer *notFound) const;
 
     virtual void drop_impl();
 

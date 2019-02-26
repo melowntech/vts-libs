@@ -196,7 +196,8 @@ private:
                                 , bool noSuchFile) const;
 
     virtual void input_impl(const TileId &tileId, TileFile type
-                            , const InputCallback &cb) const;
+                            , const InputCallback &cb
+                            , const IStream::pointer *notFound) const;
 
     virtual void drop_impl();
 
@@ -249,7 +250,8 @@ private:
     /** Asynchronously builds metatile stream.
      */
     void buildMeta(const TileId &tileId, std::time_t lastModified
-                   , const InputCallback &cb) const;
+                   , const InputCallback &cb, const IStream::pointer *notFound)
+        const;
 
     Storage storage_;
 
