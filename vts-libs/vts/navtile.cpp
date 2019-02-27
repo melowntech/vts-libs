@@ -29,7 +29,7 @@
 
 #include "../storage/error.hpp"
 
-#include "./navtile.hpp"
+#include "navtile.hpp"
 
 namespace vtslibs { namespace vts {
 

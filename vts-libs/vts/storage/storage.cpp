@@ -50,12 +50,12 @@
 #include "../../storage/error.hpp"
 #include "../storage.hpp"
 #include "../../vts.hpp"
-#include "./detail.hpp"
+#include "detail.hpp"
 #include "../tileset/detail.hpp"
 #include "../config.hpp"
 
-#include "./config.hpp"
-#include "./paths.hpp"
+#include "config.hpp"
+#include "paths.hpp"
 
 namespace fs = boost::filesystem;
 

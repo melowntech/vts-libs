@@ -55,10 +55,10 @@
 #include "math/geometry.hpp"
 #include "geometry/parse-obj.hpp"
 
-#include "./storage/error.hpp"
-#include "./tilestorage/types.hpp"
-#include "./tilestorage/tileset.hpp"
-#include "./tilestorage/storage.hpp"
+#include "storage/error.hpp"
+#include "tilestorage/types.hpp"
+#include "tilestorage/tileset.hpp"
+#include "tilestorage/storage.hpp"
 
 namespace vtslibs { namespace tilestorage {
 

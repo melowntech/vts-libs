@@ -34,7 +34,7 @@
 #define vtslibs_vts_tileset_metacache_hpp_included_
 
 #include "../metatile.hpp"
-#include "./driver.hpp"
+#include "driver.hpp"
 
 namespace vtslibs { namespace vts {
 

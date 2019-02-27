@@ -25,8 +25,8 @@
  */
 #include "utility/streams.hpp"
 
-#include "./driver.hpp"
-#include "./tilesetindex.hpp"
+#include "driver.hpp"
+#include "tilesetindex.hpp"
 
 namespace fs = boost::filesystem;
 

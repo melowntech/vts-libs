@@ -40,9 +40,9 @@
 #include <boost/filesystem/path.hpp>
 
 #include "../registry.hpp"
-#include "./basetypes.hpp"
-#include "./glue.hpp"
-#include "./virtualsurface.hpp"
+#include "basetypes.hpp"
+#include "glue.hpp"
+#include "virtualsurface.hpp"
 
 namespace vtslibs { namespace vts {
 

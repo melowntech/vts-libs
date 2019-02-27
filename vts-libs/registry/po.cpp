@@ -27,7 +27,7 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./po.hpp"
+#include "po.hpp"
 
 namespace ba = boost::algorithm;
 namespace po = boost::program_options;

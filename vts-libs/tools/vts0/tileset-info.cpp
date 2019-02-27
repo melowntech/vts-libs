@@ -43,7 +43,7 @@
 #include "../../vts0/io.hpp"
 #include "../../vts0/tileset-advanced.hpp"
 
-#include "./commands.hpp"
+#include "commands.hpp"
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;

@@ -44,7 +44,7 @@
 #include "../../vts0.hpp"
 #include "../../vts0/io.hpp"
 
-#include "./commands.hpp"
+#include "commands.hpp"
 
 namespace po = boost::program_options;
 namespace vts = vtslibs::vts0;

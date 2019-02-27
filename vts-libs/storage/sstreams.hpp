@@ -30,8 +30,8 @@
 
 #include <boost/filesystem.hpp>
 
-#include "./streams.hpp"
-#include "./error.hpp"
+#include "streams.hpp"
+#include "error.hpp"
 
 namespace vtslibs { namespace storage {
 

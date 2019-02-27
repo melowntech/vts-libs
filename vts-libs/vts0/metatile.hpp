@@ -32,7 +32,7 @@
 
 #include <boost/optional.hpp>
 
-#include "./basetypes.hpp"
+#include "basetypes.hpp"
 
 namespace vtslibs { namespace vts0 {
 

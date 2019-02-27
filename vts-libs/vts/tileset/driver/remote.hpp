@@ -31,7 +31,7 @@
 #include <memory>
 
 #include "../driver.hpp"
-#include "./httpfetcher.hpp"
+#include "httpfetcher.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 
@@ -93,6 +93,10 @@ private:
                                         , const NullWhenNotFound_t&)
         const;
 
+    virtual void input_impl(const TileId &tileId, TileFile type
+                            , const InputCallback &cb
+                            , const IStream::pointer *notFound) const;
+
     virtual void drop_impl();
 
     virtual void flush_impl();
@@ -100,6 +104,9 @@ private:
     virtual FileStat stat_impl(File type) const;
 
     virtual FileStat stat_impl(const TileId &tileId, TileFile type) const;
+
+    virtual void stat_impl(const TileId &tileId, TileFile type
+                           , const StatCallback &cb) const;
 
     virtual Resources resources_impl() const;
 

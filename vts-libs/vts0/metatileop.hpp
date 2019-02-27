@@ -28,8 +28,8 @@
 
 #include <boost/optional.hpp>
 
-#include "./metatileop.hpp"
-#include "./typesfwd.hpp"
+#include "metatileop.hpp"
+#include "typesfwd.hpp"
 
 namespace vtslibs { namespace vts0 {
 

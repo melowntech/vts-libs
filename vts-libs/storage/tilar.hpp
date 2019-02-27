@@ -40,7 +40,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/uuid/uuid.hpp>
 
-#include "./streams.hpp"
+#include "streams.hpp"
 
 namespace vtslibs { namespace storage {
 

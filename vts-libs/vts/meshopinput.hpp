@@ -39,11 +39,11 @@
 
 #include <boost/optional.hpp>
 
-#include "./basetypes.hpp"
-#include "./tileop.hpp"
-#include "./opencv/atlas.hpp"
-#include "./opencv/navtile.hpp"
-#include "./tileset.hpp"
+#include "basetypes.hpp"
+#include "tileop.hpp"
+#include "opencv/atlas.hpp"
+#include "opencv/navtile.hpp"
+#include "tileset.hpp"
 
 namespace vtslibs { namespace vts {
 

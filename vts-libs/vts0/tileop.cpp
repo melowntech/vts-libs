@@ -31,8 +31,8 @@
 #include "dbglog/dbglog.hpp"
 #include "math/math.hpp"
 
-#include "./tileop.hpp"
-#include "./io.hpp"
+#include "tileop.hpp"
+#include "io.hpp"
 
 namespace vtslibs { namespace vts0 {
 

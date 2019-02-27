@@ -32,9 +32,9 @@
 
 #include "imgproc/rastermask.hpp"
 
-#include "./maskfwd.hpp"
-#include "./basetypes.hpp"
-#include "./tileop.hpp"
+#include "maskfwd.hpp"
+#include "basetypes.hpp"
+#include "tileop.hpp"
 
 namespace vtslibs { namespace vts0 {
 

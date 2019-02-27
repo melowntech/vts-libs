@@ -28,7 +28,7 @@
 #include "utility/binaryio.hpp"
 
 #include "../storage/error.hpp"
-#include "./qtree.hpp"
+#include "qtree.hpp"
 
 namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;

@@ -47,7 +47,8 @@
 #include "../../io.hpp"
 #include "../config.hpp"
 #include "../detail.hpp"
-#include "./remote.hpp"
+#include "remote.hpp"
+#include "runcallback.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 
@@ -91,6 +92,9 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
     , fetcher_(this->options().url, cloneOptions.openOptions())
     , revision_()
 {
+    // asynchronous in nature
+    capabilities().async = true;
+
     {
         auto properties(tileset::loadConfig(fetcher_.input(File::config)));
         if (cloneOptions.tilesetId()) {
@@ -124,6 +128,9 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
     , fetcher_(this->options().url, openOptions)
     , revision_()
 {
+    // asynchronous in nature
+    capabilities().async = true;
+
     {
         auto properties(tileset::loadConfig(*this));
         revision_ = properties.revision;
@@ -139,6 +146,9 @@ RemoteDriver::RemoteDriver(const boost::filesystem::path &root
     , Driver(root, cloneOptions.openOptions(), options, cloneOptions.mode())
     , fetcher_(this->options().url, cloneOptions.openOptions())
 {
+    // asynchronous in nature
+    capabilities().async = true;
+
     // update and save properties
     {
         auto properties(tileset::loadConfig(src));
@@ -226,6 +236,14 @@ IStream::pointer RemoteDriver::input_impl(const TileId &tileId
     return fetcher_.input(tileId, type, revision_, false);
 }
 
+void RemoteDriver::input_impl(const TileId &tileId, TileFile type
+                              , const InputCallback &cb
+                              , const IStream::pointer *notFound)
+    const
+{
+    return fetcher_.input(tileId, type, revision_, cb, notFound);
+}
+
 FileStat RemoteDriver::stat_impl(File type) const
 {
     const auto name(filePath(type));
@@ -236,9 +254,19 @@ FileStat RemoteDriver::stat_impl(File type) const
 
 FileStat RemoteDriver::stat_impl(const TileId &tileId, TileFile type) const
 {
+    // TODO: implement me
     (void) tileId;
     (void) type;
     return {};
+}
+
+void RemoteDriver::stat_impl(const TileId &tileId, TileFile type
+                             , const StatCallback &cb) const
+{
+    // TODO: implement me
+    (void) tileId;
+    (void) type;
+    runCallback([&]() { return FileStat(); }, cb);
 }
 
 storage::Resources RemoteDriver::resources_impl() const

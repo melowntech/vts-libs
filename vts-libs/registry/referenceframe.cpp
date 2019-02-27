@@ -44,10 +44,10 @@
 #include "jsoncpp/io.hpp"
 
 #include "../storage/error.hpp"
-#include "./referenceframe.hpp"
-#include "./json.hpp"
-#include "./datafile.hpp"
-#include "./io.hpp"
+#include "referenceframe.hpp"
+#include "json.hpp"
+#include "datafile.hpp"
+#include "io.hpp"
 #include "../registry.hpp"
 
 namespace ba = boost::algorithm;

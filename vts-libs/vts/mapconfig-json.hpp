@@ -27,7 +27,7 @@
 #ifndef vtslibs_vts_mapconfig_json_hpp_included_
 #define vtslibs_vts_mapconfig_json_hpp_included_
 
-#include "./mapconfig.hpp"
+#include "mapconfig.hpp"
 #include "jsoncpp/json.hpp"
 
 namespace vtslibs { namespace vts {

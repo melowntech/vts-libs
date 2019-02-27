@@ -32,7 +32,7 @@
 
 #include "imgproc/fillrect.hpp"
 
-#include "./qtree.hpp"
+#include "qtree.hpp"
 
 namespace fs = boost::filesystem;
 namespace bin = utility::binaryio;

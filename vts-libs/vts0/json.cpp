@@ -29,7 +29,7 @@
 #include "dbglog/dbglog.hpp"
 #include "jsoncpp/as.hpp"
 
-#include "./json.hpp"
+#include "json.hpp"
 #include "../storage/error.hpp"
 
 namespace vtslibs { namespace vts0 {

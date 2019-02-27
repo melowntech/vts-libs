@@ -28,8 +28,8 @@
 
 #include "utility/enum-io.hpp"
 
-#include "./filetypes.hpp"
-#include "./resources.hpp"
+#include "filetypes.hpp"
+#include "resources.hpp"
 
 namespace vtslibs { namespace storage {
 

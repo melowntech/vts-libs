@@ -30,9 +30,9 @@
 
 #include <boost/gil/gil_all.hpp>
 
-#include "./types2d.hpp"
-#include "./mesh.hpp"
-#include "./tileindex.hpp"
+#include "types2d.hpp"
+#include "mesh.hpp"
+#include "tileindex.hpp"
 
 namespace vtslibs { namespace vts {
 

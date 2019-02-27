@@ -10,7 +10,7 @@
 # major dependency is OpenCV
 
 # bump version here
-set(vts-libs_VERSION 2.12)
+set(vts-libs_VERSION 2.13)
 
 # settable path to VTS registry
 set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
@@ -218,6 +218,7 @@ set(vts-core_SOURCES
   vts/tileset/driver/cache.hpp vts/tileset/driver/cache.cpp
   vts/tileset/driver/plain.hpp vts/tileset/driver/plain.cpp
   vts/tileset/driver/aggregated.hpp vts/tileset/driver/aggregated.cpp
+  vts/tileset/driver/asyncmeta.cpp
   vts/tileset/driver/remote.hpp vts/tileset/driver/remote.cpp
   vts/tileset/driver/local.hpp vts/tileset/driver/local.cpp
 
@@ -248,7 +249,7 @@ if (MODULE_http_FOUND)
 
   list(APPEND vts-core_SOURCES
     vts/tileset/driver/httpfetcher.hpp vts/tileset/driver/httpfetcher.cpp)
-  list(APPEND vts-core_EXTRA_DEPENDS http>=1.6)
+  list(APPEND vts-core_EXTRA_DEPENDS http>=1.8)
 else()
   list(APPEND vts-core_SOURCES
     vts/tileset/driver/httpfetcher.hpp vts/tileset/driver/httpfetcher.dummy.cpp)
@@ -308,7 +309,7 @@ set(vts_SOURCES
 define_module(LIBRARY vts-libs-nucleus=${vts-libs_VERSION}
   DEPENDS
   geo>=1.24 geometry>=1.7 imgproc>=1.27 math>=1.2
-  utility>=1.25 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
+  utility>=1.30 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
 
   Boost_IOSTREAMS
   Boost_FILESYSTEM

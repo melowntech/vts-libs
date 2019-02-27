@@ -33,26 +33,18 @@
 #include <boost/noncopyable.hpp>
 
 #include "utility/runnable.hpp"
+#include "utility/expected.hpp"
 
 #include "../../storage/streams.hpp"
 #include "../../storage/resources.hpp"
 
 #include "../../vts.hpp"
 #include "../options.hpp"
-#include "./driver/options.hpp"
-#include "./tilesetindex.hpp"
+#include "driver/options.hpp"
+#include "driver/streams.hpp"
+#include "tilesetindex.hpp"
 
 namespace vtslibs { namespace vts {
-
-using storage::OStream;
-using storage::IStream;
-using storage::StringIStream;
-using storage::File;
-using storage::TileFile;
-using storage::FileStat;
-using storage::Resources;
-using storage::NullWhenNotFound_t;
-using storage::NullWhenNotFound;
 
 class Driver : boost::noncopyable {
 public:
@@ -63,7 +55,11 @@ public:
          */
         bool flattener;
 
-        Capabilities() : flattener(false) {}
+        /** Driver preferes asychronous operations when set.
+         */
+        bool async;
+
+        Capabilities() : flattener(false), async(false) {}
     };
 
     typedef std::shared_ptr<Driver> pointer;
@@ -152,9 +148,27 @@ public:
     IStream::pointer input(const TileId &tileId, TileFile type
                            , const NullWhenNotFound_t&) const;
 
+    /** Same as input(tileId, type) but fetches file asynchronously. Calls
+     *  callback when stream is ready.
+     *
+     * N.B.: notFound is passed as a raw pointer. It must be valid until the
+     * asynchronous opetation uses it. Must be either global or can be a member
+     * of the callback.
+     *
+     * \param tileId tile ID
+     * \param type tile file type
+     * \param cb callback called when input stream is ready
+     * \param notFound value passed to callback when given file is not found
+     */
+    void input(const TileId &tileId, TileFile type, const InputCallback &cb
+               , const IStream::pointer *notFound = nullptr) const;
+
     FileStat stat(File type) const;
 
     FileStat stat(const TileId &tileId, TileFile type) const;
+
+    void stat(const TileId &tileId, TileFile type
+              , const StatCallback &cb) const;
 
     /** Extra files provided by driver.
      */
@@ -237,6 +251,7 @@ public:
     /** Returns drivers capabilities.
      */
     inline const Capabilities& capabilities() const { return capabilities_; }
+    inline const Capabilities& ccapabilities() const { return capabilities_; }
 
     /** Relocates referenced resources.
      */
@@ -297,6 +312,13 @@ private:
     input_impl(const TileId &tileId, TileFile type
                , const NullWhenNotFound_t&) const = 0;
 
+    /** Default version calls cb(input_impl(tileId, type)) immediately. Override
+     *  only when needed.
+     */
+    virtual void input_impl(const TileId &tileId, TileFile type
+                            , const InputCallback &cb
+                            , const IStream::pointer *notFound) const;
+
     virtual void drop_impl() = 0;
 
     virtual void flush_impl() = 0;
@@ -305,6 +327,9 @@ private:
 
     virtual FileStat stat_impl(const TileId &tileId, TileFile type)
         const = 0;
+
+    virtual void stat_impl(const TileId &tileId, TileFile type
+                           , const StatCallback &cb) const;
 
     /** Extra files provided by driver. Optional.
      */
@@ -444,6 +469,14 @@ inline IStream::pointer Driver::input(const TileId &tileId, TileFile type
     return input_impl(tileId, type, NullWhenNotFound);
 }
 
+inline void Driver::input(const TileId &tileId, TileFile type
+                          , const InputCallback &cb
+                          , const IStream::pointer *notFound) const
+{
+    checkRunning();
+    return input_impl(tileId, type, cb, notFound);
+}
+
 inline FileStat Driver::stat(File type) const
 {
     checkRunning();
@@ -454,6 +487,13 @@ inline FileStat Driver::stat(const TileId &tileId, TileFile type) const
 {
     checkRunning();
     return stat_impl(tileId, type);
+}
+
+inline void Driver::stat(const TileId &tileId, TileFile type
+                         , const StatCallback &cb) const
+{
+    checkRunning();
+    return stat_impl(tileId, type, cb);
 }
 
 inline storage::Resources Driver::resources() const

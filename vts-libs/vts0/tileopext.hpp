@@ -26,8 +26,8 @@
 #ifndef vtslibs_vts0_tileopext_hpp_included_
 #define vtslibs_vts0_tileopext_hpp_included_
 
-#include "./types.hpp"
-#include "./tileop.hpp"
+#include "types.hpp"
+#include "tileop.hpp"
 
 namespace vtslibs { namespace vts0 {
 

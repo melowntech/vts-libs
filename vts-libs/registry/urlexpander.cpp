@@ -24,7 +24,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "./urlexpander.hpp"
+#include "urlexpander.hpp"
 
 namespace vtslibs { namespace registry {
 

@@ -40,11 +40,11 @@
 
 #include "../storage/error.hpp"
 
-#include "./mesh.hpp"
-#include "./meshio.hpp"
-#include "./multifile.hpp"
-#include "./math.hpp"
-#include "./tileindex.hpp"
+#include "mesh.hpp"
+#include "meshio.hpp"
+#include "multifile.hpp"
+#include "math.hpp"
+#include "tileindex.hpp"
 
 namespace fs = boost::filesystem;
 namespace bio = boost::iostreams;

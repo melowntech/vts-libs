@@ -32,7 +32,7 @@
 #include "../storage/error.hpp"
 #include "../vts/meshop.hpp"
 
-#include "./assimp.hpp"
+#include "assimp.hpp"
 
 namespace fs = boost::filesystem;
 

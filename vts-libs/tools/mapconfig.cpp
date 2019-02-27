@@ -53,7 +53,7 @@
 #include "../vts/io.hpp"
 #include "../vts/csconvertor.hpp"
 
-#include "./support/urlfetcher.hpp"
+#include "support/urlfetcher.hpp"
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;

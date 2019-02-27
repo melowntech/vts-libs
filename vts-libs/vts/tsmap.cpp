@@ -31,7 +31,7 @@
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
 
-#include "./tsmap.hpp"
+#include "tsmap.hpp"
 
 #include "../storage/error.hpp"
 

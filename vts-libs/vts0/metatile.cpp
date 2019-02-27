@@ -39,9 +39,9 @@
 
 #include "../storage/error.hpp"
 
-#include "./tileop.hpp"
-#include "./io.hpp"
-#include "./metatile.hpp"
+#include "tileop.hpp"
+#include "io.hpp"
+#include "metatile.hpp"
 
 namespace half = half_float::detail;
 

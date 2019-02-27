@@ -33,8 +33,8 @@
 #include <boost/spirit/include/qi_match.hpp>
 #include <boost/spirit/include/qi_match_auto.hpp>
 
-#include "./basetypes.hpp"
-#include "./properties.hpp"
+#include "basetypes.hpp"
+#include "properties.hpp"
 
 #include "../storage/io.hpp"
 

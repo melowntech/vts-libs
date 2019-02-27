@@ -26,7 +26,7 @@
 
 #include "../vts/meshop.hpp"
 
-#include "./analyze.hpp"
+#include "analyze.hpp"
 
 namespace vtslibs { namespace vts { namespace tools {
 

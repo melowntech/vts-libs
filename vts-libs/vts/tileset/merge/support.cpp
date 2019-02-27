@@ -26,7 +26,7 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./support.hpp"
+#include "support.hpp"
 
 namespace vtslibs { namespace vts { namespace merge {
 

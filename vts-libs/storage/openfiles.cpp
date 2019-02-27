@@ -29,7 +29,7 @@
 
 #include "utility/rlimit.hpp"
 
-#include "./openfiles.hpp"
+#include "openfiles.hpp"
 
 namespace vtslibs { namespace storage {
 

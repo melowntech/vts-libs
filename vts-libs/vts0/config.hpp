@@ -35,7 +35,7 @@
 
 #include <boost/filesystem/path.hpp>
 
-#include "./properties.hpp"
+#include "properties.hpp"
 
 namespace vtslibs { namespace vts0 {
 

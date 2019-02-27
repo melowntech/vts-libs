@@ -28,7 +28,7 @@
 
 #include <iostream>
 
-#include "./metatile.hpp"
+#include "metatile.hpp"
 
 namespace vtslibs { namespace vts {
 

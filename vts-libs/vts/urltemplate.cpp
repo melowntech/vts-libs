@@ -36,9 +36,9 @@
 #include "utility/streams.hpp"
 #include "utility/uri.hpp"
 
-#include "./tileop.hpp"
+#include "tileop.hpp"
 
-#include "./urltemplate.hpp"
+#include "urltemplate.hpp"
 
 namespace vtslibs { namespace vts {
 

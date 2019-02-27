@@ -46,11 +46,13 @@
 #include "../driver.hpp"
 #include "../detail.hpp"
 
+#include "runcallback.hpp"
+
 // drivers:
-#include "./plain.hpp"
-#include "./aggregated.hpp"
-#include "./remote.hpp"
-#include "./local.hpp"
+#include "plain.hpp"
+#include "aggregated.hpp"
+#include "remote.hpp"
+#include "local.hpp"
 
 namespace vtslibs { namespace vts {
 
@@ -602,6 +604,30 @@ boost::optional<unsigned int>
 Driver::oldRevision(const boost::filesystem::path &root)
 {
     return tileset::loadRevision(root / filePath(File::config));
+}
+
+void Driver::input_impl(const TileId &tileId, TileFile type
+                        , const InputCallback &cb
+                        , const IStream::pointer *notFound) const
+{
+    if (!notFound) {
+        // regular call
+        return runCallback([&]() { return input_impl(tileId, type); }, cb);
+    }
+
+    // not-found signalling version
+    return runCallback([&]()
+    {
+        auto is(input_impl(tileId, type, NullWhenNotFound));
+        if (!is) { return *notFound; }
+        return is;
+    }, cb);
+}
+
+void Driver::stat_impl(const TileId &tileId, TileFile type
+                       , const StatCallback &cb) const
+{
+    runCallback([&]() { return stat_impl(tileId, type); }, cb);
 }
 
 } } // namespace vtslibs::vts

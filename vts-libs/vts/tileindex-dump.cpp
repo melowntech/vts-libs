@@ -30,7 +30,7 @@
 
 #include "../storage/error.hpp"
 
-#include "./tileindex.hpp"
+#include "tileindex.hpp"
 
 namespace vtslibs { namespace vts {
 

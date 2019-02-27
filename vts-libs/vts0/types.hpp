@@ -30,8 +30,8 @@
 
 #include "geometry/parse-obj.hpp"
 
-#include "./basetypes.hpp"
-#include "./typesfwd.hpp"
+#include "basetypes.hpp"
+#include "typesfwd.hpp"
 
 namespace vtslibs { namespace vts0 {
 

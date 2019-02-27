@@ -33,20 +33,14 @@
 #include "../../storage/streams.hpp"
 #include "../../storage/resources.hpp"
 #include "../mapconfig.hpp"
-#include "./properties.hpp"
+#include "properties.hpp"
+
+#include "driver/streams.hpp"
 
 namespace vtslibs { namespace vts {
 
 class Driver;
 namespace tileset { class Index; }
-
-using storage::IStream;
-using storage::File;
-using storage::TileFile;
-using storage::FileStat;
-using storage::Resources;
-using storage::NullWhenNotFound_t;
-using storage::NullWhenNotFound;
 
 class Delivery : boost::noncopyable {
 public:
@@ -69,9 +63,15 @@ public:
                            , FileFlavor flavor
                            , const NullWhenNotFound_t&) const;
 
+    void input(const TileId &tileId, TileFile type, FileFlavor flavor
+               , const InputCallback &cb) const;
+
     FileStat stat(File type) const;
 
     FileStat stat(const TileId &tileId, TileFile type) const;
+
+    void stat(const TileId &tileId, TileFile type
+              , const StatCallback &cb) const;
 
     IStream::pointer input(const std::string &name) const;
 

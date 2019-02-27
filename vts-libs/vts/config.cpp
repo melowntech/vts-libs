@@ -36,7 +36,7 @@
 
 #include "utility/path.hpp"
 
-#include "./config.hpp"
+#include "config.hpp"
 
 namespace fs = boost::filesystem;
 

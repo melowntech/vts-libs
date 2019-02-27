@@ -39,7 +39,7 @@
 #include <boost/spirit/include/qi_match_auto.hpp>
 #include <boost/spirit/include/qi_stream.hpp>
 
-#include "./gluerules.hpp"
+#include "gluerules.hpp"
 
 namespace vtslibs { namespace vts {
 

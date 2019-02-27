@@ -37,9 +37,9 @@
 
 #include "../io.hpp"
 
-#include "./merge.hpp"
-#include "./merge/support.hpp"
-#include "./merge/coverage.hpp"
+#include "merge.hpp"
+#include "merge/support.hpp"
+#include "merge/coverage.hpp"
 
 namespace fs = boost::filesystem;
 

@@ -25,9 +25,9 @@
  */
 #include "math/math.hpp"
 
-#include "./tileop.hpp"
-#include "./csconvertor.hpp"
-#include "./subtrees.hpp"
+#include "tileop.hpp"
+#include "csconvertor.hpp"
+#include "subtrees.hpp"
 
 namespace vtslibs { namespace vts {
 

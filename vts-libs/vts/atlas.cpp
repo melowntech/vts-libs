@@ -33,8 +33,8 @@
 
 #include "../storage/error.hpp"
 
-#include "./atlas.hpp"
-#include "./multifile.hpp"
+#include "atlas.hpp"
+#include "multifile.hpp"
 
 namespace vtslibs { namespace vts {
 

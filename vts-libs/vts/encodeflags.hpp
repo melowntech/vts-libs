@@ -28,7 +28,7 @@
 
 #include <iostream>
 
-#include "./options.hpp"
+#include "options.hpp"
 
 namespace vtslibs { namespace vts {
 

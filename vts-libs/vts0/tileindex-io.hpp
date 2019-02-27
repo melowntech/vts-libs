@@ -28,7 +28,7 @@
 
 #include <iostream>
 
-#include "./tileindex.hpp"
+#include "tileindex.hpp"
 
 namespace vtslibs { namespace vts0 {
 

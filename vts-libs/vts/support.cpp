@@ -23,7 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include "./support.hpp"
+#include "support.hpp"
 
 #include "vts/browser/index.html.hpp"
 #include "vts/browser/index-offline.html.hpp"
@@ -33,7 +33,7 @@
 
 namespace vtslibs { namespace vts {
 
-#include "./support.impl.cpp"
+#include "support.impl.cpp"
 
 const storage::SupportFile::Vars defaultSupportVars([&]()
     -> storage::SupportFile::Vars

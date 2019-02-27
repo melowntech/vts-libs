@@ -34,9 +34,9 @@
 #include <boost/variant.hpp>
 #include <boost/filesystem/path.hpp>
 
-#include "./basetypes.hpp"
-#include "./nodeinfo.hpp"
-#include "./tileset.hpp"
+#include "basetypes.hpp"
+#include "nodeinfo.hpp"
+#include "tileset.hpp"
 
 namespace vtslibs { namespace vts {
 

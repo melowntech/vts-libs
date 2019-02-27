@@ -33,7 +33,7 @@
 #include "../driver.hpp"
 #include "../../storage.hpp"
 #include "../../tsmap.hpp"
-#include "./cache.hpp"
+#include "cache.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 
@@ -195,6 +195,10 @@ private:
     IStream::pointer input_impl(const TileId &tileId, TileFile type
                                 , bool noSuchFile) const;
 
+    virtual void input_impl(const TileId &tileId, TileFile type
+                            , const InputCallback &cb
+                            , const IStream::pointer *notFound) const;
+
     virtual void drop_impl();
 
     virtual void flush_impl();
@@ -243,6 +247,12 @@ private:
 
     FileStat stat_impl(const std::string &name) const;
 
+    /** Asynchronously builds metatile stream.
+     */
+    void buildMeta(const TileId &tileId, std::time_t lastModified
+                   , const InputCallback &cb, const IStream::pointer *notFound)
+        const;
+
     Storage storage_;
 
     registry::ReferenceFrame referenceFrame_;
@@ -259,6 +269,12 @@ private:
      */
     mutable std::unique_ptr<Cache> cache_;
 };
+
+inline MetaNode::SourceReference
+sourceReferenceFromFlags(TileIndex::Flag::value_type flags)
+{
+    return flags >> 16;
+}
 
 } } } // namespace vtslibs::vts::driver
 

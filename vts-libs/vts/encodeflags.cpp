@@ -23,7 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include "./encodeflags.hpp"
+#include "encodeflags.hpp"
 
 namespace vtslibs { namespace vts {
 

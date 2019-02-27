@@ -28,7 +28,7 @@
 
 #include "dbglog/dbglog.hpp"
 
-#include "./locking.hpp"
+#include "locking.hpp"
 
 namespace vtslibs { namespace vts {
 

@@ -34,7 +34,7 @@
 
 #include "utility/gccversion.hpp"
 
-#include "./sstreams.hpp"
+#include "sstreams.hpp"
 
 namespace bio = boost::iostreams;
 

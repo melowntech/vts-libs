@@ -36,8 +36,8 @@
 #include "jsoncpp/io.hpp"
 
 #include "../storage/error.hpp"
-#include "./service.hpp"
-#include "./json.hpp"
+#include "service.hpp"
+#include "json.hpp"
 
 
 namespace vtslibs { namespace registry {

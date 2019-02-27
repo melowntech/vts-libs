@@ -31,10 +31,10 @@
  * Mesh operation input.
  */
 
-#include "./tileset/detail.hpp"
-#include "./tileset/merge/support.hpp"
+#include "tileset/detail.hpp"
+#include "tileset/merge/support.hpp"
 
-#include "./meshopinput.hpp"
+#include "meshopinput.hpp"
 
 namespace vtslibs { namespace vts {
 

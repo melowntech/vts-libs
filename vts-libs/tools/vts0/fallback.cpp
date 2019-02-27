@@ -33,7 +33,7 @@
 
 #include "service/cmdline.hpp"
 
-#include "./commands.hpp"
+#include "commands.hpp"
 
 namespace po = boost::program_options;
 

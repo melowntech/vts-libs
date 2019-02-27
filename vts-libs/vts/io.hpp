@@ -31,8 +31,8 @@
 #include "utility/streams.hpp"
 
 #include "../storage/io.hpp"
-#include "./basetypes.hpp"
-#include "./geomextents.hpp"
+#include "basetypes.hpp"
+#include "geomextents.hpp"
 
 namespace vtslibs { namespace vts {
 

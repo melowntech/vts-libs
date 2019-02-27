@@ -39,7 +39,7 @@
 #include "../../io.hpp"
 #include "../config.hpp"
 #include "../detail.hpp"
-#include "./local.hpp"
+#include "local.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 

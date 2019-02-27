@@ -38,7 +38,7 @@
 #include "../vts/mesh.hpp"
 #include "../vts/ntgenerator.hpp"
 
-#include "./repackatlas.hpp"
+#include "repackatlas.hpp"
 
 namespace vtslibs { namespace vts { namespace tools {
 

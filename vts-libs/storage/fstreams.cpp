@@ -35,10 +35,10 @@
 #include "utility/gccversion.hpp"
 #include "utility/streams.hpp"
 
-#include "./streams.hpp"
-#include "./error.hpp"
+#include "streams.hpp"
+#include "error.hpp"
 
-#include "./fstreams.hpp"
+#include "fstreams.hpp"
 
 namespace bio = boost::iostreams;
 

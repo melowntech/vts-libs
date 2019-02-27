@@ -45,12 +45,12 @@
 
 #include "geo/geodataset.hpp"
 
-#include "./io.hpp"
-#include "./tileop.hpp"
-#include "./csconvertor.hpp"
-#include "./opencv/navtile.hpp"
+#include "io.hpp"
+#include "tileop.hpp"
+#include "csconvertor.hpp"
+#include "opencv/navtile.hpp"
 
-#include "./heightmap.hpp"
+#include "heightmap.hpp"
 
 namespace vtslibs { namespace vts {
 

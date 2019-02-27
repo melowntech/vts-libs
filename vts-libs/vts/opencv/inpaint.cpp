@@ -28,8 +28,8 @@
 #include "imgproc/inpaint.hpp"
 
 #include "../mesh.hpp"
-#include "./atlas.hpp"
-#include "./texture.hpp"
+#include "atlas.hpp"
+#include "texture.hpp"
 
 namespace vtslibs { namespace vts {
 

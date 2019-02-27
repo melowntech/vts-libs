@@ -31,7 +31,7 @@
 #include <memory>
 
 #include "../driver.hpp"
-#include "./cache.hpp"
+#include "cache.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 

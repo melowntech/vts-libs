@@ -27,7 +27,7 @@
 #include <numeric>
 #include "pysupport/string.hpp"
 
-#include "./py.hpp"
+#include "py.hpp"
 #include <boost/utility/in_place_factory.hpp>
 
 namespace python = boost::python;

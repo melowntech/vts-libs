@@ -30,9 +30,9 @@
 
 #include <boost/filesystem/path.hpp>
 
-#include "./qtree.hpp"
-#include "./basetypes.hpp"
-#include "./tileop.hpp"
+#include "qtree.hpp"
+#include "basetypes.hpp"
+#include "tileop.hpp"
 
 namespace vtslibs { namespace vts {
 
@@ -259,6 +259,8 @@ public:
     std::size_t count(const LodRange &lodRange) const;
 
     const QTree* tree(Lod lod) const;
+
+    const QTree* ctree(Lod lod) const { return tree(lod); }
 
     /** Sets value as a bit mask.
      *  Affects only bits set in mask.

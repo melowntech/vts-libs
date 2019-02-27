@@ -28,9 +28,9 @@
 
 #include "../storage/filetypes.hpp"
 
-#include "./basetypes.hpp"
-#include "./properties.hpp"
-#include "./types.hpp"
+#include "basetypes.hpp"
+#include "properties.hpp"
+#include "types.hpp"
 
 namespace vtslibs { namespace vts0 {
 

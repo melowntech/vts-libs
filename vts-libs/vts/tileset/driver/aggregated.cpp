@@ -60,7 +60,8 @@
 #include "../../tileflags.hpp"
 #include "../config.hpp"
 #include "../detail.hpp"
-#include "./aggregated.hpp"
+#include "aggregated.hpp"
+#include "runcallback.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 
@@ -95,12 +96,6 @@ void unite(registry::IdSet &out, const registry::IdSet &in)
 
 typedef TileIndex::Flag TiFlag;
 typedef TiFlag::value_type value_type;
-
-inline MetaNode::SourceReference
-sourceReferenceFromFlags(TileIndex::Flag::value_type flags)
-{
-    return flags >> 16;
-}
 
 void addTileIndex(unsigned int metaBinaryOrder
                   , TileIndex &ti, AggregatedDriver::DriverEntry &de
@@ -178,6 +173,13 @@ openDrivers(Storage &storage, const OpenOptions &openOptions
     }
 
     return drivers;
+}
+
+bool isAsync(const AggregatedDriver::DriverEntry::list &drivers) {
+    for (const auto &de : drivers) {
+        if (de.driver->ccapabilities().async) { return true; }
+    }
+    return false;
 }
 
 struct PreparedDrivers {
@@ -383,6 +385,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
 {
     // we flatten the content
     capabilities().flattener = true;
+    capabilities().async = isAsync(drivers_);
 
     // build driver information
     auto properties(build(options, cloneOptions, true));
@@ -410,6 +413,8 @@ AggregatedDriver::AggregatedDriver(const AggregatedOptions &options
 
     // build driver information and cache it
     memProperties_ = build(options, cloneOptions);
+
+    capabilities().async = isAsync(drivers_);
 }
 
 void AggregatedDriver::Index::loadRest_impl(std::istream &f
@@ -665,6 +670,7 @@ AggregatedDriver::AggregatedDriver(const boost::filesystem::path &root
 {
     // we flatten the content
     capabilities().flattener = true;
+    capabilities().async = isAsync(drivers_);
 
     tileset::loadTileSetIndex(tsi_, *this);
 }
@@ -691,6 +697,7 @@ AggregatedDriver::AggregatedDriver(PrivateTag
 
     // open drivers
     drivers_ = openDrivers(storage_, cloneOptions.openOptions(), options);
+    capabilities().async = isAsync(drivers_);
 
     // relaod tile index
     tileset::loadTileSetIndex(tsi_, *this);
@@ -815,9 +822,10 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
             return cache_->input(tileId, type, NullWhenNotFound);
         }
 
-        return buildMeta(drivers_, root(), referenceFrame_
-                         , configStat().lastModified, tileId
-                         , tsi_.tileIndex, surfaceReferences_, noSuchFile);
+        return driver::buildMeta
+            (drivers_, root(), referenceFrame_
+             , configStat().lastModified, tileId
+             , tsi_.tileIndex, surfaceReferences_, noSuchFile);
     }
 
     const auto flags(tsi_.checkAndGetFlags(tileId, type));
@@ -848,6 +856,65 @@ IStream::pointer AggregatedDriver::input_impl(const TileId &tileId
     return {};
 }
 
+void reportNotFound(const TileId &tileId, TileFile type
+                    , const InputCallback &cb
+                    , const IStream::pointer *notFound)
+{
+    return runCallback([&]() -> IStream::pointer
+    {
+        if (!notFound) {
+            LOGTHROW(err1, vs::NoSuchFile)
+                << "There is no " << type << " for " << tileId << ".";
+        }
+        return *notFound;
+    }, cb);
+}
+
+void AggregatedDriver::input_impl(const TileId &tileId, TileFile type
+                                  , const InputCallback &cb
+                                  , const IStream::pointer *notFound) const
+{
+    if (type == TileFile::meta) {
+        if (!tsi_.meta(tileId)) {
+            return reportNotFound(tileId, type, cb, notFound);
+        }
+
+        if (cache_ && tsi_.staticMeta(tileId)) {
+            return runCallback([&]()
+            {
+                if (notFound) {
+                    if (const auto &is
+                        = cache_->input(tileId, type, NullWhenNotFound))
+                    {
+                        return is;
+                    }
+                    return *notFound;
+                }
+                return cache_->input(tileId, type);
+            }, cb);
+        }
+
+        return buildMeta(tileId, configStat().lastModified, cb, notFound);
+    }
+
+    const auto flags(tsi_.checkAndGetFlags(tileId, type));
+    if (!flags) {
+        return reportNotFound(tileId, type, cb, notFound);
+    }
+
+    // get dataset id
+    const auto sourceReference(sourceReferenceFromFlags(flags));
+
+    // NB: source reference is 1-based
+    if (sourceReference && (sourceReference <= drivers_.size())) {
+        // TODO: we can call non-async version if appropriate
+        return drivers_[sourceReference - 1]
+            .driver->input(tileId, type, cb, notFound);
+    }
+
+    return reportNotFound(tileId, type, cb, notFound);
+}
+
 FileStat AggregatedDriver::stat_impl(File type) const
 {
     const auto name(filePath(type));
@@ -869,9 +936,10 @@ FileStat AggregatedDriver::stat_impl(const TileId &tileId, TileFile type) const
             return cache_->input(tileId, type)->stat();
         }
 
-        return buildMeta(drivers_, root(), referenceFrame_
-                         , configStat().lastModified, tileId
-                         , tsi_.tileIndex, surfaceReferences_)->stat();
+        return driver::buildMeta
+            (drivers_, root(), referenceFrame_
+             , configStat().lastModified, tileId
+             , tsi_.tileIndex, surfaceReferences_)->stat();
     }
 
     const auto flags(tsi_.checkAndGetFlags(tileId, type));
@@ -1045,9 +1113,9 @@ void AggregatedDriver::generateMetatiles(AggregatedOptions &options)
     auto getMeta([&](const TileId &tid)
     {
         // get metatile stream, ask for nullptr when metatile doesn't exist
-        return buildMeta(drivers_, root(), referenceFrame_
-                         , -1, tid
-                         , tsi_.tileIndex, surfaceReferences_, false);
+        return driver::buildMeta(drivers_, root(), referenceFrame_
+                                 , -1, tid
+                                 , tsi_.tileIndex, surfaceReferences_, false);
     });
 
     // process all metatiles in given range
@@ -1165,6 +1233,7 @@ AggregatedDriver::AggregatedDriver(PrivateTag
 {
     // we flatten the content
     capabilities().flattener = true;
+    capabilities().async = isAsync(drivers_);
 
     tileset::loadTileSetIndex(tsi_, *this);
 }

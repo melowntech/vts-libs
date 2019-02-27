@@ -36,8 +36,8 @@
 
 #include "geo/srsdef.hpp"
 
-#include "./tileset.hpp"
-#include "./atlas.hpp"
+#include "tileset.hpp"
+#include "atlas.hpp"
 
 namespace vtslibs { namespace vts {
 

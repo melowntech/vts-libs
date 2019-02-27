@@ -29,7 +29,7 @@
 
 #include "../storage/streams.hpp"
 
-#include "./mapconfig.hpp"
+#include "mapconfig.hpp"
 
 namespace vtslibs { namespace vts { namespace service {
 

@@ -23,7 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include "./support.hpp"
+#include "support.hpp"
 
 #include "vts/browser/pic.index.html.hpp"
 #include "vts/browser/pic.index-offline.html.hpp"
@@ -31,6 +31,6 @@
 
 namespace vtslibs { namespace vts0 {
 
-#include "./support.impl.cpp"
+#include "support.impl.cpp"
 
 } } // namespace vtslibs::vts0

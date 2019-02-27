@@ -26,9 +26,9 @@
 #include "jsoncpp/json.hpp"
 #include "jsoncpp/io.hpp"
 
-#include "./tileflags.hpp"
-#include "./metaflags.hpp"
-#include "./debug.hpp"
+#include "tileflags.hpp"
+#include "metaflags.hpp"
+#include "debug.hpp"
 
 namespace vtslibs { namespace vts {
 

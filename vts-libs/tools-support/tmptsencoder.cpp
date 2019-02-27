@@ -30,7 +30,7 @@
 #include "../vts/tileset/merge.hpp"
 #include "../registry/po.hpp"
 
-#include "./tmptsencoder.hpp"
+#include "tmptsencoder.hpp"
 
 namespace fs = boost::filesystem;
 namespace vs = vtslibs::storage;

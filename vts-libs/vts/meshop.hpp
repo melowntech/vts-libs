@@ -28,10 +28,10 @@
 
 #include <functional>
 
-#include "./mesh.hpp"
-#include "./atlas.hpp"
-#include "./opencv/atlas.hpp"
-#include "./basetypes.hpp"
+#include "mesh.hpp"
+#include "atlas.hpp"
+#include "opencv/atlas.hpp"
+#include "basetypes.hpp"
 
 namespace vtslibs { namespace vts {
 

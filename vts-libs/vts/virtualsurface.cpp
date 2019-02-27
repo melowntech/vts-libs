@@ -30,7 +30,7 @@
  * Virtual surface.
  */
 
-#include "./virtualsurface.hpp"
+#include "virtualsurface.hpp"
 
 namespace vtslibs { namespace vts {
 

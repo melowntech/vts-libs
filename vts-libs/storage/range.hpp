@@ -35,7 +35,7 @@
 
 #include "utility/streams.hpp"
 
-#include "./lod.hpp"
+#include "lod.hpp"
 
 namespace vtslibs { namespace storage {
 

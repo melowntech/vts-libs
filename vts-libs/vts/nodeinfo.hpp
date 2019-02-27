@@ -31,7 +31,7 @@
 #include "utility/enum-io.hpp"
 #include "imgproc/rastermask/quadtree.hpp"
 
-#include "./basetypes.hpp"
+#include "basetypes.hpp"
 
 namespace vtslibs { namespace vts {
 

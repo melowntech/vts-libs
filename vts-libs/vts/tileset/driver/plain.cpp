@@ -45,7 +45,7 @@
 #include "../../io.hpp"
 #include "../config.hpp"
 #include "../extra.hpp"
-#include "./plain.hpp"
+#include "plain.hpp"
 
 namespace vtslibs { namespace vts { namespace driver {
 

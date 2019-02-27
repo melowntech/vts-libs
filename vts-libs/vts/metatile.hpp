@@ -43,9 +43,9 @@
 #include "../storage/credits.hpp"
 #include "../storage/range.hpp"
 
-#include "./basetypes.hpp"
-#include "./tileop.hpp"
-#include "./geomextents.hpp"
+#include "basetypes.hpp"
+#include "tileop.hpp"
+#include "geomextents.hpp"
 
 typedef half_float::half hfloat;
 
@@ -245,6 +245,7 @@ private:
 
 class MetaTile {
 public:
+    typedef std::vector<MetaTile> list;
     typedef std::shared_ptr<MetaTile> pointer;
 
     typedef std::uint32_t size_type;

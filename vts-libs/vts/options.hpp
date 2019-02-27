@@ -39,9 +39,12 @@
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
 
-#include "./basetypes.hpp"
-#include "./tileindex.hpp"
-#include "./metatile.hpp"
+#include "basetypes.hpp"
+#include "tileindex.hpp"
+#include "metatile.hpp"
+
+// forward declaration
+namespace utility { class ResourceFetcher; }
 
 namespace vtslibs { namespace vts {
 
@@ -54,6 +57,7 @@ class OpenOptions {
 public:
     OpenOptions()
         : ioRetries_(-1) // infinity
+        , ioRetryDelay_(1000) // 1000 ms
         , ioWait_(-1) // infinity
         , scarceMemory_(false)
     {}
@@ -73,7 +77,12 @@ public:
         ioRetries_ = ioRetries; return *this;
     }
 
-    int ioWait() const { return ioWait_; }
+    unsigned long ioRetryDelay() const { return ioRetryDelay_; }
+    OpenOptions& ioRetryDelay(unsigned long ioRetryDelay) {
+        ioRetryDelay_ = ioRetryDelay; return *this;
+    }
+
+    long ioWait() const { return ioWait_; }
     OpenOptions& ioWait(long ioWait) {
         ioWait_ = ioWait; return *this;
     }
@@ -81,6 +90,15 @@ public:
     bool scarceMemory() const { return scarceMemory_; }
     OpenOptions& scarceMemory(bool scarceMemory) {
         scarceMemory_ = scarceMemory; return *this;
+    }
+
+    const std::shared_ptr<utility::ResourceFetcher>& resourceFetcher() const {
+        return resourceFetcher_;
+    }
+
+    OpenOptions&
+    resourceFetcher(const std::shared_ptr<utility::ResourceFetcher> &f) {
+        resourceFetcher_ = f; return *this;
     }
 
     void configuration(boost::program_options::options_description &od
@@ -100,9 +118,18 @@ private:
      */
     int ioRetries_;
 
+    /** Delay between individual retries.
+     */
+    unsigned long ioRetryDelay_;
+
     /** Timeout in ms for IO operations. Interpreted by remote driver.
      */
     long ioWait_;
+
+    /** Optional resource fetcher. Interpreted by remote driver.
+     *  If not set, internal on-demand fetcher is used.
+     */
+    std::shared_ptr<utility::ResourceFetcher> resourceFetcher_;
 
     /** We are (or do not want to be) running out of memory.
      */

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 Melown Technologies SE
+ * Copyright (c) 2019 Melown Technologies SE
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -23,21 +23,36 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef vtslibs_vts0_typesfwd_hpp_included_
-#define vtslibs_vts0_typesfwd_hpp_included_
 
-#include <opencv2/core/core.hpp>
+#ifndef vtslibs_vts_tileset_driver_streams_hpp_included_
+#define vtslibs_vts_tileset_driver_streams_hpp_included_
 
-#include "geometry/parse-obj.hpp"
+#include "utility/expected.hpp"
 
-#include "basetypes.hpp"
-#include "metatile.hpp"
+#include "../../../storage/streams.hpp"
 
-namespace vtslibs { namespace vts0 {
+namespace vtslibs { namespace vts {
 
-typedef geometry::Obj Mesh;
-typedef cv::Mat Atlas;
+using storage::OStream;
+using storage::IStream;
+using storage::StringIStream;
+using storage::File;
+using storage::TileFile;
+using storage::FileStat;
+using storage::Resources;
+using storage::NullWhenNotFound_t;
+using storage::NullWhenNotFound;
 
-} } // namespace vtslibs::vts0
+/** Expected input stream. Contains a valid stream or an error.
+ */
+typedef utility::Expected<std::shared_ptr<IStream>> EIStream;
+typedef std::function<void (const EIStream&)> InputCallback;
 
-#endif // vtslibs_vts0_typesfwd_hpp_included_
+/** Expected file status. Contains a valid file status or an error.
+ */
+typedef utility::Expected<FileStat> EFileStat;
+typedef std::function<void (const EFileStat&)> StatCallback;
+
+} } // namespace vtslibs::vts
+
+#endif // vtslibs_vts_tileset_driver_streams_hpp_included_
