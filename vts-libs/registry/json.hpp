@@ -92,6 +92,13 @@ void fromJson(RegistryBase &r, const Json::Value &value);
 Json::Value asJson(const Service::dict &services);
 void fromJson(Service::dict &services, const Json::Value &value);
 
+namespace extensions {
+
+boost::any fromJson(const std::string &key, const Json::Value &value);
+Json::Value asJson(const boost::any &value);
+
+} // namespace extensions
+
 // inlines
 
 inline ReferenceFrame referenceFrame(const Json::Value &value

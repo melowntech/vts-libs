@@ -268,6 +268,7 @@ bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileFile
                   , const std::string &str
                   , std::string::size_type offset, FileFlavor *flavor)
 {
+    // TODO: use parseTileIdPrefix
     if (str.size() <= offset) { return false; }
 
     const char *p(str.c_str() + offset);
@@ -295,6 +296,38 @@ bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileFile
 
     if (!pp) { return false; }
     return !*pp;
+}
+
+const char* parseTileIdPrefix(TileId &tileId, const std::string &str
+                              , boost::optional<unsigned int> *subTileFile
+                              , std::string::size_type offset)
+{
+    if (str.size() <= offset) { return nullptr; }
+
+    const char *p(str.c_str() + offset);
+
+    if (!(p = parsePart<1>(p, tileId.lod))) { return nullptr; }
+    if (*p++ != '-') { return nullptr; }
+
+    if (!(p = parsePart<1>(p, tileId.x))) { return nullptr; }
+    if (*p++ != '-') { return nullptr; }
+
+    if (!(p = parsePart<1>(p, tileId.y))) { return nullptr; }
+
+    if (*p == '-') {
+        if (!subTileFile) { return nullptr; }
+
+        // we have sub-file
+        ++p;
+        unsigned int stf(0);
+        if (!(p = parsePart<1>(p, stf))) { return nullptr; }
+        *subTileFile = stf;
+    }
+
+    if (*p++ != '.') { return nullptr; }
+
+    if (!*p) { return nullptr; }
+    return p;
 }
 
 TileId commonAncestor(Lod lod, TileRange range)

@@ -46,8 +46,10 @@
 #include "../storage/error.hpp"
 #include "referenceframe.hpp"
 #include "json.hpp"
+#include "detail/json.hpp"
 #include "datafile.hpp"
 #include "io.hpp"
+#include "extensions.hpp"
 #include "../registry.hpp"
 
 namespace ba = boost::algorithm;
@@ -100,57 +102,6 @@ void sanitize(const boost::filesystem::path &path
 
 namespace v1 {
 
-void parseIntSet(std::set<int> &set, const Json::Value &value
-                 , const char *name)
-{
-    if (!value.isArray()) {
-        LOGTHROW(err1, Json::Error)
-            << "Type of " << name << " is not a list.";
-    }
-
-    for (const auto &number : value) {
-        if (!number.isIntegral()) {
-            LOGTHROW(err1, Json::Error)
-                << "Type of " << name << " element is not an number.";
-        }
-        set.insert(number.asInt());
-    }
-}
-
-void parse(ReferenceFrame::Model &model, const Json::Value &content)
-{
-    Json::get(model.physicalSrs, content, "physicalSrs");
-    Json::get(model.navigationSrs, content, "navigationSrs");
-    Json::get(model.publicSrs, content, "publicSrs");
-}
-
-
-void parse(math::Extents3 &extents, const Json::Value &content)
-{
-    get(extents.ll(0), content, "ll", 0);
-    get(extents.ll(1), content, "ll", 1);
-    get(extents.ll(2), content, "ll", 2);
-    get(extents.ur(0), content, "ur", 0);
-    get(extents.ur(1), content, "ur", 1);
-    get(extents.ur(2), content, "ur", 2);
-}
-
-void parse(math::Extents2 &extents, const Json::Value &content)
-{
-    get(extents.ll(0), content, "ll", 0);
-    get(extents.ll(1), content, "ll", 1);
-    get(extents.ur(0), content, "ur", 0);
-    get(extents.ur(1), content, "ur", 1);
-}
-
-void parse(ReferenceFrame::Division::Node::Id &id
-           , const Json::Value &content)
-{
-    get(id.lod, content, "lod");
-    get(id.x, content, "position", 0);
-    get(id.y, content, "position", 1);
-}
-
 void parse(ReferenceFrame::Division::Node::Partitioning &partitioning
            , const Json::Value &content)
 {
@@ -159,22 +110,22 @@ void parse(ReferenceFrame::Division::Node::Partitioning &partitioning
     math::Extents2 e;
 
     if (content.isMember("00")) {
-        parse(e, check(content["00"], Json::objectValue));
+        detail::parse(e, check(content["00"], Json::objectValue));
         partitioning.n00 = e;
     }
 
     if (content.isMember("01")) {
-        parse(e, check(content["01"], Json::objectValue));
+        detail::parse(e, check(content["01"], Json::objectValue));
         partitioning.n01 = e;
     }
 
     if (content.isMember("10")) {
-        parse(e, check(content["10"], Json::objectValue));
+        detail::parse(e, check(content["10"], Json::objectValue));
         partitioning.n10 = e;
     }
 
     if (content.isMember("11")) {
-        parse(e, check(content["11"], Json::objectValue));
+        detail::parse(e, check(content["11"], Json::objectValue));
         partitioning.n11 = e;
     }
 }
@@ -186,7 +137,7 @@ void parse(ReferenceFrame::Division::Node &node, const Json::Value &content)
         LOGTHROW(err1, Json::Error)
             << "Type of node[id] is not an object.";
     }
-    parse(node.id, id);
+    detail::parse(node.id, id);
 
     const auto &partitioning(content["partitioning"]);
     if (partitioning.isObject()) {
@@ -211,7 +162,7 @@ void parse(ReferenceFrame::Division::Node &node, const Json::Value &content)
                 << "Type of node(" << node.id
                 << ")[extents] is not an object.";
         }
-        parse(node.extents, extents);
+        detail::parse(node.extents, extents);
     }
 
     if (content.isMember("externalTexture")) {
@@ -226,7 +177,7 @@ void parse(ReferenceFrame::Division &division, const Json::Value &content)
         LOGTHROW(err1, Json::Error)
             << "Type of division[extents] is not an object.";
     }
-    parse(division.extents, extents);
+    detail::parse(division.extents, extents);
     Json::get(division.heightRange.min, content, "heightRange", 0);
     Json::get(division.heightRange.max, content, "heightRange", 1);
 
@@ -245,6 +196,14 @@ void parse(ReferenceFrame::Division &division, const Json::Value &content)
     }
 }
 
+void parse(Extensions &ext, const Json::Value &content)
+{
+    for (const auto &name : content.getMemberNames()) {
+        ext.insert(Extensions::value_type
+                   (name, extensions::fromJson(name, content[name])));
+    }
+}
+
 void parse(ReferenceFrame &rf, const Json::Value &content
            , const boost::filesystem::path &path)
 {
@@ -256,7 +215,7 @@ void parse(ReferenceFrame &rf, const Json::Value &content
         LOGTHROW(err1, Json::Error)
             << "Type of referenceframe[model] is not an object.";
     }
-    parse(rf.model, model);
+    detail::parse(rf.model, model);
     Json::get(rf.body, content, "body");
 
     const auto &division(content["division"]);
@@ -272,6 +231,15 @@ void parse(ReferenceFrame &rf, const Json::Value &content
             << "Type of referenceframe[parameters] is not an object.";
     }
     Json::get(rf.metaBinaryOrder, parameters, "metaBinaryOrder");
+
+    if (content.isMember("extensions")) {
+        const auto &extensions(content["extensions"]);
+        if (!extensions.isObject()) {
+            LOGTHROW(err1, Json::Error)
+                << "Type of referenceframe[extensions] is not an object.";
+        }
+        parse(rf.extensions, extensions);
+    }
 
     sanitize(path, rf);
 }
@@ -520,51 +488,6 @@ void parse(const boost::filesystem::path &path
     }
 }
 
-void build(Json::Value &content, const ReferenceFrame::Model &model)
-{
-    content = Json::objectValue;
-    content["physicalSrs"] = model.physicalSrs;
-    content["navigationSrs"] = model.navigationSrs;
-    content["publicSrs"] = model.publicSrs;
-}
-
-void build(Json::Value &content, const math::Extents3 &extents)
-{
-    content = Json::objectValue;
-
-    auto &ll(content["ll"] = Json::arrayValue);
-    ll.append(extents.ll(0));
-    ll.append(extents.ll(1));
-    ll.append(extents.ll(2));
-
-    auto &ur(content["ur"] = Json::arrayValue);
-    ur.append(extents.ur(0));
-    ur.append(extents.ur(1));
-    ur.append(extents.ur(2));
-}
-
-void build(Json::Value &content, const math::Extents2 &extents)
-{
-    content = Json::objectValue;
-
-    auto &ll(content["ll"] = Json::arrayValue);
-    ll.append(extents.ll(0));
-    ll.append(extents.ll(1));
-
-    auto &ur(content["ur"] = Json::arrayValue);
-    ur.append(extents.ur(0));
-    ur.append(extents.ur(1));
-}
-
-void build(Json::Value &content, const ReferenceFrame::Division::Node::Id &id)
-{
-    content = Json::objectValue;
-    content["lod"] = id.lod;
-    auto &position(content["position"] = Json::arrayValue);
-    position.append(id.x);
-    position.append(id.y);
-}
-
 void build(Json::Value &content
            , const ReferenceFrame::Division::Node::Partitioning &partitioning)
 {
@@ -580,10 +503,10 @@ void build(Json::Value &content
     // manual
     content = Json::objectValue;
 
-    if (partitioning.n00) { build(content["00"], *partitioning.n00); }
-    if (partitioning.n01) { build(content["01"], *partitioning.n01); }
-    if (partitioning.n10) { build(content["10"], *partitioning.n10); }
-    if (partitioning.n11) { build(content["11"], *partitioning.n11); }
+    if (partitioning.n00) { detail::build(content["00"], *partitioning.n00); }
+    if (partitioning.n01) { detail::build(content["01"], *partitioning.n01); }
+    if (partitioning.n10) { detail::build(content["10"], *partitioning.n10); }
+    if (partitioning.n11) { detail::build(content["11"], *partitioning.n11); }
 }
 
 void build(Json::Value &content, const ReferenceFrame::Division::Node &node)
@@ -595,7 +518,7 @@ void build(Json::Value &content, const ReferenceFrame::Division::Node &node)
 
     if (node.partitioning.mode != PartitioningMode::none) {
         content["srs"] = node.srs;
-        build(content["extents"], node.extents);
+        detail::build(content["extents"], node.extents);
     }
 
     // write only when true
@@ -608,7 +531,7 @@ void build(Json::Value &content, const ReferenceFrame::Division &division)
 {
     content = Json::objectValue;
 
-    build(content["extents"], division.extents);
+    detail::build(content["extents"], division.extents);
 
     auto &heightRange(content["heightRange"] = Json::arrayValue);
     heightRange.append(division.heightRange.min);
@@ -623,6 +546,13 @@ void build(Json::Value &content, const ReferenceFrame::Division &division)
     }
 }
 
+void build(Json::Value &content, const Extensions &ext)
+{
+    for (const auto &item : ext) {
+        content[item.first] = extensions::asJson(item.second);
+    }
+}
+
 void build(Json::Value &content, const ReferenceFrame &rf)
 {
     content = Json::objectValue;
@@ -632,11 +562,15 @@ void build(Json::Value &content, const ReferenceFrame &rf)
     content["description"] = rf.description;
     if (rf.body) { content["body"] = *rf.body; }
 
-    build(content["model"], rf.model);
+    detail::build(content["model"], rf.model);
     build(content["division"], rf.division);
 
     auto &parameters(content["parameters"] = Json::objectValue);
     parameters["metaBinaryOrder"] = rf.metaBinaryOrder;
+
+    if (!rf.extensions.empty()) {
+        build(content["extensions"], rf.extensions);
+    }
 }
 
 void build(Json::Value &content, const ReferenceFrame::dict &rfs)
@@ -656,7 +590,7 @@ GeoidGrid parseGeoidGrid(const Json::Value &content)
     }
 
     GeoidGrid gg;
-    v1::parse(gg.extents, content["extents"]);
+    detail::parse(gg.extents, content["extents"]);
 
     Json::get(gg.valueRange.min, content, "valueRange", 0);
     Json::get(gg.valueRange.max, content, "valueRange", 1);
@@ -717,6 +651,8 @@ void parse(Srs &srs, const Json::Value &content)
             }
         }
     }
+
+    Json::get(srs.alt, content, "alt");
 }
 
 void parse(Srs::dict &srs, const Json::Value &content)
@@ -748,7 +684,7 @@ void build(Json::Value &content, const Srs &srs
         const auto &gg(*srs.geoidGrid);
         auto &jgg(content["geoidGrid"] = Json::objectValue);
 
-        build(jgg["extents"], gg.extents);
+        detail::build(jgg["extents"], gg.extents);
 
         auto &valueRange(jgg["valueRange"] = Json::arrayValue);
         valueRange.append(gg.valueRange.min);
@@ -779,6 +715,8 @@ void build(Json::Value &content, const Srs &srs
             srsModifiers.append("adjustVertical");
         }
     }
+
+    if (srs.alt) { content["alt"] = *srs.alt; }
 }
 
 void build(Json::Value &content, const Srs::dict &srs
@@ -929,8 +867,8 @@ void parse(BoundLayer &bl, const Json::Value &content)
             break;
 
         case BoundLayer::Availability::Type::negativeCode:
-            v1::parseIntSet(bla.codes, availability["codes"]
-                            , "boundLayer[availability[codes]]");
+            detail::parseIntSet(bla.codes, availability["codes"]
+                                , "boundLayer[availability[codes]]");
             break;
 
         case BoundLayer::Availability::Type::negativeSize:

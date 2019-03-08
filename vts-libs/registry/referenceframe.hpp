@@ -37,6 +37,8 @@
 #include <vector>
 #include <new>
 
+#include <boost/any.hpp>
+
 #include "dbglog/dbglog.hpp"
 
 #include "utility/enum-io.hpp"
@@ -95,13 +97,34 @@ struct Srs {
         adjustVertical = 0x01
     }; };
 
+    /** Human readable free-form comment.
+     */
     std::string comment;
+
+    /** SRS tyoe
+     */
     Type type;
+
+    /** Srs definition. Should be in proj format when serialized.
+     */
     geo::SrsDefinition srsDef;
+
+    /** Modifiers, bitfield comprised of Modifiers::* flags
+     */
     int srsModifiers;
 
+    /** Geoid grid information, if any.
+     */
     boost::optional<GeoidGrid> geoidGrid;
+
+    /** Periodicity, if any.
+     */
     boost::optional<Periodicity> periodicity;
+
+    /** Alternative SRS representation, if any. Shoudl be in the form
+     *  of authority:code, for example EPSG:4326 or IAU2000:49900.
+     */
+    boost::optional<std::string> alt;
 
     static constexpr char typeName[] = "spatial reference system";
     typedef StringDictionary<Srs> dict;
@@ -138,6 +161,9 @@ struct Body {
 
     typedef std::set<Id> IdList;
 };
+
+typedef boost::any Extension;
+typedef std::map<std::string, Extension> Extensions;
 
 struct ReferenceFrame {
     struct Model {
@@ -297,6 +323,14 @@ struct ReferenceFrame {
     // parameters -- generic container?
     unsigned int metaBinaryOrder;
 
+    /** Extensions. Consumed by reference frame users.
+     *
+     * If extension is known (see extensions.hpp) then it is automatically
+     * parsed and stored. Unknown extension is stored as original Json::Value.
+     * In any case, extension is stored as boost::any.
+     */
+    Extensions extensions;
+
     static constexpr char typeName[] = "reference frame";
     typedef StringDictionary<ReferenceFrame> dict;
 
@@ -326,6 +360,11 @@ struct ReferenceFrame {
     }
 
     void invalidate(const Division::Node::Id &nodeId);
+
+    /** Find extension by type. Returns pointer to extension if found, or
+     *  nullptr if not found.
+     */
+    template <typename Ext> const Ext* findExtension() const;
 
     /** For vts0 only:
      */
@@ -638,6 +677,17 @@ inline bool Position::operator==(const Position &p) const
             && (orientation == p.orientation)
             && (verticalExtent == p.verticalExtent)
             && (verticalFov == p.verticalFov));
+}
+
+template <typename Ext>
+const Ext* ReferenceFrame::findExtension() const
+{
+    for (const auto &item : extensions) {
+        if (const auto *ext = boost::any_cast<const Ext>(&item.second)) {
+            return ext;
+        }
+    }
+    return nullptr;
 }
 
 Srs::dict listSrs(const ReferenceFrame &referenceFrame);

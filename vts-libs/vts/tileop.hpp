@@ -88,6 +88,16 @@ bool fromFilename(TileId &tileId, TileFile &type, unsigned int &subTileIndex
                   , std::string::size_type offset = 0
                   , FileFlavor *flavor = nullptr);
 
+/** Parses "lod-x-y." or "lod-x-y-sub." from str into tileId starting at given
+ *  offset. Subtile is allowed only when subfile is non-null
+ *
+ * Returns pointer after dot or nullptr if not found.
+ */
+const char *
+parseTileIdPrefix(TileId &tileId, const std::string &str
+                  , boost::optional<unsigned int> *subfile = nullptr
+                  , std::string::size_type offset = 0);
+
 std::string fileTemplate(TileFile type
                          , const boost::optional<unsigned int> &revision
                          = boost::none);
@@ -120,6 +130,8 @@ TileId global(const TileId &root, const TileId &localId);
  */
 TileRange global(const TileId &root, Lod localLod
                  , const TileRange &localTileRange);
+
+TileId verticalFlip(const TileId &tileId);
 
 TileRange::point_type point(const TileId &tileId);
 TileId tileId(Lod lod, const TileRange::point_type &point);
@@ -437,6 +449,11 @@ inline std::string fileTemplate(TileFile type
 inline std::string asFilename(const TileId &tileId, TileFile type)
 {
     return asFilename(tileId, type, FileFlavor::regular);
+}
+
+inline TileId verticalFlip(const TileId &tileId)
+{
+    return TileId(tileId.lod, tileId.x, tileCount(tileId.lod) - 1 - tileId.y);
 }
 
 } } // namespace vtslibs::vts
