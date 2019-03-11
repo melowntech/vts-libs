@@ -513,7 +513,7 @@ void build(Json::Value &content, const ReferenceFrame::Division::Node &node)
 {
     content = Json::objectValue;
 
-    build(content["id"], node.id);
+    detail::build(content["id"], node.id);
     build(content["partitioning"], node.partitioning);
 
     if (node.partitioning.mode != PartitioningMode::none) {
