@@ -880,7 +880,7 @@ void AggregatedDriver::input_impl(const TileId &tileId, TileFile type
         }
 
         if (cache_ && tsi_.staticMeta(tileId)) {
-            return runCallback([&]()
+            return runCallback([&]() -> IStream::pointer
             {
                 if (notFound) {
                     if (const auto &is

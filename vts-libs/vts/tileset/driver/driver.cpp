@@ -616,11 +616,10 @@ void Driver::input_impl(const TileId &tileId, TileFile type
     }
 
     // not-found signalling version
-    return runCallback([&]()
+    return runCallback([&]() -> IStream::pointer
     {
         auto is(input_impl(tileId, type, NullWhenNotFound));
-        if (!is) { return *notFound; }
-        return is;
+        return (is ? is : *notFound);
     }, cb);
 }
 
