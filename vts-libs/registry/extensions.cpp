@@ -29,6 +29,8 @@
  * \author Vaclav Blazek <vaclav.blazek@melown.com>
  */
 
+#include <boost/lexical_cast.hpp>
+
 #include "dbglog/dbglog.hpp"
 
 #include "jsoncpp/json.hpp"
@@ -46,9 +48,8 @@ constexpr char Tms::key[];
 
 namespace {
 
-boost::any tmsFromJson(const Json::Value &value)
+void parse(Tms &tms, const Json::Value &value)
 {
-    Tms tms;
     if (value.isMember("rootId")) {
         const auto &rootId(value["rootId"]);
         if (!rootId.isObject()) {
@@ -59,8 +60,15 @@ boost::any tmsFromJson(const Json::Value &value)
         detail::parse(tms.rootId, rootId);
     }
     Json::getOpt(tms.flipY, value, "flipY");
+    Json::get(tms.profile, value, "profile");
     Json::get(tms.physicalSrs, value, "physicalSrs");
     Json::get(tms.projection, value, "projection");
+}
+
+boost::any tmsFromJson(const Json::Value &value)
+{
+    Tms tms;
+    parse(tms, value);
     return tms;
 }
 
@@ -71,6 +79,7 @@ Json::Value asJson(const Tms &tms)
         detail::build(value["rootId"], tms.rootId);
     }
     if (!tms.flipY) { value["flipY"] = tms.flipY; }
+    value["profile"] = boost::lexical_cast<std::string>(tms.profile);
     if (tms.physicalSrs) { value["physicalSrs"] = *tms.physicalSrs; }
     value["projection"] = tms.projection;
     return value;
@@ -100,6 +109,16 @@ Json::Value asJson(const boost::any &value)
     LOGTHROW(err2, storage::FormatError)
         << "Unknown extension type \"" << value.type().name() << "\"";
     throw;
+}
+
+void load(Tms &tms, std::istream &is)
+{
+    parse(tms, Json::read(is));
+}
+
+void save(const Tms &tms, std::ostream &os)
+{
+    Json::write(os, asJson(tms));
 }
 
 } } } // namespace vtslibs::registry::extensions
