@@ -52,7 +52,7 @@ set(vts-registry_SOURCES
   registry/service.hpp registry/service.cpp
   registry/json.hpp registry/dict.hpp
   registry/po.hpp registry/po.cpp
-  registry/io.hpp
+  registry/io.hpp registry/io.cpp
   registry/urlexpander.hpp registry/urlexpander.cpp
   registry/extensions.hpp registry/extensions.cpp
   registry/detail/json.hpp registry/detail/json.cpp

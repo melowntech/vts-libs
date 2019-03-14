@@ -80,6 +80,69 @@ operator>>(std::basic_istream<CharT, Traits> &is, Position &p)
     return is;
 }
 
+namespace detail {
+extern const Credit dummyCredit;
+} // namespace detail
+
+struct CreditHtmlizer {
+    const Credit *credit;
+    CreditHtmlizer(const Credit &credit) : credit(&credit) {}
+};
+
+inline CreditHtmlizer html(const Credit &credit) {
+    return CreditHtmlizer(credit);
+}
+
+inline CreditHtmlizer html(const Credits::value_type &credit) {
+    return CreditHtmlizer(credit.second ? *credit.second
+                          : detail::dummyCredit);
+}
+
+std::ostream& operator<<(std::ostream&os, const CreditHtmlizer &credit);
+
+template<typename Container>
+class HtmlConstIterator {
+private:
+    typedef typename Container::const_iterator Pointee;
+    Pointee pointee_;
+
+public:
+    HtmlConstIterator(const Pointee &pointee)
+        : pointee_(pointee) {}
+
+    auto operator*() -> decltype(html(*pointee_)) { return html(*pointee_); }
+    bool operator==(const HtmlConstIterator &i) {
+        return pointee_ == i.pointee_;
+    }
+    bool operator!=(const HtmlConstIterator &i) {
+        return pointee_ != i.pointee_;
+    }
+    HtmlConstIterator operator++() { return HtmlConstIterator(++pointee_); }
+    HtmlConstIterator operator++(int) { return HtmlConstIterator(pointee_++); }
+};
+
+template <typename T>
+class Htmlizer {
+public:
+    Htmlizer(const T &value) : value_(&value) {}
+    typedef HtmlConstIterator<T> const_iterator;
+
+    const_iterator begin() const { return value_->begin(); }
+    const_iterator end() const { return value_->end(); }
+    const_iterator cbegin() const { return value_->begin(); }
+    const_iterator cend() const { return value_->end(); }
+
+private:
+    const T *value_;
+};
+
+inline Htmlizer<Credit::dict> html(const Credit::dict &credits) {
+    return credits;
+}
+
+inline Htmlizer<Credits> html(const Credits &credits) {
+    return credits;
+}
 
 } } // namespace vtslibs::registry
 
