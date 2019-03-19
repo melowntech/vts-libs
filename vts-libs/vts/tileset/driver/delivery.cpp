@@ -439,7 +439,7 @@ void Delivery::input(const TileId &tileId, TileFile type, FileFlavor flavor
 {
     switch (type) {
     case TileFile::meta2d:
-        meta2d(*driver_, *index_, tileId, cb);
+        return meta2d(*driver_, *index_, tileId, cb);
 
     case TileFile::mask:
         return mask(driver_, tileId, flavor, cb);
