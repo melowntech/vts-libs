@@ -49,6 +49,11 @@ inline void parse(math::Extents3 &extents, const Json::Value &content)
     get(extents.ur(2), content, "ur", 2);
 }
 
+inline void parse(boost::any &options, const Json::Value &content)
+{
+    if (content.isMember("options")) { options = content["options"]; }
+}
+
 inline void build(Json::Value &content, const math::Extents3 &extents)
 {
     content = Json::objectValue;
@@ -82,6 +87,12 @@ inline void build(Json::Value &content, const LodRange &lodRange)
     content.append(lodRange.max);
 }
 
+inline void build(Json::Value &content, const boost::any &options)
+{
+    if (options.empty()) { return; }
+    content["options"] = boost::any_cast<Json::Value>(options);
+}
+
 void build(Json::Value &content, const FreeLayer::Geodata &def)
 {
     build(content["extents"], def.extents);
@@ -89,6 +100,7 @@ void build(Json::Value &content, const FreeLayer::Geodata &def)
     content["label"] = def.label;
     content["geodata"] = def.geodata;
     content["style"] = def.style;
+    build(content, def.options);
 }
 
 void build(Json::Value &content, const FreeLayer::GeodataTiles &def)
@@ -99,6 +111,7 @@ void build(Json::Value &content, const FreeLayer::GeodataTiles &def)
     content["metaUrl"] = def.metaUrl;
     content["geodataUrl"] = def.geodataUrl;
     content["style"] = def.style;
+    build(content, def.options);
 }
 
 void build(Json::Value &content, const FreeLayer::MeshTiles &def)
@@ -108,6 +121,7 @@ void build(Json::Value &content, const FreeLayer::MeshTiles &def)
     content["metaUrl"] = def.metaUrl;
     content["meshUrl"] = def.meshUrl;
     content["textureUrl"] = def.textureUrl;
+    build(content, def.options);
 }
 
 void build(Json::Value &content, const FreeLayer &fl
@@ -162,6 +176,7 @@ void parse(FreeLayer::Geodata &def, const Json::Value &content)
     Json::get(def.label, content, "label");
     Json::get(def.geodata, content, "geodata");
     Json::get(def.style, content, "style");
+    parse(def.options, content);
 }
 
 void parse(FreeLayer::GeodataTiles &def, const Json::Value &content)
@@ -173,6 +188,7 @@ void parse(FreeLayer::GeodataTiles &def, const Json::Value &content)
     Json::get(def.metaUrl, content, "metaUrl");
     Json::get(def.geodataUrl, content, "geodataUrl");
     Json::get(def.style, content, "style");
+    parse(def.options, content);
 }
 
 void parse(FreeLayer::MeshTiles &def, const Json::Value &content)
@@ -184,6 +200,7 @@ void parse(FreeLayer::MeshTiles &def, const Json::Value &content)
     Json::get(def.metaUrl, content, "metaUrl");
     Json::get(def.meshUrl, content, "meshUrl");
     Json::get(def.textureUrl, content, "textureUrl");
+    parse(def.options, content);
 }
 
 void parse(FreeLayer &fl, const Json::Value &content)

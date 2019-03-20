@@ -440,6 +440,8 @@ struct BoundLayer {
      */
     Credits credits;
 
+    boost::any options;
+
     struct Availability {
         enum Type { negativeType, negativeCode, negativeSize };
         Type type;

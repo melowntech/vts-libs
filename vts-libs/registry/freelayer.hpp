@@ -56,6 +56,7 @@ struct FreeLayer {
         std::string label;
         std::string geodata;
         std::string style;
+        boost::any options;
     };
 
     struct GeodataTiles {
@@ -64,6 +65,7 @@ struct FreeLayer {
         std::string metaUrl;
         std::string geodataUrl;
         std::string style;
+        boost::any options;
     };
 
     struct MeshTiles {
@@ -72,6 +74,7 @@ struct FreeLayer {
         std::string metaUrl;
         std::string meshUrl;
         std::string textureUrl;
+        boost::any options;
     };
 
     std::string id;

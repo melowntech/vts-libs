@@ -151,9 +151,7 @@ void parse(ReferenceFrame::Division::Node &node, const Json::Value &content)
             (Json::get(s, content, "partitioning"));
     }
 
-    if (content.isMember("srs")) {
-        Json::get(node.srs, content, "srs");
-    }
+    Json::getOpt(node.srs, content, "srs");
 
     if (content.isMember("extents")) {
         const auto &extents(content["extents"]);
@@ -165,9 +163,7 @@ void parse(ReferenceFrame::Division::Node &node, const Json::Value &content)
         detail::parse(node.extents, extents);
     }
 
-    if (content.isMember("externalTexture")) {
-        Json::get(node.externalTexture, content, "externalTexture");
-    }
+    Json::getOpt(node.externalTexture, content, "externalTexture");
 }
 
 void parse(ReferenceFrame::Division &division, const Json::Value &content)
@@ -813,9 +809,7 @@ void parse(Credits &credits, const Json::Value &value)
  */
 void parse(BoundLayer &bl, const Json::Value &content)
 {
-    if (content.isMember("id")) {
-        Json::get(bl.numericId, content, "id");
-    }
+    Json::getOpt(bl.numericId, content, "id");
 
     std::string s;
     bl.type = boost::lexical_cast<BoundLayer::Type>
@@ -878,9 +872,9 @@ void parse(BoundLayer &bl, const Json::Value &content)
     }
 
     // isTransparent is optional
-    if (content.isMember("isTransparent")) {
-        Json::get(bl.isTransparent, content, "isTransparent");
-    }
+    Json::getOpt(bl.isTransparent, content, "isTransparent");
+
+    if (content.isMember("options")) { bl.options = content["options"]; }
 }
 
 void parse(BoundLayer::dict &bls, const Json::Value &content)
@@ -995,6 +989,10 @@ void build(Json::Value &content, const BoundLayer &bl
     // isTransparent is optional, defaults to false
     if (bl.isTransparent) {
         content["isTransparent"] = bl.isTransparent;
+    }
+
+    if (!bl.options.empty()) {
+        content["options"] = boost::any_cast<Json::Value>(bl.options);
     }
 }
 
@@ -1709,6 +1707,9 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
                 auto &p(out.append(Json::objectValue));
                 p["id"] = blp.id;
                 if (blp.alpha) { p["alpha"] = *blp.alpha; }
+                if (!blp.options.empty()) {
+                    p["options"] = boost::any_cast<Json::Value>(blp.options);
+                }
             } else {
                 out.append(blp.id);
             }
@@ -1738,6 +1739,9 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
             d.append((*params.depthOffset)[1]);
             d.append((*params.depthOffset)[2]);
         }
+        if (!params.options.empty()) {
+            fl["options"] = boost::any_cast<Json::Value>(params.options);
+        }
     }
 
     if (!view.bodies.empty()) {
@@ -1765,10 +1769,7 @@ void fromJson(View &view, const Json::Value &value)
             << "Type of view is not an object.";
     }
 
-    if (value.isMember("description")) {
-        view.description = boost::in_place();
-        Json::get(*view.description, value, "description");
-    }
+    Json::get(view.description, value, "description");
 
     const auto &surfaces(value["surfaces"]);
     if (!surfaces.isObject()) {
@@ -1784,10 +1785,8 @@ void fromJson(View &view, const Json::Value &value)
                 bls.emplace_back();
                 auto &item(bls.back());
                 Json::get(item.id, blp, "id");
-                if (blp.isMember("alpha")) {
-                    item.alpha = double();
-                    Json::get(*item.alpha, blp, "alpha");
-                }
+                Json::get(item.alpha, blp, "alpha");
+                if (blp.isMember("options")) { item.options = blp["options"]; }
             } else if (blp.isString()) {
                 bls.push_back(blp.asString());
             } else {
@@ -1822,10 +1821,7 @@ void fromJson(View &view, const Json::Value &value)
                 // add bound layers
                 addBoundLayers(fl.boundLayers, jfl["boundLayers"]);
             }
-            if (jfl.isMember("style")) {
-                fl.style = boost::in_place();
-                Json::get(*fl.style, jfl, "style");
-            }
+            Json::get(fl.style, jfl, "style");
 
             if (jfl.isMember("depthOffset")) {
                 const auto &d(jfl["depthOffset"]);
@@ -1840,6 +1836,8 @@ void fromJson(View &view, const Json::Value &value)
                 (*fl.depthOffset)[1] = d[1].asDouble();
                 (*fl.depthOffset)[2] = d[2].asDouble();
             }
+
+            if (jfl.isMember("options")) { fl.options = jfl["options"]; }
         }
     }
 

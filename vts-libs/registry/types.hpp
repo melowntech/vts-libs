@@ -59,6 +59,7 @@ struct View {
     struct BoundLayerParams {
         std::string id;
         boost::optional<double> alpha;
+        boost::any options;
 
         BoundLayerParams(const std::string &id = std::string())
             : id(id), alpha()
@@ -66,7 +67,9 @@ struct View {
 
         /** Tells whether these bound layer parameters are complex.
          */
-        bool isComplex() const { return bool(alpha); }
+        bool isComplex() const {
+            return (bool(alpha) || !options.empty());
+        }
 
         typedef std::vector<BoundLayerParams> list;
     };
@@ -75,6 +78,7 @@ struct View {
         boost::optional<std::string> style;
         BoundLayerParams::list boundLayers;
         boost::optional<std::array<double, 3>> depthOffset;
+        boost::any options;
     };
 
     typedef std::map<std::string, BoundLayerParams::list> Surfaces;
