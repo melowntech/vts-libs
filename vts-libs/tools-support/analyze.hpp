@@ -75,6 +75,13 @@ struct LodInfo {
     LodInfo() : topDepth(), commonBottom(), bottomDepth() {}
 
     int levelDiff() const { return bottomDepth - topDepth; }
+
+    static LodInfo invalid() {
+        LodInfo li;
+        li.topDepth = li.commonBottom = std::numeric_limits<int>::max();
+        li.bottomDepth = -1;
+        return li;
+    }
 };
 
 double bestLod(const vts::NodeInfo &rfNode
