@@ -396,6 +396,7 @@ if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-tools-support AND TARGET vts-lib
     tools-support/repackatlas.cpp tools-support/repackatlas.hpp
     tools-support/tmptileset.cpp tools-support/tmptileset.hpp
     tools-support/tmptsencoder.cpp tools-support/tmptsencoder.hpp
+    tools-support/optimizemesh.cpp tools-support/optimizemesh.hpp
     )
 
   add_library(vts-libs-tools-support
