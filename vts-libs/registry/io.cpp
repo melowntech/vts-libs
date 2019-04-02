@@ -24,7 +24,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sys/time.h>
+#ifdef _WIN32
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  include <Windows.h>
+#  define VTS_IO_GMTIME(t, tm) gmtime_s(tm, t)
+#else
+#  include <sys/time.h>
+#  define VTS_IO_GMTIME(t, tm) gmtime_r(t, tm)
+#endif
 
 #include <ctime>
 
@@ -49,7 +58,7 @@ std::ostream& operator<<(std::ostream&os, const CreditHtmlizer &html)
         if (!year) {
             const auto now(std::time(nullptr));
             std::tm tm;
-            ::gmtime_r(&now, &tm);
+            VTS_IO_GMTIME(&now, &tm);
             year = boost::lexical_cast<std::string>(tm.tm_year + 1900);
         }
         return *year;
