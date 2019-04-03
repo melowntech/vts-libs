@@ -37,41 +37,65 @@
 #include "jsoncpp/as.hpp"
 #include "jsoncpp/io.hpp"
 
-#include "../storage/error.hpp"
+#include "../../storage/error.hpp"
+#include "../detail/json.hpp"
 
-#include "detail/json.hpp"
-#include "extensions/json.hpp"
+#include "json.hpp"
+#include "tms.hpp"
 
 namespace vtslibs { namespace registry { namespace extensions {
 
-boost::any fromJson(const std::string &key, const Json::Value &value)
-{
-    if (key == Tms::key) {
-        return tmsFromJson(value);
-    } else if (key == Wmts::key) {
-        return wmtsFromJson(value);
-    }
+constexpr char Tms::key[];
 
+namespace {
+
+void parse(Tms &tms, const Json::Value &value)
+{
+    if (value.isMember("rootId")) {
+        const auto &rootId(value["rootId"]);
+        if (!rootId.isObject()) {
+            LOGTHROW(err1, Json::Error)
+                << "Type of referenceframe[extentsions[tms].rootId] is not "
+                "an object.";
+        }
+        detail::parse(tms.rootId, rootId);
+    }
+    Json::getOpt(tms.flipY, value, "flipY");
+    Json::get(tms.profile, value, "profile");
+    Json::get(tms.physicalSrs, value, "physicalSrs");
+    Json::get(tms.projection, value, "projection");
+}
+
+} // namespace
+
+Tms tmsFromJson(const Json::Value &value)
+{
+    Tms tms;
+    parse(tms, value);
+    return tms;
+}
+
+Json::Value asJson(const Tms &tms)
+{
+    Json::Value value(Json::objectValue);
+    if (tms.rootId != registry::ReferenceFrame::Division::Node::Id()) {
+        detail::build(value["rootId"], tms.rootId);
+    }
+    if (!tms.flipY) { value["flipY"] = tms.flipY; }
+    value["profile"] = boost::lexical_cast<std::string>(tms.profile);
+    if (tms.physicalSrs) { value["physicalSrs"] = *tms.physicalSrs; }
+    value["projection"] = tms.projection;
     return value;
 }
 
-Json::Value asJson(const boost::any &value)
+void load(Tms &tms, std::istream &is)
 {
-    if (const auto *v = boost::any_cast<const Tms>(&value)) {
-        return asJson(*v);
-    }
+    parse(tms, Json::read(is));
+}
 
-    if (const auto *v = boost::any_cast<const Wmts>(&value)) {
-        return asJson(*v);
-    }
-
-    if (const auto *v = boost::any_cast<const Json::Value>(&value)) {
-        return *v;
-    }
-
-    LOGTHROW(err2, storage::FormatError)
-        << "Unknown extension type \"" << value.type().name() << "\"";
-    throw;
+void save(const Tms &tms, std::ostream &os)
+{
+    Json::write(os, asJson(tms));
 }
 
 } } } // namespace vtslibs::registry::extensions

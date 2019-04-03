@@ -25,53 +25,47 @@
  */
 
 /**
- * \file registry/extensions/tms.cpp
+ * \file registry/extensions.hpp
  * \author Vaclav Blazek <vaclav.blazek@melown.com>
  */
 
-#include <boost/lexical_cast.hpp>
+#ifndef vtslibs_registry_extensions_wmts_hpp_included_
+#define vtslibs_registry_extensions_wmts_hpp_included_
 
-#include "dbglog/dbglog.hpp"
+#include <iosfwd>
 
-#include "jsoncpp/json.hpp"
-#include "jsoncpp/as.hpp"
-#include "jsoncpp/io.hpp"
+#include <boost/optional.hpp>
+#include <boost/any.hpp>
 
-#include "../storage/error.hpp"
+#include "utility/enum-io.hpp"
 
-#include "detail/json.hpp"
-#include "extensions/json.hpp"
+#include "../referenceframe.hpp"
 
 namespace vtslibs { namespace registry { namespace extensions {
 
-boost::any fromJson(const std::string &key, const Json::Value &value)
-{
-    if (key == Tms::key) {
-        return tmsFromJson(value);
-    } else if (key == Wmts::key) {
-        return wmtsFromJson(value);
-    }
+/** Following extensions are automatically de/serialized by reference frame.
+ */
 
-    return value;
-}
+/** OSGeo Tile Map Service extension -- how to map reference frame to be used
+ * for TMS.
+ *
+ *  http://wiki.osgeo.org/wiki/Tile_Map_Service_Specification
+ */
+struct Wmts {
+    /** Time Map Service profile (global-geodetic, global-mercator, local)
+     */
+    enum class Profile;
 
-Json::Value asJson(const boost::any &value)
-{
-    if (const auto *v = boost::any_cast<const Tms>(&value)) {
-        return asJson(*v);
-    }
+    /** Reported projection (i.e. SRS). Free form string.
+     */
+    std::string projection;
 
-    if (const auto *v = boost::any_cast<const Wmts>(&value)) {
-        return asJson(*v);
-    }
+    static constexpr char key[] = "wmts";
+};
 
-    if (const auto *v = boost::any_cast<const Json::Value>(&value)) {
-        return *v;
-    }
-
-    LOGTHROW(err2, storage::FormatError)
-        << "Unknown extension type \"" << value.type().name() << "\"";
-    throw;
-}
+void load(Wmts &wmts, std::istream &is);
+void save(const Wmts &wmts, std::ostream &os);
 
 } } } // namespace vtslibs::registry::extensions
+
+#endif // vtslibs_registry_extensions_tms_wmts_included_

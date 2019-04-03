@@ -54,9 +54,13 @@ set(vts-registry_SOURCES
   registry/po.hpp registry/po.cpp
   registry/io.hpp registry/io.cpp
   registry/urlexpander.hpp registry/urlexpander.cpp
-  registry/extensions.hpp registry/extensions.cpp
   registry/detail/json.hpp registry/detail/json.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/registry/config.cpp
+
+  # extensions
+  registry/extensions.hpp registry/extensions.cpp
+  registry/extensions/tms.hpp registry/extensions/tms.cpp
+  registry/extensions/wmts.hpp registry/extensions/wmts.cpp
   )
 
 set(vts-registry_python_DEPENDS)

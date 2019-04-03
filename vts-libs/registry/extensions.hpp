@@ -32,73 +32,7 @@
 #ifndef vtslibs_registry_extensions_hpp_included_
 #define vtslibs_registry_extensions_hpp_included_
 
-#include <iosfwd>
-
-#include <boost/optional.hpp>
-#include <boost/any.hpp>
-
-#include "utility/enum-io.hpp"
-
-#include "referenceframe.hpp"
-
-namespace vtslibs { namespace registry { namespace extensions {
-
-/** Following extensions are automatically de/serialized by reference frame.
- */
-
-/** OSGeo Tile Map Service extension -- how to map reference frame to be used
- * for TMS.
- *
- *  http://wiki.osgeo.org/wiki/Tile_Map_Service_Specification
- */
-struct Tms {
-    /** Time Map Service profile (global-geodetic, global-mercator, local)
-     */
-    enum class Profile;
-
-    /** Root node ID. TMS node 0-0-0 is mapped to this rootId.
-     *  Optional in serialized form, defaults to 0-0-0.
-     */
-    registry::ReferenceFrame::Division::Node::Id rootId;
-
-    /** Flip Y coordinate (Y => 2^lod - 1 - Y) before mapping from TMS to node
-     * ID.
-     *
-     * Optional in serialized form, defaults to true since TMS Y coordinate
-     * grows up and VTS Y coordinate grows down.
-     */
-    bool flipY;
-
-    /** Time Map Service profile.
-     */
-    Profile profile;
-
-    /** Physical SRS used by TMS, may be different than reference frame's
-     * physical SRS.
-     */
-    boost::optional<std::string> physicalSrs;
-
-    /** Reported projection (i.e. SRS). Free form string.
-     */
-    std::string projection;
-
-    Tms();
-
-    static constexpr char key[] = "tms";
-};
-
-void load(Tms &tms, std::istream &is);
-void save(const Tms &tms, std::ostream &os);
-
-UTILITY_GENERATE_ENUM(Tms::Profile,
-                      ((none))
-                      ((globalGeodetic)("global-geodetic"))
-                      ((globalMercator)("global-mercator"))
-                      ((local)("local"))
-                      )
-
-inline Tms::Tms() : profile(Profile::none) {}
-
-} } } // namespace vtslibs::registry::extensions
+#include "extensions/tms.hpp"
+#include "extensions/wmts.hpp"
 
 #endif // vtslibs_registry_extensions_hpp_included_

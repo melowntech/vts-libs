@@ -25,7 +25,7 @@
  */
 
 /**
- * \file registry/extensions/tms.cpp
+ * \file registry/extensions/wmts.cpp
  * \author Vaclav Blazek <vaclav.blazek@melown.com>
  */
 
@@ -37,41 +37,47 @@
 #include "jsoncpp/as.hpp"
 #include "jsoncpp/io.hpp"
 
-#include "../storage/error.hpp"
+#include "../../storage/error.hpp"
+#include "../detail/json.hpp"
 
-#include "detail/json.hpp"
-#include "extensions/json.hpp"
+#include "json.hpp"
+#include "wmts.hpp"
 
 namespace vtslibs { namespace registry { namespace extensions {
 
-boost::any fromJson(const std::string &key, const Json::Value &value)
-{
-    if (key == Tms::key) {
-        return tmsFromJson(value);
-    } else if (key == Wmts::key) {
-        return wmtsFromJson(value);
-    }
+constexpr char Wmts::key[];
 
+namespace {
+
+void parse(Wmts &wmts, const Json::Value &value)
+{
+    Json::get(wmts.projection, value, "projection");
+}
+
+} // namespace
+
+Wmts wmtsFromJson(const Json::Value &value)
+{
+    Wmts wmts;
+    parse(wmts, value);
+    return wmts;
+}
+
+Json::Value asJson(const Wmts &wmts)
+{
+    Json::Value value(Json::objectValue);
+    value["projection"] = wmts.projection;
     return value;
 }
 
-Json::Value asJson(const boost::any &value)
+void load(Wmts &wmts, std::istream &is)
 {
-    if (const auto *v = boost::any_cast<const Tms>(&value)) {
-        return asJson(*v);
-    }
+    parse(wmts, Json::read(is));
+}
 
-    if (const auto *v = boost::any_cast<const Wmts>(&value)) {
-        return asJson(*v);
-    }
-
-    if (const auto *v = boost::any_cast<const Json::Value>(&value)) {
-        return *v;
-    }
-
-    LOGTHROW(err2, storage::FormatError)
-        << "Unknown extension type \"" << value.type().name() << "\"";
-    throw;
+void save(const Wmts &wmts, std::ostream &os)
+{
+    Json::write(os, asJson(wmts));
 }
 
 } } } // namespace vtslibs::registry::extensions

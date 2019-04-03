@@ -25,53 +25,25 @@
  */
 
 /**
- * \file registry/extensions/tms.cpp
+ * \file registry/extensions/json.hpp
  * \author Vaclav Blazek <vaclav.blazek@melown.com>
  */
 
-#include <boost/lexical_cast.hpp>
-
-#include "dbglog/dbglog.hpp"
+#ifndef vtslibs_registry_extensions_json_hpp_included_
+#define vtslibs_registry_extensions_json_hpp_included_
 
 #include "jsoncpp/json.hpp"
-#include "jsoncpp/as.hpp"
-#include "jsoncpp/io.hpp"
 
-#include "../storage/error.hpp"
-
-#include "detail/json.hpp"
-#include "extensions/json.hpp"
+#include "../extensions.hpp"
 
 namespace vtslibs { namespace registry { namespace extensions {
 
-boost::any fromJson(const std::string &key, const Json::Value &value)
-{
-    if (key == Tms::key) {
-        return tmsFromJson(value);
-    } else if (key == Wmts::key) {
-        return wmtsFromJson(value);
-    }
+Tms tmsFromJson(const Json::Value &value);
+Json::Value asJson(const Tms &tms);
 
-    return value;
-}
-
-Json::Value asJson(const boost::any &value)
-{
-    if (const auto *v = boost::any_cast<const Tms>(&value)) {
-        return asJson(*v);
-    }
-
-    if (const auto *v = boost::any_cast<const Wmts>(&value)) {
-        return asJson(*v);
-    }
-
-    if (const auto *v = boost::any_cast<const Json::Value>(&value)) {
-        return *v;
-    }
-
-    LOGTHROW(err2, storage::FormatError)
-        << "Unknown extension type \"" << value.type().name() << "\"";
-    throw;
-}
+Wmts wmtsFromJson(const Json::Value &value);
+Json::Value asJson(const Wmts &tms);
 
 } } } // namespace vtslibs::registry::extensions
+
+#endif // vtslibs_registry_extensions_json_hpp_included_
