@@ -51,7 +51,10 @@ namespace {
 
 void parse(Wmts &wmts, const Json::Value &value)
 {
+    Json::get(wmts.physicalSrs, value, "physicalSrs");
+    Json::get(wmts.content, value, "content");
     Json::get(wmts.projection, value, "projection");
+    Json::get(wmts.wellKnownScaleSet, value, "wellKnownScaleSet");
 }
 
 } // namespace
@@ -66,7 +69,12 @@ Wmts wmtsFromJson(const Json::Value &value)
 Json::Value asJson(const Wmts &wmts)
 {
     Json::Value value(Json::objectValue);
+    if (wmts.physicalSrs) { value["physicalSrs"] = *wmts.physicalSrs; }
+    if (wmts.content) { value["content"] = *wmts.content; }
     value["projection"] = wmts.projection;
+    if (wmts.wellKnownScaleSet) {
+        value["wellKnownScaleSet"] = *wmts.wellKnownScaleSet;
+    }
     return value;
 }
 

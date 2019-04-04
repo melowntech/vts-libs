@@ -56,9 +56,28 @@ struct Wmts {
      */
     enum class Profile;
 
+    /** Physical SRS used by WMTS, may be different than reference frame's
+     *  physical SRS.
+     */
+    boost::optional<std::string> physicalSrs;
+
+    /** SRS identifier of root node(s) with content.
+     *
+     *  If there are multiple nodes with given SRS then all nodes are included
+     *  in the output, i.e. extents, tile ranges etc. are union of all nodes.
+     *
+     * Optinal, may be omitted if there is only one root node in the reference
+     * frame definition.
+     */
+    boost::optional<std::string> content;
+
     /** Reported projection (i.e. SRS). Free form string.
      */
     std::string projection;
+
+    /** Well known scale set, if known.
+     */
+    boost::optional<std::string> wellKnownScaleSet;
 
     static constexpr char key[] = "wmts";
 };
