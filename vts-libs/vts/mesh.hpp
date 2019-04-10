@@ -118,12 +118,6 @@ struct SubMesh {
     /** Filter out degenerate faces and unused vertices, return a new submesh.
      */
     SubMesh cleanUp() const;
-
-    // forced move and copy generation
-    SubMesh(const SubMesh&) = default;
-    SubMesh& operator=(const SubMesh&) = default;
-    SubMesh(SubMesh&&) = default;
-    SubMesh& operator=(SubMesh&&) = default;
 };
 
 /** Mesh with submeshes and mask.
