@@ -59,6 +59,7 @@ public:
         vts::TileId localId;
         std::string srs;
         unsigned int subMesh;
+        std::string rf;
 
         std::vector<std::string> params;
 
@@ -92,7 +93,7 @@ public:
     void dump(std::ostream &os) const;
 
     enum Variable {
-        lod, x, y, loclod, locx, locy, sub, srs
+        lod, x, y, loclod, locx, locy, sub, srs, rf
     };
 
     typedef std::function<void(std::ostream &os
@@ -131,6 +132,7 @@ UTILITY_GENERATE_ENUM_IO(UrlTemplate::Variable,
                          ((locy))
                          ((sub))
                          ((srs))
+                         ((rf))
 )
 
 inline std::ostream& operator<<(std::ostream &os, const UrlTemplate &t)

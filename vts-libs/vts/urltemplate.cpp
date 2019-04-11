@@ -61,8 +61,9 @@ inline unsigned int variableValue(UrlTemplate::Variable what
     case Variable::locy: return vars.localId.y;
     case Variable::sub: return vars.subMesh;
 
+    case Variable::rf:
     case Variable::srs:
-        LOG(warn1) << "Using variable <srs> in numeric context.";
+        LOG(warn1) << "Using variable <" << what << "> in numeric context.";
         return std::numeric_limits<unsigned int>::max();
     }
     return 0;
@@ -87,6 +88,7 @@ inline std::ostream& operator<<(std::ostream &os, const Expand &e)
     case Variable::locy: os << e.vars.localId.y; break;
     case Variable::sub: os << e.vars.subMesh; break;
     case Variable::srs: os << e.vars.srs; break;
+    case Variable::rf: os << e.vars.rf; break;
     }
     return os;
 }
