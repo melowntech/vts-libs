@@ -99,6 +99,7 @@ namespace tools = vtslibs::vts::tools;
     ((listPendingGlues)("list-pending-glues"))                      \
                                                                     \
     ((dumpMetatile)("dump-metatile"))                               \
+    ((dumpMetatileFile)("dump-metatile-file"))                      \
     ((metatileVersion)("metatile-version"))                         \
     ((mapConfig)("map-config"))                                     \
     ((dirs)("dirs"))                                                \
@@ -305,6 +306,8 @@ private:
     int proxies();
 
     int dumpMetatile();
+
+    int dumpMetatileFile();
 
     int metatileVersion();
 
@@ -914,6 +917,34 @@ void VtsStorage::configuration(po::options_description &cmdline
             }
         };
 
+        p.positional.add("tileId", 1);
+    });
+
+    createParser(cmdline, Command::dumpMetatileFile
+                 , "--command=dump-metatile-file: dump metatile from file"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("referenceFrame", po::value<std::string>()->required()
+             , "Reference frame this metatile is for.")
+            ("tileId", po::value(&tileId_)->required()
+             , "ID of any tile inside metatile.")
+            ("srs", po::value<std::string>()
+             , "Limit output to nodes with given SDS SRS.")
+            ("filter", po::value(&metaFlags_)->default_value(0)
+             , "Limit output to nodes that match given flags.")
+            ;
+
+        p.configure = [&](const po::variables_map &vars) {
+            if (vars.count("srs")) {
+                optSrs_ = vars["srs"].as<std::string>();
+            }
+
+            referenceFrame_  = vr::system.referenceFrames
+            (vars["referenceFrame"].as<std::string>());
+        };
+
+        p.positional.add("referenceFrame", 1);
         p.positional.add("tileId", 1);
     });
 
@@ -2277,6 +2308,92 @@ int VtsStorage::dumpMetatile()
         for (const auto &childId : children(node, tid)) {
             std::cout << "        " << childId << '\n';
             metaChildIds.insert(ts.metaId(childId));
+        }
+        std::cout << '\n';
+    });
+
+    // write meta tile children
+    if (!metaChildIds.empty()) {
+        std::cout << "Metatile children:\n";
+        for (const auto &metaChildId : metaChildIds) {
+            std::cout << "    " << metaChildId << '\n';
+        }
+    }
+
+    // done
+    std::cout.flush();
+
+    return EXIT_SUCCESS;
+}
+
+int VtsStorage::dumpMetatileFile()
+{
+    std::cout << std::fixed;
+
+    auto meta(vts::loadMetaTile(path_, referenceFrame_.metaBinaryOrder));
+
+    std::cout << "Metatile ID: " << meta.origin() << '\n';
+
+    // FIXME: ensure we have meta id
+    std::cout << "Parent metatile ID: "
+              << vts::parent(meta.origin()) << '\n';
+
+    {
+        auto e(meta.validExtents());
+        std::cout << "Covered global tile extents: " << e << '\n';
+        if (!math::valid(e)) {
+            std::cout << "No valid tile in this metatile." << '\n';
+            return EXIT_SUCCESS;
+        }
+    }
+
+    std::set<vts::TileId> metaChildIds;
+
+    meta.for_each([&](const vts::TileId &tid, const vts::MetaNode &node)
+    {
+        // filter out nodes with content not needed
+        if (metaFlags_.value && !(metaFlags_.value & node.flags())) { return; }
+
+        vts::NodeInfo nodeInfo(referenceFrame_, tid);
+        // filter out by SDS SRS if asked to
+        if (optSrs_ && (nodeInfo.srs() != optSrs_)) { return; }
+
+        std::cout << tid << '\n';
+        std::cout << "    flags: " << vts::MetaFlags(node.flags())
+                  << '\n';
+
+        std::cout << "    SDS srs: " << nodeInfo.srs() << '\n';
+        std::cout << "    SDS extents: " << nodeInfo.extents() << '\n';
+        std::cout << "    extents: " << node.extents << '\n';
+        std::cout << "    geomExtents: " << node.geomExtents << '\n';
+        if (const auto itc = node.internalTextureCount()) {
+            std::cout
+                << "    texture count: " << itc
+                << '\n';
+        }
+
+        if (node.applyTexelSize()) {
+            std::cout << "    texel size: " << node.texelSize << '\n';
+        }
+        if (node.applyDisplaySize()) {
+            std::cout << "    display size: " << node.displaySize
+                      << '\n';
+        }
+        if (node.navtile()) {
+            std::cout << "    height range: " << node.heightRange << '\n';
+        }
+        if (node.sourceReference) {
+            std::cout
+                << "    source reference: " << node.sourceReference << '\n';
+        }
+
+        showCredits(std::cout, node, "    ");
+
+        std::cout << "    children:" << '\n';
+        for (const auto &childId : children(node, tid)) {
+            std::cout << "        " << childId << '\n';
+            // FIXME: use meta id
+            metaChildIds.insert(childId);
         }
         std::cout << '\n';
     });
