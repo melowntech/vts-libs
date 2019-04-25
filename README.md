@@ -6,7 +6,7 @@ C++ libraries used across VTS\* packages.
 ## User documentation
 
 VTS-Libs user documentation is available at
-https://melown.readthedocs.io/
+https://vts-geospatial.org
 
 
 ## Download, build and install
