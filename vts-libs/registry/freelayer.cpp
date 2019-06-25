@@ -107,6 +107,7 @@ void build(Json::Value &content, const FreeLayer::GeodataTiles &def)
 {
     build(content["lodRange"], def.lodRange);
     build(content["tileRange"], def.tileRange);
+    if (def.displaySize > 0) { content["displaySize"] = def.displaySize; }
 
     content["metaUrl"] = def.metaUrl;
     content["geodataUrl"] = def.geodataUrl;
@@ -184,6 +185,10 @@ void parse(FreeLayer::GeodataTiles &def, const Json::Value &content)
     Json::get(def.lodRange.min, content, "lodRange", 0);
     Json::get(def.lodRange.max, content, "lodRange", 1);
     def.tileRange = tileRangeFromJson(content["tileRange"]);
+    if (!Json::getOpt(def.displaySize, content, "displaySize")) {
+        // compatibility
+        def.displaySize = 0;
+    }
 
     Json::get(def.metaUrl, content, "metaUrl");
     Json::get(def.geodataUrl, content, "geodataUrl");

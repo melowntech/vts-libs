@@ -57,15 +57,20 @@ struct FreeLayer {
         std::string geodata;
         std::string style;
         boost::any options;
+
+        Geodata() : displaySize() {}
     };
 
     struct GeodataTiles {
         LodRange lodRange;
         TileRange tileRange;
+        int displaySize;
         std::string metaUrl;
         std::string geodataUrl;
         std::string style;
         boost::any options;
+
+        GeodataTiles() : displaySize() {}
     };
 
     struct MeshTiles {
