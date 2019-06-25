@@ -152,9 +152,6 @@ file_to_cpp(vts_BROWSER_SOURCES
   vtslibs::vts::browser::index_html
   vts/browser/index.html)
 file_to_cpp(vts_BROWSER_SOURCES
-  vtslibs::vts::browser::index_offline_html
-  vts/browser/index-offline.html)
-file_to_cpp(vts_BROWSER_SOURCES
   vtslibs::vts::browser::skydome_jpg
   vts/browser/skydome.jpg)
 file_to_cpp(vts_BROWSER_SOURCES
