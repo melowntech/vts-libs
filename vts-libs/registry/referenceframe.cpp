@@ -1754,7 +1754,7 @@ Json::Value asJson(const View &view, BoundLayer::dict &boundLayers)
     if (!view.options.empty()) {
         try {
             nv["options"] = boost::any_cast<Json::Value>(view.options);
-        } catch (boost::bad_any_cast) {
+        } catch (const boost::bad_any_cast&) {
             // ignore
         }
     }

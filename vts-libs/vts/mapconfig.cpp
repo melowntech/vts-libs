@@ -595,7 +595,7 @@ void saveMapConfig(const MapConfig &mapConfig, std::ostream &os
         try {
             content["browserOptions"]
                 = boost::any_cast<Json::Value>(mapConfig.browserOptions);
-        } catch (boost::bad_any_cast) {
+        } catch (const boost::bad_any_cast&) {
             // ignore
         }
     }
@@ -653,7 +653,7 @@ Json::Value browserOptions(const MapConfig &mapConfig)
 
     try {
         return boost::any_cast<Json::Value>(mapConfig.browserOptions);
-    } catch (boost::bad_any_cast) {
+    } catch (const boost::bad_any_cast&) {
         // ignore
         return Json::Value(Json::nullValue);
     }

@@ -174,7 +174,7 @@ void Vts02Vts::configure(const po::variables_map &vars)
         vr::BoundLayer layer;
         try {
             layer = vr::system.boundLayers(boost::lexical_cast<int>(value));
-        } catch (boost::bad_lexical_cast) {
+        } catch (const boost::bad_lexical_cast&) {
             layer = vr::system.boundLayers(value);
         }
 

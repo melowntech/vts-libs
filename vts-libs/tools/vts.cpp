@@ -1298,13 +1298,13 @@ void VtsStorage::configuration(po::options_description &cmdline
                     int numericCredit(-1);
                     try {
                         numericCredit = boost::lexical_cast<int>(value);
-                    } catch (boost::bad_lexical_cast) {
+                    } catch (const boost::bad_lexical_cast&) {
                         credit = vr::system.credits(value);
                     }
 
                     try {
                         credit = vr::system.credits(numericCredit);
-                    } catch (vs::KeyError) {
+                    } catch (const vs::KeyError&) {
                         LOG(warn2) << "Using numeric credit id: "
                                    << numericCredit << " unknown in registry";
                         forceCredits_.insert(numericCredit);
@@ -1757,7 +1757,7 @@ bool VtsStorage::help(std::ostream &out, const std::string &what) const
             out << p->options;
         }
         return true;
-    } catch (boost::bad_lexical_cast) {}
+    } catch (const boost::bad_lexical_cast&) {}
 
     return false;
 }

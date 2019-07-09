@@ -174,7 +174,7 @@ UrlTemplate::Expander makePpExpander(const std::string &str
                << ((1 << 28) - ((y + 1) << (28 - lod)));
         };
 
-    } catch (boost::bad_lexical_cast) {}
+    } catch (const boost::bad_lexical_cast&) {}
 
     return {};
 }
@@ -202,7 +202,7 @@ UrlTemplate::Expander makeMsDigitExpander(const std::string &str
             os << (((y & 3) << 1) + (x & 1));
         };
 
-    } catch (boost::bad_lexical_cast) {}
+    } catch (const boost::bad_lexical_cast&) {}
 
     return {};
 }
@@ -236,7 +236,7 @@ UrlTemplate::Expander makeQuadExpander(const std::string &str
             }
         };
 
-    } catch (boost::bad_lexical_cast) {}
+    } catch (const boost::bad_lexical_cast&) {}
 
     return {};
 }
@@ -295,7 +295,7 @@ UrlTemplate::Expander makeSwitchExpander(const std::string &str
             }
         };
 
-    } catch (boost::bad_lexical_cast) {}
+    } catch (const boost::bad_lexical_cast&) {}
 
     return {};
 }
@@ -322,7 +322,7 @@ UrlTemplate::Expander makeParamExpander(const std::string &str
             os << utility::urlEncode(vars.params[index]);
         };
 
-    } catch (boost::bad_lexical_cast) {}
+    } catch (const boost::bad_lexical_cast&) {}
 
     return {};
 }
@@ -411,7 +411,7 @@ void UrlTemplate::parse(const std::string &str)
             // try as a variable
             tokens_.emplace_back(boost::lexical_cast<Variable>
                                  (str.substr(open + 1, close - open - 1)));
-        } catch (boost::bad_lexical_cast) {
+        } catch (const boost::bad_lexical_cast&) {
             // not a variable; try a function
             if (auto func = parseFunction(str, open + 1, close)) {
                 tokens_.emplace_back(str.substr(open + 1, close - open - 1)

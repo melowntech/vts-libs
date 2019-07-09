@@ -512,7 +512,7 @@ void build(Json::Value &config, const ExtraStorageProperties &ep)
         try {
             config["browserOptions"]
                 = boost::any_cast<Json::Value>(ep.browserOptions);
-        } catch (boost::bad_any_cast) {
+        } catch (const boost::bad_any_cast&) {
             // ignore
         }
     }

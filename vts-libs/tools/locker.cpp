@@ -318,7 +318,7 @@ private:
 
     boost::optional<asio::io_service::work> work_;
     std::thread worker_;
-    asio::strand strand_;
+    asio::io_service::strand strand_;
     asio::deadline_timer timer_;
     asio::streambuf inputBuffer_;
     LockTask::queue tasks_;
