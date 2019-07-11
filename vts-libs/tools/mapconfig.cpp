@@ -320,7 +320,7 @@ bool MapConfig::help(std::ostream &out, const std::string &what) const
             out << p->options;
         }
         return true;
-    } catch (boost::bad_lexical_cast) {}
+    } catch (const boost::bad_lexical_cast&) {}
 
     return false;
 }

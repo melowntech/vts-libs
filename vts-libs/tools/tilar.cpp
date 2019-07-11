@@ -313,7 +313,7 @@ bool Tilar::help(std::ostream &out, const std::string &what) const
             out << p->options;
         }
         return true;
-    } catch (boost::bad_lexical_cast) {}
+    } catch (const boost::bad_lexical_cast&) {}
 
     return false;
 }
@@ -344,7 +344,7 @@ void Tilar::offsetConfiguration(po::options_description &options)
 
 int Tilar::run()
 {
-    // try {
+    try {
         switch (command_) {
         case Command::list: return list();
         case Command::create: return create();
@@ -352,10 +352,10 @@ int Tilar::run()
         case Command::remove: return remove();
         case Command::extract: return extract();
         }
-    // } catch (const std::exception &e) {
-    //     std::cerr << "tilar: " << e.what() << std::endl;
-    //     return EXIT_FAILURE;
-    // }
+    } catch (const std::exception &e) {
+        std::cerr << "tilar: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
 
     std::cerr << "tilar: no operation requested" << std::endl;
     return EXIT_FAILURE;
