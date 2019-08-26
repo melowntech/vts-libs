@@ -38,7 +38,6 @@
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem/path.hpp>
 
-#include "../vts.hpp"
 #include "../vts/types.hpp"
 #include "../vts/mesh.hpp"
 #include "../vts/opencv/atlas.hpp"

@@ -49,4 +49,8 @@ IStream::pointer HttpFetcher::input(const TileId&, TileFile
     return {};
 }
 
+void HttpFetcher::input(const TileId&, TileFile, unsigned int
+                        , const InputCallback&, const IStream::pointer*) const
+{}
+
 } } } // namespace vtslibs::vts::driver
