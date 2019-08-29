@@ -25,6 +25,7 @@
  */
 
 #include <numeric>
+#include <sstream>
 
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
@@ -329,18 +330,27 @@ private:
 
 void TmpTileset::Slice::saveMesh(const TileId &tileId, const Mesh &mesh)
 {
-    std::unique_lock<std::mutex> lock(mutex_);
-    auto os(driver_->output(tileId, storage::TileFile::mesh));
-    saveSimpleMesh(os->get(), mesh);
-    os->close();
+    std::stringstream tmp;
+    saveSimpleMesh(tmp, mesh);
+
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        auto os(driver_->output(tileId, storage::TileFile::mesh));
+        copyFile(tmp, os);
+        os->close();
+    }
 }
 
 void TmpTileset::Slice::saveAtlas(const TileId &tileId, const Atlas &atlas)
 {
-    std::unique_lock<std::mutex> lock(mutex_);
-    auto os(driver_->output(tileId, storage::TileFile::atlas));
-    atlas.serialize(os->get());
-    os->close();
+    std::stringstream tmp;
+    atlas.serialize(tmp);
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        auto os(driver_->output(tileId, storage::TileFile::atlas));
+        copyFile(tmp, os);
+        os->close();
+    }
 }
 
 TmpTileset::TmpTileset(const boost::filesystem::path &root
