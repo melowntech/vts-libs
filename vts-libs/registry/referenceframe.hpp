@@ -416,6 +416,8 @@ struct Credit {
     typedef DualDictionary<Credit, Credit::NumericId> dict;
 };
 
+bool operator==(const Credit &l, const Credit &r);
+
 typedef StringDictionary<boost::optional<Credit>> Credits;
 
 struct BoundLayer {
@@ -494,6 +496,10 @@ struct BoundLayer {
 
     typedef DualDictionary<BoundLayer, BoundLayer::NumericId> dict;
 };
+
+bool operator==(const BoundLayer &l, const BoundLayer &r);
+bool operator==(const BoundLayer::Availability &l
+                , const BoundLayer::Availability &r);
 
 // general I/O
 

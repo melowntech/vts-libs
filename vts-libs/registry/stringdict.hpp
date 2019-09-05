@@ -129,6 +129,9 @@ public:
     }
     const T& operator()(const std::string &id) const { return get(id); }
 
+    bool operator==(const StringDictionary &o) const { return map_ == o.map_; }
+    bool operator!=(const StringDictionary &o) const { return map_ != o.map_; }
+
 private:
     map map_;
 };

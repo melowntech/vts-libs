@@ -85,6 +85,22 @@ void save(const boost::filesystem::path &path, const RegistryBase &rb);
 
 void save(std::ostream &out, const RegistryBase &rb);
 
+bool operator==(const RegistryBase &l, const RegistryBase &r);
+bool operator!=(const RegistryBase &l, const RegistryBase &r);
+
+// inlines
+
+inline bool operator==(const RegistryBase &l, const RegistryBase &r)
+{
+    return ((l.boundLayers == r.boundLayers)
+            && (l.credits == r.credits));
+}
+
+inline bool operator!=(const RegistryBase &l, const RegistryBase &r)
+{
+    return !(l == r);
+}
+
 } } // namespace vtslibs::registry
 
 #endif // vtslibs_registry_hpp_included_
