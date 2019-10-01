@@ -6,6 +6,7 @@
 #include <cstdlib>
 
 #include "dbglog/dbglog.hpp"
+#include "utility/getenv.hpp"
 
 #include "${CMAKE_CURRENT_SOURCE_DIR}/registry.hpp"
 
@@ -19,7 +20,7 @@ const boost::filesystem::path defaultPath("${VTS_LIBS_REGISTRY_PATH}");
 
 boost::filesystem::path defaultPath()
 {
-    if (const char *env = std::getenv(def::defaultPathEnv)) {
+    if (const char *env = utility::getenv(def::defaultPathEnv)) {
         LOG(info2) << "Using default registry path \"" << env
                    << "\" from environment variable \""
                    << def::defaultPathEnv << "\".";

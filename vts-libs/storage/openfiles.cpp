@@ -28,6 +28,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include "utility/rlimit.hpp"
+#include "utility/getenv.hpp"
 
 #include "openfiles.hpp"
 
@@ -40,7 +41,7 @@ const char *TILESET_MAX_OPEN_FILES("TILESET_MAX_OPEN_FILES");
 int getOpenFilesThreshold()
 {
     int count(0);
-    if (auto value = std::getenv(TILESET_MAX_OPEN_FILES)) {
+    if (auto value = utility::getenv(TILESET_MAX_OPEN_FILES)) {
         count = boost::lexical_cast<int>(value);
     } else {
         count = int(utility::maxOpenFiles() / 2);

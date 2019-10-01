@@ -32,6 +32,7 @@
 #include "dbglog/dbglog.hpp"
 
 #include "utility/binaryio.hpp"
+#include "utility/getenv.hpp"
 
 #include "math/math.hpp"
 
@@ -51,7 +52,7 @@ namespace bin = utility::binaryio;
 namespace vtslibs { namespace vts { namespace detail {
 
 namespace {
-    const char *NO_MESH_COMPRESSION(std::getenv("NO_MESH_COMPRESSION"));
+    const char *NO_MESH_COMPRESSION(utility::getenv("NO_MESH_COMPRESSION"));
 
     // mesh proper
     const char MAGIC[2] = { 'M', 'E' };

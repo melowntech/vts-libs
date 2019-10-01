@@ -2088,4 +2088,59 @@ BoundLayer absolutize(const BoundLayer &boundLayer
     return bl;
 }
 
+#define REGISTRY_COMPARE_DIFFERS(MEMBER)        \
+    if (l.MEMBER != r.MEMBER) { return false; }
+
+bool operator==(const Credit &l, const Credit &r)
+{
+    REGISTRY_COMPARE_DIFFERS(id)
+    REGISTRY_COMPARE_DIFFERS(numericId)
+    REGISTRY_COMPARE_DIFFERS(notice)
+    REGISTRY_COMPARE_DIFFERS(url)
+    REGISTRY_COMPARE_DIFFERS(copyrighted)
+    return true;
+}
+
+bool operator==(const BoundLayer::Availability &l
+                , const BoundLayer::Availability &r)
+{
+    REGISTRY_COMPARE_DIFFERS(type)
+    REGISTRY_COMPARE_DIFFERS(mime)
+    REGISTRY_COMPARE_DIFFERS(codes)
+    REGISTRY_COMPARE_DIFFERS(size)
+    return true;
+}
+
+bool operator==(const BoundLayer &l, const BoundLayer &r)
+{
+    REGISTRY_COMPARE_DIFFERS(id)
+    REGISTRY_COMPARE_DIFFERS(numericId)
+    REGISTRY_COMPARE_DIFFERS(type)
+    REGISTRY_COMPARE_DIFFERS(url)
+    REGISTRY_COMPARE_DIFFERS(maskUrl)
+    REGISTRY_COMPARE_DIFFERS(metaUrl)
+    REGISTRY_COMPARE_DIFFERS(creditsUrl)
+    REGISTRY_COMPARE_DIFFERS(lodRange)
+    REGISTRY_COMPARE_DIFFERS(tileRange)
+    REGISTRY_COMPARE_DIFFERS(credits)
+    REGISTRY_COMPARE_DIFFERS(availability)
+    REGISTRY_COMPARE_DIFFERS(isTransparent)
+
+    // options:
+    {
+        // try to get options
+        const auto lo(boost::any_cast<Json::Value>(&l.options));
+        const auto ro(boost::any_cast<Json::Value>(&r.options));
+
+        // different presence
+        if (bool(lo) != bool(ro)) { return false; }
+        // check for difference if both present
+        if (lo && (*lo != *ro)) { return false; }
+    }
+
+    return true;
+}
+
+#undef REGISTRY_COMPARE_DIFFERS
+
 } } // namespace vtslibs::registry

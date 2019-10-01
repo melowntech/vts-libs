@@ -114,6 +114,9 @@ public:
     }
     const T& operator()(NumericId id) const { return get(id); }
 
+    bool operator==(const DualDictionary &o) const { return map_ == o.map_; }
+    bool operator!=(const DualDictionary &o) const { return map_ != o.map_; }
+
 private:
     map map_;
 };
