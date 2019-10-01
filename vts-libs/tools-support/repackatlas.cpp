@@ -253,11 +253,6 @@ void copyFromRegion(const imgproc::UVRect &regionRect
                     , const imgproc::UVRect &rect
                     , cv::Mat &tex, const cv::Mat &texture)
 {
-    (void) regionRect;
-    (void) rect;
-    (void) tex;
-    (void) texture;
-
     LOG(info4)
         << "About to copy regional patch: src: "
         << rect.width() << "x" << rect.height()
@@ -269,7 +264,6 @@ void copyFromRegion(const imgproc::UVRect &regionRect
         << regionRect.width() << "x" << regionRect.height()
         << " " << regionRect.x() << " " << regionRect.y()
         ;
-
 
     const auto wrap([](int pos, int origin, int size) -> int
     {
@@ -505,7 +499,7 @@ void repack(const TileId &tileId, Mesh &mesh, opencv::Atlas &atlas
                     , "Tile %s: Number of submeshes (%d) is different from "
                     "texture count (%d).", tileId, mesh.submeshes.size()
                     , atlas.size());
-    utility::expect(mesh.submeshes.size() == atlas.size()
+    utility::expect(mesh.submeshes.size() == textureRegions.size()
                     , "Tile %s: Number of submeshes (%d) is different from "
                     "texture region info count (%d).", tileId
                     , mesh.submeshes.size(), textureRegions.size());
