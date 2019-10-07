@@ -120,11 +120,13 @@ clipAndRefine(const EnhancedSubMesh &mesh
  * \param mesh submesh
  * \param projectedExtents extents in projected space
  * \param mask optional vertex mask (masked out vertices are removed)
+ * \param faceOrigin vector of indices to original mesh faces, optional
  * \return clipped mesh
  */
 SubMesh clip(const SubMesh &mesh
              , const math::Extents2 &projectedExtents
-             , const VertexMask &mask = VertexMask());
+             , const VertexMask &mask = VertexMask()
+             , FaceOriginList *faceOrigin = nullptr);
 
 /** Simple interface to clip mesh that is in projected space (i.e. spatial
  *  division system).
@@ -246,9 +248,10 @@ SubMesh optimize(SubMesh mesh);
 
 inline SubMesh clip(const SubMesh &mesh
                     , const math::Extents2 &projectedExtents
-                    , const VertexMask &mask)
+                    , const VertexMask &mask
+                    , FaceOriginList *faceOrigin)
 {
-    return clip(mesh, mesh.vertices, projectedExtents, mask);
+    return clip(mesh, mesh.vertices, projectedExtents, mask, faceOrigin);
 }
 
 } } // namespace vtslibs::vts
