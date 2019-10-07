@@ -1195,9 +1195,11 @@ public:
 
     virtual std::ostream& get() UTILITY_OVERRIDE { return stream_; }
     virtual void close() UTILITY_OVERRIDE {
-        stream_.flush();
-        buffer_->commit();
-        buffer_.close();
+        if (buffer_.is_open()) {
+            stream_.flush();
+            buffer_->commit();
+            buffer_.close();
+        }
     }
     virtual std::string name() const UTILITY_OVERRIDE {
         // stream_buffer has only non-const version of operator-> :(
