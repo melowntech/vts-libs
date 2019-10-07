@@ -253,7 +253,7 @@ void copyFromRegion(const imgproc::UVRect &regionRect
                     , const imgproc::UVRect &rect
                     , cv::Mat &tex, const cv::Mat &texture)
 {
-    LOG(info4)
+    LOG(info2)
         << "About to copy regional patch: src: "
         << rect.width() << "x" << rect.height()
         << " " << rect.x() << " " << rect.y()
