@@ -417,10 +417,11 @@ void UrlTemplate::parse(const std::string &str)
                 tokens_.emplace_back(str.substr(open + 1, close - open - 1)
                                      , func);
             } else {
-                tokens_.emplace_back(str.substr(open, close - open + 1));
+                // emplace the name of the substituent, excluding the braces
+                tokens_.emplace_back(str.substr(open + 1, close - open - 1));
 
                 // ignore viewspec, otherwise issue a warning
-                if (tokens_.back().value != "{viewspec}") {
+                if (tokens_.back().value != "viewspec") {
                     LOG(warn2)
                         << "Unprocessed directive <" << tokens_.back().value
                         << ">.";
