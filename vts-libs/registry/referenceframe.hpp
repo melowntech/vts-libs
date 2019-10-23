@@ -180,7 +180,10 @@ struct ReferenceFrame {
                 index_type x;
                 index_type y;
 
-                Id(Lod lod = 0, index_type x = 0, index_type y = 0)
+                Id() : lod(0), x(0), y(0)
+                {}
+
+                Id(Lod lod, index_type x, index_type y)
                     : lod(lod), x(x), y(y)
                 {}
 
@@ -256,7 +259,7 @@ struct ReferenceFrame {
             typedef std::map<Id, Node> map;
 
             Node() : externalTexture(false) {}
-            Node(const Id &id) : id(id), externalTexture(false) {}
+            explicit Node(const Id &id) : id(id), externalTexture(false) {}
             Node(const Id &id, PartitioningMode mode)
                 : id(id), partitioning(mode), externalTexture(false) {}
 

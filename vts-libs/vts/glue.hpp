@@ -49,7 +49,7 @@ struct Glue : public utility::Supplement<Glue> {
 
 
     Glue() {}
-    Glue(const Id &id) : id(id) {}
+    explicit Glue(const Id &id) : id(id) {}
     Glue(const Id &id, const std::string &path) : id(id), path(path) {}
 
     /** Returns true if glue references given tileset
@@ -79,11 +79,11 @@ struct TileSetGlues : public utility::Supplement<TileSetGlues> {
 
     EnhancedGlue::list glues;
 
-    TileSetGlues(const TilesetId &tilesetId)
+    explicit TileSetGlues(const TilesetId &tilesetId)
         : tilesetId(tilesetId)
     {}
 
-    TileSetGlues(const TilesetId &tilesetId, const Glue::list glues)
+    TileSetGlues(const TilesetId &tilesetId, const Glue::list &glues)
         : tilesetId(tilesetId), glues(glues.begin(), glues.end())
     {}
 

@@ -36,10 +36,10 @@ struct MetaFlags {
     MetaNode::Flag::value_type value;
     const MetaNode *node;
 
-    MetaFlags(MetaNode::Flag::value_type value = 0)
+    explicit MetaFlags(MetaNode::Flag::value_type value = 0)
         : value(value) {}
 
-    MetaFlags(const MetaNode &node)
+    explicit MetaFlags(const MetaNode &node)
         : value(node.flags()) {}
 
     typedef std::pair<MetaNode::Flag::value_type, const char*> MetaFlag;

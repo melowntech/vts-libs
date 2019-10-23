@@ -82,8 +82,8 @@ typedef std::function<boost::filesystem::path
 class SurfaceRoot {
 public:
     SurfaceRoot() : root_(boost::filesystem::path()) {}
-    SurfaceRoot(const boost::filesystem::path &path) : root_(path) {}
-    SurfaceRoot(const PerProxyRootFunction &fn) : root_(fn) {}
+    explicit SurfaceRoot(const boost::filesystem::path &path) : root_(path) {}
+    explicit SurfaceRoot(const PerProxyRootFunction &fn) : root_(fn) {}
 
     SurfaceRoot& operator=(const boost::filesystem::path &path) {
         root_ = path; return *this;
@@ -142,7 +142,7 @@ struct GlueConfig : SurfaceCommonConfig {
     Glue::Id id;
 
     GlueConfig() {}
-    GlueConfig(const SurfaceConfig &surface)
+    explicit GlueConfig(const SurfaceConfig &surface)
         : SurfaceCommonConfig(surface)
     {}
 
@@ -154,7 +154,7 @@ struct VirtualSurfaceConfig : SurfaceCommonConfig {
     std::string mapping;
 
     VirtualSurfaceConfig() {}
-    VirtualSurfaceConfig(const SurfaceConfig &surface)
+    explicit VirtualSurfaceConfig(const SurfaceConfig &surface)
         : SurfaceCommonConfig(surface)
     {}
 
@@ -206,7 +206,7 @@ struct MapConfig : public registry::Registry {
 
     MapConfig() : textureAtlasReady(false) {}
 
-    MapConfig(const registry::RegistryBase &base)
+    explicit MapConfig(const registry::RegistryBase &base)
         : registry::Registry(base), textureAtlasReady(false) {}
 
     /** Merges in mapConfig for one tileset.

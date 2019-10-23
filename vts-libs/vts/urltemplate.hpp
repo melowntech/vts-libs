@@ -48,7 +48,7 @@ public:
     UrlTemplate(const UrlTemplate&) = default;
     UrlTemplate& operator=(const UrlTemplate&) = default;
 
-    UrlTemplate(const std::string &str) { parse(str); }
+    explicit UrlTemplate(const std::string &str) { parse(str); }
 
     void parse(const std::string &str);
     void clear() { tokens_.clear(); }
@@ -63,7 +63,7 @@ public:
 
         std::vector<std::string> params;
 
-        Vars(const vts::TileId &tileId, unsigned int subMesh = 0)
+        explicit Vars(const vts::TileId &tileId, unsigned int subMesh = 0)
             : tileId(tileId), localId(tileId), subMesh(subMesh)
         {}
 
@@ -108,9 +108,9 @@ public:
         void expand(std::ostream &os, const Vars &vars) const;
         void dump(std::ostream &os) const;
 
-        Token(const std::string &value) : value(value) {}
-        Token(const Variable &variable) : variable(variable) {}
-        Token(const std::string &value, const Expander &expander)
+        explicit Token(const std::string &value) : value(value) {}
+        explicit Token(const Variable &variable) : variable(variable) {}
+        explicit Token(const std::string &value, const Expander &expander)
             : value(value), expander(expander)
         {}
 

@@ -52,7 +52,7 @@ public:
     static constexpr int width = (1 << binOrder);
     static constexpr int height = (1 << binOrder);
 
-    static const math::Size2i size() { return math::Size2i(width, height); };
+    static const math::Size2i size() { return math::Size2i(width, height); }
 
     NavTile() : coverageMask_(size(), CoverageMask::InitMode::FULL) {}
 

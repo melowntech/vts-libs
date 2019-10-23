@@ -44,7 +44,7 @@ struct RegistryBase {
     BoundLayer::dict boundLayers;
     Credit::dict credits;
 
-    RegistryBase() {};
+    RegistryBase() {}
 };
 
 /** Full registry

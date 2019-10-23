@@ -133,18 +133,18 @@ struct Mesh {
 
     static math::Size2i coverageSize() {
         return math::Size2i(1 << coverageOrder, 1 << coverageOrder);
-    };
+    }
 
     /** Index inside multifile where mesh is stored.
      */
     static constexpr unsigned int meshIndex() { return 0; }
 
-    /** Creates new (emtpty) mesh.
+    /** Creates new (empty) mesh.
      *
      *  \param fullyCovered specifies how to initialize coverage mask (true ->
      *  full, false -> empty)
      */
-    Mesh(bool fullyCovered = true);
+    explicit Mesh(bool fullyCovered = true);
 
     Mesh(const Mesh&) = default;
 

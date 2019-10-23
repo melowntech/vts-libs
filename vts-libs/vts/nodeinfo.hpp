@@ -110,7 +110,7 @@ public:
 
     /** Root node info.
      */
-    NodeInfo(const registry::ReferenceFrame &referenceFrame
+    explicit NodeInfo(const registry::ReferenceFrame &referenceFrame
              , const registry::Registry &reg = registry::system);
 
     /** Node.
