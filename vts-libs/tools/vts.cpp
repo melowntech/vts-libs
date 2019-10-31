@@ -844,7 +844,7 @@ void VtsStorage::configuration(po::options_description &cmdline
         lockConfiguration(p.options);
 
         p.options.add_options()
-            ("tileset", po::value(&tilesetIds_)->required()
+            ("tileset", po::value(&tilesetIds_)->composing()->required()
              , "Tileset participating in glue.")
 
             ("textureQuality", po::value(&addOptions_.textureQuality)
