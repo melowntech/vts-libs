@@ -321,6 +321,14 @@ inline bool in(const LodRange &range, const TileId &tileId)
     return (tileId.lod >= range.min) && (tileId.lod <= range.max);
 }
 
+inline bool in(const TileRange &range, const TileId &tileId)
+{
+    return ((tileId.x >= range.ll(0))
+            && (tileId.x <= range.ur(0))
+            && (tileId.y >= range.ll(1))
+            && (tileId.y <= range.ur(1)));
+}
+
 inline std::size_t tileCount(Lod lod)
 {
     return std::size_t(1) << lod;

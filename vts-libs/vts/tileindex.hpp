@@ -344,8 +344,15 @@ public:
     TileIndex& invert(Flag::value_type type = Flag::any);
 
     /** Converts this tileindex to simplified index (black -> 0, white -> 1)
+     *
+     * white = (tree.value & mask)
      */
     TileIndex& simplify(Flag::value_type type = Flag::any);
+
+    /** Converts this tileindex to simplified index (black -> 0, white -> 1)
+     * white = ((tree.value & mask) == value)
+     */
+    TileIndex& simplify(Flag::value_type mask, Flag::value_type value);
 
     /** Makes tileindex complete -> every existing tile has its parent.
      *

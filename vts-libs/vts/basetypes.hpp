@@ -89,6 +89,8 @@ class Ranges {
 public:
     Ranges() : lodRange_(LodRange::emptyRange()) {}
     Ranges(const LodRange &lodRange, const TileRange &tileRange);
+    Ranges(const LodTileRange &range, Lod bottomLod);
+
     struct FromBottom {};
     Ranges(const LodRange &lodRange, const TileRange &tileRange
            , const FromBottom&);
@@ -118,6 +120,8 @@ public:
     void update(const Ranges &other);
 
 private:
+    void populate(const TileRange &tileRange);
+
     LodRange lodRange_;
     std::vector<TileRange> tileRanges_;
 };

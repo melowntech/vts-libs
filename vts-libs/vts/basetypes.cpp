@@ -135,10 +135,21 @@ TileSetGlues::list glueOrder(const TileSetGlues::list &in)
 Ranges::Ranges(const LodRange &lodRange, const TileRange &tileRange)
     : lodRange_(lodRange)
 {
-    if (lodRange.empty()) { return; }
+    populate(tileRange);
+}
+
+Ranges::Ranges(const LodTileRange &range, Lod bottomLod)
+    : lodRange_(range.lod, bottomLod)
+{
+    populate(range.range);
+}
+
+void Ranges::populate(const TileRange &tileRange)
+{
+    if (lodRange_.empty()) { return; }
 
     // fill in ranges
-    for (auto lod : lodRange) {
+    for (auto lod : lodRange_) {
         (void) lod;
         if (tileRanges_.empty()) {
             // original argument

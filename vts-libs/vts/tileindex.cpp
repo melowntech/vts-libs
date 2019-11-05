@@ -705,6 +705,22 @@ TileIndex& TileIndex::simplify(Flag::value_type type)
     return *this;
 }
 
+TileIndex& TileIndex::simplify(Flag::value_type mask, Flag::value_type value)
+{
+    auto filter([mask, value](QTree::value_type tvalue) {
+            return ((tvalue & mask) == value);
+        });
+
+    // invert all trees
+    for (auto itrees(trees_.begin()), etrees(trees_.end());
+         itrees != etrees; ++itrees)
+    {
+        itrees->simplify(filter);
+    }
+
+    return *this;
+}
+
 TileIndex& TileIndex::complete(Flag::value_type type
                                , const boost::optional<Lod> &stopAtceiling)
 {
