@@ -191,12 +191,14 @@ public:
      */
     NodeInfo child(const TileId &child) const;
 
+#ifdef GEO_HAS_GDAL
     /** Generates special SRS definition:
      *      merge(horizontal(sds),  vertical(navigation)
      *
      *  This SRS is used to interpret data stored inside navtiles.
      */
     registry::Srs navsds() const;
+#endif // GEO_HAS_GDAL
 
     /** Generate list of nodeinfos from valid referenceframes' nodes.
      */

@@ -533,6 +533,7 @@ NodeInfo::CoveredArea NodeInfo::checkMask(const CoverageMask &mask
     return CoveredArea::some;
 }
 
+#ifdef GEO_HAS_GDAL
 registry::Srs NodeInfo::navsds() const
 {
     const auto &reg(subtree_.registry());
@@ -543,5 +544,6 @@ registry::Srs NodeInfo::navsds() const
     srs.srsDef = geo::merge(reg.srs(node_.srs).srsDef, srs.srsDef);
     return srs;
 }
+#endif // GEO_HAS_GDAL
 
 } } // namespace vtslibs::vts
