@@ -61,6 +61,7 @@ public:
                 , const geo::SrsDefinition &srsTo
                 , const registry::Registry &reg = registry::system);
 
+#ifdef GEO_HAS_GDAL
     /** Combined convertor, never results in no-op convertor.
      */
     CsConvertor(const ::OGRSpatialReference &srsFrom
@@ -72,6 +73,7 @@ public:
     CsConvertor(const std::string &srsIdFrom
                 , const ::OGRSpatialReference &srsTo
                 , const registry::Registry &reg = registry::system);
+#endif // GEO_HAS_GDAL
 
     /** Combined convertor, never results in no-op convertor.
      */
@@ -79,12 +81,14 @@ public:
                 , const std::string &srsIdTo
                 , const registry::Registry &reg = registry::system);
 
+#ifdef GEO_HAS_GDAL
     /** Returns inverse convertor (uses stored pointer to comples SRS
      *  definitions) -- swaps FROM and TO.
      *
      * \return inverse coordinate system convertor
      */
     CsConvertor inverse() const;
+#endif // GEO_HAS_GDAL
 
     /** Converts point between FROM and TO srs.
      *
@@ -124,10 +128,13 @@ private:
     void init(const registry::Srs *srsFrom, const registry::Srs *srsTo);
     void init(const geo::SrsDefinition &srsFrom, const registry::Srs &srsTo);
     void init(const registry::Srs &srsFrom, const geo::SrsDefinition &srsTo);
+
+#ifdef GEO_HAS_GDAL
     void init(const ::OGRSpatialReference &srsFrom
               , const registry::Srs &srsTo);
     void init(const registry::Srs &srsFrom
               , const ::OGRSpatialReference &srsTo);
+#endif // GEO_HAS_GDAL
 
     /** Convertor between source and destination SRS's.
      */
