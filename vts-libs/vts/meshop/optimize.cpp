@@ -83,4 +83,46 @@ vts::SubMesh optimize(vts::SubMesh mesh)
     return mesh;
 }
 
+SubMesh makeSharedFaces(const SubMesh &sm)
+{
+    SubMesh out;
+    auto &vertices(out.vertices);
+    auto &tc(out.tc);
+    auto &faces(out.faces);
+
+    typedef std::pair<int, int> VertexTcPair;
+    typedef std::map<VertexTcPair, int> VertexMap;
+
+    VertexMap vmap;
+
+    auto ifaces(sm.faces.begin());
+    for (const auto &tface : sm.facesTc) {
+        const auto &face(*ifaces++);
+
+        faces.emplace_back();
+        auto &oface(faces.back());
+
+        for (int i(0); i < 3; ++i) {
+            const VertexTcPair pair(face(i), tface(i));
+
+            auto fvmap(vmap.find(pair));
+            if (fvmap == vmap.end()) {
+                // unknown vertex/tc pair
+                const auto idx(vertices.size());
+                vertices.emplace_back(sm.vertices[pair.first]);
+                tc.emplace_back(sm.tc[pair.second]);
+
+                vmap.insert(VertexMap::value_type(pair, idx));
+                oface(i) = idx;
+            } else {
+                oface(i) = fvmap->second;
+            }
+        }
+    }
+
+    // and use the same data for both 3D and 2D face
+    out.facesTc = out.faces;
+    return out;
+}
+
 } } // namespace vtslibs::vts

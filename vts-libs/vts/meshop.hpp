@@ -244,6 +244,8 @@ void addSkirt(EnhancedSubMesh &mesh
 
 SubMesh optimize(SubMesh mesh);
 
+SubMesh makeSharedFaces(const SubMesh &mesh);
+
 // inlines
 
 inline SubMesh clip(const SubMesh &mesh
