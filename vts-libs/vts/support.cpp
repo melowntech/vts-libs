@@ -34,7 +34,7 @@ namespace vtslibs { namespace vts {
 
 #include "support.impl.cpp"
 
-const storage::SupportFile::Vars defaultSupportVars([&]()
+const storage::SupportFile::Vars defaultSupportVars([]()
     -> storage::SupportFile::Vars
 {
     storage::SupportFile::Vars vars;
