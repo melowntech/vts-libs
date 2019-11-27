@@ -48,6 +48,7 @@ CsConvertor::CsConvertor(const std::string &srsIdFrom
     init(reg.srs(srsIdFrom), srsTo);
 }
 
+#ifdef GEO_HAS_GDAL
 CsConvertor::CsConvertor(const ::OGRSpatialReference &srsFrom
                          , const std::string &srsIdTo
                          , const registry::Registry &reg)
@@ -61,6 +62,7 @@ CsConvertor::CsConvertor(const std::string &srsIdFrom
 {
     init(reg.srs(srsIdFrom), srsTo);
 }
+#endif // GEO_HAS_GDAL
 
 CsConvertor::CsConvertor(const boost::optional<geo::CsConvertor> &conv
                          , const geo::VerticalAdjuster &srcAdjuster
@@ -110,7 +112,6 @@ void CsConvertor::init(const geo::SrsDefinition &srsFrom
     }
 }
 
-
 void CsConvertor::init(const registry::Srs &srsFrom
                        , const geo::SrsDefinition &srsTo)
 {
@@ -125,6 +126,7 @@ void CsConvertor::init(const registry::Srs &srsFrom
     }
 }
 
+#ifdef GEO_HAS_GDAL
 void CsConvertor::init(const ::OGRSpatialReference &srsFrom
                        , const registry::Srs &srsTo)
 {
@@ -155,6 +157,7 @@ CsConvertor CsConvertor::inverse() const
     // no convertor -> no-op
     return { boost::none, {}, {} };
 }
+#endif // GEO_HAS_GDAL
 
 math::Point3 CsConvertor::operator()(const math::Point3 &p) const
 {
