@@ -40,6 +40,11 @@ template <typename TileIndexType>
 DebugNode getNodeDebugInfo(const TileIndexType &tileIndex
                            , const TileId &tileId);
 
+template <typename TileIndexType, typename FlagManipulator>
+DebugNode getNodeDebugInfo(const TileIndexType &tileIndex
+                           , const TileId &tileId
+                           , const FlagManipulator &flagManipulator);
+
 void saveDebug(std::ostream &out, const DebugNode &debugNode);
 
 // inlines
@@ -48,10 +53,21 @@ template <typename TileIndexType>
 DebugNode getNodeDebugInfo(const TileIndexType &tileIndex
                            , const TileId &tileId)
 {
+    return getNodeDebugInfo(tileIndex, tileId
+                            , [](TileIndex::Flag::value_type f) {
+                                return f;
+                            });
+}
+
+template <typename TileIndexType, typename FlagManipulator>
+DebugNode getNodeDebugInfo(const TileIndexType &tileIndex
+                           , const TileId &tileId
+                           , const FlagManipulator &flagManipulator)
+{
     DebugNode node;
 
     // get tile flags
-    const auto tflags(tileIndex.get(tileId));
+    const auto tflags(flagManipulator(tileIndex.get(tileId)));
 
     // get child information
     MetaNode::Flag::value_type mflags(0);
