@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <vector>
 #include <iosfwd>
+#include <string>
 
 namespace vtslibs { namespace vts {
 
