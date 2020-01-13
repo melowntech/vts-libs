@@ -23,7 +23,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include <boost/gil/gil_all.hpp>
+
+#include "math/boost_gil_all.hpp"
 
 #include "dbglog/dbglog.hpp"
 

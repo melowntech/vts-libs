@@ -28,8 +28,7 @@
 
 #include <iostream>
 
-#include <boost/gil/gil_all.hpp>
-
+#include "math/boost_gil_all.hpp"
 #include "types2d.hpp"
 #include "mesh.hpp"
 #include "tileindex.hpp"
