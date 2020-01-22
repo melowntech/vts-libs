@@ -40,7 +40,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/replace.hpp>
 
-#include "./io.hpp"
+#include "io.hpp"
 
 namespace ba = boost::algorithm;
 
