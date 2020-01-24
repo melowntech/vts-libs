@@ -25,6 +25,7 @@
  */
 
 #include <vector>
+#include <numeric>
 
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
@@ -411,7 +412,9 @@ void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
     bin::write(out, std::uint16_t(mesh.submeshes.size()));
 
     // write submeshes
-    for (const auto &sm : mesh) {
+    for (const auto &sm_ : mesh) {
+        const auto sm(sm_.cleanUp());
+
         auto bbox(extents(sm));
         math::Point3d bbsize(bbox.ur - bbox.ll);
 
@@ -497,10 +500,11 @@ void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
 
 void saveMeshProper(std::ostream &out, const Mesh &mesh, const Atlas *atlas)
 {
+    // FIXME: this condition is wrong fix when we are sure version3 was not
+    // broken since the error was introduced (2017...)
     if (NO_MESH_COMPRESSION) {
         saveMeshVersion3(out, mesh, atlas);
-    }
-    else {
+    } else {
         saveMeshVersion2(out, mesh);
     }
 }

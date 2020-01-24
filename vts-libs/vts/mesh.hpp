@@ -116,6 +116,9 @@ struct SubMesh {
     bool empty() const { return vertices.empty(); }
 
     /** Filter out degenerate faces and unused vertices, return a new submesh.
+     *
+     *  Ensures that two distinct vertices do not share the same texture
+     *  coordinate. While not enforced by mesh format it makes rendering easier.
      */
     SubMesh cleanUp() const;
 };
@@ -421,6 +424,7 @@ inline void SubMesh::cloneMetadataInto(SubMesh &dst) const
     dst.textureMode = textureMode;
     dst.textureLayer = textureLayer;
     dst.uvAreaScale = uvAreaScale;
+    dst.surfaceReference = surfaceReference;
 }
 
 UTILITY_GENERATE_ENUM_IO(SubMesh::TextureMode,
