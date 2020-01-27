@@ -48,13 +48,14 @@ struct Coverage {
     typedef std::int16_t pixel_type;
     typedef cv::Vec2f HeightMapValue;
     typedef cv::Mat_<HeightMapValue> HeightMap;
+    typedef cv::Mat_<pixel_type> MatType;
 
     const TileId tileId;
     const Input::list &sources;
     const MergeOptions &options;
     const math::Size2 innerSize;
     const math::Size2 coverageSize;
-    cv::Mat_<pixel_type> coverage;
+    MatType coverage;
     bool hasHoles;
     std::vector<bool> indices;
     boost::optional<Input::Id> single;

@@ -510,14 +510,37 @@ void Coverage::findCookieCutters() {
     // single case -> no mesh clipping needed, do not find any cookie cutter
     if (single) { return; }
 
-    const auto raster
-        (imgproc::cvConstRaster<Coverage::pixel_type>(coverage));
-    cookieCutters = imgproc::findContours
-        (raster, indices.size()
-         , imgproc::ContourParameters(imgproc::PixelOrigin::corner)
-         .setSimplification
-         (chainSimplification(options.contourSimplification))
-         .setRdpMaxError(options.rdpMaxError));
+    const auto kernel
+        (cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
+
+    // NB: cookie cutters are pre-allocated in ctor
+    MeshOpInput::Id id(0);
+    for (auto valid : indices) {
+        if (!valid) { ++id; continue; }
+
+        // make mask from current surface and dilate by one pixel
+        MatType mat(coverage == id);
+        if (!topmost(id)) {
+            cv::dilate(mat, mat, kernel);
+        }
+
+        const auto raster
+            (imgproc::cvConstRaster<Coverage::pixel_type>(mat));
+
+        typedef decltype(raster)::value_type value_type;
+
+        cookieCutters[id]
+            = (imgproc::findContour
+               (raster
+                , [&](const value_type &value) { return value[0]; }
+                , imgproc::ContourParameters(imgproc::PixelOrigin::corner)
+                .setSimplification
+                (chainSimplification(options.contourSimplification))
+                .setRdpMaxError(options.rdpMaxError))
+               );
+
+        ++id;
+    }
 }
 
 void Coverage::dump(const fs::path &dump) const
