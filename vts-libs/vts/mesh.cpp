@@ -276,68 +276,121 @@ MeshArea area(const Mesh &mesh, const VertexMasks &masks)
 SubMesh SubMesh::cleanUp() const
 {
     SubMesh ret;
+    cloneMetadataInto(ret);
 
+    // make room
     ret.vertices.reserve(vertices.size());
     ret.etc.reserve(etc.size());
     ret.tc.reserve(tc.size());
     ret.faces.reserve(faces.size());
     ret.facesTc.reserve(facesTc.size());
 
-    bool have_etc = !etc.empty();
-    bool have_itc = !tc.empty();
-    auto itc = facesTc.cbegin();
+    bool hasEtc(!etc.empty());
+    bool hasTc(!tc.empty());
 
-    std::vector<int> vindex(vertices.size(), -1);
-    std::vector<int> tindex(tc.size(), -1);
+    typedef std::vector<int> Index;
 
-    // copy faces, skip degenerate ones
-    for (const auto &face : faces)
-    {
-        if (face(0) != face(1) &&
-            face(1) != face(2) &&
-            face(2) != face(0))
-        {
-            ret.faces.push_back(face);
-            if (have_itc) {
-                ret.facesTc.push_back(*itc);
-            }
+    struct Mapping {
+        int vertex;
+        int chain;
+        Mapping(int vertex = -1) : vertex(vertex), chain(-1) {}
+        typedef std::vector<Mapping> list;
+    };
 
-            // copy vertices, renumber indices
-            Face &rface(ret.faces.back());
-            for (int i = 0; i < 3; i++)
-            {
-                int &idx(vindex[rface(i)]);
-                if (idx < 0) {
-                    idx = int(ret.vertices.size());
-                    ret.vertices.push_back(vertices[rface(i)]);
-                    if (have_etc) {
-                        ret.etc.push_back(etc[rface(i)]);
-                    }
-                }
-                rface(i) = idx;
-            }
+    Index vindex(vertices.size(), -1);
+    Index tindex;
+    Mapping::list tcMap;
 
-            if (have_itc) {
-                Face &tface(ret.facesTc.back());
-                for (int i = 0; i < 3; i++)
-                {
-                    int &idx(tindex[tface(i)]);
-                    if (idx < 0) {
-                        idx = int(ret.tc.size());
-                        ret.tc.push_back(tc[tface(i)]);
-                    }
-                    tface(i) = idx;
-                }
-            }
-        }
-
-        if (have_itc) { itc++; }
+    if (hasTc) {
+        // populate only if we have internal textures
+        tindex.assign(tc.size(), -1);
+        tcMap.reserve(tc.size());
     }
 
-    ret.textureMode = textureMode;
-    ret.textureLayer = textureLayer;
-    ret.surfaceReference = surfaceReference;
-    ret.uvAreaScale = uvAreaScale;
+    // Adds 3D mesh vertex to the output mesh, reused already added one
+    const auto &addVertex([&](Face::value_type &vertex)
+    {
+        int &idx(vindex[vertex]);
+        if (idx < 0) {
+            idx = int(ret.vertices.size());
+            ret.vertices.push_back(vertices[vertex]);
+            if (hasEtc) { ret.etc.push_back(etc[vertex]); }
+        }
+        vertex = idx;
+    });
+
+    /** Allocates new tc index in the output mesh.
+     */
+    const auto &allocateTcIndex([&](Face::value_type &tcVertex, int vertex)
+    {
+        int idx(ret.tc.size());
+        ret.tc.push_back(tc[tcVertex]);
+        tcMap.emplace_back(vertex);
+        return idx;
+    });
+
+    /** Adds 2D texturing coordinates to the output mesh, resuses already added
+     *  one. Clones texturing coordinates if more than one 3D vertex maps to
+     *  tc.
+     */
+    const auto &addTc([&](Face::value_type &tcVertex, int vertex)
+    {
+        int &idx(tindex[tcVertex]);
+
+        if (idx < 0) {
+            // new tc
+            tcVertex = allocateTcIndex(tcVertex, vertex);
+            return;
+        }
+
+        // already mapped tc, find matching vertex
+        auto &mapping(tcMap[idx]);
+
+        while (mapping.vertex != vertex) {
+            // different vertex, check
+            if (mapping.chain < 0) {
+                // end of chain, make new entry
+                const auto prev(idx);
+                idx = allocateTcIndex(tcVertex, vertex);
+                tcMap[prev].chain = idx;
+                break;
+            }
+
+            // try next one
+            idx = mapping.chain;
+            mapping = tcMap[idx];
+        }
+
+        // map
+        tcVertex = idx;
+    });
+
+    // copy faces, skip degenerate ones
+    auto itc(facesTc.cbegin());
+    for (const auto &face : faces) {
+        // skip degenerate
+        if ((face(0) == face(1)) || (face(1) == face(2))
+            || (face(2) == face(0)))
+        {
+            if (hasTc) { ++itc; }
+            continue;
+        }
+
+        // copy face, copy vertices, renumber indices
+        ret.faces.push_back(face);
+        auto &rface(ret.faces.back());
+        for (int i = 0; i < 3; i++) { addVertex(rface(i)); }
+
+        if (hasTc) {
+            // same for texturing face but resolve different vertices mapping to
+            // the same tc
+            ret.facesTc.push_back(*itc++);
+            auto &tface(ret.facesTc.back());
+            for (int i = 0; i < 3; i++) {
+                addTc(tface(i), rface(i));
+            }
+        }
+    }
 
     return ret;
 }

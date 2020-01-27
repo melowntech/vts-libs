@@ -74,7 +74,7 @@ struct Coverage {
 
     void getSources(Output &output, const Input::list &navtileSource) const;
 
-    /** Checks for face coverage by givensurface (id). Updates height map with
+    /** Checks for face coverage by given surface (id). Updates height map with
      *  minumum sampled value.
      *
      * \param face face to check

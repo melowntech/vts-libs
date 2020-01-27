@@ -242,6 +242,8 @@ void addSkirt(EnhancedSubMesh &mesh
               , const MeshVertexConvertor &convertor
               , const SkirtVectorCallback &skirtVector);
 
+/** Makes mesh optimally represented: no duplicity.
+ */
 SubMesh optimize(SubMesh mesh);
 
 SubMesh makeSharedFaces(const SubMesh &mesh);

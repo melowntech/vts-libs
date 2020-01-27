@@ -191,7 +191,7 @@ MeshFilter::MeshFilter(const SubMesh &original, int submeshIndex
     , input_(input), sdmc_(sdmc), diff_(diff)
     , keep_(false)
 {
-    // topmost surface or pure compisition -> pass as is
+    // topmost surface or pure composition -> pass as is
     if ((options_.glueMode == GlueMode::compose)
         || (coverage.topmost(input_.id())))
     {
