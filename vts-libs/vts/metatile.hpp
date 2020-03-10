@@ -330,7 +330,7 @@ public:
     static int loadVersion(std::istream &in
                            , const boost::filesystem::path &path = "unknown");
 
-private:
+protected:
     size_type index(const TileId &tileId, bool checkValidity = true) const;
 
     boost::optional<size_type>
