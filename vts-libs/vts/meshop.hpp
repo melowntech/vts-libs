@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2017 Melown Technologies SE
  *
@@ -117,7 +118,6 @@ clipAndRefine(const EnhancedSubMesh &mesh
  *  division system).
  *
  * \param mesh submesh
- * \param mesh submesh
  * \param projectedExtents extents in projected space
  * \param mask optional vertex mask (masked out vertices are removed)
  * \param faceOrigin vector of indices to original mesh faces, optional
@@ -128,7 +128,7 @@ SubMesh clip(const SubMesh &mesh
              , const VertexMask &mask = VertexMask()
              , FaceOriginList *faceOrigin = nullptr);
 
-/** Simple interface to clip mesh that is in projected space (i.e. spatial
+/** Simple interface to clip mesh that is not in projected space (i.e. spatial
  *  division system).
  *
  * \param mesh submesh
@@ -140,6 +140,33 @@ SubMesh clip(const SubMesh &mesh
  */
 SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
              , const math::Extents2 &projectedExtents
+             , const VertexMask &mask = VertexMask()
+             , FaceOriginList *faceOrigin = nullptr);
+
+/** Simple interface to clip mesh that is in projected space (i.e. spatial
+ *  division system).
+ *
+ * \param mesh submesh
+ * \param projectedVerticalExtent vertical extent in projected space
+ * \param mask optional vertex mask (masked out vertices are removed)
+ * \return clipped mesh
+ */
+SubMesh clip(const SubMesh &mesh
+             , const math::Extent &projectedVerticalExtent
+             , const VertexMask &mask = VertexMask());
+
+/** Simple interface to clip mesh that is not in projected space (i.e. spatial
+ *  division system).
+ *
+ * \param mesh submesh
+ * \param projected vertices in projected space
+ * \param projectedVerticalExtent vertical extent in projected space
+ * \param mask optional vertex mask (masked out vertices are removed)
+ * \param faceOrigin vector of indices to original mesh faces, optional
+ * \return clipped mesh
+ */
+SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
+             , const math::Extent &projectedVerticalExtent
              , const VertexMask &mask = VertexMask()
              , FaceOriginList *faceOrigin = nullptr);
 
@@ -256,6 +283,13 @@ inline SubMesh clip(const SubMesh &mesh
                     , FaceOriginList *faceOrigin)
 {
     return clip(mesh, mesh.vertices, projectedExtents, mask, faceOrigin);
+}
+
+inline SubMesh clip(const SubMesh &mesh
+                    , const math::Extent &projectedVerticalExtent
+                    , const VertexMask &mask)
+{
+    return clip(mesh, mesh.vertices, projectedVerticalExtent, mask);
 }
 
 } } // namespace vtslibs::vts

@@ -30,6 +30,7 @@
 #include <string>
 
 #include "math/geometry_core.hpp"
+#include "math/extent.hpp"
 
 #include "utility/enum-io.hpp"
 
@@ -44,6 +45,8 @@ using storage::Range;
 using storage::LodRange;
 
 using registry::TileRange;
+
+typedef math::Extent_<TileRange::value_type> TileSpan;
 
 typedef registry::ReferenceFrame::Division::Node RFNode;
 

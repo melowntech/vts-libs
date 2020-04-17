@@ -28,6 +28,8 @@
 
 #include <new>
 
+#include "math/extent.hpp"
+
 #include "../storage/filetypes.hpp"
 
 #include "basetypes.hpp"
@@ -114,6 +116,7 @@ std::string filePath(TileFile type, const TileId &tileId
 std::size_t tileCount(Lod lod);
 
 math::Size2f tileSize(const math::Extents2 &rootExtents, Lod lod);
+double tileSize(const math::Extent &rootExtent, Lod lod);
 
 const RFNode::Id& rfNodeId(const TileId &tileId);
 const TileId& tileId(const RFNode::Id &rfNodeId);
@@ -344,6 +347,13 @@ inline math::Size2f tileSize(const math::Extents2 &rootExtents, Lod lod)
     auto tc(tileCount(lod));
     auto rs(math::size(rootExtents));
     return { rs.width / tc, rs.height / tc };
+}
+
+inline double tileSize(const math::Extent &rootExtent, Lod lod)
+{
+    auto tc(tileCount(lod));
+    auto rs(math::size(rootExtent));
+    return { rs / tc };
 }
 
 inline const TileId& tileId(const RFNode::Id &rfNodeId)

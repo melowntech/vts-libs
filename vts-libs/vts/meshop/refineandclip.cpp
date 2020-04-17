@@ -86,7 +86,18 @@ struct ClipPlane {
     double intersect(const Segment3 &segment) const {
         return intersect(segment.p1, segment.p2);
     }
+
+    typedef std::pair<const ClipPlane*, const ClipPlane*> const_range;
 };
+
+template <std::size_t N>
+ClipPlane::const_range const_range(const ClipPlane (&planes)[N])
+{
+    return ClipPlane::const_range(std::begin(planes), std::end(planes));
+}
+
+const ClipPlane* begin(const ClipPlane::const_range &cr) { return cr.first; }
+const ClipPlane* end(const ClipPlane::const_range &cr) { return cr.second; }
 
 template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
@@ -761,17 +772,9 @@ EnhancedSubMesh clipAndRefine(const EnhancedSubMesh &mesh
 }
 
 SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
-             , const math::Extents2 &projectedExtents
+             , const ClipPlane::const_range &clipPlanes
              , const VertexMask &mask, FaceOriginList *faceOrigin)
 {
-    LOG(debug) << std::fixed << "Clipping mesh to: " << projectedExtents;
-    const ClipPlane clipPlanes[4] = {
-        { 1.,  .0, .0, -projectedExtents.ll(0) }
-        , { -1., .0, .0, projectedExtents.ur(0) }
-        , { .0,  1., .0, -projectedExtents.ll(1) }
-        , { 0., -1., .0, projectedExtents.ur(1) }
-    };
-
     Clipper clipper(mesh, projected, mask);
 
     for (const auto &cp : clipPlanes) { clipper.clip(cp); }
@@ -798,6 +801,33 @@ SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
 
     // and return
     return out;
+}
+
+SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
+             , const math::Extents2 &projectedExtents
+             , const VertexMask &mask, FaceOriginList *faceOrigin)
+{
+    LOG(debug) << std::fixed << "Clipping mesh to: " << projectedExtents;
+    const ClipPlane clipPlanes[4] = {
+        { 1.,  .0, .0, -projectedExtents.ll(0) }
+        , { -1., .0, .0, projectedExtents.ur(0) }
+        , { .0,  1., .0, -projectedExtents.ll(1) }
+        , { 0., -1., .0, projectedExtents.ur(1) }
+    };
+    return clip(mesh, projected, const_range(clipPlanes), mask, faceOrigin);
+}
+
+SubMesh clip(const SubMesh &mesh, const math::Points3d &projected
+             , const math::Extent &projectedVerticalExtent
+             , const VertexMask &mask, FaceOriginList *faceOrigin)
+{
+    LOG(debug)
+        << std::fixed << "Clipping mesh to: " << projectedVerticalExtent;
+    const ClipPlane clipPlanes[4] = {
+        { 0.,  .0, 1., -projectedVerticalExtent.l }
+        , { 0.,  .0, -1., projectedVerticalExtent.r }
+    };
+    return clip(mesh, projected, const_range(clipPlanes), mask, faceOrigin);
 }
 
 EnhancedSubMesh clip(const SubMesh &mesh, const math::Points3d &projected
