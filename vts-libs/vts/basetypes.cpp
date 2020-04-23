@@ -146,6 +146,11 @@ Ranges::Ranges(const LodTileRange &range, Lod bottomLod)
 
 void Ranges::populate(const TileRange &tileRange)
 {
+    if (!math::valid(tileRange)) {
+        LOGTHROW(err2, vtslibs::storage::Error)
+            << "Invalid tile range: " << tileRange << ".";
+    }
+
     if (lodRange_.empty()) { return; }
 
     // fill in ranges
@@ -165,6 +170,11 @@ Ranges::Ranges(const LodRange &lodRange, const TileRange &tileRange
                , const FromBottom&)
     : lodRange_(lodRange)
 {
+    if (!math::valid(tileRange)) {
+        LOGTHROW(err2, vtslibs::storage::Error)
+            << "Invalid tile range: " << tileRange << ".";
+    }
+
     if (lodRange.empty()) { return; }
 
     // fill in ranges, in reverse order
