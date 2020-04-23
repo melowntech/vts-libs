@@ -52,7 +52,9 @@ namespace {
 
 // mesh proper
 const char MAGIC[2] = { 'S', 'M' };
-const std::uint16_t VERSION = 1;
+const std::uint16_t VERSION_ORIGINAL = 1;
+const std::uint16_t VERSION_ZINDEX = 2;
+const std::uint16_t VERSION = VERSION_ZINDEX;
 
 bool isShort(std::size_t size) {
     return size <= std::numeric_limits<std::uint16_t>::max();
@@ -142,6 +144,9 @@ void saveSimpleMesh(std::ostream &out, const Mesh &mesh)
 
             ++ifacesTc;
         }
+
+        // write zIndex
+        bin::write(out, std::uint32_t(sm.zIndex));
     }
 }
 
@@ -255,6 +260,10 @@ Mesh loadSimpleMesh(std::istream &in, const fs::path &path)
             }
 
             ++ifacesTc;
+        }
+
+        if (version >= VERSION_ZINDEX) {
+            sm.zIndex = bin::read<std::uint32_t>(in);
         }
     }
 

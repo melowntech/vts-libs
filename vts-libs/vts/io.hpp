@@ -32,6 +32,7 @@
 
 #include "../storage/io.hpp"
 #include "basetypes.hpp"
+#include "basetypes3.hpp"
 #include "geomextents.hpp"
 
 namespace vtslibs { namespace vts {
@@ -66,6 +67,26 @@ operator<<(std::basic_ostream<CharT, Traits> &os
            , const GeomExtents &ge)
 {
     return os << ge.z << " (surrogate:" << ge.surrogate << ')';
+}
+
+template<typename CharT, typename Traits>
+inline std::basic_ostream<CharT, Traits>&
+operator<<(std::basic_ostream<CharT, Traits> &os
+           , const TileId3 &tileId)
+{
+    return os << tileId.lod << '-' << tileId.x << '-' << tileId.y
+              << '-' << tileId.z;
+}
+
+template<typename CharT, typename Traits>
+inline std::basic_istream<CharT, Traits>&
+operator>>(std::basic_istream<CharT, Traits> &is
+           , TileId3 &tileId)
+{
+    return is >> tileId.lod
+              >> utility::expect('-') >> tileId.x
+              >> utility::expect('-') >> tileId.y
+              >> utility::expect('-') >> tileId.z;
 }
 
 } } // namespace vtslibs::vts

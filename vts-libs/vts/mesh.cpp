@@ -57,7 +57,11 @@ namespace vtslibs { namespace vts {
 namespace {
     // mesh binary file
     const std::string MF_MAGIC("ME");
-    const std::uint16_t MF_VERSION = 1;
+
+    const std::uint16_t MF_VERSION_OLD = 1;
+    const std::uint16_t MF_VERSION_PROPERTY_FLAGS = 2;
+
+    const std::uint16_t MF_VERSION = MF_VERSION_OLD;
 } // namespace
 
 std::uint32_t extraFlags(const Mesh &mesh) {
@@ -79,10 +83,10 @@ math::Extents3 extents(const SubMesh &submesh)
     return computeExtents(submesh.vertices);
 }
 
-math::Extents3 extents(const Mesh &mesh)
+math::Extents3 extents(const ConstSubMeshRange &smRange)
 {
     math::Extents3 e(math::InvalidExtents{});
-    for (const auto &sm : mesh) {
+    for (const auto &sm : smRange) {
         e = unite(e, extents(sm));
     }
     return e;
@@ -102,10 +106,10 @@ GeomExtents geomExtents(const SubMesh &submesh)
     return geomExtents(submesh.vertices);
 }
 
-GeomExtents geomExtents(const Mesh &mesh)
+GeomExtents geomExtents(const ConstSubMeshRange &smRange)
 {
     GeomExtents ge;
-    for (const auto &sm : mesh) {
+    for (const auto &sm : smRange) {
         update(ge, geomExtents(sm));
     }
     return ge;
@@ -120,10 +124,11 @@ GeomExtents geomExtents(const CsConvertor &conv, const SubMesh &submesh)
     return ge;
 }
 
-GeomExtents geomExtents(const CsConvertor &conv, const Mesh &mesh)
+GeomExtents geomExtents(const CsConvertor &conv
+                        , const ConstSubMeshRange &smRange)
 {
     GeomExtents ge;
-    for (const auto &sm : mesh) {
+    for (const auto &sm : smRange) {
         update(ge, geomExtents(conv, sm));
     }
     return ge;
@@ -397,15 +402,34 @@ SubMesh SubMesh::cleanUp() const
 
 namespace {
 
-void saveMeshProperties(std::uint16_t version, std::ostream &out
-                        , const Mesh &mesh)
-{
-    (void) version;
+std::uint8_t MF_PROPERTY_ZINDEX = 1;
 
-    // write uv scale area
+/** Compose properties flags.
+ */
+std::uint8_t propertiesFlags(const Mesh &mesh)
+{
+    std::uint8_t flags(0);
+    for (const auto &sm : mesh.submeshes) {
+        if (sm.zIndex) { flags |= MF_PROPERTY_ZINDEX; }
+        // other properties check goes here
+    }
+    return flags;
+}
+
+void saveMeshProperties(std::uint16_t version, std::ostream &out
+                        , const Mesh &mesh, std::uint8_t flags)
+{
+    if (flags) { bin::write<std::uint8_t>(out, flags); }
+
+    // write properties
     for (const auto &sm : mesh.submeshes) {
         bin::write(out, double(sm.uvAreaScale));
+        if (flags & MF_PROPERTY_ZINDEX) {
+            bin::write<std::uint32_t>(out, sm.zIndex);
+        }
     }
+
+    (void) version;
 }
 
 void saveSurfaceMapping(std::ostream &out, const Mesh &mesh)
@@ -431,7 +455,10 @@ void saveSurfaceMapping(std::ostream &out, const Mesh &mesh)
 void saveMesh(std::ostream &out, const Mesh &mesh
               , const Atlas *atlas)
 {
-    multifile::Table table(MF_VERSION, MF_MAGIC);
+    const auto flags(propertiesFlags(mesh));
+    const auto version(flags ? MF_VERSION_PROPERTY_FLAGS : MF_VERSION_OLD);
+
+    multifile::Table table(version, MF_MAGIC);
 
     auto p(out.tellp());
 
@@ -444,7 +471,7 @@ void saveMesh(std::ostream &out, const Mesh &mesh
     saveSurfaceMapping(out, mesh);
     p = table.add(p, out.tellp() - p);
 
-    saveMeshProperties(table.version, out, mesh);
+    saveMeshProperties(table.version, out, mesh, flags);
     table.entries.emplace_back(p, out.tellp() - p);
 
     multifile::writeTable(table, out);
@@ -478,11 +505,16 @@ namespace {
 
 void loadMeshProperties(std::uint16_t version, std::istream &in, Mesh &mesh)
 {
-    (void) version;
+    std::uint8_t flags(0);
+    if (version >= MF_VERSION_PROPERTY_FLAGS) {
+        flags = bin::read<std::uint8_t>(in);
+    }
+
     for (auto &sm : mesh.submeshes) {
-        double uvAreaScale;
-        bin::read(in, uvAreaScale);
-        sm.uvAreaScale = uvAreaScale;
+        sm.uvAreaScale = bin::read<double>(in);
+        if (flags & MF_PROPERTY_ZINDEX) {
+            sm.zIndex = bin::read<std::uint32_t>(in);
+        }
     }
 }
 
