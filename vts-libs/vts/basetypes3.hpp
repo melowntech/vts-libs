@@ -32,8 +32,13 @@
 namespace vtslibs { namespace vts {
 
 /** Extended tile ID in 3-dimensional division.
+ *
+ * Protected inheritance to prevent implicit upcast.
  */
-struct TileId3 : TileId {
+struct TileId3 : protected TileId {
+    using TileId::lod;
+    using TileId::x;
+    using TileId::y;
     TileId::index_type z;
 
     TileId3(Lod lod = 0, index_type x = 0, index_type y = 0
@@ -45,8 +50,9 @@ struct TileId3 : TileId {
         : TileId(tileId), z(z)
     {}
 
-    explicit operator TileId&() { return *this; }
-    explicit operator const TileId&() const { return *this; }
+    // "explicit" upcast
+    TileId& tileId() { return *this; }
+    const TileId& tileId() const { return *this; }
 
     bool operator<(const TileId3 &tid) const;
     bool operator==(const TileId3 &tid) const;
