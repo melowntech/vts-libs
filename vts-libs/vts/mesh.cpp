@@ -484,12 +484,12 @@ void saveMesh(const fs::path &path, const Mesh &mesh, const Atlas *atlas)
     f.close();
 }
 
-void saveMeshProper(std::ostream &out, const Mesh &mesh
+void saveMeshProper(std::ostream &out, const ConstSubMeshRange &submeshes
                     , const Atlas *atlas, bool compress)
 {
     if (!compress) {
         // non-compressed
-        detail::saveMeshProper(out, mesh, atlas);
+        detail::saveMeshProper(out, submeshes, atlas);
         return;
     }
 
@@ -497,7 +497,7 @@ void saveMeshProper(std::ostream &out, const Mesh &mesh
     bio::filtering_ostream gzipped;
     gzipped.push(bio::gzip_compressor(bio::gzip_params(9), 1 << 16));
     gzipped.push(out);
-    detail::saveMeshProper(gzipped, mesh, atlas);
+    detail::saveMeshProper(gzipped, submeshes, atlas);
     gzipped.flush();
 }
 

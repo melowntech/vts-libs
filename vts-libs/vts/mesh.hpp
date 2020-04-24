@@ -494,6 +494,10 @@ Mesh loadMesh(const storage::IStream::pointer &in);
 
 /** Saves mesh as is.
  */
+void saveMeshProper(std::ostream &out, const ConstSubMeshRange &submeshes
+                    , const Atlas *atlas = nullptr
+                    , bool compress = true);
+
 void saveMeshProper(std::ostream &out, const Mesh &mesh
                     , const Atlas *atlas = nullptr
                     , bool compress = true);
@@ -630,6 +634,12 @@ ConstSubMeshRange submeshRange(const SubMesh::list &submeshes
                                , Args &&...args)
 {
     return ConstSubMeshRange(submeshes, std::forward<Args>(args)...);
+}
+
+inline void saveMeshProper(std::ostream &out, const Mesh &mesh
+                           , const Atlas *atlas, bool compress)
+{
+    return saveMeshProper(out, submeshRange(mesh), atlas, compress);
 }
 
 } } // namespace vtslibs::vts
