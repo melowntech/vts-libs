@@ -102,11 +102,21 @@ struct SubMesh {
      */
     double uvAreaScale;
 
+    typedef std::uint32_t ZIndex;
+
+    /** Z index for vertically cut tiles. Tile merging takes this value into
+     *  the same way as surface reference.
+     *
+     * NB: this value is stored outside mesh served to the client!
+     */
+    ZIndex zIndex;
+
     typedef std::vector<SubMesh> list;
 
     SubMesh()
         : textureMode(TextureMode::internal), surfaceReference(1)
         , uvAreaScale(1.0)
+        , zIndex()
     {}
 
     /** Clones metadata (texture mod, layer etc.).
@@ -195,6 +205,114 @@ struct Mesh {
     }
 };
 
+struct SubMeshRange {
+    typedef SubMesh::list::size_type index_type;
+    typedef SubMesh::list::iterator iterator;
+    typedef SubMesh::list::const_iterator const_iterator;
+
+    std::reference_wrapper<SubMesh::list> submeshes;
+    index_type b;
+    index_type e;
+
+    SubMeshRange(SubMesh::list &submeshes)
+        : submeshes(submeshes), b(0), e(submeshes.size())
+    {}
+
+    SubMeshRange(SubMesh::list &submeshes, index_type begin)
+        : submeshes(submeshes), b(begin), e(submeshes.size())
+    {}
+
+    SubMeshRange(SubMesh::list &submeshes, index_type begin
+                 , index_type end)
+        : submeshes(submeshes), b(begin), e(end)
+    {}
+
+    index_type size() const { return e - b; }
+    index_type total() const { return submeshes.get().size(); }
+    bool empty() const { return b >= e; }
+
+    iterator begin() {
+        return std::next(submeshes.get().begin(), + b);
+    }
+
+    iterator end() {
+        return std::next(submeshes.get().begin(), + e);
+    }
+
+    const_iterator begin() const {
+        return std::next(submeshes.get().begin(), + b);
+    }
+
+    const_iterator end() const {
+        return std::next(submeshes.get().begin(), + e);
+    }
+
+    const_iterator cbegin() const {
+        return begin();
+    }
+
+    const_iterator cend() const {
+        return end();
+    }
+};
+
+struct ConstSubMeshRange {
+    typedef SubMesh::list::size_type index_type;
+    typedef SubMesh::list::const_iterator const_iterator;
+
+    std::reference_wrapper<const SubMesh::list> submeshes;
+    index_type b;
+    index_type e;
+
+    ConstSubMeshRange(const SubMesh::list &submeshes)
+        : submeshes(submeshes), b(0), e(submeshes.size())
+    {}
+
+    ConstSubMeshRange(const SubMesh::list &submeshes, index_type begin)
+        : submeshes(submeshes), b(begin), e(submeshes.size())
+    {}
+
+    ConstSubMeshRange(const SubMesh::list &submeshes, index_type begin
+                      , index_type end)
+        : submeshes(submeshes), b(begin), e(end)
+    {}
+
+    ConstSubMeshRange(const SubMeshRange &r)
+        : submeshes(r.submeshes), b(r.b), e(r.e)
+    {}
+
+    index_type size() const { return e - b; }
+    index_type total() const { return submeshes.get().size(); }
+    bool empty() const { return b >= e; }
+
+    const_iterator begin() const {
+        return std::next(submeshes.get().begin(), + b);
+    }
+
+    const_iterator end() const {
+        return std::next(submeshes.get().begin(), + e);
+    }
+
+    const_iterator cbegin() const {
+        return begin();
+    }
+
+    const_iterator cend() const {
+        return end();
+    }
+};
+
+template <typename ...Args>
+SubMeshRange submeshRange(Mesh &mesh, Args &&...args);
+template <typename ...Args>
+SubMeshRange submeshRange(SubMesh::list &submeshes, Args &&...args);
+
+template <typename ...Args>
+ConstSubMeshRange submeshRange(const Mesh &mesh, Args &&...args);
+template <typename ...Args>
+ConstSubMeshRange submeshRange(const SubMesh::list &submeshes
+                               , Args &&...args);
+
 /** Single submesh area
  */
 struct SubMeshArea {
@@ -225,7 +343,7 @@ struct MeshMask {
     void createCoverage(bool fullyCovered);
 };
 
-/** Submesh normalized inside its bounding box (extents).
+/** SubMesh normalized inside its bounding box (extents).
  */
 struct NormalizedSubMesh {
     SubMesh submesh;
@@ -241,6 +359,7 @@ std::uint32_t extraFlags(const Mesh *mesh);
 std::uint32_t extraFlags(const Mesh::pointer &mesh);
 
 math::Extents3 extents(const SubMesh &submesh);
+math::Extents3 extents(const ConstSubMeshRange &smRange);
 math::Extents3 extents(const Mesh &mesh);
 
 /** Calculates geom-extents.
@@ -256,11 +375,21 @@ GeomExtents geomExtents(const SubMesh &submesh);
 /** Calculates geom-extents.
  *  NB: vertices must be in SDS to work properly.
  */
+GeomExtents geomExtents(const ConstSubMeshRange &smRange);
+
+/** Calculates geom-extents.
+ *  NB: vertices must be in SDS to work properly.
+ */
 GeomExtents geomExtents(const Mesh &mesh);
 
 /** Calculates geom-extents. Convert to SDS system using provided convertor.
  */
 GeomExtents geomExtents(const CsConvertor &conv, const SubMesh &submesh);
+
+/** Calculates geom-extents. Convert to SDS system using provided convertor.
+ */
+GeomExtents geomExtents(const CsConvertor &conv
+                        , const ConstSubMeshRange &smRange);
 
 /** Calculates geom-extents. Convert to SDS system using provided convertor.
  */
@@ -300,7 +429,7 @@ MeshArea area(const Mesh &mesh);
  */
 MeshArea area(const Mesh &mesh, const VertexMasks &masks);
 
-/** Generates external texture coordinates from vertices. Submesh must be in
+/** Generates external texture coordinates from vertices. SubMesh must be in
  *  spatial division SRS.
  *
  *  If external texture is not allowed any existing etc are removed.
@@ -365,6 +494,10 @@ Mesh loadMesh(const storage::IStream::pointer &in);
 
 /** Saves mesh as is.
  */
+void saveMeshProper(std::ostream &out, const ConstSubMeshRange &submeshes
+                    , const Atlas *atlas = nullptr
+                    , bool compress = true);
+
 void saveMeshProper(std::ostream &out, const Mesh &mesh
                     , const Atlas *atlas = nullptr
                     , bool compress = true);
@@ -425,6 +558,7 @@ inline void SubMesh::cloneMetadataInto(SubMesh &dst) const
     dst.textureLayer = textureLayer;
     dst.uvAreaScale = uvAreaScale;
     dst.surfaceReference = surfaceReference;
+    dst.zIndex = dst.zIndex;
 }
 
 UTILITY_GENERATE_ENUM_IO(SubMesh::TextureMode,
@@ -463,6 +597,49 @@ inline double area3d(const SubMesh &submesh, const VertexMask &mask)
 {
     return area(submesh.vertices, submesh.faces, nullptr, nullptr, nullptr
                 , &mask).mesh;
+}
+
+inline math::Extents3 extents(const Mesh &mesh) {
+    return extents(ConstSubMeshRange(mesh.submeshes));
+}
+
+inline GeomExtents geomExtents(const Mesh &mesh) {
+    return geomExtents(ConstSubMeshRange(mesh.submeshes));
+}
+
+inline GeomExtents geomExtents(const CsConvertor &conv, const Mesh &mesh) {
+    return geomExtents(conv, ConstSubMeshRange(mesh.submeshes));
+}
+
+template <typename ...Args>
+SubMeshRange submeshRange(Mesh &mesh, Args &&...args)
+{
+    return SubMeshRange(mesh.submeshes, std::forward<Args>(args)...);
+}
+
+template <typename ...Args>
+SubMeshRange submeshRange(SubMesh::list &submeshes, Args &&...args)
+{
+    return SubMeshRange(submeshes, std::forward<Args>(args)...);
+}
+
+template <typename ...Args>
+ConstSubMeshRange submeshRange(const Mesh &mesh, Args &&...args)
+{
+    return ConstSubMeshRange(mesh.submeshes, std::forward<Args>(args)...);
+}
+
+template <typename ...Args>
+ConstSubMeshRange submeshRange(const SubMesh::list &submeshes
+                               , Args &&...args)
+{
+    return ConstSubMeshRange(submeshes, std::forward<Args>(args)...);
+}
+
+inline void saveMeshProper(std::ostream &out, const Mesh &mesh
+                           , const Atlas *atlas, bool compress)
+{
+    return saveMeshProper(out, submeshRange(mesh), atlas, compress);
 }
 
 } } // namespace vtslibs::vts

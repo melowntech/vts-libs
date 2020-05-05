@@ -194,7 +194,7 @@ math::Size2 textureSize(const Atlas *atlas, std::size_t submesh
     return atlas->imageSize(submesh);
 }
 
-void saveMeshVersion3(std::ostream &out, const Mesh &mesh
+void saveMeshVersion3(std::ostream &out, const ConstSubMeshRange &submeshes
                       , const Atlas *atlas)
 {
     // write header
@@ -204,11 +204,11 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
     // no mean undulation
     bin::write(out, double(0.0));
 
-    bin::write(out, std::uint16_t(mesh.submeshes.size()));
+    bin::write(out, std::uint16_t(submeshes.size()));
 
     // write submeshes
-    int smIndex(-1);
-    for (const SubMesh &submesh : mesh)
+    int smIndex(int(submeshes.b) - 1);
+    for (const SubMesh &submesh : submeshes)
     {
         smIndex++;
 
@@ -384,7 +384,7 @@ void saveMeshVersion3(std::ostream &out, const Mesh &mesh
     }
 }
 
-void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
+void saveMeshVersion2(std::ostream &out, const ConstSubMeshRange &submeshes)
 {
     // helper functions
     auto saveVertexComponent([&out](double v, double o, double s) -> void
@@ -409,10 +409,10 @@ void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
     // no mean undulation
     bin::write(out, double(0.0));
 
-    bin::write(out, std::uint16_t(mesh.submeshes.size()));
+    bin::write(out, std::uint16_t(submeshes.size()));
 
     // write submeshes
-    for (const auto &sm_ : mesh) {
+    for (const auto &sm_ : submeshes) {
         const auto sm(sm_.cleanUp());
 
         auto bbox(extents(sm));
@@ -498,14 +498,15 @@ void saveMeshVersion2(std::ostream &out, const Mesh &mesh)
 
 } // namespace
 
-void saveMeshProper(std::ostream &out, const Mesh &mesh, const Atlas *atlas)
+void saveMeshProper(std::ostream &out, const ConstSubMeshRange &submeshes
+                    , const Atlas *atlas)
 {
     // FIXME: this condition is wrong fix when we are sure version3 was not
     // broken since the error was introduced (2017...)
     if (NO_MESH_COMPRESSION) {
-        saveMeshVersion3(out, mesh, atlas);
+        saveMeshVersion3(out, submeshes, atlas);
     } else {
-        saveMeshVersion2(out, mesh);
+        saveMeshVersion2(out, submeshes);
     }
 }
 

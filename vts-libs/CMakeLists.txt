@@ -10,7 +10,7 @@
 # major dependency is OpenCV
 
 # bump version here
-set(vts-libs_VERSION 2.14)
+set(vts-libs_VERSION 2.15)
 
 # settable path to VTS registry
 set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
@@ -164,6 +164,7 @@ file_to_cpp(vts_BROWSER_SOURCES
 # vts nucleus files
 set(vts-nucleus_SOURCES
   vts/basetypes.hpp vts/basetypes.cpp
+  vts/basetypes3.hpp
   vts/glue.hpp
   vts/nodeinfo.hpp vts/nodeinfo.cpp
   vts/multifile.hpp vts/multifile.cpp
@@ -179,6 +180,7 @@ set(vts-nucleus_SOURCES
   vts/maskfwd.hpp
   vts/qtree.hpp vts/qtree.cpp
   vts/tileop.hpp vts/tileop.cpp
+  vts/tileop3.hpp
   vts/metaflags.hpp vts/metaflags.cpp
   vts/mapconfig.hpp vts/mapconfig.cpp
   vts/types2d.hpp

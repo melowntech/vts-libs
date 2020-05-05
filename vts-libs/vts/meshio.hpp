@@ -31,12 +31,22 @@
 namespace vtslibs { namespace vts { namespace detail {
 
 
-void saveMeshProper(std::ostream &out, const Mesh &mesh
+void saveMeshProper(std::ostream &out, const ConstSubMeshRange &submeshes
                     , const Atlas *atlas);
+
+void saveMeshProper(std::ostream &out, const Mesh &mesh, const Atlas *atlas);
 
 void loadMeshProper(std::istream &in, const boost::filesystem::path &path
                     , Mesh &mesh);
 
+
+// inlines
+
+inline void saveMeshProper(std::ostream &out, const Mesh &mesh
+                           , const Atlas *atlas)
+{
+    return detail::saveMeshProper(out, submeshRange(mesh), atlas);
+}
 
 } } } // namespace vtslibs::vts::detail
 

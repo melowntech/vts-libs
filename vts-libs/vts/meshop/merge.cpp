@@ -793,6 +793,7 @@ struct Range {
     std::size_t indexEnd;
     SubMesh::SurfaceReference surface;
     double uvAreaScale;
+    SubMesh::ZIndex zIndex;
     bool textured;
 
     std::size_t size() const { return indexEnd - indexStart; }
@@ -809,12 +810,14 @@ struct Range {
 
     Range(const Indices &indices, const SubMesh &sm, bool textured)
         : indices(&indices), surface(sm.surfaceReference)
-        , uvAreaScale(sm.uvAreaScale), textured(textured)
+        , uvAreaScale(sm.uvAreaScale), zIndex(sm.zIndex)
+        , textured(textured)
     {}
 
     bool compatible(const SubMesh &sm) const {
         return ((surface == sm.surfaceReference)
-                && (uvAreaScale == sm.uvAreaScale));
+                && (uvAreaScale == sm.uvAreaScale)
+                && (zIndex == sm.zIndex));
     }
 };
 
@@ -822,7 +825,9 @@ template<typename CharT, typename Traits>
 inline std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits> &os, const Range &r)
 {
-    os << "Range{sr=" << int(r.surface) << ", uvas=" << r.uvAreaScale
+    os << "Range{sr=" << int(r.surface)
+       << ", z=" << r.zIndex
+       << ", uvas=" << r.uvAreaScale
        << ", tx=" << r.textured
        << ", start=" << r.indexStart << ", end=" << r.indexEnd
        << ", sm=" << utility::join
@@ -879,17 +884,15 @@ Range::list groupSubmeshes(const SubMesh::list &sms, Indices &indices
                            , const EntityCounter &meshLimits)
 {
     // compare submeshes to group together submeshes with the same
-    // surfaceReference and the same uvAreaScale (i.e. compatible ones)
+    // surfaceReference, zIndex and uvAreaScale (i.e. compatible ones)
     const auto compareSubmeshes([&](int li, int ri) -> bool
     {
         const auto &l(sms[li]);
         const auto &r(sms[ri]);
 
-        // first, compare surface reference
-        if (l.surfaceReference < r.surfaceReference) { return true; }
-        if (r.surfaceReference < l.surfaceReference) { return false; }
-        // then, compare uv area scale factor
-        return l.uvAreaScale < r.uvAreaScale;
+        // order: surface reference, z-index, UV area scale
+        return (std::tie(l.surfaceReference, l.zIndex, l.uvAreaScale)
+                < std::tie(r.surfaceReference, r.zIndex, r.uvAreaScale));
     });
 
     Range::list out;
