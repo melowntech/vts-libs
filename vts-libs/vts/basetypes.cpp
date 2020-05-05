@@ -99,7 +99,10 @@ TileSetGlues::list glueOrder(const TileSetGlues::list &in)
 
             // one id is prefix or the other (or both are the same, which is
             // unlikely) -> longest is less
-            return rsize <= lsize;
+
+            // what to do if we have normal/alien ID or alien/alien ID of the
+            // same length?
+            return rsize < lsize;
         });
 
         out.push_back(tsg);
