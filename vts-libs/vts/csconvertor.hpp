@@ -49,6 +49,15 @@ public:
     CsConvertor(const std::string &srsIdFrom, const std::string &srsIdTo
                 , const registry::Registry &reg = registry::system);
 
+    /** Creates convertor between two SRS specified as keys to global SRS
+    *  registry.
+    *  Uses the specified proj context.
+    *
+    *  Can result in no-op convertor when srsIdFrom == srsIdTo.
+    */
+    CsConvertor(const std::string &srsIdFrom, const std::string &srsIdTo
+        , const registry::Registry &reg, projCtx ctx);
+
     /** Combined convertor, never results in no-op convertor.
      */
     CsConvertor(const geo::SrsDefinition &srsFrom
@@ -126,6 +135,8 @@ private:
     /** Initialization helpers.
      */
     void init(const registry::Srs *srsFrom, const registry::Srs *srsTo);
+    void init(const registry::Srs *srsFrom, const registry::Srs *srsTo,
+        projCtx ctx);
     void init(const geo::SrsDefinition &srsFrom, const registry::Srs &srsTo);
     void init(const registry::Srs &srsFrom, const geo::SrsDefinition &srsTo);
 

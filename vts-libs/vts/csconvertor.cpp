@@ -34,6 +34,13 @@ CsConvertor::CsConvertor(const std::string &srsIdFrom
     init(&reg.srs(srsIdFrom), &reg.srs(srsIdTo));
 }
 
+CsConvertor::CsConvertor(const std::string &srsIdFrom,
+    const std::string &srsIdTo,
+    const registry::Registry &reg, projCtx ctx)
+{
+    init(&reg.srs(srsIdFrom), &reg.srs(srsIdTo), ctx);
+}
+
 CsConvertor::CsConvertor(const geo::SrsDefinition &srsFrom
                          , const std::string &srsIdTo
                          , const registry::Registry &reg)
@@ -87,6 +94,27 @@ void CsConvertor::init(const registry::Srs *srsFrom
                << ").";
     if (srsFrom != srsTo) {
         conv_ = boost::in_place(srsFrom->srsDef, srsTo->srsDef);
+
+        if (srsFrom->adjustVertical()) {
+            srcAdjuster_ = geo::VerticalAdjuster(srsFrom->srsDef);
+        }
+
+        if (srsTo->adjustVertical()) {
+            dstAdjuster_ = geo::VerticalAdjuster(srsTo->srsDef);
+        }
+    }
+}
+
+void CsConvertor::init(const registry::Srs *srsFrom,
+    const registry::Srs *srsTo, projCtx ctx)
+{
+    LOG(debug) << "CsConvert(\"" << srsFrom->srsDef << '"'
+        << (srsFrom->adjustVertical() ? " [va]" : "")
+        << ", \"" << srsTo->srsDef << '"'
+        << (srsTo->adjustVertical() ? " [va]" : "")
+        << ").";
+    if (srsFrom != srsTo) {
+        conv_ = boost::in_place(srsFrom->srsDef, srsTo->srsDef, ctx);
 
         if (srsFrom->adjustVertical()) {
             srcAdjuster_ = geo::VerticalAdjuster(srsFrom->srsDef);
