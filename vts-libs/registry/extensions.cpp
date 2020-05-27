@@ -46,17 +46,20 @@ namespace vtslibs { namespace registry { namespace extensions {
 
 boost::any fromJson(const std::string &key, const Json::Value &value)
 {
+#ifndef VTSLIBS_BROWSER_ONLY
     if (key == Tms::key) {
         return tmsFromJson(value);
     } else if (key == Wmts::key) {
         return wmtsFromJson(value);
     }
+#endif // VTSLIBS_BROWSER_ONLY
 
     return value;
 }
 
 Json::Value asJson(const boost::any &value)
 {
+#ifndef VTSLIBS_BROWSER_ONLY
     if (const auto *v = boost::any_cast<const Tms>(&value)) {
         return asJson(*v);
     }
@@ -64,6 +67,7 @@ Json::Value asJson(const boost::any &value)
     if (const auto *v = boost::any_cast<const Wmts>(&value)) {
         return asJson(*v);
     }
+#endif // VTSLIBS_BROWSER_ONLY
 
     if (const auto *v = boost::any_cast<const Json::Value>(&value)) {
         return *v;

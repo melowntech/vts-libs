@@ -72,6 +72,8 @@ namespace {
     }; };
 } // namespace
 
+#ifndef VTSLIBS_BROWSER_ONLY
+
 namespace {
 
 /** Calculate Forsyth's cache optimized ordering of faces, vertices and
@@ -510,6 +512,7 @@ void saveMeshProper(std::ostream &out, const ConstSubMeshRange &submeshes
     }
 }
 
+#endif // VTSLIBS_BROWSER_ONLY
 
 ////////////////////////////////////////////////////////////////////////////////
 
