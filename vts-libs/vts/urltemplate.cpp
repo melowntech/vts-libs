@@ -407,11 +407,11 @@ void UrlTemplate::parse(const std::string &str)
         // we have something inside { braces }
 
         // try a variable
-        try {
-            // try as a variable
-            tokens_.emplace_back(boost::lexical_cast<Variable>
-                                 (str.substr(open + 1, close - open - 1)));
-        } catch (const boost::bad_lexical_cast&) {
+        Variable result = Variable();
+        if (boost::conversion::try_lexical_convert(
+            str.substr(open + 1, close - open - 1), result)) {
+            tokens_.emplace_back(result);
+        } else {
             // not a variable; try a function
             if (auto func = parseFunction(str, open + 1, close)) {
                 tokens_.emplace_back(str.substr(open + 1, close - open - 1)
