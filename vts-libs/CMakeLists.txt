@@ -22,22 +22,31 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/registry/config.cpp.in
   ${CMAKE_CURRENT_BINARY_DIR}/registry/config.cpp
   ESCAPE_QUOTES)
 
+if(VTSLIBS_BROWSER_ONLY)
+  buildsys_nobuild_target(vts-libs-core:vts0)
+  buildsys_nobuild_target(vts-libs:vts0)
+  buildsys_nobuild_target(vts-libs)
+endif()
+
 # common stuff
 set(vts-common_SOURCES
   storage/lod.hpp storage/range.hpp
-
   storage/error.hpp
   storage/openfiles.hpp storage/openfiles.cpp
   storage/filetypes.hpp
   storage/streams.hpp storage/streams.cpp
   storage/fstreams.hpp storage/fstreams.cpp
   storage/sstreams.hpp storage/sstreams.cpp
-
-  storage/support.hpp storage/support.cpp
   )
 
+if(NOT VTSLIBS_BROWSER_ONLY)
+  list(APPEND vts-common_SOURCES
+    storage/support.hpp storage/support.cpp
+    )
+endif()
+
 # tilar not available on windows, sorry
-if(NOT WIN32)
+if(NOT (WIN32 OR VTSLIBS_BROWSER_ONLY))
   list(APPEND vts-common_SOURCES
     storage/tilar.hpp storage/tilar.cpp
     storage/tilar-io.hpp
@@ -50,30 +59,32 @@ set(vts-registry_SOURCES
   registry/referenceframe.hpp registry/referenceframe.cpp
   registry/freelayer.hpp registry/freelayer.cpp
   registry/service.hpp registry/service.cpp
-  registry/json.hpp registry/dict.hpp
-  registry/po.hpp registry/po.cpp
-  registry/io.hpp registry/io.cpp
   registry/urlexpander.hpp registry/urlexpander.cpp
   registry/detail/json.hpp registry/detail/json.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/registry/config.cpp
-
-  # extensions
   registry/extensions.hpp registry/extensions.cpp
-  registry/extensions/tms.hpp registry/extensions/tms.cpp
-  registry/extensions/wmts.hpp registry/extensions/wmts.cpp
   )
 
-set(vts-registry_python_DEPENDS)
+if(NOT VTSLIBS_BROWSER_ONLY)
+  list(APPEND vts-registry_SOURCES
+    registry/json.hpp registry/dict.hpp
+    registry/po.hpp registry/po.cpp
+    registry/io.hpp registry/io.cpp
+    registry/extensions/tms.hpp registry/extensions/tms.cpp
+    registry/extensions/wmts.hpp registry/extensions/wmts.cpp
+    )
+endif()
+
 if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core)
-  if(VTS_REGISTRY_PYTHON)
+  if(VTS_REGISTRY_PYTHON AND NOT VTSLIBS_BROWSER_ONLY)
     message(STATUS "vts-libs-core: compiling in python support")
-    list(APPEND vts-registry_python_DEPENDS
+    set(vts-registry_python_DEPENDS
       pysupport pydbglog Boost_PYTHON)
     set(vts-registry_python_SOURCES
-      registry/py.hpp registry/py.cpp
-      )
+      registry/py.hpp registry/py.cpp)
   else()
     message(STATUS "vts-libs-core: compiling without python support")
+    set(vts-registry_python_DEPENDS)
     set(vts-registry_python_SOURCES)
   endif()
 endif()
@@ -145,37 +156,35 @@ else()
 endif()
 
 # vts browser files
-set(vts_BROWSER_SOURCES
-  vts/support.hpp vts/support.cpp
-  )
-file_to_cpp(vts_BROWSER_SOURCES
-  vtslibs::vts::browser::index_html
-  vts/browser/index.html)
-file_to_cpp(vts_BROWSER_SOURCES
-  vtslibs::vts::browser::skydome_jpg
-  vts/browser/skydome.jpg)
-file_to_cpp(vts_BROWSER_SOURCES
-  vtslibs::vts::browser::debugger_html
-  vts/browser/debugger.html)
-file_to_cpp(vts_BROWSER_SOURCES
-  vtslibs::vts::browser::debugger_js
-  vts/browser/debugger.js)
+if(NOT VTSLIBS_BROWSER_ONLY)
+  set(vts_BROWSER_SOURCES
+    vts/support.hpp vts/support.cpp
+    )
+  file_to_cpp(vts_BROWSER_SOURCES
+    vtslibs::vts::browser::index_html
+    vts/browser/index.html)
+  file_to_cpp(vts_BROWSER_SOURCES
+    vtslibs::vts::browser::skydome_jpg
+    vts/browser/skydome.jpg)
+  file_to_cpp(vts_BROWSER_SOURCES
+    vtslibs::vts::browser::debugger_html
+    vts/browser/debugger.html)
+  file_to_cpp(vts_BROWSER_SOURCES
+    vtslibs::vts::browser::debugger_js
+    vts/browser/debugger.js)
+endif()
 
-# vts nucleus files
-set(vts-nucleus_SOURCES
+# vts core files
+set(vts-core_SOURCES
   vts/basetypes.hpp vts/basetypes.cpp
   vts/basetypes3.hpp
   vts/glue.hpp
   vts/nodeinfo.hpp vts/nodeinfo.cpp
-  vts/multifile.hpp vts/multifile.cpp
   vts/mesh.hpp vts/mesh.cpp
   vts/meshio.hpp vts/meshio.cpp
   vts/metatile.hpp vts/metatile.cpp
-  vts/navtile.hpp vts/navtile.cpp
-  vts/atlas.hpp vts/atlas.cpp
   vts/csconvertor.hpp vts/csconvertor.cpp
   vts/math.hpp
-  vts/subtrees.hpp vts/subtrees.cpp
   vts/visit.hpp
   vts/maskfwd.hpp
   vts/qtree.hpp vts/qtree.cpp
@@ -192,66 +201,70 @@ set(vts-nucleus_SOURCES
   vts/atmospheredensitytexture.hpp vts/atmospheredensitytexture.cpp
   )
 
-# vts core files
-set(vts-core_SOURCES
-  vts.hpp vts/vts.cpp
+if(NOT VTSLIBS_BROWSER_ONLY)
+  list(APPEND vts-core_SOURCES
+    vts.hpp vts/vts.cpp
 
-  vts/config.hpp vts/config.cpp
+    vts/config.hpp vts/config.cpp
 
-  vts/meshcoverage.cpp
-  vts/options.hpp vts/options.cpp
-  vts/encoder.hpp vts/encoder.cpp
-  vts/tileindex.hpp vts/tileindex.cpp vts/tileindex-io.hpp
-  vts/tileflags.hpp vts/tileflags.cpp
-  vts/encodeflags.hpp vts/encodeflags.cpp
-  vts/gil/colors.hpp vts/gil/colors.cpp
-  vts/debug.hpp vts/debug.cpp
-  vts/2d.hpp vts/2d.cpp
+    vts/meshcoverage.cpp
+    vts/options.hpp vts/options.cpp
+    vts/encoder.hpp vts/encoder.cpp
+    vts/tileindex.hpp vts/tileindex.cpp vts/tileindex-io.hpp
+    vts/tileflags.hpp vts/tileflags.cpp
+    vts/encodeflags.hpp vts/encodeflags.cpp
+    vts/gil/colors.hpp vts/gil/colors.cpp
+    vts/debug.hpp vts/debug.cpp
+    vts/2d.hpp vts/2d.cpp
+    vts/multifile.hpp vts/multifile.cpp
+    vts/navtile.hpp vts/navtile.cpp
+    vts/atlas.hpp vts/atlas.cpp
+    vts/subtrees.hpp vts/subtrees.cpp
 
-  vts/tileset.hpp
-  vts/tileset/detail.hpp
-  vts/tileset/properties.hpp
-  vts/tileset/tileset.cpp
-  vts/tileset/config.hpp vts/tileset/config.cpp
-  vts/tileset/tilesetindex.hpp vts/tileset/tilesetindex.cpp
-  vts/tileset/metacache.hpp
-  vts/tileset/metacache/ro.cpp vts/tileset/metacache/rw.cpp
+    vts/tileset.hpp
+    vts/tileset/detail.hpp
+    vts/tileset/properties.hpp
+    vts/tileset/tileset.cpp
+    vts/tileset/config.hpp vts/tileset/config.cpp
+    vts/tileset/tilesetindex.hpp vts/tileset/tilesetindex.cpp
+    vts/tileset/metacache.hpp
+    vts/tileset/metacache/ro.cpp vts/tileset/metacache/rw.cpp
 
-  vts/tileset/driver.hpp
-  vts/tileset/driver/driver.cpp
-  vts/tileset/driver/options.hpp
-  vts/tileset/driver/cache.hpp vts/tileset/driver/cache.cpp
-  vts/tileset/driver/plain.hpp vts/tileset/driver/plain.cpp
-  vts/tileset/driver/aggregated.hpp vts/tileset/driver/aggregated.cpp
-  vts/tileset/driver/asyncmeta.cpp
-  vts/tileset/driver/remote.hpp vts/tileset/driver/remote.cpp
-  vts/tileset/driver/local.hpp vts/tileset/driver/local.cpp
+    vts/tileset/driver.hpp
+    vts/tileset/driver/driver.cpp
+    vts/tileset/driver/options.hpp
+    vts/tileset/driver/cache.hpp vts/tileset/driver/cache.cpp
+    vts/tileset/driver/plain.hpp vts/tileset/driver/plain.cpp
+    vts/tileset/driver/aggregated.hpp vts/tileset/driver/aggregated.cpp
+    vts/tileset/driver/asyncmeta.cpp
+    vts/tileset/driver/remote.hpp vts/tileset/driver/remote.cpp
+    vts/tileset/driver/local.hpp vts/tileset/driver/local.cpp
 
-  vts/tileset/delivery.hpp vts/tileset/driver/delivery.cpp
+    vts/tileset/delivery.hpp vts/tileset/driver/delivery.cpp
 
-  vts/storage.hpp
-  vts/storage/detail.hpp
-  vts/storage/storage.cpp
-  vts/storage/config.hpp vts/storage/config.cpp
-  vts/storage/gluerules.hpp vts/storage/gluerules.cpp
-  vts/storage/mergeconf.hpp vts/storage/mergeconf.cpp
-  vts/storage/locking.hpp vts/storage/locking.cpp
+    vts/storage.hpp
+    vts/storage/detail.hpp
+    vts/storage/storage.cpp
+    vts/storage/config.hpp vts/storage/config.cpp
+    vts/storage/gluerules.hpp vts/storage/gluerules.cpp
+    vts/storage/mergeconf.hpp vts/storage/mergeconf.cpp
+    vts/storage/locking.hpp vts/storage/locking.cpp
 
-  vts/storageview.hpp
-  vts/storageview/detail.hpp
-  vts/storageview/storageview.cpp
-  vts/storageview/config.hpp vts/storageview/config.cpp
+    vts/storageview.hpp
+    vts/storageview/detail.hpp
+    vts/storageview/storageview.cpp
+    vts/storageview/config.hpp vts/storageview/config.cpp
 
-  vts/service.hpp vts/service.cpp
-  )
+    vts/service.hpp vts/service.cpp
+    )
+endif()
 
 
 
 set(vts-core_EXTRA_DEPENDS)
 
-if (MODULE_http_FOUND)
+if(MODULE_http_FOUND)
   message(STATUS "vts-core: compiling in HTTP support")
-
   list(APPEND vts-core_SOURCES
     vts/tileset/driver/httpfetcher.hpp vts/tileset/driver/httpfetcher.cpp)
   list(APPEND vts-core_EXTRA_DEPENDS http>=1.8)
@@ -309,52 +322,46 @@ set(vts_SOURCES
   vts/options-po.hpp
   )
 
+if(NOT VTSLIBS_BROWSER_ONLY)
+  list(APPEND vts-core_EXTRA_DEPENDS
+    CURL PNG
+    )
+endif()
 
-# vts nucleus library
-define_module(LIBRARY vts-libs-nucleus=${vts-libs_VERSION}
+# vts core library
+define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
   DEPENDS
   geo>=1.33 geometry>=1.7 imgproc>=1.27 math>=1.7
   utility>=1.30 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
 
-  Boost_IOSTREAMS
-  Boost_FILESYSTEM
+  Boost_IOSTREAMS Boost_FILESYSTEM
+
+  ${vts-registry_python_DEPENDS}
+  ${vts-core_EXTRA_DEPENDS}
   )
 
-add_library(vts-libs-nucleus STATIC
+add_library(vts-libs-core STATIC
   ${vts-common_SOURCES}
   ${vts-registry_SOURCES}
   ${vts-nucleus_SOURCES}
+
+  ${vts-registry_python_SOURCES}
+
+  ${vts_BROWSER_SOURCES}
+  ${vts-core_SOURCES}
+
+  ${vts0_BROWSER_SOURCES}
+  ${vts0-core_SOURCES}
   )
-buildsys_library(vts-libs-nucleus)
-target_link_libraries(vts-libs-nucleus ${MODULE_LIBRARIES})
-buildsys_target_compile_definitions(vts-libs-nucleus ${MODULE_DEFINITIONS})
+buildsys_library(vts-libs-core)
+target_link_libraries(vts-libs-core ${MODULE_LIBRARIES})
+buildsys_target_compile_definitions(vts-libs-core ${MODULE_DEFINITIONS})
 
-
-# vts core library
-if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core)
-  define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
-    DEPENDS
-    vts-libs-nucleus>=${vts-libs_VERSION}
-    CURL PNG
-
-    ${vts-registry_python_DEPENDS}
-    ${vts-core_EXTRA_DEPENDS}
-    )
-
-  add_library(vts-libs-core STATIC
-    ${vts-registry_python_SOURCES}
-
-    ${vts_BROWSER_SOURCES}
-    ${vts-core_SOURCES}
-
-    ${vts0_BROWSER_SOURCES}
-    ${vts0-core_SOURCES}
-    )
-  buildsys_library(vts-libs-core)
-  target_link_libraries(vts-libs-core
-    ${MODULE_LIBRARIES})
-  buildsys_target_compile_definitions(vts-libs-core ${MODULE_DEFINITIONS})
+if(VTSLIBS_BROWSER_ONLY)
+  target_compile_definitions(vts-libs-core PRIVATE VTSLIBS_BROWSER_ONLY)
 endif()
+
+
 
 # main vts library is optional:
 if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
@@ -364,7 +371,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
     vts-libs-core>=${vts-libs_VERSION}
     OpenCV)
 
-
   add_library(vts-libs STATIC
     ${vts_SOURCES}
     ${vts0_SOURCES}
@@ -373,6 +379,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
   target_link_libraries(vts-libs ${MODULE_LIBRARIES})
   buildsys_target_compile_definitions(vts-libs ${MODULE_DEFINITIONS})
 endif()
+
 
 if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-tools-support AND TARGET vts-libs)
   message(STATUS "Compiling vts-libs-tools library.")
