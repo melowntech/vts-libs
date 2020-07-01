@@ -34,7 +34,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>
 
 #include <boost/noncopyable.hpp>
 #include <boost/crc.hpp>
@@ -46,6 +45,7 @@
 
 #include "dbglog/dbglog.hpp"
 
+#include "utility/unistd_compat.hpp"
 #include "utility/filedes.hpp"
 #include "utility/enum.hpp"
 #include "utility/raise.hpp"

@@ -1,16 +1,14 @@
 # VTS libraries
 # builds: core and main library
 
-# nucleus library: minimal subset only required for browser (renderer)
-#
 # core library: allows tileset access, for example in delivery machinery;
-# depends on as little as possible dependencies (boost, gdal, proj)
+# depends on as little as possible dependencies (boost, proj)
 #
 # main library: allows better tileset data manipulation; uses core library;
 # major dependency is OpenCV
 
 # bump version here
-set(vts-libs_VERSION 2.16)
+set(vts-libs_VERSION 2.17)
 
 # settable path to VTS registry
 set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
@@ -45,8 +43,8 @@ if(NOT VTSLIBS_BROWSER_ONLY)
     )
 endif()
 
-# tilar not available on windows, sorry
-if(NOT (WIN32 OR VTSLIBS_BROWSER_ONLY))
+# tilar not needed for browser
+if(NOT VTSLIBS_BROWSER_ONLY)
   list(APPEND vts-common_SOURCES
     storage/tilar.hpp storage/tilar.cpp
     storage/tilar-io.hpp
@@ -332,7 +330,7 @@ endif()
 define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
   DEPENDS
   geo>=1.33 geometry>=1.7 imgproc>=1.27 math>=1.7
-  utility>=1.30 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
+  utility>=1.33 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
 
   Boost_IOSTREAMS Boost_FILESYSTEM
 
@@ -343,7 +341,6 @@ define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
 add_library(vts-libs-core STATIC
   ${vts-common_SOURCES}
   ${vts-registry_SOURCES}
-  ${vts-nucleus_SOURCES}
 
   ${vts-registry_python_SOURCES}
 

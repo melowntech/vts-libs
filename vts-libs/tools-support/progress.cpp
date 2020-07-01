@@ -24,11 +24,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <unistd.h>
-
 #include <utility>
 #include <numeric>
 
+#include "utility/unistd_compat.hpp"
 #include "dbglog/dbglog.hpp"
 
 #include "progress.hpp"

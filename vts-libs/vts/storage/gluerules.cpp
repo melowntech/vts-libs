@@ -23,7 +23,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
+#ifdef _WIN32
+#include <shlwapi.h> // PathMatchSpecA
+#else
 #include <fnmatch.h>
+#endif // _WIN32
 
 #include <boost/config/warning_disable.hpp>
 #include <boost/spirit/include/phoenix_core.hpp>
@@ -153,7 +158,11 @@ private:
 
         virtual bool check_impl(const StoredTileset &tileset) {
             for (const auto &tag : tileset.tags) {
+#ifdef _WIN32
+                if (PathMatchSpecA(tag.c_str(), rule->pattern_.c_str())) {
+#else
                 if (!::fnmatch(rule->pattern_.c_str(), tag.c_str(), 0)) {
+#endif // _WIN32
                     // pattern matched
                     if (match.empty()) {
                         // first match, remember

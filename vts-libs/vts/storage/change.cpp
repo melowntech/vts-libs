@@ -38,6 +38,9 @@
 #include <iterator>
 #include <functional>
 
+#include <chrono> // duration
+#include <thread> // this_thread::sleep
+
 #include <boost/optional.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem.hpp>
@@ -1510,13 +1513,15 @@ void Storage::lockStressTest(utility::Runnable &running)
 
 void Storage::Detail::lockStressTest(utility::Runnable &running)
 {
+    using namespace std::chrono_literals;
+
     while (running) {
         // storage locked
 
         // load config, sleep a while and write again
         LOG(info3) << "Loading storage properties.";
         auto properties(readConfig());
-        sleep(5);
+        std::this_thread::sleep_for(5s);
         LOG(info3) << "Saving storage properties.";
         saveConfig(properties);
 
@@ -1526,7 +1531,7 @@ void Storage::Detail::lockStressTest(utility::Runnable &running)
                 ScopedStorageLock lock(&storageLock, "!stress");
 
                 // sleep a while
-                sleep(10);
+                std::this_thread::sleep_for(10s);
             } catch (const StorageComponentLocked&) {
                 LOG(warn3) << "Unable to lock \"stress\", skipping.";
             }

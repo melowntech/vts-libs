@@ -25,7 +25,12 @@
  */
 
 #include <sys/types.h>
+
+#ifdef _WIN32
+#include <Winsock2.h> // gethostname
+#else
 #include <unistd.h>
+#endif // _WIN32
 
 #include <exception>
 

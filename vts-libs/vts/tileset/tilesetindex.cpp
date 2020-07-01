@@ -72,7 +72,7 @@ void saveTileSetIndex(const Index &tsi, Driver &driver)
 void loadTileSetIndex(Index &tsi, const fs::path &path)
 {
     try {
-        utility::ifstreambuf f(path.c_str());
+        utility::ifstreambuf f(path.string());
 
         tsi.tileIndex = {};
         tsi.tileIndex.load(f, path);
@@ -88,7 +88,7 @@ void loadTileSetIndex(Index &tsi, const fs::path &path)
 void saveTileSetIndex(const Index &tsi, const fs::path &path)
 {
     try {
-        utility::ofstreambuf f(path.c_str());
+        utility::ofstreambuf f(path.string());
         tsi.tileIndex.save(f);
         tsi.saveRest(f);
         f.close();
