@@ -108,7 +108,7 @@ public:
         }
     };
 
-    TileIndex() : minLod_() {}
+    TileIndex() : minLod_(), allSetFlags_() {}
 
     TileIndex(LodRange lodRange, const TileIndex *other = nullptr
               , bool noFill = false);
@@ -118,6 +118,7 @@ public:
               , const Filter &filter, bool fullRange = true);
 
     TileIndex(const TileIndex &other);
+    TileIndex& operator=(const TileIndex&) = default;
 
     struct ShallowCopy {};
     TileIndex(const TileIndex &other, ShallowCopy);

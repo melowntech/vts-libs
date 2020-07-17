@@ -46,6 +46,7 @@ public:
               , bool noFill = false);
 
     TileIndex(const TileIndex &other);
+    TileIndex& operator=(const TileIndex &other) = default;
 
     struct ShallowCopy {};
     TileIndex(const TileIndex &other, ShallowCopy);
