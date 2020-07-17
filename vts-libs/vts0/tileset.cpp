@@ -37,6 +37,8 @@
 #include "utility/progress.hpp"
 #include "utility/gccversion.hpp"
 
+#include "imgproc/cvcompat.hpp"
+
 #include "geo/srsdef.hpp"
 #include "geometry/binmesh.hpp"
 
@@ -70,7 +72,7 @@ Atlas loadAtlas(const IStream::pointer &is)
     buf.resize(size);
     read(s, buf.data(), buf.size());
 
-    auto atlas(cv::imdecode(buf, CV_LOAD_IMAGE_COLOR));
+    auto atlas(cv::imdecode(buf, IMGPROC_IMREAD(COLOR)));
     is->close();
     return atlas;
 }

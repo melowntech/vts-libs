@@ -34,6 +34,7 @@
 
 #include "imgproc/binterpolate.hpp"
 #include "imgproc/fillrect.hpp"
+#include "imgproc/cvcompat.hpp"
 
 #include "../../storage/error.hpp"
 
@@ -130,7 +131,7 @@ void NavTile::deserialize_impl(const HeightRange &heightRange
     buf.resize(entry.size);
     read(is, buf.data(), buf.size());
 
-    auto image(cv::imdecode(buf, CV_LOAD_IMAGE_GRAYSCALE));
+    auto image(cv::imdecode(buf, IMGPROC_IMREAD(GRAYSCALE)));
     if (!image.data) {
         LOGTHROW(err1, storage::BadFileFormat)
             << "Cannot decode navtile image from block(" << entry.start

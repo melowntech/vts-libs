@@ -34,6 +34,7 @@
 
 #include "imgproc/filtering.hpp"
 #include "imgproc/fillrect.hpp"
+#include "imgproc/cvcompat.hpp"
 
 #include "../tileset-detail.hpp"
 
@@ -664,7 +665,7 @@ bool Window<Filter>::calculateDistance(const Vicinity &vicinity)
         }
     }
 
-    cv::distanceTransform(m, distance_, CV_DIST_C, 3);
+    cv::distanceTransform(m, distance_, IMGPROC_DISTANCE(DIST_C), 3);
 
     LOG(info1)
         << "Calculated distance map; empty tiles in vicinity: "
