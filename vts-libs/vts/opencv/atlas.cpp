@@ -30,7 +30,6 @@
 #include "utility/binaryio.hpp"
 
 #include "imgproc/readimage.hpp"
-#include "imgproc/cvcompat.hpp"
 
 #include "../../storage/error.hpp"
 
@@ -61,7 +60,7 @@ cv::Mat jpeg2mat(const std::vector<unsigned char> &buf
                  , const multifile::Table::Entry *entry = nullptr
                  , const boost::filesystem::path *path = nullptr)
 {
-    auto image(cv::imdecode(buf, IMGPROC_IMREAD(COLOR)));
+    auto image(cv::imdecode(buf, cv::IMREAD_COLOR));
     if (!image.data) {
         if (entry) {
             LOGTHROW(err1, storage::BadFileFormat)

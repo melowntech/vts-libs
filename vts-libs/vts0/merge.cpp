@@ -40,7 +40,6 @@
 #include "geometry/faceclip.hpp"
 #include "geometry/pointindex.hpp"
 #include "imgproc/uvpack.hpp"
-#include "imgproc/cvcompat.hpp"
 
 #include "geometry/mesh.hpp"
 #include "geometry/meshop.hpp"
@@ -292,8 +291,8 @@ void findContours(const cv::Mat &mat,
     cv::Rect rect(1, 1, mat.cols, mat.rows);
     mat.copyTo(cv::Mat(tmp, rect));
 
-    cv::findContours(tmp, contours, IMGPROC_CONTOURS(RETR_EXTERNAL)
-                     , IMGPROC_CONTOURS(CHAIN_APPROX_NONE)
+    cv::findContours(tmp, contours, cv::RETR_EXTERNAL
+                     , cv::CHAIN_APPROX_NONE
                      , cv::Point(-1, -1));
 }
 
