@@ -390,6 +390,8 @@ TmpTileset::~TmpTileset()
 {
     // cleanup
     if (!keep_) {
+        // close all files before deleting (this is required for windows)
+        slices_.clear();
         fs::remove_all(root_);
     }
 }

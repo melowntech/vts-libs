@@ -378,11 +378,11 @@ ComponentInfo::ComponentInfo(const TileId &tileId, int id, TextureInfo &tx)
     auto sortBySize([](FaceComponents &fc)
     {
         std::sort(fc.begin(), fc.end()
-                  , [](const Component::pointer *l, Component::pointer *r)
-                  -> bool
+                  , [](const Component::pointer *l,
+                       const Component::pointer *r) -> bool
         {
             // prefer non-null
-            if (!*l) { return !*r; }
+            if (!*l) { return false; }
             if (!*r) { return true; }
 
             // both are non-null; prefer longer

@@ -321,7 +321,7 @@ ComponentInfo::ComponentInfo(const TileId &tileId, int id, TextureInfo &tx)
                   -> bool
         {
             // prefer non-null
-            if (!*l) { return !*r; }
+            if (!*l) { return false; }
             if (!*r) { return true; }
 
             // both are non-null; prefer longer

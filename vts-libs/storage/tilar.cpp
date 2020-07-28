@@ -217,7 +217,7 @@ void write(const Filedes &fd, const Block &block)
             throw e;
         }
         left -= bytes;
-        data += left;
+        data += bytes;
     }
 }
 
@@ -246,7 +246,7 @@ void read(const Filedes &fd, Block &block)
                 << (size - left) << " bytes have been read).";
         }
         left -= bytes;
-        data += left;
+        data += bytes;
     }
 }
 
