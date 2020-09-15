@@ -67,5 +67,7 @@ if (TARGET service)
       vts0/create.cpp vts0/info.cpp vts0/add.cpp
       vts0/tileset-info.cpp vts0/tileset-clone.cpp
       vts0/tileset-paste.cpp)
+
+    vts_libs_tool(vtsrepack repack.cpp)
   endif()
 endif()
