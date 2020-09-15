@@ -1214,6 +1214,7 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
     }
 
     if (!EntityCounter(sm).check(meshLimits_)) {
+        // FIXME: move before joinTextures() call
         // breaks last submesh into compliant submeshes
         breakSubmesh();
     }

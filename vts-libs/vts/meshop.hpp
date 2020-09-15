@@ -222,6 +222,14 @@ struct SubmeshMergeOptions {
  *  Atlas is repacked when merging textured submeshes.
  *  In case of atlas repacking, returned atlas is image based one.
  *
+ * Caveats:
+ *
+ *     Application of merge limits (maxVertexCount and maxFaceCount) cause
+ *     single large submesh to be broken into smaller submeshes but its texture
+ *     is duplicated!
+ *
+ *     TODO: break mesh before texturing
+ *
  * \param tileId ID of tile this mesh belongs to (info only)
  * \param mesh mesh to compact
  * \param atlas meshe's atlas
@@ -239,6 +247,14 @@ mergeSubmeshes(const TileId &tileId, const Mesh::pointer &mesh
  *  In case of atlas repacking, returned atlas is image based one.
  *
  *  This version uses hybrid atlas.
+ *
+ * Caveats:
+ *
+ *     Application of merge limits (maxVertexCount and maxFaceCount) cause
+ *     single large submesh to be broken into smaller submeshes but its texture
+ *     is duplicated!
+ *
+ *     TODO: break mesh before texturing
  *
  * \param tileId ID of tile this mesh belongs to (info only)
  * \param mesh mesh to compact
