@@ -77,7 +77,7 @@ public:
 
     ~TmpTsEncoder();
 
-    void run();
+    void run(bool parallel = true);
 
 protected:
     vtslibs::tools::ExternalProgress& progress() { return progress_; }

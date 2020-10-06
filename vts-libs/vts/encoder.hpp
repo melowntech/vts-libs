@@ -81,7 +81,7 @@ public:
      *  noData).  Constraints are applied during traversal to filter out tiles
      *  that doesn't need to or cannot be generated.
      */
-    TileSet run();
+    TileSet run(bool parallel = true);
 
     /** Tree traversal algorithm constraints. See bellow.
      */

@@ -83,10 +83,10 @@ TmpTsEncoder::~TmpTsEncoder()
     }
 }
 
-void TmpTsEncoder::run()
+void TmpTsEncoder::run(bool parallel)
 {
     prepare();
-    Encoder::run();
+    Encoder::run(parallel);
 }
 
 void TmpTsEncoder::prepare()

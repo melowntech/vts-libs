@@ -122,11 +122,17 @@ struct Encoder::Detail {
         , generated_(0)
     {}
 
-    TileSet run()
+    TileSet run(bool parallel)
     {
-        UTILITY_OMP(parallel)
-        UTILITY_OMP(single)
-        {
+        if (parallel) {
+            UTILITY_OMP(parallel)
+            UTILITY_OMP(single)
+            {
+                owner->threadCount(omp_get_num_threads());
+                process({}, ConstraintsFlag::build(constraints)
+                        , NodeInfo(referenceFrame), {});
+            }
+        } else {
             owner->threadCount(omp_get_num_threads());
             process({}, ConstraintsFlag::build(constraints)
                     , NodeInfo(referenceFrame), {});
@@ -416,9 +422,9 @@ void Encoder::setConstraints(const Constraints &constraints)
     detail_->setConstraints(constraints);
 }
 
-TileSet Encoder::run()
+TileSet Encoder::run(bool parallel)
 {
-    return detail_->run();
+    return detail_->run(parallel);
 }
 
 std::size_t Encoder::threadIndex() const
