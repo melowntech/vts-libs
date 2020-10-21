@@ -3641,6 +3641,7 @@ int VtsStorage::listPendingGlues()
 int VtsStorage::checkMetatileTree()
 {
     const auto ts(vts::openTileSet(path_));
+    const auto &ti(ts.tileIndex());
 
     std::queue<vts::TileId> q;
     q.push(ts.metaId(tileId_));
@@ -3654,10 +3655,43 @@ int VtsStorage::checkMetatileTree()
         std::set<vts::TileId> metaChildIds;
         meta.for_each([&](const vts::TileId &tid, const vts::MetaNode &node)
         {
-            if (node.flags()) {
+            if (node.childFlags()) {
                 for (const auto &childId : children(node, tid)) {
                     metaChildIds.insert(ts.metaId(childId));
                 }
+            }
+
+            const auto mf(node.flags());
+            const auto tf(ti.get(tid));
+
+            if (bool(tf & vts::TileIndex::Flag::mesh)
+                != bool(mf & vts::MetaNode::Flag::geometryPresent))
+            {
+                LOG(warn2)
+                    << tid << ": Invalid mesh presence. Tile index: <"
+                    << vts::TileFlags(tf)
+                    << ">, meta node: <" << vts::MetaFlags(mf)
+                    << ">.";
+            }
+
+            if (bool(tf & vts::TileIndex::Flag::atlas)
+                != bool(node.internalTextureCount()))
+            {
+                LOG(warn2)
+                    << tid << ": Invalid atlas presence. Tile index: <"
+                    << vts::TileFlags(tf)
+                    << ">, meta node: <" << vts::MetaFlags(mf)
+                    << ">.";
+            }
+
+            if (bool(tf & vts::TileIndex::Flag::navtile)
+                != bool(mf & vts::MetaNode::Flag::navtilePresent))
+            {
+                LOG(warn2)
+                    << tid << ": Invalid navtilea presence. Tile index: <"
+                    << vts::TileFlags(tf)
+                    << ">, meta node: <" << vts::MetaFlags(mf)
+                    << ">.";
             }
         });
 
