@@ -32,6 +32,7 @@
 
 #include "../../storage/streams.hpp"
 #include "../../storage/resources.hpp"
+#include "../options.hpp"
 #include "../mapconfig.hpp"
 #include "properties.hpp"
 
