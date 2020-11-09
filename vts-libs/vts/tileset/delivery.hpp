@@ -95,6 +95,14 @@ public:
      */
     std::shared_ptr<Driver> driver() const { return driver_; }
 
+    /** Tileset properties.
+     */
+    const FullTileSetProperties& properties() const { return properties_; }
+
+    /** Tileset properties.
+     */
+    const tileset::Index& index() const { return *index_; }
+
 private:
     struct AccessToken {};
 
