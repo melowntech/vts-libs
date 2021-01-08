@@ -121,7 +121,7 @@ struct Srs {
      */
     boost::optional<Periodicity> periodicity;
 
-    /** Alternative SRS representation, if any. Shoudl be in the form
+    /** Alternative SRS representation, if any. Should be in the form
      *  of authority:code, for example EPSG:4326 or IAU2000:49900.
      */
     boost::optional<std::string> alt;
@@ -577,6 +577,9 @@ Body::dict loadBodies(std::istream &in
 math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
                                  , const math::Extents3 &extents);
 
+math::Extents3 denormalizedExtents(const ReferenceFrame &referenceFrame
+                                   , const math::Extents3 &extents);
+
 // enum IO stuff
 
 UTILITY_GENERATE_ENUM_IO(PartitioningMode,
@@ -675,6 +678,23 @@ inline math::Extents3 normalizedExtents(const ReferenceFrame &referenceFrame
             , (extents.ur(0) - fe.ll(0)) / s.width
             , (extents.ur(1) - fe.ll(1)) / s.height
             , (extents.ur(2) - fe.ll(2)) / s.depth };
+}
+
+inline math::Extents3 denormalizedExtents(const ReferenceFrame &referenceFrame
+                                          , const math::Extents3 &extents)
+{
+    // return zero extents if input not valid
+    if (!valid(extents)) { return {}; }
+
+    const auto &fe(referenceFrame.division.extents);
+    const auto s(size(fe));
+
+    return { (extents.ll(0) * s.width + fe.ll(0))
+            , (extents.ll(1) * s.height + fe.ll(1))
+            , (extents.ll(2) * s.depth + fe.ll(2))
+            , (extents.ur(0) * s.width + fe.ll(0))
+            , (extents.ur(1) * s.height + fe.ll(1))
+            , (extents.ur(2) * s.depth + fe.ll(2)) };
 }
 
 inline bool Position::operator==(const Position &p) const

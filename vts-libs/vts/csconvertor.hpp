@@ -125,6 +125,10 @@ public:
      */
     math::Extents2 operator()(const math::Extents2 &e) const;
 
+    /** Validity check. Check if convertor does any real conversion.
+     */
+    operator bool() const { return bool(conv_); }
+
 private:
     /** Helper constructor for conversion inversion.
      */
