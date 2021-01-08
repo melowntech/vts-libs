@@ -93,7 +93,7 @@ inline TileId3 lowestChild(const TileId3 &tileId, Lod diff)
 
 inline int child(const TileId3 &tileId)
 {
-    return (tileId.x & 1l) + ((tileId.y & 1l) << 1) + ((tileId.y & 1l) << 2);
+    return (tileId.x & 1l) + ((tileId.y & 1l) << 1) + ((tileId.z & 1l) << 2);
 }
 
 inline bool in(const LodRange &range, const TileId3 &tileId)
