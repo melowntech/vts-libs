@@ -380,8 +380,8 @@ MetaTile::pointer loadMetaTile(std::istream *in
                                , const boost::filesystem::path
                                &path = "unknown");
 
-std::vector<TileId> children(const MetaNode &node
-                             , const TileId &tileId);
+std::vector<Child> children(const MetaNode &node
+                            , const TileId &tileId);
 
 void loadCreditsFromMetaTile(std::istream &in, registry::IdSet &credits
                              , const boost::filesystem::path
@@ -457,10 +457,10 @@ inline void MetaTile::for_each(F f) const
     }
 }
 
-inline std::vector<TileId> children(const MetaNode &node
-                                    , const TileId &tileId)
+inline std::vector<Child> children(const MetaNode &node
+                                   , const TileId &tileId)
 {
-    std::vector<TileId> c;
+    std::vector<Child> c;
     std::uint8_t mask(MetaNode::Flag::ulChild);
     for (const auto &child : vts::children(tileId)) {
         if (mask & node.flags()) {
