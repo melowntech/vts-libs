@@ -193,7 +193,7 @@ NodeInfo NodeInfo::child(Child childDef) const
         if (node_.structure.children & (1 << childDef.index)) {
             // yes, path exists, replace
             return { *referenceFrame_, referenceFrame_->find(childId)
-						, subtree_.registry() };
+                     , subtree_.registry() };
         }
 
         // non-existent node -> invalid
