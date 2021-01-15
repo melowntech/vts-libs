@@ -103,12 +103,17 @@ public:
      */
     const tileset::Index& index() const { return *index_; }
 
+    /** Returns true if driver prefers asynchronous operations.
+     */
+    bool async() const { return async_; }
+
 private:
     struct AccessToken {};
 
     std::shared_ptr<Driver> driver_;
     const FullTileSetProperties properties_;
     std::shared_ptr<tileset::Index> index_;
+    bool async_;
 
 public:
     /** Opens storage.

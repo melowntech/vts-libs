@@ -341,12 +341,14 @@ Delivery::Delivery(AccessToken, const boost::filesystem::path &root
     : driver_(Driver::open(root, openOptions))
     , properties_(tileset::loadConfig(*driver_))
     , index_(indexFromDriver(properties_, driver_))
+    , async_(driver_->ccapabilities().async)
 {}
 
 Delivery::Delivery(AccessToken, std::shared_ptr<Driver> driver)
     : driver_(std::move(driver))
     , properties_(tileset::loadConfig(*driver_))
     , index_(indexFromDriver(properties_, driver_))
+    , async_(driver_->ccapabilities().async)
 {}
 
 Delivery::pointer
