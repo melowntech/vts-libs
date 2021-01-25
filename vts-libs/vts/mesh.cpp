@@ -344,7 +344,9 @@ SubMesh SubMesh::cleanUp() const
 
         if (idx < 0) {
             // new tc
-            tcVertex = allocateTcIndex(tcVertex, vertex);
+            idx = allocateTcIndex(tcVertex, vertex);
+            // map
+            tcVertex = idx;
             return;
         }
 
