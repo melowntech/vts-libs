@@ -137,9 +137,13 @@ private:
 
 struct SdMeshConvertor::Lazy {
 public:
+    /** NodeInfo is held by pointer. It must not be used after the target of the
+     *  pointer ceased to exist.
+     */
     Lazy(const NodeInfo &nodeInfo, int margin, const TileId &tileId
          , bool meshesInSds)
-        : factory_(Factory(nodeInfo, margin, tileId, meshesInSds))
+        : nodeInfo_(&nodeInfo), margin_(margin), tileId_(tileId)
+        , meshesInSds_(meshesInSds)
         , convertor_(nullptr)
     {}
 
@@ -149,7 +153,7 @@ public:
 
     operator const SdMeshConvertor&() const {
         if (!convertor_) {
-            own_ = *factory_;
+            own_.emplace(*nodeInfo_, margin_, tileId_, meshesInSds_);
             convertor_ = &*own_;
         }
         return *convertor_;
@@ -158,11 +162,11 @@ public:
     const SdMeshConvertor& operator()() const { return *this; }
 
 private:
-    typedef decltype(boost::in_place
-                     (std::declval<NodeInfo>(), int(), std::declval<TileId>()
-                      , bool()))
-        Factory;
-    boost::optional<Factory> factory_;
+    const NodeInfo *nodeInfo_ = nullptr;
+    const int margin_ = 0;
+    const TileId tileId_;
+    const bool meshesInSds_ = false;
+
     mutable boost::optional<SdMeshConvertor> own_;
     mutable const SdMeshConvertor* convertor_;
 };
