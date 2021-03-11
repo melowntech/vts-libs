@@ -41,7 +41,8 @@ typedef half_float::half hfloat;
 namespace vtslibs { namespace vts {
 
 struct GeomExtents {
-    typedef storage::Range<float> ZRange;
+    using ZRange = storage::Range<float>;
+    using Extents = math::Extents2_<float>;
 
     /** (SDS) height range.
      */
@@ -51,12 +52,18 @@ struct GeomExtents {
      */
     float surrogate;
 
+    /** Horizontal extents. Might be invalid if dealing with older datasets.
+     */
+    Extents extents;
+
     GeomExtents()
         : z(ZRange::emptyRange()), surrogate(invalidSurrogate)
+        , extents(math::InvalidExtents{})
     {}
 
     GeomExtents(float min, float max, float surrogate)
         : z(min, max), surrogate(surrogate)
+        , extents(math::InvalidExtents{})
     {}
 
     /** Compute surrogate as average from height range.
@@ -75,14 +82,33 @@ struct GeomExtents {
     bool validSurrogate() const { return validSurrogate(surrogate); }
 };
 
+/** Invalid vertical extent.
+ */
 inline bool empty(const GeomExtents &ge) { return ge.z.empty(); }
+
+/** Extents are incomplete (either invalid vertical extent
+ *  or horizonal extents)
+ */
+inline bool incomplete(const GeomExtents &ge) {
+    return ge.z.empty() || !math::valid(ge.extents);
+}
 
 inline void update(GeomExtents &ge, float value) {
     update(ge.z, value);
 }
 
+inline void update(GeomExtents &ge, const math::Point3_<float> &p) {
+    update(ge.z, p(2));
+    math::update(ge.extents, p(0), p(1));
+}
+
 inline void update(GeomExtents &ge, const GeomExtents &update) {
     ge.z = unite(ge.z, update.z);
+    math::update(ge.extents, update.extents);
+}
+
+inline void update(GeomExtents &ge, const GeomExtents::Extents &update) {
+    math::update(ge.extents, update);
 }
 
 } } // namespace vtslibs::vts

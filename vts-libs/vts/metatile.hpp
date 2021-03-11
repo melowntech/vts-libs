@@ -127,7 +127,6 @@ struct MetaNode {
 
     void reset(Flag::value_type flags) { flags_ &= ~flags; }
 
-    math::Extents3 extents;
     GeomExtents geomExtents;
 
     float texelSize;
@@ -175,9 +174,9 @@ struct MetaNode {
      */
     void mergeChildFlags(Flag::value_type cf);
 
-    MetaNode& mergeExtents(const MetaNode &other);
-    MetaNode& mergeExtents(const math::Extents3 &other);
-    MetaNode& mergeExtents(const GeomExtents &other);
+    MetaNode& mergeExtents(const MetaNode &other, bool onlyVertical = false);
+    MetaNode& mergeExtents(const GeomExtents &other
+                           , bool onlyVertical = false);
 
     unsigned int internalTextureCount() const { return internalTextureCount_; }
     void internalTextureCount(unsigned int value) {

@@ -400,7 +400,7 @@ struct TileSet::Factory
             }
 
             if ((eflags & CloneOptions::EncodeFlag::meta)
-                && vts::empty(metanode.geomExtents))
+                && vts::incomplete(metanode.geomExtents))
             {
                 // reencoding metanodes and no geometric extents available ->
                 // recompute
@@ -512,8 +512,11 @@ struct TileSet::Factory
                     return mn ? *mn : *metanode;
                 });
 
+                // TODO: optimize
+                const NodeInfo nodeInfo(src->referenceFrame, tid);
+
                 if (eflags) {
-                    reencode(tid, NodeInfo(src->referenceFrame, tid)
+                    reencode(tid, nodeInfo
                              , *sd, *dd, mesh, atlas, eflags, copyMetanode()
                              , cloneOptions->textureQuality());
                 } else {
@@ -538,11 +541,11 @@ struct TileSet::Factory
                 {
                     if (*mnm) {
                         // filter metanode
-                        dst->updateNode(tid, (*mnm)(useMetanode())
+                        dst->updateNode(tid, nodeInfo, (*mnm)(useMetanode())
                                         , (mask & TileIndex::Flag::nonmeta));
                     } else {
                         // pass metanode as-is
-                        dst->updateNode(tid, useMetanode()
+                        dst->updateNode(tid, nodeInfo, useMetanode()
                                         , (mask & TileIndex::Flag::nonmeta));
                     }
 
@@ -1007,7 +1010,8 @@ std::uint8_t flagsFromNode(const MetaNode &node)
 
 } // namespace
 
-void TileSet::Detail::updateNode(TileId tileId, const MetaNode &metanode
+void TileSet::Detail::updateNode(TileId tileId, const NodeInfo &ni
+                                 , const MetaNode &metanode
                                  , TileIndex::Flag::value_type extraFlags)
 {
     // get node (create if necessary)
@@ -1028,6 +1032,8 @@ void TileSet::Detail::updateNode(TileId tileId, const MetaNode &metanode
     // set tile index
     tileIndex.setMask(tileId, mask, flags);
 
+    const auto extentsCeling(ni.subtree().lod());
+
     // go up the tree
     while (tileId.lod) {
         auto parentId(parent(tileId));
@@ -1035,7 +1041,8 @@ void TileSet::Detail::updateNode(TileId tileId, const MetaNode &metanode
 
         auto mn(*parentNode.metanode);
         parentNode.set(parentId, mn.setChildFromId(tileId)
-                       .mergeExtents(*node.metanode));
+                       .mergeExtents
+                       (*node.metanode, parentId.lod < extentsCeling));
 
         // next round
         tileId = parentId;
@@ -1176,10 +1183,9 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile
     if (mesh) {
         // geometry
         metanode.geometry(true);
-        metanode.extents = normalizedExtents(referenceFrame, extents(*mesh));
 
         // use/compute geom extents
-        if (vts::empty(tile.geomExtents)) {
+        if (vts::incomplete(tile.geomExtents)) {
             // no geom extents, need to compute from mesh converted to SDS
             metanode.geomExtents = geomExtents
                 (CsConvertor(referenceFrame.model.physicalSrs, nodeInfo.srs())
@@ -1233,7 +1239,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const Tile &tile
     }
 
     // store node
-    updateNode(tileId, metanode, vts::extraFlags(mesh));
+    updateNode(tileId, nodeInfo, metanode, vts::extraFlags(mesh));
 
     // save data
     if (mesh) {
@@ -1257,7 +1263,7 @@ void TileSet::Detail::setTile(const TileId &tileId, const TileSource &tile
     const auto nodeInfo(ni ? *ni : NodeInfo(referenceFrame, tileId));
 
     // store node
-    updateNode(tileId, tile.metanode, tile.extraFlags);
+    updateNode(tileId, nodeInfo, tile.metanode, tile.extraFlags);
 
     // copy data
     if (tile.mesh) {
@@ -1937,10 +1943,13 @@ void TileSet::paste(const TileSet &srcSet
                      , dd.output(tid, storage::TileFile::navtile));
         }
 
+        // TODO: optimize
+        const NodeInfo nodeInfo(src.referenceFrame, tid);
+
         // TODO: do not copy influenced flag if we have not copied any tile that
         // influences this one
 
-        dst.updateNode(tid, *metanode
+        dst.updateNode(tid, nodeInfo, *metanode
                        , mask & TileIndex::Flag::nonmeta);
         LOG(info1) << "Stored tile " << tid << ".";
         report();

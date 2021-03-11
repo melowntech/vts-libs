@@ -182,7 +182,8 @@ public:
 
     MetaTile::pointer loadMetaTileFor(const TileId &tileId) const;
 
-    void updateNode(TileId tileId, const MetaNode &metanode
+    void updateNode(TileId tileId, const NodeInfo &ni
+                    , const MetaNode &metanode
                     , TileIndex::Flag::value_type extraFlags = 0);
 
     bool exists(const TileId &tileId) const;

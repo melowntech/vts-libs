@@ -48,7 +48,7 @@ namespace vtslibs { namespace vts {
 
 namespace {
     const char MAGIC[2] = { 'M', 'T' };
-    const std::uint16_t VERSION = 4;
+    const std::uint16_t VERSION = 5;
 
     const std::size_t MIN_GEOM_BITS(2);
 } // namespace
@@ -127,115 +127,6 @@ std::size_t geomLen(Lod lod)
     // calculate length in bits, top it to the closest byte and calculate number
     // of bytes
     return (6 * (lod + MIN_GEOM_BITS) + 7) / 8;
-}
-
-std::vector<std::uint8_t>
-buildGeomExtents(Lod lod, const math::Extents3 &extents)
-{
-    struct Encoder {
-        Encoder(Lod lod)
-            : block(1, 0), bits(2 + lod)
-            , max((1 << bits) - 1)
-            , out(&block.back()), outMask(0x80)
-        {}
-
-        void operator()(double value, bool ceil = false) {
-            // clamp to valid range
-            value = math::clamp(value, 0.0, 1.0);
-
-            // convert to (double) index in the lod grid, round up or down based
-            // on rounding value (false down, true up)
-            auto dindex(value * max);
-            if (ceil) {
-                dindex = std::ceil(dindex);
-            } else {
-                dindex = std::floor(dindex);
-            }
-
-            // convert to integer
-            auto index = std::uint32_t(dindex);
-
-            for (std::uint32_t bm(1 << (bits - 1)); bm; bm >>= 1) {
-                push(index & bm);
-            }
-        }
-
-        void push(bool value) {
-            if (!outMask) {
-                block.push_back(0x00);
-                out = &block.back();
-                outMask = 0x80;
-            }
-
-            if (value) { *out |= outMask; }
-            outMask >>= 1;
-        }
-
-        std::vector<std::uint8_t> block;
-        std::uint8_t bits;
-        std::uint32_t max;
-        std::uint8_t *out;
-        std::uint32_t outMask;
-    };
-
-    Encoder encoder(lod);
-
-    encoder(extents.ll(0));
-    encoder(extents.ur(0), true);
-    encoder(extents.ll(1));
-    encoder(extents.ur(1), true);
-    encoder(extents.ll(2));
-    encoder(extents.ur(2), true);
-
-    return encoder.block;
-}
-
-void parseGeomExtents(Lod lod, math::Extents3 &extents
-                      , const std::vector<std::uint8_t> &block)
-{
-    struct Decoder {
-        Decoder(Lod lod, const std::vector<std::uint8_t> &block)
-            : block(block), bits(2 + lod)
-            , max((1 << bits) - 1)
-            , in(block.begin()), inMask(0x80)
-        {}
-
-        double operator()() {
-            std::uint32_t index(0);
-
-            for (std::uint32_t bm(1 << (bits - 1)); bm; bm >>= 1) {
-                if (pop()) { index |= bm; }
-            }
-
-            return index / max;
-        }
-
-        bool pop() {
-            if (!inMask) {
-                ++in;
-                inMask = 0x80;
-            }
-
-            auto value(*in & inMask);
-            inMask >>= 1;
-            return value;
-        }
-
-        const std::vector<std::uint8_t> &block;
-        std::uint8_t bits;
-        double max;
-        std::vector<std::uint8_t>::const_iterator in;
-        std::uint32_t inMask;
-    };
-
-    Decoder decoder(lod, block);
-
-    extents.ll(0) = decoder();
-    extents.ur(0) = decoder();
-    extents.ll(1) = decoder();
-    extents.ur(1) = decoder();
-    extents.ll(2) = decoder();
-    extents.ur(2) = decoder();
 }
 
 struct MetaTileFlag {
@@ -348,7 +239,21 @@ inline void writeVariable(std::ostream &out, MetaNode::BackingType type
     }
 }
 
+const GeomExtents::Extents zeroExtents;
 
+const GeomExtents::Extents& toSerialized(const GeomExtents::Extents &e)
+{
+    if (math::valid(e)) { return e; }
+    return zeroExtents;
+}
+
+void fromSerialized(GeomExtents::Extents &e)
+{
+    if (!e.ll(0) && !e.ll(1) && !e.ur(0) && !e.ur(1)) {
+        // 0,0,0,0 -> invalid
+        e = math::InvalidExtents{};
+    }
+}
 
 } // namespace
 
@@ -358,13 +263,16 @@ inline void MetaNode::save(std::ostream &out, const StoreParams &sp) const
 
     // geometry extents
     {
-        // old format (to be removed in version 5)
-        bin::write(out, buildGeomExtents(sp.lod, extents));
-
         // new format
         bin::write(out, float(geomExtents.z.min));
         bin::write(out, float(geomExtents.z.max));
         bin::write(out, float(geomExtents.surrogate));
+
+        const auto &e(toSerialized(geomExtents.extents));
+        bin::write(out, float(e.ll(0)));
+        bin::write(out, float(e.ll(1)));
+        bin::write(out, float(e.ur(0)));
+        bin::write(out, float(e.ur(1)));
     }
 
     bin::write(out, std::uint8_t(internalTextureCount_));
@@ -521,19 +429,27 @@ inline void MetaNode::load(std::istream &in, const StoreParams &sp
 
     // geom extents
     {
-        // TODO: check when version 5 is introduced!
         if (version < 5) {
             // old format
             std::vector<std::uint8_t> ge(geomLen(sp.lod));
             bin::read(in, ge);
-            parseGeomExtents(sp.lod, extents, ge);
         }
 
         if (version >= 4) {
-            // new format
+            // new format with Z-based geom-extents
             geomExtents.z.min = bin::read<float>(in);
             geomExtents.z.max = bin::read<float>(in);
             geomExtents.surrogate = bin::read<float>(in);
+        }
+
+        if (version >= 5) {
+            // new format with full geom-extents
+            auto &e(geomExtents.extents);
+            e.ll(0) = bin::read<float>(in);
+            e.ll(1) = bin::read<float>(in);
+            e.ur(0) = bin::read<float>(in);
+            e.ur(1) = bin::read<float>(in);
+            fromSerialized(e);
         }
     }
 
@@ -748,33 +664,19 @@ void MetaNode::mergeChildFlags(Flag::value_type cf)
     flags_ |= (cf & Flag::allChildren);
 }
 
-MetaNode& MetaNode::mergeExtents(const MetaNode &other)
+MetaNode& MetaNode::mergeExtents(const MetaNode &other, bool onlyVertical)
 {
-    return
-        mergeExtents(other.extents)
-        .mergeExtents(other.geomExtents);
+    return mergeExtents(other.geomExtents, onlyVertical);
 }
 
-MetaNode& MetaNode::mergeExtents(const math::Extents3 &other)
+MetaNode& MetaNode::mergeExtents(const GeomExtents &other, bool onlyVertical)
 {
-    if (other.ll == other.ur) {
-        // nothing to do
-        return *this;
+    if (!onlyVertical) {
+        math::update(geomExtents.extents, other.extents);
     }
 
-    if (extents.ll == extents.ur) {
-        // use other's extents
-        extents = other;
-        return *this;
-    }
+    // TODO: use something more sane
 
-    // merge
-    extents = unite(extents, other);
-    return *this;
-}
-
-MetaNode& MetaNode::mergeExtents(const GeomExtents &other)
-{
     if (other.z.min == other.z.max) {
         // nothing to do
         return *this;
@@ -865,9 +767,7 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
             // get input
             const auto &inn(in.grid_[idx]);
 
-            if (!inn.real() && math::empty(inn.extents)
-                && vts::empty(inn.geomExtents))
-            {
+            if (!inn.real() && vts::empty(inn.geomExtents)) {
                 // nonexistent node, ignore
                 continue;
             }
@@ -897,7 +797,6 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
 
             // we need to keep current geometry extents and child flags since
             // they are rewritten by node copy
-            const auto savedExtents(outn.extents);
             const auto savedGeomExtents(outn.geomExtents);
             const auto flags(outn.flags());
 
@@ -908,7 +807,6 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
             outn.sourceReference = sourceReference;
 
             // and apply saved geometry extents
-            outn.mergeExtents(savedExtents);
             outn.mergeExtents(savedGeomExtents);
 
             // reset alien flags

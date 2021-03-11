@@ -96,7 +96,7 @@ GeomExtents geomExtents(const math::Points3d &vertices)
 {
     GeomExtents ge;
     for (const auto &v : vertices) {
-        update(ge, v(2));
+        update(ge, v);
     }
     return ge;
 }
@@ -119,7 +119,7 @@ GeomExtents geomExtents(const CsConvertor &conv, const SubMesh &submesh)
 {
     GeomExtents ge;
     for (const auto &v : submesh.vertices) {
-        update(ge, conv(v)(2));
+        update(ge, conv(v));
     }
     return ge;
 }
