@@ -366,12 +366,6 @@ struct ReferenceFrame {
      */
     template <typename Ext> const Ext* findExtension() const;
 
-    /** For vts0 only:
-     */
-    math::Extents2 rootExtents() const;
-    math::Size2f tileSize(Lod lod) const;
-    std::string rootSrs() const;
-
     ReferenceFrame() : metaBinaryOrder(5) {}
 };
 

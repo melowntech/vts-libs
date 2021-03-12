@@ -1398,24 +1398,6 @@ std::set<std::string> ReferenceFrame::Division::srsList() const
     return list;
 }
 
-math::Extents2 ReferenceFrame::rootExtents() const
-{
-    return division.find({}).extents;
-}
-
-math::Size2f ReferenceFrame::tileSize(Lod lod) const
-{
-    auto ts(size(rootExtents()));
-    ts.width /= (1 << lod);
-    ts.height /= (1 << lod);
-    return ts;
-}
-
-std::string ReferenceFrame::rootSrs() const
-{
-    return division.find({}).srs;
-}
-
 Json::Value asJson(const ReferenceFrame &rf)
 {
     Json::Value content;
