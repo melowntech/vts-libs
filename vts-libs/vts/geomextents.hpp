@@ -93,6 +93,10 @@ inline bool incomplete(const GeomExtents &ge) {
     return ge.z.empty() || !math::valid(ge.extents);
 }
 
+inline bool complete(const GeomExtents &ge) {
+    return !incomplete(ge);
+}
+
 inline void update(GeomExtents &ge, float value) {
     update(ge.z, value);
 }
