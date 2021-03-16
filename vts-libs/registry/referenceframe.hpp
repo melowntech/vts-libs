@@ -151,7 +151,26 @@ struct Body {
 
     boost::optional<std::string> defaultGeoidGrid;
 
-    /** Json data. Not modified, only parent and defaultGeoidGrid areparsed.
+    /** Body SRS descriptor. Optional.
+     */
+    struct SrsDesc {
+        /** Geocentric SRS of the body. Key to SRS dictionary.
+         */
+        std::string geocentric;
+
+        /** Geographic SRS of the body. Key to SRS dictionary.
+         */
+        std::string geographic;
+
+        /** Generic flags for various processors; supported flags:
+         *     wgs84: this is a WGS84 world
+         */
+        std::set<std::string> flags;
+    };
+
+    boost::optional<SrsDesc> srs;
+
+    /** Json data. Not modified, only members of this class are parsed.
      */
     boost::any json;
 
