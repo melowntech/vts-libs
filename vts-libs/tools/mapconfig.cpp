@@ -412,7 +412,16 @@ int MapConfig::convert()
 {
     auto mc(loadMapConfig());
 
-    vts::CsConvertor conv(ssrs_, tsrs_, mc);
+    vts::CsConvertor conv(vts::CsConvertor::IdOrDef{ssrs_}
+                          , vts::CsConvertor::IdOrDef{tsrs_}
+                          , mc);
+
+    math::Point3 p;
+    while (std::cin >> p(0) >> p(1) >> p(2)) {
+        p = conv(p);
+        std::cout << std::fixed << p(0) << ' ' << p(1)
+                  << ' ' <<  p(2) << std::endl;
+    }
 
     return EXIT_SUCCESS;
 }
