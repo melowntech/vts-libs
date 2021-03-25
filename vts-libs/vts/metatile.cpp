@@ -129,6 +129,58 @@ std::size_t geomLen(Lod lod)
     return (6 * (lod + MIN_GEOM_BITS) + 7) / 8;
 }
 
+#ifdef VTSLIBS_META_READ_PRE_V5_EXTENTS
+
+void parseGeomExtents(Lod lod, math::Extents3 &extents
+                      , const std::vector<std::uint8_t> &block)
+{
+    struct Decoder {
+        Decoder(Lod lod, const std::vector<std::uint8_t> &block)
+            : block(block), bits(2 + lod)
+            , max((1 << bits) - 1)
+            , in(block.begin()), inMask(0x80)
+        {}
+
+        double operator()() {
+            std::uint32_t index(0);
+
+            for (std::uint32_t bm(1 << (bits - 1)); bm; bm >>= 1) {
+                if (pop()) { index |= bm; }
+            }
+
+            return index / max;
+        }
+
+        bool pop() {
+            if (!inMask) {
+                ++in;
+                inMask = 0x80;
+            }
+
+            auto value(*in & inMask);
+            inMask >>= 1;
+            return value;
+        }
+
+        const std::vector<std::uint8_t> &block;
+        std::uint8_t bits;
+        double max;
+        std::vector<std::uint8_t>::const_iterator in;
+        std::uint32_t inMask;
+    };
+
+    Decoder decoder(lod, block);
+
+    extents.ll(0) = decoder();
+    extents.ur(0) = decoder();
+    extents.ll(1) = decoder();
+    extents.ur(1) = decoder();
+    extents.ll(2) = decoder();
+    extents.ur(2) = decoder();
+}
+
+#endif // VTSLIBS_META_READ_PRE_V5_EXTENTS
+
 struct MetaTileFlag {
     typedef std::uint8_t value_type;
 
@@ -433,6 +485,10 @@ inline void MetaNode::load(std::istream &in, const StoreParams &sp
             // old format
             std::vector<std::uint8_t> ge(geomLen(sp.lod));
             bin::read(in, ge);
+#ifdef VTSLIBS_META_READ_PRE_V5_EXTENTS
+            // decode extents
+            parseGeomExtents(sp.lod, extents, ge);
+#endif
         }
 
         if (version >= 4) {

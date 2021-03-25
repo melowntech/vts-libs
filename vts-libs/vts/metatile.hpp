@@ -127,6 +127,12 @@ struct MetaNode {
 
     void reset(Flag::value_type flags) { flags_ &= ~flags; }
 
+#ifdef VTSLIBS_META_READ_PRE_V5_EXTENTS
+    /** Old, world-axis-aligned extents are read and available only on request
+     */
+    math::Extents3 extents;
+#endif
+
     GeomExtents geomExtents;
 
     float texelSize;
