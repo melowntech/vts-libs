@@ -727,9 +727,7 @@ MetaNode& MetaNode::mergeExtents(const MetaNode &other, bool onlyVertical)
 
 MetaNode& MetaNode::mergeExtents(const GeomExtents &other, bool onlyVertical)
 {
-    LOG(info4) << "onlyVertical: " << onlyVertical;
     if (!onlyVertical) {
-        LOG(info4) << std::fixed << "storing horizontal: " << other.extents;
         math::update(geomExtents.extents, other.extents);
     }
 

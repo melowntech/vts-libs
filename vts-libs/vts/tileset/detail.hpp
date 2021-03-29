@@ -247,6 +247,8 @@ private:
                           , const MetaNode &oldMetanode);
     void updateProperties(const NodeInfo &nodeInfo);
     void updateProperties(const Mesh &mesh);
+
+    void propagateTexelSize();
 };
 
 inline void TileSet::Detail::checkValidity() const {

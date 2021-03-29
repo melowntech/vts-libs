@@ -1508,10 +1508,54 @@ bool TileSet::Detail::exists(const TileId &tileId) const
     return false;
 }
 
+void TileSet::Detail::propagateTexelSize()
+{
+    // propagate texel size to empty tiles
+    struct Traverse {
+        Detail &ts;
+
+        Traverse(Detail &ts) : ts(ts) {}
+
+        boost::optional<double> run(const TileId &tileId) {
+            auto node(ts.findNode(tileId));
+            if (!node) { return boost::none; }
+            const auto &meta(*node.metanode);
+
+            LOG(info4) << "Process tile: " << tileId;
+
+            if (meta.real()) { return meta.texelSize; }
+
+            // non-real tile, process children
+            double total(0.0);
+            int count(0);
+            for (const auto &child : children(tileId)) {
+                if (auto tx = run(child)) {
+                    total += *tx;
+                    ++count;
+                }
+            }
+            if (!count) { return boost::none; }
+
+            // we have some resolution to use
+            auto newMeta(meta);
+            newMeta.texelSize = 2 * total / count;
+            newMeta.applyTexelSize(true);
+            node.update(tileId, newMeta);
+
+            return newMeta.texelSize;
+        }
+
+    } traverse(*this);
+
+    traverse.run({});
+}
+
 void TileSet::Detail::saveMetadata()
 {
-
     driver->wannaWrite("save metadata");
+
+    propagateTexelSize();
+
     metaTiles->save();
     saveTileIndex();
 }
