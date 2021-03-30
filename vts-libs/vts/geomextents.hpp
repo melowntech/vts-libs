@@ -31,6 +31,7 @@
 #include <boost/variant.hpp>
 
 #include "math/geometry_core.hpp"
+#include "math/transform.hpp"
 
 #include "half/half.hpp"
 
@@ -101,9 +102,10 @@ inline void update(GeomExtents &ge, float value) {
     update(ge.z, value);
 }
 
-inline void update(GeomExtents &ge, const math::Point3_<float> &p) {
-    update(ge.z, p(2));
-    math::update(ge.extents, p(0), p(1));
+template <typename T>
+inline void update(GeomExtents &ge, const math::Point3_<T> &p) {
+    update(ge.z, float(p(2)));
+    math::update(ge.extents, float(p(0)), float(p(1)));
 }
 
 inline void update(GeomExtents &ge, const GeomExtents &update) {
@@ -113,6 +115,15 @@ inline void update(GeomExtents &ge, const GeomExtents &update) {
 
 inline void update(GeomExtents &ge, const GeomExtents::Extents &update) {
     math::update(ge.extents, update);
+}
+
+template <typename T>
+inline GeomExtents geomExtents(const math::Matrix4 &trafo
+                               , const std::vector<math::Point3_<T>> &vs)
+{
+    GeomExtents ge;
+    for (const auto &v : vs) { update(ge, math::transform(trafo, v)); }
+    return ge;
 }
 
 } } // namespace vtslibs::vts

@@ -1521,8 +1521,6 @@ void TileSet::Detail::propagateTexelSize()
             if (!node) { return boost::none; }
             const auto &meta(*node.metanode);
 
-            LOG(info4) << "Process tile: " << tileId;
-
             if (meta.real()) { return meta.texelSize; }
 
             // non-real tile, process children
