@@ -104,7 +104,9 @@ public:
      */
     SdMeshConvertor(const NodeInfo &nodeInfo, int margin
                     , const TileId &tileId = TileId()
-                    , bool meshesInSds = false);
+                    , bool meshesInSds = false
+                    , const boost::optional<math::Matrix4> &geoTrafo
+                    = boost::none);
 
     virtual math::Point3d vertex(const math::Point3d &v) const;
 
@@ -114,6 +116,10 @@ public:
 
     // On-demand SdMeshConvertor instantiation.
     struct Lazy;
+
+    /** Computes geometric extents from vertices in coverage space.
+     */
+    GeomExtents geomExtents(const math::Points3 &coverageVertices) const;
 
 private:
     /** Linear transformation from local coverage coordinates to node's SD SRS.
@@ -147,13 +153,12 @@ public:
         , convertor_(nullptr)
     {}
 
-    Lazy(const SdMeshConvertor &convertor)
-        : convertor_(&convertor)
-    {}
+    Lazy(const SdMeshConvertor &convertor) : convertor_(&convertor) {}
 
     operator const SdMeshConvertor&() const {
         if (!convertor_) {
-            own_.emplace(*nodeInfo_, margin_, tileId_, meshesInSds_);
+            own_.emplace(*nodeInfo_, margin_, tileId_, meshesInSds_
+                         , geoTrafo_);
             convertor_ = &*own_;
         }
         return *convertor_;
@@ -161,14 +166,23 @@ public:
 
     const SdMeshConvertor& operator()() const { return *this; }
 
+    /** Computes geometric extents from vertices in coverage space.
+     */
+    GeomExtents geomExtents(const math::Points3 &coverageVertices) const;
+
 private:
     const NodeInfo *nodeInfo_ = nullptr;
     const int margin_ = 0;
     const TileId tileId_;
     const bool meshesInSds_ = false;
 
+    /** Cached trafo for geomextens
+     */
+    mutable boost::optional<math::Matrix4> geoTrafo_;
+
+
     mutable boost::optional<SdMeshConvertor> own_;
-    mutable const SdMeshConvertor* convertor_;
+    mutable const SdMeshConvertor *convertor_;
 };
 
 // inlines
@@ -180,11 +194,11 @@ inline math::Extents2 coverageExtents(int margin)
                           , grid.height + 2.0 * margin);
 }
 
-inline SdMeshConvertor::SdMeshConvertor(const NodeInfo &nodeInfo
-                                        , int margin
-                                        , const TileId &tileId
-                                        , bool meshesInSds)
-    : geoTrafo_(Input::coverage2Sd(nodeInfo, margin))
+inline SdMeshConvertor
+::SdMeshConvertor(const NodeInfo &nodeInfo, int margin
+                  , const TileId &tileId, bool meshesInSds
+                  , const boost::optional<math::Matrix4> &geoTrafo)
+    : geoTrafo_(geoTrafo ? *geoTrafo : Input::coverage2Sd(nodeInfo, margin))
     , geoConv_(meshesInSds
                ? CsConvertor()
                : CsConvertor(nodeInfo.srs()
@@ -210,6 +224,24 @@ inline math::Point2d SdMeshConvertor::etc(const math::Point2d &v) const
 {
     // point is in the input's texture coordinates system
     return transform(etcNCTrafo_, v);
+}
+
+inline GeomExtents
+SdMeshConvertor::geomExtents(const math::Points3 &coverageVertices) const
+{
+    return vts::geomExtents(geoTrafo_, coverageVertices);
+}
+
+inline GeomExtents
+SdMeshConvertor::Lazy::geomExtents(const math::Points3 &coverageVertices) const
+{
+    if (convertor_) { return convertor_->geomExtents(coverageVertices); }
+
+    if (!geoTrafo_) {
+        geoTrafo_ = Input::coverage2Sd(*nodeInfo_, margin_);
+    }
+
+    return vts::geomExtents(*geoTrafo_, coverageVertices);
 }
 
 } } } // namespace vtslibs::vts::merge

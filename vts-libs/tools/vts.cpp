@@ -2279,7 +2279,9 @@ int VtsStorage::dumpMetatile()
 
         std::cout << "    SDS srs: " << nodeInfo.srs() << '\n';
         std::cout << "    SDS extents: " << nodeInfo.extents() << '\n';
+#ifdef VTSLIBS_META_READ_PRE_V5_EXTENTS
         std::cout << "    extents: " << node.extents << '\n';
+#endif
         std::cout << "    geomExtents: " << node.geomExtents << '\n';
         if (const auto itc = node.internalTextureCount()) {
             std::cout
@@ -2364,7 +2366,9 @@ int VtsStorage::dumpMetatileFile()
 
         std::cout << "    SDS srs: " << nodeInfo.srs() << '\n';
         std::cout << "    SDS extents: " << nodeInfo.extents() << '\n';
+#ifdef VTSLIBS_META_READ_PRE_V5_EXTENTS
         std::cout << "    extents: " << node.extents << '\n';
+#endif
         std::cout << "    geomExtents: " << node.geomExtents << '\n';
         if (const auto itc = node.internalTextureCount()) {
             std::cout
@@ -2501,7 +2505,9 @@ int VtsStorage::tileInfo()
     std::cout << "Meta node:" << '\n';
     std::cout << "    flags: " << vts::MetaFlags(node.flags())
               << '\n';
-    std::cout << "    extents: " << node.extents << '\n';
+#ifdef VTSLIBS_META_READ_PRE_V5_EXTENTS
+        std::cout << "    extents: " << node.extents << '\n';
+#endif
     std::cout << "    geomExtents: " << node.geomExtents << '\n';
     if (const auto itc = node.internalTextureCount()) {
         std::cout

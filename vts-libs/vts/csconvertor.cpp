@@ -23,7 +23,14 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
+#include "dbglog/dbglog.hpp"
+
 #include "csconvertor.hpp"
+
+#ifdef GEO_HAS_GDAL
+#  include <ogr_spatialref.h>
+#endif
 
 namespace vtslibs { namespace vts {
 
@@ -69,6 +76,33 @@ CsConvertor::CsConvertor(const std::string &srsIdFrom
 {
     init(reg.srs(srsIdFrom), srsTo);
 }
+
+CsConvertor::CsConvertor(const IdOrDef &from, const IdOrDef &to
+                         , const registry::Registry &reg)
+{
+    const auto *fromSrs(reg.srs(from.value, std::nothrow));
+    const auto *toSrs(reg.srs(to.value, std::nothrow));
+
+    if (!fromSrs && !toSrs) {
+        // at least one operand must be of VTS SRS.
+        LOGTHROW(err2, std::logic_error)
+            << "vts::CsConvertor operates at least on one VTS SRS.";
+    }
+
+    if (fromSrs && toSrs) {
+        // both are VTS SRS
+        init(fromSrs, toSrs);
+        return;
+    }
+
+    if (fromSrs) {
+        init(*fromSrs , geo::SrsDefinition::fromString(to.value).reference());
+        return;
+    }
+
+    init(geo::SrsDefinition::fromString(from.value).reference(), *toSrs);
+}
+
 #endif // GEO_HAS_GDAL
 
 CsConvertor::CsConvertor(const boost::optional<geo::CsConvertor> &conv

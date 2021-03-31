@@ -182,7 +182,8 @@ public:
 
     MetaTile::pointer loadMetaTileFor(const TileId &tileId) const;
 
-    void updateNode(TileId tileId, const MetaNode &metanode
+    void updateNode(TileId tileId, const NodeInfo &ni
+                    , const MetaNode &metanode
                     , TileIndex::Flag::value_type extraFlags = 0);
 
     bool exists(const TileId &tileId) const;
@@ -246,6 +247,8 @@ private:
                           , const MetaNode &oldMetanode);
     void updateProperties(const NodeInfo &nodeInfo);
     void updateProperties(const Mesh &mesh);
+
+    void propagateTexelSize();
 };
 
 inline void TileSet::Detail::checkValidity() const {

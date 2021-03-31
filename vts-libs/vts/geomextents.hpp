@@ -31,6 +31,7 @@
 #include <boost/variant.hpp>
 
 #include "math/geometry_core.hpp"
+#include "math/transform.hpp"
 
 #include "half/half.hpp"
 
@@ -41,7 +42,8 @@ typedef half_float::half hfloat;
 namespace vtslibs { namespace vts {
 
 struct GeomExtents {
-    typedef storage::Range<float> ZRange;
+    using ZRange = storage::Range<float>;
+    using Extents = math::Extents2_<float>;
 
     /** (SDS) height range.
      */
@@ -51,12 +53,18 @@ struct GeomExtents {
      */
     float surrogate;
 
+    /** Horizontal extents. Might be invalid if dealing with older datasets.
+     */
+    Extents extents;
+
     GeomExtents()
         : z(ZRange::emptyRange()), surrogate(invalidSurrogate)
+        , extents(math::InvalidExtents{})
     {}
 
     GeomExtents(float min, float max, float surrogate)
         : z(min, max), surrogate(surrogate)
+        , extents(math::InvalidExtents{})
     {}
 
     /** Compute surrogate as average from height range.
@@ -75,14 +83,47 @@ struct GeomExtents {
     bool validSurrogate() const { return validSurrogate(surrogate); }
 };
 
+/** Invalid vertical extent.
+ */
 inline bool empty(const GeomExtents &ge) { return ge.z.empty(); }
+
+/** Extents are incomplete (either invalid vertical extent
+ *  or horizonal extents)
+ */
+inline bool incomplete(const GeomExtents &ge) {
+    return ge.z.empty() || !math::valid(ge.extents);
+}
+
+inline bool complete(const GeomExtents &ge) {
+    return !incomplete(ge);
+}
 
 inline void update(GeomExtents &ge, float value) {
     update(ge.z, value);
 }
 
+template <typename T>
+inline void update(GeomExtents &ge, const math::Point3_<T> &p) {
+    update(ge.z, float(p(2)));
+    math::update(ge.extents, float(p(0)), float(p(1)));
+}
+
 inline void update(GeomExtents &ge, const GeomExtents &update) {
     ge.z = unite(ge.z, update.z);
+    math::update(ge.extents, update.extents);
+}
+
+inline void update(GeomExtents &ge, const GeomExtents::Extents &update) {
+    math::update(ge.extents, update);
+}
+
+template <typename T>
+inline GeomExtents geomExtents(const math::Matrix4 &trafo
+                               , const std::vector<math::Point3_<T>> &vs)
+{
+    GeomExtents ge;
+    for (const auto &v : vs) { update(ge, math::transform(trafo, v)); }
+    return ge;
 }
 
 } } // namespace vtslibs::vts

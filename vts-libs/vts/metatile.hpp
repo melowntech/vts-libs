@@ -34,6 +34,7 @@
 #include <limits>
 
 #include <boost/optional.hpp>
+#include <boost/logic/tribool.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include "math/geometry_core.hpp"
@@ -127,7 +128,12 @@ struct MetaNode {
 
     void reset(Flag::value_type flags) { flags_ &= ~flags; }
 
+#ifdef VTSLIBS_META_READ_PRE_V5_EXTENTS
+    /** Old, world-axis-aligned extents are read and available only on request
+     */
     math::Extents3 extents;
+#endif
+
     GeomExtents geomExtents;
 
     float texelSize;
@@ -175,9 +181,29 @@ struct MetaNode {
      */
     void mergeChildFlags(Flag::value_type cf);
 
-    MetaNode& mergeExtents(const MetaNode &other);
-    MetaNode& mergeExtents(const math::Extents3 &other);
-    MetaNode& mergeExtents(const GeomExtents &other);
+    /** Merges geom extents.
+     *
+     * The `onlyVertical` parameter says whether to merge only vertical
+     * component of geom extents:
+     *
+     *     false: both vertical and horizontal extents components
+     *            are always merged
+     *     true: only vertical extentx component is merge
+     *     indeterminate: invalid horizontal extents in other cause
+     *                    are not merged in and lock output geom extents
+     *                    with "0,0:0,0" value to prevent any other update
+     *
+     * \param geomExtents updated geom extents
+     * \param other update
+     * \param onlyVertical only vertical part of geom extents is merge if true
+     */
+    static void mergeExtents(GeomExtents &geomExtents, const GeomExtents &other
+                             , boost::tribool onlyVertical = false);
+
+    MetaNode& mergeExtents(const MetaNode &other
+                           , boost::tribool onlyVertical = false);
+    MetaNode& mergeExtents(const GeomExtents &other
+                           , boost::tribool onlyVertical = false);
 
     unsigned int internalTextureCount() const { return internalTextureCount_; }
     void internalTextureCount(unsigned int value) {
@@ -287,25 +313,6 @@ public:
     template <typename F> void for_each(F f);
 
     typedef std::vector<int> Indices;
-
-    /** Updates this metatile with data from input metatiles while resolving
-     *  references.
-     *
-     *  Existing real nodes are not touched except updating geometry extents
-     *  from virtual nodes.
-     *
-     *  NB: child flags are not copied, it is up to the user to obtain values
-     *  from another source.
-     *
-     *  Flag alien:
-     *     false: take only non-alien nodes into account
-     *     true: take only alien nodes into account
-     *
-     * \param in input metatile
-     * \param alien marks processing of regular or alien nodes
-     */
-    void update(const MetaTile &in, bool alien = false);
-
 
     /** Sets expected reference in metanode at tileId.
      */

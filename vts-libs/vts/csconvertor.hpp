@@ -82,6 +82,21 @@ public:
     CsConvertor(const std::string &srsIdFrom
                 , const ::OGRSpatialReference &srsTo
                 , const registry::Registry &reg = registry::system);
+
+    /** SRS string ID or SRS definition string.
+     */
+    struct IdOrDef {
+        std::string value;
+    };
+
+    /** Universal interface. Try VTS SRS ID first first and resort to SRS
+     *  definition if not found.
+     *
+     * At least one operand must be VTS SRS ID.
+     */
+    CsConvertor(const IdOrDef &from, const IdOrDef &to
+                , const registry::Registry &reg = registry::system);
+
 #endif // GEO_HAS_GDAL
 
     /** Combined convertor, never results in no-op convertor.

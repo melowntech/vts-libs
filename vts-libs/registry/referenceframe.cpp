@@ -1012,11 +1012,30 @@ void build(Json::Value &content, const BoundLayer::dict &bls
     }
 }
 
+void parse(Body::SrsDesc &s, const Json::Value &content)
+{
+    Json::get(s.geocentric, content, "geocentric");
+    Json::get(s.geographic, content, "geographic");
+
+    if (content.isMember("flags")) {
+        for (const auto &flag
+                 : Json::check(content["flags"], Json::arrayValue))
+        {
+            s.flags.insert(Json::as<std::string>(flag, "body.srs.flag"));
+        }
+    }
+}
+
 void parse(Body &b, const Json::Value &content)
 {
     b.json = content;
     Json::get(b.parent, content, "parent");
     Json::get(b.defaultGeoidGrid, content, "defaultGeoidGrid");
+
+    if (content.isMember("srs")) {
+        b.srs.emplace();
+        parse(*b.srs, content["srs"]);
+    }
 }
 
 void parse(Body::dict &bodies, const Json::Value &content)
@@ -1396,24 +1415,6 @@ std::set<std::string> ReferenceFrame::Division::srsList() const
         }
     }
     return list;
-}
-
-math::Extents2 ReferenceFrame::rootExtents() const
-{
-    return division.find({}).extents;
-}
-
-math::Size2f ReferenceFrame::tileSize(Lod lod) const
-{
-    auto ts(size(rootExtents()));
-    ts.width /= (1 << lod);
-    ts.height /= (1 << lod);
-    return ts;
-}
-
-std::string ReferenceFrame::rootSrs() const
-{
-    return division.find({}).srs;
 }
 
 Json::Value asJson(const ReferenceFrame &rf)

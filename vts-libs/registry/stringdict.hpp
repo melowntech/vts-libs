@@ -84,6 +84,11 @@ public:
     void replace(const std::string &id, const T &value);
     const T* get(const std::string &id, std::nothrow_t) const;
     const T& get(const std::string &id) const;
+
+    /** Same as above but performs the get only when id is not none.
+     */
+    const T* get(const boost::optional<std::string> &id) const;
+    const T* get(const boost::optional<std::string> &id, std::nothrow_t) const;
     bool has(const std::string &id) const;
 
     template <typename U>
@@ -169,6 +174,22 @@ const T& StringDictionary<T>::get(const std::string &id) const
             << "<" << id << "> is not known " << T::typeName << ".";
     }
     return *value;
+}
+
+template <typename T>
+const T* StringDictionary<T>::get(const boost::optional<std::string> &id) const
+{
+    if (!id) { return nullptr; }
+    return &get(*id);
+}
+
+template <typename T>
+const T* StringDictionary<T>::get(const boost::optional<std::string> &id
+                                  , std::nothrow_t)
+    const
+{
+    if (!id) { return nullptr; }
+    return get(*id, std::nothrow);
 }
 
 template <typename T>

@@ -8,7 +8,7 @@
 # major dependency is OpenCV
 
 # bump version here
-set(vts-libs_VERSION 2.17)
+set(vts-libs_VERSION 2.18)
 
 # settable path to VTS registry
 set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
@@ -257,7 +257,7 @@ if(NOT VTSLIBS_BROWSER_ONLY)
     )
 endif()
 
-
+set(vts-core_EXTRA_DEFINITIONS)
 
 set(vts-core_EXTRA_DEPENDS)
 
@@ -326,6 +326,11 @@ if(NOT VTSLIBS_BROWSER_ONLY)
     )
 endif()
 
+if(VTSLIBS_META_READ_PRE_V5_EXTENTS)
+  list(APPEND vts-core_EXTRA_DEFINITIONS
+    VTSLIBS_META_READ_PRE_V5_EXTENTS=1)
+endif()
+
 # vts core library
 define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
   DEPENDS
@@ -336,6 +341,9 @@ define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
 
   ${vts-registry_python_DEPENDS}
   ${vts-core_EXTRA_DEPENDS}
+
+  DEFINITIONS
+  ${vts-core_EXTRA_DEFINITIONS}
   )
 
 add_library(vts-libs-core STATIC

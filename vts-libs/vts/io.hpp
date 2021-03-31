@@ -66,7 +66,12 @@ inline std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits> &os
            , const GeomExtents &ge)
 {
-    return os << ge.z << " (surrogate:" << ge.surrogate << ')';
+    os << ge.z << " (surrogate:" << ge.surrogate << ')';
+    if (math::valid(ge.extents)) {
+        os << std::fixed << "; horizontal: " << ge.extents;
+    }
+
+    return os;
 }
 
 template<typename CharT, typename Traits>

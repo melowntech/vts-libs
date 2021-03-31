@@ -117,22 +117,26 @@ Input::list mergeSource(const Input::list &currentSource
 struct IntermediateOutput {
     std::reference_wrapper<const Input> input;
     EnhancedSubMesh mesh;
+    GeomExtents geomExtents;
     int submeshIndex;
     double uvAreaScale;
 
     typedef std::vector<IntermediateOutput> list;
 
     IntermediateOutput(const Input &input, EnhancedSubMesh mesh
+                       , const GeomExtents &geomExtents
                        , int submeshIndex, double uvAreaScale)
-        : input(input), mesh(std::move(mesh)), submeshIndex(submeshIndex)
-        , uvAreaScale(uvAreaScale)
+        : input(input), mesh(std::move(mesh))
+        , geomExtents(geomExtents)
+        , submeshIndex(submeshIndex), uvAreaScale(uvAreaScale)
     {}
 
     IntermediateOutput(const Input &input, SubMesh sm, math::Points3 projected
+                       , const GeomExtents &geomExtents
                        , int submeshIndex, double uvAreaScale)
         : input(input), mesh(std::move(sm), std::move(projected))
-        , submeshIndex(submeshIndex)
-        , uvAreaScale(uvAreaScale)
+        , geomExtents(geomExtents)
+        , submeshIndex(submeshIndex), uvAreaScale(uvAreaScale)
     {}
 };
 
@@ -225,9 +229,11 @@ MeshFilter::MeshFilter(const SubMesh &original, int submeshIndex
 void MeshFilter::addTo(IntermediateOutput::list &out) {
     if (keep_) {
         out.emplace_back(input_, original_, originalCoverage_
+                         , sdmc_.geomExtents(originalCoverage_)
                          , submeshIndex_, (1 << (2 * diff_.lod)));
     } else {
         out.emplace_back(input_, mesh_, coverageVertices_
+                         , sdmc_.geomExtents(originalCoverage_)
                          , submeshIndex_, (1 << (2 * diff_.lod)));
     }
 }
@@ -564,6 +570,7 @@ void MeshFilter::simpleClip(Coverage &coverage)
 void addInputToOutput(const MergeOptions &options
                       , Output &out, const Input &input
                       , SubMesh mesh, const math::Points3 &projected
+                      , const GeomExtents &ge
                       , int submeshIndex, double uvAreaScale)
 {
     // add atlas if present
@@ -576,7 +583,7 @@ void addInputToOutput(const MergeOptions &options
     auto &added(outMesh.add(mesh));
 
     // update geomExtents
-    update(out.geomExtents, geomExtents(projected));
+    update(out.geomExtents, ge);
 
     // set UV area scale
     added.uvAreaScale = uvAreaScale;
@@ -634,13 +641,13 @@ void addInputToOutput(const MergeOptions &options
     }
 }
 
-void toOutput(const MergeOptions &options, Output &out
-              , const IntermediateOutput::list &imo)
+void toOutput(const MergeOptions &options
+              , Output &out, const IntermediateOutput::list &imo)
 {
     for (const auto &io : imo) {
         addInputToOutput(options, out, io.input, io.mesh.mesh
-                         , io.mesh.projected, io.submeshIndex
-                         , io.uvAreaScale);
+                         , io.mesh.projected, io.geomExtents
+                         , io.submeshIndex, io.uvAreaScale);
     }
 }
 
@@ -818,7 +825,9 @@ Output singleSourced(const TileId &tileId, const NodeInfo &nodeInfo
 
         if (clipped) {
             addInputToOutput(options, result, input, clipped.mesh
-                             , clipped.projected, smIndex
+                             , clipped.projected
+                             , sdmc.geomExtents(clipped.projected)
+                             , smIndex
                              , (1 << (2 * localId.lod)));
         }
 
