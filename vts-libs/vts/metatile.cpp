@@ -291,7 +291,9 @@ inline void writeVariable(std::ostream &out, MetaNode::BackingType type
     }
 }
 
+namespace {
 const GeomExtents::Extents zeroExtents;
+} // namespace
 
 const GeomExtents::Extents& toSerialized(const GeomExtents::Extents &e)
 {
@@ -720,32 +722,59 @@ void MetaNode::mergeChildFlags(Flag::value_type cf)
     flags_ |= (cf & Flag::allChildren);
 }
 
-MetaNode& MetaNode::mergeExtents(const MetaNode &other, bool onlyVertical)
+MetaNode& MetaNode::mergeExtents(const MetaNode &other
+                                 , boost::tribool onlyVertical)
 {
     return mergeExtents(other.geomExtents, onlyVertical);
 }
 
-MetaNode& MetaNode::mergeExtents(const GeomExtents &other, bool onlyVertical)
+void MetaNode::mergeExtents(GeomExtents &geomExtents
+                            , const GeomExtents &other
+                            , boost::tribool onlyVertical)
 {
-    if (!onlyVertical) {
+    const bool otherValid(math::valid(other.extents));
+
+    if (boost::indeterminate(onlyVertical)) {
+         // conditional horizontal extent merge
+         if (geomExtents.extents == zeroExtents) {
+             // locked; disable horizontal extents merge
+             onlyVertical = true;
+         } else if (!otherValid) {
+             // invalid extents cannot be merged in; lock these extents and
+             // disable
+             geomExtents.extents = zeroExtents;
+             onlyVertical = true;
+         } else {
+             // no special case, allow horizontal merge
+             onlyVertical = false;
+         }
+    }
+
+    if (!onlyVertical && otherValid) {
         math::update(geomExtents.extents, other.extents);
     }
 
     // TODO: use something saner
-
     if (other.z.min == other.z.max) {
         // nothing to do
-        return *this;
+        return;
     }
 
     if (geomExtents.z.min == geomExtents.z.max) {
         // use other's extents
         geomExtents.z = other.z;
-        return *this;
+        return;
     }
 
     // merge
     geomExtents.z = unite(geomExtents.z, other.z);
+    return;
+}
+
+MetaNode& MetaNode::mergeExtents(const GeomExtents &other
+                                 , boost::tribool onlyVertical)
+{
+    mergeExtents(geomExtents, other, onlyVertical);
     return *this;
 }
 
@@ -755,47 +784,6 @@ MetaTile::extents_type MetaTile::validExtents() const
                         , origin_.y + valid_.ll(1)
                         , origin_.x + valid_.ur(0)
                         , origin_.y + valid_.ur(1));
-}
-
-void MetaTile::update(const MetaTile &in, bool alien)
-{
-    // sanity check
-    if ((origin_ != in.origin_) || (binaryOrder_ != in.binaryOrder_)) {
-        LOGTHROW(err1, storage::Error)
-            << "Incompatible metatiles.";
-    }
-
-    for (auto j(in.valid_.ll(1)); j <= in.valid_.ur(1); ++j) {
-        for (auto i(in.valid_.ll(0)); i <= in.valid_.ur(0); ++i) {
-            // first, skip real output tiles
-            auto idx(j * in.size_ + i);
-            auto &outn(grid_[idx]);
-
-            // valid output -> nothing to do
-            if (outn.real()) { continue; }
-
-            // get input
-            const auto &inn(in.grid_[idx]);
-
-            // update valid extents
-            math::update(valid_, point_type(i, j));
-
-            if (inn.real(alien)) {
-                // found new real/alien tile, copy node
-                outn = inn;
-                // reset children flags
-                outn.childFlags(MetaNode::Flag::none);
-
-                // reset alien flag
-                outn.alien(false);
-                continue;
-            }
-
-            // both are virtual nodes:
-            // update extents
-            outn.mergeExtents(inn);
-        }
-    }
 }
 
 void MetaTile::expectReference(const TileId &tileId
@@ -832,7 +820,7 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
                 // we already have valid output
 
                 // just update geometry extents
-                outn.mergeExtents(inn);
+                outn.mergeExtents(inn, boost::indeterminate);
                 // and update child flags
                 outn.mergeChildFlags(inn.flags());
                 continue;
@@ -843,7 +831,7 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
 
             if (sourceReference != outn.sourceReference) {
                 // differente reference, just update geometry extents
-                outn.mergeExtents(inn);
+                outn.mergeExtents(inn, boost::indeterminate);
                 // and update child flags
                 outn.mergeChildFlags(inn.flags());
                 continue;
@@ -851,22 +839,26 @@ void MetaTile::update(MetaNode::SourceReference sourceReference
 
             // found matching node, copy
 
-            // we need to keep current geometry extents and child flags since
-            // they are rewritten by node copy
-            const auto savedGeomExtents(outn.geomExtents);
+            // keep child flags since they are rewritten by node copy
             const auto flags(outn.flags());
 
-            // copy
+            // merge geom extents beforehand because its rewritten by node copy
+            auto geomExtents(outn.geomExtents);
+            MetaNode::mergeExtents(geomExtents, inn.geomExtents
+                                   , boost::indeterminate);
+
+            // copy input node to output node
             outn = inn;
 
             // store reference so it is serialized
             outn.sourceReference = sourceReference;
 
             // and apply saved geometry extents
-            outn.mergeExtents(savedGeomExtents);
+            outn.geomExtents = geomExtents;
 
             // reset alien flags
             outn.reset(MetaNode::Flag::alien);
+
             // and merge-in child flags
             outn.mergeChildFlags(flags);
         }
