@@ -348,6 +348,7 @@ void Encoder::Detail::process(const TileId &tileId
                 << (nodeInfo.partial() ? ", partial" : "")
                 << ") [influenced].";
 
+            UTILITY_OMP(critical)
             tileSet.markInfluencedTile(tileId);
         } break;
 
