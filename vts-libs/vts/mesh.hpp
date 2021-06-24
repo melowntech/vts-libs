@@ -558,7 +558,7 @@ inline void SubMesh::cloneMetadataInto(SubMesh &dst) const
     dst.textureLayer = textureLayer;
     dst.uvAreaScale = uvAreaScale;
     dst.surfaceReference = surfaceReference;
-    dst.zIndex = dst.zIndex;
+    dst.zIndex = zIndex;
 }
 
 UTILITY_GENERATE_ENUM_IO(SubMesh::TextureMode,

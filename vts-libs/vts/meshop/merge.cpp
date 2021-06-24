@@ -1303,6 +1303,8 @@ std::size_t MeshBuilder::run(Mesh &mesh)
 
 bool MeshBuilder::run(SubMesh &dst)
 {
+    src_.cloneMetadataInto(dst);
+
     for (; (ifaces_ != efaces_) && check(dst); ++ifaces_, ++ifacesTc_) {
         addFace(dst, *ifaces_, *ifacesTc_);
     }
