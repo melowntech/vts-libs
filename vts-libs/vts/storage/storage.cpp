@@ -650,11 +650,21 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
     // set of tilesets with glues
     TilesetIdSet glueable;
 
-    const auto tilesetUrl([&](const StoredTileset &tileset) -> SurfaceRoot
+    /** Generates tileset URL, either plain URL or per-proxy URL generator
+     *
+     * \param tileset stored tileset in the storage
+     * \param dflt different default path provided by tileset
+     *        (e.g. for remote tileset); valid only when non-empty
+     * \return generatedsurface root
+     */
+    const auto tilesetUrl([&](const StoredTileset &tileset
+                              , const fs::path &dflt) -> SurfaceRoot
     {
         // synthetic default URL
         const auto defaultPath
-            (prefix / storage_paths::tilesetRoot() / tileset.tilesetId);
+            (dflt.empty()
+             ? (prefix / storage_paths::tilesetRoot() / tileset.tilesetId)
+             : dflt);
 
         // no per-url configuration, return default
         if (tileset.proxy2ExternalUrl.empty()) { return defaultPath; }
@@ -706,20 +716,33 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
 
         // handle tileset as a free layers
         if (fl) {
-            // tileset path as a root
-            mapConfig.addMeshTilesConfig
+
+            // let tileset generate its mesh tiles config
+            auto mtc
                 (TileSet::meshTilesConfig
-                 (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-                 , tilesetUrl(tileset), tilesetRename);
+                 (storage_paths::tilesetPath(root, tileset.tilesetId), false));
+
+            // swap root using the defaultly generated one as a default
+            mtc.surface.root = tilesetUrl(tileset, mtc.surface.root());
+            mapConfig.addMeshTilesConfig(mtc, {}, tilesetRename);
         }
 
         // handle tileset as a surface
         if (surface) {
             glueable.insert(tileset.tilesetId);
-            mapConfig.mergeTileSet
+
+            // let tileset generate its map config
+            auto mc
                 (TileSet::mapConfig
-                 (storage_paths::tilesetPath(root, tileset.tilesetId), false)
-                 , tilesetUrl(tileset), tilesetRename);
+                 (storage_paths::tilesetPath(root, tileset.tilesetId), false));
+
+            // swap root using the defaultly generated one as a default
+            {
+                auto &surface(mc.surfaces.front());
+                surface.root = tilesetUrl(tileset, surface.root());
+            }
+
+            mapConfig.mergeTileSet(mc, {}, tilesetRename);
         }
     }
 
