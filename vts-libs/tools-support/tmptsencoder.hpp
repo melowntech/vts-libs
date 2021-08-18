@@ -73,9 +73,12 @@ public:
                  , CreateMode mode
                  , const Config &config
                  , ExternalProgress::Config &&epConfig
-                 , const ExternalProgress::Weights &weights);
+                 , const ExternalProgress::Weights &weights
+                 , const Encoder::Options &options = {});
 
     ~TmpTsEncoder();
+
+    unsigned int ensureRevision(unsigned int revision);
 
     void run(bool parallel = true);
 

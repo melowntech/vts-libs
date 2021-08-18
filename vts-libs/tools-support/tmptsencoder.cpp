@@ -65,8 +65,9 @@ TmpTsEncoder::TmpTsEncoder(const boost::filesystem::path &path
                            , CreateMode mode
                            , const Config &config
                            , ExternalProgress::Config &&epConfig
-                           , const ExternalProgress::Weights &weights)
-    : Encoder(path, properties, mode)
+                           , const ExternalProgress::Weights &weights
+                           , const Encoder::Options &options)
+    : Encoder(path, properties, mode, options)
     , config_(config)
     , progress_(std::move(epConfig), weights)
     , tmpset_(path / "tmp", !config_.resume)

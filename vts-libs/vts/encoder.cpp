@@ -142,6 +142,12 @@ struct Encoder::Detail {
         // let the caller finish the tileset
         owner->finish(tileSet);
 
+        if (auto revision = options.ensureRevision()) {
+            LOG(info3) << "VTS Encoder: ensuring minimal revision "
+                       << revision << ".";
+            tileSet.ensureRevision(revision);
+        }
+
         // flush result
         if (options.flush()) {
             LOG(info3) << "VTS Encoder: Flushing.";

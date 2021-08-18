@@ -53,11 +53,17 @@ public:
         dbglog::level level() const { return level_; };
         Options& level(dbglog::level value) { level_ = value; return *this; };
 
-        Options() : flush_(true), level_(dbglog::info3) {}
+        unsigned int ensureRevision() const { return ensureRevision_; }
+        Options& ensureRevision(unsigned int value) {
+            ensureRevision_ = value; return *this;
+        };
+
+        Options() : flush_(true), level_(dbglog::info3), ensureRevision_(0) {}
 
     private:
         bool flush_;
         dbglog::level level_;
+        unsigned int ensureRevision_;
     };
 
     /** Creates encoder for new tileset.
@@ -193,6 +199,8 @@ public:
 
         boost::any userData_;
     };
+
+    unsigned int ensureRevision(unsigned int revision);
 
 protected:
     TileSetProperties properties() const;
