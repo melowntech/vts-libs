@@ -25,6 +25,8 @@
  */
 #include <algorithm>
 
+#include <boost/thread/tss.hpp>
+
 #include "dbglog/dbglog.hpp"
 
 #include "nodeinfo.hpp"
@@ -265,20 +267,51 @@ NodeInfo NodeInfo::child(const TileId &childId) const
 class RFTreeSubtree::Sampler : boost::noncopyable {
 public:
     Sampler(const RFNode &root, const registry::Registry &reg)
-        : conv_(root.srs, root.constraints->extentsSrs, reg)
-        , extents_(root.constraints->extents)
+        : root_(root), reg_(reg), extents_(root.constraints->extents)
     {}
 
+    class ThreadLocal {
+    public:
+        ThreadLocal(const CsConvertor &conv
+                    , const math::Extents2 &extents)
+            : conv_(conv), extents_(extents)
+        {}
+
+        math::Point2 sample(const math::Point2 &p) const {
+            return conv_(p);
+        }
+
+        bool inside(const math::Point2 &p) const {
+            return math::inside(extents_, sample(p));
+        }
+
+    private:
+        const CsConvertor &conv_;
+        const math::Extents2 &extents_;
+    };
+
     math::Point2 sample(const math::Point2 &p) const {
-        return conv_(p);
+        return conv()(p);
     }
 
     bool inside(const math::Point2 &p) const {
         return math::inside(extents_, sample(p));
     }
 
+    ThreadLocal get() const { return ThreadLocal(conv(), extents_); };
+
 private:
-    CsConvertor conv_;
+    const CsConvertor& conv() const {
+        if (!conv_.get()) {
+            conv_.reset(new CsConvertor
+                        (root_.srs, root_.constraints->extentsSrs, reg_));
+        }
+        return *conv_;
+    }
+
+    const RFNode &root_;
+    const registry::Registry &reg_;
+    mutable boost::thread_specific_ptr<CsConvertor> conv_;
     math::Extents2 extents_;
 };
 
@@ -312,7 +345,7 @@ boost::tribool RFTreeSubtree::valid(const RFNode &node) const
 
     class Checker {
     public:
-        Checker(const Sampler &sampler)
+        Checker(const Sampler::ThreadLocal &sampler)
             : sampler_(sampler), inside_(false), outside_(false)
         {}
 
@@ -337,12 +370,12 @@ boost::tribool RFTreeSubtree::valid(const RFNode &node) const
         }
 
     private:
-        const Sampler &sampler_;
+        Sampler::ThreadLocal sampler_;
         bool inside_;
         bool outside_;
     };
 
-    Checker check(*sampler_);
+    Checker check(sampler_->get());
 
     // check tile corners first
     if (check(ll(node.extents)) || check(ur(node.extents))
