@@ -55,6 +55,8 @@ public:
 
         boost::optional<TileId> debug_tileId;
 
+        int tweak_binaryOrder = -1;
+
         Config()
             : textureQuality(85), dtmExtractionRadius(40.0)
             , forceWatertight(false), resume(false), keepTmpset(false)

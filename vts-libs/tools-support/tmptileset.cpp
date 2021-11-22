@@ -277,8 +277,8 @@ public:
     typedef std::shared_ptr<Slice> pointer;
     struct OpenTag {};
 
-    Slice(const fs::path &root)
-        : driver_(Driver::create(root, driver::PlainOptions(5), {}))
+    Slice(const fs::path &root, std::uint8_t binaryOrder)
+        : driver_(Driver::create(root, driver::PlainOptions(binaryOrder), {}))
     {}
 
     Slice(const fs::path &root, const OpenTag&)
@@ -363,8 +363,11 @@ void TmpTileset::Slice::saveAtlas(const TileId &tileId, const Atlas &atlas)
 }
 
 TmpTileset::TmpTileset(const boost::filesystem::path &root
-                       , bool create)
+                       , bool create, int binaryOrder)
     : root_(root), keep_(false)
+    , binaryOrder_((binaryOrder < 0)
+                   ? driver::PlainOptions::defaultBinaryOrder
+                   : binaryOrder)
 {
     if (create) {
         // make room for tilesets
@@ -424,7 +427,7 @@ void TmpTileset::store(const TileId &tileId, const Mesh &mesh
         // path
         auto path(root_ / boost::lexical_cast<std::string>(slices_.size()));
         LOG(info3) << "Creating temporary tileset at " << path << ".";
-        slices_.push_back(std::make_shared<Slice>(path));
+        slices_.push_back(std::make_shared<Slice>(path, binaryOrder_));
         auto &slice(slices_.back());
         slice->setTile(tileId, extraFlags);
         return slice;

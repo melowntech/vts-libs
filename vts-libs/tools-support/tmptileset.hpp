@@ -48,7 +48,7 @@ namespace vtslibs { namespace vts { namespace tools {
 class TmpTileset : boost::noncopyable {
 public:
     TmpTileset(const boost::filesystem::path &root
-               , bool create = true);
+               , bool create = true, int binaryOrder = -1);
     ~TmpTileset();
 
     /** Keep tmp tileset when destructor kicks in if true.
@@ -97,6 +97,7 @@ private:
 
     boost::filesystem::path root_;
     bool keep_;
+    std::uint8_t binaryOrder_ = 0;
 
     mutable std::mutex mutex_;
     std::vector<std::shared_ptr<Slice>> slices_;

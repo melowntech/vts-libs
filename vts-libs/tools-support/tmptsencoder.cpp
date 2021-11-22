@@ -70,7 +70,7 @@ TmpTsEncoder::TmpTsEncoder(const boost::filesystem::path &path
     : Encoder(path, properties, mode, options)
     , config_(config)
     , progress_(std::move(epConfig), weights)
-    , tmpset_(path / "tmp", !config_.resume)
+    , tmpset_(path / "tmp", !config_.resume, config_.tweak_binaryOrder)
     , ntg_(&referenceFrame()
            , optionalPath(config_.resume, tmpset_.root() / "navtile.info"))
 {
@@ -464,6 +464,10 @@ void TmpTsEncoder::Config::configuration(po::options_description &config)
         ("debug.tileId", po::value<TileId>()
          , "Limits output to tiles in the path to "
          "given tileId (optional, for debug purposes).")
+
+        ("tweak.binaryOrder", po::value<int>()
+         , "Sets size of underlying archive file in tiles to: "
+         "2^(2*binaryOrder).")
         ;
 }
 
@@ -482,6 +486,15 @@ void TmpTsEncoder::Config::configure(const po::variables_map &vars)
 
     if (vars.count("debug.tileId")) {
         debug_tileId = vars["debug.tileId"].as<TileId>();
+    }
+
+    if (vars.count("tweak.binaryOrder")) {
+        tweak_binaryOrder = vars["tweak.binaryOrder"].as<int>();
+        if ((tweak_binaryOrder < 0) || (tweak_binaryOrder > 10)) {
+            throw po::validation_error
+                (po::validation_error::invalid_option_value
+                 , "tweak.binaryOrder");
+        }
     }
 }
 

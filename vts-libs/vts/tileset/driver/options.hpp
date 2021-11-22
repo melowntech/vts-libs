@@ -53,6 +53,8 @@ using storage::Tilar;
 
 class PlainOptions {
 public:
+    constexpr const static std::uint8_t defaultBinaryOrder = 5;
+
     PlainOptions()
         : binaryOrder_(0), tileMask_(0)
         , metaUnusedBits_(0)
