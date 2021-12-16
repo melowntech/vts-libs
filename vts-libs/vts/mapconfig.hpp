@@ -170,6 +170,7 @@ struct MeshTilesConfig {
 
     SurfaceConfig surface;
     registry::Credit::dict credits;
+    boost::any options;
 
     static const char *contentType;
 

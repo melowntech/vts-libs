@@ -718,6 +718,8 @@ registry::FreeLayer freeLayer(const MeshTilesConfig &config
 
     auto &def(fl.createDefinition<registry::FreeLayer::MeshTiles>());
 
+    def.options = config.options;
+
     const auto &surface(config.surface);
     def.lodRange = surface.lodRange;
     def.tileRange = surface.tileRange;

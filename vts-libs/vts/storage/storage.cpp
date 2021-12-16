@@ -616,7 +616,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
                                      , const Storage::Properties &properties
                                      , const ExtraStorageProperties &extra
                                      , const TilesetIdSet *subset
-                                     , const TilesetIdSet *freeLayers
+                                     , const FreelayerTileset::map *freeLayers
                                      , const fs::path &prefix)
 {
     auto referenceFrame(registry::system.referenceFrames
@@ -712,15 +712,20 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
         bool surface(allowed(unique, tileset.tilesetId));
 
         // should we use it as a free layer?
-        bool fl(freeLayers && freeLayers->count(tileset.tilesetId));
+        const auto *fl([&]() -> const FreelayerTileset* {
+            if (!freeLayers) { return nullptr; }
+            auto ffreeLayers(freeLayers->find(tileset.tilesetId));
+            if (ffreeLayers == freeLayers->end()) { return nullptr; }
+            return &ffreeLayers->second;
+        }());
 
         // handle tileset as a free layers
         if (fl) {
-
             // let tileset generate its mesh tiles config
             auto mtc
                 (TileSet::meshTilesConfig
                  (storage_paths::tilesetPath(root, tileset.tilesetId), false));
+            mtc.options = fl->options;
 
             // swap root using the defaultly generated one as a default
             mtc.surface.root = tilesetUrl(tileset, mtc.surface.root());
@@ -799,7 +804,7 @@ MapConfig Storage::Detail::mapConfig(const boost::filesystem::path &root
 MapConfig Storage::mapConfig(const boost::filesystem::path &root
                              , const ExtraStorageProperties &extra
                              , const TilesetIdSet &subset
-                             , const TilesetIdSet &freeLayers
+                             , const FreelayerTileset::map &freeLayers
                              , const fs::path &prefix)
 {
     return Detail::mapConfig(root, Detail::loadConfig(root)

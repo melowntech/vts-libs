@@ -169,6 +169,14 @@ private:
     Glue::IdSet glues_;
 };
 
+struct FreelayerTileset {
+    TilesetId id;
+    boost::any options;
+
+    FreelayerTileset(const TilesetId &id = {}) : id(id) {}
+    using map = std::map<TilesetId, FreelayerTileset>;
+};
+
 /** Storage interface.
  */
 class Storage {
@@ -426,7 +434,7 @@ public:
     static MapConfig mapConfig(const boost::filesystem::path &path
                                , const ExtraStorageProperties &extra
                                , const TilesetIdSet &subset
-                               , const TilesetIdSet &freeLayers
+                               , const FreelayerTileset::map &freeLayers
                                , const boost::filesystem::path &prefix);
 
     /** Check for storage at given path.

@@ -74,6 +74,36 @@ void parseList(std::vector<fs::path> &paths, const Json::Value &value
     }
 }
 
+void parseFlMap(FreelayerTileset::map &flMap, const Json::Value &object
+                , const char *name)
+{
+    const Json::Value &value(object[name]);
+
+    if (value.isArray()) {
+        for (const auto &element : value) {
+            Json::check(element, Json::stringValue);
+            const auto &id(element.asString());
+            flMap.emplace(id, FreelayerTileset(id));
+        }
+        return;
+    }
+
+    if (!value.isObject()) {
+        LOGTHROW(err1, Json::Error)
+            << "Type of " << name << " is not a list or an object.";
+    }
+
+    for (const auto &id : value.getMemberNames()) {
+        const auto &element(value[id]);
+        FreelayerTileset flt(id);
+        const auto &options(element["options"]);
+        if (options.type() == Json::objectValue) {
+            flt.options = options;
+        }
+        flMap.emplace(flt.id, flt);
+    }
+}
+
 StorageView::Properties parse1(const Json::Value &config)
 {
     StorageView::Properties properties;
@@ -82,7 +112,7 @@ StorageView::Properties parse1(const Json::Value &config)
     properties.storagePath = stmp;
     parseSet(properties.tilesets, config, "tilesets");
     if (config.isMember("freeLayerTilesets")) {
-        parseSet(properties.freeLayerTilesets, config, "freeLayerTilesets");
+        parseFlMap(properties.freeLayerTilesets, config, "freeLayerTilesets");
     }
 
     // let storage stuff parse the extra configuration
