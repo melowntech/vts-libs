@@ -302,7 +302,9 @@ void NtGenerator::generate(vts::TileSet &ts, double dtmExtractionRadius
         return;
     }
 
-    boost::optional<vts::HeightMap::BestPosition> bestPosition;
+    // to make GCC stop complaining about possible unused value
+    auto bestPosition(boost::make_optional
+                      (false, vts::HeightMap::BestPosition()));
     const auto &navigationSrs(referenceFrame_->model.navigationSrs);
 
     const auto &ti(ts.tileIndex());
