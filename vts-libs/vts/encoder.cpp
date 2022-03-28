@@ -379,8 +379,12 @@ void Encoder::Detail::process(const TileId &tileId
         // compute child node
         auto childNode(nodeInfo.child(child));
 
+#ifndef _MSC_VER // omp task is not supported by msvc
         UTILITY_OMP(task)
-        process(child, useConstraints, childNode, tile);
+#endif
+        {
+            process(child, useConstraints, childNode, tile);
+        }
     }
 }
 

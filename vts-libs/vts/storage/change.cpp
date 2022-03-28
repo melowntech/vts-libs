@@ -490,14 +490,14 @@ struct Ts {
     }
 
     bool tileindexIdentical(const const_ptrlist &tss) const {
-        // tile indices are identical if they have same quality for mesh and
-        // watertighness
-        const TileIndex::Flag::value_type mask
-            (TileIndex::Flag::mesh | TileIndex::Flag::watertight);
 
         const auto compare([](TileIndex::Flag::value_type v1
                               , TileIndex::Flag::value_type v2)
         {
+            // tile indices are identical if they have same quality for mesh and
+            // watertighness
+            const TileIndex::Flag::value_type mask
+                (TileIndex::Flag::mesh | TileIndex::Flag::watertight);
             return (v1 & mask) == (v2 & mask);
         });
 
