@@ -28,7 +28,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include "utility/rlimit.hpp"
-#include "utility/getenv.hpp"
+#include "utility/env.hpp"
 
 #include "openfiles.hpp"
 

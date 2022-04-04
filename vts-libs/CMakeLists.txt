@@ -335,7 +335,7 @@ endif()
 define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
   DEPENDS
   geo>=1.33 geometry>=1.7 imgproc>=1.27 math>=1.7
-  utility>=1.33 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
+  utility>=1.39 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
 
   Boost_IOSTREAMS Boost_FILESYSTEM
 
