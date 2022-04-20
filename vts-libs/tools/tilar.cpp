@@ -164,7 +164,7 @@ private:
     vs::Tilar::Options createOptions_;
     File::list files_;
     FileIndex::list indices_;
-    boost::optional<std::uint32_t> indexOffset_;
+    boost::optional<std::uint64_t> indexOffset_;
 
     std::map<Command, std::shared_ptr<UP> >
     commandParsers_;
@@ -283,7 +283,7 @@ UP::optional Tilar::getParser(Command command)
 void Tilar::configure(const po::variables_map &vars)
 {
     if (vars.count("offset")) {
-        indexOffset_ = vars["offset"].as<std::uint32_t>();
+        indexOffset_ = vars["offset"].as<std::uint64_t>();
     }
 }
 
@@ -336,7 +336,7 @@ void Tilar::optionsConfiguration(po::options_description &options)
 void Tilar::offsetConfiguration(po::options_description &options)
 {
     options.add_options()
-        ("offset", po::value<std::uint32_t>()
+        ("offset", po::value<std::uint64_t>()
          , "Offset of file index to use (defaults to the index at "
          "the end of the file).")
         ;

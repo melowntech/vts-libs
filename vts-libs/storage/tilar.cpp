@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <sstream>
 #include <array>
+#include <limits>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -66,6 +67,8 @@ namespace {
 std::string DefaultContentType("application/octet-stream");
 std::streamsize IOBufferSize(1 << 16);
 
+std::size_t Max32Bit(std::numeric_limits<std::uint32_t>::max());
+
 typedef std::uint8_t Version;
 
 namespace header_constants {
@@ -83,15 +86,40 @@ namespace header_constants {
 } // namespace header
 
 namespace index_constants {
-    const std::size_t size(24);
-    const std::array<std::uint8_t, 4> magic({{ 'T', 'I', 'D', 'X' }});
 
-    namespace index {
-        const int previous(4);
-        const int overhead(previous + 4);
-        const int timestamp(overhead + 4);
-        const int crc32(timestamp + 8);
-    }  // namespace index
+using Magic = std::array<std::uint8_t, 4>;
+
+struct v1 {
+    using IndexType = std::uint32_t;
+
+    static const std::size_t size = 24;
+    static const Magic magic;
+
+    struct index {
+        static const int previous = 4;
+        static const int overhead = previous + 4;
+        static const int timestamp = overhead + 4;
+        static const int crc32 = timestamp + 8;
+    };
+};
+
+struct v2 {
+    using IndexType = std::uint64_t;
+
+    static const std::size_t size = 32;
+    static const Magic magic;
+
+    struct index {
+        static const int previous = 4;
+        static const int overhead = previous + 8;
+        static const int timestamp = overhead + 8;
+        static const int crc32 = timestamp + 8;
+    };
+};
+
+const Magic v1::magic({{ 'T', 'I', 'D', 'X' }});
+const Magic v2::magic({{ 'T', 'I', 'D', 'Y' }});
+
 } // namespace index_constants
 
 template <typename T, size_t S>
@@ -105,10 +133,18 @@ void serialize(std::array<std::uint8_t, S> &out, int index, const T &value)
 
 template <typename T, size_t S>
 void deserialize(const std::array<std::uint8_t, S> &in, int index
-                 , T &value)
+              , T &value)
 {
     std::copy(in.data() + index, in.data() + index + sizeof(T)
               , reinterpret_cast<std::uint8_t*>(&value));
+}
+
+template <typename T, size_t S>
+T deserialize(const std::array<std::uint8_t, S> &in, int index)
+{
+    T value;
+    deserialize(in, index, value);
+    return value;
 }
 
 inline int flags(bool readOnly)
@@ -363,14 +399,19 @@ inline unsigned int files(const Tilar::Options &o) {
 class ArchiveIndex : boost::noncopyable {
 public:
     struct Slot {
-        std::uint32_t start;
-        std::uint32_t size;
+        std::uint64_t start;
+        std::uint64_t size;
 
         Slot() : start(0), size(0) {}
 
         bool valid() const { return start > 0; }
 
-        std::uint32_t end() const { return start + size; }
+        std::uint64_t end() const { return start + size; }
+
+        template <typename index_constants>
+        static std::size_t savedSize(std::size_t count) {
+            return count * 2 * sizeof(typename index_constants::IndexType);
+        }
     };
 
     ArchiveIndex(const Tilar::Options &options)
@@ -404,12 +445,14 @@ public:
 
     const Slot& get(const FileIndex &index) const { return slot(index); }
 
-    std::uint32_t crc(std::uint32_t overhead) const;
+    std::uint32_t crc(std::uint64_t overhead) const;
     bool changed() const { return changed_; }
     void freshen() { changed_ = false; }
 
+    template <typename index_constants>
     int savedSize() const {
-        return index_constants::size + (grid_.size() * sizeof(Slot));
+        return (index_constants::size
+                + Slot::savedSize<index_constants>(grid_.size()));
     }
 
     Tilar::Entry::list list() const;
@@ -440,7 +483,27 @@ public:
                      + (typeSkip_ * index.type)].valid();
     }
 
+    inline bool is32BitSafe() const {
+        for (const auto &slot : grid_) {
+            if ((slot.start > Max32Bit) || (slot.end() >= Max32Bit)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
 private:
+    template <typename index_constants>
+    off_t saveIndex(const Filedes &fd, off_t offset);
+
+    template <typename index_constants>
+    void loadIndex(const Filedes &fd, off_t pos, bool checkCrc = false);
+
+    index_constants::Magic loadMagic(const Filedes &fd, off_t pos);
+
+    template <typename index_constants>
+    bool checkMagic(const Filedes &fd, off_t pos);
+
     inline Slot& slot(const FileIndex &index) {
         check(index);
         return grid_[index.col
@@ -463,15 +526,15 @@ private:
     const unsigned int typeSkip_;
 
     Grid grid_;
-    std::uint32_t previous_;
-    std::uint32_t overhead_;
+    std::uint64_t previous_;
+    std::uint64_t overhead_;
     std::uint64_t timestamp_;
 
     bool changed_;
-    std::uint32_t loadedFrom_;
+    std::uint64_t loadedFrom_;
 };
 
-std::uint32_t ArchiveIndex::crc(std::uint32_t overhead) const
+std::uint32_t ArchiveIndex::crc(std::uint64_t overhead) const
 {
     boost::crc_32_type crc;
     crc.process_bytes(&overhead, sizeof(overhead));
@@ -480,42 +543,80 @@ std::uint32_t ArchiveIndex::crc(std::uint32_t overhead) const
     return crc.checksum();
 }
 
-off_t ArchiveIndex::save(const Filedes &fd, off_t end)
+template <typename index_constants>
+off_t ArchiveIndex::saveIndex(const Filedes &fd, off_t offset)
 {
-    LOG(info1) << "Saving new archive index to file.";
-    auto offset((end > 0) ? seekFromStart(fd, end) : seekFromEnd(fd));
+    using IndexType = typename index_constants::IndexType;
 
     // save header first
     std::array<std::uint8_t, index_constants::size> header;
     std::copy(index_constants::magic.begin(), index_constants::magic.end()
               , header.begin());
 
+    const auto serialized(savedSize<index_constants>());
+
     auto overhead(overhead_);
     // take into account index size of index if there is already some index
     // present in the file
-    if (loadedFrom_) { overhead += savedSize(); }
+    if (loadedFrom_) { overhead += serialized; }
 
     // update timestamp
     timestamp_ = std::time(nullptr);
 
-    serialize(header, index_constants::index::previous, loadedFrom_);
-    serialize(header, index_constants::index::overhead, overhead);
+    serialize<IndexType>
+        (header, index_constants::index::previous, loadedFrom_);
+    serialize<IndexType>
+        (header, index_constants::index::overhead, overhead);
     serialize(header, index_constants::index::timestamp, timestamp_);
     serialize(header, index_constants::index::crc32, crc(overhead));
 
     write(fd, header);
-    write(fd, grid_);
+
+    {
+        std::vector<IndexType> grid;
+        grid.reserve(2 * grid_.size());
+        for (const auto &slot : grid_) {
+            grid.push_back(slot.start);
+            grid.push_back(slot.size);
+        }
+        write(fd, grid);
+    }
 
     // update overhead
     overhead_ = overhead;
     previous_ = loadedFrom_;
     loadedFrom_ = offset;
 
-    return offset + savedSize();
+    return offset + serialized;
 }
 
-void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
+off_t ArchiveIndex::save(const Filedes &fd, off_t end)
 {
+    LOG(info1) << "Saving new archive index to file.";
+    auto offset((end > 0) ? seekFromStart(fd, end) : seekFromEnd(fd));
+
+    if (is32BitSafe()) {
+        return saveIndex<index_constants::v1>(fd, offset);
+    }
+    return saveIndex<index_constants::v2>(fd, offset);
+}
+
+index_constants::Magic ArchiveIndex::loadMagic(const Filedes &fd, off_t pos)
+{
+    LOG(info1) << "Loading archive index magic from file.";
+    seekFromEnd(fd, pos);
+
+    index_constants::Magic magic;
+    read(fd, magic);
+
+    return magic;
+}
+
+template <typename index_constants>
+void ArchiveIndex::loadIndex(const Filedes &fd, off_t pos, bool checkCrc)
+{
+    using IndexType = typename index_constants::IndexType;
+
     LOG(info1) << "Loading archive index from file.";
     auto start(seekFromEnd(fd, pos));
 
@@ -534,12 +635,22 @@ void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
     }
 
     std::uint32_t savedCrc;
-    deserialize(header, index_constants::index::previous, previous_);
-    deserialize(header, index_constants::index::overhead, overhead_);
+    previous_ = deserialize<IndexType>
+        (header, index_constants::index::previous);
+    overhead_ = deserialize<IndexType>
+        (header, index_constants::index::overhead);
     deserialize(header, index_constants::index::timestamp, timestamp_);
     deserialize(header, index_constants::index::crc32, savedCrc);
 
-    read(fd, grid_);
+    {
+        std::vector<IndexType> grid(2 * grid_.size(), 0);
+        read(fd, grid);
+        auto igrid(grid.begin());
+        for (auto &slot : grid_) {
+            slot.start = *igrid++;
+            slot.size = *igrid++;
+        }
+    }
 
     if (checkCrc) {
         auto computedCrc(crc(overhead_));
@@ -554,6 +665,31 @@ void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
 
     loadedFrom_ = start;
     changed_ = false;
+}
+
+template <typename index_constants>
+off_t indexOffset(off_t pos, const ArchiveIndex &index)
+{
+    if (pos >= 0) { return pos; }
+    return index.savedSize<index_constants>();
+}
+
+template <typename ic>
+bool ArchiveIndex::checkMagic(const Filedes &fd, off_t pos)
+{
+    const auto magic(loadMagic(fd, indexOffset<ic>(pos, *this)));
+    return std::equal(ic::magic.begin(), ic::magic.end(), magic.begin());
+}
+
+void ArchiveIndex::load(const Filedes &fd, off_t pos, bool checkCrc)
+{
+    if (checkMagic<index_constants::v1>(fd, pos)) {
+        loadIndex<index_constants::v1>
+            (fd, indexOffset<index_constants::v1>(pos, *this), checkCrc);
+    } else {
+        loadIndex<index_constants::v2>
+            (fd, indexOffset<index_constants::v2>(pos, *this), checkCrc);
+    }
 }
 
 void ArchiveIndex::clear()
@@ -571,7 +707,7 @@ void ArchiveIndex::set(const FileIndex &index, off_t start, off_t end)
         overhead_ += size;
     }
 
-    changed_ = (s.start != start);
+    changed_ = (off_t(s.start) != start);
     s.start = start;
     s.size = size;
 }
@@ -630,7 +766,7 @@ struct Tilar::Detail
 
     Detail(std::uint8_t version, const Options &options
            , Filedes &&srcFd, bool readOnly
-           , std::uint32_t indexOffset)
+           , std::uint64_t indexOffset)
         : version(version), options(options), fd(std::move(srcFd))
         , readOnly(readOnly), index(options)
         , checkpoint(fileSize(fd)), currentEnd(checkpoint), tx(0)
@@ -649,13 +785,15 @@ struct Tilar::Detail
             index.load(fd, checkpoint - indexOffset, true);
         } else if (checkpoint > off_t(header_constants::size)) {
             // more bytes than header
+#if 0
             if (checkpoint < off_t(index.savedSize() + header_constants::size))
             {
                 LOGTHROW(err1, InvalidSignature)
                     << "File " << fd.path() << " is too short.";
             }
+#endif
             // load index but do not chech CRC
-            index.load(fd, index.savedSize(), true);
+            index.load(fd, -1, true);
         } else {
             index.clear();
         }
@@ -791,7 +929,7 @@ struct Tilar::Detail
     off_t tx;
 
     bool ignoreInterrupts;
-    std::uint32_t indexOffset;
+    std::uint64_t indexOffset;
 
     ContentTypes contentTypes;
 
@@ -925,7 +1063,7 @@ Tilar Tilar::open(const fs::path &path, const NullWhenNotFound_t&
              , std::move(fd), (openMode == OpenMode::readOnly), 0) };
 }
 
-Tilar Tilar::open(const fs::path &path, std::uint32_t indexOffset)
+Tilar Tilar::open(const fs::path &path, std::uint64_t indexOffset)
 {
     auto fd(openFile(path, flags(OpenMode::readOnly)));
     auto header(loadHeader(fd));

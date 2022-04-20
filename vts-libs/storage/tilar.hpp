@@ -55,7 +55,7 @@ public:
         , failIfExists
         //!< about to extend already existing file, options must match
         , append
-        //!< append file if options exist, truncate otherwise
+        //!< append file if options match, truncate otherwise
         , appendOrTruncate
     };
 
@@ -151,7 +151,7 @@ public:
      *  \return open tilar file
      */
     static Tilar open(const boost::filesystem::path &path
-                      , std::uint32_t indexOffset);
+                      , std::uint64_t indexOffset);
 
     ~Tilar();
 
@@ -176,11 +176,11 @@ public:
      */
     struct Entry {
         FileIndex index;
-        std::uint32_t start;
-        std::uint32_t size;
+        std::uint64_t start;
+        std::uint64_t size;
 
-        Entry(const FileIndex &index, std::uint32_t start
-              , std::uint32_t size)
+        Entry(const FileIndex &index, std::uint64_t start
+              , std::uint64_t size)
             : index(index), start(start), size(size) {}
 
         typedef std::vector<Entry> list;
@@ -191,15 +191,15 @@ public:
     struct Info {
         /** Position of previous index in the file.
          */
-        std::uint32_t offset;
+        std::uint64_t offset;
 
         /** Position of previous index in the file.
          */
-        std::uint32_t previousOffset;
+        std::uint64_t previousOffset;
 
         /** Number of bytes wasted in this file.
          */
-        std::uint32_t overhead;
+        std::uint64_t overhead;
 
         /** Timestamp when this index has been saved.
          */
