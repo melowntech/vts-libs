@@ -91,6 +91,7 @@ using Magic = std::array<std::uint8_t, 4>;
 
 struct v1 {
     using IndexType = std::uint32_t;
+    using IndexVector = std::vector<IndexType>;
 
     static const std::size_t size = 24;
     static const Magic magic;
@@ -105,6 +106,7 @@ struct v1 {
 
 struct v2 {
     using IndexType = std::uint64_t;
+    using IndexVector = std::vector<IndexType>;
 
     static const std::size_t size = 32;
     static const Magic magic;
@@ -445,7 +447,6 @@ public:
 
     const Slot& get(const FileIndex &index) const { return slot(index); }
 
-    std::uint32_t crc(std::uint64_t overhead) const;
     bool changed() const { return changed_; }
     void freshen() { changed_ = false; }
 
@@ -494,6 +495,11 @@ public:
 
 private:
     template <typename index_constants>
+    std::uint32_t crc(typename index_constants::IndexType overhead
+                      , const typename index_constants::IndexVector &grid)
+        const;
+
+    template <typename index_constants>
     off_t saveIndex(const Filedes &fd, off_t offset);
 
     template <typename index_constants>
@@ -534,12 +540,30 @@ private:
     std::uint64_t loadedFrom_;
 };
 
-std::uint32_t ArchiveIndex::crc(std::uint64_t overhead) const
+std::size_t gridCrcBytes(const std::size_t &count, std::uint32_t)
 {
+    return count;
+}
+
+std::size_t gridCrcBytes(const std::size_t &count, std::uint64_t)
+{
+    return count * 2 * sizeof(std::uint64_t);
+}
+
+template <typename index_constants>
+std::uint32_t
+ArchiveIndex::crc(typename index_constants::IndexType overhead
+                  , const typename index_constants::IndexVector &grid)
+    const
+{
+    using IndexType = typename index_constants::IndexType;
+
     boost::crc_32_type crc;
     crc.process_bytes(&overhead, sizeof(overhead));
+
     crc.process_bytes(&timestamp_, sizeof(timestamp_));
-    crc.process_bytes(grid_.data(), grid_.size());
+    crc.process_bytes(grid.data(), gridCrcBytes(grid_.size(), IndexType()));
+
     return crc.checksum();
 }
 
@@ -547,6 +571,7 @@ template <typename index_constants>
 off_t ArchiveIndex::saveIndex(const Filedes &fd, off_t offset)
 {
     using IndexType = typename index_constants::IndexType;
+    using IndexVector = typename index_constants::IndexVector;
 
     // save header first
     std::array<std::uint8_t, index_constants::size> header;
@@ -563,24 +588,26 @@ off_t ArchiveIndex::saveIndex(const Filedes &fd, off_t offset)
     // update timestamp
     timestamp_ = std::time(nullptr);
 
-    serialize<IndexType>
-        (header, index_constants::index::previous, loadedFrom_);
-    serialize<IndexType>
-        (header, index_constants::index::overhead, overhead);
-    serialize(header, index_constants::index::timestamp, timestamp_);
-    serialize(header, index_constants::index::crc32, crc(overhead));
-
-    write(fd, header);
-
+    // serialize grid
+    IndexVector grid;
     {
-        std::vector<IndexType> grid;
         grid.reserve(2 * grid_.size());
         for (const auto &slot : grid_) {
             grid.push_back(slot.start);
             grid.push_back(slot.size);
         }
-        write(fd, grid);
     }
+
+    serialize<IndexType>
+        (header, index_constants::index::previous, loadedFrom_);
+    serialize<IndexType>
+        (header, index_constants::index::overhead, overhead);
+    serialize(header, index_constants::index::timestamp, timestamp_);
+    serialize(header, index_constants::index::crc32
+              , crc<index_constants>(overhead, grid));
+
+    write(fd, header);
+    write(fd, grid);
 
     // update overhead
     overhead_ = overhead;
@@ -616,6 +643,7 @@ template <typename index_constants>
 void ArchiveIndex::loadIndex(const Filedes &fd, off_t pos, bool checkCrc)
 {
     using IndexType = typename index_constants::IndexType;
+    using IndexVector = typename index_constants::IndexVector;
 
     LOG(info1) << "Loading archive index from file.";
     auto start(seekFromEnd(fd, pos));
@@ -642,8 +670,8 @@ void ArchiveIndex::loadIndex(const Filedes &fd, off_t pos, bool checkCrc)
     deserialize(header, index_constants::index::timestamp, timestamp_);
     deserialize(header, index_constants::index::crc32, savedCrc);
 
+    IndexVector grid(2 * grid_.size(), 0);
     {
-        std::vector<IndexType> grid(2 * grid_.size(), 0);
         read(fd, grid);
         auto igrid(grid.begin());
         for (auto &slot : grid_) {
@@ -653,7 +681,7 @@ void ArchiveIndex::loadIndex(const Filedes &fd, off_t pos, bool checkCrc)
     }
 
     if (checkCrc) {
-        auto computedCrc(crc(overhead_));
+        auto computedCrc(crc<index_constants>(overhead_, grid));
         if (computedCrc != savedCrc) {
             LOGTHROW(err1, InvalidSignature)
                 << "Invalid CRC32 of archive index in file " << fd.path()
