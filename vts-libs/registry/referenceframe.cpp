@@ -1871,7 +1871,7 @@ Json::Value asJson(const Roi &roi)
 Json::Value asJson(const Roi::list &rois)
 {
     Json::Value a(Json::arrayValue);
-    for (const auto roi : rois) { a.append(asJson(roi)); }
+    for (const auto &roi : rois) { a.append(asJson(roi)); }
     return a;
 }
 

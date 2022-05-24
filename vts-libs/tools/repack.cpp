@@ -285,7 +285,7 @@ int Repack::run()
     auto mesh(std::make_shared<vts::Mesh>());
     auto atlas(std::make_shared<vts::opencv::HybridAtlas>());
 
-    for (const auto input : input_) {
+    for (const auto &input : input_) {
         LOG(info3) << "Loading input mesh " << input << ".";
         ObjLoader loader(fs::absolute(input).parent_path(), *mesh, *atlas);
         geometry::loadObj(loader, input);

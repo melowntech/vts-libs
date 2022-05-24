@@ -244,7 +244,7 @@ void Clipper::clip(const ClipPlane &line)
     const auto &vertices(fpmap_.points());
     const auto &tc(ftpmap_.points());
 
-    for (const auto cf : faces_) {
+    for (const auto &cf : faces_) {
         const math::Point3d tri[3] = {
             vertices[cf.face[0]]
             , vertices[cf.face[1]]
