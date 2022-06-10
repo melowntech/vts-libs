@@ -953,7 +953,13 @@ public:
 
     /** Steal mesh.
      */
-    vts::Mesh&& mesh() { return std::move(mesh_); }
+    vts::Mesh&& mesh() {
+        if ((mesh_.size() == 1) && (mesh_.submeshes.front().faces.empty())) {
+            // no mesh loaded -> empty
+            mesh_ = {};
+        }
+        return std::move(mesh_);
+    }
 
 private:
     typedef std::vector<int> VertexMap;
