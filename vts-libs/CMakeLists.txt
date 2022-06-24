@@ -8,7 +8,7 @@
 # major dependency is OpenCV
 
 # bump version here
-set(vts-libs_VERSION 2.19)
+set(vts-libs_VERSION 2.20)
 
 # settable path to VTS registry
 set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
@@ -334,6 +334,7 @@ endif()
 # vts core library
 define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
   DEPENDS
+  BuildSystem>=1.13
   geo>=1.33 geometry>=1.7 imgproc>=1.27 math>=1.7
   utility>=1.39 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
 
@@ -360,7 +361,7 @@ add_library(vts-libs-core STATIC
   )
 buildsys_library(vts-libs-core)
 target_link_libraries(vts-libs-core ${MODULE_LIBRARIES})
-buildsys_target_compile_definitions(vts-libs-core ${MODULE_DEFINITIONS})
+target_compile_definitions(vts-libs-core PRIVATE ${MODULE_DEFINITIONS})
 
 if(VTSLIBS_BROWSER_ONLY)
   target_compile_definitions(vts-libs-core PRIVATE VTSLIBS_BROWSER_ONLY)
@@ -382,7 +383,7 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
     )
   buildsys_library(vts-libs)
   target_link_libraries(vts-libs ${MODULE_LIBRARIES})
-  buildsys_target_compile_definitions(vts-libs ${MODULE_DEFINITIONS})
+  target_compile_definitions(vts-libs PRIVATE ${MODULE_DEFINITIONS})
 endif()
 
 
@@ -419,7 +420,7 @@ if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-tools-support AND TARGET vts-lib
     ${vts-libs-tools-support_EXTRA_SOURCES})
   buildsys_library(vts-libs-tools-support)
   target_link_libraries(vts-libs-tools-support ${MODULE_LIBRARIES})
-  buildsys_target_compile_definitions(vts-libs-tools-support ${MODULE_DEFINITIONS})
+  target_compile_definitions(vts-libs-tools-support PRIVATE ${MODULE_DEFINITIONS})
 endif()
 
 # add tools subdirectory
