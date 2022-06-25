@@ -1123,7 +1123,9 @@ void AggregatedDriver::generateMetatiles(AggregatedOptions &options)
     UTILITY_OMP(single)
     traverse(mi, lodRange, [=](TileId tid, QTree::value_type)
     {
+#ifndef _MSC_VER // omp task is not supported by msvc
         UTILITY_OMP(task)
+#endif
         {
             // expand shrinked metatile identifiers
             tid.x <<= mbo;
@@ -1181,7 +1183,9 @@ void AggregatedDriver::copyMetatiles(AggregatedOptions &options
     UTILITY_OMP(single)
     traverse(mi, lodRange, [=](TileId tid, QTree::value_type)
     {
+#ifndef _MSC_VER // omp task is not supported by msvc
         UTILITY_OMP(task)
+#endif
         {
             // expand shrinked metatile identifiers
             tid.x <<= mbo;

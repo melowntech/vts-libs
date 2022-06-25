@@ -492,7 +492,9 @@ struct TileSet::Factory
                 return;
             }
 
+#ifndef _MSC_VER // omp task is not supported by msvc
             UTILITY_OMP(task)
+#endif
             {
                 bool mesh(mask & TileIndex::Flag::mesh);
                 bool atlas(mask & TileIndex::Flag::atlas);
