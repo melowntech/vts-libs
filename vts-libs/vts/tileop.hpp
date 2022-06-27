@@ -207,7 +207,8 @@ BorderCondition inside(const LodTileRange &range, const TileId &tileId
  *  On bordering edges (defined by borderCondition) borderMargin is used
  *  instead.
  *
- *  Margins are defined as a fraction of tile width/height.
+ * If margin is positive then it is used as a fraction of tile
+ * width/height. Otherwise absolute value of margin is treated as margin itself.
  */
 math::Extents2
 inflateTileExtents(const math::Extents2 &extents

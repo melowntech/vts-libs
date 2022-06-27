@@ -389,13 +389,19 @@ inflateTileExtents(const math::Extents2 &extents
         return (borderCondition.check(flag) ? borderMargin : margin);
     });
 
+    auto apply([&](double size, double margin)
+    {
+        if (margin < 0.0) { return -margin; }
+        return size * margin;
+    });
+
     // tile size
     auto ts(math::size(extents));
     return math::Extents2
-        (extents.ll(0) - ts.width * choose(BorderCondition::left)
-         , extents.ll(1) - ts.height * choose(BorderCondition::bottom)
-         , extents.ur(0) + ts.width * choose(BorderCondition::right)
-         ,  extents.ur(1) + ts.height * choose(BorderCondition::top));
+        (extents.ll(0) - apply(ts.width, choose(BorderCondition::left))
+         , extents.ll(1) - apply(ts.height, choose(BorderCondition::bottom))
+         , extents.ur(0) + apply(ts.width, choose(BorderCondition::right))
+         ,  extents.ur(1) + apply(ts.height, choose(BorderCondition::top)));
 }
 
 bool inside(const Ranges &ranges, const TileId &tileId)
