@@ -202,7 +202,7 @@ void Morphology<Operator>::run(int kernelRadius)
     const std::size_t total(in_.rows * in_.cols);
 
     UTILITY_OMP(parallel for default(shared))
-    for (std::int64_t idx = 0; idx < total; ++idx) {
+    for (std::int64_t idx = 0; idx < static_cast<std::int64_t>(total); ++idx) {
         int x = idx % in_.cols;
         int y = idx / in_.cols;
 
