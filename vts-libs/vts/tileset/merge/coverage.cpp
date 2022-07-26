@@ -706,7 +706,7 @@ void Coverage::dilateHm()
     auto filter([&]() -> void
     {
         UTILITY_OMP(parallel for default(shared))
-        for (std::int64_t idx = 0; static_cast<std::int64_t>(idx) < total; ++idx) {
+        for (std::int64_t idx = 0; idx < static_cast<std::int64_t>(total); ++idx) {
             int x(idx % hm.cols);
             int y(idx / hm.cols);
 
