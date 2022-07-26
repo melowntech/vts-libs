@@ -141,7 +141,9 @@ void Encoder::Detail::process(const TileId &tileId, int useConstraints)
 
     // we can proces children -> go down
     for (auto child : children(tileId)) {
+#if !defined(_MSC_VER) || defined(_WIN_OMP_EXPERIMENTAL)
         UTILITY_OMP(task)
+#endif
         process(child, useConstraints);
     }
 }

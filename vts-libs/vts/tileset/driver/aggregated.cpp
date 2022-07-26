@@ -1123,7 +1123,9 @@ void AggregatedDriver::generateMetatiles(AggregatedOptions &options)
     UTILITY_OMP(single)
     traverse(mi, lodRange, [=](TileId tid, QTree::value_type)
     {
+#if !defined(_MSC_VER) || defined(_WIN_OMP_EXPERIMENTAL)
         UTILITY_OMP(task)
+#endif
         {
             // expand shrinked metatile identifiers
             tid.x <<= mbo;
@@ -1181,7 +1183,9 @@ void AggregatedDriver::copyMetatiles(AggregatedOptions &options
     UTILITY_OMP(single)
     traverse(mi, lodRange, [=](TileId tid, QTree::value_type)
     {
+#if !defined(_MSC_VER) || defined(_WIN_OMP_EXPERIMENTAL)
         UTILITY_OMP(task)
+#endif
         {
             // expand shrinked metatile identifiers
             tid.x <<= mbo;

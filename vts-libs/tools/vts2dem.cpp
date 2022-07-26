@@ -277,7 +277,9 @@ void process(cv::Mat *data, geo::GeoDataset::Mask *mask
     {
         if (!vts::TileIndex::Flag::isReal(flags)) { return; }
 
+#if !defined(_MSC_VER) || defined(_WIN_OMP_EXPERIMENTAL)
         UTILITY_OMP(task)
+#endif
         {
             auto mesh([&]() -> vts::Mesh
             {

@@ -492,7 +492,9 @@ struct TileSet::Factory
                 return;
             }
 
+#if !defined(_MSC_VER) || defined(_WIN_OMP_EXPERIMENTAL)
             UTILITY_OMP(task)
+#endif
             {
                 bool mesh(mask & TileIndex::Flag::mesh);
                 bool atlas(mask & TileIndex::Flag::atlas);

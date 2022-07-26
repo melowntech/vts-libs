@@ -495,7 +495,7 @@ struct Ts {
         const TileIndex::Flag::value_type mask
             (TileIndex::Flag::mesh | TileIndex::Flag::watertight);
 
-        const auto compare([](TileIndex::Flag::value_type v1
+        const auto compare([&](TileIndex::Flag::value_type v1
                               , TileIndex::Flag::value_type v2)
         {
             return (v1 & mask) == (v2 & mask);

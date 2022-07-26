@@ -26,12 +26,6 @@
 
 #include <sys/types.h>
 
-#ifdef _WIN32
-#include <Winsock2.h> // gethostname
-#else
-#include <unistd.h>
-#endif // _WIN32
-
 #include <exception>
 
 #include <boost/filesystem.hpp>
@@ -40,6 +34,7 @@
 #include "dbglog/dbglog.hpp"
 
 #include "utility/path.hpp"
+#include "utility/hostname.hpp"
 
 #include "config.hpp"
 
@@ -50,13 +45,9 @@ namespace vtslibs { namespace vts {
 namespace {
 fs::path buildTmpPath(const fs::path &path)
 {
-    char hostname[256];
-    ::gethostname(hostname, sizeof(hostname));
-    hostname[sizeof(hostname) - 1] = '\0';
-
     // temporary file extenstion
     const auto ext(str(boost::format(".tmp-%s-%d")
-                       % ::getpid() % hostname));
+                       % ::dbglog::process_id() % utility::hostname()));
     return utility::addExtension(path, ext);
 }
 

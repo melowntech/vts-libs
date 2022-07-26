@@ -379,7 +379,9 @@ void Encoder::Detail::process(const TileId &tileId
         // compute child node
         auto childNode(nodeInfo.child(child));
 
+#if !defined(_MSC_VER) || defined(_WIN_OMP_EXPERIMENTAL)
         UTILITY_OMP(task)
+#endif
         process(child, useConstraints, childNode, tile);
     }
 }
