@@ -247,6 +247,10 @@ public:
         {}
     };
 
+    /** Returns open options generated from merge configuration.
+     */
+    OpenOptions openOptionsFromMergeConf() const;
+
     /** Adds tileset from given path to the tileset at where location.
      *  Operation fails if give tileset is already present in the stack.
      *

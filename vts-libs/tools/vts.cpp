@@ -2055,7 +2055,7 @@ int VtsStorage::add()
 
     // lock if external locking program is available
     Lock lock(path_, lock_);
-    auto storage(vts::Storage(path_, vts::OpenMode::readWrite, lock));
+    vts::Storage storage(path_, vts::OpenMode::readWrite, lock);
 
     if (isLocal(tileset_)) {
         // local: URL, create temporary tileset
@@ -2068,11 +2068,15 @@ int VtsStorage::add()
         vts::CloneOptions createOptions;
         createOptions.tilesetId(optTilesetId_);
         createOptions.mode(vts::CreateMode::overwrite);
+
+        // need to behave as-is during the actual merge
+        createOptions.openOptions(storage.openOptionsFromMergeConf());
+
         vts::createLocalTileSet
             (tmpPath, local, createOptions);
         tileset_ = tmpPath;
     } else if (isRemote(tileset_)) {
-        // http:// or https:// URL, create remote tileset
+        // http:// or https:// or // URL, create remote tileset
 
         LOG(info3)
             << "Requested to add remote tileset pointing to " << tileset_
@@ -2081,6 +2085,9 @@ int VtsStorage::add()
         vts::CloneOptions createOptions;
         createOptions.tilesetId(optTilesetId_);
         createOptions.mode(vts::CreateMode::overwrite);
+
+        // need to behave as-is during the actual merge
+        createOptions.openOptions(storage.openOptionsFromMergeConf());
 
         vts::createRemoteTileSet(tmpPath, tileset_.string(), createOptions);
         tileset_ = tmpPath;

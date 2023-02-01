@@ -118,6 +118,12 @@ inline std::string lockName(const VirtualSurface &virtualSurface) {
 
 } // namespace
 
+OpenOptions Storage::openOptionsFromMergeConf() const
+{
+    return loadMergeConf(detail().root / storage_paths::mergeConfPath()
+                         , true).asOpenOptions();
+}
+
 void Storage::add(const boost::filesystem::path &tilesetPath
                   , const Location &where, const TilesetId &tilesetId
                   , const AddOptions &addOptions)

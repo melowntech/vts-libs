@@ -43,6 +43,8 @@ struct MergeConf {
     OpenOptions::CNames cnames;
 
     MergeConf() {}
+
+    OpenOptions asOpenOptions() const;
 };
 
 /** Load merge config gile.
