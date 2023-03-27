@@ -31,6 +31,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include "utility/gccversion.hpp"
+
 #include "math/math.hpp"
 #include "math/geometry.hpp"
 #include "math/transform.hpp"
@@ -342,9 +344,11 @@ cv::Point3d vertex(const math::Point3d &v)
 math::Point3d vertex(const cv::Point3d &v)
     { return {v.x, v.y, v.z}; }    
 
+UTILITY_MAYBE_UNUSED
 cv::Point2d tCoord(const math::Point2 &t)
     { return { t(0), t(1)}; }
 
+UTILITY_MAYBE_UNUSED
 math::Point2 tCoord(const cv::Point2d &t)
     { return {t.x, t.y}; }        
 
@@ -414,6 +418,7 @@ math::Matrix4 quadrantTransform(const math::Size2f &tileSize, int fallbackQuad)
     return trafo;
 }
 
+UTILITY_MAYBE_UNUSED
 math::Matrix4 tileTransform(const math::Size2f &dstTileSize
                             , const math::Point2 dst
                             , const math::Size2f &srcTileSize

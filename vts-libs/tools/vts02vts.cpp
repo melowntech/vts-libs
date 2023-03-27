@@ -204,6 +204,7 @@ typedef vts::opencv::NavTile NavTile;
 // meter; source LOD is first navtile LOD + 1; both are clamped inside
 // available LOD range
 
+UTILITY_MAYBE_UNUSED
 vs::Lod clampLod(const vs::LodRange &lodRange, vs::Lod lod)
 {
     if (lod < lodRange.min) { return lodRange.min; }

@@ -36,6 +36,7 @@
 #include "utility/binaryio.hpp"
 #include "utility/progress.hpp"
 #include "utility/gccversion.hpp"
+#include "utility/uncaught-exception.hpp"
 
 #include "geo/srsdef.hpp"
 #include "geometry/binmesh.hpp"
@@ -280,7 +281,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
 TileSet::Detail::~Detail()
 {
     // no exception thrown and not flushe? warn user!
-    if (!std::uncaught_exception()
+    if (!utility::uncaught_exception()
         && (metadataChanged || propertiesChanged))
     {
         LOG(warn3)

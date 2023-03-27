@@ -42,6 +42,7 @@
 #include "utility/streams.hpp"
 #include "utility/openmp.hpp"
 #include "utility/progress.hpp"
+#include "utility/gccversion.hpp"
 
 #include "service/cmdline.hpp"
 
@@ -529,6 +530,7 @@ vts::VertexMask warpInPlaceWithMask(vts::GeomExtents &ge
     return mask;
 }
 
+UTILITY_MAYBE_UNUSED
 math::Size2 navpaneSizeInPixels(const math::Size2 &sizeInTiles)
 {
     // NB: navtile is in grid system, border pixels are shared between adjacent
