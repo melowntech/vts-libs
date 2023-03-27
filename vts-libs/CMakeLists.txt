@@ -8,7 +8,7 @@
 # major dependency is OpenCV
 
 # bump version here
-set(vts-libs_VERSION 2.21)
+set(vts-libs_VERSION 2.22)
 
 # settable path to VTS registry
 set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
@@ -336,7 +336,7 @@ define_module(LIBRARY vts-libs-core=${vts-libs_VERSION}
   DEPENDS
   BuildSystem>=1.13
   geo>=1.33 geometry>=1.7 imgproc>=1.27 math>=1.7
-  utility>=1.39 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
+  utility>=1.46 dbglog>=1.4 jsoncpp>=2.1 half>=1.1
 
   Boost_IOSTREAMS Boost_FILESYSTEM
 

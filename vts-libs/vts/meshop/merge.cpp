@@ -188,11 +188,13 @@ private:
     cv::Mat mask_;
 };
 
+UTILITY_MAYBE_UNUSED
 bool validMatPos(int x, int y, const cv::Mat &mat)
 {
     return (x >= 0) && (x < mat.cols) && (y >= 0) && (y < mat.rows);
 }
 
+UTILITY_MAYBE_UNUSED
 void clampMatPos(int &x, int &y, const cv::Mat &mat)
 {
     if (x < 0) {

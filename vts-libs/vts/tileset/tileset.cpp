@@ -30,6 +30,7 @@
 #include "utility/progress.hpp"
 #include "utility/path.hpp"
 #include "utility/openmp.hpp"
+#include "utility/uncaught-exception.hpp"
 
 #include "../../vts.hpp"
 #include "../tileset.hpp"
@@ -792,7 +793,7 @@ TileSet::Detail::Detail(const Driver::pointer &driver
 TileSet::Detail::~Detail()
 {
     // no exception thrown and not flushed? warn user!
-    if (!std::uncaught_exception() && changed()) {
+    if (!utility::uncaught_exception() && changed()) {
         LOG(warn3)
             << "Tile set <" << properties.id
             << "> is not flushed on destruction: data could be unusable.";

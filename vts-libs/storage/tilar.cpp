@@ -50,6 +50,7 @@
 #include "utility/filedes.hpp"
 #include "utility/enum.hpp"
 #include "utility/raise.hpp"
+#include "utility/uncaught-exception.hpp"
 
 #include "tilar.hpp"
 #include "tilar-io.hpp"
@@ -1045,7 +1046,7 @@ Tilar::Detail::~Detail()
 {
     if (changed()) {
         // unflushed -> rollback
-        if (!std::uncaught_exception()) {
+        if (!utility::uncaught_exception()) {
             // bugger user only if no exception is thrown
             LOG(warn2)
                 << "File " << fd.path()
@@ -1215,7 +1216,7 @@ public:
 
         // uncommitted
         try {
-            if (!std::uncaught_exception()) {
+            if (!utility::uncaught_exception()) {
                 LOG(warn3) << "File write was not finished!";
             }
             LOG(warn1) << "Rolling back file.";

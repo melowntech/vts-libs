@@ -34,6 +34,7 @@
 
 #include "utility/gccversion.hpp"
 #include "utility/streams.hpp"
+#include "utility/uncaught-exception.hpp"
 
 #include "streams.hpp"
 #include "error.hpp"
@@ -66,7 +67,7 @@ public:
     }
 
     virtual ~FileOStream() {
-        if (!std::uncaught_exception() && buffer_.is_open()) {
+        if (!utility::uncaught_exception() && buffer_.is_open()) {
             LOG(warn3) << "File was not closed!";
         }
 
