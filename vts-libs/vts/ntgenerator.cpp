@@ -53,6 +53,12 @@ sds2rfnode(const registry::ReferenceFrame &referenceFrame)
     return map;
 }
 
+} // namespace
+
+// not using anonymous namespace due to LTO problems when vts-libs.a is linked
+// more than once -> using file-local inline namespace
+inline namespace ntgenerator_cpp {
+
 struct NavtileInfo {
     LodRange lodRange;
     double pixelSize;
@@ -64,7 +70,7 @@ struct NavtileInfo {
     typedef std::map<const RFNode*, NavtileInfo> map;
 };
 
-} // namespace
+} // namespace ntgenerator_cpp
 
 struct NtGenerator::Accumulator : boost::static_visitor<CsConvertor> {
     typedef std::shared_ptr<Accumulator> pointer;
