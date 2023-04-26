@@ -8,7 +8,8 @@
 # major dependency is OpenCV
 
 # bump version here
-set(vts-libs_VERSION 2.23)
+# version 3: dropped vts0, no other changes
+set(vts-libs_VERSION 3.0)
 
 # settable path to VTS registry
 set(VTS_LIBS_REGISTRY_PATH "${CMAKE_INSTALL_PREFIX}/etc/registry" CACHE PATH
@@ -21,8 +22,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/registry/config.cpp.in
   ESCAPE_QUOTES)
 
 if(VTSLIBS_BROWSER_ONLY)
-  buildsys_nobuild_target(vts-libs-core:vts0)
-  buildsys_nobuild_target(vts-libs:vts0)
   buildsys_nobuild_target(vts-libs)
 endif()
 
@@ -85,72 +84,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core)
     set(vts-registry_python_DEPENDS)
     set(vts-registry_python_SOURCES)
   endif()
-endif()
-
-if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs-core:vts0)
-  # old vts0 browser files
-  set(vts0_BROWSER_SOURCES
-    vts0/support.hpp vts0/support.cpp
-    )
-  file_to_cpp(vts0_BROWSER_SOURCES
-    vtslibs::vts0::browser::index_html
-    vts0/browser/index.html)
-  file_to_cpp(vts0_BROWSER_SOURCES
-    vtslibs::vts0::browser::index_offline_html
-    vts0/browser/index-offline.html)
-  file_to_cpp(vts0_BROWSER_SOURCES
-    vtslibs::vts0::browser::skydome_jpg
-    vts0/browser/skydome.jpg)
-
-  # old vts0 files
-  set(vts0-core_SOURCES
-    vts0/basetypes.hpp
-    vts0/properties.hpp
-    vts0/tileop.hpp vts0/tileop.cpp
-    vts0/io.hpp
-    vts0/json.hpp vts0/json.cpp
-    vts0/metatile.hpp vts0/metatile.cpp
-
-    vts0/driver.hpp vts0/driver/driver.cpp
-
-    vts0/driver/tilardriver.hpp
-    vts0/driver/tilardriver/tilardriver.cpp
-    vts0/driver/tilardriver/options.hpp
-    vts0/driver/tilardriver/cache.hpp
-    vts0/driver/tilardriver/cache.cpp
-
-    vts0/config.hpp vts0/config.cpp
-    )
-else()
-  message(STATUS "vts-libs-core: compiling without vts0 stuff")
-  set(vts0_BROWSER_SOURCES)
-  set(vts0-core_SOURCES)
-
-  # disable main vts stuff as well
-  buildsys_nobuild_target(vts-libs:vts0)
-endif()
-
-if(NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs:vts0)
-  set(vts0_SOURCES
-    vts0.hpp
-    vts0/types.hpp
-    vts0/tileset.hpp vts0/tileset.cpp
-    vts0/tileindex.hpp vts0/tileindex.cpp
-    vts0/metatileop.hpp vts0/metatileop.cpp
-
-    vts0/tileset/merge.cpp
-    vts0/tileset/dump.hpp
-
-    vts0/storage.hpp vts0/storage.cpp
-
-    vts0/merge.hpp vts0/merge.cpp
-    vts0/tileset/heightmap.cpp
-
-    vts0/encoder.hpp vts0/encoder.cpp
-    )
-else()
-  message(STATUS "vts-libs: compiling without vts0 stuff")
-  set(vts0_SOURCES)
 endif()
 
 # vts browser files
@@ -355,9 +288,6 @@ add_library(vts-libs-core STATIC
 
   ${vts_BROWSER_SOURCES}
   ${vts-core_SOURCES}
-
-  ${vts0_BROWSER_SOURCES}
-  ${vts0-core_SOURCES}
   )
 buildsys_library(vts-libs-core)
 target_link_libraries(vts-libs-core ${MODULE_LIBRARIES})
@@ -379,7 +309,6 @@ if (NOT DEFINED BUILDSYS_NOBUILD_TARGET_vts-libs)
 
   add_library(vts-libs STATIC
     ${vts_SOURCES}
-    ${vts0_SOURCES}
     )
   buildsys_library(vts-libs)
   target_link_libraries(vts-libs ${MODULE_LIBRARIES})
