@@ -16,7 +16,11 @@ if (TARGET service)
   if(TARGET vts-libs)
     set(EXTRA_DEPENDS)
     if(MAGIC_FOUND)
-      set(EXTRA_DEPENDS MAGIC)
+      list(APPEND EXTRA_DEPENDS MAGIC)
+    endif()
+
+    if (TARGET vts-libs-tools-support)
+      list(APPEND EXTRA_DEPENDS vts-libs-tools-support)
     endif()
 
     ###################################################
@@ -24,6 +28,17 @@ if (TARGET service)
     define_module(BINARY vts-tools
       DEPENDS vts-libs service ${EXTRA_DEPENDS}
       )
+
+    add_executable(vts-nodemask EXCLUDE_FROM_ALL nodemask.cpp)
+    target_link_libraries(vts-nodemask ${MODULE_LIBRARIES})
+    target_compile_definitions(vts-nodemask PRIVATE ${MODULE_DEFINITIONS})
+    buildsys_binary(vts-nodemask)
+
+    add_executable(vts-measure-dataset EXCLUDE_FROM_ALL measure-dataset.cpp)
+    target_link_libraries(vts-measure-dataset ${MODULE_LIBRARIES})
+    target_compile_definitions(vts-measure-dataset
+      PRIVATE ${MODULE_DEFINITIONS})
+    buildsys_binary(vts-measure-dataset)
 
     macro(vts_libs_tool name)
       message(STATUS "vts-libs: building ${name} tool")
@@ -38,18 +53,10 @@ if (TARGET service)
       buildsys_binary(${name})
     endmacro()
 
-    add_executable(vts-nodemask EXCLUDE_FROM_ALL nodemask.cpp)
-    target_link_libraries(vts-nodemask ${MODULE_LIBRARIES})
-    target_compile_definitions(vts-nodemask PRIVATE ${MODULE_DEFINITIONS})
-    buildsys_binary(vts-nodemask)
-
-    add_executable(vts-measure-dataset EXCLUDE_FROM_ALL measure-dataset.cpp)
-    target_link_libraries(vts-measure-dataset ${MODULE_LIBRARIES})
-    target_compile_definitions(vts-measure-dataset
-      PRIVATE ${MODULE_DEFINITIONS})
-    buildsys_binary(vts-measure-dataset)
-
     vts_libs_tool(vts vts.cpp locker.hpp locker.cpp support/urlfetcher.cpp)
+    if (TARGET vts-libs-tools-support)
+      target_compile_definitions(vts PRIVATE VTS_LIBS_HAS_TOOLS_SUPPORT=1)
+    endif()
 
     vts_libs_tool(vts2vts vts2vts.cpp)
     vts_libs_tool(vts2dem vts2dem.cpp)

@@ -77,6 +77,10 @@
 #include "../vts/meshopinput.hpp"
 #include "../vts/tsmap.hpp"
 
+#ifdef VTS_LIBS_HAS_TOOLS_SUPPORT
+#  include "../tools-support/tmptileset.hpp"
+#endif
+
 #include "locker.hpp"
 #include "support/urlfetcher.hpp"
 
@@ -137,13 +141,15 @@ namespace tools = vtslibs::vts::tools;
     ((virtualSurfaceRemove)("vs-remove"))                           \
     ((virtualSurfaceInfo)("vs-info"))                               \
                                                                     \
-    ((checkMetatileTree)("check-metatile-tree"))                   \
+    ((checkMetatileTree)("check-metatile-tree"))                    \
                                                                     \
     ((locker2Stresser)("locker2-stresser"))                         \
                                                                     \
     ((decodeTsMap)("decode-tsmap"))                                 \
                                                                     \
-    ((listReferenceFrames)("list-reference-frames"))
+    ((listReferenceFrames)("list-reference-frames"))                \
+                                                                    \
+    ((tmptsExportMesh)("tmpts-export-mesh"))
 
 UTILITY_GENERATE_ENUM(Command, VTS_COMMAND_LIST)
 
@@ -374,6 +380,9 @@ private:
     int decodeTsMap();
 
     int listReferenceFrames();
+
+    // TmpTileset support (if available)
+    int tmptsExportMesh();
 
     bool noexcept_;
     fs::path path_;
@@ -1070,14 +1079,14 @@ void VtsStorage::configuration(po::options_description &cmdline
         p.options.add_options()
             ("tileId", po::value(&tileId_)->required()
              , "ID of tile to query.")
-            ("output", po::value(&outputPath_)
+            ("output", po::value(&outputPath_)->required()
              , "Output directory; defaults to tileId.")
             ("format", po::value(&meshFormat_)
              , utility::concat
              ("Mesh format, one of "
               , enumerationString(meshFormat_), ".").c_str())
             ("margin", po::value(&addOptions_.safetyMargin)
-             , "Margin arount tiles extents in pixels of coverage.")
+             , "Margin around tiles extents in pixels of coverage.")
             ;
         p.positional.add("tileId", 1);
         p.positional.add("output", 1);
@@ -1681,6 +1690,33 @@ void VtsStorage::configuration(po::options_description &cmdline
                  , [&](UP &p)
     {
         (void) p;
+    });
+
+    createParser(cmdline, Command::tmptsExportMesh
+                 , "--command=tmpts-export-mesh: export mesh contents "
+                 "from tmpts as a directory with OBJ files and textures"
+                 , [&](UP &p)
+    {
+        p.options.add_options()
+            ("tileId", po::value(&tileId_)->required()
+             , "ID of tile to query.")
+            ("output", po::value(&outputPath_)->required()
+             , "Output directory; defaults to tileId.")
+            ("format", po::value(&meshFormat_)
+             , utility::concat
+             ("Mesh format, one of "
+              , enumerationString(meshFormat_), ".").c_str())
+            ("margin", po::value(&addOptions_.safetyMargin)
+             , "Margin around tiles extents in pixels of coverage.")
+            ;
+        p.positional.add("tileId", 1);
+        p.positional.add("output", 1);
+
+        p.configure = [&](const po::variables_map &vars) {
+            if (!vars.count("output")) {
+                outputPath_ = boost::lexical_cast<std::string>(tileId_);
+            }
+        };
     });
 }
 
@@ -3866,6 +3902,95 @@ int VtsStorage::listReferenceFrames()
     std::cout << std::flush;
     return EXIT_SUCCESS;
 }
+
+#ifdef VTS_LIBS_HAS_TOOLS_SUPPORT
+
+int VtsStorage::tmptsExportMesh()
+{
+    // just open and keep
+    tools::TmpTileset ts(path_, false);
+    ts.keep(true);
+
+    auto [pmesh, atlas, flags] = ts.load(tileId_, 0);
+
+    if (!(flags & vts::TileIndex::Flag::mesh)) {
+        std::cerr << tileId_ << ": has no mesh" << '\n';
+        return EXIT_FAILURE;
+    }
+
+    auto mesh(*pmesh);
+
+    {
+        switch (meshFormat_) {
+        case MeshFormat::geo: break;
+
+        case MeshFormat::normalized: {
+            const auto c(math::center(vts::extents(mesh)));
+            for (auto &sm : mesh.submeshes) {
+                for (auto &v : sm.vertices) {
+                    v -= c;
+                }
+            }
+        } break;
+
+        default:
+            std::cerr
+                << "mesh format <" << meshFormat_ << "> unsupported"
+                << std::endl;
+            return EXIT_FAILURE;
+        }
+    }
+
+    fs::create_directories(outputPath_);
+
+    std::string mtlLib;
+
+    if (atlas) {
+        mtlLib = "textures.mtl";
+
+        std::ofstream f((outputPath_ / mtlLib).string());
+
+        for (std::size_t index(0), eindex(atlas->size()); index != eindex
+                 ; ++index)
+        {
+            const auto image(atlas->rawFromImage(atlas->get(index), 0));
+
+            const auto textureName(str(boost::format("%s.png") % index));
+            utility::write(outputPath_ / textureName
+                           , image.data(), image.size());
+            f << "newmtl " << index
+              << "\nmap_Kd " << textureName
+              << "\n";
+        }
+
+        f.close();
+    }
+
+    int index(0);
+    for (const auto &sm : mesh.submeshes) {
+        const auto objName(str(boost::format("%s.obj") % index));
+
+        vts::saveSubMeshAsObj(outputPath_ / objName, sm
+                              , index, atlas ? atlas.get() : nullptr
+                              , mtlLib);
+
+        ++index;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+#else
+
+int noTmpTileset()
+{
+    std::cerr << "tmpts support not compiled in!" << std::endl;
+    return EXIT_FAILURE;
+}
+
+int VtsStorage::tmptsExportMesh() { return noTmpTileset(); }
+
+#endif
 
 int main(int argc, char *argv[])
 {
