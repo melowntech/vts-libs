@@ -28,6 +28,7 @@
 #include <array>
 #include <stack>
 #include <set>
+#include <optional>
 #include <algorithm>
 
 #include <boost/format.hpp>
@@ -51,6 +52,7 @@
 #include "imgproc/const-raster.hpp"
 #include "imgproc/reconstruct.hpp"
 #include "imgproc/inpaint.hpp"
+#include "imgproc/binterpolate.hpp"
 
 #include "../opencv/atlas.hpp"
 #include "../opencv/texture.hpp"
@@ -256,8 +258,8 @@ struct Component {
         indices.insert(other.indices.begin(), other.indices.end());
     }
 
-    void copy(cv::Mat &tex, const cv::Mat &texture
-              , const cv::Mat &mask) const;
+    void copy(cv::Mat &tex, cv::Mat &msk
+              , const cv::Mat &texture, const cv::Mat &mask) const;
 
     imgproc::UVCoord adjustUV(const math::Point2 &p) const {
         auto np(math::transform(rrectTrafo, p));
@@ -288,9 +290,10 @@ struct ComponentInfo {
 
     ComponentInfo(const TileId &tileId, int id, TextureInfo &tx);
 
-    void copy(cv::Mat &tex) const;
+    void copy(cv::Mat &tex, cv::Mat &msk) const;
 
-    void debug(const fs::path &dir, const cv::Mat &outAtlas) const;
+    void debug(const fs::path &dir, const cv::Mat &outAtlas
+               , const cv::Mat &outMask) const;
 
 private:
     /** Breaks component into best fitting parts.
@@ -602,15 +605,16 @@ void ComponentInfo::addComponent(const Component::pointer &c)
     remap(c->indices, tcRemap);
 }
 
-void ComponentInfo::copy(cv::Mat &tex) const
+void ComponentInfo::copy(cv::Mat &tex, cv::Mat &msk) const
 {
     for (const auto &c : components) {
-        c->copy(tex, tx->texture(), tx->mask());
+        c->copy(tex, msk, tx->texture(), tx->mask());
     }
 }
 
 
-void ComponentInfo::debug(const fs::path &dir, const cv::Mat &outAtlas)
+void ComponentInfo::debug(const fs::path &dir, const cv::Mat &outAtlas
+                          , const cv::Mat &outMask)
     const
 {
     int border(16);
@@ -660,6 +664,12 @@ void ComponentInfo::debug(const fs::path &dir, const cv::Mat &outAtlas)
         const auto &pr(c->rect);
         cv::Rect r(pr.packX, pr.packY, pr.width(), pr.height());
         cv::rectangle(drAt, r, color, 1); //CV_FILLED);
+    }
+
+    {
+        cv::Mat colorMask;
+        cv::cvtColor(outMask, colorMask, cv::COLOR_GRAY2BGR);
+        addWeighted(drAt, 0.7, colorMask, 0.3, 0.0, drAt);
     }
 
     fs::create_directories(dir);
@@ -724,24 +734,20 @@ double Component::area(const TextureInfo &tx) const
 
 /** Const raster for texture with cv::Mat-based mask.
  */
-class TextureRaster : public imgproc::CvConstRaster<cv::Vec3b>
+using TextureRasterBase
+    = imgproc::CvMaskedCvConstRaster<cv::Vec3b, std::uint8_t>;
+class TextureRaster : public TextureRasterBase
 {
 public:
     TextureRaster(const cv::Mat &texture, const cv::Mat &mask)
-        : imgproc::CvConstRaster<cv::Vec3b>(texture), mask_(mask)
+        : TextureRasterBase(texture, mask)
     {}
 
-    bool valid(int x, int y) const {
-        // queries matrix for bounds and mask for pixel validity
-        return (imgproc::CvConstRaster<cv::Vec3b>::valid(x, y)
-                && mask_.at<std::uint8_t>(y, x));
-    }
-
-private:
-    const cv::Mat &mask_;
+    std::optional<value_type> undefined() const { return std::nullopt; }
 };
 
-void Component::copy(cv::Mat &tex, const cv::Mat &texture, const cv::Mat &mask)
+void Component::copy(cv::Mat &tex, cv::Mat &msk
+                     , const cv::Mat &texture, const cv::Mat &mask)
     const
 {
     const math::CatmullRom2 filter(2.0, 2.0);
@@ -768,18 +774,21 @@ void Component::copy(cv::Mat &tex, const cv::Mat &texture, const cv::Mat &mask)
             pos(0) -= 0.5; pos(1) -= 0.5;
 
             // reconstruct point using filter
-            auto res(imgproc::reconstruct(raster, filter, pos));
-
-            // store result
-            tex.at<cv::Vec3b>(yy, xx) = cv::Vec3b(res[0], res[1], res[2]);
+            if (auto ores = imgproc::reconstruct(raster, filter, pos)) {
+                // valid pixel -> store and mark as valid in mask
+                const auto &res(*ores);
+                tex.at<cv::Vec3b>(yy, xx) = cv::Vec3b(res[0], res[1], res[2]);
+                msk.at<std::uint8_t>(yy, xx) = 0xff;
+            }
         }
     }
 }
 
+using JoinedTexture = std::tuple<cv::Mat, cv::Mat, math::Points2d, Faces>;
+
 /** Joins textures into single texture.
  */
-std::tuple<cv::Mat, math::Points2d, Faces>
-joinTextures(const TileId &tileId, TextureInfo::list texturing);
+JoinedTexture joinTextures(const TileId &tileId, TextureInfo::list texturing);
 
 typedef std::tuple<Mesh::pointer, Atlas::pointer> MeshAtlas;
 
@@ -1205,7 +1214,7 @@ void MeshAtlasBuilder::mergeTextured(const Range &range)
 
     // and join textures
     cv::Mat texture;
-    std::tie(texture, sm.tc, sm.facesTc)
+    std::tie(texture, std::ignore, sm.tc, sm.facesTc)
         = joinTextures(tileId_, texturing(range));
     atlas_->add(texture);
     // housekeeping
@@ -1375,13 +1384,14 @@ void MeshAtlasBuilder::makeSharedFaces()
     sm.facesTc = sm.faces;
 }
 
-std::tuple<cv::Mat, math::Points2d, Faces>
+JoinedTexture
 joinTextures(const TileId &tileId, TextureInfo::list texturing)
 {
-    std::tuple<cv::Mat, math::Points2d, Faces> res;
+    JoinedTexture res;
     auto &tex(std::get<0>(res));
-    auto &tc(std::get<1>(res));
-    auto &faces(std::get<2>(res));
+    auto &mask(std::get<1>(res));
+    auto &tc(std::get<2>(res));
+    auto &faces(std::get<3>(res));
 
     // break texturing mesh into components
     ComponentInfo::list cinfoList;
@@ -1414,6 +1424,9 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
     tex.create(packedSize.height, packedSize.width, CV_8UC3);
     tex.setTo(background);
 
+    mask.create(packedSize.height, packedSize.width, CV_8U);
+    mask.setTo(cv::Scalar(0));
+
     // denormalized result texture coordinates
     math::Points2d dnTc;
 
@@ -1425,7 +1438,7 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
             const auto &tx(*cinfo.tx);
 
             // copy patches from this texture
-            cinfo.copy(tex);
+            cinfo.copy(tex, mask);
 
             auto itcMap(cinfo.tcMap.cbegin());
             auto tcOffset(tc.size());
@@ -1441,21 +1454,17 @@ joinTextures(const TileId &tileId, TextureInfo::list texturing)
             // add texture faces from this texture
             appendFaces(faces, tx.faces(), tcOffset);
         }
-
-        if (VTS_MESH_MERGE_DUMP_DIR) {
-            for (const auto &cinfo : cinfoList) {
-                cinfo.debug(VTS_MESH_MERGE_DUMP_DIR, tex);
-            }
-        }
     }
 
     if (!NO_ATLAS_INPAINT) {
-        // rasterize valid triangles
-        cv::Mat mask(tex.rows, tex.cols, CV_8U, cv::Scalar(0x00));
-        opencv::rasterizeMask(mask, faces, dnTc);
-
         // inpaint JPEG blocks
         imgproc::jpegBlockInpaint(tex, mask);
+    }
+
+    if (VTS_MESH_MERGE_DUMP_DIR) {
+        for (const auto &cinfo : cinfoList) {
+            cinfo.debug(VTS_MESH_MERGE_DUMP_DIR, tex, mask);
+        }
     }
 
     // done
