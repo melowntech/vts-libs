@@ -53,6 +53,7 @@
 #include "utility/duration.hpp"
 #include "utility/time.hpp"
 #include "utility/expect.hpp"
+#include "utility/uncaught-exception.hpp"
 
 #ifdef UTILITY_HAS_PROC
 #  include "utility/procstat.hpp"
@@ -117,6 +118,12 @@ inline std::string lockName(const VirtualSurface &virtualSurface) {
 }
 
 } // namespace
+
+OpenOptions Storage::openOptionsFromMergeConf() const
+{
+    return loadMergeConf(detail().root / storage_paths::mergeConfPath()
+                         , true).asOpenOptions();
+}
 
 void Storage::add(const boost::filesystem::path &tilesetPath
                   , const Location &where, const TilesetId &tilesetId
@@ -239,6 +246,7 @@ public:
 
     TileSet open(const TilesetId &tilesetId) const;
 
+    UTILITY_MAYBE_UNUSED
     TileSet open(const Glue &glue) const;
 
     fs::path addGlue(const Glue &glue);
@@ -284,7 +292,7 @@ void Tx::prepare()
 }
 
 Tx::~Tx() {
-    if (std::uncaught_exception()) {
+    if (utility::uncaught_exception()) {
         // we cannot throw!
         rollback();
     }
@@ -520,6 +528,7 @@ class BitSet {
 public:
     BitSet(std::size_t size = 0) : bs_(size, 0) {}
 
+    UTILITY_MAYBE_UNUSED
     bool increment();
 
     typedef std::vector<bool> repr_type;

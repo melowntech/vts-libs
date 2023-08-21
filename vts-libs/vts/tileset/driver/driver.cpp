@@ -39,6 +39,7 @@
 
 #include "utility/streams.hpp"
 #include "utility/path.hpp"
+#include "utility/gccversion.hpp"
 
 #include "../../../storage/error.hpp"
 #include "../../io.hpp"
@@ -78,6 +79,7 @@ namespace {
         throw "unknown file type";
     }
 
+    UTILITY_MAYBE_UNUSED
     boost::uuids::uuid generateUuid() {
         // generate random uuid
         return boost::uuids::random_generator()();

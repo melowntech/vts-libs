@@ -37,6 +37,11 @@ namespace ba = boost::algorithm;
 
 namespace vtslibs { namespace vts {
 
+OpenOptions MergeConf::asOpenOptions() const
+{
+    return OpenOptions().cnames(cnames);
+}
+
 namespace {
 
 MergeConf loadMergeConf(std::istream &f, const boost::filesystem::path &path)

@@ -35,6 +35,7 @@
 
 #include "utility/path.hpp"
 #include "utility/hostname.hpp"
+#include "utility/uncaught-exception.hpp"
 
 #include "config.hpp"
 
@@ -62,7 +63,7 @@ ConfigFileGuard::ConfigFileGuard(const fs::path &path)
 
 ConfigFileGuard::~ConfigFileGuard() noexcept(false)
 {
-    if (std::uncaught_exception()) {
+    if (utility::uncaught_exception()) {
         try { rollback(); } catch (...) {}
     } else {
         commit();

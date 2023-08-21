@@ -28,6 +28,7 @@
 
 #include "dbglog/dbglog.hpp"
 #include "utility/binaryio.hpp"
+#include "utility/gccversion.hpp"
 
 #include "../storage/error.hpp"
 
@@ -502,6 +503,7 @@ TileIndex unite(const TileIndex &l, const TileIndex &r
 
 namespace {
 
+UTILITY_MAYBE_UNUSED
 void showTree(const QTree &tree, const std::string &name
               , QTree::value_type mask)
 {

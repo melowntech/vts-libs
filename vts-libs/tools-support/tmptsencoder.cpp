@@ -26,6 +26,8 @@
 
 #include <boost/logic/tribool.hpp>
 
+#include "utility/uncaught-exception.hpp"
+
 #include "../vts/meshop.hpp"
 #include "../vts/tileset/merge.hpp"
 #include "../registry/po.hpp"
@@ -79,7 +81,7 @@ TmpTsEncoder::TmpTsEncoder(const boost::filesystem::path &path
 
 TmpTsEncoder::~TmpTsEncoder()
 {
-    if (!std::uncaught_exception()) {
+    if (!utility::uncaught_exception()) {
         progress_.done();
     }
 }

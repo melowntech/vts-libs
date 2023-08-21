@@ -199,7 +199,7 @@ private:
 template <typename Operator>
 void Morphology<Operator>::run(int kernelRadius)
 {
-    const std::size_t total(in_.rows * in_.cols);
+    const std::size_t total(std::size_t(in_.rows) * std::size_t(in_.cols));
 
     UTILITY_OMP(parallel for default(shared))
     for (std::int64_t idx = 0; idx < static_cast<std::int64_t>(total); ++idx) {
